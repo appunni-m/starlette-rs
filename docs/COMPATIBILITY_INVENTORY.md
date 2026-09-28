@@ -17,32 +17,32 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 113 input-only cases across 17 files: 38
+The active parity manifest indexes 116 input-only cases across 18 files: 38
 request/routing cases, 21 reverse-URL cases, four direct Starlette ASGI cases,
 eight basic Response/JSONResponse ASGI-call cases, eight GZip cases, six full
 WebSocket protocol-tape cases, six projected WebSocket state cases, five
 Request-style HTTPException cases, two callable-ASGI HTTPException cases, two
-registered-handler cases, nine server-error cases, and four direct
-RedirectResponse ASGI-call cases. The protocol-tape,
-reverse-URL, and Request cases select the Python-package profile. Built-in
-Router, slash-redirect, RedirectResponse, Response, and JSONResponse cases
-select both profiles; Mount cases also select both, with their Rust-native rows declared unsupported. The
-six state-sequence cases select both profiles. The four direct RedirectResponse
-cases in [`redirect-response.yaml`](../tests/fixtures/sources/parity/redirect-response.yaml)
-and all eight direct Response/JSONResponse cases were included in the latest
-run; all 24 source-to-target comparisons passed. Run
-`6c5b3c96-6f14-4e12-8dc8-5caf80a50a50`, finished at
-`2026-09-28T10:26:47.500Z`, selected 172 comparisons: 166 passed, zero failed,
-six were `not_run`, and there were zero infrastructure errors. All 113
-Python-package cases passed. Rust-native passed 53 of 59 selected cases; the
+registered-handler cases, nine server-error cases, four direct RedirectResponse
+ASGI-call cases, and three finite StreamingResponse ASGI-call cases. The
+protocol-tape, reverse-URL, and Request cases select the Python-package
+profile. Built-in Router, slash-redirect, RedirectResponse, Response,
+StreamingResponse, and JSONResponse cases select both profiles; Mount cases
+also select both, with their Rust-native rows declared unsupported. The six
+state-sequence cases select both profiles. The four direct RedirectResponse,
+all eight direct Response/JSONResponse, and three finite StreamingResponse
+cases were included in the latest run; all 30 source-to-target comparisons
+passed. Run `ca7e0adc-e449-4f0a-92fe-9d48211e1041`, finished at
+`2026-09-28T11:18:31.918Z`, selected 178 comparisons: 172 passed, zero failed,
+six were `not_run`, and there were zero infrastructure errors. All 116
+Python-package cases passed. Rust-native passed 56 of 62 selected cases; the
 remaining six rows are unsupported Python-callable and Mount boundaries. All
 21 reverse-URL cases and all 21 selected WebSocket comparisons passed. The six
 native `not_run` rows make `run` exit with status 2, so the all-target gate
 remains incomplete. Target identities were dirty local trees; this run is not
 clean aggregate or release proof. The manifest SHA-256 is
-`782c707b24782f0fc8866090f15e722690d42da6bb9fa3f2012ffdf3050841b8`; the
+`f5fc3dfa95ee75b241e827dce517becb6ae48aea43e95cdd3abde570a9514f29`; the
 target wheel SHA-256 is
-`cc0d5dae7f2cc533f5f0da97f606cecba75bd265435d153d4a132c517f64c242`. The two
+`c06dbe2322cbdad2c50736d44c00e0b127cd8eec6bd093a10e2d5028daf88fb6`. The two
 registered-handler inputs in
 [`asgi-exception-handlers.yaml`](../tests/fixtures/sources/parity/asgi-exception-handlers.yaml)
 exercise status-code precedence over an `HTTPException` class handler and an
@@ -122,22 +122,23 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 789 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 789 |
-| Existing input mappings in the atlas matrix | 33 |
+| Existing input mappings in the atlas matrix | 36 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 706 |
+| New input-only fixture backlog | 703 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 33 `existing` mappings point to authored YAML input
+crosswalk snapshot, 36 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
-The active manifest separately indexes 17 parity input files with 113 cases:
+The active manifest separately indexes 18 parity input files with 116 cases:
 38 request/routing cases (including async and synchronous Request endpoints,
 a callable-instance ASGI route, slash redirects, and three `WebSocketRoute`
 dispatch cases), 21 reverse-URL cases, four direct ASGI cases for `/hello`,
 `/missing`, the wrong method, and a public slash redirect, eight basic
-`Response`/`JSONResponse` ASGI-call cases, eight `GZipMiddleware` cases, four
-direct `RedirectResponse` ASGI-call cases, six full WebSocket protocol-tape
+`Response`/`JSONResponse` ASGI-call cases, three finite
+`StreamingResponse` ASGI-call cases, eight `GZipMiddleware` cases, four direct
+`RedirectResponse` ASGI-call cases, six full WebSocket protocol-tape
 cases, six projected WebSocket state cases, five Request-style HTTPException
 cases, two callable-ASGI HTTPException cases, two registered-handler cases,
 and nine server-error cases. The `starlette.websockets.WebSocket.protocol-sequence`
@@ -164,7 +165,7 @@ The five upstream HTTPException tests and
 the HTTPException documentation contract map to the two exception input files;
 `test_handled_exc_after_response` has a declared partial observation of its
 after-start behavior, while its `TestClient(raise_server_exceptions=False)`
-branch remains outside this slice. The remaining 706 backlog rows are atlas
+branch remains outside this slice. The remaining 703 backlog rows are atlas
 mapping status, not proof that those behaviors are absent from active inputs or
 untested.
 The merger validates the pinned upstream commit, all 999 API rows, evidence
@@ -243,8 +244,8 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 113 currently indexed cases and
-the 706-row atlas backlog snapshot
+The backlog distinguishes that work from the 116 currently indexed cases and
+the 703-row atlas backlog snapshot
 in [`PRIORITIZED_BACKLOG.md`](atlas/PRIORITIZED_BACKLOG.md).
 
 ## Generate the source candidate catalog

@@ -38,6 +38,7 @@ REDIRECT_RESPONSE_SURFACE = "starlette.responses.RedirectResponse"
 REDIRECT_RESPONSE_OPERATION = "asgi-call"
 RESPONSE_SURFACE = "starlette.responses.Response"
 JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
+STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 RESPONSE_OPERATION = "asgi-call"
 
 
@@ -1754,28 +1755,35 @@ def _run_redirect_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
+    surface = case.get("surface")
+    required_fields = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "content",
+        "status_code",
+        "header_pairs",
+        "media_type",
+        "scope",
+        "incoming",
+        "send",
+        "observations",
+    }
+    if surface == STREAMING_RESPONSE_SURFACE:
+        required_fields.add("streaming")
     _exact_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "content",
-            "status_code",
-            "header_pairs",
-            "media_type",
-            "scope",
-            "incoming",
-            "send",
-            "observations",
-        },
+        required_fields,
         "Response ASGI-call case",
     )
-    surface = case["surface"]
-    if surface not in {RESPONSE_SURFACE, JSON_RESPONSE_SURFACE}:
+    if surface not in {
+        RESPONSE_SURFACE,
+        JSON_RESPONSE_SURFACE,
+        STREAMING_RESPONSE_SURFACE,
+    }:
         raise ValueError("workflow is outside the declared Response ASGI-call surfaces")
     if not isinstance(case["case_id"], str):
         raise ValueError("Response case_id must be a string")
@@ -1789,7 +1797,23 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
     content_spec = _exact_object(case["content"], {"kind", "value"}, "Response content")
     content_kind = content_spec["kind"]
-    if surface == RESPONSE_SURFACE:
+    streaming: str | None = None
+    if surface == STREAMING_RESPONSE_SURFACE:
+        if content_kind != "chunks" or not isinstance(content_spec["value"], list):
+            raise ValueError("StreamingResponse content must select an array of chunks")
+        content = []
+        for index, chunk_spec in enumerate(content_spec["value"]):
+            chunk_spec = _exact_object(
+                chunk_spec, {"kind", "value"}, f"StreamingResponse content chunk[{index}]"
+            )
+            if chunk_spec["kind"] != "text" or not isinstance(chunk_spec["value"], str):
+                raise ValueError("StreamingResponse chunks must be strings in this input slice")
+            chunk = chunk_spec["value"]
+            content.append(chunk)
+        streaming = case["streaming"]
+        if streaming != "sync":
+            raise ValueError("StreamingResponse streaming must select the bounded sync iterator")
+    elif surface == RESPONSE_SURFACE:
         if content_kind == "text":
             content = content_spec["value"]
             if not isinstance(content, str):
@@ -1870,9 +1894,15 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["send"] != {"kind": "capture-asgi-send"}:
         raise ValueError("send input must select the declared ASGI message collector")
 
-    from starlette.responses import JSONResponse, Response
+    from starlette.responses import JSONResponse, Response, StreamingResponse
 
-    response_type = Response if surface == RESPONSE_SURFACE else JSONResponse
+    response_type = {
+        RESPONSE_SURFACE: Response,
+        JSON_RESPONSE_SURFACE: JSONResponse,
+        STREAMING_RESPONSE_SURFACE: StreamingResponse,
+    }[surface]
+    if streaming == "sync":
+        content = iter(content)
     response_arguments: dict[str, Any] = {
         "content": content,
         "status_code": case["status_code"],
@@ -2128,6 +2158,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if isinstance(case, dict) and case.get("surface") in {
         RESPONSE_SURFACE,
         JSON_RESPONSE_SURFACE,
+        STREAMING_RESPONSE_SURFACE,
     }:
         return _run_basic_response_case(case)
     if case.get("surface") in {"starlette.routing.Router", "starlette.routing.Mount"}:

@@ -251,7 +251,8 @@
       "build/parity/inputs/parity/mount-route-dispatch.json",
       "build/parity/inputs/parity/reverse-url-routing.json",
       "build/parity/inputs/parity/redirect-response.json",
-      "build/parity/inputs/parity/responses-basic.json"
+      "build/parity/inputs/parity/responses-basic.json",
+      "build/parity/inputs/parity/streaming-response.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -4044,6 +4045,253 @@
               "id": "starlette.responses.Response.asgi-call.populate-headers",
               "dimension": "parameter_combination",
               "description": "Construct Response(content=\"hi\", headers={}, media_type=\"text/html\") and observe the direct HTTP ASGI call. Upstream: starlette/responses.py::Response.init_headers; tests/test_responses.py::test_populate_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded basic-response contract makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only response correctness slice declares no benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.responses.StreamingResponse",
+      "kind": "type",
+      "source_path": "starlette/responses.py:222",
+      "storage_slug": "starlette-responses-StreamingResponse",
+      "operations": [
+        {
+          "id": "asgi-call",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.responses.StreamingResponse.__call__",
+            "signature": "StreamingResponse(content, status_code=200, headers=None, media_type=None, background=None); async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "content",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "status_code",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "integer"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": 200
+                }
+              },
+              {
+                "id": "headers",
+                "style": "keyword",
+                "value_types": [
+                  "mapping",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "media_type",
+                "style": "keyword",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "background",
+                "style": "keyword",
+                "value_types": [
+                  "handle",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                },
+                {
+                  "path": "asgi_event_order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::StreamingResponse::from_chunks",
+              "signature": "StreamingResponse::from_chunks(status_code, byte_chunks, media_type, ordered_headers) -> Result<StreamingResponse, ResponseError>; StreamingResponse::asgi_events() -> Vec<StreamingResponseEvent>",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.responses.StreamingResponse",
+              "signature": "StreamingResponse(content, status_code=200, headers=None, media_type=None, background=None); async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.unknown-size-content",
+              "dimension": "parameter_combination",
+              "description": "Construct a finite StreamingResponse over iter([\"hello\", \"world\"]) without Content-Length or media_type. Upstream: starlette/responses.py::StreamingResponse.__call__; tests/test_responses.py::test_streaming_response_unknown_size.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.known-size-content-length",
+              "dimension": "parameter_combination",
+              "description": "Construct a finite StreamingResponse over iter([\"hello\", \"world\"]) with Content-Length 10 and preserve that header. Upstream: starlette/responses.py::StreamingResponse.__call__; tests/test_responses.py::test_streaming_response_known_size.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.text-chunks",
+              "dimension": "input_family",
+              "description": "Send the five text values and separators from the synchronous streaming response case, with media_type=\"text/plain\", one body event per chunk. This bounded finite-chunk input omits generator lifecycle and background-task behavior. Upstream: starlette/responses.py::StreamingResponse.stream_response; tests/test_responses.py::test_sync_streaming_response.",
               "lanes": [
                 "parity"
               ],

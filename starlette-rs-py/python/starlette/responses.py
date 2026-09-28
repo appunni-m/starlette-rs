@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import AsyncIterable, Callable, Iterable, Mapping
 from typing import Any
 
+import anyio.to_thread
 from starlette_rs_py import _core
 
 from starlette.datastructures import URL
+
+_ContentChunk = str | bytes
+_SyncContentStream = Iterable[_ContentChunk]
 
 
 class Response:
@@ -66,6 +70,88 @@ class PlainTextResponse(Response):
         background: Any = None,
     ) -> None:
         super().__init__(content, status_code, headers, media_type, background)
+
+
+class StreamingResponse(Response):
+    """Wrap a Rust-framed response built from a finite synchronous iterable.
+
+    This bounded implementation materializes finite chunks before sending. It
+    does not implement async iterables, lazy iteration, backpressure,
+    disconnect-race behavior, or ``BackgroundTask`` parity.
+    """
+
+    __slots__ = (
+        "_content",
+        "_explicit_content_length",
+        "_header_pairs",
+        "_media_type",
+        "_status_code",
+    )
+    charset = "utf-8"
+    media_type = None
+
+    def __init__(
+        self,
+        content: _SyncContentStream,
+        status_code: int = 200,
+        headers: Mapping[str, str] | None = None,
+        media_type: str | None = None,
+        background: Any = None,
+    ) -> None:
+        if background is not None:
+            raise NotImplementedError("background tasks are outside this slice")
+        if isinstance(content, AsyncIterable):
+            raise NotImplementedError("async streaming is outside this slice")
+        super().__init__(b"", status_code, headers, media_type)
+        self._content = content
+        self._status_code = status_code
+        self._header_pairs = [] if headers is None else list(headers.items())
+        self._explicit_content_length = any(
+            name.lower() == "content-length" for name, _value in self._header_pairs
+        )
+        self._media_type = media_type
+
+    def set_cookie(self, key: str, value: str) -> None:
+        """Append a cookie header before the stream begins."""
+        self._inner.set_cookie(key, value)
+        self._header_pairs = [
+            (name.decode("latin-1"), header_value.decode("latin-1"))
+            for name, header_value in self._inner.asgi_messages()[0]["headers"]
+            if self._explicit_content_length or name.lower() != b"content-length"
+        ]
+
+    def _chunk_bytes(self, chunk: _ContentChunk) -> bytes:
+        if isinstance(chunk, str):
+            return chunk.encode(self.charset)
+        if isinstance(chunk, bytes):
+            return chunk
+        raise TypeError("StreamingResponse chunks must be strings or bytes")
+
+    async def __call__(
+        self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
+    ) -> None:
+        chunks: list[bytes] = []
+        sentinel = object()
+        iterator = iter(self._content)
+        while True:
+            chunk = await anyio.to_thread.run_sync(next, iterator, sentinel)
+            if chunk is sentinel:
+                break
+            chunks.append(self._chunk_bytes(chunk))
+
+        response = _core.StreamingResponse(
+            chunks,
+            self._status_code,
+            self._header_pairs,
+            self._media_type,
+        )
+        for message in response.asgi_messages():
+            if scope.get("type") == "websocket" and message["type"] in {
+                "http.response.start",
+                "http.response.body",
+            }:
+                message = {**message, "type": "websocket." + message["type"]}
+            await send(message)
 
 
 class RedirectResponse(Response):

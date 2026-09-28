@@ -16,7 +16,8 @@ use starlette_rs::{
     ApplicationRoute, AsgiScopeKind, Cookies, DetailedRouteMatch, GzipConfig, GzipHeader,
     GzipResponseStart, HttpScope, LifespanAction, LifespanState, QueryParams,
     RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
-    Starlette as NativeApplication, WebSocketState, WebSocketStateMachine, classify_scope,
+    Starlette as NativeApplication, StreamingResponse, StreamingResponseEvent, WebSocketState,
+    WebSocketStateMachine, classify_scope,
 };
 
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
@@ -26,6 +27,7 @@ const REDIRECT_RESPONSE_SURFACE: &str = "starlette.responses.RedirectResponse";
 const REDIRECT_RESPONSE_OPERATION: &str = "asgi-call";
 const RESPONSE_SURFACE: &str = "starlette.responses.Response";
 const JSON_RESPONSE_SURFACE: &str = "starlette.responses.JSONResponse";
+const STREAMING_RESPONSE_SURFACE: &str = "starlette.responses.StreamingResponse";
 const RESPONSE_OPERATION: &str = "asgi-call";
 const WEBSOCKET_SURFACE: &str = "starlette.websockets.WebSocket";
 const WEBSOCKET_OPERATION: &str = "protocol-sequence";
@@ -303,6 +305,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         }
         (Some(RESPONSE_SURFACE | JSON_RESPONSE_SURFACE), Some(RESPONSE_OPERATION)) => {
             return run_basic_response_case(case);
+        }
+        (Some(STREAMING_RESPONSE_SURFACE), Some(RESPONSE_OPERATION)) => {
+            return run_streaming_response_case(case);
         }
         (Some("starlette.routing.Mount"), Some("route-dispatch")) => {
             return Err(String::from(
@@ -877,6 +882,177 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
                 "response_bytes": {
                     "encoding": "base64",
                     "data": encode_base64(response.body()),
+                },
+                "asgi_event_order": event_order,
+                "asgi_events": events,
+            },
+        }],
+    }))
+}
+
+fn run_streaming_response_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "content",
+            "status_code",
+            "header_pairs",
+            "media_type",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+            "streaming",
+        ],
+        "StreamingResponse asgi-call case",
+    )?;
+    let case_id = string_field(case, "case_id", "StreamingResponse asgi-call case")?;
+    if !case_id.starts_with(&format!(
+        "{STREAMING_RESPONSE_SURFACE}.{RESPONSE_OPERATION}."
+    )) || string_field(case, "surface", "StreamingResponse asgi-call case")?
+        != STREAMING_RESPONSE_SURFACE
+        || string_field(case, "operation", "StreamingResponse asgi-call case")?
+            != RESPONSE_OPERATION
+        || case.get("observations") != Some(&json!([RESPONSE_OPERATION]))
+        || case.get("assets") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "case ID or selectors are outside the StreamingResponse ASGI-call slice",
+        ));
+    }
+    if string_field(case, "streaming", "StreamingResponse asgi-call case")? != "sync" {
+        return Err(String::from(
+            "StreamingResponse streaming must be sync for this slice",
+        ));
+    }
+    validate_string_array(case, "covers", "StreamingResponse asgi-call covers", false)?;
+    validate_string_array(
+        case,
+        "target_profiles",
+        "StreamingResponse asgi-call target_profiles",
+        false,
+    )?;
+    if case.get("incoming") != Some(&json!([])) {
+        return Err(String::from(
+            "StreamingResponse asgi-call requires an empty incoming sequence",
+        ));
+    }
+    validate_capture_send(
+        case.get("send")
+            .ok_or_else(|| String::from("StreamingResponse asgi-call send input is missing"))?,
+    )?;
+    validate_asgi_http_scope(
+        case.get("scope")
+            .ok_or_else(|| String::from("StreamingResponse asgi-call scope is missing"))?,
+        "StreamingResponse",
+    )?;
+
+    let content = exact_object(
+        case.get("content")
+            .ok_or_else(|| String::from("StreamingResponse content is missing"))?,
+        &["kind", "value"],
+        "StreamingResponse content",
+    )?;
+    if string_field(content, "kind", "StreamingResponse content")? != "chunks" {
+        return Err(String::from(
+            "StreamingResponse content.kind must be chunks",
+        ));
+    }
+    let chunk_values = content
+        .get("value")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("StreamingResponse chunks.value must be an array"))?;
+    let mut chunks = Vec::with_capacity(chunk_values.len());
+    for (index, chunk_value) in chunk_values.iter().enumerate() {
+        let context = format!("StreamingResponse chunks.value[{index}]");
+        let chunk = exact_object(chunk_value, &["kind", "value"], &context)?;
+        if string_field(chunk, "kind", &context)? != "text" {
+            return Err(format!("{context}.kind must be text"));
+        }
+        chunks.push(string_field(chunk, "value", &context)?.as_bytes().to_vec());
+    }
+
+    let status_code = case
+        .get("status_code")
+        .and_then(Value::as_u64)
+        .and_then(|value| u16::try_from(value).ok())
+        .ok_or_else(|| {
+            String::from("StreamingResponse status_code must be an unsigned 16-bit integer")
+        })?;
+    let header_pairs = case
+        .get("header_pairs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("StreamingResponse header_pairs must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, pair)| {
+            let pair = pair
+                .as_array()
+                .filter(|pair| pair.len() == 2)
+                .ok_or_else(|| format!("StreamingResponse header_pairs[{index}] must be a pair"))?;
+            let name = pair[0].as_str().ok_or_else(|| {
+                format!("StreamingResponse header_pairs[{index}] name must be a string")
+            })?;
+            let value = pair[1].as_str().ok_or_else(|| {
+                format!("StreamingResponse header_pairs[{index}] value must be a string")
+            })?;
+            Ok((name.to_owned(), value.to_owned()))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let media_type = match case.get("media_type") {
+        Some(Value::Null) => None,
+        Some(Value::String(media_type)) => Some(media_type.as_str()),
+        _ => {
+            return Err(String::from(
+                "StreamingResponse media_type must be a string or null",
+            ));
+        }
+    };
+
+    let response = StreamingResponse::from_chunks(
+        status_code,
+        chunks,
+        media_type,
+        header_pairs
+            .iter()
+            .map(|(name, value)| (name.as_str(), value.as_str())),
+    )
+    .map_err(|error| error.to_string())?;
+    let response_body = response
+        .chunks()
+        .iter()
+        .flatten()
+        .copied()
+        .collect::<Vec<_>>();
+    let events = response
+        .asgi_events()
+        .into_iter()
+        .map(canonical_streaming_response_event)
+        .collect::<Vec<_>>();
+    let event_order = events
+        .iter()
+        .filter_map(|event| event.get("type").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": RESPONSE_OPERATION,
+            "status": "ok",
+            "value": {
+                "response_status": response.status_code(),
+                "ordered_repeated_headers": canonical_headers(response.headers()),
+                "response_bytes": {
+                    "encoding": "base64",
+                    "data": encode_base64(&response_body),
                 },
                 "asgi_event_order": event_order,
                 "asgi_events": events,
@@ -3145,6 +3321,24 @@ fn canonical_response_event(event: ResponseEvent) -> Value {
         ResponseEvent::Body { body } => json!({
             "type": "http.response.body",
             "body": {"encoding": "base64", "data": encode_base64(&body)},
+        }),
+    }
+}
+
+fn canonical_streaming_response_event(event: StreamingResponseEvent) -> Value {
+    match event {
+        StreamingResponseEvent::Start {
+            status_code,
+            headers,
+        } => json!({
+            "type": "http.response.start",
+            "status": status_code,
+            "headers": canonical_headers(&headers),
+        }),
+        StreamingResponseEvent::Body { body, more_body } => json!({
+            "type": "http.response.body",
+            "body": {"encoding": "base64", "data": encode_base64(&body)},
+            "more_body": more_body,
         }),
     }
 }

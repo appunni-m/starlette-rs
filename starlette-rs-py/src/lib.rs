@@ -18,8 +18,9 @@ use starlette_rs::{
     QueryParams as NativeQueryParams, RequestBodyAccumulator as NativeRequestBodyAccumulator,
     RequestBodyError, RequestHeaders as NativeRequestHeaders, Response, ResponseError,
     ResponseEvent, RouteTable, ServerErrorPlan, ServerErrorPolicy as NativeServerErrorPolicy,
-    ServerErrorState as NativeServerErrorState, WebSocketState, WebSocketStateMachine,
-    classify_scope, connection_url as native_connection_url, parse_cookie_header,
+    ServerErrorState as NativeServerErrorState, StreamingResponse as NativeStreamingResponse,
+    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope,
+    connection_url as native_connection_url, parse_cookie_header,
 };
 
 type RouteDecision = (
@@ -502,6 +503,11 @@ struct PyResponse {
     inner: Response,
 }
 
+#[pyclass(name = "StreamingResponse")]
+struct PyStreamingResponse {
+    inner: NativeStreamingResponse,
+}
+
 #[pymethods]
 impl PyResponse {
     #[new]
@@ -562,6 +568,57 @@ impl PyResponse {
                 ResponseEvent::Body { body } => {
                     message.set_item("type", "http.response.body")?;
                     message.set_item("body", PyBytes::new(py, &body))?;
+                }
+            }
+            messages.append(message)?;
+        }
+        Ok(messages)
+    }
+}
+
+#[pymethods]
+impl PyStreamingResponse {
+    #[new]
+    #[pyo3(signature = (chunks, status_code=200, headers=None, media_type=None))]
+    fn new(
+        chunks: Vec<Vec<u8>>,
+        status_code: u16,
+        headers: Option<Vec<(String, String)>>,
+        media_type: Option<String>,
+    ) -> PyResult<Self> {
+        let inner = NativeStreamingResponse::from_chunks(
+            status_code,
+            chunks,
+            media_type.as_deref(),
+            headers.unwrap_or_default(),
+        )
+        .map_err(response_error)?;
+        Ok(Self { inner })
+    }
+
+    fn asgi_messages<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+        let messages = PyList::empty(py);
+        for event in self.inner.asgi_events() {
+            let message = PyDict::new(py);
+            match event {
+                StreamingResponseEvent::Start {
+                    status_code,
+                    headers,
+                } => {
+                    message.set_item("type", "http.response.start")?;
+                    message.set_item("status", status_code)?;
+                    let python_headers = PyList::empty(py);
+                    for (name, value) in headers {
+                        let pair =
+                            PyTuple::new(py, [PyBytes::new(py, &name), PyBytes::new(py, &value)])?;
+                        python_headers.append(pair)?;
+                    }
+                    message.set_item("headers", python_headers)?;
+                }
+                StreamingResponseEvent::Body { body, more_body } => {
+                    message.set_item("type", "http.response.body")?;
+                    message.set_item("body", PyBytes::new(py, &body))?;
+                    message.set_item("more_body", more_body)?;
                 }
             }
             messages.append(message)?;
@@ -805,6 +862,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCookies>()?;
     module.add_class::<PyRequestBodyAccumulator>()?;
     module.add_class::<PyResponse>()?;
+    module.add_class::<PyStreamingResponse>()?;
     module.add_class::<PyLifespanState>()?;
     module.add_class::<PyGzipConfig>()?;
     module.add_class::<PyGzipResponder>()?;

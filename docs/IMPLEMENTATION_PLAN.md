@@ -23,11 +23,11 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 113 input-only cases and 117 parity requirements
-across 17 indexed files. Latest integrated run `6c5b3c96-6f14-4e12-8dc8-5caf80a50a50`,
-finished at `2026-09-28T10:26:47.500Z`, selected 172 comparisons: 166 passed,
-zero failed, zero infrastructure errors, and six `not_run`. All 113
-Python-package cases passed; Rust-native passed 53 of 59 selected comparisons.
+The current parity contract has 116 input-only cases and 120 parity requirements
+across 18 indexed files. Latest integrated run `ca7e0adc-e449-4f0a-92fe-9d48211e1041`,
+finished at `2026-09-28T11:18:31.918Z`, selected 178 comparisons: 172 passed,
+zero failed, zero infrastructure errors, and six `not_run`. All 116
+Python-package cases passed; Rust-native passed 56 of 62 selected comparisons.
 The six unsupported Rust-native rows keep the all-target gate incomplete.
 
 ## 1. Decide the Python/Rust boundary
@@ -84,7 +84,7 @@ comparison against pinned Starlette 1.6.0 through the installed Python package
 and Rust-native public API, and strict source/target/runtime/dependency identity
 in result artifacts. Preserve ASGI event order and scope mutations. This goal
 does not establish parity for untested request properties, converters,
-mounts, streaming responses, or the broader Starlette API.
+mounts, broader streaming response semantics, or the wider Starlette API.
 
 The three original request workflows pass against the pinned source and both
 targets. The Rust target uses exported request primitives through its parity
@@ -138,11 +138,12 @@ in [the benchmark mapping](BENCHMARKS.md). This closes the declared lifecycle
 ordering gap only; it does not establish general ASGI concurrency,
 cancellation, or full-scope parity.
 
-The bounded sync-callable, ASGI-callable, exception-handler, and server-error
-application cases in section 6 pass source/package parity. Six Rust-native
-observations remain explicitly `not_run`; the full Starlette replacement is
-still incomplete. Later work includes broader HTTP/WebSocket connection and
-request-body behavior, streaming, route-local middleware, Host reverse lookup,
+The bounded sync-callable, ASGI-callable, exception-handler, server-error,
+and finite StreamingResponse cases in section 6 pass source/package parity.
+Six Rust-native observations remain explicitly `not_run`; the full Starlette
+replacement is still incomplete. Later work includes broader HTTP/WebSocket
+connection and request-body behavior, streaming backpressure and iterator
+lifecycle, route-local middleware, Host reverse lookup,
 direct `ServerErrorMiddleware` call-boundary
 parity, WebSocket exception handlers, remaining TestClient
 exception-propagation modes, arbitrary middleware ordering, middleware
@@ -151,9 +152,9 @@ composition, authentication, background tasks, and concurrency.
 ## 4. Optional and edge features
 
 Static files, forms/uploads, templates, schemas, config, WSGI, and TestClient;
-then streaming, duplicate headers/cookies, failure propagation, cancellation,
-and platform-specific paths. Keep optional dependencies feature-gated and
-preserve unsupported coverage visibly.
+then broader streaming lifecycle, duplicate headers/cookies, failure
+propagation, cancellation, and platform-specific paths. Keep optional
+dependencies feature-gated and preserve unsupported coverage visibly.
 
 ## 5. Completed bounded goal: Router/GZip benchmark parity
 
@@ -227,6 +228,16 @@ the pinned source. The Rust-native rows for the ordinary sync function, bound
 method, partial, and ASGI callable instance were `not_run` under the manifest's
 declared unsupported boundary; this does not count as native parity. The
 latest full run is summarized in section 3.
+
+### Completed bounded goal: finite `StreamingResponse` output
+
+Three input-only cases cover finite synchronous text chunks: omitted generated
+`Content-Length`, preservation of a caller-supplied content length, and
+`text/plain` framing with per-chunk ASGI events. All six pinned-source versus
+target comparisons passed in run `ca7e0adc-e449-4f0a-92fe-9d48211e1041` across
+the installed Python package and Rust-native profile. This evidence does not
+establish lazy iteration, backpressure, asynchronous iterator lifecycle,
+disconnect handling, background tasks, or memoryview type parity.
 
 ### HTTPException default-response slice: bounded parity verified
 
@@ -313,7 +324,8 @@ the fixture does not set debug after app construction.
 
 The recorded evidence does not establish general exception propagation or
 identity beyond the selected chained-error, same-request body-cache, and
-server-error cases; nor does it establish cancellation, streaming, concurrency,
+server-error cases; nor does it establish cancellation, general streaming
+lifecycle or backpressure, concurrency,
 the native benchmark boundary, or general 100% Starlette parity.
 The Router/GZip benchmark work remains a
 separate lane with unchanged evidence in [Benchmark mapping](BENCHMARKS.md).

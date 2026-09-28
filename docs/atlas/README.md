@@ -25,25 +25,28 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The active parity manifest indexes 113 input-only cases
-across 17 files: 38 request/routing cases, 21 reverse-URL cases, four direct
-Starlette ASGI cases, eight basic Response/JSONResponse ASGI-call cases, four
-RedirectResponse ASGI-call cases, eight GZip cases, six full WebSocket
+active and incomplete. The active parity manifest indexes 116 input-only cases
+across 18 files: 38 request/routing cases, 21 reverse-URL cases, four direct
+Starlette ASGI cases, eight basic Response/JSONResponse ASGI-call cases, three
+finite StreamingResponse ASGI-call cases, four RedirectResponse ASGI-call cases,
+eight GZip cases, six full WebSocket
 protocol-tape cases, six projected WebSocket state cases, five Request-style
 HTTPException cases, two callable-ASGI HTTPException cases, two registered-
 handler cases, and nine server-error cases. Reverse-URL and custom-converter cases select the
 Python-package profile. Built-in Router and slash-redirect cases select both
-profiles; RedirectResponse, Response, and JSONResponse cases also select both.
+profiles; RedirectResponse, Response, StreamingResponse, and JSONResponse
+cases also select both.
 Mount cases select both with Rust-native explicitly unsupported. Projected
 state cases select both profiles. The latest integrated run
-`6c5b3c96-6f14-4e12-8dc8-5caf80a50a50`, finished at
-`2026-09-28T10:26:47.500Z`, selected 172 comparisons: 166 passed, zero failed,
+`ca7e0adc-e449-4f0a-92fe-9d48211e1041`, finished at
+`2026-09-28T11:18:31.918Z`, selected 178 comparisons: 172 passed, zero failed,
 six Rust-native rows were `not_run`, and there were zero infrastructure errors.
-All 113 Python-package cases passed; Rust-native passed 53 of 59 selected
+All 116 Python-package cases passed; Rust-native passed 56 of 62 selected
 cases. The six `not_run` rows are unsupported Python-callable and Mount
-boundaries. All six slash-redirect, four RedirectResponse, and all eight basic
-Response/JSONResponse cases passed on both profiles. All 21 reverse-URL and
-all 21 selected WebSocket comparisons passed. The six native `not_run` rows
+boundaries. All six slash-redirect, four RedirectResponse, all eight basic
+Response/JSONResponse, and all three finite StreamingResponse cases passed on
+both profiles. All 21 reverse-URL and all 21 selected WebSocket comparisons
+passed. The six native `not_run` rows
 cause `run` to exit with status 2, so the all-target gate remains incomplete.
 Target identities were dirty local trees; this run is not clean aggregate or
 release proof. The server-error inputs verify default and registered 500 handling,
@@ -123,7 +126,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 789 rows:
-33 `existing` mappings, 706 `backlog` rows, and 50 reasoned `not_applicable`
+36 `existing` mappings, 703 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -166,8 +169,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 514 `supported`, 286
 `private/internal`, and 199 `uncertain` candidates. The coverage matrix has 789
-source mappings: 33 existing input mappings, 50 reasoned `not_applicable`
-entries, and 706 input-only backlog rows. These counts describe the current
+source mappings: 36 existing input mappings, 50 reasoned `not_applicable`
+entries, and 703 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

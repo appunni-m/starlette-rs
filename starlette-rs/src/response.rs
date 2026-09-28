@@ -48,6 +48,42 @@ pub enum ResponseEvent {
     },
 }
 
+/// An ASGI response event produced by [`StreamingResponse`].
+///
+/// This separate event type retains the `more_body` flag required by a
+/// streaming response without changing the event contract for [`Response`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum StreamingResponseEvent {
+    /// The `http.response.start` message.
+    Start {
+        /// HTTP status code.
+        status_code: u16,
+        /// Ordered response header name/value byte pairs.
+        headers: Vec<(Vec<u8>, Vec<u8>)>,
+    },
+    /// An `http.response.body` message.
+    Body {
+        /// Response body bytes.
+        body: Vec<u8>,
+        /// Whether another body message follows.
+        more_body: bool,
+    },
+}
+
+/// A response that sends a pre-collected sequence of byte chunks.
+///
+/// This bounded native abstraction models the ASGI event contract for
+/// Starlette's `StreamingResponse`; it does not adapt Python iterables or
+/// async iterators. No `content-length` header is generated because the
+/// response body is streamed. Caller-supplied headers and text media-type
+/// charset handling follow [`Response::from_content`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StreamingResponse {
+    status_code: u16,
+    headers: Vec<(Vec<u8>, Vec<u8>)>,
+    chunks: Vec<Vec<u8>>,
+}
+
 /// An error produced while constructing a cookie header.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ResponseError {
@@ -416,6 +452,118 @@ impl Response {
                 body: self.body.clone(),
             },
         ]
+    }
+}
+
+impl StreamingResponse {
+    /// Creates a streaming response from byte chunks and response metadata.
+    ///
+    /// Header names are lowercased and names and values are encoded as
+    /// Latin-1. Existing headers retain their order and duplicates. A
+    /// `content-length` header is not generated; an explicitly supplied one
+    /// is retained. If `media_type` is set and no `content-type` header is
+    /// supplied, text media types receive `charset=utf-8` unless they already
+    /// contain a charset parameter.
+    ///
+    /// Each input chunk produces a body event with `more_body=true`, followed
+    /// by one empty body event with `more_body=false`, including when there
+    /// are no input chunks.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ResponseError::HeaderDataIsNotLatin1`] if a header name,
+    /// value, or media type cannot be encoded as Latin-1.
+    pub fn from_chunks<C, B, H, K, V>(
+        status_code: u16,
+        chunks: C,
+        media_type: Option<&str>,
+        headers: H,
+    ) -> Result<Self, ResponseError>
+    where
+        C: IntoIterator<Item = B>,
+        B: Into<Vec<u8>>,
+        H: IntoIterator<Item = (K, V)>,
+        K: AsRef<str>,
+        V: AsRef<str>,
+    {
+        let chunks = chunks.into_iter().map(Into::into).collect();
+        let mut raw_headers = Vec::new();
+        for (name, value) in headers {
+            let lower_name = name.as_ref().to_lowercase();
+            raw_headers.push((
+                encode_latin1(&lower_name).ok_or(ResponseError::HeaderDataIsNotLatin1)?,
+                encode_latin1(value.as_ref()).ok_or(ResponseError::HeaderDataIsNotLatin1)?,
+            ));
+        }
+
+        let has_content_type = raw_headers
+            .iter()
+            .any(|(name, _)| name.as_slice() == b"content-type");
+        if !has_content_type {
+            if let Some(media_type) = media_type {
+                let mut content_type = media_type.to_owned();
+                if media_type.starts_with("text/")
+                    && !media_type.to_ascii_lowercase().contains("charset=")
+                {
+                    content_type.push_str("; charset=utf-8");
+                }
+                raw_headers.push((
+                    b"content-type".to_vec(),
+                    encode_latin1(&content_type).ok_or(ResponseError::HeaderDataIsNotLatin1)?,
+                ));
+            }
+        }
+
+        Ok(Self {
+            status_code,
+            headers: raw_headers,
+            chunks,
+        })
+    }
+
+    /// Returns the response status code.
+    #[must_use]
+    pub const fn status_code(&self) -> u16 {
+        self.status_code
+    }
+
+    /// Returns response headers in wire order, retaining duplicate names.
+    #[must_use]
+    pub fn headers(&self) -> &[(Vec<u8>, Vec<u8>)] {
+        &self.headers
+    }
+
+    /// Returns the pre-collected body chunks.
+    #[must_use]
+    pub fn chunks(&self) -> &[Vec<u8>] {
+        &self.chunks
+    }
+
+    /// Returns the ASGI response events in send order.
+    ///
+    /// Every input chunk is sent with `more_body=true`. The sequence always
+    /// ends with an empty body carrying `more_body=false`.
+    #[must_use]
+    pub fn asgi_events(&self) -> Vec<StreamingResponseEvent> {
+        let mut events = Vec::with_capacity(self.chunks.len() + 2);
+        events.push(StreamingResponseEvent::Start {
+            status_code: self.status_code,
+            headers: self.headers.clone(),
+        });
+        events.extend(
+            self.chunks
+                .iter()
+                .cloned()
+                .map(|body| StreamingResponseEvent::Body {
+                    body,
+                    more_body: true,
+                }),
+        );
+        events.push(StreamingResponseEvent::Body {
+            body: Vec::new(),
+            more_body: false,
+        });
+        events
     }
 }
 

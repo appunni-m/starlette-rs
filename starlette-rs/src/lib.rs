@@ -1,8 +1,9 @@
 //! Rust-native pieces for the Starlette replacement.
 //!
 //! The first implementation slice covers ordered HTTP route matching and
-//! reverse path formatting with Starlette's built-in converters, a plain-text
-//! response, and the successful ASGI lifespan transition sequence.
+//! reverse path formatting with Starlette's built-in converters, plain-text
+//! and bounded streaming responses, and the successful ASGI lifespan transition
+//! sequence.
 //! The native [`Starlette`] API composes routes with prebuilt responses and
 //! exposes a narrow runtime-agnostic async call boundary for native callers.
 //! The crate does not implement the full Starlette API or claim Python-package
@@ -41,7 +42,10 @@ pub use request::{
     BodyProgress, Cookies, QueryParams, RequestBodyAccumulator, RequestBodyError, RequestHeaders,
     parse_cookie_header,
 };
-pub use response::{DebugTracebackFrame, Response, ResponseError, ResponseEvent};
+pub use response::{
+    DebugTracebackFrame, Response, ResponseError, ResponseEvent, StreamingResponse,
+    StreamingResponseEvent,
+};
 pub use route_table::{DetailedRouteMatch, RouteError, RouteMatch, RouteTable};
 pub use server_error::{ServerErrorPlan, ServerErrorPolicy, ServerErrorState};
 pub use websocket::{WebSocketState, WebSocketStateError, WebSocketStateMachine};

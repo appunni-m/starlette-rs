@@ -106,6 +106,8 @@ REDIRECT_RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
 RESPONSE_SURFACE = "starlette.responses.Response"
 JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
 RESPONSE_SURFACES = {RESPONSE_SURFACE, JSON_RESPONSE_SURFACE}
+STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
+STREAMING_RESPONSE_OPERATION = "asgi-call"
 RESPONSE_OPERATION = "asgi-call"
 RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "content",
@@ -116,6 +118,7 @@ RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "incoming",
     "send",
 }
+STREAMING_RESPONSE_CASE_KEYS = RESPONSE_CASE_KEYS | {"streaming"}
 RESPONSE_OBSERVATIONS = [
     "response_status",
     "ordered_repeated_headers",
@@ -1705,6 +1708,58 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
         {"scope": case["scope"], "receive": case["incoming"], "send": case["send"]},
         request_dispatch=True,
     )
+
+
+def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
+    _exact(case, STREAMING_RESPONSE_CASE_KEYS, "StreamingResponse asgi-call case")
+    if (
+        case["surface"] != STREAMING_RESPONSE_SURFACE
+        or case["operation"] != STREAMING_RESPONSE_OPERATION
+    ):
+        raise ContractError("case is outside the declared StreamingResponse asgi-call operation")
+    if case["observations"] != [STREAMING_RESPONSE_OPERATION]:
+        raise ContractError("StreamingResponse observations must select asgi-call")
+    if type(case["status_code"]) is not int or case["status_code"] != 200:
+        raise ContractError("StreamingResponse status_code must be 200 for this input slice")
+    if case["streaming"] != "sync":
+        raise ContractError("StreamingResponse streaming must select the bounded sync iterator")
+
+    content = _exact(case["content"], {"kind", "value"}, "StreamingResponse content")
+    if content["kind"] != "chunks" or not isinstance(content["value"], list):
+        raise ContractError("StreamingResponse content must contain an array of chunks")
+    chunks: list[str] = []
+    for index, chunk in enumerate(content["value"]):
+        chunk = _exact(chunk, {"kind", "value"}, f"StreamingResponse content[{index}]")
+        if chunk["kind"] != "text":
+            raise ContractError("StreamingResponse chunks must be text in this input slice")
+        chunks.append(_string(chunk["value"], f"StreamingResponse content[{index}].value"))
+
+    headers = case["header_pairs"]
+    if not isinstance(headers, list) or any(
+        not isinstance(pair, list)
+        or len(pair) != 2
+        or any(not isinstance(value, str) for value in pair)
+        for pair in headers
+    ):
+        raise ContractError("StreamingResponse.header_pairs must be ordered string pairs")
+    media_type = case["media_type"]
+    if media_type is not None and not isinstance(media_type, str):
+        raise ContractError("StreamingResponse.media_type must be a string or null")
+
+    stimulus = (tuple(chunks), tuple(tuple(pair) for pair in headers), media_type)
+    allowed = {
+        (("hello", "world"), (), None),
+        (("hello", "world"), (("content-length", "10"),), None),
+        (("1", ", ", "2", ", ", "3", ", ", "4", ", ", "5"), (), "text/plain"),
+    }
+    if stimulus not in allowed:
+        raise ContractError("StreamingResponse chunks and headers are outside this input slice")
+    if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
+        raise ContractError("StreamingResponse asgi-call uses empty receive and captured send")
+    _validate_dispatch_stimulus(
+        {"scope": case["scope"], "receive": case["incoming"], "send": case["send"]},
+        request_dispatch=True,
+    )
     if case["scope"]["query_string_base64"] != "" or case["scope"]["headers_base64_pairs"] != []:
         raise ContractError("Response asgi-call scope uses the direct HTTP baseline")
 
@@ -2360,6 +2415,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == REDIRECT_RESPONSE_OPERATION
     )
     is_response = isinstance(case, dict) and case.get("surface") in RESPONSE_SURFACES
+    is_streaming_response = (
+        isinstance(case, dict)
+        and case.get("surface") == STREAMING_RESPONSE_SURFACE
+        and case.get("operation") == STREAMING_RESPONSE_OPERATION
+    )
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
@@ -2375,6 +2435,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_redirect_response
         else RESPONSE_CASE_KEYS
         if is_response
+        else STREAMING_RESPONSE_CASE_KEYS
+        if is_streaming_response
         else CASE_KEYS
     )
     _exact(case, expected_case_keys, "case")
@@ -2403,6 +2465,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_response:
         if case["operation"] != RESPONSE_OPERATION:
             raise ContractError("Response cases must use the declared asgi-call operation")
+    elif is_streaming_response:
+        if case["operation"] != STREAMING_RESPONSE_OPERATION:
+            raise ContractError("StreamingResponse cases must use the declared asgi-call operation")
     elif is_gzip:
         if case["operation"] != "__call__":
             raise ContractError("GZipMiddleware parity cases must call its public ASGI interface")
@@ -2475,6 +2540,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_response:
         _validate_response_case_stimulus(case)
+        return case
+    if is_streaming_response:
+        _validate_streaming_response_case_stimulus(case)
         return case
 
     if not isinstance(case["steps"], list) or len(case["steps"]) not in {2, 3}:

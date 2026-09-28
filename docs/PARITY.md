@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 113 input-only cases in 17 indexed files: four direct ASGI cases, 38 request/routing cases, 21 reverse-URL cases, eight GZip cases, four direct RedirectResponse ASGI-call cases, eight direct Response/JSONResponse ASGI-call cases, six full WebSocket protocol-tape cases, six projected WebSocket state cases, five Request-style HTTPException cases, two callable-ASGI HTTPException cases, two registered exception-handler cases, and nine server-error cases. Nineteen parity operations declare 117 parity requirements; one separate benchmark requirement is also indexed. Built-in route-converter, slash-redirect, RedirectResponse, Response, and JSONResponse cases select Python-package and Rust-native profiles where supported. Custom converter, typed Request, reverse-URL, and full WebSocket protocol cases select the Python-package profile; Mount dispatch cases select both profiles with Rust-native explicitly unsupported. Projected state cases select both target profiles. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 116 input-only cases in 18 indexed files: four direct ASGI cases, 38 request/routing cases, 21 reverse-URL cases, eight GZip cases, four direct RedirectResponse ASGI-call cases, eight direct Response/JSONResponse ASGI-call cases, three finite StreamingResponse ASGI-call cases, six full WebSocket protocol-tape cases, six projected WebSocket state cases, five Request-style HTTPException cases, two callable-ASGI HTTPException cases, two registered exception-handler cases, and nine server-error cases. Twenty parity operations declare 120 parity requirements; one separate benchmark requirement is also indexed. Built-in route-converter, slash-redirect, RedirectResponse, Response, StreamingResponse, and JSONResponse cases select Python-package and Rust-native profiles where supported. Custom converter, typed Request, reverse-URL, and full WebSocket protocol cases select the Python-package profile; Mount dispatch cases select both profiles with Rust-native explicitly unsupported. Projected state cases select both target profiles. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -51,6 +51,14 @@ adds three direct ASGI-call cases for text and byte `Response` bodies plus
 media types and exercise JSON null serialization to the bytes `null`. All
 three cases passed against the source on both target profiles.
 
+[`streaming-response.yaml`](../tests/fixtures/sources/parity/streaming-response.yaml)
+adds three direct `StreamingResponse` ASGI-call cases for finite synchronous
+text chunks: no generated `Content-Length`, preservation of an explicit length,
+and `text/plain` framing across five body chunks. All six source-to-target
+comparisons passed. The fixtures materialize finite input chunks; they do not
+establish lazy iteration, backpressure, async-iterator lifecycle, disconnect
+handling, background-task behavior, or memoryview type parity.
+
 [`request-path-param-types.yaml`](../tests/fixtures/sources/parity/request-path-param-types.yaml)
 adds six installed-package Request cases for typed path parameters, including
 a 5001-digit integer that exercises CPython 3.12's default conversion limit.
@@ -70,17 +78,17 @@ cases. The Rust route table now builds converter-formatted paths for the Python
 bridge, while a Rust-native named Route/Router API remains unimplemented and is
 not claimed by this slice.
 
-The latest integrated run `6c5b3c96-6f14-4e12-8dc8-5caf80a50a50`, finished at
-`2026-09-28T10:26:47.500Z`, selected 172 comparisons: 166 passed, zero failed,
-zero infrastructure errors, and six `not_run`. All 113 Python-package cases
-passed; Rust-native passed 53 of 59 selected cases. The six slash-redirect,
-four direct RedirectResponse, and eight direct Response/JSONResponse cases
-passed on both profiles. Four Python-callable boundaries and two Mount cases
-remain unsupported for Rust-native, so the CLI exits with status 2 and this is
-not an all-target pass. Manifest SHA-256 is
-`782c707b24782f0fc8866090f15e722690d42da6bb9fa3f2012ffdf3050841b8`; the
+The latest integrated run `ca7e0adc-e449-4f0a-92fe-9d48211e1041`, finished at
+`2026-09-28T11:18:31.918Z`, selected 178 comparisons: 172 passed, zero failed,
+zero infrastructure errors, and six `not_run`. All 116 Python-package cases
+passed; Rust-native passed 56 of 62 selected cases. The six slash-redirect,
+four direct RedirectResponse, eight direct Response/JSONResponse, and three
+finite StreamingResponse cases passed on both profiles. Four Python-callable
+boundaries and two Mount cases remain unsupported for Rust-native, so the CLI
+exits with status 2 and this is not an all-target pass. Manifest SHA-256 is
+`f5fc3dfa95ee75b241e827dce517becb6ae48aea43e95cdd3abde570a9514f29`; the
 installed wheel SHA-256 is
-`cc0d5dae7f2cc533f5f0da97f606cecba75bd265435d153d4a132c517f64c242`. Target
+`c06dbe2322cbdad2c50736d44c00e0b127cd8eec6bd093a10e2d5028daf88fb6`. Target
 identities were dirty local trees, so this run is not clean aggregate or
 release proof.
 
@@ -203,7 +211,7 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@4` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 113 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The current run `6c5b3c96-6f14-4e12-8dc8-5caf80a50a50`, finished at `2026-09-28T10:26:47.500Z`, selected 172 comparisons: 166 passed, zero failed, six `not_run`, and zero infrastructure errors. All 113 installed Python-package cases passed. Rust-native passed 53 of 59 selected rows; the four Python-callable forms and two Mount cases remain unsupported. The CLI exits with status 2 while those rows remain `not_run`; this is not an all-target pass. Target identities were dirty local trees, so the run is not clean aggregate or release proof. See `build/parity/parity-result.json`; manifest SHA-256 is `782c707b24782f0fc8866090f15e722690d42da6bb9fa3f2012ffdf3050841b8`, and target wheel SHA-256 is `cc0d5dae7f2cc533f5f0da97f606cecba75bd265435d153d4a132c517f64c242`.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 116 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The current run `ca7e0adc-e449-4f0a-92fe-9d48211e1041`, finished at `2026-09-28T11:18:31.918Z`, selected 178 comparisons: 172 passed, zero failed, six `not_run`, and zero infrastructure errors. All 116 installed Python-package cases passed. Rust-native passed 56 of 62 selected rows; the four Python-callable forms and two Mount cases remain unsupported. The three finite StreamingResponse cases passed on both target profiles. The CLI exits with status 2 while those rows remain `not_run`; this is not an all-target pass. Target identities were dirty local trees, so the run is not clean aggregate or release proof. See `build/parity/parity-result.json`; manifest SHA-256 is `f5fc3dfa95ee75b241e827dce517becb6ae48aea43e95cdd3abde570a9514f29`, and target wheel SHA-256 is `c06dbe2322cbdad2c50736d44c00e0b127cd8eec6bd093a10e2d5028daf88fb6`.
 
 ## Maintained commands
 
@@ -228,4 +236,4 @@ The one-case `benchmark` command runs its exact parity gate before the source/pa
 
 The current boundary has Rust own built-in path matching and path formatting, response framing, middleware compression policy, and WebSocket protocol state. Python keeps Starlette's public route objects and ASGI dispatch layer, calls registered Python converters and application endpoints, and preserves the event-loop, threadpool, exception, and lifetime behavior at those boundaries. The route matcher falls back to Python only for custom converters, which cannot be represented by the current Rust converter set. For GZip, AnyIO owns the task-local worker limiter and thread scheduling, while Rust owns compression and response policy. The upstream-internal `GZipResponder` import is not yet implemented; the parity cases exercise the public `GZipMiddleware` boundary.
 
-The parity lifecycle step covers one successful async-context enter/exit separately from its HTTP dispatch. The Request-style synchronous endpoint inputs cover functions, bound methods, and `functools.partial`; a separate callable-instance case covers ASGI dispatch through `(scope, receive, send)`. The current integrated run includes six slash-redirect cases, four direct RedirectResponse cases, and eight direct Response/JSONResponse cases, all passing on both target profiles. Router inputs cover built-in converters, misses, route order, root paths, slash redirects, and a package-only custom override. Reverse-URL inputs cover named Python route surfaces and `Request.url_for`; they do not establish a named URL API on the Rust-native target or Host reverse lookup. Request inputs cover typed path parameters and CPython's integer-digit limit; Mount inputs cover child-scope extension and misses. The HTTPException, registered-handler, server-error, and WebSocket slices remain bounded to their declared inputs. Route/router/mount-local middleware is present in the Python compatibility layer but has not yet been selected by input cases, so its parity remains unproven. Convenience helpers, denial responses, WebSocket exception handling, TestClient propagation, direct `ServerErrorMiddleware` invocation, and arbitrary middleware ordering remain open. The general replacement goal remains incomplete; broad Starlette parity and the native benchmark boundary remain unproven. The Router/GZip benchmark lane is documented in [Benchmark mapping](BENCHMARKS.md).
+The parity lifecycle step covers one successful async-context enter/exit separately from its HTTP dispatch. The Request-style synchronous endpoint inputs cover functions, bound methods, and `functools.partial`; a separate callable-instance case covers ASGI dispatch through `(scope, receive, send)`. The current integrated run includes six slash-redirect cases, four direct RedirectResponse cases, eight direct Response/JSONResponse cases, and three finite StreamingResponse cases, all passing on both target profiles. Streaming evidence is limited to finite synchronous text chunks; it does not establish lazy iteration or backpressure, async-generator lifecycle, disconnect handling, or background tasks. Router inputs cover built-in converters, misses, route order, root paths, slash redirects, and a package-only custom override. Reverse-URL inputs cover named Python route surfaces and `Request.url_for`; they do not establish a named URL API on the Rust-native target or Host reverse lookup. Request inputs cover typed path parameters and CPython's integer-digit limit; Mount inputs cover child-scope extension and misses. The HTTPException, registered-handler, server-error, and WebSocket slices remain bounded to their declared inputs. Route/router/mount-local middleware is present in the Python compatibility layer but has not yet been selected by input cases, so its parity remains unproven. Convenience helpers, denial responses, WebSocket exception handling, TestClient propagation, direct `ServerErrorMiddleware` invocation, and arbitrary middleware ordering remain open. The general replacement goal remains incomplete; broad Starlette parity and the native benchmark boundary remain unproven. The Router/GZip benchmark lane is documented in [Benchmark mapping](BENCHMARKS.md).
