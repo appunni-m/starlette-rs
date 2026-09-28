@@ -93,6 +93,16 @@ MOUNT_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "incoming",
     "send",
 }
+REDIRECT_RESPONSE_SURFACE = "starlette.responses.RedirectResponse"
+REDIRECT_RESPONSE_OPERATION = "asgi-call"
+REDIRECT_RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "url",
+    "status_code",
+    "header_pairs",
+    "scope",
+    "incoming",
+    "send",
+}
 REVERSE_URL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "route_graph",
     "lookup",
@@ -1557,6 +1567,57 @@ def _validate_route_dispatch_io(case: dict[str, Any], *, allow_query: bool = Fal
     )
 
 
+def _validate_redirect_response_case_stimulus(case: dict[str, Any]) -> None:
+    _exact(case, REDIRECT_RESPONSE_CASE_KEYS, "RedirectResponse asgi-call case")
+    if (
+        case["surface"] != REDIRECT_RESPONSE_SURFACE
+        or case["operation"] != REDIRECT_RESPONSE_OPERATION
+    ):
+        raise ContractError("case is outside the declared RedirectResponse asgi-call operation")
+    if case["observations"] != [REDIRECT_RESPONSE_OPERATION]:
+        raise ContractError("RedirectResponse observations must select asgi-call")
+    _string(case["url"], "RedirectResponse.url")
+    if type(case["status_code"]) is not int or not 300 <= case["status_code"] <= 399:
+        raise ContractError("RedirectResponse.status_code must be an integer redirect status")
+    headers = case["header_pairs"]
+    if not isinstance(headers, list):
+        raise ContractError("RedirectResponse.header_pairs must be an ordered array")
+    seen_names: set[str] = set()
+    for index, pair in enumerate(headers):
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(value, str) for value in pair)
+            or not pair[0]
+        ):
+            raise ContractError(
+                f"RedirectResponse.header_pairs[{index}] must be a non-empty name and string value"
+            )
+        name, value = pair
+        try:
+            name.encode("latin-1")
+            value.encode("latin-1")
+        except UnicodeEncodeError as exc:
+            raise ContractError(
+                f"RedirectResponse.header_pairs[{index}] must be Latin-1 encodable"
+            ) from exc
+        normalized_name = name.lower()
+        if normalized_name in seen_names:
+            raise ContractError(
+                "RedirectResponse header input must map unique case-insensitive names"
+            )
+        seen_names.add(normalized_name)
+    if case["incoming"] != []:
+        raise ContractError("RedirectResponse asgi-call inputs use an empty receive stream")
+    _validate_dispatch_stimulus(
+        {"scope": case["scope"], "receive": case["incoming"], "send": case["send"]},
+        request_dispatch=True,
+        allow_root_path=True,
+        allow_query=True,
+        allow_headers=True,
+    )
+
+
 def _route_method_matches(route: dict[str, Any], method: str) -> bool:
     return method in route["methods"] or (method == "HEAD" and "GET" in route["methods"])
 
@@ -2202,6 +2263,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) in REVERSE_URL_OPERATIONS
     )
+    is_redirect_response = (
+        isinstance(case, dict)
+        and case.get("surface") == REDIRECT_RESPONSE_SURFACE
+        and case.get("operation") == REDIRECT_RESPONSE_OPERATION
+    )
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
@@ -2213,6 +2279,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_mount
         else REVERSE_URL_CASE_KEYS
         if is_reverse_url
+        else REDIRECT_RESPONSE_CASE_KEYS
+        if is_redirect_response
         else CASE_KEYS
     )
     _exact(case, expected_case_keys, "case")
@@ -2235,6 +2303,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_reverse_url:
         if (case["surface"], case["operation"]) not in REVERSE_URL_OPERATIONS:
             raise ContractError("case must use a declared reverse URL operation")
+    elif is_redirect_response:
+        if case["operation"] != REDIRECT_RESPONSE_OPERATION:
+            raise ContractError("RedirectResponse cases must use the declared asgi-call operation")
     elif is_gzip:
         if case["operation"] != "__call__":
             raise ContractError("GZipMiddleware parity cases must call its public ASGI interface")
@@ -2301,6 +2372,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_reverse_url:
         _validate_reverse_url_case_stimulus(case)
+        return case
+    if is_redirect_response:
+        _validate_redirect_response_case_stimulus(case)
         return case
 
     if not isinstance(case["steps"], list) or len(case["steps"]) not in {2, 3}:

@@ -1,0 +1,211 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.responses.RedirectResponse.asgi-call.default-relative-location",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.RedirectResponse.asgi-call.default-relative-location"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "url": "/",
+      "status_code": 307,
+      "header_pairs": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/redirect",
+        "raw_path_base64": "L3JlZGlyZWN0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.asgi-call.quoted-unicode-location",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.RedirectResponse.asgi-call.quoted-unicode-location"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "url": "/I \u2665 Starlette/",
+      "status_code": 307,
+      "header_pairs": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/redirect",
+        "raw_path_base64": "L3JlZGlyZWN0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.asgi-call.default-content-length",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.RedirectResponse.asgi-call.default-content-length"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "url": "/",
+      "status_code": 307,
+      "header_pairs": [
+        [
+          "X-Marker",
+          "content-length-probe"
+        ]
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/redirect",
+        "raw_path_base64": "L3JlZGlyZWN0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.asgi-call.case-insensitive-location-replacement",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.RedirectResponse.asgi-call.case-insensitive-location-replacement"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "url": "/next path?source=parity",
+      "status_code": 308,
+      "header_pairs": [
+        [
+          "X-Before",
+          "alpha"
+        ],
+        [
+          "lOcAtIoN",
+          "/stale"
+        ],
+        [
+          "Content-Length",
+          "23"
+        ],
+        [
+          "X-After",
+          "omega"
+        ]
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/redirect",
+        "raw_path_base64": "L3JlZGlyZWN0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    }
+  ]
+}

@@ -22,6 +22,8 @@ use starlette_rs::{
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
 const RESPONSE_SCHEMA: &str = "migration-parity/adapter-response@1";
 const SUBJECT_ID: &str = "rust-native";
+const REDIRECT_RESPONSE_SURFACE: &str = "starlette.responses.RedirectResponse";
+const REDIRECT_RESPONSE_OPERATION: &str = "asgi-call";
 const WEBSOCKET_SURFACE: &str = "starlette.websockets.WebSocket";
 const WEBSOCKET_OPERATION: &str = "protocol-sequence";
 const WEBSOCKET_STATE_OPERATION: &str = "state-sequence";
@@ -293,6 +295,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         (Some("starlette.routing.Router"), Some("route-dispatch")) => {
             return run_router_case(case);
         }
+        (Some(REDIRECT_RESPONSE_SURFACE), Some(REDIRECT_RESPONSE_OPERATION)) => {
+            return run_redirect_response_case(case);
+        }
         (Some("starlette.routing.Mount"), Some("route-dispatch")) => {
             return Err(String::from(
                 "Rust-native route adapter does not expose Mount child-scope dispatch",
@@ -503,6 +508,204 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
             },
         }],
     }))
+}
+
+fn run_redirect_response_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "url",
+            "status_code",
+            "header_pairs",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        ],
+        "RedirectResponse asgi-call case",
+    )?;
+    let case_id = string_field(case, "case_id", "RedirectResponse asgi-call case")?;
+    if !case_id.starts_with(&format!(
+        "{REDIRECT_RESPONSE_SURFACE}.{REDIRECT_RESPONSE_OPERATION}."
+    )) || string_field(case, "surface", "RedirectResponse asgi-call case")?
+        != REDIRECT_RESPONSE_SURFACE
+        || string_field(case, "operation", "RedirectResponse asgi-call case")?
+            != REDIRECT_RESPONSE_OPERATION
+        || case.get("observations") != Some(&json!([REDIRECT_RESPONSE_OPERATION]))
+        || case.get("assets") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "case ID or operation is outside the RedirectResponse ASGI call slice",
+        ));
+    }
+    validate_string_array(case, "covers", "RedirectResponse asgi-call covers", false)?;
+    validate_string_array(
+        case,
+        "target_profiles",
+        "RedirectResponse asgi-call target_profiles",
+        false,
+    )?;
+
+    if case.get("incoming") != Some(&json!([])) {
+        return Err(String::from(
+            "RedirectResponse asgi-call requires an empty incoming sequence",
+        ));
+    }
+    validate_capture_send(
+        case.get("send")
+            .ok_or_else(|| String::from("RedirectResponse asgi-call send input is missing"))?,
+    )?;
+
+    let _scope = validate_redirect_response_scope(
+        case.get("scope")
+            .ok_or_else(|| String::from("RedirectResponse asgi-call scope is missing"))?,
+    )?;
+    let url = string_field(case, "url", "RedirectResponse asgi-call case")?;
+    let status_code = case
+        .get("status_code")
+        .and_then(Value::as_u64)
+        .and_then(|value| u16::try_from(value).ok())
+        .ok_or_else(|| {
+            String::from("RedirectResponse status_code must be an unsigned 16-bit integer")
+        })?;
+    let header_pairs = case
+        .get("header_pairs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("RedirectResponse header_pairs must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, pair)| {
+            let pair = pair
+                .as_array()
+                .filter(|pair| pair.len() == 2)
+                .ok_or_else(|| format!("RedirectResponse header_pairs[{index}] must be a pair"))?;
+            let name = pair[0].as_str().ok_or_else(|| {
+                format!("RedirectResponse header_pairs[{index}] name must be a string")
+            })?;
+            let value = pair[1].as_str().ok_or_else(|| {
+                format!("RedirectResponse header_pairs[{index}] value must be a string")
+            })?;
+            Ok((name.to_owned(), value.to_owned()))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    let response =
+        Response::redirect(url, status_code, &header_pairs).map_err(|error| error.to_string())?;
+    let events = response
+        .asgi_events()
+        .into_iter()
+        .map(canonical_response_event)
+        .collect::<Vec<_>>();
+    let event_order = events
+        .iter()
+        .filter_map(|event| event.get("type").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": REDIRECT_RESPONSE_OPERATION,
+            "status": "ok",
+            "value": {
+                "response_status": response.status_code(),
+                "ordered_repeated_headers": canonical_headers(response.headers()),
+                "response_bytes": {
+                    "encoding": "base64",
+                    "data": encode_base64(response.body()),
+                },
+                "asgi_event_order": event_order,
+                "asgi_events": events,
+            },
+        }],
+    }))
+}
+
+fn validate_redirect_response_scope(scope: &Value) -> Result<&Map<String, Value>, String> {
+    let scope = exact_object(
+        scope,
+        &[
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        ],
+        "RedirectResponse HTTP scope",
+    )?;
+    if string_field(scope, "type", "RedirectResponse HTTP scope")? != "http" {
+        return Err(String::from(
+            "RedirectResponse asgi-call scope.type must be http",
+        ));
+    }
+    let asgi = exact_object(
+        scope
+            .get("asgi")
+            .ok_or_else(|| String::from("RedirectResponse scope misses asgi"))?,
+        &["version", "spec_version"],
+        "RedirectResponse HTTP scope.asgi",
+    )?;
+    if string_field(asgi, "version", "RedirectResponse HTTP scope.asgi")? != "3.0"
+        || string_field(asgi, "spec_version", "RedirectResponse HTTP scope.asgi")? != "2.4"
+    {
+        return Err(String::from(
+            "RedirectResponse scope uses an unsupported ASGI version",
+        ));
+    }
+    for field in ["http_version", "method", "scheme", "path", "root_path"] {
+        let _ = string_field(scope, field, "RedirectResponse HTTP scope")?;
+    }
+    for field in ["raw_path_base64", "query_string_base64"] {
+        decode_base64(
+            string_field(scope, field, "RedirectResponse HTTP scope")?,
+            &format!("RedirectResponse scope.{field}"),
+        )?;
+    }
+    let headers = scope
+        .get("headers_base64_pairs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            String::from("RedirectResponse scope.headers_base64_pairs must be an array")
+        })?;
+    for (index, pair) in headers.iter().enumerate() {
+        let pair = pair
+            .as_array()
+            .filter(|pair| pair.len() == 2)
+            .ok_or_else(|| format!("RedirectResponse scope header[{index}] must be a pair"))?;
+        for (side, item) in pair.iter().enumerate() {
+            let encoded = item.as_str().ok_or_else(|| {
+                format!("RedirectResponse scope header[{index}][{side}] must be base64")
+            })?;
+            decode_base64(encoded, "RedirectResponse scope header")?;
+        }
+    }
+    validate_scope_address(
+        scope
+            .get("client")
+            .ok_or_else(|| String::from("RedirectResponse scope misses client"))?,
+        "RedirectResponse scope.client",
+    )?;
+    validate_scope_address(
+        scope
+            .get("server")
+            .ok_or_else(|| String::from("RedirectResponse scope misses server"))?,
+        "RedirectResponse scope.server",
+    )?;
+    Ok(scope)
 }
 
 fn run_websocket_state_case(case: &Value) -> Result<Value, String> {

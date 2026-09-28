@@ -118,6 +118,16 @@
           "source_path": "starlette.requests.Request.url_for"
         }
       ]
+    },
+    {
+      "surface_id": "starlette.responses.RedirectResponse",
+      "source_path": "starlette/responses.py:204",
+      "operations": [
+        {
+          "operation_id": "asgi-call",
+          "source_path": "starlette.responses.Response.__call__"
+        }
+      ]
     }
   ],
   "api_inventory": {

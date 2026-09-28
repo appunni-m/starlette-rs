@@ -249,7 +249,8 @@
       "build/parity/inputs/parity/router-slash-redirect.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
-      "build/parity/inputs/parity/reverse-url-routing.json"
+      "build/parity/inputs/parity/reverse-url-routing.json",
+      "build/parity/inputs/parity/redirect-response.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -3767,6 +3768,241 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.responses.RedirectResponse",
+      "kind": "type",
+      "source_path": "starlette/responses.py:204",
+      "storage_slug": "starlette-responses-RedirectResponse",
+      "operations": [
+        {
+          "id": "asgi-call",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.responses.Response.__call__",
+            "signature": "RedirectResponse(url, status_code=307, headers=None, background=None); async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "url",
+                "style": "positional",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "status_code",
+                "style": "keyword",
+                "value_types": [
+                  "integer"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": 307
+                }
+              },
+              {
+                "id": "headers",
+                "style": "keyword",
+                "value_types": [
+                  "mapping",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                },
+                {
+                  "path": "asgi_event_order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::Response",
+              "signature": "Response::redirect(url, status_code, ordered_headers) -> Result<Response, ResponseError>; Response::asgi_events() -> [ResponseEvent; 2]",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.responses.RedirectResponse",
+              "signature": "RedirectResponse(url, status_code=307, headers=None, background=None); async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.responses.RedirectResponse.asgi-call.default-relative-location",
+              "dimension": "success_path",
+              "description": "Construct RedirectResponse with its default 307 status and relative `/` target, then observe the live ASGI response. Upstream: starlette/responses.py::RedirectResponse.__init__; starlette/responses.py::Response.__call__; tests/test_responses.py::test_redirect_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.RedirectResponse.asgi-call.quoted-unicode-location",
+              "dimension": "input_family",
+              "description": "Construct RedirectResponse for a Unicode URL path and observe the exact quoted Location header and ASGI events. Upstream: starlette/responses.py::RedirectResponse.__init__; tests/test_responses.py::test_quoting_redirect_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.RedirectResponse.asgi-call.default-content-length",
+              "dimension": "parameter_combination",
+              "description": "Observe the default zero-length body and generated content-length header when RedirectResponse has no caller-supplied length. Upstream: starlette/responses.py::Response.init_headers; tests/test_responses.py::test_redirect_response_content_length_header.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.RedirectResponse.asgi-call.case-insensitive-location-replacement",
+              "dimension": "parameter_combination",
+              "description": "Set a mixed-case Location in caller headers and verify RedirectResponse replaces it case-insensitively in its original order while preserving other headers and caller-supplied content-length. Upstream: starlette/datastructures.py::MutableHeaders.__setitem__; starlette/responses.py::RedirectResponse.__init__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded direct-response contract makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only response correctness slice declares no benchmark workload."
           }
         }
       ]

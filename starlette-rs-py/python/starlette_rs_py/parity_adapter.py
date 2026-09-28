@@ -34,6 +34,8 @@ WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
 WEBSOCKET_ROUTE_SURFACE = "starlette.routing.WebSocketRoute"
 WEBSOCKET_ROUTE_OPERATION = "route-dispatch"
+REDIRECT_RESPONSE_SURFACE = "starlette.responses.RedirectResponse"
+REDIRECT_RESPONSE_OPERATION = "asgi-call"
 
 
 @dataclass(frozen=True)
@@ -1647,6 +1649,107 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_redirect_response_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "url",
+            "status_code",
+            "header_pairs",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        },
+        "RedirectResponse ASGI-call case",
+    )
+    if (
+        case["surface"] != REDIRECT_RESPONSE_SURFACE
+        or case["operation"] != REDIRECT_RESPONSE_OPERATION
+    ):
+        raise ValueError("workflow is outside the declared RedirectResponse ASGI-call operation")
+    if case["observations"] != [REDIRECT_RESPONSE_OPERATION]:
+        raise ValueError("RedirectResponse observations must select asgi-call")
+    if not isinstance(case["url"], str):
+        raise ValueError("RedirectResponse url must be a string")
+    if type(case["status_code"]) is not int:
+        raise ValueError("RedirectResponse status_code must be an integer")
+    header_pairs = case["header_pairs"]
+    if not isinstance(header_pairs, list) or any(
+        not isinstance(pair, list)
+        or len(pair) != 2
+        or any(not isinstance(part, str) for part in pair)
+        for pair in header_pairs
+    ):
+        raise ValueError("RedirectResponse header_pairs must be string pairs")
+    if case["send"] != {"kind": "capture-asgi-send"}:
+        raise ValueError("send input must select the declared ASGI message collector")
+
+    from starlette.responses import RedirectResponse
+
+    response = RedirectResponse(
+        case["url"],
+        status_code=case["status_code"],
+        headers=dict(header_pairs),
+    )
+    scope = _make_scope(case["scope"])
+    incoming = [_make_message(item) for item in case["incoming"]]
+    incoming_index = 0
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        nonlocal incoming_index
+        if incoming_index >= len(incoming):
+            return {"type": "http.disconnect"}
+        message = incoming[incoming_index]
+        incoming_index += 1
+        return message
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    asyncio.run(response(scope, receive, send))
+    events = [_canonical_message(message) for message in sent]
+    response_start = next(
+        (message for message in sent if message["type"] == "http.response.start"), None
+    )
+    response_start_event = next(
+        (event for event in events if event["type"] == "http.response.start"), None
+    )
+    response_body = b"".join(
+        message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+    )
+    observation = {
+        "response_status": response_start["status"] if response_start is not None else None,
+        "ordered_repeated_headers": (
+            response_start_event["headers"] if response_start_event is not None else []
+        ),
+        "response_bytes": (
+            {
+                "encoding": "base64",
+                "data": base64.b64encode(response_body).decode("ascii"),
+            }
+            if response_start is not None
+            else None
+        ),
+        "asgi_event_order": [event["type"] for event in events],
+        "asgi_events": events,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": REDIRECT_RESPONSE_OPERATION, "status": "ok", "value": observation}
+        ],
+    }
+
+
 def _reverse_url_error(exc: Exception) -> dict[str, str]:
     return {"class": type(exc).__name__, "message": str(exc)}
 
@@ -1842,6 +1945,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == WEBSOCKET_ROUTE_OPERATION
     ):
         return _run_websocket_route_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == REDIRECT_RESPONSE_SURFACE
+        and case.get("operation") == REDIRECT_RESPONSE_OPERATION
+    ):
+        return _run_redirect_response_case(case)
     if case.get("surface") in {"starlette.routing.Router", "starlette.routing.Mount"}:
         if case.get("operation") != "route-dispatch":
             raise ValueError("Router and Mount cases must use route-dispatch")
