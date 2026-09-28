@@ -1,0 +1,954 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.applications.Starlette.request-dispatch.missing-session-assertion",
+      "surface": "starlette.applications.Starlette",
+      "operation": "request-dispatch",
+      "covers": [
+        "starlette.routing.request-scope-values",
+        "starlette.asgi.request-dispatch-events",
+        "starlette.request.connection-property-missing-session"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/items/{item_id:int}",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "request-connection-property",
+                    "property": "session"
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "request-dispatch",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/items/7",
+                "raw_path_base64": "L2l0ZW1zLzc=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": []
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.request-dispatch.missing-auth-assertion",
+      "surface": "starlette.applications.Starlette",
+      "operation": "request-dispatch",
+      "covers": [
+        "starlette.routing.request-scope-values",
+        "starlette.asgi.request-dispatch-events",
+        "starlette.request.connection-property-missing-auth"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/items/{item_id:int}",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "request-connection-property",
+                    "property": "auth"
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "request-dispatch",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/items/7",
+                "raw_path_base64": "L2l0ZW1zLzc=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": []
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.request-dispatch.missing-user-assertion",
+      "surface": "starlette.applications.Starlette",
+      "operation": "request-dispatch",
+      "covers": [
+        "starlette.routing.request-scope-values",
+        "starlette.asgi.request-dispatch-events",
+        "starlette.request.connection-property-missing-user"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/items/{item_id:int}",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "request-connection-property",
+                    "property": "user"
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "request-dispatch",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/items/7",
+                "raw_path_base64": "L2l0ZW1zLzc=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": []
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.request-dispatch.stream-asend",
+      "surface": "starlette.applications.Starlette",
+      "operation": "request-dispatch",
+      "covers": [
+        "starlette.routing.request-scope-values",
+        "starlette.asgi.request-dispatch-events",
+        "starlette.request.stream-asend"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/items/{item_id:int}",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "request-stream-observer",
+                    "actions": [
+                      {
+                        "operation": "anext"
+                      },
+                      {
+                        "operation": "asend",
+                        "value": "ignored by generator"
+                      },
+                      {
+                        "operation": "anext"
+                      },
+                      {
+                        "operation": "anext"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "request-dispatch",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/items/7",
+                "raw_path_base64": "L2l0ZW1zLzc=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "b25l",
+                  "more_body": true
+                },
+                {
+                  "type": "http.request",
+                  "body_base64": "dHdv",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.request-dispatch.stream-athrow",
+      "surface": "starlette.applications.Starlette",
+      "operation": "request-dispatch",
+      "covers": [
+        "starlette.routing.request-scope-values",
+        "starlette.asgi.request-dispatch-events",
+        "starlette.request.stream-athrow"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/items/{item_id:int}",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "request-stream-observer",
+                    "actions": [
+                      {
+                        "operation": "anext"
+                      },
+                      {
+                        "operation": "athrow",
+                        "exception_type": "ValueError",
+                        "message": "injected request stream error"
+                      },
+                      {
+                        "operation": "anext"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "request-dispatch",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/items/7",
+                "raw_path_base64": "L2l0ZW1zLzc=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "b25l",
+                  "more_body": true
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.request-dispatch.stream-aclose",
+      "surface": "starlette.applications.Starlette",
+      "operation": "request-dispatch",
+      "covers": [
+        "starlette.routing.request-scope-values",
+        "starlette.asgi.request-dispatch-events",
+        "starlette.request.stream-aclose"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/items/{item_id:int}",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "request-stream-observer",
+                    "actions": [
+                      {
+                        "operation": "anext"
+                      },
+                      {
+                        "operation": "aclose"
+                      },
+                      {
+                        "operation": "anext"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "request-dispatch",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/items/7",
+                "raw_path_base64": "L2l0ZW1zLzc=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "b25l",
+                  "more_body": true
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.request-dispatch.sync-request-runtime-worker",
+      "surface": "starlette.applications.Starlette",
+      "operation": "request-dispatch",
+      "covers": [
+        "starlette.routing.request-scope-values",
+        "starlette.asgi.request-dispatch-events",
+        "starlette.routing.sync-endpoint-contextvar-propagation",
+        "starlette.routing.sync-endpoint-worker-thread",
+        "starlette.routing.sync-endpoint-single-invocation",
+        "starlette.request.receive-worker-access",
+        "starlette.request.stream-construction-worker",
+        "starlette.request.body-awaitable-construction-worker",
+        "starlette.request.json-awaitable-construction-worker"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/items/{item_id:int}",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "sync-request-runtime-observer",
+                    "actions": [
+                      {
+                        "operation": "callable-property",
+                        "property": "receive"
+                      },
+                      {
+                        "operation": "construct-stream",
+                        "method": "stream",
+                        "attributes": [
+                          "__aiter__",
+                          "__anext__",
+                          "asend",
+                          "athrow",
+                          "aclose"
+                        ]
+                      },
+                      {
+                        "operation": "construct-awaitable",
+                        "method": "body"
+                      },
+                      {
+                        "operation": "construct-awaitable",
+                        "method": "json"
+                      }
+                    ],
+                    "context_var_name": "sync_request_runtime_context",
+                    "context_value": "caller-context-value",
+                    "response_content": "sync request runtime observed"
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "request-dispatch",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/items/7",
+                "raw_path_base64": "L2l0ZW1zLzc=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": []
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.default-receive.missing-callback",
+      "surface": "starlette.requests.Request",
+      "operation": "default-receive",
+      "covers": [
+        "starlette.request.default-empty-receive-runtime-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "observations": [
+        "receive"
+      ]
+    }
+  ]
+}

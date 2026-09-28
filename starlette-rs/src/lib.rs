@@ -22,6 +22,7 @@ mod lifespan;
 mod request;
 mod response;
 mod route_table;
+mod router_dispatch;
 mod server_error;
 mod websocket;
 
@@ -40,7 +41,7 @@ pub use lifespan::{
 };
 pub use request::{
     BodyProgress, Cookies, QueryParams, RequestBodyAccumulator, RequestBodyError, RequestHeaders,
-    parse_cookie_header,
+    RequestStreamProgress, RequestStreamState, parse_cookie_header,
 };
 pub use response::{
     DebugTracebackFrame, Response, ResponseCall, ResponseCallError, ResponseCallInput,
@@ -49,5 +50,6 @@ pub use response::{
     StreamingResponseEvent,
 };
 pub use route_table::{DetailedRouteMatch, RouteError, RouteMatch, RouteTable};
+pub use router_dispatch::{DispatchPlanError, HttpDispatchPlan, SupplementalRouteMatch};
 pub use server_error::{ServerErrorPlan, ServerErrorPolicy, ServerErrorState};
 pub use websocket::{WebSocketState, WebSocketStateError, WebSocketStateMachine};

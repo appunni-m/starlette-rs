@@ -500,16 +500,7 @@ impl RouteTable {
         root_path: &str,
         method: &str,
     ) -> Option<String> {
-        let route_path = get_route_path(path, root_path);
-        if route_path == "/" {
-            return None;
-        }
-
-        let candidate = if route_path.ends_with('/') {
-            path.trim_end_matches('/').to_owned()
-        } else {
-            format!("{path}/")
-        };
+        let candidate = self.slash_redirect_candidate(path, root_path)?;
 
         match self.matches_detailed_with_root_path(&candidate, root_path, method) {
             DetailedRouteMatch::Matched { .. } | DetailedRouteMatch::MethodNotAllowed { .. } => {
@@ -532,7 +523,7 @@ impl RouteTable {
     }
 }
 
-fn get_route_path<'a>(path: &'a str, root_path: &str) -> &'a str {
+pub(crate) fn get_route_path<'a>(path: &'a str, root_path: &str) -> &'a str {
     if root_path.is_empty() || !path.starts_with(root_path) {
         return path;
     }

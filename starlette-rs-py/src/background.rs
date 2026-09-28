@@ -351,7 +351,7 @@ fn positional_args<'py>(
     PyTuple::new(py, items)
 }
 
-fn is_async_callable(py: Python<'_>, func: &Bound<'_, PyAny>) -> PyResult<bool> {
+pub(crate) fn is_async_callable(py: Python<'_>, func: &Bound<'_, PyAny>) -> PyResult<bool> {
     let partial_type = py.import("functools")?.getattr("partial")?;
     let mut callable = func.clone();
     while callable.is_instance(&partial_type)? {

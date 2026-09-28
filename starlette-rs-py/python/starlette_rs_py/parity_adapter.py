@@ -9,17 +9,20 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import builtins
 import contextlib
 import contextvars
 import functools
 import hashlib
 import importlib.metadata
+import inspect
 import json
 import os
 import platform
 import re
 import sys
 import threading
+import warnings
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -33,8 +36,12 @@ PACKAGE_NAME = "starlette-rs-py"
 WEBSOCKET_SURFACE = "starlette.websockets.WebSocket"
 WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
+WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
+WEBSOCKET_CLOSE_SURFACE = "starlette.websockets.WebSocketClose"
+WEBSOCKET_CLOSE_OPERATION = "call-sequence"
 WEBSOCKET_ROUTE_SURFACE = "starlette.routing.WebSocketRoute"
 WEBSOCKET_ROUTE_OPERATION = "route-dispatch"
+HOST_SURFACE = "starlette.routing.Host"
 REDIRECT_RESPONSE_SURFACE = "starlette.responses.RedirectResponse"
 REDIRECT_RESPONSE_OPERATION = "asgi-call"
 RESPONSE_SURFACE = "starlette.responses.Response"
@@ -42,6 +49,17 @@ JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
 STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
+BODY_LIMIT_SURFACE = "starlette.middleware.body_limit.RequestBodyLimitMiddleware"
+CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
+HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
+TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
+EXCEPTION_VALUES_SURFACE = "starlette.exceptions"
+MIDDLEWARE_CONFIG_SURFACE = "starlette.middleware.Middleware"
+VALUE_FORMATTING_OPERATION = "value-formatting"
+REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
+STATUS_SURFACE = "starlette.status"
+STATUS_OPERATION = "module-symbol-sequence"
+_MISSING = object()
 
 
 class _InputAsyncIterator:
@@ -117,6 +135,29 @@ def _json_safe(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_json_safe(item) for item in value]
     return str(value)
+
+
+async def _request_stream_action(stream: Any, action: dict[str, Any]) -> dict[str, Any]:
+    operation = action["operation"]
+    try:
+        if operation == "anext":
+            value = await stream.__anext__()
+        elif operation == "asend":
+            value = await stream.asend(action["value"])
+        elif operation == "athrow":
+            exception_type = getattr(builtins, action["exception_type"])
+            value = await stream.athrow(exception_type(action["message"]))
+        else:
+            value = await stream.aclose()
+    except Exception as exc:
+        return {
+            "operation": operation,
+            "error": {
+                "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                "message": str(exc),
+            },
+        }
+    return {"operation": operation, "value": _json_safe(value)}
 
 
 def _dispatch_error(exc: Exception) -> dict[str, Any]:
@@ -299,11 +340,10 @@ def _decode_base64(value: str, context: str) -> bytes:
 def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
     if spec["type"] == "lifespan":
         return {"type": "lifespan", "asgi": dict(spec["asgi"])}
-    return {
+    scope = {
         "type": spec["type"],
         "asgi": dict(spec["asgi"]),
         "http_version": spec["http_version"],
-        "method": spec["method"],
         "scheme": spec["scheme"],
         "path": spec["path"],
         "raw_path": _decode_base64(spec["raw_path_base64"], "scope.raw_path_base64"),
@@ -316,11 +356,27 @@ def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
         "client": tuple(spec["client"]),
         "server": tuple(spec["server"]),
     }
+    if spec["type"] == "http":
+        scope["method"] = spec["method"]
+    elif spec["type"] == "websocket":
+        scope["subprotocols"] = list(spec["subprotocols"])
+    return scope
 
 
 def _make_message(spec: dict[str, Any]) -> dict[str, Any]:
     if spec["type"] in {"lifespan.startup", "lifespan.shutdown"}:
         return {"type": spec["type"]}
+    if spec["type"] == "websocket.connect":
+        return {"type": spec["type"]}
+    if spec["type"] == "websocket.disconnect":
+        return {"type": spec["type"], "code": spec["code"]}
+    if spec["type"] == "websocket.receive":
+        if "bytes_base64" in spec:
+            return {
+                "type": spec["type"],
+                "bytes": _decode_base64(spec["bytes_base64"], "receive.bytes_base64"),
+            }
+        return {"type": spec["type"], "text": spec["text"]}
     return {
         "type": spec["type"],
         "body": _decode_base64(spec["body_base64"], "receive.body_base64"),
@@ -423,6 +479,8 @@ def _canonical_message(message: dict[str, Any]) -> dict[str, Any]:
     kind = message["type"]
     if kind.startswith("lifespan."):
         return {"type": kind}
+    if kind.startswith("websocket."):
+        return _canonical_websocket_message(message)
     if kind == "http.response.start":
         return {
             "type": kind,
@@ -464,6 +522,84 @@ def _sync_request_observer_response(
             "context_value": context_value,
             "different_worker_thread": current_thread_id != caller_thread_id,
             "invocation_count": state["invocation_count"],
+        }
+    from starlette.responses import PlainTextResponse
+
+    return PlainTextResponse(content=spec["response_content"])
+
+
+def _sync_request_runtime_observer_response(
+    request: Any, spec: dict[str, Any], state: dict[str, Any]
+) -> Any:
+    request_actions = []
+    for index, action in enumerate(spec["actions"]):
+        if not isinstance(action, dict) or not isinstance(action.get("operation"), str):
+            raise ValueError(f"sync request action[{index}] must be a tagged object")
+        operation = action["operation"]
+        if operation == "callable-property":
+            _exact_object(action, {"operation", "property"}, "callable-property action")
+            if action["property"] != "receive":
+                raise ValueError("callable-property action must read Request.receive")
+            value = getattr(request, action["property"])
+            request_actions.append(
+                {
+                    "operation": operation,
+                    "property": action["property"],
+                    "callable": callable(value),
+                }
+            )
+        elif operation == "construct-stream":
+            _exact_object(
+                action,
+                {"operation", "method", "attributes"},
+                "construct-stream action",
+            )
+            if action["method"] != "stream":
+                raise ValueError("construct-stream action must call Request.stream")
+            value = getattr(request, action["method"])()
+            request_actions.append(
+                {
+                    "operation": operation,
+                    "method": action["method"],
+                    "attributes": {
+                        name: callable(getattr(value, name, None)) for name in action["attributes"]
+                    },
+                }
+            )
+        elif operation == "construct-awaitable":
+            _exact_object(
+                action,
+                {"operation", "method"},
+                "construct-awaitable action",
+            )
+            if action["method"] not in {"body", "json"}:
+                raise ValueError(
+                    "construct-awaitable action must call Request.body or Request.json"
+                )
+            value = getattr(request, action["method"])()
+            awaitable = inspect.isawaitable(value)
+            close_result = value.close()
+            request_actions.append(
+                {
+                    "operation": operation,
+                    "method": action["method"],
+                    "awaitable": awaitable,
+                    "close_result": _json_safe(close_result),
+                }
+            )
+        else:
+            raise ValueError(f"unsupported synchronous Request action: {operation!r}")
+
+    caller_thread_id = state["caller_thread_id"]
+    if caller_thread_id is None:
+        raise RuntimeError("sync endpoint ran without a caller thread identity")
+    with state["lock"]:
+        state["invocation_count"] += 1
+        state["observation"] = {
+            "context_value": state["context_var"].get(),
+            "different_worker_thread": threading.get_ident() != caller_thread_id,
+            "invocation_count": state["invocation_count"],
+            "request_actions": request_actions,
         }
     from starlette.responses import PlainTextResponse
 
@@ -721,6 +857,41 @@ def _materialize_application(
                 return endpoint
 
             route_endpoint = make_request_endpoint(response_spec)
+        elif response_spec["kind"] == "request-connection-property":
+            if set(response_spec) != {"kind", "property"}:
+                raise ValueError("request connection-property input does not match its schema")
+
+            def make_request_connection_property_endpoint(spec: dict[str, Any]) -> Any:
+                async def endpoint(request: Any) -> Any:
+                    value = getattr(request, spec["property"])
+                    request_observations.append(
+                        {
+                            "property": spec["property"],
+                            "value": _json_safe(value),
+                            "type": type(value).__name__,
+                        }
+                    )
+                    return PlainTextResponse("request-property-observed")
+
+                return endpoint
+
+            route_endpoint = make_request_connection_property_endpoint(response_spec)
+        elif response_spec["kind"] == "request-stream-observer":
+            if set(response_spec) != {"kind", "actions"}:
+                raise ValueError("request stream-observer input does not match its schema")
+
+            def make_request_stream_endpoint(spec: dict[str, Any]) -> Any:
+                async def endpoint(request: Any) -> Any:
+                    stream = request.stream()
+                    observations = []
+                    for action in spec["actions"]:
+                        observations.append(await _request_stream_action(stream, action))
+                    request_observations.append({"stream_actions": observations})
+                    return PlainTextResponse("request-stream-observed")
+
+                return endpoint
+
+            route_endpoint = make_request_stream_endpoint(response_spec)
         elif response_spec["kind"] == "http-exception":
             required_fields = {"kind", "status_code", "detail", "headers"}
             if set(response_spec) != required_fields:
@@ -824,6 +995,35 @@ def _materialize_application(
                 )
             else:
                 raise ValueError(f"unsupported sync endpoint callable kind: {callable_kind!r}")
+        elif response_spec["kind"] == "sync-request-runtime-observer":
+            _exact_object(
+                response_spec,
+                {
+                    "kind",
+                    "actions",
+                    "context_var_name",
+                    "context_value",
+                    "response_content",
+                },
+                "sync request runtime observer endpoint",
+            )
+            sync_state = {
+                "context_var": contextvars.ContextVar(response_spec["context_var_name"]),
+                "context_value": response_spec["context_value"],
+                "caller_thread_id": None,
+                "invocation_count": 0,
+                "observation": None,
+                "lock": threading.Lock(),
+            }
+            sync_endpoint_states.append(sync_state)
+
+            def make_runtime_endpoint(spec: dict[str, Any], state: dict[str, Any]) -> Any:
+                def endpoint(request: Any) -> Any:
+                    return _sync_request_runtime_observer_response(request, spec, state)
+
+                return endpoint
+
+            route_endpoint = make_runtime_endpoint(response_spec, sync_state)
         elif response_spec["kind"] == "asgi-callable-instance-observer":
             required_fields = {"kind", "response_content"}
             if set(response_spec) != required_fields:
@@ -942,7 +1142,7 @@ async def _invoke(
 
     events = [_canonical_message(message) for message in sent]
     start = next((event for event in events if event["type"] == "http.response.start"), None)
-    if start is None and scope["type"] != "lifespan":
+    if start is None and scope["type"] not in {"lifespan", "websocket"}:
         raise RuntimeError("target completed without an http.response.start event")
     body_chunks = [
         event["body"]["data"] for event in events if event["type"] == "http.response.body"
@@ -1056,6 +1256,124 @@ def _materialize_gzip_middleware(arguments: dict[str, Any]) -> Any:
     )
 
 
+def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
+    app_spec = _exact_object(app_spec, {"kind", "messages"}, "ASGI sequence app")
+    if app_spec["kind"] != "asgi-response-sequence" or not isinstance(app_spec["messages"], list):
+        raise ValueError("ASGI app must be an input-defined message sequence")
+    response_messages = app_spec["messages"]
+
+    async def response_app(_scope: Any, _receive: Any, send: Any) -> None:
+        for index, spec in enumerate(response_messages):
+            if not isinstance(spec, dict) or not isinstance(spec.get("type"), str):
+                raise ValueError(f"inner response message[{index}] must declare its ASGI type")
+            message_type = spec["type"]
+            if message_type == "http.response.start":
+                _exact_object(
+                    spec,
+                    {"type", "status", "headers_base64_pairs"},
+                    f"inner response message[{index}]",
+                )
+                message = {
+                    "type": message_type,
+                    "status": spec["status"],
+                    "headers": [
+                        (
+                            _decode_base64(name, "inner response header name"),
+                            _decode_base64(value, "inner response header value"),
+                        )
+                        for name, value in spec["headers_base64_pairs"]
+                    ],
+                }
+            elif message_type == "http.response.body":
+                _exact_object(
+                    spec,
+                    {"type", "body_base64", "more_body"},
+                    f"inner response message[{index}]",
+                )
+                message = {
+                    "type": message_type,
+                    "body": _decode_base64(spec["body_base64"], "inner response body"),
+                    "more_body": spec["more_body"],
+                }
+            elif message_type == "http.response.pathsend":
+                _exact_object(spec, {"type", "path"}, f"inner response message[{index}]")
+                message = {"type": message_type, "path": spec["path"]}
+            elif message_type == "websocket.close":
+                _exact_object(spec, {"type", "code"}, f"inner response message[{index}]")
+                message = {"type": message_type, "code": spec["code"]}
+            else:
+                raise ValueError(f"unsupported inner response event: {message_type!r}")
+            await send(message)
+
+    return response_app
+
+
+def _materialize_protocol_middleware(surface: str, arguments: dict[str, Any]) -> Any:
+    app = _materialize_asgi_sequence_app(arguments["app"])
+    if surface == CORS_SURFACE:
+        from starlette.middleware.cors import CORSMiddleware
+
+        return CORSMiddleware(
+            app, **{key: value for key, value in arguments.items() if key != "app"}
+        )
+    if surface == HTTPS_REDIRECT_SURFACE:
+        from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+
+        return HTTPSRedirectMiddleware(app)
+    if surface == TRUSTED_HOST_SURFACE:
+        from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+        return TrustedHostMiddleware(
+            app, **{key: value for key, value in arguments.items() if key != "app"}
+        )
+    raise ValueError(f"unsupported ASGI middleware surface: {surface}")
+
+
+def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
+    steps = case["steps"]
+    constructor_step = steps[0]
+    constructor_arguments = _literal_arguments(
+        constructor_step,
+        set(constructor_step["arguments"]),
+        f"{case['surface']} constructor",
+    )
+    try:
+        middleware = _materialize_protocol_middleware(case["surface"], constructor_arguments)
+    except Exception as exc:
+        error = _dispatch_error(exc)
+        error["stage"] = "construct"
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": [
+                {
+                    "step_id": "construct",
+                    "status": "error",
+                    "error": error,
+                    "partial_value": {},
+                }
+            ],
+        }
+    if case["operation"] == "__init__":
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": [
+                {"step_id": "construct", "status": "ok", "value": {"constructed": True}}
+            ],
+        }
+    dispatch_arguments = _literal_arguments(
+        steps[1], {"scope", "receive", "send"}, f"{case['surface']} dispatch"
+    )
+    value = asyncio.run(_invoke(middleware, dispatch_arguments, [], [], None, False))
+    selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "dispatch", "status": "ok", "value": selected}],
+    }
+
+
 def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
     steps = case["steps"]
     if (
@@ -1088,8 +1406,160 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _make_websocket_scope(spec: dict[str, Any]) -> dict[str, Any]:
+def _materialize_body_limit_script(spec: dict[str, Any], trace: list[dict[str, Any]]) -> Any:
+    from starlette.middleware.body_limit import (
+        _BODY_LIMIT_RESPONDER_SCOPE_KEY,
+        MAX_BODY_SIZE_SCOPE_KEY,
+        RequestBodyLimitMiddleware,
+    )
+
+    app_spec = _exact_object(spec, {"kind", "actions"}, "body-limit script app")
+    if app_spec["kind"] != "asgi-body-limit-script" or not isinstance(app_spec["actions"], list):
+        raise ValueError("body-limit app must be an input-defined ASGI action script")
+    actions = app_spec["actions"]
+
+    async def script(scope: Any, receive: Any, send: Any) -> None:
+        for index, action in enumerate(actions):
+            if not isinstance(action, dict) or not isinstance(action.get("action"), str):
+                raise ValueError(f"body-limit action[{index}] must declare an action")
+            kind = action["action"]
+            if kind == "receive":
+                _exact_object(action, {"action"}, f"body-limit action[{index}]")
+                message = await receive()
+                trace.append({"event": "receive", "message": _json_safe(message)})
+            elif kind == "send":
+                _exact_object(action, {"action", "message"}, f"body-limit action[{index}]")
+                operation, message = _materialize_asgi_action(
+                    {"action": "send", "message": action["message"]}, index
+                )
+                if operation != "send":
+                    raise RuntimeError("body-limit send action did not materialize a send")
+                await send(message)
+                trace.append({"event": "send", "message": _canonical_message(message)})
+            elif kind == "nested":
+                _exact_object(
+                    action,
+                    {"action", "max_body_size", "actions"},
+                    f"body-limit action[{index}]",
+                )
+                nested_app = _materialize_body_limit_script(
+                    {"kind": "asgi-body-limit-script", "actions": action["actions"]}, trace
+                )
+                nested = RequestBodyLimitMiddleware(nested_app, action["max_body_size"])
+                await nested(scope, receive, send)
+                trace.append({"event": "nested-complete", "max_body_size": action["max_body_size"]})
+            elif kind == "observe-scope":
+                _exact_object(action, {"action"}, f"body-limit action[{index}]")
+                trace.append(
+                    {
+                        "event": "scope",
+                        "type": scope.get("type"),
+                        "max_body_size_present": MAX_BODY_SIZE_SCOPE_KEY in scope,
+                        "max_body_size": _json_safe(scope.get(MAX_BODY_SIZE_SCOPE_KEY)),
+                        "responder_present": _BODY_LIMIT_RESPONDER_SCOPE_KEY in scope,
+                    }
+                )
+            elif kind in {"raise-http-exception", "raise-runtime-error"}:
+                operation, exception = _materialize_asgi_action(action, index)
+                if operation != "raise":
+                    raise RuntimeError("body-limit exception action did not materialize an error")
+                raise exception
+            else:
+                raise ValueError(f"unsupported body-limit action: {kind!r}")
+
+    return script
+
+
+def _run_body_limit_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.middleware.body_limit import (
+        _BODY_LIMIT_RESPONDER_SCOPE_KEY,
+        MAX_BODY_SIZE_SCOPE_KEY,
+        RequestBodyLimitMiddleware,
+    )
+
+    steps = case["steps"]
+    if (
+        len(steps) != 2
+        or [step.get("step_id") for step in steps] != ["middleware", "dispatch"]
+        or [step.get("operation") for step in steps] != ["__init__", "__call__"]
+        or any(step.get("surface") != case["surface"] for step in steps)
+        or steps[0].get("receiver") is not None
+        or steps[1].get("receiver") != {"kind": "binding", "step_id": "middleware"}
+    ):
+        raise ValueError("RequestBodyLimitMiddleware cases must construct then dispatch")
+    if case["execution_schedule"] != ["dispatch"] or case["observations"] != ["dispatch"]:
+        raise ValueError("RequestBodyLimitMiddleware cases must observe one dispatch")
+    constructor_arguments = _literal_arguments(
+        steps[0], {"app", "max_body_size"}, "RequestBodyLimitMiddleware constructor"
+    )
+    dispatch_arguments = _literal_arguments(
+        steps[1], {"scope", "receive", "send"}, "RequestBodyLimitMiddleware dispatch"
+    )
+    trace: list[dict[str, Any]] = []
+    app = _materialize_body_limit_script(constructor_arguments["app"], trace)
+    middleware = RequestBodyLimitMiddleware(app, constructor_arguments["max_body_size"])
+
+    scope_spec = dict(dispatch_arguments["scope"])
+    prior_scope_limit = scope_spec.pop("preexisting_max_body_size", _MISSING)
+    scope = _make_scope(scope_spec)
+    if prior_scope_limit is not _MISSING:
+        scope[MAX_BODY_SIZE_SCOPE_KEY] = prior_scope_limit
+    incoming = [_make_message(message) for message in dispatch_arguments["receive"]]
+    received = 0
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        nonlocal received
+        if received < len(incoming):
+            message = incoming[received]
+            received += 1
+            return message
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    async def dispatch() -> dict[str, Any] | None:
+        try:
+            await middleware(scope, receive, send)
+        except Exception as exc:
+            return _dispatch_error(exc)
+        return None
+
+    captured_error = asyncio.run(dispatch())
+
+    events = [_canonical_message(message) for message in sent]
+    response_start = next(
+        (event for event in events if event["type"] == "http.response.start"), None
+    )
+    body = b"".join(
+        base64.b64decode(event["body"]["data"])
+        for event in events
+        if event["type"] == "http.response.body"
+    )
+    value = {
+        "response_status": response_start["status"] if response_start is not None else None,
+        "response_bytes": {"encoding": "base64", "data": base64.b64encode(body).decode("ascii")},
+        "asgi_event_order": [event["type"] for event in events],
+        "asgi_events": events,
+        "received_message_count": received,
+        "script_trace": trace,
+        "scope_after": {
+            "max_body_size_present": MAX_BODY_SIZE_SCOPE_KEY in scope,
+            "max_body_size": _json_safe(scope.get(MAX_BODY_SIZE_SCOPE_KEY)),
+            "responder_present": _BODY_LIMIT_RESPONDER_SCOPE_KEY in scope,
+        },
+        "dispatch_error": captured_error,
+    }
     return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "dispatch", "status": "ok", "value": {"dispatch": value}}],
+    }
+
+
+def _make_websocket_scope(spec: dict[str, Any]) -> dict[str, Any]:
+    scope = {
         "type": "websocket",
         "asgi": dict(spec["asgi"]),
         "http_version": spec["http_version"],
@@ -1111,6 +1581,9 @@ def _make_websocket_scope(spec: dict[str, Any]) -> dict[str, Any]:
         "server": tuple(spec["server"]),
         "subprotocols": list(spec["subprotocols"]),
     }
+    if "extensions" in spec:
+        scope["extensions"] = dict(spec["extensions"])
+    return scope
 
 
 def _materialize_websocket_message(spec: dict[str, Any]) -> dict[str, Any]:
@@ -1366,6 +1839,247 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "scope",
+            "incoming",
+            "actions",
+            "observations",
+        },
+        "WebSocket convenience-sequence case",
+    )
+    if case["surface"] != WEBSOCKET_SURFACE or case["operation"] != WEBSOCKET_CONVENIENCE_OPERATION:
+        raise ValueError(
+            "WebSocket workflow is outside the declared convenience-sequence operation"
+        )
+    import builtins
+
+    from starlette.responses import Response
+    from starlette.websockets import WebSocket
+
+    incoming = [_materialize_websocket_message(message) for message in case["incoming"]]
+    incoming_index = 0
+    callback_tape: list[dict[str, Any]] = []
+    pending_send_error: dict[str, Any] | None = None
+
+    async def receive() -> dict[str, Any]:
+        nonlocal incoming_index
+        if incoming_index >= len(incoming):
+            raise ValueError("WebSocket receive action exhausted its input-only message sequence")
+        message = incoming[incoming_index]
+        incoming_index += 1
+        callback_tape.append(
+            {"direction": "receive", "message": _canonical_websocket_message(message)}
+        )
+        return message
+
+    async def send(message: dict[str, Any]) -> None:
+        callback_tape.append(
+            {"direction": "send", "message": _canonical_websocket_message(message)}
+        )
+        if pending_send_error is not None:
+            raise OSError(pending_send_error["message"])
+
+    websocket = WebSocket(_make_websocket_scope(case["scope"]), receive, send)
+
+    async def run_actions() -> list[dict[str, Any]]:
+        nonlocal pending_send_error
+        results: list[dict[str, Any]] = []
+        for action in case["actions"]:
+            action_id = action["action_id"]
+            method = action["method"]
+            arguments = action["arguments"]
+            pending_send_error = action.get("send_error")
+            try:
+                if method == "accept":
+                    kwargs: dict[str, Any] = {}
+                    if "subprotocol" in arguments:
+                        kwargs["subprotocol"] = arguments["subprotocol"]
+                    if "headers_base64_pairs" in arguments:
+                        header_pairs = arguments["headers_base64_pairs"]
+                        kwargs["headers"] = (
+                            None
+                            if header_pairs is None
+                            else [
+                                (
+                                    _decode_base64(pair[0], "WebSocket accept header name"),
+                                    _decode_base64(pair[1], "WebSocket accept header value"),
+                                )
+                                for pair in header_pairs
+                            ]
+                        )
+                    value = await websocket.accept(**kwargs)
+                elif method in {"receive_text", "receive_bytes"}:
+                    value = await getattr(websocket, method)()
+                elif method == "receive_json":
+                    kwargs = {"mode": arguments["mode"]} if "mode" in arguments else {}
+                    value = await websocket.receive_json(**kwargs)
+                elif method in {"send_text", "send_json", "close"}:
+                    kwargs = dict(arguments)
+                    value = await getattr(websocket, method)(**kwargs)
+                elif method == "send_bytes":
+                    value = await websocket.send_bytes(
+                        _decode_base64(arguments["data_base64"], "WebSocket send_bytes.data")
+                    )
+                elif method == "iter_text" or method == "iter_bytes" or method == "iter_json":
+                    iterator = getattr(websocket, method)()
+                    values = []
+                    async for item in iterator:
+                        values.append(item)
+                    value = values
+                elif method == "iterator-probe":
+                    iterator = getattr(websocket, arguments["iterator"])()
+                    value = {
+                        attribute: hasattr(iterator, attribute)
+                        for attribute in arguments["attributes"]
+                    }
+                elif method == "iterator-control":
+                    iterator = getattr(websocket, arguments["iterator"])()
+                    control = arguments["control"]
+                    if control == "asend":
+                        value = await iterator.asend(arguments["value"])
+                    elif control == "athrow":
+                        exception_class = getattr(builtins, arguments["exception"]["class"])
+                        exception = exception_class(arguments["exception"]["message"])
+                        value = await iterator.athrow(exception)
+                    else:
+                        value = await iterator.aclose()
+                elif method == "send_denial_response":
+                    response_spec = arguments["response"]
+                    header_pairs = response_spec["headers_base64_pairs"]
+                    response_headers = {
+                        _decode_base64(pair[0], "WebSocket denial response header name").decode(
+                            "latin-1"
+                        ): _decode_base64(pair[1], "WebSocket denial response header value").decode(
+                            "latin-1"
+                        )
+                        for pair in header_pairs
+                    }
+                    response = Response(
+                        content=_decode_base64(
+                            response_spec["content_base64"], "WebSocket denial response content"
+                        ),
+                        status_code=response_spec["status_code"],
+                        headers=response_headers,
+                    )
+                    value = await websocket.send_denial_response(response)
+                else:
+                    raise ValueError(f"unsupported WebSocket convenience action: {method!r}")
+            except Exception as exc:
+                results.append(
+                    {
+                        "action_id": action_id,
+                        "method": method,
+                        "outcome": "error",
+                        "error": _websocket_action_error(exc),
+                    }
+                )
+            else:
+                results.append(
+                    {
+                        "action_id": action_id,
+                        "method": method,
+                        "outcome": "ok",
+                        "value": _json_safe(value),
+                    }
+                )
+            finally:
+                pending_send_error = None
+        return results
+
+    action_results = asyncio.run(run_actions())
+    available = {
+        "action_results": action_results,
+        "asgi_callback_tape": callback_tape,
+        "client_state": _websocket_state_name(websocket.client_state),
+        "application_state": _websocket_state_name(websocket.application_state),
+    }
+    if case["observations"] != [WEBSOCKET_CONVENIENCE_OPERATION]:
+        raise ValueError(
+            "WebSocket observations must select the convenience-sequence workflow result"
+        )
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": WEBSOCKET_CONVENIENCE_OPERATION,
+                "status": "ok",
+                "value": available,
+            }
+        ],
+    }
+
+
+def _run_websocket_close_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "scope",
+            "close_app",
+            "observations",
+        },
+        "WebSocketClose call-sequence case",
+    )
+    if case["surface"] != WEBSOCKET_CLOSE_SURFACE or case["operation"] != WEBSOCKET_CLOSE_OPERATION:
+        raise ValueError("workflow is outside the declared WebSocketClose call-sequence operation")
+    from starlette.websockets import WebSocketClose
+
+    callback_tape: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        raise ValueError("WebSocketClose input provides no receive messages")
+
+    async def send(message: dict[str, Any]) -> None:
+        callback_tape.append(
+            {"direction": "send", "message": _canonical_websocket_message(message)}
+        )
+
+    spec = case["close_app"]
+    close_app = WebSocketClose(**spec["arguments"])
+    initial_attributes = {
+        "code": _json_safe(close_app.code),
+        "reason": _json_safe(close_app.reason),
+    }
+    for name, value in spec["setters"].items():
+        setattr(close_app, name, value)
+    final_attributes = {"code": _json_safe(close_app.code), "reason": _json_safe(close_app.reason)}
+    try:
+        asyncio.run(close_app(_make_websocket_scope(case["scope"]), receive, send))
+        call = {"outcome": "ok"}
+    except Exception as exc:
+        call = {"outcome": "error", "error": _websocket_action_error(exc)}
+    available = {
+        "initial_attributes": initial_attributes,
+        "final_attributes": final_attributes,
+        "asgi_callback_tape": callback_tape,
+        "call": call,
+    }
+    if case["observations"] != [WEBSOCKET_CLOSE_OPERATION]:
+        raise ValueError("WebSocketClose observations must select the call-sequence result")
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": WEBSOCKET_CLOSE_OPERATION, "status": "ok", "value": available}
+        ],
+    }
+
+
 def _canonical_websocket_route_event(message: dict[str, Any]) -> dict[str, Any]:
     if message["type"].startswith("websocket."):
         return _canonical_websocket_message(message)
@@ -1585,7 +2299,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.convertors import Convertor, register_url_convertor
     from starlette.responses import PlainTextResponse
-    from starlette.routing import Mount, Route, Router
+    from starlette.routing import Host, Mount, Route, Router
 
     for spec in case.get("custom_convertors", []):
 
@@ -1622,12 +2336,30 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
 
         return Route(route_spec["path"], endpoint=endpoint, methods=route_spec["methods"])
 
+    def make_host_route(route_spec: dict[str, Any], route_index: int) -> Any:
+        app_spec = route_spec["app"]
+
+        async def app(scope: Any, receive: Any, send: Any) -> None:
+            route_index_observations.append(route_index)
+            await PlainTextResponse(
+                app_spec["content"],
+                status_code=app_spec["status_code"],
+                media_type=app_spec["media_type"],
+            )(scope, receive, send)
+
+        return Host(route_spec["host"], app, name=route_spec["name"])
+
     if case["surface"] == "starlette.routing.Router":
         redirect_slashes = case["redirect_slashes"]
         if type(redirect_slashes) is not bool:
             raise ValueError("Router redirect_slashes must be a boolean")
         app = Router(
-            routes=[make_route(route, index) for index, route in enumerate(case["routes"])],
+            routes=[
+                make_host_route(route, index)
+                if route["kind"] == "host-route"
+                else make_route(route, index)
+                for index, route in enumerate(case["routes"])
+            ],
             redirect_slashes=redirect_slashes,
         )
     elif case["surface"] == "starlette.routing.Mount":
@@ -1668,10 +2400,14 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
     observation = {
         "response_status": response_start["status"] if response_start is not None else None,
         "ordered_repeated_headers": response_start["headers"] if response_start is not None else [],
-        "response_bytes": {
-            "encoding": "base64",
-            "data": base64.b64encode(response_body).decode("ascii"),
-        },
+        "response_bytes": (
+            {
+                "encoding": "base64",
+                "data": base64.b64encode(response_body).decode("ascii"),
+            }
+            if response_start is not None
+            else None
+        ),
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
     }
@@ -1954,8 +2690,22 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"Response HTTP scope.{field} must be a [host, port] pair")
     if not isinstance(case["incoming"], list) or case["incoming"]:
         raise ValueError("Response ASGI-call requires an empty incoming stream")
+    send_error_spec: dict[str, Any] | None = None
     if case["send"] != {"kind": "capture-asgi-send"}:
-        raise ValueError("send input must select the declared ASGI message collector")
+        if surface != STREAMING_RESPONSE_SURFACE:
+            raise ValueError("send input must select the declared ASGI message collector")
+        send_error_spec = _exact_object(
+            case["send"],
+            {"kind", "event_index", "message"},
+            "StreamingResponse failing send",
+        )
+        if (
+            send_error_spec["kind"] != "capture-asgi-send-until-oserror"
+            or type(send_error_spec["event_index"]) is not int
+            or send_error_spec["event_index"] < 0
+            or not isinstance(send_error_spec["message"], str)
+        ):
+            raise ValueError("StreamingResponse failing send input is invalid")
 
     background_values: list[str] | None = None
     if "background" in case:
@@ -2012,12 +2762,25 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     async def receive() -> dict[str, Any]:
         return {"type": "http.disconnect"}
 
+    send_index = 0
+
     async def send(message: dict[str, Any]) -> None:
+        nonlocal send_index
+        if send_error_spec is not None and send_index == send_error_spec["event_index"]:
+            send_index += 1
+            raise OSError(send_error_spec["message"])
         sent.append(message)
         if execution_trace is not None:
             execution_trace.append({"event": "asgi-send", "message": _canonical_message(message)})
+        send_index += 1
 
-    asyncio.run(response(scope, receive, send))
+    captured_error: Exception | None = None
+    try:
+        asyncio.run(response(scope, receive, send))
+    except Exception as exc:
+        if send_error_spec is None:
+            raise
+        captured_error = exc
     events = [_canonical_message(message) for message in sent]
     response_start = next(
         (message for message in sent if message["type"] == "http.response.start"), None
@@ -2046,13 +2809,23 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if execution_trace is not None:
         observation["execution_trace"] = execution_trace
-    return {
+    item = {
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [
             {"step_id": case["observations"][0], "status": "ok", "value": observation}
         ],
     }
+    if captured_error is not None:
+        item["observations"] = [
+            {
+                "step_id": case["observations"][0],
+                "status": "error",
+                "error": _dispatch_error(captured_error),
+                "partial_value": observation,
+            }
+        ]
+    return item
 
 
 def _reverse_url_error(exc: Exception) -> dict[str, str]:
@@ -2075,7 +2848,7 @@ def _build_reverse_route_node(
 ) -> Any:
     from starlette.applications import Starlette
     from starlette.responses import PlainTextResponse
-    from starlette.routing import Mount, Route, Router, WebSocketRoute
+    from starlette.routing import Host, Mount, Route, Router, WebSocketRoute
 
     kind = node["kind"]
     if kind == "http-route":
@@ -2116,6 +2889,17 @@ def _build_reverse_route_node(
             routes=[
                 _build_reverse_route_node(child, lookup, observation) for child in node["routes"]
             ]
+        )
+    if kind == "host-route":
+        return Host(
+            node["host"],
+            app=Router(
+                routes=[
+                    _build_reverse_route_node(child, lookup, observation)
+                    for child in node["routes"]
+                ]
+            ),
+            name=node["name"],
         )
     raise ValueError(f"unsupported reverse URL route node kind: {kind!r}")
 
@@ -2229,7 +3013,255 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _exception_value_snapshot(instance: Any, fields: tuple[str, ...], phase: str) -> dict[str, Any]:
+    return {
+        "phase": phase,
+        "fields": {name: _json_safe(getattr(instance, name)) for name in fields},
+        "str": str(instance),
+        "repr": repr(instance),
+    }
+
+
+def _run_default_receive_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "scope",
+            "observations",
+        },
+        "Request default-receive case",
+    )
+    from starlette.requests import Request
+
+    request = Request(_make_scope(case["scope"]))
+
+    async def observe() -> dict[str, Any]:
+        try:
+            message = await request.receive()
+        except Exception as exc:
+            return {
+                "outcome": "error",
+                "error": {
+                    "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                    "message": str(exc),
+                },
+            }
+        return {"outcome": "value", "value": _json_safe(message)}
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": "receive", "status": "ok", "value": {"receive": asyncio.run(observe())}}
+        ],
+    }
+
+
+def _run_status_symbols_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "public_names",
+            "deprecated_names",
+            "missing_names",
+            "observe_directory",
+            "observations",
+        },
+        "status module-symbol-sequence case",
+    )
+    from starlette import status
+
+    public_names = list(status.__all__)
+    public_values = {name: getattr(status, name) for name in case["public_names"]}
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        deprecated_values = [
+            {"name": name, "value": getattr(status, name)} for name in case["deprecated_names"]
+        ]
+    missing_attributes = []
+    for name in case["missing_names"]:
+        try:
+            value = getattr(status, name)
+        except AttributeError as exc:
+            missing_attributes.append(
+                {
+                    "name": name,
+                    "outcome": "attribute-error",
+                    "message": str(exc),
+                }
+            )
+        else:
+            missing_attributes.append(
+                {"name": name, "outcome": "value", "value": _json_safe(value)}
+            )
+    values = {
+        "public_names": public_names,
+        "public_values": public_values,
+        "deprecated_values_and_warnings": {
+            "values": deprecated_values,
+            "warnings": [
+                {
+                    "category": f"{item.category.__module__}.{item.category.__qualname__}",
+                    "message": str(item.message),
+                }
+                for item in recorded
+            ],
+        },
+        "directory": dir(status) if case["observe_directory"] else None,
+        "missing_attribute": missing_attributes,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": selector, "status": "ok", "value": values}
+            for selector in case["observations"]
+        ],
+    }
+
+
+def _run_value_formatting_case(case: dict[str, Any]) -> dict[str, Any]:
+    if case["surface"] == EXCEPTION_VALUES_SURFACE:
+        _exact_object(
+            case,
+            {
+                "case_id",
+                "surface",
+                "operation",
+                "covers",
+                "target_profiles",
+                "assets",
+                "instances",
+                "observations",
+            },
+            "exception value-formatting case",
+        )
+        from starlette.exceptions import HTTPException, WebSocketException
+
+        observed_instances: list[dict[str, Any]] = []
+        for index, item in enumerate(case["instances"]):
+            _exact_object(
+                item,
+                {"kind", "subclass_name", "arguments", "mutations"},
+                f"exception instance[{index}]",
+            )
+            base = HTTPException if item["kind"] == "http" else WebSocketException
+            exception_type = (
+                type(item["subclass_name"], (base,), {})
+                if item["subclass_name"] is not None
+                else base
+            )
+            try:
+                instance = exception_type(**item["arguments"])
+            except Exception as exc:
+                observed_instances.append(
+                    {
+                        "index": index,
+                        "kind": item["kind"],
+                        "outcome": "constructor-error",
+                        "error": {
+                            "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                            "message": str(exc),
+                        },
+                    }
+                )
+                continue
+
+            fields = (
+                ("status_code", "detail", "headers")
+                if item["kind"] == "http"
+                else ("code", "reason")
+            )
+
+            snapshots = [_exception_value_snapshot(instance, fields, "initial")]
+            for mutation_index, mutation in enumerate(item["mutations"]):
+                _exact_object(mutation, {"field", "value"}, f"exception mutation[{mutation_index}]")
+                setattr(instance, mutation["field"], mutation["value"])
+                snapshots.append(
+                    _exception_value_snapshot(instance, fields, f"mutation-{mutation_index}")
+                )
+            observed_instances.append(
+                {
+                    "index": index,
+                    "kind": item["kind"],
+                    "outcome": "constructed",
+                    "snapshots": snapshots,
+                }
+            )
+        value = {"value-formatting": {"instances": observed_instances}}
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": [
+                {"step_id": VALUE_FORMATTING_OPERATION, "status": "ok", "value": value}
+            ],
+        }
+
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "middleware",
+            "observations",
+        },
+        "Middleware value-formatting case",
+    )
+    from starlette.middleware import Middleware
+
+    spec = _exact_object(case["middleware"], {"class_name", "args", "kwargs"}, "Middleware input")
+    middleware_class = type(spec["class_name"], (), {"__module__": "starlette.middleware"})
+    middleware = Middleware(middleware_class, *spec["args"], **spec["kwargs"])
+    iter_values = list(middleware)
+    iter_observation = [
+        {"kind": "callable", "name": iter_values[0].__name__},
+        _json_safe(iter_values[1]),
+        _json_safe(iter_values[2]),
+    ]
+    values = {"repr": repr(middleware), "__iter__": iter_observation}
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": selector, "status": "ok", "value": values}
+            for selector in case["observations"]
+        ],
+    }
+
+
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_DEFAULT_RECEIVE_OPERATION
+    ):
+        return _run_default_receive_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        STATUS_SURFACE,
+        STATUS_OPERATION,
+    ):
+        return _run_status_symbols_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("operation") == VALUE_FORMATTING_OPERATION
+        and case.get("surface") in {EXCEPTION_VALUES_SURFACE, MIDDLEWARE_CONFIG_SURFACE}
+    ):
+        return _run_value_formatting_case(case)
     if isinstance(case, dict) and case.get("operation") in {"url_path_for", "url_for"}:
         return _run_reverse_url_case(case)
     if (
@@ -2244,6 +3276,18 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == WEBSOCKET_STATE_OPERATION
     ):
         return _run_websocket_state_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == WEBSOCKET_SURFACE
+        and case.get("operation") == WEBSOCKET_CONVENIENCE_OPERATION
+    ):
+        return _run_websocket_convenience_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == WEBSOCKET_CLOSE_SURFACE
+        and case.get("operation") == WEBSOCKET_CLOSE_OPERATION
+    ):
+        return _run_websocket_close_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == WEBSOCKET_ROUTE_SURFACE
@@ -2266,6 +3310,8 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         if case.get("operation") != "route-dispatch":
             raise ValueError("Router and Mount cases must use route-dispatch")
         return _run_route_dispatch_case(case)
+    if case.get("surface") in {CORS_SURFACE, HTTPS_REDIRECT_SURFACE, TRUSTED_HOST_SURFACE}:
+        return _run_protocol_middleware_case(case)
     if case.get("surface") == "starlette.middleware.gzip.GZipMiddleware":
         _exact_object(
             case,
@@ -2285,6 +3331,25 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         if case["operation"] != "__call__":
             raise ValueError("GZipMiddleware cases must call its public ASGI interface")
         return _run_gzip_case(case)
+    if case.get("surface") == BODY_LIMIT_SURFACE:
+        _exact_object(
+            case,
+            {
+                "case_id",
+                "surface",
+                "operation",
+                "covers",
+                "target_profiles",
+                "assets",
+                "steps",
+                "observations",
+                "execution_schedule",
+            },
+            "parity case",
+        )
+        if case["operation"] != "__call__":
+            raise ValueError("RequestBodyLimitMiddleware cases must call its public ASGI interface")
+        return _run_body_limit_case(case)
     steps = case["steps"]
     schedule = case["execution_schedule"]
     if len(steps) < 2 or steps[0]["step_id"] != "application":

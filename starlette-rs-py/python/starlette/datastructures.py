@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from typing import Any, Literal, NamedTuple
-from urllib.parse import SplitResult, urlsplit
+from urllib.parse import SplitResult
 
 from starlette_rs_py import _core
 
@@ -27,30 +27,12 @@ class URL:
         scope: dict[str, Any] | None = None,
         **components: Any,
     ) -> None:
-        if scope is not None:
-            assert not url, 'Cannot set both "url" and "scope".'
-            assert not components, 'Cannot set both "scope" and "**components".'
-            server = scope.get("server")
-            native_server = None if server is None else (server[0], server[1])
-            url = _core._connection_url(
-                scope.get("scheme", "http"),
-                scope["path"],
-                scope.get("query_string", b""),
-                scope["headers"],
-                native_server,
-            )
-        elif components:
-            assert not url, 'Cannot set both "url" and "**components".'
-            current = SplitResult("", "", "", "", "")
-            url = current._replace(**components).geturl()
-
-        self._url = url
+        self._url = _core._url_init(url, scope, components)
         self._components: SplitResult | None = None
 
     @property
     def components(self) -> SplitResult:
-        if self._components is None:
-            self._components = urlsplit(self._url)
+        self._components = _core._url_components(self._url, self._components)
         return self._components
 
     @property
@@ -91,22 +73,23 @@ class URL:
 
     @property
     def is_secure(self) -> bool:
-        return self.scheme in {"https", "wss"}
+        return _core._url_is_secure(self.components)
 
     def replace(self, **components: Any) -> URL:
-        return URL(self.components._replace(**components).geturl())
+        url = _core._url_replace(self._url, self.components, components)
+        return self.__class__(url)
 
     def __str__(self) -> str:
         return self._url
 
     def __repr__(self) -> str:
-        value = str(self)
-        if self.password:
-            value = str(self.replace(password="********"))
-        return f"URL({value!r})"
+        value, self._components = _core._url_repr(
+            self._url, self._components, self.__class__.__name__
+        )
+        return value
 
     def __eq__(self, other: object) -> bool:
-        return str(self) == str(other)
+        return _core._url_eq(self._url, other)
 
 
 class URLPath(str):
@@ -118,7 +101,7 @@ class URLPath(str):
         protocol: Literal["http", "websocket", ""] = "",
         host: str = "",
     ) -> URLPath:
-        assert protocol in ("http", "websocket", "")
+        _core._urlpath_validate(protocol)
         return str.__new__(cls, path)
 
     def __init__(
@@ -131,18 +114,9 @@ class URLPath(str):
         self.host = host
 
     def make_absolute_url(self, base_url: str | URL) -> URL:
-        if isinstance(base_url, str):
-            base_url = URL(base_url)
-        if self.protocol:
-            scheme = {
-                "http": {True: "https", False: "http"},
-                "websocket": {True: "wss", False: "ws"},
-            }[self.protocol][base_url.is_secure]
-        else:
-            scheme = base_url.scheme
-        netloc = self.host or base_url.netloc
-        path = base_url.path.rstrip("/") + str(self)
-        return URL(scheme=scheme, netloc=netloc, path=path)
+        return _core._urlpath_make_absolute_url(
+            str(self), self.protocol, self.host, base_url, URL
+        )
 
 
 class State:
@@ -151,38 +125,28 @@ class State:
     __slots__ = ("_state",)
 
     def __init__(self, state: dict[str, Any] | None = None) -> None:
-        object.__setattr__(self, "_state", {} if state is None else state)
+        object.__setattr__(self, "_state", _core._state_new(state))
 
     def __setattr__(self, key: str, value: Any) -> None:
-        self._state[key] = value
+        _core._state_set(self._state, key, value)
 
     def __getattr__(self, key: str) -> Any:
-        try:
-            return self._state[key]
-        except KeyError:
-            raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute '{key}'"
-            ) from None
+        return _core._state_getattr(self._state, self.__class__.__name__, key)
 
     def __delattr__(self, key: str) -> None:
-        try:
-            del self._state[key]
-        except KeyError:
-            raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute '{key}'"
-            ) from None
+        _core._state_delete(self._state, key)
 
     def __getitem__(self, key: str) -> Any:
-        return self._state[key]
+        return _core._state_get(self._state, key)
 
     def __setitem__(self, key: str, value: Any) -> None:
-        self._state[key] = value
+        _core._state_set(self._state, key, value)
 
     def __delitem__(self, key: str) -> None:
-        del self._state[key]
+        _core._state_delete(self._state, key)
 
     def __iter__(self) -> Iterator[str]:
-        return iter(self._state)
+        return _core._state_iter(self._state)
 
     def __len__(self) -> int:
-        return len(self._state)
+        return _core._state_len(self._state)

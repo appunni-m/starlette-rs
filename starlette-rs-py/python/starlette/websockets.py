@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import enum
-import json
 from collections.abc import AsyncIterator, Iterable
 from typing import Any, cast
 
@@ -27,146 +26,111 @@ class WebSocketDisconnect(Exception):
 
     def __init__(self, code: int = 1000, reason: str | None = None) -> None:
         self.code = code
-        self.reason = reason or ""
+        self.reason = _core._websocket_exception_reason(reason)
 
 
 class WebSocket(HTTPConnection):
     """Expose an ASGI WebSocket scope and state-checked message operations."""
 
-    __slots__ = ("_receive", "_send", "_state_machine")
+    __slots__ = ("_protocol", "_receive", "_send")
 
     def __init__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         super().__init__(scope)
-        assert scope["type"] == "websocket"
         self._receive = receive
         self._send = send
-        self._state_machine = _core.WebSocketStateMachine()
+        self._protocol = _core.WebSocketProtocol(scope, receive, send, WebSocketDisconnect)
 
     @property
     def client_state(self) -> WebSocketState:
-        return WebSocketState(self._state_machine.client_state())
+        return WebSocketState(self._protocol.client_state())
+
+    @client_state.setter
+    def client_state(self, state: WebSocketState) -> None:
+        self._protocol.set_client_state(state.value)
 
     @property
     def application_state(self) -> WebSocketState:
-        return WebSocketState(self._state_machine.application_state())
+        return WebSocketState(self._protocol.application_state())
+
+    @application_state.setter
+    def application_state(self, state: WebSocketState) -> None:
+        self._protocol.set_application_state(state.value)
 
     async def receive(self) -> dict[str, Any]:
-        """Receive one ASGI message and update the Rust-owned client state."""
-        if self.client_state in {WebSocketState.DISCONNECTED, WebSocketState.RESPONSE}:
-            self._state_machine.receive("")
-        message = await self._receive()
-        self._state_machine.receive(message["type"])
-        return message
+        return await self._protocol.receive()
 
     async def send(self, message: dict[str, Any]) -> None:
-        """Validate a raw ASGI message before awaiting the host's send callback."""
-        catches_os_error = self._state_machine.begin_send(
-            message["type"], message.get("more_body", False)
-        )
-        if catches_os_error:
-            try:
-                await self._send(message)
-            except OSError:
-                self._state_machine.send_failed()
-                # Preserve Starlette's implicit OSError context on this raise.
-                raise WebSocketDisconnect(code=1006)  # noqa: B904
-        else:
-            await self._send(message)
+        await self._protocol.send(message)
 
     async def accept(
         self,
         subprotocol: str | None = None,
         headers: Iterable[tuple[bytes, bytes]] | None = None,
     ) -> None:
-        headers = headers or []
-        if self.client_state == WebSocketState.CONNECTING:
-            await self.receive()
-        await self.send(
-            {"type": "websocket.accept", "subprotocol": subprotocol, "headers": headers}
-        )
+        await self._protocol.accept(self.receive, self.send, subprotocol, headers)
 
     def _raise_on_disconnect(self, message: dict[str, Any]) -> None:
-        if message["type"] == "websocket.disconnect":
-            raise WebSocketDisconnect(message["code"], message.get("reason"))
+        self._protocol.raise_on_disconnect(message)
 
     async def receive_text(self) -> str:
-        if self.application_state != WebSocketState.CONNECTED:
-            raise RuntimeError('WebSocket is not connected. Need to call "accept" first.')
-        message = await self.receive()
-        self._raise_on_disconnect(message)
-        return cast(str, message["text"])
+        return await self._protocol.receive_text(self.receive, self._raise_on_disconnect)
 
     async def receive_bytes(self) -> bytes:
-        if self.application_state != WebSocketState.CONNECTED:
-            raise RuntimeError('WebSocket is not connected. Need to call "accept" first.')
-        message = await self.receive()
-        self._raise_on_disconnect(message)
-        return cast(bytes, message["bytes"])
+        return await self._protocol.receive_bytes(self.receive, self._raise_on_disconnect)
 
     async def receive_json(self, mode: str = "text") -> Any:
-        if mode not in {"text", "binary"}:
-            raise RuntimeError('The "mode" argument should be "text" or "binary".')
-        if self.application_state != WebSocketState.CONNECTED:
-            raise RuntimeError('WebSocket is not connected. Need to call "accept" first.')
-        message = await self.receive()
-        self._raise_on_disconnect(message)
-        text = message["text"] if mode == "text" else message["bytes"].decode("utf-8")
-        return json.loads(text)
+        return await self._protocol.receive_json(self.receive, self._raise_on_disconnect, mode)
 
-    async def iter_text(self) -> AsyncIterator[str]:
-        try:
-            while True:
-                yield await self.receive_text()
-        except WebSocketDisconnect:
-            return
+    def iter_text(self) -> AsyncIterator[str]:
+        return cast(AsyncIterator[str], self._protocol.iter_text(self.receive_text))
 
-    async def iter_bytes(self) -> AsyncIterator[bytes]:
-        try:
-            while True:
-                yield await self.receive_bytes()
-        except WebSocketDisconnect:
-            return
+    def iter_bytes(self) -> AsyncIterator[bytes]:
+        return cast(AsyncIterator[bytes], self._protocol.iter_bytes(self.receive_bytes))
 
-    async def iter_json(self) -> AsyncIterator[Any]:
-        try:
-            while True:
-                yield await self.receive_json()
-        except WebSocketDisconnect:
-            return
+    def iter_json(self) -> AsyncIterator[Any]:
+        return cast(AsyncIterator[Any], self._protocol.iter_json(self.receive_json))
 
     async def send_text(self, data: str) -> None:
-        await self.send({"type": "websocket.send", "text": data})
+        await self._protocol.send_text(self.send, data)
 
     async def send_bytes(self, data: bytes) -> None:
-        await self.send({"type": "websocket.send", "bytes": data})
+        await self._protocol.send_bytes(self.send, data)
 
     async def send_json(self, data: Any, mode: str = "text") -> None:
-        if mode not in {"text", "binary"}:
-            raise RuntimeError('The "mode" argument should be "text" or "binary".')
-        encoded = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
-        if mode == "text":
-            await self.send({"type": "websocket.send", "text": encoded})
-        else:
-            await self.send({"type": "websocket.send", "bytes": encoded.encode("utf-8")})
+        await self._protocol.send_json(self.send, data, mode)
 
     async def close(self, code: int = 1000, reason: str | None = None) -> None:
-        await self.send({"type": "websocket.close", "code": code, "reason": reason or ""})
+        await self._protocol.close(self.send, code, reason)
 
     async def send_denial_response(self, response: Response) -> None:
-        if "websocket.http.response" in self.scope.get("extensions", {}):
-            await response(self.scope, self.receive, self.send)
-        else:
-            raise RuntimeError(
-                "The server doesn't support the Websocket Denial Response extension."
-            )
+        await self._protocol.send_denial_response(
+            self.scope, response, self.receive, self.send
+        )
 
 
 class WebSocketClose:
     """ASGI app that rejects a WebSocket connection with a close event."""
 
+    __slots__ = ("_inner",)
+
     def __init__(self, code: int = 1000, reason: str | None = None) -> None:
-        self.code = code
-        self.reason = reason or ""
+        self._inner = _core.WebSocketClose(code, reason)
+
+    @property
+    def code(self) -> Any:
+        return self._inner.code
+
+    @code.setter
+    def code(self, value: Any) -> None:
+        self._inner.code = value
+
+    @property
+    def reason(self) -> Any:
+        return self._inner.reason
+
+    @reason.setter
+    def reason(self, value: Any) -> None:
+        self._inner.reason = value
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
-        await send({"type": "websocket.close", "code": self.code, "reason": self.reason})
+        await self._inner.asgi_call(scope, receive, send)

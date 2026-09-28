@@ -9,6 +9,7 @@ import math
 import re
 import statistics
 import sys
+from http import HTTPStatus
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl
@@ -28,6 +29,7 @@ AGGREGATION_INPUT_SCHEMAS = (
 )
 ORACLE_COMMIT = "4f250d6b814587e20c5365f0a5f0c4d42bcb929f"
 GENERATED_INPUT_ROOT = Path("build/parity/inputs")
+_BODY_LIMIT_MISSING = object()
 
 TOP_KEYS = {
     "schema",
@@ -56,14 +58,38 @@ CASE_KEYS = {
 WEBSOCKET_SURFACE = "starlette.websockets.WebSocket"
 WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
+WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
+WEBSOCKET_CLOSE_SURFACE = "starlette.websockets.WebSocketClose"
+WEBSOCKET_CLOSE_OPERATION = "call-sequence"
+EXCEPTION_VALUES_SURFACE = "starlette.exceptions"
+MIDDLEWARE_CONFIG_SURFACE = "starlette.middleware.Middleware"
+VALUE_FORMATTING_OPERATION = "value-formatting"
+VALUE_FORMATTING_OPERATIONS = {
+    (EXCEPTION_VALUES_SURFACE, VALUE_FORMATTING_OPERATION),
+    (MIDDLEWARE_CONFIG_SURFACE, VALUE_FORMATTING_OPERATION),
+}
+REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
+STATUS_OPERATION = ("starlette.status", "module-symbol-sequence")
 WEBSOCKET_PROJECTED_ERROR_OPERATIONS = {
     (WEBSOCKET_SURFACE, WEBSOCKET_OPERATION),
     (WEBSOCKET_SURFACE, WEBSOCKET_STATE_OPERATION),
+    (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION),
+    (WEBSOCKET_CLOSE_SURFACE, WEBSOCKET_CLOSE_OPERATION),
 }
 WEBSOCKET_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
     "incoming",
     "actions",
+}
+STATUS_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "public_names",
+    "deprecated_names",
+    "missing_names",
+    "observe_directory",
+}
+WEBSOCKET_CLOSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "scope",
+    "close_app",
 }
 WEBSOCKET_ROUTE_SURFACE = "starlette.routing.WebSocketRoute"
 WEBSOCKET_ROUTE_OPERATION = "route-dispatch"
@@ -77,6 +103,8 @@ WEBSOCKET_ROUTE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
 WEBSOCKET_ROUTE_OBSERVATIONS = (WEBSOCKET_ROUTE_OPERATION,)
 ROUTER_SURFACE = "starlette.routing.Router"
 ROUTER_OPERATION = "route-dispatch"
+HOST_SURFACE = "starlette.routing.Host"
+HOST_REVERSE_OPERATION = "url_path_for"
 ROUTER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "custom_convertors",
     "redirect_slashes",
@@ -139,6 +167,7 @@ REVERSE_URL_OPERATIONS = {
     ("starlette.routing.WebSocketRoute", "url_path_for"),
     ("starlette.routing.Router", "url_path_for"),
     ("starlette.routing.Mount", "url_path_for"),
+    (HOST_SURFACE, HOST_REVERSE_OPERATION),
     ("starlette.requests.Request", "url_for"),
 }
 REVERSE_URL_SURFACE_KINDS = {
@@ -147,6 +176,7 @@ REVERSE_URL_SURFACE_KINDS = {
     "starlette.routing.WebSocketRoute": "websocket-route",
     "starlette.routing.Router": "router",
     "starlette.routing.Mount": "mount",
+    HOST_SURFACE: "host-route",
 }
 REVERSE_URL_OBSERVATION = "reverse-url"
 STEP_KEYS = {"step_id", "surface", "operation", "receiver", "arguments"}
@@ -211,6 +241,22 @@ REQUEST_OBSERVER_ENDPOINT = {
     "response_content": "request-observed",
     "status_code": 200,
     "media_type": "text/plain",
+}
+REQUEST_CONNECTION_PROPERTY_REQUIREMENTS = {
+    "session": "starlette.request.connection-property-missing-session",
+    "auth": "starlette.request.connection-property-missing-auth",
+    "user": "starlette.request.connection-property-missing-user",
+}
+REQUEST_STREAM_REQUIREMENTS = {
+    "asend": "starlette.request.stream-asend",
+    "athrow": "starlette.request.stream-athrow",
+    "aclose": "starlette.request.stream-aclose",
+}
+SYNC_REQUEST_RUNTIME_REQUIREMENTS = {
+    "receive": "starlette.request.receive-worker-access",
+    "stream": "starlette.request.stream-construction-worker",
+    "body": "starlette.request.body-awaitable-construction-worker",
+    "json": "starlette.request.json-awaitable-construction-worker",
 }
 SYNC_ENDPOINT_REQUIREMENTS = {
     "contextvar": "starlette.routing.sync-endpoint-contextvar-propagation",
@@ -277,6 +323,30 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
     ),
 }
 GZIP_SURFACE = "starlette.middleware.gzip.GZipMiddleware"
+CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
+HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
+TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
+ASGI_MIDDLEWARE_SURFACES = {
+    GZIP_SURFACE,
+    CORS_SURFACE,
+    HTTPS_REDIRECT_SURFACE,
+    TRUSTED_HOST_SURFACE,
+}
+BODY_LIMIT_SURFACE = "starlette.middleware.body_limit.RequestBodyLimitMiddleware"
+BODY_LIMIT_REQUIREMENT_CONSTRUCTION = (
+    "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct"
+)
+BODY_LIMIT_REQUIREMENTS = {
+    "content-length-precheck": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-precheck",
+    "content-length-replacement": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-replacement",
+    "streamed-body-count": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.streamed-body-count",
+    "understated-content-length": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.understated-content-length",
+    "invalid-content-length": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.invalid-content-length",
+    "nested-limits": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.nested-limits",
+    "already-started-propagation": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.already-started-propagation",
+    "scope-restoration": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+    "non-http-pass-through": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.non-http-pass-through",
+}
 GZIP_REQUIREMENT_CONSTRUCTION = "starlette.middleware.gzip.GZipMiddleware.construct"
 GZIP_REQUIREMENTS = {
     "gzip-final-response": "starlette.middleware.gzip.GZipMiddleware.gzip-final-response",
@@ -352,6 +422,96 @@ def _string(value: Any, context: str) -> str:
     if not isinstance(value, str) or not value:
         raise ContractError(f"{context} must be a non-empty string")
     return value
+
+
+def _validate_request_stream_endpoint(endpoint: Any) -> dict[str, Any]:
+    endpoint = _exact(endpoint, {"kind", "actions"}, "request stream-observer endpoint")
+    if endpoint["kind"] != "request-stream-observer":
+        raise ContractError("request stream endpoint must use the declared observer kind")
+    actions = endpoint["actions"]
+    if not isinstance(actions, list) or not actions:
+        raise ContractError("request stream actions must be a non-empty sequence")
+    operations: list[str] = []
+    for index, action in enumerate(actions):
+        context = f"request stream action[{index}]"
+        if not isinstance(action, dict):
+            raise ContractError(f"{context} must be an object")
+        operation = action.get("operation")
+        if operation in {"anext", "aclose"}:
+            _exact(action, {"operation"}, context)
+        elif operation == "asend":
+            _exact(action, {"operation", "value"}, context)
+            if not isinstance(action["value"], str):
+                raise ContractError(f"{context}.value must be a string")
+        elif operation == "athrow":
+            _exact(action, {"operation", "exception_type", "message"}, context)
+            if action["exception_type"] != "ValueError":
+                raise ContractError(f"{context}.exception_type must be ValueError")
+            _string(action["message"], f"{context}.message")
+        else:
+            raise ContractError(f"{context}.operation is unsupported")
+        operations.append(operation)
+    for index, operation in enumerate(operations):
+        if operation in REQUEST_STREAM_REQUIREMENTS and "anext" not in operations[:index]:
+            raise ContractError(f"request stream {operation} must be observed after anext")
+    return endpoint
+
+
+def _validate_sync_request_runtime_endpoint(endpoint: Any) -> dict[str, Any]:
+    endpoint = _exact(
+        endpoint,
+        {"kind", "actions", "context_var_name", "context_value", "response_content"},
+        "sync request runtime-observer endpoint",
+    )
+    if endpoint["kind"] != "sync-request-runtime-observer":
+        raise ContractError("sync request runtime endpoint must use the declared observer kind")
+    _string(endpoint["context_var_name"], "sync request runtime context variable name")
+    _string(endpoint["context_value"], "sync request runtime context value")
+    _string(endpoint["response_content"], "sync request runtime response content")
+
+    actions = endpoint["actions"]
+    if not isinstance(actions, list) or not actions:
+        raise ContractError("sync request runtime actions must be a non-empty sequence")
+    covered: set[str] = set()
+    stream_attributes = {"__aiter__", "__anext__", "asend", "athrow", "aclose"}
+    for index, action in enumerate(actions):
+        context = f"sync request runtime action[{index}]"
+        if not isinstance(action, dict):
+            raise ContractError(f"{context} must be an object")
+        operation = action.get("operation")
+        if operation == "callable-property":
+            _exact(action, {"operation", "property"}, context)
+            if action["property"] != "receive":
+                raise ContractError(f"{context}.property must be receive")
+            covered.add("receive")
+        elif operation == "construct-stream":
+            _exact(action, {"operation", "method", "attributes"}, context)
+            if action["method"] != "stream":
+                raise ContractError(f"{context}.method must be stream")
+            attributes = action["attributes"]
+            if (
+                not isinstance(attributes, list)
+                or not attributes
+                or any(
+                    not isinstance(name, str) or name not in stream_attributes
+                    for name in attributes
+                )
+                or len(attributes) != len(set(attributes))
+            ):
+                raise ContractError(f"{context}.attributes must be unique async-iterator methods")
+            covered.add("stream")
+        elif operation == "construct-awaitable":
+            _exact(action, {"operation", "method"}, context)
+            if action["method"] not in {"body", "json"}:
+                raise ContractError(f"{context}.method must be body or json")
+            covered.add(action["method"])
+        else:
+            raise ContractError(f"{context}.operation is unsupported")
+    if covered != set(SYNC_REQUEST_RUNTIME_REQUIREMENTS):
+        raise ContractError(
+            "sync request runtime actions must cover receive, stream, body, and json"
+        )
+    return endpoint
 
 
 def _unique_ids(rows: Any, field: str, context: str) -> set[str]:
@@ -712,7 +872,10 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
             # top-level infrastructure errors in the parity result.
             expected_error_fields = (
                 set()
-                if key in WEBSOCKET_PROJECTED_ERROR_OPERATIONS or key in REVERSE_URL_OPERATIONS
+                if key in WEBSOCKET_PROJECTED_ERROR_OPERATIONS
+                or key in REVERSE_URL_OPERATIONS
+                or key in VALUE_FORMATTING_OPERATIONS
+                or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 else {
                     "class",
                     "kind",
@@ -861,10 +1024,22 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         in {
                             (WEBSOCKET_ROUTE_SURFACE, WEBSOCKET_ROUTE_OPERATION),
                             (WEBSOCKET_SURFACE, WEBSOCKET_OPERATION),
+                            (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION),
+                            (WEBSOCKET_CLOSE_SURFACE, WEBSOCKET_CLOSE_OPERATION),
                         }
                         or (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
                         or (surface["id"], operation["id"])
                         == (STREAMING_RESPONSE_SURFACE, STREAMING_RESPONSE_TRACE_OPERATION)
+                        or surface["id"] == BODY_LIMIT_SURFACE
+                        or surface["id"]
+                        in {
+                            CORS_SURFACE,
+                            HTTPS_REDIRECT_SURFACE,
+                            TRUSTED_HOST_SURFACE,
+                        }
+                        or (surface["id"], operation["id"]) in VALUE_FORMATTING_OPERATIONS
+                        or (surface["id"], operation["id"]) == REQUEST_DEFAULT_RECEIVE_OPERATION
+                        or (surface["id"], operation["id"]) == STATUS_OPERATION
                         else profile_ids
                     )
                     if set(policy["target_profiles"]) != expected_parity_profiles:
@@ -947,22 +1122,25 @@ def _descriptor(value: Any, previous_steps: set[str], context: str) -> Any:
 
 
 def _validate_websocket_scope(scope: Any) -> None:
+    scope_keys = {
+        "type",
+        "asgi",
+        "http_version",
+        "scheme",
+        "path",
+        "raw_path_base64",
+        "query_string_base64",
+        "root_path",
+        "headers_base64_pairs",
+        "client",
+        "server",
+        "subprotocols",
+    }
+    if isinstance(scope, dict) and "extensions" in scope:
+        scope_keys.add("extensions")
     scope = _exact(
         scope,
-        {
-            "type",
-            "asgi",
-            "http_version",
-            "scheme",
-            "path",
-            "raw_path_base64",
-            "query_string_base64",
-            "root_path",
-            "headers_base64_pairs",
-            "client",
-            "server",
-            "subprotocols",
-        },
+        scope_keys,
         "WebSocket scope",
     )
     if scope["type"] != "websocket":
@@ -971,7 +1149,8 @@ def _validate_websocket_scope(scope: Any) -> None:
     if asgi != {"version": "3.0", "spec_version": "2.5"}:
         raise ContractError("WebSocket scope must use ASGI 3.0 with spec version 2.5")
     _string(scope["http_version"], "WebSocket scope.http_version")
-    if scope["scheme"] not in {"ws", "wss"}:
+    scheme = _string(scope["scheme"], "WebSocket scope.scheme")
+    if scheme not in {"ws", "wss"}:
         raise ContractError("WebSocket scope.scheme must be ws or wss")
     path = _string(scope["path"], "WebSocket scope.path")
     if scope["raw_path_base64"] != base64.b64encode(path.encode("ascii")).decode("ascii"):
@@ -1009,6 +1188,14 @@ def _validate_websocket_scope(scope: Any) -> None:
         not isinstance(item, str) for item in subprotocols
     ):
         raise ContractError("WebSocket scope.subprotocols must be an array of strings")
+    if "extensions" in scope:
+        extensions = scope["extensions"]
+        if not isinstance(extensions, dict):
+            raise ContractError("WebSocket scope.extensions must be an object")
+        for extension, configuration in extensions.items():
+            _string(extension, "WebSocket scope extension name")
+            if not isinstance(configuration, dict):
+                raise ContractError("WebSocket scope extension configurations must be objects")
 
 
 def _validate_websocket_message(message: Any, context: str, *, incoming: bool) -> str:
@@ -1287,6 +1474,359 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     if unexercised:
         raise ContractError(
             f"WebSocket case claims requirements not exercised by its protocol sequence: {sorted(unexercised)}"
+        )
+
+
+def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
+    if case["operation"] != WEBSOCKET_CONVENIENCE_OPERATION:
+        raise ContractError("WebSocket cases must use a declared sequence operation")
+    _validate_websocket_scope(case["scope"])
+    incoming = case["incoming"]
+    actions = case["actions"]
+    if not isinstance(incoming, list) or not isinstance(actions, list) or not actions:
+        raise ContractError(
+            "WebSocket incoming and actions must be arrays, with at least one action"
+        )
+    incoming_types = [
+        _validate_websocket_message(message, f"WebSocket incoming[{index}]", incoming=True)
+        for index, message in enumerate(incoming)
+    ]
+    action_ids: set[str] = set()
+    incoming_index = 0
+    client_state = "CONNECTING"
+    application_state = "CONNECTING"
+    exercised: set[str] = set()
+
+    def receive_input(context: str, expected_payload: str | None = None) -> str:
+        nonlocal incoming_index, client_state
+        if client_state not in {"CONNECTING", "CONNECTED"}:
+            raise ContractError(f"{context} cannot receive after websocket.disconnect")
+        if incoming_index >= len(incoming_types):
+            raise ContractError(f"{context} has no supplied incoming message")
+        message = incoming[incoming_index]
+        message_type = incoming_types[incoming_index]
+        incoming_index += 1
+        if client_state == "CONNECTING":
+            if message_type != "websocket.connect":
+                raise ContractError(f"{context} must first receive websocket.connect")
+            client_state = "CONNECTED"
+            return message_type
+        if message_type == "websocket.disconnect":
+            client_state = "DISCONNECTED"
+            exercised.add("starlette.websocket.api.disconnect.details")
+            return message_type
+        if message_type != "websocket.receive":
+            raise ContractError(f"{context} requires websocket.receive or websocket.disconnect")
+        if expected_payload is not None and expected_payload not in message:
+            raise ContractError(f"{context} requires incoming payload field {expected_payload!r}")
+        return message_type
+
+    for index, action in enumerate(actions):
+        context = f"WebSocket convenience actions[{index}]"
+        if not isinstance(action, dict):
+            raise ContractError(f"{context} must be an object")
+        action_keys = {"action_id", "method", "arguments"}
+        if "send_error" in action:
+            action_keys.add("send_error")
+        _exact(action, action_keys, context)
+        action_id = _string(action["action_id"], f"{context}.action_id")
+        method = _string(action["method"], f"{context}.method")
+        if action_id in action_ids:
+            raise ContractError(f"duplicate WebSocket action ID: {action_id}")
+        action_ids.add(action_id)
+        arguments = action["arguments"]
+        if not isinstance(arguments, dict):
+            raise ContractError(f"{context}.arguments must be an object")
+        if "send_error" in action:
+            send_error = _exact(action["send_error"], {"kind", "message"}, f"{context}.send_error")
+            if send_error["kind"] != "os-error":
+                raise ContractError(f"{context}.send_error.kind must be os-error")
+            _string(send_error["message"], f"{context}.send_error.message")
+            if method not in {"send_text", "send_bytes", "send_json", "close"}:
+                raise ContractError(f"{context}.send_error requires a send convenience method")
+
+        if method == "accept":
+            _exact_keys = {"subprotocol", "headers_base64_pairs"}
+            if set(arguments) - _exact_keys:
+                raise ContractError(f"{context}.arguments has fields unsupported by accept")
+            if "subprotocol" in arguments and arguments["subprotocol"] is not None:
+                _string(arguments["subprotocol"], f"{context}.arguments.subprotocol")
+            if "headers_base64_pairs" in arguments:
+                headers = arguments["headers_base64_pairs"]
+                if headers is not None:
+                    if not isinstance(headers, list):
+                        raise ContractError(
+                            f"{context}.arguments.headers_base64_pairs must be an array or null"
+                        )
+                    for pair in headers:
+                        if not isinstance(pair, list) or len(pair) != 2:
+                            raise ContractError(
+                                f"{context}.arguments header must be a two-item array"
+                            )
+                        for value in pair:
+                            try:
+                                base64.b64decode(value, validate=True)
+                            except (ValueError, TypeError) as exc:
+                                raise ContractError(
+                                    f"{context}.arguments header contains invalid base64"
+                                ) from exc
+            if application_state != "CONNECTING":
+                raise ContractError(f"{context} requires the application to be connecting")
+            if client_state == "CONNECTING":
+                receive_input(context)
+            if client_state != "CONNECTED":
+                raise ContractError(f"{context} cannot accept after client disconnect")
+            application_state = "CONNECTED"
+            headers = arguments.get("headers_base64_pairs")
+            if headers:
+                exercised.add("starlette.websocket.api.accept.headers")
+            else:
+                exercised.add("starlette.websocket.api.accept.empty-headers")
+        elif method in {"receive_text", "receive_bytes", "receive_json"}:
+            if method == "receive_json":
+                _exact_keys = {"mode"}
+                if set(arguments) - _exact_keys:
+                    raise ContractError(
+                        f"{context}.arguments has fields unsupported by receive_json"
+                    )
+                mode = arguments.get("mode", "text")
+                mode = _string(mode, f"{context}.arguments.mode")
+                if mode not in {"text", "binary"}:
+                    raise ContractError(f"{context}.arguments.mode must be text or binary")
+                payload = "text" if mode == "text" else "bytes_base64"
+                exercised.add(f"starlette.websocket.api.receive.json.{mode}")
+            else:
+                if arguments:
+                    raise ContractError(f"{context}.arguments must be empty for {method}")
+                mode = None
+                payload = "text" if method == "receive_text" else "bytes_base64"
+                exercised.add(
+                    "starlette.websocket.api.receive.text"
+                    if method == "receive_text"
+                    else "starlette.websocket.api.receive.bytes"
+                )
+            if application_state != "CONNECTED":
+                raise ContractError(f"{context} requires a connected WebSocket")
+            message_type = receive_input(context, payload)
+            if message_type == "websocket.disconnect":
+                exercised.add("starlette.websocket.api.disconnect.details")
+        elif method in {"iter_text", "iter_bytes", "iter_json"}:
+            if arguments:
+                raise ContractError(f"{context}.arguments must be empty for {method}")
+            if application_state != "CONNECTED":
+                raise ContractError(f"{context} requires a connected WebSocket")
+            payload = "bytes_base64" if method == "iter_bytes" else "text"
+            iterated = False
+            while True:
+                message_type = receive_input(context, payload)
+                if message_type == "websocket.disconnect":
+                    break
+                iterated = True
+            if not iterated:
+                raise ContractError(f"{context} must yield at least one incoming message")
+            exercised.add(f"starlette.websocket.api.{method}.async-for")
+        elif method in {"send_text", "send_bytes", "send_json", "close"}:
+            if method == "send_text":
+                _exact(arguments, {"data"}, f"{context}.arguments")
+                if not isinstance(arguments["data"], str):
+                    raise ContractError(f"{context}.arguments.data must be a string")
+                exercised.add("starlette.websocket.api.send.text")
+            elif method == "send_bytes":
+                _exact(arguments, {"data_base64"}, f"{context}.arguments")
+                try:
+                    base64.b64decode(arguments["data_base64"], validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(f"{context}.arguments.data_base64 is invalid") from exc
+                exercised.add("starlette.websocket.api.send.bytes")
+            elif method == "send_json":
+                if set(arguments) not in ({"data"}, {"data", "mode"}):
+                    raise ContractError(f"{context}.arguments must contain data and optional mode")
+                mode = arguments.get("mode", "text")
+                mode = _string(mode, f"{context}.arguments.mode")
+                if mode not in {"text", "binary"}:
+                    raise ContractError(f"{context}.arguments.mode must be text or binary")
+                exercised.add(f"starlette.websocket.api.send.json.{mode}")
+            else:
+                if set(arguments) - {"code", "reason"}:
+                    raise ContractError(f"{context}.arguments has fields unsupported by close")
+                code = arguments.get("code", 1000)
+                reason = arguments.get("reason")
+                if not isinstance(code, int) or isinstance(code, bool):
+                    raise ContractError(f"{context}.arguments.code must be an integer")
+                if reason is not None and not isinstance(reason, str):
+                    raise ContractError(f"{context}.arguments.reason must be a string or null")
+                exercised.add("starlette.websocket.api.close.framing")
+            if application_state != "CONNECTED":
+                raise ContractError(f"{context} requires a connected WebSocket")
+            if method == "close":
+                application_state = "DISCONNECTED"
+        elif method == "send_denial_response":
+            _exact(arguments, {"response"}, f"{context}.arguments")
+            response = _exact(
+                arguments["response"],
+                {"status_code", "content_base64", "headers_base64_pairs"},
+                f"{context}.arguments.response",
+            )
+            if not isinstance(response["status_code"], int) or isinstance(
+                response["status_code"], bool
+            ):
+                raise ContractError(f"{context}.arguments.response.status_code must be an integer")
+            try:
+                base64.b64decode(response["content_base64"], validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError(
+                    f"{context}.arguments.response.content_base64 is invalid"
+                ) from exc
+            if not isinstance(response["headers_base64_pairs"], list):
+                raise ContractError(
+                    f"{context}.arguments.response.headers_base64_pairs must be an array"
+                )
+            for pair in response["headers_base64_pairs"]:
+                if not isinstance(pair, list) or len(pair) != 2:
+                    raise ContractError(
+                        f"{context}.arguments.response header must be a two-item array"
+                    )
+                for value in pair:
+                    try:
+                        base64.b64decode(value, validate=True)
+                    except (ValueError, TypeError) as exc:
+                        raise ContractError(
+                            f"{context}.arguments.response header contains invalid base64"
+                        ) from exc
+            extension_present = "websocket.http.response" in case["scope"].get("extensions", {})
+            if application_state != "CONNECTING":
+                raise ContractError(
+                    f"{context} requires the application to be connecting for denial response"
+                )
+            if extension_present:
+                application_state = "DISCONNECTED"
+                exercised.add("starlette.websocket.api.denial-response.present")
+            else:
+                exercised.add("starlette.websocket.api.denial-response.absent")
+        elif method == "iterator-probe":
+            _exact(arguments, {"iterator", "attributes"}, f"{context}.arguments")
+            iterator_method = _string(arguments["iterator"], f"{context}.arguments.iterator")
+            if iterator_method not in {"iter_text", "iter_bytes", "iter_json"}:
+                raise ContractError(f"{context}.arguments.iterator is not a declared iterator")
+            attributes = arguments["attributes"]
+            if (
+                not isinstance(attributes, list)
+                or any(not isinstance(item, str) or not item for item in attributes)
+                or len(attributes) != len(set(attributes))
+            ):
+                raise ContractError(f"{context}.arguments.attributes must be unique strings")
+            if {"asend", "athrow", "aclose"} <= set(attributes):
+                exercised.add("starlette.websocket.api.iterator.protocol.surface")
+        elif method == "iterator-control":
+            control = arguments.get("control") if isinstance(arguments, dict) else None
+            expected = (
+                {"iterator", "control", "value"}
+                if control == "asend"
+                else {"iterator", "control", "exception"}
+                if control == "athrow"
+                else {"iterator", "control"}
+                if control == "aclose"
+                else set()
+            )
+            if not expected:
+                raise ContractError(f"{context}.arguments.control must be asend, athrow, or aclose")
+            _exact(arguments, expected, f"{context}.arguments")
+            iterator_method = _string(arguments["iterator"], f"{context}.arguments.iterator")
+            if iterator_method not in {"iter_text", "iter_bytes", "iter_json"}:
+                raise ContractError(f"{context}.arguments.iterator is not a declared iterator")
+            if control == "asend":
+                if arguments["value"] is not None:
+                    raise ContractError(f"{context}.arguments.value must be null for asend")
+                if application_state != "CONNECTED":
+                    raise ContractError(f"{context} asend requires a connected WebSocket")
+                payload = "bytes_base64" if arguments["iterator"] == "iter_bytes" else "text"
+                message_type = receive_input(context, payload)
+                if message_type == "websocket.disconnect":
+                    raise ContractError(f"{context} asend stimulus must include a yielded message")
+            elif control == "athrow":
+                exception = _exact(
+                    arguments["exception"], {"class", "message"}, f"{context}.arguments.exception"
+                )
+                exception_class = _string(
+                    exception["class"], f"{context}.arguments.exception.class"
+                )
+                if exception_class not in {
+                    "Exception",
+                    "RuntimeError",
+                    "ValueError",
+                    "TypeError",
+                    "LookupError",
+                    "KeyError",
+                }:
+                    raise ContractError(
+                        f"{context}.arguments.exception.class is outside the exception input vocabulary"
+                    )
+                _string(exception["message"], f"{context}.arguments.exception.message")
+            exercised.add(f"starlette.websocket.api.iterator.{control}")
+        else:
+            raise ContractError(f"{context}.method is unsupported: {method!r}")
+
+    if incoming_index != len(incoming_types):
+        raise ContractError(
+            "WebSocket convenience sequence must consume every supplied incoming message exactly once"
+        )
+    if case["observations"] != [WEBSOCKET_CONVENIENCE_OPERATION]:
+        raise ContractError(
+            "WebSocket observations must select the convenience-sequence workflow result"
+        )
+    unexercised = set(case["covers"]) - exercised
+    if unexercised:
+        raise ContractError(
+            "WebSocket case claims requirements not exercised by its convenience sequence: "
+            f"{sorted(unexercised)}"
+        )
+
+
+def _validate_websocket_close_case_stimulus(case: dict[str, Any]) -> None:
+    if case["operation"] != WEBSOCKET_CLOSE_OPERATION:
+        raise ContractError("WebSocketClose cases must use the declared call-sequence operation")
+    _validate_websocket_scope(case["scope"])
+    close_app = _exact(case["close_app"], {"arguments", "setters"}, "WebSocketClose input")
+    arguments = close_app["arguments"]
+    if not isinstance(arguments, dict) or set(arguments) - {"code", "reason"}:
+        raise ContractError("WebSocketClose arguments may provide only code and reason")
+    if "code" in arguments and (
+        not isinstance(arguments["code"], int) or isinstance(arguments["code"], bool)
+    ):
+        raise ContractError("WebSocketClose code must be an integer")
+    if (
+        "reason" in arguments
+        and arguments["reason"] is not None
+        and not isinstance(arguments["reason"], str)
+    ):
+        raise ContractError("WebSocketClose reason must be a string or null")
+    setters = close_app["setters"]
+    if not isinstance(setters, dict) or set(setters) - {"code", "reason"}:
+        raise ContractError("WebSocketClose setters may assign only code and reason")
+    if "code" in setters and (
+        not isinstance(setters["code"], int) or isinstance(setters["code"], bool)
+    ):
+        raise ContractError("WebSocketClose setter code must be an integer")
+    if (
+        "reason" in setters
+        and setters["reason"] is not None
+        and not isinstance(setters["reason"], str)
+    ):
+        raise ContractError("WebSocketClose setter reason must be a string or null")
+    if case["observations"] != [WEBSOCKET_CLOSE_OPERATION]:
+        raise ContractError("WebSocketClose observations must select the call-sequence result")
+    exercised = {"starlette.websocket.close-app.framing-attributes"}
+    if not arguments:
+        exercised.add("starlette.websocket.close-app.default-attributes")
+    if arguments.get("reason") is None:
+        exercised.add("starlette.websocket.close-app.reason-normalization")
+    if setters:
+        exercised.add("starlette.websocket.close-app.attribute-assignment")
+    unexercised = set(case["covers"]) - exercised
+    if unexercised:
+        raise ContractError(
+            "WebSocketClose case claims requirements not exercised by its input: "
+            f"{sorted(unexercised)}"
         )
 
 
@@ -1573,14 +2113,64 @@ def _validate_http_route_input(
     return route
 
 
-def _validate_route_dispatch_io(case: dict[str, Any], *, allow_query: bool = False) -> None:
+def _validate_host_route_input(route: Any, context: str) -> dict[str, Any]:
+    route = _exact(route, {"kind", "host", "name", "app"}, context)
+    host = _string(route["host"], f"{context}.host")
+    if not host or "/" in host:
+        raise ContractError(f"{context}.host must be a non-empty host pattern")
+    if route["name"] is not None:
+        _string(route["name"], f"{context}.name")
+    parameters = _route_template_parameters(host)
+    if len({name for name, _converter in parameters}) != len(parameters):
+        raise ContractError(f"{context}.host must not repeat a parameter name")
+    unsupported = sorted(
+        converter
+        for _name, converter in parameters
+        if converter not in {"str", "int", "float", "uuid", "path"}
+    )
+    if unsupported:
+        raise ContractError(f"{context}.host uses undeclared convertors: {unsupported}")
+    app = _exact(
+        route["app"],
+        {"kind", "content", "status_code", "media_type", "cookies"},
+        f"{context}.app",
+    )
+    if (
+        app["kind"] != "plain-text-response"
+        or not isinstance(app["content"], str)
+        or type(app["status_code"]) is not int
+        or app["status_code"] != 200
+        or app["media_type"] != "text/plain"
+        or app["cookies"] != []
+    ):
+        raise ContractError(f"{context}.app must use the fixed plain-text response input")
+    return route
+
+
+def _validate_router_route_input(
+    route: Any,
+    context: str,
+    custom_convertors: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    if isinstance(route, dict) and route.get("kind") == "host-route":
+        return _validate_host_route_input(route, context)
+    return _validate_http_route_input(route, context, custom_convertors)
+
+
+def _validate_route_dispatch_io(
+    case: dict[str, Any],
+    *,
+    allow_query: bool = False,
+    allow_headers: bool = False,
+    allow_host: bool = False,
+) -> None:
     if case["scope"].get("type") != "http" or (
         not allow_query and case["scope"].get("query_string_base64") != ""
     ):
         raise ContractError(
             "route-dispatch cases require a direct HTTP scope without a query string"
         )
-    if case["scope"].get("headers_base64_pairs") != []:
+    if not allow_headers and case["scope"].get("headers_base64_pairs") != []:
         raise ContractError("route-dispatch cases do not declare request headers")
     if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
         raise ContractError(
@@ -1590,6 +2180,7 @@ def _validate_route_dispatch_io(case: dict[str, Any], *, allow_query: bool = Fal
         {"scope": case["scope"], "receive": case["incoming"], "send": case["send"]},
         request_dispatch=True,
         allow_root_path=True,
+        allow_host=allow_host,
     )
 
 
@@ -1842,11 +2433,41 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "StreamingResponse execution-trace operation requires an async generator"
         )
-    if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
-        raise ContractError("StreamingResponse asgi-call uses empty receive and captured send")
+    send = case["send"]
+    send_raises_oserror = isinstance(send, dict) and send.get("kind") == (
+        "capture-asgi-send-until-oserror"
+    )
+    if case["incoming"] != [] or (
+        send != {"kind": "capture-asgi-send"} and not send_raises_oserror
+    ):
+        raise ContractError("StreamingResponse asgi-call uses empty receive and a declared send")
+    if send_raises_oserror:
+        send = _exact(
+            send,
+            {"kind", "event_index", "message"},
+            "StreamingResponse failing send",
+        )
+        if (
+            send["kind"] != "capture-asgi-send-until-oserror"
+            or case["streaming"] != "sync"
+            or type(send["event_index"]) is not int
+            or send["event_index"] < 0
+            or send["event_index"] >= len(chunks) + 2
+            or not isinstance(send["message"], str)
+        ):
+            raise ContractError("StreamingResponse failing send must select an in-range OSError")
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError(
+                "StreamingResponse OSError mapping is limited to the Python package profile"
+            )
     _validate_dispatch_stimulus(
-        {"scope": case["scope"], "receive": case["incoming"], "send": case["send"]},
+        {
+            "scope": case["scope"],
+            "receive": case["incoming"],
+            "send": case["send"],
+        },
         request_dispatch=True,
+        allow_oserror_send=send_raises_oserror,
     )
     if case["scope"]["query_string_base64"] != "" or case["scope"]["headers_base64_pairs"] != []:
         raise ContractError("Response asgi-call scope uses the direct HTTP baseline")
@@ -1958,8 +2579,11 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         if name in custom_convertors:
             raise ContractError(f"Router custom converter {name!r} is registered more than once")
         custom_convertors[name] = convertor
+    has_host_route = any(
+        isinstance(route, dict) and route.get("kind") == "host-route" for route in case["routes"]
+    )
     routes = [
-        _validate_http_route_input(route, f"Router routes[{index}]", custom_convertors)
+        _validate_router_route_input(route, f"Router routes[{index}]", custom_convertors)
         for index, route in enumerate(case["routes"])
     ]
     path = case["scope"].get("path")
@@ -1969,18 +2593,40 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "Router route-dispatch scope must declare string path, root_path, and method"
         )
-    _validate_route_dispatch_io(case, allow_query=True)
+    _validate_route_dispatch_io(
+        case,
+        allow_query=True,
+        allow_headers=has_host_route,
+        allow_host=has_host_route,
+    )
     route_path = _route_path_after_root(path, root_path)
+    http_routes = [route for route in routes if route["kind"] == "http-route"]
     matched = [
         route
-        for route in routes
+        for route in http_routes
         if method in route["methods"] or (method == "HEAD" and "GET" in route["methods"])
         if _route_template_matches(route["path"], route_path, custom_convertors)
+    ]
+    request_host = next(
+        (
+            base64.b64decode(pair[1], validate=True).decode("latin-1").split(":")[0]
+            for pair in case["scope"]["headers_base64_pairs"]
+            if base64.b64decode(pair[0], validate=True).lower() == b"host"
+        ),
+        "",
+    )
+    host_matched = [
+        (index, route)
+        for index, route in enumerate(routes)
+        if route["kind"] == "host-route"
+        if _route_template_matches(
+            "/" + route["host"].lower(), "/" + request_host.lower(), custom_convertors
+        )
     ]
     derived: set[str] = set()
     derived.update(
         _router_redirect_requirements(
-            routes,
+            http_routes,
             path,
             root_path,
             method,
@@ -2005,6 +2651,38 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
                     derived.add(f"starlette.routing.Router.route-dispatch.{requirement}")
     if not matched:
         derived.add("starlette.routing.Router.route-dispatch.converter-miss")
+    first_full_route_index = min(
+        (
+            index
+            for index, route in enumerate(routes)
+            if (
+                route["kind"] == "http-route"
+                and (method in route["methods"] or (method == "HEAD" and "GET" in route["methods"]))
+                and _route_template_matches(route["path"], route_path, custom_convertors)
+            )
+            or (
+                route["kind"] == "host-route"
+                and _route_template_matches(
+                    "/" + route["host"].lower(), "/" + request_host.lower(), custom_convertors
+                )
+            )
+        ),
+        default=None,
+    )
+    selected_host_route_index = next(
+        (index for index, _route in host_matched if index == first_full_route_index), None
+    )
+    if selected_host_route_index is not None:
+        derived.add("starlette.routing.Router.route-dispatch.host-route-match")
+        if selected_host_route_index > 0 and any(
+            route["kind"] == "http-route"
+            and _route_template_matches(route["path"], route_path, custom_convertors)
+            and not (method in route["methods"] or (method == "HEAD" and "GET" in route["methods"]))
+            for route in routes[:selected_host_route_index]
+        ):
+            derived.add("starlette.routing.Router.route-dispatch.partial-before-host-full")
+    elif has_host_route and not matched:
+        derived.add("starlette.routing.Router.route-dispatch.host-route-miss")
     if (
         root_path
         and path.startswith(root_path)
@@ -2140,6 +2818,24 @@ def _validate_reverse_route_node(
                 allow_observer=allow_observer,
             )
         return node
+    if kind == "host-route":
+        node = _exact(node, {"kind", "host", "name", "routes"}, context)
+        host = _string(node["host"], f"{context}.host")
+        if not host or "/" in host:
+            raise ContractError(f"{context}.host must be a non-empty host pattern")
+        _validate_reverse_path("/" + host, custom, f"{context}.host")
+        if node["name"] is not None:
+            _string(node["name"], f"{context}.name")
+        if not isinstance(node["routes"], list):
+            raise ContractError(f"{context}.routes must be an array")
+        for index, route in enumerate(node["routes"]):
+            _validate_reverse_route_node(
+                route,
+                f"{context}.routes[{index}]",
+                custom,
+                allow_observer=allow_observer,
+            )
+        return node
     if kind == "http-route":
         node = _exact(node, {"kind", "path", "name", "methods", "observer"}, context)
         _validate_reverse_path(node["path"], custom, f"{context}.path")
@@ -2220,11 +2916,38 @@ def _reverse_route_candidates(
                 )
             )
         return results
+    if kind == "host-route":
+        host_parameters = {
+            key for key, _ in _validate_reverse_path("/" + node["host"], custom, "Host.host")
+        }
+        if node["name"] is not None and name == node["name"]:
+            direct_parameters = host_parameters | {"path"}
+            return (
+                [(0, node)]
+                if "path" in path_params and direct_parameters == set(path_params)
+                else []
+            )
+        if node["name"] is None:
+            child_name = name
+        elif name.startswith(node["name"] + ":"):
+            child_name = name[len(node["name"]) + 1 :]
+        else:
+            return []
+        remaining = {key: value for key, value in path_params.items() if key not in host_parameters}
+        results = []
+        for index, route in enumerate(node["routes"]):
+            results.extend(
+                (index, match)
+                for _nested_index, match in _reverse_route_candidates(
+                    route, child_name, remaining, custom
+                )
+            )
+        return results
     raise ContractError("reverse route graph has an unsupported node")
 
 
 def _reverse_route_nodes(node: dict[str, Any]) -> list[dict[str, Any]]:
-    if node["kind"] in {"router", "starlette-app", "mount"}:
+    if node["kind"] in {"router", "starlette-app", "mount", "host-route"}:
         result: list[dict[str, Any]] = []
         for child in node["routes"]:
             result.extend(_reverse_route_nodes(child))
@@ -2235,7 +2958,7 @@ def _reverse_route_nodes(node: dict[str, Any]) -> list[dict[str, Any]]:
 def _reverse_effective_observer_paths(
     node: dict[str, Any], prefix: str = ""
 ) -> list[tuple[str, list[str]]]:
-    if node["kind"] in {"router", "starlette-app"}:
+    if node["kind"] in {"router", "starlette-app", "host-route"}:
         result: list[tuple[str, list[str]]] = []
         for child in node["routes"]:
             result.extend(_reverse_effective_observer_paths(child, prefix))
@@ -2254,7 +2977,7 @@ def _reverse_effective_observer_paths(
 
 
 def _reverse_node_depth(node: dict[str, Any], kind: str) -> int:
-    if node["kind"] not in {"router", "starlette-app", "mount"}:
+    if node["kind"] not in {"router", "starlette-app", "mount", "host-route"}:
         return 0
     own = 1 if node["kind"] == kind else 0
     return own + max((_reverse_node_depth(child, kind) for child in node["routes"]), default=0)
@@ -2338,6 +3061,11 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
             derived.add(rid("mismatch"))
     elif surface == "starlette.applications.Starlette" and found:
         derived.add(rid("forwarder"))
+    elif surface == HOST_SURFACE and found:
+        if lookup["name"] == graph["name"]:
+            derived.add(rid("direct-path"))
+        else:
+            derived.add(rid("nested-route"))
     return derived
 
 
@@ -2478,6 +3206,7 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
 
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     is_websocket = isinstance(case, dict) and case.get("surface") == WEBSOCKET_SURFACE
+    is_websocket_close = isinstance(case, dict) and case.get("surface") == WEBSOCKET_CLOSE_SURFACE
     is_websocket_route = (
         isinstance(case, dict)
         and case.get("surface") == WEBSOCKET_ROUTE_SURFACE
@@ -2509,9 +3238,22 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation")
         in {STREAMING_RESPONSE_OPERATION, STREAMING_RESPONSE_TRACE_OPERATION}
     )
+    is_value_formatting = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) in VALUE_FORMATTING_OPERATIONS
+    )
+    is_default_receive = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_DEFAULT_RECEIVE_OPERATION
+    )
+    is_status_symbols = (
+        isinstance(case, dict) and (case.get("surface"), case.get("operation")) == STATUS_OPERATION
+    )
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
+        else WEBSOCKET_CLOSE_CASE_KEYS
+        if is_websocket_close
         else WEBSOCKET_ROUTE_CASE_KEYS
         if is_websocket_route
         else ROUTER_CASE_KEYS
@@ -2526,16 +3268,39 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_response
         else STREAMING_RESPONSE_CASE_KEYS
         if is_streaming_response
+        else STATUS_CASE_KEYS
+        if is_status_symbols
         else CASE_KEYS
     )
+    if is_value_formatting:
+        value_keys = (
+            {"instances"} if case["surface"] == EXCEPTION_VALUES_SURFACE else {"middleware"}
+        )
+        expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | value_keys
+    elif is_default_receive:
+        expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
+    elif is_status_symbols:
+        expected_case_keys = STATUS_CASE_KEYS
     if is_streaming_response and "background" in case:
         expected_case_keys = expected_case_keys | {"background"}
     _exact(case, expected_case_keys, "case")
     case_id = _string(case["case_id"], "case.case_id")
     is_gzip = case["surface"] == GZIP_SURFACE
+    is_protocol_middleware = case["surface"] in ASGI_MIDDLEWARE_SURFACES
+    is_middleware_construction = is_protocol_middleware and case["operation"] == "__init__"
+    is_body_limit = case["surface"] == BODY_LIMIT_SURFACE
     if is_websocket:
-        if case["operation"] not in {WEBSOCKET_OPERATION, WEBSOCKET_STATE_OPERATION}:
+        if case["operation"] not in {
+            WEBSOCKET_OPERATION,
+            WEBSOCKET_STATE_OPERATION,
+            WEBSOCKET_CONVENIENCE_OPERATION,
+        }:
             raise ContractError("WebSocket cases must use a declared sequence operation")
+    elif is_websocket_close:
+        if case["operation"] != WEBSOCKET_CLOSE_OPERATION:
+            raise ContractError(
+                "WebSocketClose cases must use the declared call-sequence operation"
+            )
     elif is_websocket_route:
         if case["operation"] != WEBSOCKET_ROUTE_OPERATION:
             raise ContractError(
@@ -2565,6 +3330,25 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_gzip:
         if case["operation"] != "__call__":
             raise ContractError("GZipMiddleware parity cases must call its public ASGI interface")
+    elif is_protocol_middleware:
+        if case["operation"] not in {"__call__", "__init__"}:
+            raise ContractError("ASGI middleware cases must use a declared public operation")
+    elif is_body_limit:
+        if case["operation"] != "__call__":
+            raise ContractError(
+                "RequestBodyLimitMiddleware parity cases must call its public ASGI interface"
+            )
+    elif is_value_formatting:
+        if case["operation"] != VALUE_FORMATTING_OPERATION:
+            raise ContractError("value-formatting cases must use their declared operation")
+    elif is_default_receive:
+        if case["observations"] != ["receive"]:
+            raise ContractError("default receive cases must select the receive observation")
+    elif is_status_symbols:
+        if (case["surface"], case["operation"]) != STATUS_OPERATION:
+            raise ContractError(
+                "status module cases must use the declared symbol-sequence operation"
+            )
     elif case["surface"] != "starlette.applications.Starlette" or case["operation"] not in {
         "__call__",
         "request-dispatch",
@@ -2620,8 +3404,28 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 f"case target profiles exceed requirement applicability: {requirement_id}"
             )
 
+    if is_value_formatting:
+        _validate_value_formatting_case(case)
+        return case
+    if is_default_receive:
+        _validate_default_receive_case(case)
+        return case
+    if is_status_symbols:
+        _validate_status_symbols_case(case)
+        return case
+
+    if is_body_limit:
+        _validate_body_limit_case_stimulus(case)
+        return case
+
     if is_websocket:
-        _validate_websocket_case_stimulus(case)
+        if case["operation"] == WEBSOCKET_CONVENIENCE_OPERATION:
+            _validate_websocket_convenience_case_stimulus(case)
+        else:
+            _validate_websocket_case_stimulus(case)
+        return case
+    if is_websocket_close:
+        _validate_websocket_close_case_stimulus(case)
         return case
     if is_websocket_route:
         _validate_websocket_route_case_stimulus(case)
@@ -2645,23 +3449,28 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         _validate_streaming_response_case_stimulus(case)
         return case
 
-    if not isinstance(case["steps"], list) or len(case["steps"]) not in {2, 3}:
+    if not isinstance(case["steps"], list) or (
+        len(case["steps"]) not in {2, 3}
+        and not (is_middleware_construction and len(case["steps"]) == 1)
+    ):
         raise ContractError("case must contain construction and dispatch steps")
     step_ids = [step.get("step_id") for step in case["steps"]]
     allowed_step_sequences = (
-        (["middleware", "dispatch"],)
-        if is_gzip
+        (["construct"],)
+        if is_middleware_construction
+        else (["middleware", "dispatch"],)
+        if is_protocol_middleware
         else (["application", "dispatch"], ["application", "lifecycle", "dispatch"])
     )
     if step_ids not in allowed_step_sequences:
         raise ContractError("case steps must follow the declared construction and dispatch order")
-    expected_observations = step_ids[1:]
+    expected_observations = step_ids if is_middleware_construction else step_ids[1:]
     if case["observations"] != expected_observations:
         raise ContractError(
             "case observations must select each non-construction workflow step in order"
         )
     if (
-        not is_gzip
+        not is_protocol_middleware
         and case["operation"] == "request-dispatch"
         and step_ids
         != [
@@ -2675,13 +3484,17 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         or case["steps"][0].get("operation") != "__init__"
     ):
         raise ContractError("construction step must construct the declared public surface")
-    if is_gzip and (
-        case["steps"][1].get("surface") != case["surface"]
-        or case["steps"][1].get("operation") != "__call__"
+    if (
+        is_protocol_middleware
+        and not is_middleware_construction
+        and (
+            case["steps"][1].get("surface") != case["surface"]
+            or case["steps"][1].get("operation") != "__call__"
+        )
     ):
         raise ContractError("GZipMiddleware case must dispatch through its public __call__")
     if (
-        not is_gzip
+        not is_protocol_middleware
         and case["operation"] == "__call__"
         and any(
             step.get("surface") != case["surface"] or step.get("operation") != "__call__"
@@ -2769,19 +3582,24 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     }
     if is_gzip:
         _validate_gzip_constructor_stimulus(app_args)
+    elif is_protocol_middleware:
+        _validate_asgi_middleware_constructor(case["surface"], app_args)
     else:
         _validate_application_stimulus(app_args, case["operation"] == "request-dispatch")
-    server_error_case = not is_gzip and _is_server_error_stimulus(app_args)
+    server_error_case = not is_protocol_middleware and _is_server_error_stimulus(app_args)
     body_reuse = False
-    if not is_gzip:
+    if not is_protocol_middleware:
         body_reuse = (
             isinstance(app_args["routes"][0]["endpoint"], dict)
             and app_args["routes"][0]["endpoint"].get("kind") == "http-exception-after-body"
         )
     for step in case["steps"][1:]:
         step_args = {key: descriptor["value"] for key, descriptor in step["arguments"].items()}
-        if is_gzip:
-            _validate_dispatch_stimulus(step_args, request_dispatch=True)
+        if is_protocol_middleware:
+            if is_gzip:
+                _validate_dispatch_stimulus(step_args, request_dispatch=True)
+            else:
+                _validate_asgi_middleware_dispatch(case["surface"], step_args)
         else:
             _validate_dispatch_stimulus(
                 step_args,
@@ -2792,12 +3610,18 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             )
     dispatch = case["steps"][-1]
     dispatch_args = {key: descriptor["value"] for key, descriptor in dispatch["arguments"].items()}
-    if not is_gzip and (body_reuse or app_args["exception_handlers"] or server_error_case):
+    if not is_protocol_middleware and (
+        body_reuse or app_args["exception_handlers"] or server_error_case
+    ):
         _validate_exception_handler_dispatch(app_args, dispatch_args)
     schedule = case["execution_schedule"]
-    if is_gzip:
-        if dispatch_args["scope"]["type"] != "http" or schedule != ["dispatch"]:
-            raise ContractError("GZipMiddleware cases must dispatch one HTTP scope")
+    if is_middleware_construction:
+        if schedule != ["construct"]:
+            raise ContractError("ASGI middleware construction cases must schedule one construction")
+        expected_schedule = ["construct"]
+    elif is_protocol_middleware:
+        if dispatch_args["scope"]["type"] not in {"http", "websocket"} or schedule != ["dispatch"]:
+            raise ContractError("ASGI middleware cases must dispatch one HTTP or WebSocket scope")
         expected_schedule = ["dispatch"]
     elif step_ids == ["application", "lifecycle", "dispatch"]:
         lifecycle_args = {
@@ -2817,7 +3641,13 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError(
             "execution_schedule does not match the scopes and protocol messages in the steps"
         )
-    exercised = _gzip_semantic_coverage(case) if is_gzip else _semantic_coverage(case)
+    exercised = (
+        _asgi_middleware_semantic_coverage(case)
+        if is_protocol_middleware and not is_gzip
+        else _gzip_semantic_coverage(case)
+        if is_gzip
+        else _semantic_coverage(case)
+    )
     unexercised = set(covers) - exercised
     if unexercised:
         raise ContractError(
@@ -3104,6 +3934,25 @@ def _validate_application_stimulus(args: dict[str, Any], request_dispatch: bool)
                     "Request observer endpoint input differs from its declared values"
                 )
             return
+        if isinstance(endpoint, dict) and endpoint.get("kind") == "request-connection-property":
+            endpoint = _exact(
+                endpoint,
+                {"kind", "property"},
+                "request connection-property endpoint",
+            )
+            if endpoint["property"] not in REQUEST_CONNECTION_PROPERTY_REQUIREMENTS:
+                raise ContractError(
+                    "request connection-property endpoint uses an unsupported property"
+                )
+            return
+        if isinstance(endpoint, dict) and endpoint.get("kind") == "request-stream-observer":
+            _validate_request_stream_endpoint(endpoint)
+            return
+        if isinstance(endpoint, dict) and endpoint.get("kind") == "sync-request-runtime-observer":
+            _validate_sync_request_runtime_endpoint(endpoint)
+            if route["path"] != "/items/{item_id:int}":
+                raise ContractError("sync request runtime input uses the int route boundary")
+            return
         if endpoint == ASGI_CALLABLE_INSTANCE_ENDPOINT:
             if route["path"] != "/items/{item_id:int}":
                 raise ContractError("ASGI callable-instance input uses the int route boundary")
@@ -3356,6 +4205,8 @@ def _validate_dispatch_stimulus(
     allow_headers: bool = False,
     allow_root_path: bool = False,
     allow_query: bool = False,
+    allow_oserror_send: bool = False,
+    allow_host: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -3399,13 +4250,23 @@ def _validate_dispatch_stimulus(
         ):
             raise ContractError("HTTP scope must use the declared ASGI and HTTP versions")
         if (
-            scope["scheme"] != "http"
+            scope["scheme"] not in ({"http", "https"} if allow_host else {"http"})
             or (not allow_root_path and scope["root_path"] != "")
             or not isinstance(scope["root_path"], str)
         ):
             raise ContractError("HTTP scope differs from the declared direct-ASGI baseline")
-        if scope["client"] != ["127.0.0.1", 12345] or scope["server"] != ["testserver", 80]:
+        if scope["client"] != ["127.0.0.1", 12345] or (
+            not allow_host and scope["server"] != ["testserver", 80]
+        ):
             raise ContractError("HTTP scope client/server differ from the declared baseline")
+        if allow_host and (
+            not isinstance(scope["server"], list)
+            or len(scope["server"]) != 2
+            or not isinstance(scope["server"][0], str)
+            or type(scope["server"][1]) is not int
+            or not 1 <= scope["server"][1] <= 65535
+        ):
+            raise ContractError("HTTP scope server is invalid for Host route dispatch")
         if not request_dispatch and not allow_query and scope["query_string_base64"] != "":
             raise ContractError("HTTP scope query value differs from the declared baseline")
         if not request_dispatch and not allow_headers and scope["headers_base64_pairs"] != []:
@@ -3459,7 +4320,20 @@ def _validate_dispatch_stimulus(
     else:
         raise ContractError("scope type must be http or lifespan")
     if args["send"] != {"kind": "capture-asgi-send"}:
-        raise ContractError("send input must contain the fixed ASGI capture selector")
+        if not allow_oserror_send:
+            raise ContractError("send input must contain the fixed ASGI capture selector")
+        send = _exact(
+            args["send"],
+            {"kind", "event_index", "message"},
+            "ASGI OSError send input",
+        )
+        if (
+            send["kind"] != "capture-asgi-send-until-oserror"
+            or type(send["event_index"]) is not int
+            or send["event_index"] < 0
+            or not isinstance(send["message"], str)
+        ):
+            raise ContractError("ASGI OSError send input is invalid")
 
 
 def _validate_exception_handler_dispatch(
@@ -3513,6 +4387,737 @@ def _gzip_header_pairs(value: Any, context: str) -> list[tuple[bytes, bytes]]:
             raise ContractError(f"{context}[{index}] has an empty header name")
         decoded.append((name, header_value))
     return decoded
+
+
+def _validate_body_limit_action_sequence(value: Any, context: str, depth: int = 0) -> None:
+    if depth > 8:
+        raise ContractError(f"{context} exceeds the declared nested middleware depth")
+    if not isinstance(value, list) or not value:
+        raise ContractError(f"{context} must be a non-empty action sequence")
+    for index, raw_action in enumerate(value):
+        action_context = f"{context}[{index}]"
+        if not isinstance(raw_action, dict) or not isinstance(raw_action.get("action"), str):
+            raise ContractError(f"{action_context} must declare an action")
+        kind = raw_action["action"]
+        if kind in {"receive", "observe-scope"}:
+            _exact(raw_action, {"action"}, action_context)
+        elif kind == "send":
+            action = _exact(raw_action, {"action", "message"}, action_context)
+            message = action["message"]
+            if not isinstance(message, dict) or message.get("type") not in {
+                "http.response.start",
+                "http.response.body",
+            }:
+                raise ContractError(f"{action_context}.message has an unsupported ASGI type")
+            if message["type"] == "http.response.start":
+                message = _exact(
+                    message,
+                    {"type", "status", "headers_base64_pairs"},
+                    f"{action_context}.message",
+                )
+                if type(message["status"]) is not int or not 100 <= message["status"] <= 599:
+                    raise ContractError(f"{action_context}.message.status is invalid")
+                _gzip_header_pairs(
+                    message["headers_base64_pairs"], f"{action_context}.message.headers"
+                )
+            else:
+                message = _exact(
+                    message,
+                    {"type", "body_base64", "more_body"},
+                    f"{action_context}.message",
+                )
+                if not isinstance(message["more_body"], bool):
+                    raise ContractError(f"{action_context}.message.more_body must be boolean")
+                try:
+                    base64.b64decode(message["body_base64"], validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(f"{action_context}.message.body_base64 is invalid") from exc
+        elif kind == "raise-http-exception":
+            action = _exact(
+                raw_action,
+                {"action", "status_code", "detail", "headers"},
+                action_context,
+            )
+            if type(action["status_code"]) is not int or not 100 <= action["status_code"] <= 599:
+                raise ContractError(f"{action_context}.status_code is invalid")
+            if action["detail"] is not None and not isinstance(action["detail"], str):
+                raise ContractError(f"{action_context}.detail must be a string or null")
+            if action["headers"] is not None and not isinstance(action["headers"], list):
+                raise ContractError(f"{action_context}.headers must be null or an array")
+        elif kind == "raise-runtime-error":
+            action = _exact(raw_action, {"action", "message"}, action_context)
+            _string(action["message"], f"{action_context}.message")
+        elif kind == "nested":
+            action = _exact(
+                raw_action,
+                {"action", "max_body_size", "actions"},
+                action_context,
+            )
+            limit = action["max_body_size"]
+            if not isinstance(limit, int) or isinstance(limit, bool) or limit < 0:
+                raise ContractError(f"{action_context}.max_body_size must be non-negative")
+            _validate_body_limit_action_sequence(
+                action["actions"], f"{action_context}.actions", depth + 1
+            )
+        else:
+            raise ContractError(f"{action_context}.action is unsupported")
+
+
+def _validate_default_receive_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("default receive parity currently targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["receive"]:
+        raise ContractError("default receive cases must select receive without external assets")
+    if not isinstance(case["scope"], dict):
+        raise ContractError("default receive scope must be a record")
+    _validate_dispatch_stimulus(
+        {
+            "scope": case["scope"],
+            "receive": [],
+            "send": {"kind": "capture-asgi-send"},
+        },
+        request_dispatch=True,
+    )
+    if case["scope"]["type"] != "http":
+        raise ContractError("Request default-receive input must use an HTTP scope")
+    if case["covers"] != ["starlette.request.default-empty-receive-runtime-error"]:
+        raise ContractError("default receive case must cover its declared runtime-error behavior")
+
+
+def _validate_status_symbols_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("status module parity currently targets the Python package profile")
+    if case["assets"] != []:
+        raise ContractError("status module parity does not use external assets")
+    observations = [
+        "public_names",
+        "public_values",
+        "deprecated_values_and_warnings",
+        "directory",
+        "missing_attribute",
+    ]
+    if case["observations"] != observations:
+        raise ContractError("status module parity must select every declared observation")
+    public_names = case["public_names"]
+    deprecated_names = case["deprecated_names"]
+    missing_names = case["missing_names"]
+    for label, names in (
+        ("public_names", public_names),
+        ("deprecated_names", deprecated_names),
+        ("missing_names", missing_names),
+    ):
+        if (
+            not isinstance(names, list)
+            or any(not isinstance(name, str) or not name.isidentifier() for name in names)
+            or len(names) != len(set(names))
+        ):
+            raise ContractError(f"status {label} must be a unique array of identifiers")
+    if not public_names:
+        raise ContractError("status module parity must request public names")
+    if type(case["observe_directory"]) is not bool:
+        raise ContractError("status observe_directory must be boolean")
+    exercised = {"starlette.status.module-symbol-sequence.public-integer-constants"}
+    if deprecated_names:
+        exercised.add("starlette.status.module-symbol-sequence.deprecated-aliases")
+    if missing_names:
+        exercised.add("starlette.status.module-symbol-sequence.unknown-attribute")
+    if case["observe_directory"]:
+        exercised.add("starlette.status.module-symbol-sequence.directory-listing")
+    if set(case["covers"]) != exercised:
+        raise ContractError("status module coverage must match the requested input behaviors")
+
+
+def _validate_value_formatting_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("value-formatting parity currently targets the Python package profile")
+    if case["assets"] != []:
+        raise ContractError("value-formatting cases do not use external assets")
+
+    if case["surface"] == EXCEPTION_VALUES_SURFACE:
+        if case["observations"] != [VALUE_FORMATTING_OPERATION]:
+            raise ContractError("exception value-formatting must select its declared observation")
+        instances = case["instances"]
+        if not isinstance(instances, list) or not instances:
+            raise ContractError("exception value-formatting requires at least one input instance")
+        exercised: set[str] = set()
+        for index, item in enumerate(instances):
+            context = f"exception value-formatting instances[{index}]"
+            item = _exact(item, {"kind", "subclass_name", "arguments", "mutations"}, context)
+            kind = item["kind"]
+            subclass_name = item["subclass_name"]
+            if subclass_name is not None and (
+                not isinstance(subclass_name, str) or not subclass_name.isidentifier()
+            ):
+                raise ContractError(f"{context}.subclass_name must be null or an identifier")
+            mutations = item["mutations"]
+            if not isinstance(mutations, list):
+                raise ContractError(f"{context}.mutations must be an array")
+            arguments = item["arguments"]
+            if kind == "http":
+                arguments = _exact(
+                    arguments,
+                    {"status_code", "detail", "headers"},
+                    f"{context}.arguments",
+                )
+                status_code = arguments["status_code"]
+                if not isinstance(status_code, int) or isinstance(status_code, bool):
+                    raise ContractError(f"{context}.status_code must be an integer")
+                headers = arguments["headers"]
+                if headers is not None and (
+                    not isinstance(headers, dict)
+                    or any(
+                        not isinstance(name, str) or not isinstance(value, str)
+                        for name, value in headers.items()
+                    )
+                ):
+                    raise ContractError(f"{context}.headers must be null or a string mapping")
+                try:
+                    HTTPStatus(status_code)
+                except ValueError:
+                    if arguments["detail"] is None:
+                        exercised.add("starlette.exception-values.http-invalid-status")
+                else:
+                    if arguments["detail"] is None:
+                        exercised.add("starlette.exception-values.http-default-detail")
+                allowed_fields = {"status_code", "detail", "headers"}
+                if subclass_name is not None and mutations:
+                    exercised.add("starlette.exception-values.http-subclass-mutable-fields")
+            elif kind == "websocket":
+                arguments = _exact(arguments, {"code", "reason"}, f"{context}.arguments")
+                code = arguments["code"]
+                if not isinstance(code, int) or isinstance(code, bool):
+                    raise ContractError(f"{context}.code must be an integer")
+                if not arguments["reason"]:
+                    exercised.add("starlette.exception-values.websocket-reason-default")
+                allowed_fields = {"code", "reason"}
+                if subclass_name is not None and mutations:
+                    exercised.add("starlette.exception-values.websocket-subclass-mutable-fields")
+            else:
+                raise ContractError(f"{context}.kind must be http or websocket")
+            for mutation_index, mutation in enumerate(mutations):
+                mutation = _exact(
+                    mutation,
+                    {"field", "value"},
+                    f"{context}.mutations[{mutation_index}]",
+                )
+                if mutation["field"] not in allowed_fields:
+                    raise ContractError(f"{context} mutates an unsupported public field")
+                if kind == "http" and mutation["field"] == "status_code":
+                    value = mutation["value"]
+                    if not isinstance(value, int) or isinstance(value, bool):
+                        raise ContractError(f"{context} status_code mutation must be an integer")
+                if kind == "http" and mutation["field"] == "headers":
+                    value = mutation["value"]
+                    if value is not None and (
+                        not isinstance(value, dict)
+                        or any(
+                            not isinstance(name, str) or not isinstance(entry, str)
+                            for name, entry in value.items()
+                        )
+                    ):
+                        raise ContractError(
+                            f"{context} headers mutation must be null or a string mapping"
+                        )
+                if kind == "websocket" and mutation["field"] == "code":
+                    value = mutation["value"]
+                    if not isinstance(value, int) or isinstance(value, bool):
+                        raise ContractError(f"{context} code mutation must be an integer")
+        if set(case["covers"]) != exercised:
+            raise ContractError(
+                "exception value-formatting coverage must match the behaviors selected by its inputs"
+            )
+        return
+
+    if case["surface"] != MIDDLEWARE_CONFIG_SURFACE:
+        raise ContractError("value-formatting case uses an undeclared public surface")
+    if case["observations"] != ["repr", "__iter__"]:
+        raise ContractError("Middleware value-formatting must select repr and __iter__")
+    middleware = _exact(
+        case["middleware"],
+        {"class_name", "args", "kwargs"},
+        "Middleware value-formatting input",
+    )
+    if not isinstance(middleware["class_name"], str) or not middleware["class_name"].isidentifier():
+        raise ContractError("Middleware class_name must be an identifier")
+    if not isinstance(middleware["args"], list) or not isinstance(middleware["kwargs"], dict):
+        raise ContractError("Middleware args and kwargs must be an array and mapping")
+    if any(not isinstance(key, str) for key in middleware["kwargs"]):
+        raise ContractError("Middleware keyword names must be strings")
+    expected = {
+        "starlette.middleware.Middleware.repr",
+        "starlette.middleware.Middleware.iteration",
+    }
+    if set(case["covers"]) != expected:
+        raise ContractError(
+            "Middleware value-formatting coverage must match repr and iteration inputs"
+        )
+
+
+def _validate_body_limit_case_stimulus(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("body-limit parity currently targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["dispatch"]:
+        raise ContractError("body-limit cases must observe dispatch without external assets")
+    if case["execution_schedule"] != ["dispatch"] or not isinstance(case["steps"], list):
+        raise ContractError("body-limit cases must dispatch one ASGI scope")
+    steps = case["steps"]
+    if (
+        len(steps) != 2
+        or [step.get("step_id") for step in steps] != ["middleware", "dispatch"]
+        or [step.get("operation") for step in steps] != ["__init__", "__call__"]
+        or any(step.get("surface") != BODY_LIMIT_SURFACE for step in steps)
+        or steps[0].get("receiver") is not None
+        or steps[1].get("receiver") != {"kind": "binding", "step_id": "middleware"}
+    ):
+        raise ContractError("body-limit cases must construct and call the public middleware")
+    constructor_step = _exact(steps[0], STEP_KEYS, "body-limit constructor step")
+    dispatch_step = _exact(steps[1], STEP_KEYS, "body-limit dispatch step")
+    constructor_args = _exact(
+        constructor_step["arguments"], {"app", "max_body_size"}, "body-limit constructor arguments"
+    )
+    dispatch_args = _exact(
+        dispatch_step["arguments"], {"scope", "receive", "send"}, "body-limit dispatch arguments"
+    )
+    for name, descriptor in constructor_args.items():
+        _exact(descriptor, {"kind", "value"}, f"body-limit constructor {name} descriptor")
+        if descriptor["kind"] != "literal":
+            raise ContractError(f"body-limit constructor {name} must be an input literal")
+    app_spec = _exact(
+        constructor_args["app"]["value"], {"kind", "actions"}, "body-limit script app"
+    )
+    max_body_size = constructor_args["max_body_size"]["value"]
+    if not isinstance(max_body_size, int) or isinstance(max_body_size, bool) or max_body_size < 0:
+        raise ContractError("body-limit max_body_size must be a non-negative integer literal")
+    if app_spec["kind"] != "asgi-body-limit-script":
+        raise ContractError("body-limit app must use the declared action-script kind")
+    _validate_body_limit_action_sequence(app_spec["actions"], "body-limit app actions")
+
+    for name, descriptor in dispatch_args.items():
+        _exact(descriptor, {"kind", "value"}, f"body-limit dispatch {name} descriptor")
+        if descriptor["kind"] != "literal":
+            raise ContractError(f"body-limit dispatch {name} must be an input literal")
+    scope_value = dispatch_args["scope"]["value"]
+    if not isinstance(scope_value, dict):
+        raise ContractError("body-limit scope input must be a record")
+    scope_check = dict(scope_value)
+    prior_scope_limit = scope_check.pop("preexisting_max_body_size", _BODY_LIMIT_MISSING)
+    if prior_scope_limit is not _BODY_LIMIT_MISSING and (
+        prior_scope_limit is not None
+        and (not isinstance(prior_scope_limit, int) or isinstance(prior_scope_limit, bool))
+    ):
+        raise ContractError("preexisting body limit must be an integer or null")
+    if prior_scope_limit is not _BODY_LIMIT_MISSING and scope_value.get("type") != "http":
+        raise ContractError("preexisting body limit input is only valid for HTTP scopes")
+    _validate_dispatch_stimulus(
+        {
+            "scope": scope_check,
+            "receive": dispatch_args["receive"]["value"],
+            "send": dispatch_args["send"]["value"],
+        },
+        request_dispatch=True,
+        allow_headers=True,
+    )
+    if dispatch_args["send"]["value"] != {"kind": "capture-asgi-send"}:
+        raise ContractError("body-limit send must select the fixed ASGI capture collector")
+    exercised = _body_limit_semantic_coverage(case)
+    covered = set(case["covers"])
+    expected_ids = {BODY_LIMIT_REQUIREMENT_CONSTRUCTION} | set(BODY_LIMIT_REQUIREMENTS.values())
+    unknown = covered - expected_ids
+    if unknown:
+        raise ContractError(f"body-limit case covers undeclared requirements: {sorted(unknown)}")
+    if covered - exercised:
+        raise ContractError(
+            "body-limit case claims requirements not exercised by its actions and inputs: "
+            f"{sorted(covered - exercised)}"
+        )
+
+
+def _body_limit_semantic_coverage(case: dict[str, Any]) -> set[str]:
+    constructor_args = {
+        name: descriptor["value"] for name, descriptor in case["steps"][0]["arguments"].items()
+    }
+    dispatch_args = {
+        name: descriptor["value"] for name, descriptor in case["steps"][1]["arguments"].items()
+    }
+    app_actions = constructor_args["app"]["actions"]
+    scope = dispatch_args["scope"]
+    coverage = {BODY_LIMIT_REQUIREMENT_CONSTRUCTION, BODY_LIMIT_REQUIREMENTS["scope-restoration"]}
+    if scope["type"] != "http":
+        coverage.add(BODY_LIMIT_REQUIREMENTS["non-http-pass-through"])
+        return coverage
+
+    header_pairs = _gzip_header_pairs(scope["headers_base64_pairs"], "HTTP request headers")
+    lengths = [value for name, value in header_pairs if name.lower() == b"content-length"]
+    declared_length = None
+    invalid_length = False
+    if lengths:
+        try:
+            declared_length = int(lengths[0])
+        except ValueError:
+            invalid_length = True
+    messages = dispatch_args["receive"]
+    body_lengths = [len(base64.b64decode(item["body_base64"], validate=True)) for item in messages]
+    max_body_size = constructor_args["max_body_size"]
+
+    def flatten(
+        actions: list[dict[str, Any]], active_limit: int
+    ) -> list[tuple[dict[str, Any], int]]:
+        flattened: list[tuple[dict[str, Any], int]] = []
+        current_limit = active_limit
+        for action in actions:
+            if action["action"] == "nested":
+                current_limit = action["max_body_size"]
+                nested_actions = flatten(action["actions"], current_limit)
+                flattened.extend(nested_actions)
+                if nested_actions:
+                    current_limit = nested_actions[-1][1]
+            else:
+                flattened.append((action, current_limit))
+        return flattened
+
+    actions = flatten(app_actions, max_body_size)
+    receive_actions = [action for action, _ in actions if action["action"] == "receive"]
+    if declared_length is not None and declared_length > max_body_size and receive_actions:
+        coverage.add(BODY_LIMIT_REQUIREMENTS["content-length-precheck"])
+    if (
+        declared_length is not None
+        and declared_length > max_body_size
+        and actions
+        and actions[0][0]["action"] == "send"
+        and actions[0][0]["message"].get("type") == "http.response.start"
+    ):
+        coverage.add(BODY_LIMIT_REQUIREMENTS["content-length-replacement"])
+    received_sizes = body_lengths[: len(receive_actions)]
+    accumulated_size = 0
+    exceeded_after_start = False
+    response_started = False
+    receive_index = 0
+    for action, limit in actions:
+        if action["action"] == "send" and action["message"].get("type") == "http.response.start":
+            response_started = True
+        elif action["action"] == "receive" and receive_index < len(received_sizes):
+            accumulated_size += received_sizes[receive_index]
+            receive_index += 1
+            if accumulated_size > limit:
+                exceeded_after_start = exceeded_after_start or response_started
+                if declared_length is None and not invalid_length:
+                    coverage.add(BODY_LIMIT_REQUIREMENTS["streamed-body-count"])
+                if declared_length is not None and declared_length <= max_body_size:
+                    coverage.add(BODY_LIMIT_REQUIREMENTS["understated-content-length"])
+    if invalid_length and receive_actions:
+        coverage.add(BODY_LIMIT_REQUIREMENTS["invalid-content-length"])
+    if exceeded_after_start:
+        coverage.add(BODY_LIMIT_REQUIREMENTS["already-started-propagation"])
+
+    def has_nested(action_sequence: list[dict[str, Any]]) -> bool:
+        return any(
+            action["action"] == "nested" or has_nested(action["actions"])
+            for action in action_sequence
+            if action["action"] == "nested"
+        )
+
+    if has_nested(app_actions) and receive_actions and any(body_lengths):
+        coverage.add(BODY_LIMIT_REQUIREMENTS["nested-limits"])
+    return coverage
+
+
+def _validate_asgi_middleware_constructor(surface: str, args: dict[str, Any]) -> None:
+    if surface == CORS_SURFACE:
+        expected = {
+            "app",
+            "allow_origins",
+            "allow_methods",
+            "allow_headers",
+            "allow_credentials",
+            "allow_origin_regex",
+            "allow_private_network",
+            "expose_headers",
+            "max_age",
+        }
+        args = _exact(args, expected, "CORSMiddleware constructor")
+        for name in ("allow_origins", "allow_methods", "allow_headers", "expose_headers"):
+            values = args[name]
+            if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+                raise ContractError(f"CORSMiddleware {name} must be a string array")
+        for name in ("allow_credentials", "allow_private_network"):
+            if type(args[name]) is not bool:
+                raise ContractError(f"CORSMiddleware {name} must be boolean")
+        if args["allow_origin_regex"] is not None:
+            regex = _string(args["allow_origin_regex"], "CORSMiddleware allow_origin_regex")
+            try:
+                re.compile(regex)
+            except re.error as exc:
+                raise ContractError(f"CORSMiddleware origin regex is invalid: {exc}") from exc
+        if type(args["max_age"]) is not int or args["max_age"] < 0:
+            raise ContractError("CORSMiddleware max_age must be a non-negative integer")
+    elif surface == HTTPS_REDIRECT_SURFACE:
+        _exact(args, {"app"}, "HTTPSRedirectMiddleware constructor")
+    elif surface == TRUSTED_HOST_SURFACE:
+        if set(args) - {"app", "allowed_hosts", "www_redirect"} or "app" not in args:
+            raise ContractError("TrustedHostMiddleware constructor has an invalid argument set")
+        if "allowed_hosts" in args and args["allowed_hosts"] is not None:
+            hosts = args["allowed_hosts"]
+            if not isinstance(hosts, list) or any(not isinstance(host, str) for host in hosts):
+                raise ContractError("TrustedHostMiddleware allowed_hosts must be strings or null")
+        if "www_redirect" in args and type(args["www_redirect"]) is not bool:
+            raise ContractError("TrustedHostMiddleware www_redirect must be boolean")
+    else:
+        raise ContractError(f"unsupported protocol middleware surface: {surface}")
+
+    _validate_asgi_middleware_app(args["app"])
+
+
+def _validate_asgi_middleware_app(value: Any) -> None:
+    app = _exact(value, {"kind", "messages"}, "ASGI middleware app input")
+    if app["kind"] != "asgi-response-sequence" or not isinstance(app["messages"], list):
+        raise ContractError("ASGI middleware app must be an input-defined message sequence")
+    messages = app["messages"]
+    if not messages:
+        raise ContractError("ASGI middleware app message sequence must not be empty")
+    if (
+        len(messages) == 1
+        and isinstance(messages[0], dict)
+        and messages[0].get("type") == "websocket.close"
+    ):
+        message = _exact(messages[0], {"type", "code"}, "ASGI middleware WebSocket close")
+        if message["type"] != "websocket.close" or not isinstance(message["code"], int):
+            raise ContractError("ASGI middleware WebSocket close event is invalid")
+        return
+    start = _exact(
+        messages[0],
+        {"type", "status", "headers_base64_pairs"},
+        "ASGI middleware HTTP response start",
+    )
+    if (
+        start["type"] != "http.response.start"
+        or not isinstance(start["status"], int)
+        or isinstance(start["status"], bool)
+        or not 100 <= start["status"] <= 599
+    ):
+        raise ContractError("ASGI middleware app must begin with a valid response-start event")
+    _gzip_header_pairs(start["headers_base64_pairs"], "ASGI middleware response headers")
+    if len(messages) < 2:
+        raise ContractError("ASGI middleware HTTP response must include a response body event")
+    body_messages = messages[1:]
+    for index, raw_message in enumerate(body_messages):
+        message = _exact(
+            raw_message,
+            {"type", "body_base64", "more_body"},
+            f"ASGI middleware response body[{index}]",
+        )
+        if message["type"] != "http.response.body" or not isinstance(message["more_body"], bool):
+            raise ContractError("ASGI middleware response body event is invalid")
+        try:
+            base64.b64decode(message["body_base64"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError("ASGI middleware response body is invalid base64") from exc
+    if (
+        any(message["more_body"] for message in body_messages[:-1])
+        or body_messages[-1]["more_body"]
+    ):
+        raise ContractError("ASGI middleware response body sequence must end with more_body=false")
+
+
+def _validate_asgi_middleware_dispatch(surface: str, args: dict[str, Any]) -> None:
+    args = _exact(args, {"scope", "receive", "send"}, f"{surface} dispatch")
+    scope = args["scope"]
+    if isinstance(scope, dict) and scope.get("type") == "http":
+        _validate_dispatch_stimulus(
+            args,
+            request_dispatch=True,
+            allow_headers=True,
+            allow_query=True,
+            allow_host=True,
+        )
+        return
+    if not isinstance(scope, dict) or scope.get("type") != "websocket":
+        raise ContractError(f"{surface} dispatch must use HTTP or WebSocket scope")
+    scope = _exact(
+        scope,
+        {
+            "type",
+            "asgi",
+            "http_version",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+            "subprotocols",
+        },
+        f"{surface} WebSocket scope",
+    )
+    if (
+        scope["asgi"]
+        not in (
+            {"version": "3.0", "spec_version": "2.4"},
+            {"version": "3.0", "spec_version": "2.5"},
+        )
+        or scope["scheme"] not in {"ws", "wss"}
+        or not isinstance(scope["http_version"], str)
+        or not isinstance(scope["root_path"], str)
+        or not isinstance(scope["path"], str)
+        or scope["raw_path_base64"] != base64.b64encode(scope["path"].encode("ascii")).decode()
+    ):
+        raise ContractError(f"{surface} WebSocket scope is invalid")
+    if args["receive"] != [{"type": "websocket.connect"}] or args["send"] != {
+        "kind": "capture-asgi-send"
+    }:
+        raise ContractError(f"{surface} WebSocket dispatch callbacks are invalid")
+    for field in ("raw_path_base64", "query_string_base64"):
+        try:
+            base64.b64decode(scope[field], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(f"{surface} WebSocket {field} is invalid base64") from exc
+    if not isinstance(scope["headers_base64_pairs"], list) or not isinstance(
+        scope["subprotocols"], list
+    ):
+        raise ContractError(f"{surface} WebSocket headers and subprotocols must be arrays")
+
+
+def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
+    surface = case["surface"]
+    constructor = {
+        name: descriptor["value"] for name, descriptor in case["steps"][0]["arguments"].items()
+    }
+    if case["operation"] == "__init__":
+        covered = {f"{surface}.construct"}
+        hosts = constructor.get("allowed_hosts")
+        if hosts and any(
+            "*" in host[1:] or (host.startswith("*") and host != "*" and not host.startswith("*."))
+            for host in hosts
+        ):
+            covered.add(f"{surface}.wildcard-validation-error")
+        return covered
+    dispatch = {
+        name: descriptor["value"] for name, descriptor in case["steps"][1]["arguments"].items()
+    }
+    scope = dispatch["scope"]
+
+    def suffix(value: str) -> str:
+        return f"{surface}.{value}"
+
+    covered = {suffix("construct")}
+
+    def decoded_headers(scope_value: dict[str, Any]) -> dict[str, str]:
+        return {
+            base64.b64decode(name, validate=True).decode("latin-1").lower(): base64.b64decode(
+                value, validate=True
+            ).decode("latin-1")
+            for name, value in scope_value.get("headers_base64_pairs", [])
+        }
+
+    headers = decoded_headers(scope)
+    if surface == CORS_SURFACE:
+        if scope["type"] != "http":
+            covered.add(suffix("non-http-passthrough"))
+            return covered
+        origin = headers.get("origin")
+        if origin is None:
+            covered.add(suffix("missing-origin-passthrough"))
+            return covered
+        origins = constructor["allow_origins"]
+        origin_regex = constructor["allow_origin_regex"]
+        allowed_origin = origin == "*" or "*" in origins or origin in origins
+        regex_match = re.compile(origin_regex).match(origin) if origin_regex else None
+        full_regex_match = re.compile(origin_regex).fullmatch(origin) if origin_regex else None
+        allowed_origin = allowed_origin or full_regex_match is not None
+        if origin_regex and regex_match is not None and full_regex_match is None:
+            covered.add(suffix("regex-fullmatch-origin"))
+        requested_method = headers.get("access-control-request-method")
+        if scope["method"] == "OPTIONS" and requested_method is not None:
+            requested_headers = [
+                value.strip().lower()
+                for value in headers.get("access-control-request-headers", "").split(",")
+                if value.strip()
+            ]
+            allowed_methods = constructor["allow_methods"]
+            allowed_headers = {value.lower() for value in constructor["allow_headers"]}
+            failures = (
+                not allowed_origin,
+                "*" not in allowed_methods and requested_method not in allowed_methods,
+                "*" not in allowed_headers
+                and any(value not in allowed_headers for value in requested_headers),
+                headers.get("access-control-request-private-network") == "true"
+                and not constructor["allow_private_network"],
+            )
+            if (
+                all(
+                    (
+                        allowed_origin,
+                        "*" in allowed_methods or requested_method in allowed_methods,
+                        "*" in allowed_headers
+                        or all(value in allowed_headers for value in requested_headers),
+                        headers.get("access-control-request-private-network") != "true"
+                        or constructor["allow_private_network"],
+                    )
+                )
+                and constructor["allow_private_network"]
+            ):
+                covered.add(suffix("preflight-wildcard-credential-private-network"))
+            elif sum(failures) > 1:
+                covered.add(suffix("preflight-denial-failure-order"))
+            return covered
+        if (
+            "*" in origins
+            and constructor["allow_credentials"]
+            and "cookie" in headers
+            and any(
+                base64.b64decode(name, validate=True).lower() == b"vary"
+                for name, _value in constructor["app"]["messages"][0]["headers_base64_pairs"]
+            )
+        ):
+            covered.add(suffix("simple-wildcard-credential-reflection-vary-merge"))
+        elif origin_regex and regex_match is not None and full_regex_match is None:
+            covered.add(suffix("regex-fullmatch-origin"))
+        elif not allowed_origin:
+            covered.add(suffix("simple-denied-origin-preserves-app-response"))
+        return covered
+
+    if surface == HTTPS_REDIRECT_SURFACE:
+        scheme = scope.get("scheme")
+        if scope["type"] in {"http", "websocket"} and scheme in {"http", "ws"}:
+            if scheme == "ws":
+                covered.add(suffix("websocket-redirect"))
+            elif scope["server"][1] == 80:
+                covered.add(suffix("http-redirect-default-port"))
+            elif scope["query_string_base64"]:
+                covered.add(suffix("http-redirect-preserves-port-and-query"))
+        else:
+            covered.add(suffix("secure-scheme-pass-through"))
+        return covered
+
+    if surface == TRUSTED_HOST_SURFACE:
+        if scope["type"] != "http":
+            covered.add(suffix("non-http-scope-pass-through"))
+            return covered
+        allowed_hosts = constructor.get("allowed_hosts")
+        allowed_hosts = ["*"] if allowed_hosts is None else allowed_hosts
+        if "*" in allowed_hosts:
+            covered.add(suffix("default-allowed-hosts"))
+            return covered
+        host = headers.get("host", "").split(":")[0]
+        exact_match = host in allowed_hosts
+        wildcard_match = any(
+            pattern.startswith("*.") and host.endswith(pattern[1:]) for pattern in allowed_hosts
+        )
+        www_match = "www." + host in allowed_hosts
+        if exact_match:
+            covered.add(suffix("exact-host-match"))
+        elif wildcard_match:
+            covered.add(suffix("domain-wildcard-match"))
+        elif www_match and constructor.get("www_redirect", True):
+            covered.add(suffix("www-redirect"))
+        elif www_match:
+            covered.add(suffix("www-redirect-disabled"))
+        else:
+            covered.add(suffix("invalid-host-response"))
+        return covered
+
+    return covered
 
 
 def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
@@ -3945,6 +5550,30 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                 pass
             else:
                 coverage.add("starlette.request.json-chunked-body")
+    elif endpoint["kind"] == "request-connection-property":
+        property_name = endpoint["property"]
+        if property_name not in scope:
+            coverage.add(REQUEST_CONNECTION_PROPERTY_REQUIREMENTS[property_name])
+    elif endpoint["kind"] == "request-stream-observer":
+        operations = {action["operation"] for action in endpoint["actions"]}
+        coverage.update(
+            requirement
+            for operation, requirement in REQUEST_STREAM_REQUIREMENTS.items()
+            if operation in operations
+        )
+    elif endpoint["kind"] == "sync-request-runtime-observer":
+        coverage.update(
+            SYNC_REQUEST_RUNTIME_REQUIREMENTS[action["property"]]
+            if action["operation"] == "callable-property"
+            else SYNC_REQUEST_RUNTIME_REQUIREMENTS[
+                action["method"] if action["operation"] == "construct-awaitable" else "stream"
+            ]
+            for action in endpoint["actions"]
+        )
+        coverage.update(
+            SYNC_ENDPOINT_REQUIREMENTS[key]
+            for key in ("contextvar", "worker_thread", "single_invocation")
+        )
     elif endpoint["kind"] == "sync-request-observer":
         coverage.update(
             SYNC_ENDPOINT_REQUIREMENTS[key]

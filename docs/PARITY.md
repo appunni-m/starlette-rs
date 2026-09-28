@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 118 input-only cases in 18 indexed files: four direct ASGI cases, 38 request/routing cases, 21 reverse-URL cases, eight GZip cases, four direct RedirectResponse ASGI-call cases, eight direct Response/JSONResponse ASGI-call cases, four finite synchronous StreamingResponse cases plus one finite async-iterator case, six full WebSocket protocol-tape cases, six projected WebSocket state cases, five Request-style HTTPException cases, two callable-ASGI HTTPException cases, two registered exception-handler cases, and nine server-error cases. Twenty parity operations declare 122 parity requirements; one separate benchmark requirement is also indexed. Built-in route-converter, slash-redirect, RedirectResponse, Response, StreamingResponse, and JSONResponse cases select Python-package and Rust-native profiles where supported. Custom converter, typed Request, reverse-URL, async-iterator StreamingResponse, and full WebSocket protocol cases select the Python-package profile; Mount dispatch cases select both profiles with Rust-native explicitly unsupported. Projected state cases select both target profiles. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 181 input-only cases in 26 indexed files, covering 36 operations and 208 parity requirements. The cases cover bounded Starlette application, routing, request, response, WebSocket, exception, status, endpoint, authentication, and middleware behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -85,17 +85,17 @@ cases. The Rust route table now builds converter-formatted paths for the Python
 bridge, while a Rust-native named Route/Router API remains unimplemented and is
 not claimed by this slice.
 
-The latest integrated run `296735f7-a06b-465e-958b-44f40b32b88c`, finished at
-`2026-09-28T12:04:18.052Z`, selected 181 comparisons: 175 passed, zero failed,
-zero infrastructure errors, and six `not_run`. All 118 Python-package cases
-passed; Rust-native passed 57 of 63 selected cases. The four synchronous
-StreamingResponse cases passed on both profiles; the async-iterator case
-passed on the source and Python package only. Four Python-callable boundaries
-and two Mount cases remain unsupported for Rust-native, so the CLI exits with
-status 2 and this is not an all-target pass. Manifest SHA-256 is
-`ca08a7b84e3915d3ded869fbf0343b3f719adb6635765b9c3ff8bab0596cc82c`; the
+The latest integrated run `7b635097-b506-47a0-aa50-3d078ee02796` finished at
+`2026-09-28T18:36:34.422Z`, selected 244 profile comparisons, and started at
+`2026-09-28T18:36:06.797Z`. All 181 Python-package cases passed; Rust-native
+passed 57 of 63 selected cases. There were zero failed comparisons and zero
+infrastructure errors. Four arbitrary Python callable boundaries and two
+Mount cases are declared unsupported for Rust-native, so six rows are
+`not_run`; the CLI exits with status 2 and this is not an all-target pass.
+Manifest SHA-256 is
+`25a8f6d231d86ed418f1dc9f837a61ba0f421042260a6661faa174651015bd39`; the
 installed wheel SHA-256 is
-`9dfdbf27b0cc9c6ca697799c138ebce8a65ad42a670276e8fce41a19f8eb274e`. Target
+`7fcd9472941b2f8af0c42934a55d7426c7c6137538c57e2a2ff85e459ec70da6`. Target
 identities were dirty local trees, so this run is not clean aggregate or
 release proof.
 
@@ -218,7 +218,7 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@4` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 118 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The current run `296735f7-a06b-465e-958b-44f40b32b88c`, finished at `2026-09-28T12:04:18.052Z`, selected 181 comparisons: 175 passed, zero failed, six `not_run`, and zero infrastructure errors. All 118 installed Python-package cases passed. Rust-native passed 57 of 63 selected rows; the four Python-callable forms and two Mount cases remain unsupported. The four synchronous StreamingResponse cases passed on both target profiles, and the async-iterator case passed on the Python package. The CLI exits with status 2 while those rows remain `not_run`; this is not an all-target pass. Target identities were dirty local trees, so the run is not clean aggregate or release proof. See `build/parity/parity-result.json`; manifest SHA-256 is `ca08a7b84e3915d3ded869fbf0343b3f719adb6635765b9c3ff8bab0596cc82c`, and target wheel SHA-256 is `9dfdbf27b0cc9c6ca697799c138ebce8a65ad42a670276e8fce41a19f8eb274e`.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 181 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. See `build/parity/parity-result.json`; generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 

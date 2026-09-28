@@ -30,6 +30,20 @@
       ]
     },
     {
+      "surface_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "source_path": "starlette/middleware/body_limit.py:30",
+      "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.middleware.gzip.GZipMiddleware",
       "source_path": "starlette/middleware/gzip.py:40",
       "operations": [
@@ -53,6 +67,10 @@
         },
         {
           "operation_id": "state-sequence",
+          "source_path": "starlette.websockets.WebSocket"
+        },
+        {
+          "operation_id": "convenience-sequence",
           "source_path": "starlette.websockets.WebSocket"
         }
       ]
@@ -116,6 +134,10 @@
         {
           "operation_id": "url_for",
           "source_path": "starlette.requests.Request.url_for"
+        },
+        {
+          "operation_id": "default-receive",
+          "source_path": "starlette.requests.Request.__init__ and Request.receive"
         }
       ]
     },
@@ -160,6 +182,98 @@
         {
           "operation_id": "asgi-call",
           "source_path": "starlette.responses.Response.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.websockets.WebSocketClose",
+      "source_path": "starlette/websockets.py:190",
+      "operations": [
+        {
+          "operation_id": "call-sequence",
+          "source_path": "starlette.websockets.WebSocketClose.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.exceptions",
+      "source_path": "starlette/exceptions.py:7",
+      "operations": [
+        {
+          "operation_id": "value-formatting",
+          "source_path": "starlette.exceptions.HTTPException and starlette.exceptions.WebSocketException"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.middleware.Middleware",
+      "source_path": "starlette/middleware/__init__.py:22",
+      "operations": [
+        {
+          "operation_id": "value-formatting",
+          "source_path": "starlette.middleware.Middleware.__repr__ and Middleware.__iter__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.routing.Host",
+      "source_path": "starlette/routing.py:466",
+      "operations": [
+        {
+          "operation_id": "url_path_for",
+          "source_path": "starlette.routing.Host.url_path_for"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.status",
+      "source_path": "starlette/status.py:10",
+      "operations": [
+        {
+          "operation_id": "module-symbol-sequence",
+          "source_path": "starlette.status.__all__, __getattr__, and __dir__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.middleware.cors.CORSMiddleware",
+      "source_path": "starlette/middleware/cors.py:15",
+      "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.middleware.cors.CORSMiddleware.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.middleware.cors.CORSMiddleware.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+      "source_path": "starlette/middleware/httpsredirect.py:7",
+      "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.middleware.trustedhost.TrustedHostMiddleware",
+      "source_path": "starlette/middleware/trustedhost.py:19",
+      "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.middleware.trustedhost.TrustedHostMiddleware.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.middleware.trustedhost.TrustedHostMiddleware.__call__"
         }
       ]
     }

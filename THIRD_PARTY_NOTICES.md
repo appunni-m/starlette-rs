@@ -24,7 +24,11 @@ redirect response wrapper in
 [`starlette-rs-py/python/starlette/responses.py`](starlette-rs-py/python/starlette/responses.py)
 adapts the `RedirectResponse` behavior in `starlette/responses.py` from the
 pinned source and retains its BSD-3-Clause provenance. The benchmark worker
-([`scripts/parity/upstream_benchmark_worker.py`](scripts/parity/upstream_benchmark_worker.py))
+and [`starlette-rs-py/python/starlette/status.py`](starlette-rs-py/python/starlette/status.py)
+also derive their status-code names and integer values from the pinned source;
+the status module's deprecated-alias behavior is adapted from
+`starlette/status.py` and retains the same BSD-3-Clause provenance. The benchmark
+worker ([`scripts/parity/upstream_benchmark_worker.py`](scripts/parity/upstream_benchmark_worker.py))
 adapts deterministic payload-generation recipes and the fixed text paragraph
 from `benchmarks/gzip_benchmark.py` so the 68 GZip inputs reproduce the pinned
 workloads. That adapted material is Copyright © 2018 Encode OSS Ltd. and is

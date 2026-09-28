@@ -36,8 +36,10 @@
   branching, iteration, event ordering, scheduling, and error policy in Rust.
   Python should construct or hold Rust objects, convert values at the PyO3
   boundary, pass user callables and ASGI callbacks through, and await native
-  callables. Do not add Python `if`/`else` or loop logic to runtime wrappers;
-  existing Python-owned behavior is migration work, not the target design.
+  callables. Do not add Python `if`/`else`, loop, `raise`, or `assert` behavior
+  to runtime wrappers; ask Rust to select and propagate the corresponding
+  outcome. Existing Python-owned behavior is migration work, not the target
+  design.
 - The upstream `starlette` distribution is a development-time oracle only. Do
   not import it or declare it as a runtime dependency; the installed package's
   own `starlette.*` modules must be backed by this repository.

@@ -1,0 +1,278 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-route-match",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "{tenant}.example.test",
+          "name": "tenant",
+          "app": {
+            "kind": "plain-text-response",
+            "content": "host-selected",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/health",
+        "raw_path_base64": "L2hlYWx0aA==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "YXBpLmV4YW1wbGUudGVzdA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          443
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.partial-before-host-full",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.partial-before-host-full"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/orders/{order_id:int}",
+          "methods": [
+            "POST"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "partial-route",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "api.example.test",
+          "app": {
+            "kind": "plain-text-response",
+            "content": "host-full-route",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          },
+          "name": null
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/orders/12",
+        "raw_path_base64": "L29yZGVycy8xMg==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "YXBpLmV4YW1wbGUudGVzdA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-route-miss",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-miss"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "api.example.test",
+          "app": {
+            "kind": "plain-text-response",
+            "content": "host-selected",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          },
+          "name": null
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/health",
+        "raw_path_base64": "L2hlYWx0aA==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "b3RoZXIuZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Host.url_path_for.direct-path",
+      "surface": "starlette.routing.Host",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Host.url_path_for.direct-path"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "host-route",
+        "host": "{tenant}.example.test",
+        "name": "tenant",
+        "routes": []
+      },
+      "lookup": {
+        "name": "tenant",
+        "path_params": {
+          "tenant": "acme",
+          "path": "/health"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Host.url_path_for.nested-route",
+      "surface": "starlette.routing.Host",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Host.url_path_for.nested-route"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "host-route",
+        "host": "{tenant}.example.test",
+        "name": "tenant",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/users/{user_id:int}",
+            "name": "user",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "tenant:user",
+        "path_params": {
+          "tenant": "acme",
+          "user_id": 7
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    }
+  ]
+}

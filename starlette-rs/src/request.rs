@@ -484,6 +484,18 @@ impl RequestBodyAccumulator {
             .ok_or(RequestBodyError::BodyNotComplete)
     }
 
+    /// Discards bytes from an interrupted `body()` collection.
+    ///
+    /// Starlette accumulates `body()` chunks in a local list and installs the
+    /// cache only after the stream finishes. If receive fails, those partial
+    /// bytes are not retained for a later call.
+    pub fn abort_body_collection(&mut self) {
+        if self.cached_body.is_none() {
+            self.received.clear();
+            self.collecting_body = false;
+        }
+    }
+
     /// Returns the cached body, if the caller has completed body collection.
     #[must_use]
     pub fn cached_body(&self) -> Option<&[u8]> {
@@ -502,5 +514,108 @@ impl RequestBodyAccumulator {
         } else {
             Ok(())
         }
+    }
+}
+
+/// The effect of advancing one public `Request.stream()` iterator.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RequestStreamProgress {
+    /// The iterator needs another ASGI message from the receive callback.
+    Receive,
+    /// Yield these bytes to the Python async iterator consumer.
+    Chunk(Vec<u8>),
+    /// Yield the request's cached body object to preserve its Python identity.
+    CachedBody(Vec<u8>),
+    /// The stream emitted its final empty chunk and is exhausted.
+    Complete,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum RequestStreamPhase {
+    #[default]
+    New,
+    Receiving,
+    CachedTail,
+    FinalTail,
+    Complete,
+}
+
+/// Per-iterator protocol state for `Request.stream()`.
+///
+/// The request body accumulator is shared across streams and body collection;
+/// this value tracks only which chunks this particular iterator still needs to
+/// yield.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RequestStreamState {
+    phase: RequestStreamPhase,
+}
+
+impl RequestStreamState {
+    /// Starts or resumes an iterator, yielding cached bytes or requesting input.
+    pub fn next(
+        &mut self,
+        body: &RequestBodyAccumulator,
+    ) -> Result<RequestStreamProgress, RequestBodyError> {
+        match self.phase {
+            RequestStreamPhase::New => {
+                if let Some(cached) = body.cached_body() {
+                    self.phase = RequestStreamPhase::CachedTail;
+                    return Ok(RequestStreamProgress::CachedBody(cached.to_vec()));
+                }
+                body.check_stream_start()?;
+                self.phase = RequestStreamPhase::Receiving;
+                Ok(RequestStreamProgress::Receive)
+            }
+            RequestStreamPhase::Receiving => Ok(RequestStreamProgress::Receive),
+            RequestStreamPhase::CachedTail | RequestStreamPhase::FinalTail => {
+                self.phase = RequestStreamPhase::Complete;
+                Ok(RequestStreamProgress::Chunk(Vec::new()))
+            }
+            RequestStreamPhase::Complete => Ok(RequestStreamProgress::Complete),
+        }
+    }
+
+    /// Applies one received ASGI message and decides whether to read again or yield.
+    pub fn accept(
+        &mut self,
+        body: &mut RequestBodyAccumulator,
+        message_type: &str,
+        chunk: &[u8],
+        more_body: bool,
+    ) -> Result<RequestStreamProgress, RequestBodyError> {
+        if self.phase != RequestStreamPhase::Receiving {
+            return Err(RequestBodyError::StreamConsumed);
+        }
+
+        let progress = match body.accept_asgi_message(message_type, chunk, more_body) {
+            Ok(progress) => progress,
+            Err(error) => {
+                self.phase = RequestStreamPhase::Complete;
+                return Err(error);
+            }
+        };
+
+        match progress {
+            BodyProgress::Ignored => Ok(RequestStreamProgress::Receive),
+            BodyProgress::RequestChunk { complete, .. } if chunk.is_empty() => {
+                if complete {
+                    self.phase = RequestStreamPhase::Complete;
+                    Ok(RequestStreamProgress::Chunk(Vec::new()))
+                } else {
+                    Ok(RequestStreamProgress::Receive)
+                }
+            }
+            BodyProgress::RequestChunk { complete, .. } => {
+                if complete {
+                    self.phase = RequestStreamPhase::FinalTail;
+                }
+                Ok(RequestStreamProgress::Chunk(chunk.to_vec()))
+            }
+        }
+    }
+
+    /// Closes the iterator after the awaited receive callback raises.
+    pub fn fail(&mut self) {
+        self.phase = RequestStreamPhase::Complete;
     }
 }

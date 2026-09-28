@@ -6,9 +6,25 @@
 //! continuations invoke and await callbacks through that loop without creating
 //! a second executor or event loop.
 
+mod application_runtime;
+mod authentication_runtime;
 mod awaitable;
 mod background;
+mod body_limit_runtime;
+mod cors_runtime;
+mod datastructure_runtime;
+mod endpoint_runtime;
+mod exception_values;
+mod gzip_runtime;
+mod host_middleware_runtime;
+mod middleware_config_runtime;
+mod path_convertors_runtime;
+mod request_runtime;
+mod router_runtime;
 mod runtime_calls;
+mod server_error_runtime;
+mod status_runtime;
+mod websocket_calls;
 
 use pyo3::exceptions::PyKeyError;
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
@@ -18,10 +34,11 @@ use starlette_rs::{
     AsgiScopeKind, BodyProgress, ConnectionUrlError, Cookies as NativeCookies,
     DEFAULT_EXCLUDED_CONTENT_TYPES, DebugTracebackFrame, DetailedRouteMatch, GzipBodyOutput,
     GzipCompressionError, GzipConfig as NativeGzipConfig, GzipHeader,
-    GzipResponder as NativeGzipResponder, LifespanAction, LifespanError, LifespanState,
-    QueryParams as NativeQueryParams, RequestBodyAccumulator as NativeRequestBodyAccumulator,
-    RequestBodyError, RequestHeaders as NativeRequestHeaders, Response, ResponseError,
-    ResponseEvent, RouteTable, ServerErrorPlan, ServerErrorPolicy as NativeServerErrorPolicy,
+    GzipResponder as NativeGzipResponder, HttpDispatchPlan, LifespanAction, LifespanError,
+    LifespanState, QueryParams as NativeQueryParams,
+    RequestBodyAccumulator as NativeRequestBodyAccumulator, RequestBodyError,
+    RequestHeaders as NativeRequestHeaders, Response, ResponseError, ResponseEvent, RouteTable,
+    ServerErrorPlan, ServerErrorPolicy as NativeServerErrorPolicy,
     ServerErrorState as NativeServerErrorState, WebSocketState, WebSocketStateMachine,
     classify_scope, connection_url as native_connection_url, parse_cookie_header,
 };
@@ -32,6 +49,13 @@ type RouteDecision = (
     Option<Py<PyResponse>>,
     Vec<(String, String)>,
     Vec<String>,
+);
+type HttpDispatchDecision = (
+    String,
+    Option<usize>,
+    Vec<(String, String)>,
+    Vec<String>,
+    Option<String>,
 );
 type PyGzipResponseStart = (u16, Vec<GzipHeader>);
 type PyGzipBodyOutput = (Option<PyGzipResponseStart>, Vec<u8>);
@@ -196,6 +220,43 @@ impl PyRouteTable {
             self.inner
                 .matches_detailed_with_root_path(path, root_path, method),
         )
+    }
+
+    /// Plans an HTTP match, method rejection, slash redirect, or not-found result.
+    fn dispatch_plan(&self, path: &str, root_path: &str, method: &str) -> HttpDispatchDecision {
+        match self.inner.dispatch_plan(path, root_path, method) {
+            HttpDispatchPlan::Matched {
+                route_index,
+                path_params,
+            } => (
+                "matched".to_owned(),
+                Some(route_index),
+                path_params,
+                Vec::new(),
+                None,
+            ),
+            HttpDispatchPlan::MethodNotAllowed {
+                route_index,
+                allowed_methods,
+                path_params,
+            } => (
+                "method_not_allowed".to_owned(),
+                Some(route_index),
+                path_params,
+                allowed_methods,
+                None,
+            ),
+            HttpDispatchPlan::Redirect { path } => (
+                "redirect".to_owned(),
+                None,
+                Vec::new(),
+                Vec::new(),
+                Some(path),
+            ),
+            HttpDispatchPlan::NotFound => {
+                ("not_found".to_owned(), None, Vec::new(), Vec::new(), None)
+            }
+        }
     }
 
     /// Finds a matching trailing-slash alternative using the ASGI `root_path`.
@@ -860,6 +921,22 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyResponse>()?;
     runtime_calls::register(module)?;
     background::register(module)?;
+    authentication_runtime::register(module)?;
+    datastructure_runtime::register(module)?;
+    endpoint_runtime::register(module)?;
+    body_limit_runtime::register(module)?;
+    cors_runtime::register(module)?;
+    application_runtime::register(module)?;
+    exception_values::register(module)?;
+    middleware_config_runtime::register(module)?;
+    host_middleware_runtime::register(module)?;
+    path_convertors_runtime::register(module)?;
+    request_runtime::register(module)?;
+    router_runtime::register(module)?;
+    gzip_runtime::register(module)?;
+    server_error_runtime::register(module)?;
+    status_runtime::register(module)?;
+    websocket_calls::register(module)?;
     module.add_class::<PyLifespanState>()?;
     module.add_class::<PyGzipConfig>()?;
     module.add_class::<PyGzipResponder>()?;

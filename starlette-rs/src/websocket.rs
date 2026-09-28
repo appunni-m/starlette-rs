@@ -98,10 +98,24 @@ impl WebSocketStateMachine {
         self.client_state
     }
 
+    /// Sets the state used to validate messages received from the server.
+    ///
+    /// This mirrors Starlette's assignable `WebSocket.client_state` attribute.
+    pub fn set_client_state(&mut self, state: WebSocketState) {
+        self.client_state = state;
+    }
+
     /// Returns the state of messages sent to the ASGI server.
     #[must_use]
     pub const fn application_state(&self) -> WebSocketState {
         self.application_state
+    }
+
+    /// Sets the state used to validate messages sent to the server.
+    ///
+    /// This mirrors Starlette's assignable `WebSocket.application_state` attribute.
+    pub fn set_application_state(&mut self, state: WebSocketState) {
+        self.application_state = state;
     }
 
     /// Validates and records an ASGI event received from the server.

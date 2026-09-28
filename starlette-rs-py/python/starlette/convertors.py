@@ -7,9 +7,10 @@ see the repository's ``LICENSE.md`` for the retained notice and conditions.
 
 from __future__ import annotations
 
-import math
 import uuid
 from typing import Any, ClassVar, Generic, TypeVar
+
+from starlette_rs_py import _core
 
 T = TypeVar("T")
 
@@ -20,69 +21,60 @@ class Convertor(Generic[T]):
     regex: ClassVar[str] = ""
 
     def convert(self, value: str) -> T:
-        raise NotImplementedError()  # pragma: no cover
+        return _core._convert_builtin_convertor("base", value)
 
     def to_string(self, value: T) -> str:
-        raise NotImplementedError()  # pragma: no cover
+        return _core._format_builtin_convertor("base", value)
 
 
 class StringConvertor(Convertor[str]):
     regex = "[^/]+"
 
     def convert(self, value: str) -> str:
-        return value
+        return _core._convert_builtin_convertor("str", value)
 
     def to_string(self, value: str) -> str:
-        value = str(value)
-        assert "/" not in value, "May not contain path separators"
-        assert value, "Must not be empty"
-        return value
+        return _core._format_builtin_convertor("str", value)
 
 
 class PathConvertor(Convertor[str]):
     regex = ".*"
 
     def convert(self, value: str) -> str:
-        return str(value)
+        return _core._convert_builtin_convertor("path", value)
 
     def to_string(self, value: str) -> str:
-        return str(value)
+        return _core._format_builtin_convertor("path", value)
 
 
 class IntegerConvertor(Convertor[int]):
     regex = "[0-9]+"
 
     def convert(self, value: str) -> int:
-        return int(value)
+        return _core._convert_builtin_convertor("int", value)
 
     def to_string(self, value: int) -> str:
-        value = int(value)
-        assert value >= 0, "Negative integers are not supported"
-        return str(value)
+        return _core._format_builtin_convertor("int", value)
 
 
 class FloatConvertor(Convertor[float]):
     regex = r"[0-9]+(\.[0-9]+)?"
 
     def convert(self, value: str) -> float:
-        return float(value)
+        return _core._convert_builtin_convertor("float", value)
 
     def to_string(self, value: float) -> str:
-        value = float(value)
-        assert value >= 0.0, "Negative floats are not supported"
-        assert not math.isnan(value), "NaN values are not supported"
-        assert not math.isinf(value), "Infinite values are not supported"
-        return f"{value:0.20f}".rstrip("0").rstrip(".")
+        return _core._format_builtin_convertor("float", value)
 
 
 class UUIDConvertor(Convertor[uuid.UUID]):
     regex = "[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}"
 
     def convert(self, value: str) -> uuid.UUID:
-        return uuid.UUID(value)
+        return _core._convert_builtin_convertor("uuid", value)
 
     def to_string(self, value: uuid.UUID) -> str:
-        return str(value)
+        return _core._format_builtin_convertor("uuid", value)
 
 
 CONVERTOR_TYPES: dict[str, Convertor[Any]] = {
@@ -99,4 +91,4 @@ _BUILTIN_CONVERTOR_TYPES = CONVERTOR_TYPES.copy()
 def register_url_convertor(key: str, convertor: Convertor[Any]) -> None:
     """Register a Python URL convertor under ``key``."""
 
-    CONVERTOR_TYPES[key] = convertor
+    _core._register_url_convertor(CONVERTOR_TYPES, key, convertor)

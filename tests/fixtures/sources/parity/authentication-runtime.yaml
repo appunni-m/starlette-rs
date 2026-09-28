@@ -1,0 +1,91 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.authentication.credentials-and-user-values",
+      "surface": "starlette.authentication",
+      "operation": "authentication-probe",
+      "covers": [
+        "starlette.authentication.AuthCredentials.__init__",
+        "starlette.authentication.BaseUser.properties",
+        "starlette.authentication.SimpleUser.properties",
+        "starlette.authentication.UnauthenticatedUser.properties"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "actions": [
+        {"action": "credentials", "scopes": null},
+        {"action": "credentials", "scopes": []},
+        {"action": "credentials", "scopes": ["authenticated", "read"]},
+        {"action": "user-properties", "user": "base"},
+        {"action": "user-properties", "user": "simple", "username": "alice"},
+        {"action": "user-properties", "user": "unauthenticated"}
+      ],
+      "observations": ["actions"]
+    },
+    {
+      "case_id": "starlette.authentication.has_required_scope.membership-and-order",
+      "surface": "starlette.authentication.has_required_scope",
+      "operation": "authentication-probe",
+      "covers": ["starlette.authentication.has_required_scope"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "checks": [
+        {"granted_scopes": ["authenticated", "read"], "required_scopes": []},
+        {"granted_scopes": ["authenticated", "read"], "required_scopes": ["read"]},
+        {"granted_scopes": ["authenticated", "read"], "required_scopes": ["read", "write"]},
+        {"granted_scopes": ["authenticated", "read"], "required_scopes": ["write", "read"]}
+      ],
+      "observations": ["checks"]
+    },
+    {
+      "case_id": "starlette.authentication.requires.sync-async-redirect-and-websocket",
+      "surface": "starlette.authentication.requires",
+      "operation": "authentication-probe",
+      "covers": ["starlette.authentication.requires"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scenarios": [
+        {
+          "callable": {"kind": "endpoint", "mode": "sync", "parameter": "request", "result": "called"},
+          "required_scopes": ["read"],
+          "connection": {"kind": "request", "auth_scopes": ["read"]}
+        },
+        {
+          "callable": {"kind": "endpoint", "mode": "async", "parameter": "request", "result": "called"},
+          "required_scopes": ["admin"],
+          "connection": {"kind": "request", "auth_scopes": ["read"]},
+          "status_code": 401
+        },
+        {
+          "callable": {"kind": "endpoint", "mode": "async", "parameter": "request", "result": "called"},
+          "required_scopes": ["admin"],
+          "connection": {"kind": "request", "auth_scopes": ["read"], "url": "https://example.test/private", "routes": [{"name": "login", "path": "/login"}]},
+          "redirect": "login"
+        },
+        {
+          "callable": {"kind": "endpoint", "mode": "async", "parameter": "websocket", "result": "called"},
+          "required_scopes": ["admin"],
+          "connection": {"kind": "websocket", "auth_scopes": ["read"]}
+        }
+      ],
+      "observations": ["scenarios"]
+    },
+    {
+      "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch-outcomes",
+      "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "operation": "authentication-probe",
+      "covers": ["starlette.middleware.authentication.AuthenticationMiddleware.__init__", "starlette.middleware.authentication.AuthenticationMiddleware.__call__"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scenarios": [
+        {"scope_type": "http", "backend": {"outcome": "none"}, "error_handler": "default"},
+        {"scope_type": "http", "backend": {"outcome": {"credentials": ["read"], "user": "alice"}}, "error_handler": "default"},
+        {"scope_type": "http", "backend": {"error": {"type": "AuthenticationError", "message": "bad credentials"}}, "error_handler": "default"},
+        {"scope_type": "websocket", "backend": {"error": {"type": "AuthenticationError", "message": "bad credentials"}}, "error_handler": "custom-response"},
+        {"scope_type": "lifespan", "backend": {"outcome": "must-not-run"}, "error_handler": "default"}
+      ],
+      "observations": ["scenarios"]
+    }
+  ]
+}

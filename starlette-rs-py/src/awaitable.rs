@@ -59,7 +59,20 @@ pub(crate) fn into_python_awaitable<M>(py: Python<'_>, machine: M) -> PyResult<P
 where
     M: AwaitableStateMachine,
 {
-    Py::new(py, PythonAwaitable::new(machine)).map(|awaitable| awaitable.into_any())
+    into_python_awaitable_with_reuse_error(py, machine, "cannot reuse already awaited coroutine")
+}
+
+/// Wrap a state machine with the reuse error exposed by a specific Python
+/// awaitable protocol, such as an async-generator `asend` operation.
+pub(crate) fn into_python_awaitable_with_reuse_error<M>(
+    py: Python<'_>,
+    machine: M,
+    reuse_error: &'static str,
+) -> PyResult<Py<PyAny>>
+where
+    M: AwaitableStateMachine,
+{
+    Py::new(py, PythonAwaitable::new(machine, reuse_error)).map(|awaitable| awaitable.into_any())
 }
 
 #[pyclass(unsendable)]
@@ -68,10 +81,11 @@ struct PythonAwaitable {
     active_iterator: Option<Py<PyAny>>,
     started: bool,
     finished: bool,
+    reuse_error: &'static str,
 }
 
 impl PythonAwaitable {
-    fn new<M>(machine: M) -> Self
+    fn new<M>(machine: M, reuse_error: &'static str) -> Self
     where
         M: AwaitableStateMachine,
     {
@@ -80,15 +94,14 @@ impl PythonAwaitable {
             active_iterator: None,
             started: false,
             finished: false,
+            reuse_error,
         }
     }
 
     fn drive(&mut self, py: Python<'_>, mut input: DriverInput) -> PyResult<Py<PyAny>> {
         loop {
             if self.finished {
-                return Err(PyRuntimeError::new_err(
-                    "cannot reuse already awaited coroutine",
-                ));
+                return Err(PyRuntimeError::new_err(self.reuse_error));
             }
 
             if self.active_iterator.is_some() {
@@ -121,9 +134,7 @@ impl PythonAwaitable {
             let action_result = match self.machine.as_mut() {
                 Some(machine) => machine.resume(py, machine_input),
                 None => {
-                    return Err(PyRuntimeError::new_err(
-                        "cannot reuse already awaited coroutine",
-                    ));
+                    return Err(PyRuntimeError::new_err(self.reuse_error));
                 }
             };
             let action = match action_result {

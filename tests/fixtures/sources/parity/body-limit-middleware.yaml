@@ -1,0 +1,1126 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__.content-length-precheck",
+      "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-precheck"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-body-limit-script",
+                "actions": [
+                  {
+                    "action": "observe-scope"
+                  },
+                  {
+                    "action": "receive"
+                  }
+                ]
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": 5
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/upload",
+                "raw_path_base64": "L3VwbG9hZA==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "Y29udGVudC1sZW5ndGg=",
+                    "Ng=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "MTIzNDU2",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__.streamed-body-count",
+      "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.streamed-body-count"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-body-limit-script",
+                "actions": [
+                  {
+                    "action": "observe-scope"
+                  },
+                  {
+                    "action": "receive"
+                  },
+                  {
+                    "action": "receive"
+                  }
+                ]
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": 5
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/upload",
+                "raw_path_base64": "L3VwbG9hZA==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "MTIz",
+                  "more_body": true
+                },
+                {
+                  "type": "http.request",
+                  "body_base64": "NDU2",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__.understated-content-length",
+      "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.understated-content-length"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-body-limit-script",
+                "actions": [
+                  {
+                    "action": "observe-scope"
+                  },
+                  {
+                    "action": "receive"
+                  },
+                  {
+                    "action": "receive"
+                  }
+                ]
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": 5
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/upload",
+                "raw_path_base64": "L3VwbG9hZA==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "Y29udGVudC1sZW5ndGg=",
+                    "MQ=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "MTIz",
+                  "more_body": true
+                },
+                {
+                  "type": "http.request",
+                  "body_base64": "NDU2",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__.invalid-content-length",
+      "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.invalid-content-length"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-body-limit-script",
+                "actions": [
+                  {
+                    "action": "observe-scope"
+                  },
+                  {
+                    "action": "receive"
+                  },
+                  {
+                    "action": "send",
+                    "message": {
+                      "type": "http.response.start",
+                      "status": 200,
+                      "headers_base64_pairs": []
+                    }
+                  },
+                  {
+                    "action": "send",
+                    "message": {
+                      "type": "http.response.body",
+                      "body_base64": "b2s=",
+                      "more_body": false
+                    }
+                  }
+                ]
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": 5
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/upload",
+                "raw_path_base64": "L3VwbG9hZA==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "Y29udGVudC1sZW5ndGg=",
+                    "aW52YWxpZA=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "MTIzNDU=",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__.content-length-replacement",
+      "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-replacement"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-body-limit-script",
+                "actions": [
+                  {
+                    "action": "send",
+                    "message": {
+                      "type": "http.response.start",
+                      "status": 200,
+                      "headers_base64_pairs": []
+                    }
+                  },
+                  {
+                    "action": "send",
+                    "message": {
+                      "type": "http.response.body",
+                      "body_base64": "b3JpZ2luYWw=",
+                      "more_body": false
+                    }
+                  }
+                ]
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": 5
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/upload",
+                "raw_path_base64": "L3VwbG9hZA==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "Y29udGVudC1sZW5ndGg=",
+                    "Ng=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "MTIzNDU2",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__.nested-limit-raised",
+      "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.nested-limits"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-body-limit-script",
+                "actions": [
+                  {
+                    "action": "nested",
+                    "max_body_size": 10,
+                    "actions": [
+                      {
+                        "action": "observe-scope"
+                      },
+                      {
+                        "action": "receive"
+                      },
+                      {
+                        "action": "send",
+                        "message": {
+                          "type": "http.response.start",
+                          "status": 200,
+                          "headers_base64_pairs": []
+                        }
+                      },
+                      {
+                        "action": "send",
+                        "message": {
+                          "type": "http.response.body",
+                          "body_base64": "b2s=",
+                          "more_body": false
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": 5
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/upload",
+                "raw_path_base64": "L3VwbG9hZA==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "MTIzNDU2",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__.nested-limit-lowered",
+      "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.nested-limits",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.streamed-body-count"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-body-limit-script",
+                "actions": [
+                  {
+                    "action": "nested",
+                    "max_body_size": 5,
+                    "actions": [
+                      {
+                        "action": "observe-scope"
+                      },
+                      {
+                        "action": "receive"
+                      },
+                      {
+                        "action": "receive"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": 10
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/upload",
+                "raw_path_base64": "L3VwbG9hZA==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "MTIz",
+                  "more_body": true
+                },
+                {
+                  "type": "http.request",
+                  "body_base64": "NDU2",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__.body-limit-after-response-start",
+      "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.streamed-body-count",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.already-started-propagation"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-body-limit-script",
+                "actions": [
+                  {
+                    "action": "send",
+                    "message": {
+                      "type": "http.response.start",
+                      "status": 200,
+                      "headers_base64_pairs": []
+                    }
+                  },
+                  {
+                    "action": "receive"
+                  },
+                  {
+                    "action": "receive"
+                  }
+                ]
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": 5
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/upload",
+                "raw_path_base64": "L3VwbG9hZA==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "MTIzNDU=",
+                  "more_body": true
+                },
+                {
+                  "type": "http.request",
+                  "body_base64": "Ng==",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__.restore-existing-scope-limit",
+      "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-body-limit-script",
+                "actions": [
+                  {
+                    "action": "observe-scope"
+                  },
+                  {
+                    "action": "receive"
+                  },
+                  {
+                    "action": "send",
+                    "message": {
+                      "type": "http.response.start",
+                      "status": 200,
+                      "headers_base64_pairs": []
+                    }
+                  },
+                  {
+                    "action": "send",
+                    "message": {
+                      "type": "http.response.body",
+                      "body_base64": "b2s=",
+                      "more_body": false
+                    }
+                  }
+                ]
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": 5
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/upload",
+                "raw_path_base64": "L3VwbG9hZA==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ],
+                "preexisting_max_body_size": 19
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__.non-http-pass-through",
+      "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.non-http-pass-through"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-body-limit-script",
+                "actions": [
+                  {
+                    "action": "observe-scope"
+                  }
+                ]
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": 5
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "lifespan.startup"
+                },
+                {
+                  "type": "lifespan.shutdown"
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

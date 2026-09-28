@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from pathlib import Path
@@ -15,6 +16,28 @@ PYTHON_SOURCE_ROOTS = (
     ROOT / "scripts",
     ROOT / "starlette-rs-py" / "python",
 )
+PYTHON_RUNTIME_ROOT = ROOT / "starlette-rs-py" / "python" / "starlette"
+PYTHON_RUNTIME_CONTROL_FLOW_NAMES = (
+    "If",
+    "For",
+    "AsyncFor",
+    "While",
+    "IfExp",
+    "ListComp",
+    "SetComp",
+    "DictComp",
+    "GeneratorExp",
+    "BoolOp",
+    "Raise",
+    "Assert",
+    "Try",
+    "Match",
+)
+PYTHON_RUNTIME_CONTROL_FLOW = tuple(
+    node_type
+    for name in PYTHON_RUNTIME_CONTROL_FLOW_NAMES
+    if (node_type := getattr(ast, name, None)) is not None
+)
 RUST_TEST_ATTRIBUTES = re.compile(
     r"^\s*#\[\s*(?:cfg\s*\(\s*test\s*\)|"
     r"(?:tokio::|async_std::)?test(?:\s*\([^]]*\))?|rstest)\s*\]",
@@ -26,6 +49,9 @@ PYTHON_TEST_FRAMEWORK_IMPORT = re.compile(
     re.MULTILINE,
 )
 MAKE_TEST_TARGET = re.compile(r"^test\s*:\s*([^\n]*)", re.MULTILINE)
+PROJECT_SECTION = re.compile(r"(?ms)^\[project\]\s*(.*?)(?=^\[|\Z)")
+PROJECT_DEPENDENCIES = re.compile(r"(?ms)^dependencies\s*=\s*\[(.*?)\]")
+DEPENDENCY_NAME = re.compile(r"^\s*['\"]([^<>=!~;\s\[]+)")
 
 
 def rust_sources() -> list[Path]:
@@ -71,6 +97,33 @@ def main() -> int:
                     "disallowed in project tooling and runtime sources"
                 )
 
+    for path in sorted(PYTHON_RUNTIME_ROOT.rglob("*.py")):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, PYTHON_RUNTIME_CONTROL_FLOW):
+                violations.append(
+                    f"{path.relative_to(ROOT)}:{node.lineno}: Python compatibility "
+                    f"wrappers must forward behavior to Rust ({type(node).__name__})"
+                )
+
+    project_metadata = (ROOT / "pyproject.toml").read_text()
+    project_section = PROJECT_SECTION.search(project_metadata)
+    dependencies_block = (
+        PROJECT_DEPENDENCIES.search(project_section.group(1))
+        if project_section is not None
+        else None
+    )
+    if dependencies_block is None:
+        violations.append("pyproject.toml: unable to locate project runtime dependencies")
+    else:
+        for dependency in DEPENDENCY_NAME.finditer(dependencies_block.group(1)):
+            normalized_name = re.sub(r"[-_.]+", "-", dependency.group(1)).casefold()
+            if normalized_name == "starlette":
+                violations.append(
+                    "pyproject.toml: the upstream Starlette distribution cannot be a "
+                    "runtime dependency of this replacement"
+                )
+
     makefile = (ROOT / "Makefile").read_text()
     test_target = MAKE_TEST_TARGET.search(makefile)
     if test_target is None or "parity-run" not in test_target.group(1).split():
@@ -86,7 +139,8 @@ def main() -> int:
 
     print(
         "project policy check passed: no conventional unit-test sources or "
-        "framework imports; `make test` routes to live parity"
+        "framework imports, no upstream Starlette runtime dependency, and no "
+        "control flow in Python Starlette wrappers; `make test` routes to live parity"
     )
     return 0
 

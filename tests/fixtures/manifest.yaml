@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-gzip-websocket-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware, WebSocket route dispatch, full WebSocket protocol observations, and projected WebSocket state transitions. It also declares a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -237,7 +237,9 @@
     "parity": [
       "build/parity/inputs/parity/asgi-http-get-text.json",
       "build/parity/inputs/parity/asgi-request-items.json",
+      "build/parity/inputs/parity/request-runtime.json",
       "build/parity/inputs/parity/gzip-middleware.json",
+      "build/parity/inputs/parity/body-limit-middleware.json",
       "build/parity/inputs/parity/asgi-http-exceptions.json",
       "build/parity/inputs/parity/asgi-callable-http-exceptions.json",
       "build/parity/inputs/parity/asgi-exception-handlers.json",
@@ -252,7 +254,13 @@
       "build/parity/inputs/parity/reverse-url-routing.json",
       "build/parity/inputs/parity/redirect-response.json",
       "build/parity/inputs/parity/responses-basic.json",
-      "build/parity/inputs/parity/streaming-response.json"
+      "build/parity/inputs/parity/streaming-response.json",
+      "build/parity/inputs/parity/websocket-convenience.json",
+      "build/parity/inputs/parity/exception-values.json",
+      "build/parity/inputs/parity/host-routing.json",
+      "build/parity/inputs/parity/status-constants.json",
+      "build/parity/inputs/parity/cors-middleware.json",
+      "build/parity/inputs/parity/host-middleware.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -1170,6 +1178,72 @@
               ]
             },
             {
+              "id": "starlette.request.connection-property-missing-session",
+              "dimension": "error_path",
+              "description": "Access Request.session through a routed HTTP request without a session key and compare the live AssertionError type, exact message, response events, and rethrown dispatch error. Upstream: starlette/requests.py:169-176 at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.connection-property-missing-auth",
+              "dimension": "error_path",
+              "description": "Access Request.auth through a routed HTTP request without an auth key and compare the live AssertionError type, exact message, response events, and rethrown dispatch error. Upstream: starlette/requests.py:178-181 at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.connection-property-missing-user",
+              "dimension": "error_path",
+              "description": "Access Request.user through a routed HTTP request without a user key and compare the live AssertionError type, exact message, response events, and rethrown dispatch error. Upstream: starlette/requests.py:183-186 at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-asend",
+              "dimension": "protocol_variant",
+              "description": "Advance Request.stream() through anext and asend actions, observe yielded bytes and exhaustion. Upstream: starlette/requests.py:234-252; tests/test_requests.py::test_request_stream; the returned async generator supplies asend through Python's async-generator protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-athrow",
+              "dimension": "error_path",
+              "description": "Advance Request.stream() once, inject a ValueError with athrow, and observe the propagated exception and closed iterator. Upstream: starlette/requests.py:234-252; tests/test_requests.py::test_request_stream; the returned async generator supplies athrow through Python's async-generator protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-aclose",
+              "dimension": "protocol_variant",
+              "description": "Advance Request.stream() once, close it with aclose, and observe the close result and subsequent exhaustion. Upstream: starlette/requests.py:234-252; tests/test_requests.py::test_request_stream; the returned async generator supplies aclose through Python's async-generator protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.routing.request-scope-values",
               "dimension": "boundary",
               "description": "Observe the public ASGI scope after a routed Request: app, router, endpoint identities and converted path_params. Upstream: starlette/applications.py::Starlette.__call__; starlette/routing.py::Router.app and Route.matches; tests/test_routing.py route/path-param cases.",
@@ -1346,7 +1420,51 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.receive-worker-access",
+              "dimension": "boundary",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-construction-worker",
+              "dimension": "boundary",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.body-awaitable-construction-worker",
+              "dimension": "boundary",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.json-awaitable-construction-worker",
+              "dimension": "boundary",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity"
               ],
@@ -1484,6 +1602,348 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "kind": "type",
+      "source_path": "starlette/middleware/body_limit.py:30",
+      "storage_slug": "starlette-middleware-body-limit-RequestBodyLimitMiddleware",
+      "operations": [
+        {
+          "id": "__init__",
+          "kind": "constructor",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__init__",
+            "signature": "RequestBodyLimitMiddleware(app, max_body_size)",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "app",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "max_body_size",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "integer"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "handle",
+              "observations": [],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native target does not expose this Python ASGI middleware boundary.",
+                "blocker": "python-asgi-middleware-surface"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+              "signature": "RequestBodyLimitMiddleware(app, max_body_size)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+              "dimension": "parameter_combination",
+              "description": "Construct RequestBodyLimitMiddleware with an input-defined ASGI action script and an explicit non-negative byte limit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded middleware slice adds input-only parity and no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only correctness slice does not declare a benchmark workload."
+          }
+        },
+        {
+          "id": "__call__",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__",
+            "signature": "async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "record",
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "dispatch",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native target does not expose this Python ASGI middleware boundary.",
+                "blocker": "python-asgi-middleware-surface"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+              "signature": "async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-precheck",
+              "dimension": "boundary",
+              "description": "Reject a declared oversized request before consuming the next body message and emit a 413 response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-replacement",
+              "dimension": "protocol_variant",
+              "description": "Replace a response start with a 413 response when an oversized declared body is discovered at response start.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.streamed-body-count",
+              "dimension": "success_path",
+              "description": "Count received request chunks without a usable Content-Length and return a 413 response when accumulated bytes exceed the active limit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.understated-content-length",
+              "dimension": "boundary",
+              "description": "Continue counting streamed bytes when a valid Content-Length understates the actual body.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.invalid-content-length",
+              "dimension": "error_path",
+              "description": "Ignore a non-integer Content-Length and enforce the limit using received body bytes.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.nested-limits",
+              "dimension": "protocol_variant",
+              "description": "Propagate stricter and looser nested limits through the active responder while preserving outer cleanup.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.already-started-propagation",
+              "dimension": "error_path",
+              "description": "Propagate a body-size exception after an application has already started its response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+              "dimension": "success_path",
+              "description": "Restore or remove middleware scope keys after normal completion and handled or propagated body-limit failures.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.non-http-pass-through",
+              "dimension": "protocol_variant",
+              "description": "Forward non-HTTP scopes without inserting body-limit responder or maximum-size keys.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded middleware slice adds input-only parity and no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only correctness slice does not declare a benchmark workload."
           }
         }
       ]
@@ -2249,6 +2709,367 @@
             "applicability": "not_applicable",
             "reason": "This input-only projected state slice does not declare a benchmark workload."
           }
+        },
+        {
+          "id": "convenience-sequence",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.websockets.WebSocket",
+            "signature": "Parity workflow: call public convenience methods from the supplied action sequence, exercise typed receive/send framing, accepted headers, iterator async-for and async-generator controls, and denial-response dispatch; compare returned values/errors, the ASGI callback tape, and final protocol states.",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "incoming",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "action_results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_callback_tape",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "client_state",
+                  "value_types": [
+                    "enum"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "application_state",
+                  "value_types": [
+                    "enum"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::WebSocketStateMachine",
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python WebSocket convenience methods, iterators, ASGI callbacks, or Python exception values.",
+                "blocker": "This operation compares the Python consumer surface, callback tape, and Python iterator/error behavior."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.websockets.WebSocket",
+              "signature": "WebSocket(scope, receive, send); accept, typed receive/send methods, close, iter_text/iter_bytes/iter_json, and send_denial_response",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.websocket.api.accept.headers",
+              "dimension": "protocol_variant",
+              "description": "Pass a supplied ordered list of byte header pairs through WebSocket.accept and compare the ASGI callback message.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.accept.empty-headers",
+              "dimension": "boundary",
+              "description": "Exercise WebSocket.accept with an omitted, null, or empty headers value and compare the emitted ASGI header collection.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.receive.text",
+              "dimension": "success_path",
+              "description": "Receive a text ASGI frame through WebSocket.receive_text and compare the returned value.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.receive.bytes",
+              "dimension": "success_path",
+              "description": "Receive a binary ASGI frame through WebSocket.receive_bytes and compare the returned bytes.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.receive.json.text",
+              "dimension": "mode",
+              "description": "Decode JSON from the text field through WebSocket.receive_json(mode=\"text\").",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.receive.json.binary",
+              "dimension": "mode",
+              "description": "Decode UTF-8 JSON bytes through WebSocket.receive_json(mode=\"binary\").",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.send.text",
+              "dimension": "success_path",
+              "description": "Frame a string with WebSocket.send_text and compare the emitted ASGI event.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.send.bytes",
+              "dimension": "success_path",
+              "description": "Frame bytes with WebSocket.send_bytes and compare the emitted ASGI event.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.send.json.text",
+              "dimension": "mode",
+              "description": "Serialize JSON with WebSocket.send_json(mode=\"text\") and compare its exact text frame.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.send.json.binary",
+              "dimension": "mode",
+              "description": "Serialize JSON with WebSocket.send_json(mode=\"binary\") and compare its UTF-8 bytes frame.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.disconnect.details",
+              "dimension": "error_path",
+              "description": "Capture the observed WebSocketDisconnect class, code, reason, and exception context from a typed receive after the supplied disconnect event.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.iter_text.async-for",
+              "dimension": "protocol_variant",
+              "description": "Collect WebSocket.iter_text output using ordinary async-for through a disconnect event.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.iter_bytes.async-for",
+              "dimension": "protocol_variant",
+              "description": "Collect WebSocket.iter_bytes output using ordinary async-for through a disconnect event.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.iter_json.async-for",
+              "dimension": "protocol_variant",
+              "description": "Collect WebSocket.iter_json output using ordinary async-for through a disconnect event.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.iterator.protocol.surface",
+              "dimension": "boundary",
+              "description": "Observe async-iterator and async-generator control/introspection attributes exposed by the object returned from a WebSocket iterator method.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.iterator.asend",
+              "dimension": "boundary",
+              "description": "Call asend(None) on the public WebSocket text iterator and observe its returned value or public error.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.iterator.athrow",
+              "dimension": "boundary",
+              "description": "Call athrow with an input-supplied built-in exception on the public WebSocket text iterator and observe its result or error.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.iterator.aclose",
+              "dimension": "boundary",
+              "description": "Call aclose on the public WebSocket text iterator and observe its result or public error.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.denial-response.present",
+              "dimension": "protocol_variant",
+              "description": "Invoke WebSocket.send_denial_response with the ASGI denial-response extension present and compare the emitted response events.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.denial-response.absent",
+              "dimension": "error_path",
+              "description": "Invoke WebSocket.send_denial_response without its ASGI extension and compare the public failure details.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.close.framing",
+              "dimension": "protocol_variant",
+              "description": "Call WebSocket.close with input code and reason values and compare the emitted websocket.close frame and final state.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only API parity slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only API parity slice does not declare a benchmark workload."
+          }
         }
       ]
     },
@@ -2906,6 +3727,39 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.host-route-match",
+              "dimension": "success_path",
+              "description": "Select a Host route from its exact or parameterized Host header and dispatch its ASGI application. Upstream: starlette/routing.py:466-512.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.partial-before-host-full",
+              "dimension": "success_path",
+              "description": "Preserve Router registration order when an earlier route is a partial path match and a later Host route fully matches. Upstream: starlette/routing.py:466-512.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.host-route-miss",
+              "dimension": "error_path",
+              "description": "Continue through the Router miss behavior when no Host route matches the request Host header. Upstream: starlette/routing.py:466-512.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             }
@@ -3771,6 +4625,100 @@
             "applicability": "not_applicable",
             "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
           }
+        },
+        {
+          "id": "default-receive",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.Request.__init__ and Request.receive",
+            "signature": "Request(scope, receive=empty_receive); await request.receive()",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "receive",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python Request receive callback or its default.",
+                "blocker": "No Rust-native Request compatibility interface defines the no-receive callback boundary."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.receive",
+              "signature": "receive(self) -> Receive; default callback raises RuntimeError when awaited",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.request.default-empty-receive-runtime-error",
+              "dimension": "error_path",
+              "description": "Construct Request without a receive callback, await its default Request.receive callback, and preserve the exact RuntimeError boundary. Upstream: starlette/requests.py:205-223.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only callback comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "The missing-receive failure is outside the active benchmark workloads."
+          }
         }
       ]
     },
@@ -4316,6 +5264,17 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.async-iterator",
               "dimension": "input_family",
               "description": "Construct a finite StreamingResponse from an async iterator yielding five ordered text chunks ('1' through '5'), then observe the exact ASGI events through normal iterator exhaustion. Scope is limited to the Python package profile while Rust-native async iterator semantics are pending. Upstream: starlette.responses.StreamingResponse.__call__; test: tests/test_responses.py::test_streaming_response_custom_iterator.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.client-disconnect-oserror",
+              "dimension": "protocol_variant",
+              "description": "Capture the response start and first body event, then raise an input-defined OSError before recording the second body event. Compare the propagated ClientDisconnect and partial ASGI observation for ASGI spec 2.4. Upstream: starlette/responses.py::StreamingResponse.__call__; test: tests/test_responses.py::test_streaming_response_on_client_disconnects.",
               "lanes": [
                 "parity"
               ],
@@ -5022,6 +5981,1779 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only response correctness slice declares no benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.websockets.WebSocketClose",
+      "kind": "type",
+      "source_path": "starlette/websockets.py:190",
+      "storage_slug": "starlette-websockets-WebSocketClose",
+      "operations": [
+        {
+          "id": "call-sequence",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.websockets.WebSocketClose.__call__",
+            "signature": "Parity workflow: construct WebSocketClose from supplied arguments, observe initial properties, apply supplied public property assignments, invoke it through the ASGI callable interface, then observe final properties and emitted messages.",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "close_app",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "initial_attributes",
+                  "value_types": [
+                    "mapping"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "final_attributes",
+                  "value_types": [
+                    "mapping"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "asgi_callback_tape",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "call",
+                  "value_types": [
+                    "mapping"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python WebSocketClose ASGI callable or mutable attributes.",
+                "blocker": "This contract compares Python object properties and callback messages."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.websockets.WebSocketClose",
+              "signature": "WebSocketClose(code=1000, reason=None); mutable code and reason; async ASGI __call__",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.websocket.close-app.default-attributes",
+              "dimension": "parameter_combination",
+              "description": "Construct WebSocketClose without explicit arguments and observe its public defaults.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.close-app.reason-normalization",
+              "dimension": "boundary",
+              "description": "Observe the constructor converting an omitted or falsey reason into the stored empty string.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.close-app.attribute-assignment",
+              "dimension": "parameter",
+              "description": "Assign public code and reason properties and observe their resulting values and emitted close frame.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.close-app.framing-attributes",
+              "dimension": "protocol_variant",
+              "description": "Call WebSocketClose as an ASGI app and compare observed attributes and the emitted websocket.close message.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only ASGI callable slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only ASGI callable slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.exceptions",
+      "kind": "module",
+      "source_path": "starlette/exceptions.py:7",
+      "storage_slug": "starlette-exceptions-value-formatting",
+      "operations": [
+        {
+          "id": "value-formatting",
+          "kind": "value-formatting",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.exceptions.HTTPException and starlette.exceptions.WebSocketException",
+            "signature": "HTTPException(status_code, detail=None, headers=None); WebSocketException(code, reason=None)",
+            "parameters": [
+              {
+                "id": "instances",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "value-formatting",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python Starlette exception classes or their CPython representation and exception-construction behavior.",
+                "blocker": "No Rust-native Starlette exception compatibility types are declared for this input-defined value-formatting operation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.exceptions.HTTPException and starlette.exceptions.WebSocketException",
+              "signature": "HTTPException(status_code, detail=None, headers=None); WebSocketException(code, reason=None); observe construction, mutation, str, and repr",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.exception-values.http-default-detail",
+              "dimension": "parameter_combination",
+              "description": "Construct HTTPException with default details for valid statuses and observe its status-derived detail, string, and repr. Upstream: starlette/exceptions.py:7-20.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.exception-values.http-invalid-status",
+              "dimension": "error_path",
+              "description": "Construct HTTPException with an unsupported status and default detail; preserve the CPython HTTPStatus ValueError class and message. Upstream: starlette/exceptions.py:7-10.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.exception-values.http-subclass-mutable-fields",
+              "dimension": "parameter_combination",
+              "description": "Observe dynamic subclass repr and string after input-defined mutation of the public status_code, detail, and headers fields. Upstream: starlette/exceptions.py:7-20.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.exception-values.websocket-reason-default",
+              "dimension": "parameter_combination",
+              "description": "Observe WebSocketException converting an omitted or falsey reason to the stored empty string. Upstream: starlette/exceptions.py:23-35.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.exception-values.websocket-subclass-mutable-fields",
+              "dimension": "parameter_combination",
+              "description": "Observe dynamic WebSocketException subclass repr and string after input-defined code and reason mutation. Upstream: starlette/exceptions.py:23-35.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only representation comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Exception and middleware value formatting is outside the active benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.Middleware",
+      "kind": "type",
+      "source_path": "starlette/middleware/__init__.py:22",
+      "storage_slug": "starlette-middleware-Middleware-value-formatting",
+      "operations": [
+        {
+          "id": "value-formatting",
+          "kind": "value-formatting",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.Middleware.__repr__ and Middleware.__iter__",
+            "signature": "Middleware(cls, *args, **kwargs); observe repr and the iterator values",
+            "parameters": [
+              {
+                "id": "middleware",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "repr",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "__iter__",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose Starlette middleware configuration objects or Python representation protocols.",
+                "blocker": "No Rust-native Starlette Middleware compatibility type is declared for this value-formatting operation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.Middleware",
+              "signature": "Middleware(cls, *args, **kwargs); __repr__() -> str; __iter__() -> Iterator[Any]",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.Middleware.repr",
+              "dimension": "format",
+              "description": "Render Middleware.__repr__ from an input-defined factory class, positional arguments, and keyword arguments using their live Python repr behavior. Upstream: starlette/middleware/__init__.py:29-35.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.Middleware.iteration",
+              "dimension": "protocol_variant",
+              "description": "Consume Middleware.__iter__ and observe its ordered cls, args, and kwargs tuple values. Upstream: starlette/middleware/__init__.py:25-27.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only representation comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Exception and middleware value formatting is outside the active benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.status",
+      "kind": "module",
+      "source_path": "starlette/status.py:10",
+      "storage_slug": "starlette-status-module-symbol-sequence",
+      "operations": [
+        {
+          "id": "module-symbol-sequence",
+          "kind": "value-formatting",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.status.__all__, __getattr__, and __dir__",
+            "signature": "Observe public status constants, deprecated aliases, missing attributes, and dir(status).",
+            "parameters": [],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "public_names",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "public_values",
+                  "value_types": [
+                    "mapping"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "deprecated_values_and_warnings",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "directory",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "missing_attribute",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not expose the Python starlette.status module protocol.",
+                "blocker": "The Rust-native API has no status-module namespace or Python deprecation-warning interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.status",
+              "signature": "module constants with lazy deprecated aliases and __dir__()",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.status.module-symbol-sequence.public-integer-constants",
+              "dimension": "input_family",
+              "description": "Observe every public HTTP and WebSocket status constant by its declared name through the public module. Upstream: starlette/status.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.status.module-symbol-sequence.deprecated-aliases",
+              "dimension": "mode",
+              "description": "Resolve the input-defined deprecated status aliases and record their warning categories and messages. Upstream: starlette/status.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.status.module-symbol-sequence.unknown-attribute",
+              "dimension": "error_path",
+              "description": "Read an input-defined missing status name and observe the module AttributeError. Upstream: starlette/status.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.status.module-symbol-sequence.directory-listing",
+              "dimension": "success_path",
+              "description": "Observe the module directory listing when requested. Upstream: starlette/status.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Input-only module observations make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Status-module values and warnings are outside the active benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.routing.Host",
+      "kind": "type",
+      "source_path": "starlette/routing.py:466",
+      "storage_slug": "starlette-routing-Host",
+      "operations": [
+        {
+          "id": "url_path_for",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Host.url_path_for",
+            "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "name",
+                "style": "positional",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "path_params",
+                "style": "variadic_keyword",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": {}
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "reverse-url",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not expose the Python Host named-URL lookup interface.",
+                "blocker": "No Rust-native Host route URLPath compatibility API is declared."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Host.url_path_for",
+              "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Host.url_path_for.direct-path",
+              "dimension": "success_path",
+              "description": "Generate a Host URLPath with no nested route parameters. Upstream: starlette/routing.py:493.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Host.url_path_for.nested-route",
+              "dimension": "success_path",
+              "description": "Generate a nested named route URLPath through a Host route using input-defined host and path parameters. Upstream: starlette/routing.py:493.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Input-only reverse-URL comparisons make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Host reverse URL generation is outside the active benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.cors.CORSMiddleware",
+      "kind": "type",
+      "source_path": "starlette/middleware/cors.py:15",
+      "storage_slug": "starlette-middleware-cors-CORSMiddleware",
+      "operations": [
+        {
+          "id": "__init__",
+          "kind": "constructor",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.cors.CORSMiddleware.__init__",
+            "signature": "CORSMiddleware(app, allow_origins=(), allow_methods=(\"GET\",), allow_headers=(), allow_credentials=False, allow_origin_regex=None, allow_private_network=False, expose_headers=(), max_age=600)",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "app",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "allow_origins",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
+                }
+              },
+              {
+                "id": "allow_methods",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": [
+                    "GET"
+                  ]
+                }
+              },
+              {
+                "id": "allow_headers",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
+                }
+              },
+              {
+                "id": "allow_credentials",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": false
+                }
+              },
+              {
+                "id": "allow_origin_regex",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "allow_private_network",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": false
+                }
+              },
+              {
+                "id": "expose_headers",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
+                }
+              },
+              {
+                "id": "max_age",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "integer"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": 600
+                }
+              }
+            ],
+            "result": {
+              "shape": "handle",
+              "observations": [],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs_py::_core.CORSMiddleware",
+              "signature": "CORSMiddleware(app, allow_origins, allow_methods, allow_headers, allow_credentials, allow_origin_regex, allow_private_network, expose_headers, max_age)",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.cors.CORSMiddleware",
+              "signature": "CORSMiddleware(app, allow_origins=(), allow_methods=(\"GET\",), allow_headers=(), allow_credentials=False, allow_origin_regex=None, allow_private_network=False, expose_headers=(), max_age=600)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.construct",
+              "dimension": "parameter_combination",
+              "description": "Construct starlette.middleware.cors.CORSMiddleware with an input-defined ASGI response application and the declared public settings.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded input-only middleware slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only middleware slice declares no benchmark workload."
+          }
+        },
+        {
+          "id": "__call__",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.cors.CORSMiddleware.__call__",
+            "signature": "async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs_py::_core.CORSMiddleware.__call__",
+              "signature": "async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.cors.CORSMiddleware.__call__",
+              "signature": "async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.simple-wildcard-credential-reflection-vary-merge",
+              "dimension": "success_path",
+              "description": "Reflect wildcard origins when credentials are enabled and merge the Vary origin token with existing repeated Vary values.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.preflight-wildcard-credential-private-network",
+              "dimension": "protocol_variant",
+              "description": "Handle a wildcard preflight request with credentials and private-network permission.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.preflight-denial-failure-order",
+              "dimension": "error_path",
+              "description": "Report preflight denials in the declared origin, method, header, and private-network failure order.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.simple-denied-origin-preserves-app-response",
+              "dimension": "error_path",
+              "description": "Preserve the inner response when a simple request origin is denied.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.regex-fullmatch-origin",
+              "dimension": "boundary",
+              "description": "Match configured origin regular expressions using full-string semantics.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.missing-origin-passthrough",
+              "dimension": "mode",
+              "description": "Pass through an HTTP request without an Origin header.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.non-http-passthrough",
+              "dimension": "protocol_variant",
+              "description": "Pass through a non-HTTP ASGI scope.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded input-only middleware slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only middleware slice declares no benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+      "kind": "type",
+      "source_path": "starlette/middleware/httpsredirect.py:7",
+      "storage_slug": "starlette-middleware-httpsredirect-HTTPSRedirectMiddleware",
+      "operations": [
+        {
+          "id": "__init__",
+          "kind": "constructor",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__init__",
+            "signature": "HTTPSRedirectMiddleware(app)",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "app",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "handle",
+              "observations": [],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette-rs-py::HTTPSRedirectMiddleware",
+              "signature": "HTTPSRedirectMiddleware(app)",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+              "signature": "HTTPSRedirectMiddleware(app)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.construct",
+              "dimension": "parameter_combination",
+              "description": "Construct starlette.middleware.httpsredirect.HTTPSRedirectMiddleware with an input-defined ASGI response application and the declared public settings.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded input-only middleware slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only middleware slice declares no benchmark workload."
+          }
+        },
+        {
+          "id": "__call__",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__call__",
+            "signature": "async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs_py::_core._https_redirect_middleware_call",
+              "signature": "async _https_redirect_middleware_call(app, scope, receive, send, URL, RedirectResponse) -> None",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__call__",
+              "signature": "async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.http-redirect-default-port",
+              "dimension": "success_path",
+              "description": "Redirect cleartext HTTP to HTTPS without retaining the default port.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.http-redirect-preserves-port-and-query",
+              "dimension": "parameter_combination",
+              "description": "Preserve non-default ports and query strings while redirecting HTTP.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.websocket-redirect",
+              "dimension": "protocol_variant",
+              "description": "Redirect cleartext WebSocket schemes to secure WebSocket.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.secure-scheme-pass-through",
+              "dimension": "mode",
+              "description": "Pass through an already secure HTTP or WebSocket scheme.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded input-only middleware slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only middleware slice declares no benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.trustedhost.TrustedHostMiddleware",
+      "kind": "type",
+      "source_path": "starlette/middleware/trustedhost.py:19",
+      "storage_slug": "starlette-middleware-trustedhost-TrustedHostMiddleware",
+      "operations": [
+        {
+          "id": "__init__",
+          "kind": "constructor",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.trustedhost.TrustedHostMiddleware.__init__",
+            "signature": "TrustedHostMiddleware(app, allowed_hosts=None, www_redirect=True)",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "app",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "allowed_hosts",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "sequence",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "www_redirect",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": true
+                }
+              }
+            ],
+            "result": {
+              "shape": "handle",
+              "observations": [],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette-rs-py::TrustedHostMiddleware",
+              "signature": "TrustedHostMiddleware(app, allowed_hosts, www_redirect)",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.trustedhost.TrustedHostMiddleware",
+              "signature": "TrustedHostMiddleware(app, allowed_hosts=None, www_redirect=True)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.trustedhost.TrustedHostMiddleware.construct",
+              "dimension": "parameter_combination",
+              "description": "Construct starlette.middleware.trustedhost.TrustedHostMiddleware with an input-defined ASGI response application and the declared public settings.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.trustedhost.TrustedHostMiddleware.wildcard-validation-error",
+              "dimension": "error_path",
+              "description": "Reject invalid leading wildcard host patterns during middleware construction.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded input-only middleware slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only middleware slice declares no benchmark workload."
+          }
+        },
+        {
+          "id": "__call__",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.trustedhost.TrustedHostMiddleware.__call__",
+            "signature": "async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs_py::_core._trusted_host_middleware_call",
+              "signature": "async _trusted_host_middleware_call(app, allowed_hosts, allow_any, www_redirect, scope, receive, send, Headers, URL, RedirectResponse, PlainTextResponse) -> None",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.trustedhost.TrustedHostMiddleware.__call__",
+              "signature": "async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.trustedhost.TrustedHostMiddleware.exact-host-match",
+              "dimension": "success_path",
+              "description": "Dispatch when the Host header matches an allowed exact hostname.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.trustedhost.TrustedHostMiddleware.domain-wildcard-match",
+              "dimension": "parameter_combination",
+              "description": "Dispatch a subdomain matched by a declared wildcard host pattern.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.trustedhost.TrustedHostMiddleware.invalid-host-response",
+              "dimension": "error_path",
+              "description": "Return the invalid-host response when no allowed host or www redirect matches.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.trustedhost.TrustedHostMiddleware.www-redirect",
+              "dimension": "success_path",
+              "description": "Redirect a hostname to its allowed www-prefixed hostname.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.trustedhost.TrustedHostMiddleware.www-redirect-disabled",
+              "dimension": "mode",
+              "description": "Return an invalid-host response instead of redirecting when www redirects are disabled.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.trustedhost.TrustedHostMiddleware.default-allowed-hosts",
+              "dimension": "parameter_combination",
+              "description": "Apply the default allow-any host policy when allowed_hosts is omitted.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.trustedhost.TrustedHostMiddleware.non-http-scope-pass-through",
+              "dimension": "protocol_variant",
+              "description": "Pass through a non-HTTP ASGI scope without validating an HTTP Host header.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded input-only middleware slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only middleware slice declares no benchmark workload."
           }
         }
       ]

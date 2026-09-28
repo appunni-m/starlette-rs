@@ -1,0 +1,202 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.endpoints.HTTPEndpoint.head-falls-back-to-get",
+      "surface": "starlette.endpoints.HTTPEndpoint",
+      "operation": "class-based-endpoint",
+      "covers": ["starlette.endpoints.HTTPEndpoint.dispatch", "starlette.endpoints.HTTPEndpoint._allowed_methods"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.5"},
+        "http_version": "1.1",
+        "method": "HEAD",
+        "scheme": "http",
+        "path": "/resource",
+        "raw_path_base64": "L3Jlc291cmNl",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [["aG9zdA==", "ZXhhbXBsZS50ZXN0"]],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "endpoint": {
+        "handlers": {
+          "get": {"mode": "sync", "response": {"status_code": 200, "body": "resource"}},
+          "head": null
+        }
+      },
+      "incoming": [],
+      "observations": ["handler-calls", "asgi-events", "exception"]
+    },
+    {
+      "case_id": "starlette.endpoints.HTTPEndpoint.method-not-allowed-allow-header",
+      "surface": "starlette.endpoints.HTTPEndpoint",
+      "operation": "class-based-endpoint",
+      "covers": ["starlette.endpoints.HTTPEndpoint.dispatch", "starlette.endpoints.HTTPEndpoint.method_not_allowed"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.5"},
+        "http_version": "1.1",
+        "method": "PATCH",
+        "scheme": "http",
+        "path": "/resource",
+        "raw_path_base64": "L3Jlc291cmNl",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [["aG9zdA==", "ZXhhbXBsZS50ZXN0"]],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "endpoint": {"handlers": {"get": {"mode": "async", "response": {"status_code": 200, "body": "resource"}}}},
+      "incoming": [],
+      "observations": ["allowed-methods", "asgi-events", "exception"]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.json-text-disconnect-code",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "class-based-endpoint",
+      "covers": ["starlette.endpoints.WebSocketEndpoint.dispatch", "starlette.endpoints.WebSocketEndpoint.decode", "starlette.endpoints.WebSocketEndpoint.on_disconnect"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {"version": "3.0", "spec_version": "2.5"},
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [["aG9zdA==", "ZXhhbXBsZS50ZXN0"]],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80],
+        "subprotocols": []
+      },
+      "endpoint": {"encoding": "json", "on_receive": {"mode": "async", "outcome": "record"}},
+      "incoming": [
+        {"type": "websocket.connect"},
+        {"type": "websocket.receive", "text": "{\"message\":\"hello\",\"count\":2}"},
+        {"type": "websocket.disconnect", "code": 1001}
+      ],
+      "observations": ["handler-calls", "asgi-events", "exception"]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.json-binary",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "class-based-endpoint",
+      "covers": ["starlette.endpoints.WebSocketEndpoint.decode"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {"version": "3.0", "spec_version": "2.5"},
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [["aG9zdA==", "ZXhhbXBsZS50ZXN0"]],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80],
+        "subprotocols": []
+      },
+      "endpoint": {"encoding": "json", "on_receive": {"mode": "sync", "outcome": "record"}},
+      "incoming": [
+        {"type": "websocket.connect"},
+        {"type": "websocket.receive", "bytes_base64": "eyJ2YWx1ZSI6ImJpbmFyeSJ9"},
+        {"type": "websocket.disconnect", "code": 1000}
+      ],
+      "observations": ["handler-calls", "asgi-events", "exception"]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.text-encoding-rejects-bytes",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "class-based-endpoint",
+      "covers": ["starlette.endpoints.WebSocketEndpoint.decode", "starlette.endpoints.WebSocketEndpoint.on_disconnect"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {"version": "3.0", "spec_version": "2.5"},
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [["aG9zdA==", "ZXhhbXBsZS50ZXN0"]],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80],
+        "subprotocols": []
+      },
+      "endpoint": {"encoding": "text", "on_receive": {"mode": "async", "outcome": "record"}},
+      "incoming": [
+        {"type": "websocket.connect"},
+        {"type": "websocket.receive", "bytes_base64": "aGVsbG8="}
+      ],
+      "observations": ["handler-calls", "asgi-events", "exception"]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.json-malformed-input",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "class-based-endpoint",
+      "covers": ["starlette.endpoints.WebSocketEndpoint.decode", "starlette.endpoints.WebSocketEndpoint.dispatch"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {"version": "3.0", "spec_version": "2.5"},
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [["aG9zdA==", "ZXhhbXBsZS50ZXN0"]],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80],
+        "subprotocols": []
+      },
+      "endpoint": {"encoding": "json", "on_receive": {"mode": "async", "outcome": "record"}},
+      "incoming": [
+        {"type": "websocket.connect"},
+        {"type": "websocket.receive", "text": "{malformed"}
+      ],
+      "observations": ["handler-calls", "asgi-events", "exception"]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.receive-callback-error",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "class-based-endpoint",
+      "covers": ["starlette.endpoints.WebSocketEndpoint.dispatch", "starlette.endpoints.WebSocketEndpoint.on_receive", "starlette.endpoints.WebSocketEndpoint.on_disconnect"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {"version": "3.0", "spec_version": "2.5"},
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [["aG9zdA==", "ZXhhbXBsZS50ZXN0"]],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80],
+        "subprotocols": []
+      },
+      "endpoint": {"encoding": null, "on_receive": {"mode": "async", "outcome": {"exception": "RuntimeError", "message": "handler failed"}}},
+      "incoming": [
+        {"type": "websocket.connect"},
+        {"type": "websocket.receive", "text": "hello"}
+      ],
+      "observations": ["handler-calls", "asgi-events", "exception"]
+    }
+  ]
+}

@@ -1,0 +1,1035 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.simple-wildcard-credential-reflection-vary-merge",
+      "surface": "starlette.middleware.cors.CORSMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.cors.CORSMiddleware.construct",
+        "starlette.middleware.cors.CORSMiddleware.simple-wildcard-credential-reflection-vary-merge"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "YWNjZXNzLWNvbnRyb2wtYWxsb3ctb3JpZ2lu",
+                        "b2xk"
+                      ],
+                      [
+                        "dmFyeQ==",
+                        "QWNjZXB0"
+                      ],
+                      [
+                        "dmFyeQ==",
+                        "Q29va2ll"
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "Y29ycy1yZXNwb25zZQ==",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "allow_origins": {
+              "kind": "literal",
+              "value": [
+                "*"
+              ]
+            },
+            "allow_methods": {
+              "kind": "literal",
+              "value": [
+                "GET"
+              ]
+            },
+            "allow_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "allow_credentials": {
+              "kind": "literal",
+              "value": true
+            },
+            "allow_origin_regex": {
+              "kind": "literal",
+              "value": null
+            },
+            "allow_private_network": {
+              "kind": "literal",
+              "value": false
+            },
+            "expose_headers": {
+              "kind": "literal",
+              "value": [
+                "X-Status"
+              ]
+            },
+            "max_age": {
+              "kind": "literal",
+              "value": 600
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/cors",
+                "raw_path_base64": "L2NvcnM=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "b3JpZ2lu",
+                    "aHR0cHM6Ly9hcHAuZXhhbXBsZQ=="
+                  ],
+                  [
+                    "Y29va2ll",
+                    "c2Vzc2lvbj1maXh0dXJl"
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.preflight-wildcard-credential-private-network",
+      "surface": "starlette.middleware.cors.CORSMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.cors.CORSMiddleware.construct",
+        "starlette.middleware.cors.CORSMiddleware.preflight-wildcard-credential-private-network"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": []
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "Y29ycy1yZXNwb25zZQ==",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "allow_origins": {
+              "kind": "literal",
+              "value": [
+                "*"
+              ]
+            },
+            "allow_methods": {
+              "kind": "literal",
+              "value": [
+                "*"
+              ]
+            },
+            "allow_headers": {
+              "kind": "literal",
+              "value": [
+                "*"
+              ]
+            },
+            "allow_credentials": {
+              "kind": "literal",
+              "value": true
+            },
+            "allow_origin_regex": {
+              "kind": "literal",
+              "value": null
+            },
+            "allow_private_network": {
+              "kind": "literal",
+              "value": true
+            },
+            "expose_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "max_age": {
+              "kind": "literal",
+              "value": 600
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "OPTIONS",
+                "scheme": "http",
+                "path": "/cors",
+                "raw_path_base64": "L2NvcnM=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "b3JpZ2lu",
+                    "aHR0cHM6Ly9hcHAuZXhhbXBsZQ=="
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1tZXRob2Q=",
+                    "UEFUQ0g="
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1oZWFkZXJz",
+                    "WC1Ub2tlbiwgQ29udGVudC1UeXBl"
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1wcml2YXRlLW5ldHdvcms=",
+                    "dHJ1ZQ=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.preflight-denial-failure-order",
+      "surface": "starlette.middleware.cors.CORSMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.cors.CORSMiddleware.construct",
+        "starlette.middleware.cors.CORSMiddleware.preflight-denial-failure-order"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": []
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "Y29ycy1yZXNwb25zZQ==",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "allow_origins": {
+              "kind": "literal",
+              "value": [
+                "https://allowed.example"
+              ]
+            },
+            "allow_methods": {
+              "kind": "literal",
+              "value": [
+                "GET"
+              ]
+            },
+            "allow_headers": {
+              "kind": "literal",
+              "value": [
+                "X-Good"
+              ]
+            },
+            "allow_credentials": {
+              "kind": "literal",
+              "value": false
+            },
+            "allow_origin_regex": {
+              "kind": "literal",
+              "value": null
+            },
+            "allow_private_network": {
+              "kind": "literal",
+              "value": false
+            },
+            "expose_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "max_age": {
+              "kind": "literal",
+              "value": 600
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "OPTIONS",
+                "scheme": "http",
+                "path": "/cors",
+                "raw_path_base64": "L2NvcnM=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "b3JpZ2lu",
+                    "aHR0cHM6Ly9ibG9ja2VkLmV4YW1wbGU="
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1tZXRob2Q=",
+                    "UE9TVA=="
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1oZWFkZXJz",
+                    "WC1CYWQ="
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1wcml2YXRlLW5ldHdvcms=",
+                    "dHJ1ZQ=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.simple-denied-origin-preserves-app-response",
+      "surface": "starlette.middleware.cors.CORSMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.cors.CORSMiddleware.construct",
+        "starlette.middleware.cors.CORSMiddleware.simple-denied-origin-preserves-app-response"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "dmFyeQ==",
+                        "QWNjZXB0"
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "Y29ycy1yZXNwb25zZQ==",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "allow_origins": {
+              "kind": "literal",
+              "value": [
+                "https://allowed.example"
+              ]
+            },
+            "allow_methods": {
+              "kind": "literal",
+              "value": [
+                "GET"
+              ]
+            },
+            "allow_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "allow_credentials": {
+              "kind": "literal",
+              "value": true
+            },
+            "allow_origin_regex": {
+              "kind": "literal",
+              "value": null
+            },
+            "allow_private_network": {
+              "kind": "literal",
+              "value": false
+            },
+            "expose_headers": {
+              "kind": "literal",
+              "value": [
+                "X-Status"
+              ]
+            },
+            "max_age": {
+              "kind": "literal",
+              "value": 600
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/cors",
+                "raw_path_base64": "L2NvcnM=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "b3JpZ2lu",
+                    "aHR0cHM6Ly9ibG9ja2VkLmV4YW1wbGU="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.regex-fullmatch-origin",
+      "surface": "starlette.middleware.cors.CORSMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.cors.CORSMiddleware.construct",
+        "starlette.middleware.cors.CORSMiddleware.regex-fullmatch-origin"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "dmFyeQ==",
+                        "QWNjZXB0"
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "Y29ycy1yZXNwb25zZQ==",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "allow_origins": {
+              "kind": "literal",
+              "value": []
+            },
+            "allow_methods": {
+              "kind": "literal",
+              "value": [
+                "GET"
+              ]
+            },
+            "allow_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "allow_credentials": {
+              "kind": "literal",
+              "value": true
+            },
+            "allow_origin_regex": {
+              "kind": "literal",
+              "value": "https://[a-z]+\\.example\\.com"
+            },
+            "allow_private_network": {
+              "kind": "literal",
+              "value": false
+            },
+            "expose_headers": {
+              "kind": "literal",
+              "value": [
+                "X-Status"
+              ]
+            },
+            "max_age": {
+              "kind": "literal",
+              "value": 600
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/cors",
+                "raw_path_base64": "L2NvcnM=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "b3JpZ2lu",
+                    "aHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20uZXZpbA=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.missing-origin-passthrough",
+      "surface": "starlette.middleware.cors.CORSMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.cors.CORSMiddleware.construct",
+        "starlette.middleware.cors.CORSMiddleware.missing-origin-passthrough"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": []
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "Y29ycy1yZXNwb25zZQ==",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "allow_origins": {
+              "kind": "literal",
+              "value": []
+            },
+            "allow_methods": {
+              "kind": "literal",
+              "value": [
+                "GET"
+              ]
+            },
+            "allow_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "allow_credentials": {
+              "kind": "literal",
+              "value": false
+            },
+            "allow_origin_regex": {
+              "kind": "literal",
+              "value": null
+            },
+            "allow_private_network": {
+              "kind": "literal",
+              "value": false
+            },
+            "expose_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "max_age": {
+              "kind": "literal",
+              "value": 600
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/cors",
+                "raw_path_base64": "L2NvcnM=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.non-http-passthrough",
+      "surface": "starlette.middleware.cors.CORSMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.cors.CORSMiddleware.construct",
+        "starlette.middleware.cors.CORSMiddleware.non-http-passthrough"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": []
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "Y29ycy1yZXNwb25zZQ==",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "allow_origins": {
+              "kind": "literal",
+              "value": []
+            },
+            "allow_methods": {
+              "kind": "literal",
+              "value": [
+                "GET"
+              ]
+            },
+            "allow_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "allow_credentials": {
+              "kind": "literal",
+              "value": false
+            },
+            "allow_origin_regex": {
+              "kind": "literal",
+              "value": null
+            },
+            "allow_private_network": {
+              "kind": "literal",
+              "value": false
+            },
+            "expose_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "max_age": {
+              "kind": "literal",
+              "value": 600
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "websocket",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "scheme": "ws",
+                "path": "/cors",
+                "raw_path_base64": "L2NvcnM=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ],
+                "subprotocols": []
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "websocket.connect"
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

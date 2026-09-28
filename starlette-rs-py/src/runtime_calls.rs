@@ -3,7 +3,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use pyo3::exceptions::{PyAttributeError, PyRuntimeError, PyStopAsyncIteration};
+use pyo3::exceptions::{PyAttributeError, PyOSError, PyRuntimeError, PyStopAsyncIteration};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyTuple};
 use starlette_rs::{
@@ -201,6 +201,7 @@ impl PyStreamingResponse {
         background: Option<Py<PyAny>>,
     ) -> PyResult<Py<PyAny>> {
         let websocket = is_websocket_scope(scope)?;
+        let catches_client_disconnect = !websocket && asgi_spec_at_least_24(py, scope)?;
         into_python_awaitable(
             py,
             StreamingCallMachine {
@@ -215,6 +216,7 @@ impl PyStreamingResponse {
                 _receive: receive,
                 background,
                 websocket,
+                catches_client_disconnect,
                 pending: None,
                 body_override: None,
             },
@@ -240,6 +242,7 @@ struct StreamingCallMachine {
     _receive: Py<PyAny>,
     background: Option<Py<PyAny>>,
     websocket: bool,
+    catches_client_disconnect: bool,
     pending: Option<StreamingPending>,
     body_override: Option<Py<PyAny>>,
 }
@@ -257,8 +260,10 @@ impl AwaitableStateMachine for StreamingCallMachine {
                         let body = if self.is_sync_sentinel(py, &value)? {
                             None
                         } else {
-                            self.body_override =
-                                Some(stream_chunk_body(py, &value, &self.charset)?);
+                            self.body_override = Some(
+                                stream_chunk_body(py, &value, &self.charset)
+                                    .map_err(|error| self.stream_error(py, error))?,
+                            );
                             Some(Vec::new())
                         };
                         self.advance(StreamingResponseCallInput::ChunkPulled(Ok(body)))?;
@@ -282,10 +287,13 @@ impl AwaitableStateMachine for StreamingCallMachine {
             MachineResume::Error(error) => {
                 match self.pending.take() {
                     Some(StreamingPending::Send) => {
-                        self.advance(StreamingResponseCallInput::Send(Err(error)))?;
+                        self.advance_stream(StreamingResponseCallInput::Send(Err(error)), py)?;
                     }
                     Some(StreamingPending::PullChunk) => {
-                        self.advance(StreamingResponseCallInput::ChunkPulled(Err(error)))?;
+                        self.advance_stream(
+                            StreamingResponseCallInput::ChunkPulled(Err(error)),
+                            py,
+                        )?;
                     }
                     Some(StreamingPending::Background) => {
                         self.advance(StreamingResponseCallInput::BackgroundFinished(Err(error)))?;
@@ -306,13 +314,19 @@ impl StreamingCallMachine {
             StreamingResponseCallStep::Send(event) => {
                 self.pending = Some(StreamingPending::Send);
                 let body_override = self.body_override.take();
-                let message = streaming_event_to_py(py, event, self.websocket, body_override)?;
-                let awaitable = self.send.bind(py).call1((message,))?;
+                let message = streaming_event_to_py(py, event, self.websocket, body_override)
+                    .map_err(|error| self.stream_error(py, error))?;
+                let awaitable = self
+                    .send
+                    .bind(py)
+                    .call1((message,))
+                    .map_err(|error| self.stream_error(py, error))?;
                 Ok(MachineAction::Await(awaitable.unbind()))
             }
             StreamingResponseCallStep::PullChunk => {
                 self.pending = Some(StreamingPending::PullChunk);
                 self.pull_chunk(py)
+                    .map_err(|error| self.stream_error(py, error))
             }
             StreamingResponseCallStep::RunBackground => {
                 self.pending = Some(StreamingPending::Background);
@@ -396,6 +410,34 @@ impl StreamingCallMachine {
             .map(|_| ())
             .map_err(streaming_call_error)
     }
+
+    fn advance_stream(
+        &mut self,
+        input: StreamingResponseCallInput<PyErr>,
+        py: Python<'_>,
+    ) -> PyResult<()> {
+        self.advance(input)
+            .map_err(|error| self.stream_error(py, error))
+    }
+
+    fn stream_error(&self, py: Python<'_>, error: PyErr) -> PyErr {
+        if !self.catches_client_disconnect || !error.is_instance_of::<PyOSError>(py) {
+            return error;
+        }
+
+        match py
+            .import("starlette.requests")
+            .and_then(|module| module.getattr("ClientDisconnect"))
+            .and_then(|class| class.call0())
+        {
+            Ok(exception) => {
+                let disconnect = PyErr::from_value(exception);
+                disconnect.set_context(py, Some(error));
+                disconnect
+            }
+            Err(factory_error) => factory_error,
+        }
+    }
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -407,6 +449,25 @@ fn is_websocket_scope(scope: &Bound<'_, PyDict>) -> PyResult<bool> {
         Some(value) => Ok(value.extract::<String>()? == "websocket"),
         None => Ok(false),
     }
+}
+
+fn asgi_spec_at_least_24(py: Python<'_>, scope: &Bound<'_, PyDict>) -> PyResult<bool> {
+    let asgi = match scope.get_item("asgi")? {
+        Some(asgi) => asgi,
+        None => PyDict::new(py).into_any(),
+    };
+    let spec_version = asgi.call_method1("get", ("spec_version", "2.0"))?;
+    let parts = spec_version.call_method1("split", (".",))?;
+    let int = py.import("builtins")?.getattr("int")?;
+    let version = parts
+        .try_iter()?
+        .map(|part| int.call1((part?,)))
+        .collect::<PyResult<Vec<_>>>()?;
+    let version = PyTuple::new(py, version)?;
+    let minimum = PyTuple::new(py, [2, 4])?;
+    version
+        .rich_compare(minimum, pyo3::basic::CompareOp::Ge)?
+        .is_truthy()
 }
 
 fn response_event_to_py(
