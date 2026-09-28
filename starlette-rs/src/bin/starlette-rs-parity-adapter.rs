@@ -6,6 +6,7 @@ use std::future::{Future, ready};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll, Waker};
 
@@ -15,13 +16,14 @@ use getrandom as _;
 use httpdate as _;
 use md5 as _;
 use mime_guess as _;
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Number, Value, json};
 use sha2::{Digest, Sha256};
 use starlette_rs::{
     ApplicationRoute, AsgiScopeKind, Cookies, DetailedRouteMatch, FileMetadata,
     FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
     FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader, GzipResponseStart, HttpScope,
-    LifespanAction, LifespanState, QueryParams, RequestBodyAccumulator, RequestHeaders, Response,
+    LifespanAction, LifespanState, Mount as NativeMount, MountScope, PathConverter,
+    PathParameterCapture, QueryParams, RequestBodyAccumulator, RequestHeaders, Response,
     ResponseEvent, RouteTable, Starlette as NativeApplication, StreamingResponse,
     StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope,
 };
@@ -330,9 +332,7 @@ fn run_case(case: &Value) -> Result<Value, String> {
             return run_file_response_case(case);
         }
         (Some("starlette.routing.Mount"), Some("route-dispatch")) => {
-            return Err(String::from(
-                "Rust-native route adapter does not expose Mount child-scope dispatch",
-            ));
+            return run_mount_case(case);
         }
         (Some("starlette.applications.Starlette"), Some("__call__")) => {}
         _ => return Err(String::from("workflow surface or operation is unsupported")),
@@ -539,6 +539,252 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
             },
         }],
     }))
+}
+
+fn run_mount_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "mount",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        ],
+        "Mount route-dispatch case",
+    )?;
+    let case_id = string_field(case, "case_id", "Mount route-dispatch case")?;
+    if string_field(case, "surface", "Mount route-dispatch case")? != "starlette.routing.Mount"
+        || string_field(case, "operation", "Mount route-dispatch case")? != "route-dispatch"
+        || case.get("observations") != Some(&json!(["route-dispatch"]))
+        || case.get("assets") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "Rust-native Mount route-dispatch requires the declared Mount projection",
+        ));
+    }
+
+    let mount_input = exact_object(
+        case.get("mount")
+            .ok_or_else(|| String::from("Mount input is missing"))?,
+        &["path", "routes"],
+        "Mount input",
+    )?;
+    let mount_path = string_field(mount_input, "path", "Mount input")?;
+    let routes = mount_input
+        .get("routes")
+        .and_then(Value::as_array)
+        .filter(|routes| !routes.is_empty())
+        .ok_or_else(|| String::from("Mount routes must be a non-empty array"))?;
+    let mut application_routes = Vec::with_capacity(routes.len());
+    for route in routes {
+        let route = exact_object(
+            route,
+            &["kind", "path", "methods", "endpoint"],
+            "Mount child route input",
+        )?;
+        if string_field(route, "kind", "Mount child route input")? != "http-route" {
+            return Err(String::from("Mount child route kind must be http-route"));
+        }
+        let path = string_field(route, "path", "Mount child route input")?;
+        let methods = route
+            .get("methods")
+            .and_then(Value::as_array)
+            .ok_or_else(|| String::from("Mount child route methods must be an array"))?;
+        let method_values = methods
+            .iter()
+            .map(|method| {
+                method
+                    .as_str()
+                    .ok_or_else(|| String::from("Mount child methods must contain strings"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let endpoint = exact_object(
+            route
+                .get("endpoint")
+                .ok_or_else(|| String::from("Mount child endpoint is missing"))?,
+            &["kind", "content", "status_code", "media_type", "cookies"],
+            "Mount child endpoint input",
+        )?;
+        if string_field(endpoint, "kind", "Mount child endpoint")? != "plain-text-response" {
+            return Err(String::from(
+                "Rust-native Mount currently accepts prebuilt plain-text responses",
+            ));
+        }
+        let content = string_field(endpoint, "content", "Mount child endpoint")?;
+        let media_type = string_field(endpoint, "media_type", "Mount child endpoint")?;
+        let status = endpoint
+            .get("status_code")
+            .and_then(Value::as_u64)
+            .filter(|status| *status <= u16::MAX as u64)
+            .ok_or_else(|| String::from("Mount child status_code must fit u16"))?;
+        let cookies = endpoint
+            .get("cookies")
+            .and_then(Value::as_array)
+            .ok_or_else(|| String::from("Mount child cookies must be an array"))?;
+        let mut response = Response::from_content(
+            status as u16,
+            content.as_bytes().to_vec(),
+            Some(media_type),
+            std::iter::empty::<(&str, &str)>(),
+        )
+        .map_err(|error| error.to_string())?;
+        for cookie in cookies {
+            let cookie = exact_object(cookie, &["key", "value"], "Mount response cookie")?;
+            response
+                .set_cookie(
+                    string_field(cookie, "key", "Mount response cookie")?,
+                    string_field(cookie, "value", "Mount response cookie")?,
+                )
+                .map_err(|error| error.to_string())?;
+        }
+        application_routes.push(ApplicationRoute::new(path, method_values, response));
+    }
+
+    if case.get("incoming") != Some(&json!([]))
+        || case.get("send") != Some(&json!({"kind": "capture-asgi-send"}))
+    {
+        return Err(String::from(
+            "Mount dispatch requires an empty receive sequence and captured ASGI send",
+        ));
+    }
+    let scope = exact_object(
+        case.get("scope")
+            .ok_or_else(|| String::from("Mount scope is missing"))?,
+        &[
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        ],
+        "Mount HTTP scope",
+    )?;
+    if string_field(scope, "type", "Mount scope")? != "http"
+        || string_field(scope, "http_version", "Mount scope")? != "1.1"
+        || string_field(scope, "scheme", "Mount scope")? != "http"
+    {
+        return Err(String::from(
+            "Mount scope differs from the declared HTTP baseline",
+        ));
+    }
+    let path = string_field(scope, "path", "Mount scope")?;
+    let root_path = string_field(scope, "root_path", "Mount scope")?;
+    let method = string_field(scope, "method", "Mount scope")?;
+    let mount =
+        NativeMount::new(mount_path, application_routes).map_err(|error| error.to_string())?;
+    let result = mount
+        .dispatch(&MountScope::new(path, method, root_path))
+        .map_err(|error| error.to_string())?;
+    let mount_scope = result
+        .scope_extension
+        .as_ref()
+        .map(mount_scope_observation)
+        .transpose()?;
+
+    let response = result.response;
+    let body = encode_base64(response.body());
+    let headers = canonical_headers(response.headers());
+    let events = json!([
+        {
+            "type": "http.response.start",
+            "status": response.status_code(),
+            "headers": headers,
+        },
+        {
+            "type": "http.response.body",
+            "body": {"encoding": "base64", "data": body},
+        }
+    ]);
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": "route-dispatch",
+            "status": "ok",
+            "value": {
+                "mount_scope": mount_scope,
+                "response_status": response.status_code(),
+                "ordered_repeated_headers": headers,
+                "response_bytes": {"encoding": "base64", "data": body},
+                "asgi_event_order": ["http.response.start", "http.response.body"],
+                "asgi_events": events,
+            },
+        }],
+    }))
+}
+
+fn mount_scope_observation(scope: &starlette_rs::MountScopeExtension) -> Result<Value, String> {
+    let mut path_params = Map::new();
+    for parameter in &scope.path_params {
+        path_params.insert(
+            parameter.name.clone(),
+            path_parameter_observation(parameter)?,
+        );
+    }
+    Ok(json!({
+        "root_path": scope.root_path,
+        "app_root_path": scope.app_root_path,
+        "path_params": path_params,
+    }))
+}
+
+fn path_parameter_observation(parameter: &PathParameterCapture) -> Result<Value, String> {
+    let (value, kind) = match parameter.converter {
+        PathConverter::String | PathConverter::Path => {
+            (Value::String(parameter.value.clone()), "str")
+        }
+        PathConverter::Integer => (
+            Value::Number(
+                Number::from_str(&parameter.value)
+                    .map_err(|error| format!("invalid integer path capture: {error}"))?,
+            ),
+            "int",
+        ),
+        PathConverter::Float => {
+            let value = parameter
+                .value
+                .parse::<f64>()
+                .map_err(|error| format!("invalid float path capture: {error}"))?;
+            let number = Number::from_f64(value)
+                .ok_or_else(|| String::from("float path capture is not a JSON number"))?;
+            (Value::Number(number), "float")
+        }
+        PathConverter::Uuid => (Value::String(canonical_uuid(&parameter.value)?), "UUID"),
+    };
+    Ok(json!({"value": value, "type": kind}))
+}
+
+fn canonical_uuid(value: &str) -> Result<String, String> {
+    let hexadecimal = value
+        .chars()
+        .filter(|character| *character != '-')
+        .collect::<String>()
+        .to_ascii_lowercase();
+    if hexadecimal.len() != 32 || !hexadecimal.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(String::from("UUID path capture is not a valid UUID"));
+    }
+    Ok(format!(
+        "{}-{}-{}-{}-{}",
+        &hexadecimal[0..8],
+        &hexadecimal[8..12],
+        &hexadecimal[12..16],
+        &hexadecimal[16..20],
+        &hexadecimal[20..32],
+    ))
 }
 
 fn run_redirect_response_case(case: &Value) -> Result<Value, String> {

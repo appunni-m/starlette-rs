@@ -20,6 +20,7 @@ mod exception_handlers;
 mod file_response;
 mod gzip;
 mod lifespan;
+mod mount;
 mod request;
 mod response;
 mod route_table;
@@ -44,6 +45,7 @@ pub use gzip::{
 pub use lifespan::{
     LifespanAction, LifespanError, LifespanOperation, LifespanPhase, LifespanState,
 };
+pub use mount::{Mount, MountDispatchResult, MountError, MountScope, MountScopeExtension};
 pub use request::{
     BodyProgress, Cookies, QueryParams, RequestBodyAccumulator, RequestBodyError, RequestHeaders,
     RequestStreamProgress, RequestStreamState, parse_cookie_header,
@@ -54,7 +56,9 @@ pub use response::{
     StreamingResponseCallError, StreamingResponseCallInput, StreamingResponseCallStep,
     StreamingResponseEvent,
 };
-pub use route_table::{DetailedRouteMatch, RouteError, RouteMatch, RouteTable};
+pub use route_table::{
+    DetailedRouteMatch, PathConverter, PathParameterCapture, RouteError, RouteMatch, RouteTable,
+};
 pub use router_dispatch::{DispatchPlanError, HttpDispatchPlan, SupplementalRouteMatch};
 pub use server_error::{ServerErrorPlan, ServerErrorPolicy, ServerErrorState};
 pub use websocket::{WebSocketState, WebSocketStateError, WebSocketStateMachine};

@@ -34,19 +34,18 @@ this plan identify recorded executions.
 
 The current parity contract has 216 input-only cases, 43 operations, and 262
 parity requirements across 30 indexed files. Latest integrated run
-`894f9f90-b389-4f9d-ae4b-8e1d793630a3`, finished at
-`2026-09-28T23:01:00.598Z`, selected 287 profile comparisons: 281 passed, zero
-failed, zero infrastructure errors, and six were `not_run`. The Python package
-passed all 216 selected comparisons; Rust-native passed 65 of 71. All 20
-generator-lifespan cases passed on the Python package. The six remaining
-Rust-native rows are four Python-callable endpoint forms and the two Mount
-dispatch cases below. The manifest SHA-256 is
-`363186e96eefd758f6019417532401efc3ff4b30775ba6b0089652fa0df7d8a1`; the
+`47ae7c1f-68b8-4ef9-81a8-a604dd7d0916`, finished at
+`2026-09-28T23:28:00.182Z`, selected 287 profile comparisons: 283 passed, zero
+failed, zero infrastructure errors, and four were `not_run`. The Python package
+passed all 216 selected comparisons; Rust-native passed 67 of 71. The four
+remaining Rust-native rows require Python endpoint callables. The manifest
+SHA-256 is
+`aa69d7d2734f4478beb2bf05ba9e5420f04f541d29011a9d67a4c58551fcc7e1`; the
 target wheel SHA-256 is
-`22a537da8f58545749e9142bc1a1b4a4c7bd1e357ac208c2becc3e7a05bee09e`. The
-Python package environment identity is a dirty-tree build; Rust-native was
-recorded from a clean tree. `make parity-run` still exits nonzero because the
-six Rust-native observations are explicitly unsupported.
+`ae5afc4dad345adf2307b10e6e2965e11f1a02724547143b784624f8cc7627ae`. Both
+target environments were built from dirty working trees. `make parity-run`
+builds the current Rust-native adapter before running; its nonzero status
+reflects the four explicitly unsupported callback rows.
 
 ## 1. Completed bounded goal: lifespan state and cancellation
 
@@ -72,22 +71,31 @@ numbers, HTML frame IDs, and body length. It activates only for the live
 Starlette debug-traceback structure and changes parity comparison only; the
 Python runtime wrappers remain pass-through. Both text and HTML debug cases
 match source/package behavior. The integrated result above has zero parity
-failures; the all-target command remains incomplete only for its six
-Rust-native `not_run` rows.
+failures; the all-target command remains incomplete only for its four
+Rust-native callable `not_run` rows.
 
-## Next bounded goal: Rust-native Mount child-scope and miss parity
+## Completed bounded goal: Rust-native Mount child-scope and miss parity
 
-Implement the two existing Mount route-dispatch cases through the public
-Rust-native API. A matched `/tenants/{tenant:str}` Mount must dispatch its child
-`/items/{item_id:int}` route, produce the declared response, and expose the
-same `root_path`, `app_root_path`, and merged typed `path_params` as the source.
-A mount-path miss must leave `mount_scope` absent and produce Starlette's 404
-response. Keep the current input-only cases and compare the full response and
-scope observations against the pinned source and installed package. Put route
-matching, parameter conversion, child-scope construction, and miss behavior in
-the Rust core; preserve the Python wrappers as pass-throughs. This closes the
-two Mount `not_run` rows without conflating them with the four endpoint shapes
-that require Python callbacks.
+The public Rust-native `Mount` API now matches the Mount prefix, extends
+`root_path`, retains or initializes `app_root_path`, merges typed mount and
+child-route captures, dispatches a fixed child response, and returns a
+standalone 404 on a mount miss. The two input-only Mount workflows pass against
+the pinned source, installed package, and native API. The implementation is
+bounded to HTTP child routes with prebuilt responses; arbitrary ASGI child
+applications and middleware are not part of this slice. The Python facade
+remains a pass-through, while matching and scope decisions run in Rust.
+
+## Next bounded goal: Rust-native Mount scope edge parity
+
+Extend the existing Mount cases with inherited path-parameter collisions,
+child-route misses, and child method mismatches. A child miss must retain the
+Mount scope extension while returning 404; a child method mismatch must retain
+the extension and produce the declared 405 behavior. Inherited values must
+survive unless a real mount or child capture replaces the same key, including
+when an inherited key is named `path`. Keep the input-only fixtures and compare
+live scope and response observations against the pinned source and installed
+package. Keep all matching, scope merging, and response decisions in Rust and
+leave Python wrappers as pass-throughs.
 
 ## 2. Initial ASGI-to-response vertical slice (partial)
 
@@ -148,8 +156,10 @@ converters, converter misses, route order, root-path matching and prefix
 boundaries, plus a package-only custom `str` converter override. Six Request
 cases exercise converted path-parameter values and CPython 3.12's 4300-digit
 integer conversion limit. Two Mount cases compare child-scope extension and
-mount misses. Rust-native runs the built-in Router projection; it marks the
-Mount cases and four Python-callable Request endpoint shapes unsupported.
+mount misses. At this checkpoint, Rust-native ran the built-in Router
+projection and marked the Mount cases plus four Python-callable Request
+endpoint shapes unsupported. The later bounded Mount goal below closes those
+two Mount rows; the four callback rows remain unsupported.
 
 The integrated full run `b2fc5183-407c-4843-b9e3-7e228342159e`, finished at
 `2026-09-28T09:08:03.998Z`, selected 148 comparisons: 142 passed, zero failed,

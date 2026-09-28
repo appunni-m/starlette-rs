@@ -57,6 +57,10 @@ impl ApplicationRoute {
             response,
         }
     }
+
+    pub(crate) fn into_parts(self) -> (String, Vec<String>, Response) {
+        (self.path, self.methods, self.response)
+    }
 }
 
 /// A native application that routes requests to prebuilt responses.

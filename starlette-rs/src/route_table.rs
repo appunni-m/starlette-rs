@@ -39,13 +39,30 @@ enum PathSegment {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum PathConverter {
+/// The Starlette converter responsible for a captured route parameter.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PathConverter {
+    /// A non-empty string that does not contain `/`.
     String,
+    /// An arbitrary-size decimal integer, stored in canonical decimal form.
     Integer,
+    /// A decimal floating-point value.
     Float,
+    /// A UUID path value.
     Uuid,
+    /// A string that may contain `/` and may be empty.
     Path,
+}
+
+/// A path capture tagged with the converter Starlette applies to it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PathParameterCapture {
+    /// Parameter name from the route pattern.
+    pub name: String,
+    /// Captured value; integer captures use canonical decimal spelling.
+    pub value: String,
+    /// Converter declared for this parameter.
+    pub converter: PathConverter,
 }
 
 type PathParams = Vec<(String, String)>;
@@ -410,6 +427,76 @@ impl RouteTable {
             .cloned()
             .collect();
         Ok((output, remaining))
+    }
+
+    /// Tags matched path parameters with their route converters.
+    ///
+    /// `path_params` must be the captures returned by a match of
+    /// `route_index`. Integer captures remain arbitrary-size canonical decimal
+    /// strings; `converter` carries the type information needed by a native
+    /// caller or a language-specific boundary.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RouteError::RouteIndexOutOfBounds`] when the route index is
+    /// absent, [`RouteError::DuplicatePathParameterValue`] for duplicate
+    /// capture names, or [`RouteError::PathParameterNamesMismatch`] when the
+    /// capture names differ from the route pattern.
+    pub fn capture_path_parameters(
+        &self,
+        route_index: usize,
+        path_params: &[(String, String)],
+    ) -> Result<Vec<PathParameterCapture>, RouteError> {
+        let route = self
+            .routes
+            .get(route_index)
+            .ok_or(RouteError::RouteIndexOutOfBounds(route_index))?;
+        let parameters = route.path_segments.as_deref().unwrap_or_default();
+        let expected = parameters
+            .iter()
+            .filter_map(|segment| match segment {
+                PathSegment::Parameter { name, .. } => Some(name.clone()),
+                PathSegment::Static(_) => None,
+            })
+            .collect::<Vec<_>>();
+        let mut provided_names = HashSet::new();
+        for (name, _) in path_params {
+            if !provided_names.insert(name.as_str()) {
+                return Err(RouteError::DuplicatePathParameterValue(name.clone()));
+            }
+        }
+        let provided = path_params
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect::<Vec<_>>();
+        if expected.len() != provided.len()
+            || expected
+                .iter()
+                .any(|name| !provided_names.contains(name.as_str()))
+        {
+            return Err(RouteError::PathParameterNamesMismatch { expected, provided });
+        }
+
+        path_params
+            .iter()
+            .map(|(name, value)| {
+                let converter = parameters
+                    .iter()
+                    .find_map(|segment| match segment {
+                        PathSegment::Parameter {
+                            name: parameter_name,
+                            converter,
+                        } if parameter_name == name => Some(*converter),
+                        PathSegment::Static(_) | PathSegment::Parameter { .. } => None,
+                    })
+                    .ok_or_else(|| RouteError::UnknownPathParameter(name.clone()))?;
+                Ok(PathParameterCapture {
+                    name: name.clone(),
+                    value: value.clone(),
+                    converter,
+                })
+            })
+            .collect()
     }
 
     /// Matches a path and method, preserving Starlette's ordered fallback.

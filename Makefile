@@ -11,7 +11,7 @@ STYLE_PYTHON ?= $(STYLE_VENV)/bin/python
 RUFF ?= $(STYLE_PYTHON) -m ruff
 PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/python/starlette_rs_py
 
-.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check lint check build test parity-inputs parity-env parity-run contract-check benchmark-upstream rustdoc-check docs-check ci
+.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check lint check build test parity-inputs parity-env parity-adapter parity-run contract-check benchmark-upstream rustdoc-check docs-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
@@ -29,6 +29,7 @@ help: ## Show common Rust workspace commands
 	  '  make build     Link the PyO3 extension in extension-module mode' \
 	  '  make parity-inputs  Generate ignored JSON inputs from authored YAML' \
 	  '  make parity-env  Build the wheel and prepare isolated source/package environments' \
+	  '  make parity-adapter  Build the current Rust-native parity adapter' \
 	  '  make test       Run live source-to-package and supported Rust parity comparisons' \
 	  '  make contract-check  Generate and statically validate parity inputs' \
 	  '  make benchmark-upstream  Run 74 correctness-gated Starlette source/package workloads' \
@@ -79,10 +80,13 @@ parity-inputs: ## Generate ignored runtime JSON inputs from authored YAML defini
 parity-env: parity-inputs ## Build the package wheel and prepare isolated parity environments
 	$(PARITY_PYTHON) -m scripts.parity.cli prepare-env --force --upstream "$(STARLETTE_ORACLE_ROOT)"
 
+parity-adapter: ## Build the current Rust-native parity adapter
+	$(CARGO) build --locked --bin starlette-rs-parity-adapter
+
 contract-check: parity-inputs ## Generate inputs, then validate the local parity contract and input inventory offline
 	$(PARITY_PYTHON) -m scripts.parity.cli validate-contract
 
-parity-run: contract-check parity-env ## Run exact source/package and supported Rust comparisons
+parity-run: contract-check parity-env parity-adapter ## Run exact source/package and supported Rust comparisons
 	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" $(PARITY_PYTHON) -m scripts.parity.cli run
 
 test: parity-run ## Run behavioral checks as live source-to-target parity only

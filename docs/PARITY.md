@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 211 input-only cases in 30 indexed files, covering 43 operations and 257 parity requirements. The cases cover bounded Starlette application, routing, request, response, WebSocket, exception, status, endpoint, authentication, middleware, configuration, and schema behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 216 input-only cases in 30 indexed files, covering 43 operations and 262 parity requirements. The cases cover bounded Starlette application, routing, request, response, WebSocket, exception, status, endpoint, authentication, middleware, configuration, and schema behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -71,9 +71,10 @@ adds six installed-package Request cases for typed path parameters, including
 a 5001-digit integer that exercises CPython 3.12's default conversion limit.
 [`mount-route-dispatch.yaml`](../tests/fixtures/sources/parity/mount-route-dispatch.yaml)
 adds two Mount cases for child `root_path`, `app_root_path`, merged path
-parameters, response, and mount miss. The source and Python package execute
-both Mount cases; Rust-native records them as unsupported because it has no
-Mount API.
+parameters, response, and mount miss. The source, installed Python package,
+and Rust-native `Mount` API execute both cases. The native API is bounded to
+HTTP child routes with prebuilt responses; it owns Mount matching, typed
+capture merging, child-scope projection, and standalone miss responses.
 
 [`lifespan-generators.yaml`](../tests/fixtures/sources/parity/lifespan-generators.yaml)
 adds 15 Python-package `Starlette.__call__` lifecycle cases: sync and async
@@ -108,24 +109,19 @@ docstring YAML parsing and parser errors, and OpenAPI response rendering. Their
 Python `starlette.*` modules forward to Rust; the adapters run the same
 input-only cases against pinned Starlette 1.6.0.
 
-The latest integrated run `efd76095-d4d6-48a2-951f-030dde4bb49a` finished at
-`2026-09-28T22:15:20.115Z`, after starting at `2026-09-28T22:14:46.991Z`. It
-selected 282 profile comparisons: 274 passed, two failed, zero infrastructure
-errors, and six were `not_run`. The Python package passed 209 of 211 cases;
-Rust-native passed 65 of 71 selected comparisons. All 15 generator-lifespan
-cases passed on the Python package. Four arbitrary Python-callable boundaries
-and two Mount cases are unsupported for Rust-native. The CLI exits with status
-2; this is not an all-target pass. Manifest SHA-256 is
-`5cf2ceb233eb416a3ab482ee1b00cbb94f767fb619c5e315f654617a0eba8cfb`; the
+The latest integrated run `47ae7c1f-68b8-4ef9-81a8-a604dd7d0916` finished at
+`2026-09-28T23:28:00.182Z`. It selected 287 profile comparisons: 283 passed,
+zero failed, zero infrastructure errors, and four were `not_run`. The Python
+package passed all 216 cases; Rust-native passed 67 of 71 selected comparisons.
+The four remaining Rust-native rows require Python endpoint callables. The
+source, installed package, and Rust-native `Mount` cases all pass. `make
+parity-run` exits with status 2 because those four callable rows are explicitly
+unsupported by the Rust-native target. Manifest SHA-256 is
+`aa69d7d2734f4478beb2bf05ba9e5420f04f541d29011a9d67a4c58551fcc7e1`; the
 installed wheel SHA-256 is
-`ab1015bc1afe59b3f6444c77409d457a42b3990fd92f844c800d0ded5f0ef92a`. Both
+`ae5afc4dad345adf2307b10e6e2965e11f1a02724547143b784624f8cc7627ae`. Both
 target trees were dirty during this local run, so it is not clean aggregate or
-release proof. The two failures are
-`starlette.applications.Starlette.__call__.server-error.debug.plain-text-overrides-handler`
-and `.debug.html-selected-by-accept`: the endpoint exception is the same, but
-the Rust-backed thin facade produces a different internal traceback frame
-stack and source context. The comparator preserves those differences instead
-of normalizing them away.
+release proof.
 
 The synchronous function case, `starlette.applications.Starlette.request-dispatch.sync-get-items-0007-contextvar-worker`, sends `GET /items/0007` through a route declared as `/items/{item_id:int}`. It selects the converted integer path parameter, caller `ContextVar` propagation, execution on a worker thread distinct from the ASGI caller, one endpoint invocation, route-scope observations, and complete ASGI events. The latest integrated run above compares this case exactly between pinned Starlette 1.6.0 and the installed Python package. Its Rust-native row is `not_run` because that profile cannot invoke a Python callable through this boundary; the manifest declares the sync-endpoint observations unsupported for Rust-native.
 
@@ -136,8 +132,9 @@ This follows pinned Starlette 1.6.0's route distinction: functions, bound method
 This repository uses live source-to-target parity as its behavioral gate and
 has no conventional Python or Rust unit-test suite. `make test` runs the
 declared source, installed-package, and supported Rust-native workflows; the
-two debug traceback differences and six unsupported Rust-native rows keep the
-current all-target gate incomplete.
+four unsupported Rust-native callable rows keep the current all-target gate
+incomplete. `make parity-run` builds the Rust-native adapter before executing
+it, so the adapter matches the current source tree.
 An earlier 95-case parity result, including Router converter, Mount dispatch,
 and reverse-URL cases, is generated locally at
 `build/parity/parity-result.json`; that file is ignored and not committed.
@@ -146,7 +143,7 @@ and reverse-URL cases, is generated locally at
 
 [`asgi-http-exceptions.yaml`](../tests/fixtures/sources/parity/asgi-http-exceptions.yaml) adds five input-only cases in which a matched HTTP request-style endpoint raises `HTTPException` before response start. They cover an omitted detail for status 406, an explicit detail for 406, omitted details for 204 and 304, and an omitted detail plus a custom response header for status 200. The input contains only endpoint status/detail/header stimulus and observation selectors; response values come from the live source and target runs.
 
-All five cases pass source-versus-installed-package comparison against pinned Starlette 1.6.0. The package target resolves omitted details at Python's `HTTPStatus` boundary, so the pinned response details include the relevant status phrases. Rust-native supports the explicit-detail 406 response and matches the oracle for that case; it does not provide Python's default status-phrase lookup. The Python shim catches the raised `HTTPException` because it is a Python exception from a Python callable; it forwards the resolved status, detail, and headers, while Rust constructs the HTTP response. This keeps exception-object handling at the callable boundary and response policy in the Rust core. The integrated run recorded above includes these cases; Rust-native still has unsupported callable and Mount rows.
+All five cases pass source-versus-installed-package comparison against pinned Starlette 1.6.0. The package target resolves omitted details at Python's `HTTPStatus` boundary, so the pinned response details include the relevant status phrases. Rust-native supports the explicit-detail 406 response and matches the oracle for that case; it does not provide Python's default status-phrase lookup. The Python shim catches the raised `HTTPException` because it is a Python exception from a Python callable; it forwards the resolved status, detail, and headers, while Rust constructs the HTTP response. This keeps exception-object handling at the callable boundary and response policy in the Rust core. The integrated run recorded above includes these cases; four callable rows remain unsupported for Rust-native, while Mount dispatch is covered by its public native API.
 
 This slice covers HTTP exceptions raised by matched request-style endpoints before response start, one callable-ASGI endpoint that raises after sending a complete response, the two registered-handler cases described below, and the bounded server-error cases in the next section. The after-start HTTPException case compares the chained `RuntimeError`, its `HTTPException` cause, `suppress_context`, and the partial response event tape. Middleware-raised errors outside these inputs, WebSocket handlers, full `TestClient` propagation modes, arbitrary middleware ordering, and exception identity/chaining beyond the declared cases remain open.
 

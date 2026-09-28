@@ -4291,15 +4291,10 @@
           "targets": [
             {
               "target_id": "rust-native",
-              "path": "starlette_rs::RouteTable + starlette_rs::Response via parity adapter",
-              "signature": "The target currently has no public Mount child-scope dispatch API.",
+              "path": "starlette_rs::Mount + starlette_rs::RouteTable and Response via parity adapter",
+              "signature": "Construct a native Mount from a path and ordered prebuilt-response child routes, then dispatch an HTTP scope with root_path and inherited typed path captures.",
               "support": {
-                "status": "partial",
-                "reason": "Rust-native routing has no Mount public API or child-scope root_path/path_params extension.",
-                "missing_requirements": [
-                  "starlette.routing.Mount.route-dispatch.scope-extension",
-                  "starlette.routing.Mount.route-dispatch.miss"
-                ]
+                "status": "supported"
               }
             },
             {
