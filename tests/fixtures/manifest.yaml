@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-gzip-websocket-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware, WebSocket route dispatch, full WebSocket protocol observations, and projected WebSocket state transitions.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware, WebSocket route dispatch, full WebSocket protocol observations, and projected WebSocket state transitions. It also declares a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -244,7 +244,10 @@
       "build/parity/inputs/parity/asgi-server-errors.json",
       "build/parity/inputs/parity/websocket-protocol.json",
       "build/parity/inputs/parity/websocket-route-dispatch.json",
-      "build/parity/inputs/parity/websocket-state-sequence.json"
+      "build/parity/inputs/parity/websocket-state-sequence.json",
+      "build/parity/inputs/parity/router-converter-dispatch.json",
+      "build/parity/inputs/parity/request-path-param-types.json",
+      "build/parity/inputs/parity/mount-route-dispatch.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -1070,7 +1073,12 @@
                   "starlette.routing.sync-endpoint-callable-form",
                   "starlette.routing.asgi-callable-instance-dispatch",
                   "starlette.routing.asgi-callable-http-exception-before-start",
-                  "starlette.routing.asgi-callable-http-exception-after-start"
+                  "starlette.routing.asgi-callable-http-exception-after-start",
+                  "starlette.request.path-param-string",
+                  "starlette.request.path-param-float",
+                  "starlette.request.path-param-uuid",
+                  "starlette.request.path-param-path",
+                  "starlette.request.path-param-int-digit-limit"
                 ]
               }
             },
@@ -1087,7 +1095,7 @@
             {
               "id": "starlette.request.path-param-int",
               "dimension": "parameter",
-              "description": "Read `Request.path_params['item_id']` after the public int convertor runs; value is observed with its runtime type. Upstream: starlette/requests.py:145-147; starlette/routing.py:242-253; tests/test_routing.py int-convertor tests.",
+              "description": "Read `Request.path_params['item_id']` after the public int convertor runs; value is observed with its runtime type. Upstream: starlette/requests.py:145-147; starlette/routing.py:242-253; tests/test_routing.py int-convertor tests. Integer typed-value comparison remains covered by the existing native int projection.",
               "lanes": [
                 "parity"
               ],
@@ -1267,6 +1275,61 @@
               "id": "starlette.routing.asgi-callable-http-exception-after-start",
               "dimension": "error_path",
               "description": "A callable Route endpoint completes a 200 response then raises HTTPException(406); Starlette raises a chained RuntimeError and retains the already-sent response events. Upstream: starlette/routing.py:215-225; starlette/_exception_handler.py:31-56; tests/test_exceptions.py::test_handled_exc_after_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.path-param-string",
+              "dimension": "input_family",
+              "description": "Read a string-converted Route path parameter through the public Request and ASGI scope. Upstream: starlette/routing.py::StringConvertor.convert; tests/test_routing.py converter cases.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.path-param-float",
+              "dimension": "input_family",
+              "description": "Read a float-converted Route path parameter, including its Python runtime type, through the public Request and ASGI scope. Upstream: starlette/routing.py::FloatConvertor.convert; tests/test_routing.py converter cases.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.path-param-uuid",
+              "dimension": "input_family",
+              "description": "Read a UUID-converted Route path parameter and its Python runtime type through the public Request and ASGI scope. Upstream: starlette/routing.py::UUIDConvertor.convert; tests/test_routing.py converter cases.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.path-param-path",
+              "dimension": "input_family",
+              "description": "Read a multi-segment path-converted Route parameter through the public Request and ASGI scope. Upstream: starlette/routing.py::PathConvertor.convert; tests/test_routing.py converter cases.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.path-param-int-digit-limit",
+              "dimension": "error_path",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -2254,6 +2317,511 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only route-dispatch slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.routing.Router",
+      "kind": "type",
+      "source_path": "starlette/routing.py:573",
+      "storage_slug": "starlette-routing-Router",
+      "operations": [
+        {
+          "id": "route-dispatch",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Router.__call__",
+            "signature": "async __call__(scope, receive, send) -> None; dispatches through the ordered route list",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "route_index",
+                  "value_types": [
+                    "integer",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "asgi_event_order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::RouteTable + starlette_rs::Response via starlette-rs-parity-adapter",
+              "signature": "Select an ordered route from the public RouteTable API, then report the response associated with its selected insertion index.",
+              "support": {
+                "status": "partial",
+                "reason": "The Rust target supports the declared ordered built-in route-selection and fixed response projection. It does not invoke arbitrary Python endpoints, expose Python scope mutation or typed path_params, or support Python-registered URL convertors.",
+                "missing_requirements": [
+                  "starlette.routing.Router.route-dispatch.python-callable-endpoint",
+                  "starlette.routing.Router.route-dispatch.custom-converter-override"
+                ]
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Router via installed starlette-rs-py",
+              "signature": "Construct public Route objects from the input and call Router as an ASGI application.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Router.route-dispatch.string-converter-match",
+              "dimension": "input_family",
+              "description": "A non-empty string path segment selects its declared route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.int-converter-match",
+              "dimension": "input_family",
+              "description": "ASCII decimal digits select an integer-converted route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.float-converter-match",
+              "dimension": "input_family",
+              "description": "A decimal value accepted by the pinned float converter selects its route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.uuid-converter-match",
+              "dimension": "input_family",
+              "description": "A UUID accepted by the pinned converter selects its route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.path-converter-match",
+              "dimension": "input_family",
+              "description": "A path converter captures a multi-segment suffix and selects its route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.converter-miss",
+              "dimension": "error_path",
+              "description": "A value rejected by the route converter does not select that route and produces live Router miss behavior.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.static-parameter-order",
+              "dimension": "success_path",
+              "description": "The first full route match wins when static and parameter routes both accept the request path.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.root-path-match",
+              "dimension": "parameter",
+              "description": "Router removes a matching root_path prefix at a path boundary before route matching.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.root-path-prefix-boundary",
+              "dimension": "error_path",
+              "description": "A textual prefix that does not end at a path boundary is retained before route matching.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.custom-converter-override",
+              "dimension": "boundary",
+              "description": "Register a custom Convertor under the built-in str key, construct a Route after registration, and observe its regex and converted value through Router dispatch. Upstream: starlette/convertors.py::register_url_convertor and starlette/routing.py::compile_path; tests/test_routing.py convertor registration cases.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This route-selection slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only route-selection slice declares no benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.routing.Mount",
+      "kind": "type",
+      "source_path": "starlette/routing.py:363",
+      "storage_slug": "starlette-routing-Mount",
+      "operations": [
+        {
+          "id": "route-dispatch",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.BaseRoute.__call__",
+            "signature": "async __call__(scope, receive, send) -> None; match and dispatch the mounted child application",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "mount_scope",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "asgi_event_order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::RouteTable + starlette_rs::Response via parity adapter",
+              "signature": "The target currently has no public Mount child-scope dispatch API.",
+              "support": {
+                "status": "partial",
+                "reason": "Rust-native routing has no Mount public API or child-scope root_path/path_params extension.",
+                "missing_requirements": [
+                  "starlette.routing.Mount.route-dispatch.scope-extension",
+                  "starlette.routing.Mount.route-dispatch.miss"
+                ]
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Mount via installed starlette-rs-py",
+              "signature": "Construct public Mount and child Route objects from input, then call Mount as an ASGI application.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Mount.route-dispatch.scope-extension",
+              "dimension": "boundary",
+              "description": "A matching Mount extends root_path, retains app_root_path, and combines mount and child route path_params in the live child scope.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.route-dispatch.miss",
+              "dimension": "error_path",
+              "description": "A scope outside the Mount path yields live standalone Mount 404 behavior without child-scope mutation.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This Mount slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only Mount slice declares no benchmark workload."
           }
         }
       ]

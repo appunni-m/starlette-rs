@@ -406,7 +406,7 @@ def _sync_request_observer_response(
     with state["lock"]:
         state["invocation_count"] += 1
         state["observation"] = {
-            "path_param": {"value": path_value, "type": type(path_value).__name__},
+            "path_param": {"value": _json_safe(path_value), "type": type(path_value).__name__},
             "context_value": context_value,
             "different_worker_thread": current_thread_id != caller_thread_id,
             "invocation_count": state["invocation_count"],
@@ -642,7 +642,10 @@ def _materialize_application(
                     query_params = request.query_params
                     request_observations.append(
                         {
-                            "path_param": {"value": path_value, "type": type(path_value).__name__},
+                            "path_param": {
+                                "value": _json_safe(path_value),
+                                "type": type(path_value).__name__,
+                            },
                             "query_params": {
                                 "getlist": query_params.getlist(spec["query_parameter"]),
                                 "scalar": query_params[spec["query_parameter"]],
@@ -911,7 +914,7 @@ async def _invoke(
                 "router_is_application_router": scope.get("router") is app.router,
                 "endpoint_is_route_endpoint": scope.get("endpoint") is route_endpoint,
                 "path_params_present": "path_params" in scope,
-                "path_params": scope.get("path_params"),
+                "path_params": _json_safe(scope.get("path_params")),
             },
             "response_status": result["response_status"],
             "ordered_repeated_headers": result["ordered_repeated_headers"],
@@ -1507,6 +1510,139 @@ async def _invoke_lifespan_around_dispatch(
     return lifecycle_value, dispatch_value
 
 
+def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.convertors import CONVERTOR_TYPES
+
+    missing = object()
+    prior_convertors = {
+        spec["name"]: CONVERTOR_TYPES.get(spec["name"], missing)
+        for spec in case.get("custom_convertors", [])
+    }
+    try:
+        return _run_route_dispatch_case_impl(case)
+    finally:
+        for name, prior in prior_convertors.items():
+            if prior is missing:
+                CONVERTOR_TYPES.pop(name, None)
+            else:
+                CONVERTOR_TYPES[name] = prior
+
+
+def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.convertors import Convertor, register_url_convertor
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Mount, Route, Router
+
+    for spec in case.get("custom_convertors", []):
+
+        class InputConvertor(Convertor[str]):
+            regex = spec["regex"]
+            lowercase = spec["lowercase"]
+
+            def convert(self, value: str) -> str:
+                return value.lower() if self.lowercase else value
+
+            def to_string(self, value: str) -> str:
+                return str(value)
+
+        register_url_convertor(spec["name"], InputConvertor())
+
+    route_index_observations: list[int] = []
+
+    def make_route(route_spec: dict[str, Any], route_index: int) -> Any:
+        response_spec = route_spec["endpoint"]
+        if response_spec["kind"] not in {"plain-text-response", "converted-path-response"}:
+            raise ValueError(f"unsupported route endpoint input: {response_spec['kind']!r}")
+
+        async def endpoint(request: Any) -> Any:
+            if response_spec["kind"] == "converted-path-response":
+                content = str(request.path_params[response_spec["path_parameter"]])
+            else:
+                content = response_spec["content"]
+            route_index_observations.append(route_index)
+            return PlainTextResponse(
+                content=content,
+                status_code=response_spec["status_code"],
+                media_type=response_spec["media_type"],
+            )
+
+        return Route(route_spec["path"], endpoint=endpoint, methods=route_spec["methods"])
+
+    if case["surface"] == "starlette.routing.Router":
+        app = Router(
+            routes=[make_route(route, index) for index, route in enumerate(case["routes"])]
+        )
+    elif case["surface"] == "starlette.routing.Mount":
+        mount = case["mount"]
+        app = Mount(
+            mount["path"],
+            routes=[make_route(route, index) for index, route in enumerate(mount["routes"])],
+        )
+    else:
+        raise ValueError("route-dispatch case has an unsupported surface")
+
+    scope = _make_scope(case["scope"])
+    incoming = [_make_message(message) for message in case["incoming"]]
+    received = 0
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        nonlocal received
+        if received < len(incoming):
+            message = incoming[received]
+            received += 1
+            return message
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    if case["send"] != {"kind": "capture-asgi-send"}:
+        raise ValueError("send input must select the declared ASGI message collector")
+    asyncio.run(app(scope, receive, send))
+    events = [_canonical_message(message) for message in sent]
+    response_start = next(
+        (event for event in events if event["type"] == "http.response.start"), None
+    )
+    response_body = b"".join(
+        message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+    )
+    observation = {
+        "response_status": response_start["status"] if response_start is not None else None,
+        "ordered_repeated_headers": response_start["headers"] if response_start is not None else [],
+        "response_bytes": {
+            "encoding": "base64",
+            "data": base64.b64encode(response_body).decode("ascii"),
+        },
+        "asgi_event_order": [event["type"] for event in events],
+        "asgi_events": events,
+    }
+    if case["surface"] == "starlette.routing.Mount":
+        observation["mount_scope"] = (
+            {
+                "root_path": scope.get("root_path"),
+                "app_root_path": scope.get("app_root_path"),
+                "path_params": {
+                    name: {"value": _json_safe(value), "type": type(value).__name__}
+                    for name, value in scope.get("path_params", {}).items()
+                },
+            }
+            if "app_root_path" in scope
+            else None
+        )
+    else:
+        if len(route_index_observations) > 1:
+            raise RuntimeError("Router dispatched more than one route endpoint")
+        observation["route_index"] = (
+            route_index_observations[0] if route_index_observations else None
+        )
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "route-dispatch", "status": "ok", "value": observation}],
+    }
+
+
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if (
         isinstance(case, dict)
@@ -1526,6 +1662,10 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == WEBSOCKET_ROUTE_OPERATION
     ):
         return _run_websocket_route_case(case)
+    if case.get("surface") in {"starlette.routing.Router", "starlette.routing.Mount"}:
+        if case.get("operation") != "route-dispatch":
+            raise ValueError("Router and Mount cases must use route-dispatch")
+        return _run_route_dispatch_case(case)
     if case.get("surface") == "starlette.middleware.gzip.GZipMiddleware":
         _exact_object(
             case,
@@ -1569,7 +1709,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("target adapter received a workflow outside the declared ASGI slice")
     app_arguments = {name: item["value"] for name, item in steps[0]["arguments"].items()}
-    capture_dispatch_error = app_arguments["routes"][0]["endpoint"]["kind"] in {
+    capture_dispatch_error = is_request_dispatch or app_arguments["routes"][0]["endpoint"][
+        "kind"
+    ] in {
         "asgi-callable-action-sequence",
         "raise-runtime-error",
     }

@@ -5,8 +5,11 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from typing import Any
+from urllib.parse import quote
 
 from starlette_rs_py import _core
+
+from starlette.datastructures import URL
 
 
 class Response:
@@ -64,6 +67,26 @@ class PlainTextResponse(Response):
         background: Any = None,
     ) -> None:
         super().__init__(content, status_code, headers, media_type, background)
+
+
+class RedirectResponse(Response):
+    """An empty response that redirects to a quoted URL."""
+
+    __slots__ = ()
+
+    def __init__(
+        self,
+        url: str | URL,
+        status_code: int = 307,
+        headers: Mapping[str, str] | None = None,
+        background: Any = None,
+    ) -> None:
+        response_headers = dict(headers or {})
+        for name in tuple(response_headers):
+            if name.lower() == "location":
+                del response_headers[name]
+        response_headers["location"] = quote(str(url), safe=":/%#?=@[]!$&'()*+,;")
+        super().__init__(b"", status_code, response_headers, background=background)
 
 
 class JSONResponse(Response):

@@ -1,10 +1,10 @@
 # Compatibility atlas and implementation backlog
 
 **Authority:** Starlette 1.6.0, commit
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The target checkout is currently
-uncommitted. This document records work order and links to bounded evidence;
-it is not itself a parity artifact or a claim of full compatibility. The full
-replacement objective remains active and incomplete.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. This document records work order
+and links to bounded evidence; it is not itself a parity artifact or a claim
+of full compatibility. The full replacement objective remains active and
+incomplete.
 
 ## P0 — Close the source-backed atlas (complete)
 
@@ -12,27 +12,25 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The matrix has 784 mappings: 718 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 16 existing input mappings. It maps selected
-HTTPException, registered-handler, server-error, WebSocket protocol-tape,
-state-projection, and route-dispatch behaviors to input files.
-It is not a one-to-one index of every active parity case, so backlog status
-does not prove a behavior is untested. The active manifest indexes ten parity
-input files containing 51 cases: ten request/routing, three direct ASGI, eight
-GZip, six full WebSocket protocol-tape, six projected WebSocket state, five
-Request-style HTTPException, two callable-ASGI HTTPException, two
-registered-handler, and nine server-error workflows. Protocol-tape and route
-cases select the Python-package profile; the six projected state cases select
-both target profiles. Run `480437e5-e1f4-4e25-91a5-1453ba82ea69`, finished at
-`2026-09-28T05:59:25.632Z`, selected 76 comparisons: 72 passed, zero failed,
-four Rust-native callable rows were `not_run`, and there were zero
-infrastructure errors. All 51 Python-package cases passed; Rust-native passed
-21 of 25 selected cases. All 21 WebSocket comparisons passed: six protocol
-tapes and three route cases on the Python package, plus six state cases on
-both targets. The four Python-callable boundaries remain `not_run`, so the
-all-target gate is incomplete. Target identities were dirty local trees; this
-run is not clean aggregate or release proof. The static merger check passes
-against the pinned Starlette commit.
+The matrix has 787 mappings: 718 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 19 existing input mappings. It maps selected
+HTTPException, registered-handler, server-error, WebSocket, route-converter,
+Mount, and typed-Request behaviors to input files. It is not a one-to-one index
+of every active parity case, so backlog status does not prove a behavior is
+untested. The active manifest indexes 13 parity input files containing 74
+cases, including 33 request/routing, three direct ASGI, eight GZip, six
+WebSocket protocol-tape, six WebSocket state-projection, five Request-style
+HTTPException, two callable-ASGI HTTPException, two registered-handler, and
+nine server-error workflows. Built-in Router converter cases select both
+profiles; typed Request, custom converter, and full WebSocket protocol cases
+select the Python package. Mount cases select both profiles, with Rust-native
+explicitly unsupported. The latest run `990d1a3d-8f50-4512-af90-311bae9b15e9`,
+finished at `2026-09-28T07:24:11.251Z`, selected 115 comparisons: 109 passed,
+zero failed, six `not_run`, and zero infrastructure errors. All 74 package
+comparisons passed; Rust-native passed 35 of 41. Its six `not_run` cases are
+four Python-callable boundaries and two Mount cases. Target identities were
+dirty local trees, so the run is not clean aggregate or release proof. The
+static merger check passes against the pinned Starlette commit.
 
 ## P1 — Complete the Python/Rust boundary prototype (remaining)
 
@@ -70,26 +68,25 @@ The active input set is
 [`websocket-protocol.yaml`](../../tests/fixtures/sources/parity/websocket-protocol.yaml),
 [`websocket-state-sequence.yaml`](../../tests/fixtures/sources/parity/websocket-state-sequence.yaml),
 and
-[`websocket-route-dispatch.yaml`](../../tests/fixtures/sources/parity/websocket-route-dispatch.yaml).
-It contains 51 cases across ten files: three direct ASGI cases (`GET /hello`
-with lifespan, `GET /missing`, and `POST /hello`); ten request/routing cases
-(`GET /items/0007`, its 404 and 405 cases, sync function, bound method,
-partial, callable-instance ASGI dispatch, and three `WebSocketRoute` dispatch
-cases); six WebSocket protocol-tape cases; six WebSocket state-projection cases;
-eight `GZipMiddleware` cases, five
-Request-style HTTPException cases, two callable-ASGI HTTPException cases, two
-registered-handler cases, and nine server-error cases. Run
-`480437e5-e1f4-4e25-91a5-1453ba82ea69`, finished at
-`2026-09-28T05:59:25.632Z`, selected 76 comparisons: 72 executed and passed,
-zero failed, four Rust-native rows were `not_run`, and there were zero
-infrastructure errors. All 51 Python-package cases passed; Rust-native passed
-21 cases, including the explicit-detail HTTPException response, with four
-Python-callable cases unsupported for that profile. All 21 selected WebSocket
-comparisons passed: six callback tapes and three route cases on the Python
-package, plus six projected state cases across both targets. Those four
-`not_run` cases make `run` exit with status 2, so the all-target gate is
-incomplete. Target identities were dirty local trees, so the run is not clean
-aggregate or release proof. The
+[`websocket-route-dispatch.yaml`](../../tests/fixtures/sources/parity/websocket-route-dispatch.yaml),
+[`router-converter-dispatch.yaml`](../../tests/fixtures/sources/parity/router-converter-dispatch.yaml),
+[`request-path-param-types.yaml`](../../tests/fixtures/sources/parity/request-path-param-types.yaml),
+and [`mount-route-dispatch.yaml`](../../tests/fixtures/sources/parity/mount-route-dispatch.yaml).
+The manifest contains 74 cases across 13 files: three direct ASGI cases (`GET
+/hello` with lifespan, `GET /missing`, and `POST /hello`); 33 request/routing
+cases covering Request dispatch, built-in converters, typed path values, Mount,
+and `WebSocketRoute`; six WebSocket protocol-tape cases; six WebSocket
+state-projection cases; eight `GZipMiddleware` cases; five Request-style
+HTTPException cases; two callable-ASGI HTTPException cases; two
+registered-handler cases; and nine server-error cases. The latest run
+`990d1a3d-8f50-4512-af90-311bae9b15e9`, finished at
+`2026-09-28T07:24:11.251Z`, selected 115 comparisons: 109 executed and passed,
+zero failed, six Rust-native rows were `not_run`, and there were zero
+infrastructure errors. All 74 Python-package cases passed; Rust-native passed
+35 of 41 selected comparisons. The six `not_run` cases cover four
+Python-callable forms and two Mount cases. All 21 WebSocket comparisons passed.
+Target identities were dirty local trees, so the run is not clean aggregate or
+release proof. The
 new handler inputs check that status 405 beats a previously registered
 HTTPException class handler, and that an async subclass handler can read a
 chunked request body already cached by the endpoint. The other HTTPException

@@ -12,12 +12,12 @@ from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import (
+    Match,
+    Mount,
     Route,
     Router,
     WebSocketRoute,
-    _convert_path_params,
     _is_async_callable,
-    _is_request_endpoint,
 )
 from starlette_rs_py import _core
 
@@ -33,7 +33,7 @@ class Starlette:
     def __init__(
         self,
         debug: bool = False,
-        routes: Sequence[Route | WebSocketRoute] | None = None,
+        routes: Sequence[Route | WebSocketRoute | Mount] | None = None,
         middleware: Sequence[Any] | None = None,
         exception_handlers: Mapping[Any, Callable[..., Any]] | None = None,
         lifespan: Callable[[Starlette], Any] | None = None,
@@ -119,48 +119,13 @@ class Starlette:
     ) -> None:
         """Dispatch an HTTP scope to its matched Python endpoint."""
         scope.setdefault("router", self.router)
-        matched, route_index, fallback, path_params, allowed_methods = (
-            self._route_table.match_route(scope["path"], scope["method"])
-        )
-        if matched in {"matched", "method_not_allowed"} and route_index is not None:
-            route = self.routes[self.router._route_indexes[route_index]]
-            if not isinstance(route, Route):
-                raise RuntimeError("Rust returned a non-HTTP route index")
-            scope["endpoint"] = route.endpoint
-            scope["path_params"] = {
-                **scope.get("path_params", {}),
-                **_convert_path_params(route, path_params),
-            }
-        if fallback is not None:
-            if matched in {"method_not_allowed", "not_found"}:
-                exception = (
-                    HTTPException(405, headers={"Allow": ", ".join(allowed_methods)})
-                    if matched == "method_not_allowed"
-                    else HTTPException(404)
-                )
-                request = Request(scope, receive)
-                handler_index = self._select_http_exception_handler(exception)
-                if handler_index is not None:
-                    response = await self._call_exception_handler(handler_index, request, exception)
-                    if response is None:
-                        return
-                    if not isinstance(response, Response):
-                        raise TypeError(
-                            "exception handler must return a starlette.responses.Response"
-                        )
-                    await response(scope, receive, send)
-                    return
-            response = Response._from_native(fallback)
-            await response(scope, receive, send)
+        match, route, child_scope = self.router._select_route(scope)
+        if match == Match.NONE or route is None:
+            await self._dispatch_http_exception(scope, receive, send, HTTPException(404))
             return
-        if matched != "matched" or route_index is None:
-            raise RuntimeError(f"Rust returned an incomplete route decision: {matched!r}")
 
-        route = self.routes[self.router._route_indexes[route_index]]
-        if not isinstance(route, Route):
-            raise RuntimeError("Rust returned a non-HTTP route index")
-        endpoint = route.endpoint
-        if not _is_request_endpoint(endpoint):
+        scope.update(child_scope)
+        try:
             response_started = False
 
             async def send_with_response_state(message: dict[str, Any]) -> None:
@@ -169,30 +134,32 @@ class Starlette:
                     response_started = True
                 await send(message)
 
-            try:
-                await endpoint(scope, receive, send_with_response_state)
-            except HTTPException as exc:
-                if response_started:
-                    raise RuntimeError(
-                        "Caught handled exception, but response already started."
-                    ) from exc
-                response = await self._exception_response(Request(scope, receive), exc)
-                if response is not None:
-                    await response(scope, receive, send_with_response_state)
-            return
-
-        request = Request(scope, receive)
-        try:
-            if _is_async_callable(endpoint):
-                response = await endpoint(request)
-            else:
-                response = await run_in_threadpool(endpoint, request)
+            await route.handle(scope, receive, send_with_response_state)
         except HTTPException as exc:
-            response = await self._exception_response(request, exc)
+            if response_started:
+                raise RuntimeError(
+                    "Caught handled exception, but response already started."
+                ) from exc
+            await self._dispatch_http_exception(scope, receive, send, exc)
+
+    async def _dispatch_http_exception(
+        self,
+        scope: dict[str, Any],
+        receive: Callable[..., Any],
+        send: Callable[..., Any],
+        exception: HTTPException,
+    ) -> None:
+        request = Request(scope, receive)
+        handler_index = self._select_http_exception_handler(exception)
+        response = (
+            await self._call_exception_handler(handler_index, request, exception)
+            if handler_index is not None
+            else _exception_response(exception)
+        )
         if response is None:
             return
         if not isinstance(response, Response):
-            raise TypeError("route endpoint must return a starlette.responses.Response")
+            raise TypeError("exception handler must return a starlette.responses.Response")
         await response(scope, receive, send)
 
     def _select_http_exception_handler(self, exception: HTTPException) -> int | None:

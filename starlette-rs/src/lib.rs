@@ -1,7 +1,8 @@
 //! Rust-native pieces for the Starlette replacement.
 //!
-//! The first implementation slice covers exact static HTTP route matching, a
-//! plain-text response, and the successful ASGI lifespan transition sequence.
+//! The first implementation slice covers ordered HTTP route matching with
+//! Starlette's built-in path converters, a plain-text response, and the
+//! successful ASGI lifespan transition sequence.
 //! The native [`Starlette`] API composes routes with prebuilt responses and
 //! exposes a narrow runtime-agnostic async call boundary for native callers.
 //! The crate does not implement the full Starlette API or claim Python-package

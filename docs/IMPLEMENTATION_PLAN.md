@@ -22,6 +22,10 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
+The current parity contract has 74 input-only cases and 78 requirements across
+13 source files. The latest full run is recorded below; its six unsupported
+Rust-native rows keep the all-target gate incomplete.
+
 ## 1. Decide the Python/Rust boundary
 
 Prototype arbitrary sync and async Python endpoint calls on Python's event
@@ -78,11 +82,33 @@ in result artifacts. Preserve ASGI event order and scope mutations. This goal
 does not establish parity for untested request properties, converters,
 mounts, streaming responses, or the broader Starlette API.
 
-The three original request workflows pass against the pinned source and both targets.
-The Rust target uses exported request primitives through its parity adapter;
-the crate does not yet expose one public Rust `Request` type. Their current
-full-run evidence remains part of the current parity result recorded in
-section 6.
+The three original request workflows pass against the pinned source and both
+targets. The Rust target uses exported request primitives through its parity
+adapter; the crate does not yet expose one public Rust `Request` type.
+
+### Completed bounded goal: Router converters, typed path values, and Mount
+
+The next input-only slice adds 15 Router cases for the five built-in
+converters, converter misses, route order, root-path matching and prefix
+boundaries, plus a package-only custom `str` converter override. Six Request
+cases exercise converted path-parameter values and CPython 3.12's 4300-digit
+integer conversion limit. Two Mount cases compare child-scope extension and
+mount misses. Rust-native runs the built-in Router projection; it marks the
+Mount cases and four Python-callable Request endpoint shapes unsupported.
+
+The integrated full run `990d1a3d-8f50-4512-af90-311bae9b15e9`, finished at
+`2026-09-28T07:24:11.251Z`, selected 115 comparisons: 109 passed, zero failed,
+zero infrastructure errors, and six `not_run`. All 74 package comparisons
+and 35 of 41 Rust-native comparisons passed. Its manifest SHA-256 is
+`b428c4608a4578bbafc847be89de61def130bf92f462cbe36fefe972d29706e5`; the
+target wheel SHA-256 is
+`54b69db249fdc173bd29ccbb6de8f761c8e4b759f102cca2e048daa2022b7767`. The
+result is local evidence from a dirty tree, not an all-target or release pass.
+Reverse URL generation (`Router`/`Route`/`Mount.url_path_for` and
+`Request.url_for`) and Rust custom converter registration remain open.
+Trailing-slash redirects and route/router/mount-local middleware are present in
+the Python compatibility layer but are not yet covered by input-only parity
+cases.
 
 ### Completed bounded goal: run HTTP inside an active lifespan
 
@@ -97,14 +123,14 @@ ordering gap only; it does not establish general ASGI concurrency,
 cancellation, or full-scope parity.
 
 The bounded sync-callable, ASGI-callable, exception-handler, and server-error
-application cases in section 6 pass source/package parity. Four Rust-native
-Python-callable observations remain explicitly `not_run`; the full Starlette
-replacement is still incomplete. Later work still includes mounts and
-additional converters, HTTP and WebSocket connections, broader request-body
-and streaming behavior, direct `ServerErrorMiddleware` call-boundary parity,
-WebSocket exception handlers, remaining TestClient exception-propagation
-modes, arbitrary middleware ordering, middleware composition, authentication,
-background tasks, and concurrency.
+application cases in section 6 pass source/package parity. Six Rust-native
+observations remain explicitly `not_run`; the full Starlette replacement is
+still incomplete. Later work includes reverse URL generation, broader
+HTTP/WebSocket connection and request-body behavior, streaming, direct
+`ServerErrorMiddleware` call-boundary parity, WebSocket exception handlers,
+remaining TestClient exception-propagation modes, arbitrary middleware
+ordering, middleware composition, authentication, background tasks, and
+concurrency.
 
 ## 4. Optional and edge features
 
@@ -120,17 +146,15 @@ and 68 GZip benchmark IDs. All 74 now have input-only descriptors and exact
 source-versus-installed-package correctness gates. The full runner measured
 all 74 with zero failed and zero not-run source/package rows. Its latest result
 is `build/parity/upstream-benchmark-result.json`. Run
-`034a35c6-1063-4ab0-9542-aed2ca4238eb` ran from
-`2026-09-28T06:00:22.996Z` to `2026-09-28T06:01:42.986Z`; 139 declared input
-relations passed separately for pinned source and the installed package. The
-recorded source revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Its
-correctness preflight, `f941c591-4f43-441d-aa7e-286d37de5a50`, selected 76
-parity comparisons: 72 passed, zero failed, zero infrastructure errors, and
-four Rust-native Python-callable rows were `not_run` (package 51/51;
-Rust-native 21/25). The target trees were dirty local trees, so this is not
-clean aggregate or release proof. The benchmark result records its source,
-input, and manifest hashes. The current parity result and its separate counts
-are recorded in section 6.
+`b306e8f9-faf5-447c-b26c-99c2e3ca81e3` ran from
+`2026-09-28T07:24:27.015Z` to `2026-09-28T07:25:51.163Z`; all 139 declared
+input relations passed separately for pinned source and the installed package.
+The recorded source revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
+Its correctness preflight, `0f710d97-0df1-4112-aba3-484a54ea51da`, selected
+115 parity comparisons: 109 passed, zero failed, zero infrastructure errors,
+and six Rust-native rows were `not_run` (package 74/74; Rust-native 35/41).
+The target trees were dirty local trees, so this is not clean aggregate or
+release proof. The benchmark result records source, input, and manifest hashes.
 
 Rust-native remains `not_run` for all 74 because its public API does not expose
 the same Starlette Router/GZip dispatch boundary. The result is accepted by the
@@ -152,24 +176,9 @@ between pinned Starlette 1.6.0 and the installed `starlette-rs-py` package.
 Python owns calling the user function and the AnyIO threadpool boundary; Rust
 does not invoke a Python callable.
 
-The latest parity result at
-`build/parity/parity-result.json` has run
-status `completed`: run `480437e5-e1f4-4e25-91a5-1453ba82ea69`, finished at
-`2026-09-28T05:59:25.632Z`, selected 76 comparisons; 72 executed and passed,
-zero failed, four were `not_run`, and there were zero infrastructure errors.
-All 51 installed Python-package cases passed against pinned Starlette 1.6.0;
-Rust-native passed 21 of its 25 selected cases, including the explicit-detail
-HTTPException case. Its remaining four Python-callable observations are
-unsupported for that profile. All 21 selected WebSocket comparisons passed.
-Those four `not_run` rows keep the all-target gate incomplete: `run` exits with
-status 2 while they remain selected. Target identities were dirty local trees,
-so this result is not clean aggregate or release proof. The manifest SHA-256
-is `ea4ab452dd46eb6176de56e2a0d7c5c57893cf205a2693214b6c7dd4e8d5c867`; the
-target wheel SHA-256 is
-`f15d3193934e3b67a95546646ccdfdfae0cc7704a7f2cfa9308588214d13186c`. At the
-time of the earlier callable/ASGI slice, its targeted Python ASGI suite passed
-21 tests; that result is historical and separate from the saved parity
-artifact.
+The earlier 51-case checkpoint was run `480437e5-e1f4-4e25-91a5-1453ba82ea69`.
+It predates the Router and Mount cases; the latest integrated run is recorded
+in section 3.
 
 The original function case specifically covers one integer path parameter,
 caller `ContextVar` propagation through one AnyIO worker, distinct
@@ -196,11 +205,12 @@ case, `starlette.applications.Starlette.request-dispatch.asgi-callable-instance-
 declares a callable instance as the route's ASGI app; it observes route-scope
 values and the complete ASGI response sent through `(scope, receive, send)`.
 The manifest leaves Rust-native support explicitly partial because the native
-profile cannot invoke Python callables. In the latest parity artifact, all 51
-Python-package cases, including these three, pass exact comparison against the
-pinned source. The Rust-native rows for the ordinary sync function, bound
-method, partial, and ASGI callable instance are `not_run` under the manifest's
-declared unsupported boundary; this does not count as native parity.
+profile cannot invoke Python callables. At the 51-case checkpoint, all
+Python-package cases, including these three, passed exact comparison against
+the pinned source. The Rust-native rows for the ordinary sync function, bound
+method, partial, and ASGI callable instance were `not_run` under the manifest's
+declared unsupported boundary; this does not count as native parity. The
+latest full run is summarized in section 3.
 
 ### HTTPException default-response slice: bounded parity verified
 
@@ -224,11 +234,11 @@ the installed package. Rust-native cannot invoke these Python callables, so its
 rows are `not_run`. These HTTPException cases do not cover middleware-raised
 exceptions, WebSocket exception handlers, or all `TestClient` propagation
 modes. The separate server-error application cases below cover a bounded
-subset of 500/Exception handling and debug responses. The latest result has 51
-passing Python-package cases and 25 selected Rust-native cases: 21 passed and
-four callable-boundary rows were `not_run`, with no failures or infrastructure
-errors. It is evidence only for the selected inputs; the full
-Starlette replacement remains incomplete.
+subset of 500/Exception handling and debug responses. At the 51-case
+checkpoint, all package comparisons passed and Rust-native had four
+callable-boundary rows `not_run`. The current integrated result is in section
+3. This evidence applies only to the selected inputs; the full Starlette
+replacement remains incomplete.
 
 ### Completed bounded goal: input-driven HTTP exception-handler parity
 
@@ -249,16 +259,15 @@ dispatch path:
 
 Both cases pass source-versus-installed-package comparison. Their two inputs
 cover status-code precedence and cached request-body reuse; broader error-path
-behavior is in the server-error slice below. Run
+behavior is in the server-error slice below. The 51-case checkpoint
 `480437e5-e1f4-4e25-91a5-1453ba82ea69` selected 76 comparisons: 72 passed,
 zero failed, zero infrastructure errors, and four Rust-native Python-callable
 rows were `not_run`. The package profile passed all 51 cases; Rust-native
 passed 21. Target identities were dirty local trees, so the run is not clean
-aggregate or release proof. The historical package and Rust unit-test results
-do not describe the current checkout, which has no conventional Python or
-Rust unit-test suite. Today, `make test` runs live source-to-target parity;
-the four `not_run` rows leave that all-target gate incomplete. Full Starlette
-replacement remains incomplete.
+aggregate or release proof. The repository has no conventional Python or Rust
+unit-test suite; `make test` runs live source-to-target parity. The current
+full run has six unsupported rows, so the all-target gate remains incomplete.
+Full Starlette replacement remains incomplete.
 
 ### Completed bounded goal: ServerErrorMiddleware application error-path parity
 
@@ -333,7 +342,8 @@ aggregate or release proof. The full replacement remains incomplete.
 
 JSON convenience methods, async iterators, denial-response behavior,
 `WebSocketEndpoint`, application-level exception handling, `TestClient`,
-authentication and mount/host routes, broader streaming and file-denial
+authentication and mount/host route behavior beyond the child-scope case,
+broader streaming and file-denial
 behavior, and concurrency cancellation remain follow-on work requiring their
 own input-only workflows and live comparisons. Each fixture contains only
 operation stimulus and observation selectors; expected values remain in live

@@ -29,6 +29,11 @@ WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
 WEBSOCKET_ROUTE_SURFACE = "starlette.routing.WebSocketRoute"
 WEBSOCKET_ROUTE_OPERATION = "route-dispatch"
+ROUTER_SURFACE = "starlette.routing.Router"
+ROUTER_OPERATION = "route-dispatch"
+MOUNT_SURFACE = "starlette.routing.Mount"
+MOUNT_OPERATION = "route-dispatch"
+_MISSING = object()
 
 
 @dataclass(frozen=True)
@@ -384,7 +389,10 @@ def _sync_request_observer_response(
     with state["lock"]:
         state["invocation_count"] += 1
         state["observation"] = {
-            "path_param": {"value": path_value, "type": type(path_value).__name__},
+            "path_param": {
+                "value": _json_safe(path_value),
+                "type": type(path_value).__name__,
+            },
             "context_value": context_value,
             "different_worker_thread": current_thread_id != caller_thread_id,
             "invocation_count": state["invocation_count"],
@@ -613,7 +621,10 @@ def _materialize_application(
                     query_params = request.query_params
                     request_observations.append(
                         {
-                            "path_param": {"value": path_value, "type": type(path_value).__name__},
+                            "path_param": {
+                                "value": _json_safe(path_value),
+                                "type": type(path_value).__name__,
+                            },
                             "query_params": {
                                 "getlist": query_params.getlist(spec["query_parameter"]),
                                 "scalar": query_params[spec["query_parameter"]],
@@ -885,7 +896,7 @@ async def _invoke(
                     "router_is_application_router": scope.get("router") is app.router,
                     "endpoint_is_route_endpoint": scope.get("endpoint") is route_endpoint,
                     "path_params_present": "path_params" in scope,
-                    "path_params": scope.get("path_params"),
+                    "path_params": _json_safe(scope.get("path_params")),
                 },
             }
         )
@@ -1379,6 +1390,239 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _route_path_params(scope: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        name: {"value": _json_safe(value), "type": type(value).__name__}
+        for name, value in scope.get("path_params", {}).items()
+    }
+
+
+def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
+    surface = case.get("surface")
+    is_router = surface == ROUTER_SURFACE
+    is_mount = surface == MOUNT_SURFACE
+    if not (is_router or is_mount) or case.get("operation") != "route-dispatch":
+        raise ValueError(
+            "workflow is outside the declared Router or Mount route-dispatch operation"
+        )
+
+    common_keys = {"case_id", "surface", "operation", "covers", "target_profiles", "assets"}
+    if is_router:
+        _strict_object(
+            case,
+            common_keys
+            | {
+                "custom_convertors",
+                "routes",
+                "scope",
+                "incoming",
+                "send",
+                "observations",
+            },
+            "Router route-dispatch case",
+        )
+        if case["observations"] != [ROUTER_OPERATION]:
+            raise ValueError("Router observations must select route-dispatch")
+        routes_spec = case["routes"]
+        custom_convertors = case["custom_convertors"]
+    else:
+        _strict_object(
+            case,
+            common_keys | {"mount", "scope", "incoming", "send", "observations"},
+            "Mount route-dispatch case",
+        )
+        if case["observations"] != [MOUNT_OPERATION]:
+            raise ValueError("Mount observations must select route-dispatch")
+        routes_spec = case["mount"]["routes"]
+        custom_convertors = []
+
+    if not isinstance(routes_spec, list) or not routes_spec:
+        raise ValueError("route-dispatch requires a non-empty route list")
+    if not isinstance(custom_convertors, list):
+        raise ValueError("custom_convertors must be an array")
+    if case["send"] != {"kind": "capture-asgi-send"}:
+        raise ValueError("send input must select the declared ASGI message collector")
+
+    from starlette.convertors import CONVERTOR_TYPES, Convertor, register_url_convertor
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Mount, Route, Router
+
+    previous_convertors = {
+        spec["name"]: CONVERTOR_TYPES.get(spec["name"], _MISSING) for spec in custom_convertors
+    }
+    mount_scope_observations: list[dict[str, Any]] = []
+    route_index_observations: list[int] = []
+
+    def make_endpoint(endpoint_spec: dict[str, Any], route_index: int) -> Any:
+        async def endpoint(request: Any) -> Any:
+            if is_router:
+                route_index_observations.append(route_index)
+            if is_mount:
+                request_scope = request.scope
+                mount_scope_observations.append(
+                    {
+                        "root_path": request_scope.get("root_path", ""),
+                        "app_root_path": request_scope.get("app_root_path"),
+                        "path_params": _route_path_params(request_scope),
+                    }
+                )
+            kind = endpoint_spec.get("kind")
+            if kind == "plain-text-response":
+                _strict_object(
+                    endpoint_spec,
+                    {"kind", "content", "status_code", "media_type", "cookies"},
+                    "plain-text route response",
+                )
+                content = endpoint_spec["content"]
+                status_code = endpoint_spec["status_code"]
+                media_type = endpoint_spec["media_type"]
+                cookies = endpoint_spec["cookies"]
+            elif kind == "converted-path-response":
+                _strict_object(
+                    endpoint_spec,
+                    {"kind", "path_parameter", "status_code", "media_type"},
+                    "converted-path route response",
+                )
+                content = str(request.path_params[endpoint_spec["path_parameter"]])
+                status_code = endpoint_spec["status_code"]
+                media_type = endpoint_spec["media_type"]
+                cookies = []
+            else:
+                raise ValueError(f"unsupported route response kind: {kind!r}")
+            response = PlainTextResponse(
+                content=content,
+                status_code=status_code,
+                media_type=media_type,
+            )
+            for cookie in cookies:
+                _strict_object(cookie, {"key", "value"}, "route response cookie")
+                response.set_cookie(key=cookie["key"], value=cookie["value"])
+            return response
+
+        return endpoint
+
+    async def run() -> tuple[dict[str, Any], dict[str, Any] | None]:
+        route_objects = []
+        for route_index, route_spec in enumerate(routes_spec):
+            if (
+                not isinstance(route_spec, dict)
+                or set(route_spec) != {"kind", "path", "methods", "endpoint"}
+                or route_spec["kind"] != "http-route"
+            ):
+                raise ValueError("route input must be a declared http-route record")
+            route_objects.append(
+                Route(
+                    route_spec["path"],
+                    make_endpoint(route_spec["endpoint"], route_index),
+                    methods=route_spec["methods"],
+                )
+            )
+
+        if is_router:
+            application = Router(routes=route_objects)
+        else:
+            mount_spec = case["mount"]
+            _strict_object(mount_spec, {"path", "routes"}, "Mount input")
+            application = Mount(mount_spec["path"], routes=route_objects)
+
+        scope = _make_scope(case["scope"])
+        incoming = [_message(item) for item in case["incoming"]]
+        incoming_index = 0
+        sent: list[dict[str, Any]] = []
+
+        async def receive() -> dict[str, Any]:
+            nonlocal incoming_index
+            if incoming_index >= len(incoming):
+                return {"type": "http.disconnect"}
+            message = incoming[incoming_index]
+            incoming_index += 1
+            return message
+
+        async def send(message: dict[str, Any]) -> None:
+            sent.append(message)
+
+        await application(scope, receive, send)
+        if incoming_index != len(incoming):
+            raise ValueError("route-dispatch left incoming messages unconsumed")
+
+        events = [_canonical_message(message) for message in sent]
+        response_start = next(
+            (message for message in sent if message["type"] == "http.response.start"), None
+        )
+        response_body = b"".join(
+            message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+        )
+        start_event = next(
+            (event for event in events if event["type"] == "http.response.start"), None
+        )
+        selected = {
+            "response_status": response_start["status"] if response_start is not None else None,
+            "ordered_repeated_headers": start_event["headers"] if start_event is not None else [],
+            "response_bytes": (
+                {
+                    "encoding": "base64",
+                    "data": base64.b64encode(response_body).decode("ascii"),
+                }
+                if response_start is not None
+                else None
+            ),
+            "asgi_event_order": [event["type"] for event in events],
+            "asgi_events": events,
+        }
+        mount_scope = mount_scope_observations[0] if mount_scope_observations else None
+        if len(mount_scope_observations) > 1:
+            raise RuntimeError("Mount child route endpoint ran more than once")
+        return selected, mount_scope
+
+    try:
+        for spec in custom_convertors:
+            if not isinstance(spec, dict) or set(spec) != {"name", "regex", "lowercase"}:
+                raise ValueError("custom converter input must contain name, regex, and lowercase")
+
+            class InputConvertor(Convertor[str]):
+                def __init__(self, regex: str, lowercase: bool) -> None:
+                    self.regex = regex
+                    self.lowercase = lowercase
+
+                def convert(self, value: str) -> str:
+                    return value.lower() if self.lowercase else value
+
+                def to_string(self, value: str) -> str:
+                    return str(value)
+
+            register_url_convertor(spec["name"], InputConvertor(spec["regex"], spec["lowercase"]))
+
+        selected, mount_scope = asyncio.run(run())
+    finally:
+        for name, old_convertor in previous_convertors.items():
+            if old_convertor is _MISSING:
+                CONVERTOR_TYPES.pop(name, None)
+            else:
+                CONVERTOR_TYPES[name] = old_convertor
+
+    observation_value = selected
+    if is_mount:
+        observation_value = {**selected, "mount_scope": mount_scope}
+    else:
+        if len(route_index_observations) > 1:
+            raise RuntimeError("Router dispatched more than one route endpoint")
+        observation_value = {
+            **selected,
+            "route_index": route_index_observations[0] if route_index_observations else None,
+        }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": ROUTER_OPERATION if is_router else MOUNT_OPERATION,
+                "status": "ok",
+                "value": observation_value,
+            }
+        ],
+    }
+
+
 async def _invoke_lifespan_around_dispatch(
     app: Any,
     lifecycle_args: dict[str, Any],
@@ -1479,6 +1723,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == WEBSOCKET_ROUTE_OPERATION
     ):
         return _run_websocket_route_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") in {ROUTER_SURFACE, MOUNT_SURFACE}
+        and case.get("operation") == "route-dispatch"
+    ):
+        return _run_route_dispatch_case(case)
     _strict_object(
         case,
         {
@@ -1530,7 +1780,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("ASGI route workflows must build one public Starlette application")
     application_arguments = {name: item["value"] for name, item in steps[0]["arguments"].items()}
-    capture_dispatch_error = application_arguments["routes"][0]["endpoint"]["kind"] in {
+    capture_dispatch_error = is_request_dispatch or application_arguments["routes"][0]["endpoint"][
+        "kind"
+    ] in {
         "asgi-callable-action-sequence",
         "raise-runtime-error",
     }

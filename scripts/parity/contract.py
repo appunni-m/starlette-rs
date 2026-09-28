@@ -6,7 +6,9 @@ import base64
 import hashlib
 import json
 import math
+import re
 import statistics
+import sys
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl
@@ -73,6 +75,23 @@ WEBSOCKET_ROUTE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "endpoint_actions",
 }
 WEBSOCKET_ROUTE_OBSERVATIONS = (WEBSOCKET_ROUTE_OPERATION,)
+ROUTER_SURFACE = "starlette.routing.Router"
+ROUTER_OPERATION = "route-dispatch"
+ROUTER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "custom_convertors",
+    "routes",
+    "scope",
+    "incoming",
+    "send",
+}
+MOUNT_SURFACE = "starlette.routing.Mount"
+MOUNT_OPERATION = "route-dispatch"
+MOUNT_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "mount",
+    "scope",
+    "incoming",
+    "send",
+}
 STEP_KEYS = {"step_id", "surface", "operation", "receiver", "arguments"}
 VALUE_TYPES = {
     "null",
@@ -195,6 +214,9 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
             "starlette.asgi.streaming",
             "starlette.compatibility.full-public-surface",
         }
+    ),
+    (ROUTER_SURFACE, ROUTER_OPERATION, "rust-native"): frozenset(
+        {"starlette.routing.Router.route-dispatch.python-callable-endpoint"}
     ),
 }
 GZIP_SURFACE = "starlette.middleware.gzip.GZipMiddleware"
@@ -1347,14 +1369,319 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
         )
 
 
+def _route_template_capture(
+    template: str,
+    path: str,
+    custom: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, str] | None:
+    """Recognize the pinned route converter grammar for input mapping only."""
+    custom = custom or {}
+    parameter = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)(?::([a-zA-Z_][a-zA-Z0-9_]*))?\}")
+    fragments: list[str] = []
+    names: list[str] = []
+    offset = 0
+    for match in parameter.finditer(template):
+        name, converter = match.groups()
+        converter = converter or "str"
+        fragments.append(re.escape(template[offset : match.start()]))
+        if converter in custom:
+            expression = custom[converter]["regex"]
+            fragments.append(f"(?P<{name}>(?:{expression}))")
+            names.append(name)
+            offset = match.end()
+            continue
+        if converter == "str":
+            fragments.append("[^/]+")
+        elif converter == "int":
+            fragments.append("[0-9]+")
+        elif converter == "float":
+            fragments.append(r"[0-9]+(?:\.[0-9]+)?")
+        elif converter == "uuid":
+            fragments.append(
+                r"[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?"
+                r"[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}"
+            )
+        elif converter == "path":
+            fragments.append(".*")
+        else:
+            return None
+        fragments[-1] = f"(?P<{name}>{fragments[-1]})"
+        names.append(name)
+        offset = match.end()
+    if "{" in template[offset:] or "}" in template[offset:]:
+        return None
+    fragments.append(re.escape(template[offset:]))
+    try:
+        matched = re.fullmatch("".join(fragments), path)
+    except re.error as exc:
+        raise ContractError(f"route converter expression is invalid: {exc}") from exc
+    if matched is None:
+        return None
+    return {name: matched.group(name) for name in names}
+
+
+def _route_template_matches(
+    template: str,
+    path: str,
+    custom: dict[str, dict[str, Any]] | None = None,
+) -> bool:
+    return _route_template_capture(template, path, custom) is not None
+
+
+def _route_template_parameters(template: str) -> list[tuple[str, str]]:
+    parameter = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)(?::([a-zA-Z_][a-zA-Z0-9_]*))?\}")
+    return [(name, converter or "str") for name, converter in parameter.findall(template)]
+
+
+def _route_path_after_root(path: str, root_path: str) -> str:
+    if not root_path or not path.startswith(root_path):
+        return path
+    if path == root_path:
+        return ""
+    if path[len(root_path)] == "/":
+        return path[len(root_path) :]
+    return path
+
+
+def _validate_http_route_input(
+    route: Any, context: str, custom_convertors: dict[str, dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    route = _exact(route, {"kind", "path", "methods", "endpoint"}, context)
+    if (
+        route["kind"] != "http-route"
+        or not isinstance(route["path"], str)
+        or not route["path"].startswith("/")
+    ):
+        raise ContractError(f"{context} must define an absolute HTTP route path")
+    methods = route["methods"]
+    if (
+        not isinstance(methods, list)
+        or not methods
+        or any(not isinstance(method, str) or not method for method in methods)
+        or len(methods) != len(set(methods))
+    ):
+        raise ContractError(f"{context}.methods must be a non-empty unique string list")
+    path_parameters = _route_template_parameters(route["path"])
+    parameter_names = [name for name, _converter in path_parameters]
+    if len(parameter_names) != len(set(parameter_names)):
+        raise ContractError(f"{context}.path must not repeat a path parameter name")
+    supported_convertors = {"str", "int", "float", "uuid", "path"} | set(custom_convertors or {})
+    unsupported_convertors = sorted(
+        converter for _name, converter in path_parameters if converter not in supported_convertors
+    )
+    if unsupported_convertors:
+        raise ContractError(f"{context}.path uses undeclared convertors: {unsupported_convertors}")
+    endpoint = route["endpoint"]
+    if not isinstance(endpoint, dict) or not isinstance(endpoint.get("kind"), str):
+        raise ContractError(f"{context}.endpoint must define a supported route response")
+    if endpoint["kind"] == "plain-text-response":
+        endpoint = _exact(
+            endpoint,
+            {"kind", "content", "status_code", "media_type", "cookies"},
+            f"{context}.endpoint",
+        )
+        if (
+            not isinstance(endpoint["content"], str)
+            or type(endpoint["status_code"]) is not int
+            or endpoint["status_code"] != 200
+            or endpoint["media_type"] != "text/plain"
+            or endpoint["cookies"] != []
+        ):
+            raise ContractError(
+                f"{context}.endpoint must use the declared fixed plain-text response input"
+            )
+    elif endpoint["kind"] == "converted-path-response":
+        endpoint = _exact(
+            endpoint,
+            {"kind", "path_parameter", "status_code", "media_type"},
+            f"{context}.endpoint",
+        )
+        path_parameter_map = dict(path_parameters)
+        path_parameter = _string(endpoint["path_parameter"], f"{context}.endpoint.path_parameter")
+        if path_parameter not in path_parameter_map or path_parameter_map[path_parameter] not in (
+            custom_convertors or {}
+        ):
+            raise ContractError(
+                f"{context}.endpoint must observe a registered custom-convertor path parameter"
+            )
+        if type(endpoint["status_code"]) is not int or endpoint["status_code"] != 200:
+            raise ContractError(f"{context}.endpoint.status_code must be 200")
+        if endpoint["media_type"] != "text/plain":
+            raise ContractError(f"{context}.endpoint.media_type must be text/plain")
+    else:
+        raise ContractError(f"{context}.endpoint kind is unsupported")
+    return route
+
+
+def _validate_route_dispatch_io(case: dict[str, Any]) -> None:
+    if case["scope"].get("type") != "http" or case["scope"].get("query_string_base64") != "":
+        raise ContractError(
+            "route-dispatch cases require a direct HTTP scope without a query string"
+        )
+    if case["scope"].get("headers_base64_pairs") != []:
+        raise ContractError("route-dispatch cases do not declare request headers")
+    if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
+        raise ContractError(
+            "route-dispatch cases use an empty receive stream and captured ASGI send"
+        )
+    _validate_dispatch_stimulus(
+        {"scope": case["scope"], "receive": case["incoming"], "send": case["send"]},
+        request_dispatch=True,
+        allow_root_path=True,
+    )
+
+
+def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
+    _exact(case, ROUTER_CASE_KEYS, "Router route-dispatch case")
+    if case["surface"] != ROUTER_SURFACE or case["operation"] != ROUTER_OPERATION:
+        raise ContractError("case is outside the declared Router route-dispatch operation")
+    if case["observations"] != [ROUTER_OPERATION]:
+        raise ContractError("Router observations must select route-dispatch")
+    if not isinstance(case["routes"], list) or not case["routes"]:
+        raise ContractError("Router route-dispatch requires a non-empty route list")
+    if not isinstance(case["custom_convertors"], list):
+        raise ContractError("Router custom_convertors must be an array")
+    custom_convertors: dict[str, dict[str, Any]] = {}
+    for index, raw_convertor in enumerate(case["custom_convertors"]):
+        context = f"Router custom_convertors[{index}]"
+        convertor = _exact(raw_convertor, {"name", "regex", "lowercase"}, context)
+        name = _string(convertor["name"], f"{context}.name")
+        regex = _string(convertor["regex"], f"{context}.regex")
+        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", name) is None:
+            raise ContractError(f"{context}.name must be a converter identifier")
+        if not regex:
+            raise ContractError(f"{context}.regex must be non-empty")
+        try:
+            re.compile(regex)
+        except re.error as exc:
+            raise ContractError(f"{context}.regex is invalid: {exc}") from exc
+        if type(convertor["lowercase"]) is not bool:
+            raise ContractError(f"{context}.lowercase must be boolean")
+        if name in custom_convertors:
+            raise ContractError(f"Router custom converter {name!r} is registered more than once")
+        custom_convertors[name] = convertor
+    routes = [
+        _validate_http_route_input(route, f"Router routes[{index}]", custom_convertors)
+        for index, route in enumerate(case["routes"])
+    ]
+    path = case["scope"].get("path")
+    root_path = case["scope"].get("root_path")
+    method = case["scope"].get("method")
+    if not isinstance(path, str) or not isinstance(root_path, str) or not isinstance(method, str):
+        raise ContractError(
+            "Router route-dispatch scope must declare string path, root_path, and method"
+        )
+    _validate_route_dispatch_io(case)
+    route_path = _route_path_after_root(path, root_path)
+    matched = [
+        route
+        for route in routes
+        if method in route["methods"] or (method == "HEAD" and "GET" in route["methods"])
+        if _route_template_matches(route["path"], route_path, custom_convertors)
+    ]
+    derived: set[str] = set()
+    for route in matched:
+        for _name, converter in _route_template_parameters(route["path"]):
+            if converter in custom_convertors:
+                derived.add("starlette.routing.Router.route-dispatch.custom-converter-override")
+            else:
+                requirement = {
+                    "str": "string-converter-match",
+                    "int": "int-converter-match",
+                    "float": "float-converter-match",
+                    "uuid": "uuid-converter-match",
+                    "path": "path-converter-match",
+                }.get(converter)
+                if requirement is not None:
+                    derived.add(f"starlette.routing.Router.route-dispatch.{requirement}")
+    if not matched:
+        derived.add("starlette.routing.Router.route-dispatch.converter-miss")
+    if (
+        root_path
+        and path.startswith(root_path)
+        and (path == root_path or path[len(root_path)] == "/")
+        and matched
+    ):
+        derived.add("starlette.routing.Router.route-dispatch.root-path-match")
+    if (
+        root_path
+        and path.startswith(root_path)
+        and path != root_path
+        and path[len(root_path)] != "/"
+    ):
+        if any(_route_template_matches(route["path"], path) for route in routes) and not any(
+            _route_template_matches(route["path"], path[len(root_path) :]) for route in routes
+        ):
+            derived.add("starlette.routing.Router.route-dispatch.root-path-prefix-boundary")
+    if (
+        len(matched) > 1
+        and any(_route_template_parameters(route["path"]) for route in matched)
+        and any(not _route_template_parameters(route["path"]) for route in matched)
+    ):
+        derived.add("starlette.routing.Router.route-dispatch.static-parameter-order")
+    claimed = set(case["covers"])
+    if not claimed <= derived:
+        raise ContractError(
+            "Router case claims route requirements not exercised by its route and scope inputs: "
+            f"{sorted(claimed - derived)}"
+        )
+
+
+def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
+    _exact(case, MOUNT_CASE_KEYS, "Mount route-dispatch case")
+    if case["surface"] != MOUNT_SURFACE or case["operation"] != MOUNT_OPERATION:
+        raise ContractError("case is outside the declared Mount route-dispatch operation")
+    if case["observations"] != [MOUNT_OPERATION]:
+        raise ContractError("Mount observations must select route-dispatch")
+    mount = _exact(case["mount"], {"path", "routes"}, "Mount input")
+    if not isinstance(mount["path"], str) or not mount["path"].startswith("/"):
+        raise ContractError("Mount.path must be an absolute route path")
+    if not isinstance(mount["routes"], list) or not mount["routes"]:
+        raise ContractError("Mount.routes must contain at least one child route")
+    child_routes = [
+        _validate_http_route_input(route, f"Mount.routes[{index}]")
+        for index, route in enumerate(mount["routes"])
+    ]
+    _validate_route_dispatch_io(case)
+    path = case["scope"]["path"]
+    root_path = case["scope"]["root_path"]
+    route_path = _route_path_after_root(path, root_path)
+    mount_template = mount["path"].rstrip("/") + "/{_mount_path:path}"
+    mount_captures = _route_template_capture(mount_template, route_path)
+    mount_matches = mount_captures is not None
+    if mount_captures is not None:
+        remainder = mount_captures["_mount_path"]
+        child_path = "/" + remainder
+        child_matches = any(
+            _route_template_matches(route["path"], child_path) for route in child_routes
+        )
+    else:
+        child_matches = False
+    derived = set()
+    if child_matches:
+        derived.add("starlette.routing.Mount.route-dispatch.scope-extension")
+    if not mount_matches:
+        derived.add("starlette.routing.Mount.route-dispatch.miss")
+    if not set(case["covers"]) <= derived:
+        raise ContractError(
+            "Mount case requirements are not exercised by its mount and scope inputs"
+        )
+
+
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     is_websocket = isinstance(case, dict) and case.get("surface") == WEBSOCKET_SURFACE
     is_websocket_route = isinstance(case, dict) and case.get("surface") == WEBSOCKET_ROUTE_SURFACE
+    is_router = isinstance(case, dict) and case.get("surface") == ROUTER_SURFACE
+    is_mount = isinstance(case, dict) and case.get("surface") == MOUNT_SURFACE
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
         else WEBSOCKET_ROUTE_CASE_KEYS
         if is_websocket_route
+        else ROUTER_CASE_KEYS
+        if is_router
+        else MOUNT_CASE_KEYS
+        if is_mount
         else CASE_KEYS
     )
     _exact(case, expected_case_keys, "case")
@@ -1368,6 +1695,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             raise ContractError(
                 "WebSocketRoute cases must use the declared route-dispatch operation"
             )
+    elif is_router:
+        if case["operation"] != ROUTER_OPERATION:
+            raise ContractError("Router cases must use the declared route-dispatch operation")
+    elif is_mount:
+        if case["operation"] != MOUNT_OPERATION:
+            raise ContractError("Mount cases must use the declared route-dispatch operation")
     elif is_gzip:
         if case["operation"] != "__call__":
             raise ContractError("GZipMiddleware parity cases must call its public ASGI interface")
@@ -1425,6 +1758,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_websocket_route:
         _validate_websocket_route_case_stimulus(case)
+        return case
+    if is_router:
+        _validate_router_case_stimulus(case)
+        return case
+    if is_mount:
+        _validate_mount_case_stimulus(case)
         return case
 
     if not isinstance(case["steps"], list) or len(case["steps"]) not in {2, 3}:
@@ -1860,18 +2199,38 @@ def _validate_application_stimulus(args: dict[str, Any], request_dispatch: bool)
     if request_dispatch:
         if handlers != []:
             raise ContractError("request-dispatch cases use the empty exception-handler registry")
+        if not isinstance(route["path"], str):
+            raise ContractError("Request route path must be a string")
+        route_parameters = _route_template_parameters(route["path"])
         if (
             route["kind"] != "http-route"
-            or route["path"] != "/items/{item_id:int}"
+            or not isinstance(route["path"], str)
+            or not route["path"].startswith("/")
             or route["methods"] != ["GET"]
+            or len(route_parameters) != 1
+            or route_parameters[0][1] not in {"str", "int", "float", "uuid", "path"}
         ):
-            raise ContractError("Request workflow route must define only GET /items/{item_id:int}")
+            raise ContractError(
+                "Request workflow route must define one GET path parameter with a built-in converter"
+            )
         endpoint = route["endpoint"]
-        if endpoint == REQUEST_OBSERVER_ENDPOINT:
+        if isinstance(endpoint, dict) and endpoint.get("kind") == "request-observer":
+            expected_observer = {
+                **REQUEST_OBSERVER_ENDPOINT,
+                "path_parameter": route_parameters[0][0],
+            }
+            if endpoint != expected_observer:
+                raise ContractError(
+                    "Request observer endpoint input differs from its declared values"
+                )
             return
         if endpoint == ASGI_CALLABLE_INSTANCE_ENDPOINT:
+            if route["path"] != "/items/{item_id:int}":
+                raise ContractError("ASGI callable-instance input uses the int route boundary")
             return
         if isinstance(endpoint, dict) and endpoint.get("kind") == "asgi-callable-action-sequence":
+            if route["path"] != "/items/{item_id:int}":
+                raise ContractError("ASGI callable action input uses the int route boundary")
             _validate_asgi_callable_action_sequence(endpoint)
             return
         if not isinstance(endpoint, dict) or endpoint.get("kind") != "sync-request-observer":
@@ -1890,6 +2249,7 @@ def _validate_application_stimulus(args: dict[str, Any], request_dispatch: bool)
         )
         if (
             endpoint["callable_kind"] not in {"function", "bound_method", "partial"}
+            or route["path"] != "/items/{item_id:int}"
             or endpoint["path_parameter"] != "item_id"
             or endpoint["context_var_name"] != "request_context"
             or not isinstance(endpoint["context_value"], str)
@@ -2114,6 +2474,7 @@ def _validate_dispatch_stimulus(
     request_dispatch: bool,
     allow_nonempty_body: bool = False,
     allow_headers: bool = False,
+    allow_root_path: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -2156,7 +2517,11 @@ def _validate_dispatch_stimulus(
             or scope["http_version"] != "1.1"
         ):
             raise ContractError("HTTP scope must use the declared ASGI and HTTP versions")
-        if scope["scheme"] != "http" or scope["root_path"] != "":
+        if (
+            scope["scheme"] != "http"
+            or (not allow_root_path and scope["root_path"] != "")
+            or not isinstance(scope["root_path"], str)
+        ):
             raise ContractError("HTTP scope differs from the declared direct-ASGI baseline")
         if scope["client"] != ["127.0.0.1", 12345] or scope["server"] != ["testserver", 80]:
             raise ContractError("HTTP scope client/server differ from the declared baseline")
@@ -2478,24 +2843,7 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
 
 
 def _route_path_matches(route_path: str, request_path: str) -> bool:
-    route_parts = route_path.split("/")
-    request_parts = request_path.split("/")
-    if len(route_parts) != len(request_parts):
-        return False
-    for route_part, request_part in zip(route_parts, request_parts, strict=True):
-        if route_part.startswith("{") and route_part.endswith("}"):
-            parameter = route_part[1:-1]
-            if parameter.endswith(":int"):
-                if not request_part.isascii() or not request_part.isdigit():
-                    return False
-            elif parameter.endswith(":path"):
-                if not request_part:
-                    return False
-            else:
-                return False
-        elif route_part != request_part:
-            return False
-    return True
+    return _route_template_matches(route_path, request_path)
 
 
 def _semantic_coverage(case: dict[str, Any]) -> set[str]:
@@ -2642,14 +2990,25 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         coverage.add("starlette.routing.items-wrong-method-405")
         return coverage
 
-    path_parameters = {}
-    for route_part in route["path"].split("/"):
-        if route_part.startswith("{") and route_part.endswith("}"):
-            name, _, converter = route_part[1:-1].partition(":")
-            path_parameters[name] = converter
+    path_parameters = dict(_route_template_parameters(route["path"]))
     path_parameter = endpoint.get("path_parameter")
-    if path_parameter is not None and path_parameters.get(path_parameter) == "int":
-        coverage.add("starlette.request.path-param-int")
+    if path_parameter is not None:
+        converter = path_parameters.get(path_parameter)
+        requirement = {
+            "str": "starlette.request.path-param-string",
+            "int": "starlette.request.path-param-int",
+            "float": "starlette.request.path-param-float",
+            "uuid": "starlette.request.path-param-uuid",
+            "path": "starlette.request.path-param-path",
+        }.get(converter)
+        if requirement is not None:
+            coverage.add(requirement)
+        if converter == "int":
+            captured = _route_template_capture(route["path"], path)
+            raw_value = captured.get(path_parameter) if captured is not None else None
+            integer_limit = sys.get_int_max_str_digits()
+            if integer_limit > 0 and raw_value is not None and len(raw_value) > integer_limit:
+                coverage.add("starlette.request.path-param-int-digit-limit")
 
     if endpoint["kind"] == "request-observer":
         query = base64.b64decode(scope["query_string_base64"], validate=True).decode("ascii")

@@ -9,7 +9,21 @@ The baseline source declares copyright © 2018 Encode OSS Ltd. See
 
 The source checkout is used as a local oracle and inventory authority. No
 upstream module, test file, documentation page, or image asset has been copied
-wholesale. The benchmark worker
+wholesale. The built-in URL converter rules in
+[`starlette-rs-py/python/starlette/convertors.py`](starlette-rs-py/python/starlette/convertors.py)
+adapt `starlette/convertors.py` from that pinned source; they retain the
+upstream BSD-3-Clause provenance and are not a verbatim module copy. The
+route compatibility layer and application dispatch integration in
+[`starlette-rs-py/python/starlette/routing.py`](starlette-rs-py/python/starlette/routing.py)
+and [`starlette-rs-py/python/starlette/applications.py`](starlette-rs-py/python/starlette/applications.py)
+adapt public matching and dispatch behavior from `starlette/routing.py` and
+`starlette/applications.py`, with Rust-backed built-in path matching and
+Python callable boundaries; they retain the upstream BSD-3-Clause provenance
+and are not verbatim module copies. The
+redirect response wrapper in
+[`starlette-rs-py/python/starlette/responses.py`](starlette-rs-py/python/starlette/responses.py)
+adapts the `RedirectResponse` behavior in `starlette/responses.py` from the
+pinned source and retains its BSD-3-Clause provenance. The benchmark worker
 ([`scripts/parity/upstream_benchmark_worker.py`](scripts/parity/upstream_benchmark_worker.py))
 adapts deterministic payload-generation recipes and the fixed text paragraph
 from `benchmarks/gzip_benchmark.py` so the 68 GZip inputs reproduce the pinned

@@ -290,11 +290,198 @@ fn run_case(case: &Value) -> Result<Value, String> {
         (Some("starlette.applications.Starlette"), Some("request-dispatch")) => {
             return run_request_case(case);
         }
+        (Some("starlette.routing.Router"), Some("route-dispatch")) => {
+            return run_router_case(case);
+        }
+        (Some("starlette.routing.Mount"), Some("route-dispatch")) => {
+            return Err(String::from(
+                "Rust-native route adapter does not expose Mount child-scope dispatch",
+            ));
+        }
         (Some("starlette.applications.Starlette"), Some("__call__")) => {}
         _ => return Err(String::from("workflow surface or operation is unsupported")),
     }
 
     run_application_case(case)
+}
+
+fn run_router_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "custom_convertors",
+            "routes",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        ],
+        "Router route-dispatch case",
+    )?;
+    let case_id = string_field(case, "case_id", "Router route-dispatch case")?;
+    if string_field(case, "surface", "Router route-dispatch case")? != "starlette.routing.Router"
+        || string_field(case, "operation", "Router route-dispatch case")? != "route-dispatch"
+        || case.get("observations") != Some(&json!(["route-dispatch"]))
+        || case.get("assets") != Some(&json!([]))
+        || case.get("custom_convertors") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "Rust-native Router route-dispatch accepts only the built-in converter projection",
+        ));
+    }
+    let routes = case
+        .get("routes")
+        .and_then(Value::as_array)
+        .filter(|routes| !routes.is_empty())
+        .ok_or_else(|| String::from("Router routes must be a non-empty array"))?;
+    let mut route_table = RouteTable::new();
+    for route in routes {
+        let route = exact_object(
+            route,
+            &["kind", "path", "methods", "endpoint"],
+            "Router route input",
+        )?;
+        if string_field(route, "kind", "Router route input")? != "http-route" {
+            return Err(String::from("Router route kind must be http-route"));
+        }
+        let path = string_field(route, "path", "Router route input")?;
+        let methods = route
+            .get("methods")
+            .and_then(Value::as_array)
+            .ok_or_else(|| String::from("Router route methods must be an array"))?;
+        let method_values = methods
+            .iter()
+            .map(|method| {
+                method
+                    .as_str()
+                    .ok_or_else(|| String::from("Router route methods must contain strings"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        route_table
+            .add_route(path, method_values)
+            .map_err(|error| error.to_string())?;
+        let endpoint = exact_object(
+            route
+                .get("endpoint")
+                .ok_or_else(|| String::from("Router route endpoint is missing"))?,
+            &["kind", "content", "status_code", "media_type", "cookies"],
+            "Router plain-text endpoint input",
+        )?;
+        if string_field(endpoint, "kind", "Router endpoint")? != "plain-text-response"
+            || string_field(endpoint, "media_type", "Router endpoint")? != "text/plain"
+            || endpoint.get("cookies") != Some(&json!([]))
+        {
+            return Err(String::from(
+                "Rust-native Router projection requires a fixed plain-text endpoint",
+            ));
+        }
+    }
+    if case.get("incoming") != Some(&json!([]))
+        || case.get("send") != Some(&json!({"kind": "capture-asgi-send"}))
+    {
+        return Err(String::from(
+            "Router dispatch requires an empty receive sequence and captured ASGI send",
+        ));
+    }
+    let scope = exact_object(
+        case.get("scope")
+            .ok_or_else(|| String::from("Router scope is missing"))?,
+        &[
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        ],
+        "Router HTTP scope",
+    )?;
+    if string_field(scope, "type", "Router scope")? != "http"
+        || string_field(scope, "http_version", "Router scope")? != "1.1"
+        || string_field(scope, "scheme", "Router scope")? != "http"
+        || !string_field(scope, "query_string_base64", "Router scope")?.is_empty()
+        || scope.get("headers_base64_pairs") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "Router scope differs from the declared HTTP baseline",
+        ));
+    }
+    let path = string_field(scope, "path", "Router scope")?;
+    let root_path = string_field(scope, "root_path", "Router scope")?;
+    let method = string_field(scope, "method", "Router scope")?;
+    let route_match = route_table.matches_detailed_with_root_path(path, root_path, method);
+    let route_index = match &route_match {
+        DetailedRouteMatch::Matched { route_index, .. }
+        | DetailedRouteMatch::MethodNotAllowed { route_index, .. } => Some(*route_index),
+        DetailedRouteMatch::NotFound => None,
+    };
+    let response = match &route_match {
+        DetailedRouteMatch::Matched { route_index, .. } => {
+            let route = exact_object(
+                &routes[*route_index],
+                &["kind", "path", "methods", "endpoint"],
+                "selected Router route",
+            )?;
+            let endpoint = route
+                .get("endpoint")
+                .and_then(Value::as_object)
+                .ok_or_else(|| String::from("selected route endpoint must be an object"))?;
+            let content = string_field(endpoint, "content", "selected Router endpoint")?;
+            let status = endpoint
+                .get("status_code")
+                .and_then(Value::as_u64)
+                .filter(|status| *status <= u16::MAX as u64)
+                .ok_or_else(|| String::from("selected endpoint status_code must fit u16"))?;
+            Response::plain_text_with_status(status as u16, content)
+        }
+        DetailedRouteMatch::MethodNotAllowed { .. } | DetailedRouteMatch::NotFound => route_match
+            .fallback_response()
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| String::from("Router fallback did not provide a response"))?,
+    };
+    let body = response.body();
+    let body_base64 = encode_base64(body);
+    let headers = canonical_headers(response.headers());
+    let events = json!([
+        {
+            "type": "http.response.start",
+            "status": response.status_code(),
+            "headers": headers,
+        },
+        {
+            "type": "http.response.body",
+            "body": {"encoding": "base64", "data": body_base64},
+        }
+    ]);
+    let event_order = json!(["http.response.start", "http.response.body"]);
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": "route-dispatch",
+            "status": "ok",
+            "value": {
+                "route_index": route_index,
+                "response_status": response.status_code(),
+                "ordered_repeated_headers": headers,
+                "response_bytes": {"encoding": "base64", "data": body_base64},
+                "asgi_event_order": event_order,
+                "asgi_events": events,
+            },
+        }],
+    }))
 }
 
 fn run_websocket_state_case(case: &Value) -> Result<Value, String> {

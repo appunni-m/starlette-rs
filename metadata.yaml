@@ -62,6 +62,26 @@
           "source_path": "starlette.routing.WebSocketRoute"
         }
       ]
+    },
+    {
+      "surface_id": "starlette.routing.Router",
+      "source_path": "starlette/routing.py:573",
+      "operations": [
+        {
+          "operation_id": "route-dispatch",
+          "source_path": "starlette.routing.Router.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.routing.Mount",
+      "source_path": "starlette/routing.py:363",
+      "operations": [
+        {
+          "operation_id": "route-dispatch",
+          "source_path": "starlette.routing.BaseRoute.__call__"
+        }
+      ]
     }
   ],
   "api_inventory": {
