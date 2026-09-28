@@ -146,6 +146,7 @@ RESPONSE_SURFACE = "starlette.responses.Response"
 JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
 RESPONSE_SURFACES = {RESPONSE_SURFACE, JSON_RESPONSE_SURFACE}
 STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
+FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STREAMING_RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 RESPONSE_OPERATION = "asgi-call"
@@ -159,6 +160,16 @@ RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "send",
 }
 STREAMING_RESPONSE_CASE_KEYS = RESPONSE_CASE_KEYS | {"streaming"}
+FILE_RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "file",
+    "status_code",
+    "header_pairs",
+    "media_type",
+    "filename",
+    "scope",
+    "incoming",
+    "send",
+}
 RESPONSE_OBSERVATIONS = [
     "response_status",
     "ordered_repeated_headers",
@@ -2318,6 +2329,103 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
     )
 
 
+def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
+    _exact(case, FILE_RESPONSE_CASE_KEYS, "FileResponse asgi-call case")
+    if case["surface"] != FILE_RESPONSE_SURFACE or case["operation"] != RESPONSE_OPERATION:
+        raise ContractError("case is outside the declared FileResponse asgi-call operation")
+    if case["observations"] != [RESPONSE_OPERATION]:
+        raise ContractError("FileResponse observations must select asgi-call")
+
+    file_input = _exact(
+        case["file"],
+        {"name", "contents_base64", "mtime_seconds"},
+        "FileResponse file input",
+    )
+    name = _string(file_input["name"], "FileResponse file.name")
+    if not name or name in {".", ".."} or "/" in name or "\\" in name:
+        raise ContractError("FileResponse file.name must be a basename")
+    contents_base64 = _string(file_input["contents_base64"], "FileResponse file.contents_base64")
+    try:
+        base64.b64decode(contents_base64, validate=True)
+    except (ValueError, TypeError) as exc:
+        raise ContractError("FileResponse file.contents_base64 must be valid base64") from exc
+    mtime_seconds = file_input["mtime_seconds"]
+    if type(mtime_seconds) not in {int, float} or not math.isfinite(mtime_seconds):
+        raise ContractError("FileResponse file.mtime_seconds must be a finite number")
+
+    status_code = case["status_code"]
+    if type(status_code) is not int or not 100 <= status_code <= 599:
+        raise ContractError("FileResponse status_code must be an HTTP status code")
+    headers = case["header_pairs"]
+    if not isinstance(headers, list):
+        raise ContractError("FileResponse.header_pairs must be an ordered array")
+    seen_names: set[str] = set()
+    for index, pair in enumerate(headers):
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(value, str) for value in pair)
+            or not pair[0]
+        ):
+            raise ContractError(
+                f"FileResponse.header_pairs[{index}] must be a non-empty name and string value"
+            )
+        try:
+            pair[0].encode("latin-1")
+            pair[1].encode("latin-1")
+        except UnicodeEncodeError as exc:
+            raise ContractError(
+                f"FileResponse.header_pairs[{index}] must be Latin-1 encodable"
+            ) from exc
+        normalized_name = pair[0].lower()
+        if normalized_name in seen_names:
+            raise ContractError("FileResponse header input must map unique case-insensitive names")
+        seen_names.add(normalized_name)
+    if case["media_type"] is not None:
+        _string(case["media_type"], "FileResponse.media_type")
+    if case["filename"] is not None:
+        _string(case["filename"], "FileResponse.filename")
+
+    scope_spec = case["scope"]
+    scope_keys = {
+        "type",
+        "asgi",
+        "http_version",
+        "method",
+        "scheme",
+        "path",
+        "raw_path_base64",
+        "query_string_base64",
+        "root_path",
+        "headers_base64_pairs",
+        "client",
+        "server",
+    }
+    if isinstance(scope_spec, dict) and "extensions" in scope_spec:
+        scope_keys.add("extensions")
+    scope_spec = _exact(scope_spec, scope_keys, "FileResponse HTTP scope")
+    if scope_spec["type"] != "http":
+        raise ContractError("FileResponse ASGI-call requires an HTTP scope")
+    if "extensions" in scope_spec:
+        extensions = scope_spec["extensions"]
+        if not isinstance(extensions, dict) or any(
+            key != "http.response.pathsend" for key in extensions
+        ):
+            raise ContractError(
+                "FileResponse scope.extensions may only declare http.response.pathsend"
+            )
+    if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
+        raise ContractError("FileResponse asgi-call requires empty receive and captured send")
+    dispatch_scope = {
+        key: value for key, value in scope_spec.items() if key != "extensions"
+    }
+    _validate_dispatch_stimulus(
+        {"scope": dispatch_scope, "receive": case["incoming"], "send": case["send"]},
+        request_dispatch=True,
+        allow_headers=True,
+    )
+
+
 def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     case_keys = STREAMING_RESPONSE_CASE_KEYS | ({"background"} if "background" in case else set())
     _exact(case, case_keys, "StreamingResponse asgi-call case")
@@ -3245,6 +3353,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and case.get("surface") == REDIRECT_RESPONSE_SURFACE
         and case.get("operation") == REDIRECT_RESPONSE_OPERATION
     )
+    is_file_response = (
+        isinstance(case, dict)
+        and case.get("surface") == FILE_RESPONSE_SURFACE
+        and case.get("operation") == RESPONSE_OPERATION
+    )
     is_response = isinstance(case, dict) and case.get("surface") in RESPONSE_SURFACES
     is_streaming_response = (
         isinstance(case, dict)
@@ -3283,6 +3396,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_reverse_url
         else REDIRECT_RESPONSE_CASE_KEYS
         if is_redirect_response
+        else FILE_RESPONSE_CASE_KEYS
+        if is_file_response
         else RESPONSE_CASE_KEYS
         if is_response
         else STREAMING_RESPONSE_CASE_KEYS
@@ -3355,6 +3470,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_redirect_response:
         if case["operation"] != REDIRECT_RESPONSE_OPERATION:
             raise ContractError("RedirectResponse cases must use the declared asgi-call operation")
+    elif is_file_response:
+        if case["operation"] != RESPONSE_OPERATION:
+            raise ContractError("FileResponse cases must use the declared asgi-call operation")
     elif is_response:
         if case["operation"] != RESPONSE_OPERATION:
             raise ContractError("Response cases must use the declared asgi-call operation")
@@ -3487,6 +3605,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_redirect_response:
         _validate_redirect_response_case_stimulus(case)
+        return case
+    if is_file_response:
+        _validate_file_response_case_stimulus(case)
         return case
     if is_response:
         _validate_response_case_stimulus(case)

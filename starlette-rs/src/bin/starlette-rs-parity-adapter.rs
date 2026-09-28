@@ -6,18 +6,24 @@ use std::future::{Future, ready};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll, Waker};
 
 // The workspace's flate2 dependency is used by the companion library target.
 use flate2 as _;
+use getrandom as _;
+use httpdate as _;
+use md5 as _;
+use mime_guess as _;
 use serde_json::{Map, Value, json};
 use sha2::{Digest, Sha256};
 use starlette_rs::{
-    ApplicationRoute, AsgiScopeKind, Cookies, DetailedRouteMatch, GzipConfig, GzipHeader,
-    GzipResponseStart, HttpScope, LifespanAction, LifespanState, QueryParams,
-    RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
-    Starlette as NativeApplication, StreamingResponse, StreamingResponseEvent, WebSocketState,
-    WebSocketStateMachine, classify_scope,
+    ApplicationRoute, AsgiScopeKind, Cookies, DetailedRouteMatch, FileMetadata,
+    FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
+    FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader, GzipResponseStart, HttpScope,
+    LifespanAction, LifespanState, QueryParams, RequestBodyAccumulator, RequestHeaders, Response,
+    ResponseEvent, RouteTable, Starlette as NativeApplication, StreamingResponse,
+    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope,
 };
 
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
@@ -28,10 +34,21 @@ const REDIRECT_RESPONSE_OPERATION: &str = "asgi-call";
 const RESPONSE_SURFACE: &str = "starlette.responses.Response";
 const JSON_RESPONSE_SURFACE: &str = "starlette.responses.JSONResponse";
 const STREAMING_RESPONSE_SURFACE: &str = "starlette.responses.StreamingResponse";
+const FILE_RESPONSE_SURFACE: &str = "starlette.responses.FileResponse";
 const RESPONSE_OPERATION: &str = "asgi-call";
 const WEBSOCKET_SURFACE: &str = "starlette.websockets.WebSocket";
 const WEBSOCKET_OPERATION: &str = "protocol-sequence";
 const WEBSOCKET_STATE_OPERATION: &str = "state-sequence";
+
+static NEXT_FILE_RESPONSE_TEMP: AtomicU64 = AtomicU64::new(0);
+
+struct FileResponseTempDirectory(PathBuf);
+
+impl Drop for FileResponseTempDirectory {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
 
 fn main() -> ExitCode {
     match run() {
@@ -308,6 +325,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         }
         (Some(STREAMING_RESPONSE_SURFACE), Some(RESPONSE_OPERATION)) => {
             return run_streaming_response_case(case);
+        }
+        (Some(FILE_RESPONSE_SURFACE), Some(RESPONSE_OPERATION)) => {
+            return run_file_response_case(case);
         }
         (Some("starlette.routing.Mount"), Some("route-dispatch")) => {
             return Err(String::from(
@@ -720,6 +740,57 @@ fn validate_asgi_http_scope<'a>(
     Ok(scope)
 }
 
+fn validated_file_response_scope(scope: &Value) -> Result<(Map<String, Value>, bool), String> {
+    let mut scope_without_extensions = scope
+        .as_object()
+        .cloned()
+        .ok_or_else(|| String::from("FileResponse HTTP scope must be a JSON object"))?;
+    let pathsend_extension = match scope_without_extensions.remove("extensions") {
+        None => false,
+        Some(Value::Object(extensions)) => extensions.contains_key("http.response.pathsend"),
+        Some(_) => {
+            return Err(String::from(
+                "FileResponse HTTP scope.extensions must be an object when present",
+            ));
+        }
+    };
+    let scope_without_extensions = Value::Object(scope_without_extensions);
+    let validated = validate_asgi_http_scope(&scope_without_extensions, "FileResponse")?.clone();
+    Ok((validated, pathsend_extension))
+}
+
+fn parse_scope_request_headers(
+    scope: &Map<String, Value>,
+    context: &str,
+) -> Result<Vec<(Vec<u8>, Vec<u8>)>, String> {
+    scope
+        .get("headers_base64_pairs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("{context}.headers_base64_pairs must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, pair)| {
+            let pair = pair
+                .as_array()
+                .filter(|pair| pair.len() == 2)
+                .ok_or_else(|| format!("{context} header[{index}] must be a pair"))?;
+            let name = decode_base64(
+                pair[0]
+                    .as_str()
+                    .ok_or_else(|| format!("{context} header[{index}][0] must be base64"))?,
+                &format!("{context} header[{index}][0]"),
+            )?;
+            let value = decode_base64(
+                pair[1]
+                    .as_str()
+                    .ok_or_else(|| format!("{context} header[{index}][1] must be base64"))?,
+                &format!("{context} header[{index}][1]"),
+            )?;
+            Ok((name, value))
+        })
+        .collect()
+}
+
 fn run_basic_response_case(case: &Value) -> Result<Value, String> {
     let case = exact_object(
         case,
@@ -1066,6 +1137,265 @@ fn run_streaming_response_case(case: &Value) -> Result<Value, String> {
             },
         }],
     }))
+}
+
+fn run_file_response_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "file",
+            "status_code",
+            "header_pairs",
+            "media_type",
+            "filename",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        ],
+        "FileResponse asgi-call case",
+    )?;
+    let case_id = string_field(case, "case_id", "FileResponse asgi-call case")?;
+    if !case_id.starts_with(&format!("{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}."))
+        || string_field(case, "surface", "FileResponse asgi-call case")? != FILE_RESPONSE_SURFACE
+        || string_field(case, "operation", "FileResponse asgi-call case")? != RESPONSE_OPERATION
+        || case.get("observations") != Some(&json!([RESPONSE_OPERATION]))
+        || case.get("assets") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "case ID or selectors are outside the FileResponse ASGI-call slice",
+        ));
+    }
+    validate_string_array(case, "covers", "FileResponse asgi-call covers", false)?;
+    validate_string_array(
+        case,
+        "target_profiles",
+        "FileResponse asgi-call target_profiles",
+        false,
+    )?;
+    if case.get("incoming") != Some(&json!([])) {
+        return Err(String::from(
+            "FileResponse asgi-call requires an empty incoming sequence",
+        ));
+    }
+    validate_capture_send(
+        case.get("send")
+            .ok_or_else(|| String::from("FileResponse asgi-call send input is missing"))?,
+    )?;
+
+    let source_file = exact_object(
+        case.get("file")
+            .ok_or_else(|| String::from("FileResponse asgi-call file is missing"))?,
+        &["name", "contents_base64", "mtime_seconds"],
+        "FileResponse file",
+    )?;
+    let file_name = string_field(source_file, "name", "FileResponse file")?;
+    if file_name.is_empty()
+        || file_name == "."
+        || file_name == ".."
+        || file_name.contains('/')
+        || file_name.contains('\\')
+        || file_name.as_bytes().contains(&0)
+    {
+        return Err(String::from(
+            "FileResponse file.name must be a non-empty basename",
+        ));
+    }
+    let contents = decode_base64(
+        string_field(source_file, "contents_base64", "FileResponse file")?,
+        "FileResponse file.contents_base64",
+    )?;
+    let mtime_number = source_file
+        .get("mtime_seconds")
+        .and_then(Value::as_f64)
+        .filter(|value| value.is_finite())
+        .ok_or_else(|| String::from("FileResponse file.mtime_seconds must be finite"))?;
+    let mtime_text = python_float_text_for_input(mtime_number);
+
+    let status_code = case
+        .get("status_code")
+        .and_then(Value::as_u64)
+        .and_then(|value| u16::try_from(value).ok())
+        .ok_or_else(|| {
+            String::from("FileResponse status_code must be an unsigned 16-bit integer")
+        })?;
+    let header_pairs = case
+        .get("header_pairs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("FileResponse header_pairs must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, pair)| {
+            let pair = pair
+                .as_array()
+                .filter(|pair| pair.len() == 2)
+                .ok_or_else(|| format!("FileResponse header_pairs[{index}] must be a pair"))?;
+            let name = pair[0].as_str().ok_or_else(|| {
+                format!("FileResponse header_pairs[{index}] name must be a string")
+            })?;
+            let value = pair[1].as_str().ok_or_else(|| {
+                format!("FileResponse header_pairs[{index}] value must be a string")
+            })?;
+            Ok((name.to_owned(), value.to_owned()))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let media_type = match case.get("media_type") {
+        Some(Value::Null) => None,
+        Some(Value::String(media_type)) => Some(media_type.clone()),
+        _ => {
+            return Err(String::from(
+                "FileResponse media_type must be a string or null",
+            ));
+        }
+    };
+    let filename = match case.get("filename") {
+        Some(Value::Null) => None,
+        Some(Value::String(filename)) => Some(filename.clone()),
+        _ => {
+            return Err(String::from(
+                "FileResponse filename must be a string or null",
+            ));
+        }
+    };
+
+    let (scope, pathsend_extension) = validated_file_response_scope(
+        case.get("scope")
+            .ok_or_else(|| String::from("FileResponse asgi-call scope is missing"))?,
+    )?;
+    let request_headers = parse_scope_request_headers(&scope, "FileResponse HTTP scope")?;
+    let method = string_field(&scope, "method", "FileResponse HTTP scope")?;
+
+    let (temporary_directory, path) = create_file_response_input(file_name, &contents)?;
+    let metadata = FileMetadata::from_unix_seconds(
+        u64::try_from(contents.len()).map_err(|error| error.to_string())?,
+        mtime_number,
+        mtime_text,
+    )
+    .map_err(|error| error.to_string())?;
+    let response = NativeFileResponse::new(
+        path.clone(),
+        path.to_string_lossy().into_owned(),
+        status_code,
+        &header_pairs,
+        FileResponseOptions {
+            media_type,
+            filename,
+            stat_override: Some(metadata),
+            ..FileResponseOptions::default()
+        },
+    )
+    .map_err(|error| error.to_string())?;
+    let mut call = response
+        .call_state("http", method, &request_headers, pathsend_extension, false)
+        .map_err(|error| error.to_string())?;
+
+    let mut response_status = None;
+    let mut ordered_headers = Vec::new();
+    let mut response_bytes = Vec::new();
+    let mut events = Vec::new();
+    loop {
+        match call.step().map_err(|error| error.to_string())? {
+            FileResponseCallStep::Send(event) => {
+                match &event {
+                    FileResponseEvent::Start {
+                        status_code,
+                        headers,
+                    } => {
+                        response_status = Some(*status_code);
+                        ordered_headers = canonical_headers(headers);
+                    }
+                    FileResponseEvent::Body { body, .. } => {
+                        response_bytes.extend_from_slice(body);
+                    }
+                    FileResponseEvent::Pathsend { .. } => {}
+                }
+                events.push(canonical_file_response_event(event));
+                call.advance(FileResponseCallInput::<String>::Send(Ok(())))
+                    .map_err(|error| format!("FileResponse send transition failed: {error:?}"))?;
+            }
+            FileResponseCallStep::RunBackground => {
+                return Err(String::from(
+                    "FileResponse adapter has no background callback to execute",
+                ));
+            }
+            FileResponseCallStep::Complete => break,
+            FileResponseCallStep::Failed => {
+                return Err(String::from("FileResponse call reached a failed state"));
+            }
+        }
+    }
+    drop(temporary_directory);
+
+    let event_order = events
+        .iter()
+        .filter_map(|event| event.get("type").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": RESPONSE_OPERATION,
+            "status": "ok",
+            "value": {
+                "response_status": response_status,
+                "ordered_repeated_headers": ordered_headers,
+                "response_bytes": {
+                    "encoding": "base64",
+                    "data": encode_base64(&response_bytes),
+                },
+                "asgi_event_order": event_order,
+                "asgi_events": events,
+            },
+        }],
+    }))
+}
+
+fn create_file_response_input(
+    file_name: &str,
+    contents: &[u8],
+) -> Result<(FileResponseTempDirectory, PathBuf), String> {
+    let temporary_root = env::temp_dir();
+    for _ in 0..128 {
+        let sequence = NEXT_FILE_RESPONSE_TEMP.fetch_add(1, Ordering::Relaxed);
+        let directory = temporary_root.join(format!(
+            "starlette-rs-parity-file-{}-{sequence}",
+            std::process::id()
+        ));
+        match fs::create_dir(&directory) {
+            Ok(()) => {
+                let guard = FileResponseTempDirectory(directory);
+                let path = guard.0.join(file_name);
+                fs::write(&path, contents).map_err(|error| {
+                    format!("cannot materialize FileResponse input file: {error}")
+                })?;
+                return Ok((guard, path));
+            }
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+            Err(error) => {
+                return Err(format!(
+                    "cannot create isolated FileResponse input directory: {error}"
+                ));
+            }
+        }
+    }
+    Err(String::from(
+        "cannot allocate an isolated FileResponse input directory",
+    ))
+}
+
+fn python_float_text_for_input(value: f64) -> String {
+    let mut text = value.to_string();
+    if !text.contains('.') && !text.contains('e') && !text.contains('E') {
+        text.push_str(".0");
+    }
+    text
 }
 
 fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
@@ -3328,6 +3658,33 @@ fn canonical_response_event(event: ResponseEvent) -> Value {
         ResponseEvent::Body { body } => json!({
             "type": "http.response.body",
             "body": {"encoding": "base64", "data": encode_base64(&body)},
+        }),
+    }
+}
+
+fn canonical_file_response_event(event: FileResponseEvent) -> Value {
+    match event {
+        FileResponseEvent::Start {
+            status_code,
+            headers,
+        } => json!({
+            "type": "http.response.start",
+            "status": status_code,
+            "headers": canonical_headers(&headers),
+        }),
+        FileResponseEvent::Body { body, more_body } => {
+            let mut event = json!({
+                "type": "http.response.body",
+                "body": {"encoding": "base64", "data": encode_base64(&body)},
+            });
+            if let Some(more_body) = more_body {
+                event["more_body"] = json!(more_body);
+            }
+            event
+        }
+        FileResponseEvent::Pathsend { path } => json!({
+            "type": "http.response.pathsend",
+            "path": path,
         }),
     }
 }

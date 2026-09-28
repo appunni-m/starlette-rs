@@ -17,6 +17,7 @@ mod application;
 mod asgi;
 mod connection;
 mod exception_handlers;
+mod file_response;
 mod gzip;
 mod lifespan;
 mod request;
@@ -32,6 +33,10 @@ pub use application::{
 pub use asgi::{AsgiScopeKind, classify_scope};
 pub use connection::{ConnectionUrlError, connection_url};
 pub use exception_handlers::ExceptionHandlerTable;
+pub use file_response::{
+    FileMetadata, FileResponse, FileResponseCall, FileResponseCallError, FileResponseCallInput,
+    FileResponseCallStep, FileResponseError, FileResponseEvent, FileResponseOptions,
+};
 pub use gzip::{
     DEFAULT_EXCLUDED_CONTENT_TYPES, GzipBodyOutput, GzipCompressionError, GzipCompressor,
     GzipConfig, GzipHeader, GzipResponder, GzipResponseStart,

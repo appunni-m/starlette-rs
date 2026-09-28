@@ -152,6 +152,16 @@
       ]
     },
     {
+      "surface_id": "starlette.responses.FileResponse",
+      "source_path": "starlette/responses.py:296",
+      "operations": [
+        {
+          "operation_id": "asgi-call",
+          "source_path": "starlette.responses.FileResponse.__call__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.responses.StreamingResponse",
       "source_path": "starlette/responses.py:222",
       "operations": [

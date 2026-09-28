@@ -52,3 +52,11 @@ bundled zlib source carries its own zlib license. The exact native library
 selected for each wheel build must be identified and its notice included in
 that artifact. See the versioned feature and backend notes in
 [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md).
+
+The Rust `FileResponse` path also depends on `getrandom` 0.4.3 (MIT OR
+Apache-2.0), `httpdate` 1.0.3 (MIT OR Apache-2.0), `md-5` 0.11.0 (MIT OR
+Apache-2.0), and `mime_guess` 2.0.5 (MIT). Their locked metadata and roles are
+listed in [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). MD5 is used only to
+match Starlette's existing ETag format; it is not used as a security check.
+Inspect the resolved crate license files and include the required notices in
+release artifacts.

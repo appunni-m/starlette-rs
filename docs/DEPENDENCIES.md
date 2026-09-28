@@ -107,6 +107,21 @@ release clearance.
 - [`flate2` 1.1.10 manifest and feature definitions](https://docs.rs/crate/flate2/1.1.10)
 - [`libz-sys` 1.1.29 backend and licensing notes](https://docs.rs/crate/libz-sys/1.1.29)
 
+## Rust file-response helpers
+
+| Crate | Locked version | Feature / role | License and compatibility note |
+| --- | --- | --- | --- |
+| `getrandom` | `0.4.3` | System random source for 104-bit multipart range boundaries | MIT OR Apache-2.0; declared Rust 1.85 MSRV |
+| `httpdate` | `1.0.3` | HTTP IMF-fixdate formatting for `Last-Modified` | MIT OR Apache-2.0; declared Rust 1.56 MSRV |
+| `md-5` | `0.11.0` | MD5 ETag compatibility with Starlette's existing validator format | MIT OR Apache-2.0; declared Rust 1.85 MSRV; used only for legacy interoperability |
+| `mime_guess` | `2.0.5` | Static file-extension content-type lookup | MIT; no `rust-version` is declared; its MIME mapping may change in patch releases |
+
+The active Rust toolchain successfully resolves and checks these locked
+versions at the workspace's Rust 1.85 minimum. File-response parity currently
+uses the pinned mapping for declared fixture extensions. Python's platform
+`mimetypes` database can differ from this static map, so unsupported extension
+equivalence remains a compatibility boundary to cover before a release.
+
 - Keep Pydantic and FastAPI outside this package.
 - Keep Rust core dependencies separate from Python runtime and build
   dependencies. Pin features and native components explicitly before a crate

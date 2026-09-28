@@ -11,8 +11,10 @@ import functools
 import hashlib
 import inspect
 import json
+import math
 import os
 import platform
+import stat
 import subprocess
 import sys
 import tempfile
@@ -47,6 +49,7 @@ REDIRECT_RESPONSE_OPERATION = "asgi-call"
 RESPONSE_SURFACE = "starlette.responses.Response"
 JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
 STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
+FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 BODY_LIMIT_SURFACE = "starlette.middleware.body_limit.RequestBodyLimitMiddleware"
@@ -353,6 +356,8 @@ def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
         scope["method"] = spec["method"]
     elif spec["type"] == "websocket":
         scope["subprotocols"] = list(spec["subprotocols"])
+    if "extensions" in spec:
+        scope["extensions"] = dict(spec["extensions"])
     return scope
 
 
@@ -2529,6 +2534,176 @@ def _run_redirect_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "file",
+            "status_code",
+            "header_pairs",
+            "media_type",
+            "filename",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        },
+        "FileResponse asgi-call case",
+    )
+    if case["surface"] != FILE_RESPONSE_SURFACE or case["operation"] != RESPONSE_OPERATION:
+        raise ValueError("workflow is outside the declared FileResponse asgi-call operation")
+    if case["observations"] != [RESPONSE_OPERATION]:
+        raise ValueError("FileResponse observations must select asgi-call")
+
+    file_spec = _strict_object(
+        case["file"], {"name", "contents_base64", "mtime_seconds"}, "FileResponse file"
+    )
+    name = file_spec["name"]
+    encoded_contents = file_spec["contents_base64"]
+    mtime_seconds = file_spec["mtime_seconds"]
+    if (
+        not isinstance(name, str)
+        or not name
+        or name in {".", ".."}
+        or "/" in name
+        or "\\" in name
+        or Path(name).name != name
+    ):
+        raise ValueError("FileResponse file.name must be a basename")
+    if not isinstance(encoded_contents, str):
+        raise ValueError("FileResponse file.contents_base64 must be a string")
+    if type(mtime_seconds) not in {int, float} or not math.isfinite(mtime_seconds):
+        raise ValueError("FileResponse file.mtime_seconds must be a finite number")
+    contents = _decode_b64(encoded_contents, "file.contents_base64")
+
+    if type(case["status_code"]) is not int:
+        raise ValueError("FileResponse status_code must be an integer")
+    header_pairs = case["header_pairs"]
+    if not isinstance(header_pairs, list) or any(
+        not isinstance(pair, list)
+        or len(pair) != 2
+        or any(not isinstance(part, str) for part in pair)
+        for pair in header_pairs
+    ):
+        raise ValueError("FileResponse header_pairs must be string pairs")
+    media_type = case["media_type"]
+    filename = case["filename"]
+    if media_type is not None and not isinstance(media_type, str):
+        raise ValueError("FileResponse media_type must be a string or null")
+    if filename is not None and not isinstance(filename, str):
+        raise ValueError("FileResponse filename must be a string or null")
+
+    scope_spec = case["scope"]
+    scope_keys = {
+        "type",
+        "asgi",
+        "http_version",
+        "method",
+        "scheme",
+        "path",
+        "raw_path_base64",
+        "query_string_base64",
+        "root_path",
+        "headers_base64_pairs",
+        "client",
+        "server",
+    }
+    if isinstance(scope_spec, dict) and "extensions" in scope_spec:
+        scope_keys.add("extensions")
+    _strict_object(scope_spec, scope_keys, "FileResponse HTTP scope")
+    if scope_spec["type"] != "http":
+        raise ValueError("FileResponse ASGI-call requires an HTTP scope")
+    if "extensions" in scope_spec:
+        extensions = scope_spec["extensions"]
+        if not isinstance(extensions, dict) or any(
+            key != "http.response.pathsend" for key in extensions
+        ):
+            raise ValueError("FileResponse scope.extensions may only declare pathsend")
+    if not isinstance(case["incoming"], list) or case["incoming"]:
+        raise ValueError("FileResponse ASGI-call requires an empty incoming stream")
+    if case["send"] != {"kind": "capture-asgi-send"}:
+        raise ValueError("send input must select the declared ASGI message collector")
+
+    from starlette.responses import FileResponse
+
+    with tempfile.TemporaryDirectory(prefix="starlette-file-response-") as directory:
+        path = Path(directory) / name
+        path.write_bytes(contents)
+        stat_result = os.stat_result(
+            (
+                stat.S_IFREG | 0o644,
+                0,
+                0,
+                1,
+                0,
+                0,
+                len(contents),
+                mtime_seconds,
+                mtime_seconds,
+                mtime_seconds,
+            )
+        )
+        response = FileResponse(
+            path,
+            status_code=case["status_code"],
+            headers=dict(header_pairs),
+            media_type=media_type,
+            filename=filename,
+            stat_result=stat_result,
+        )
+        scope = _make_scope(scope_spec)
+        sent: list[dict[str, Any]] = []
+
+        async def receive() -> dict[str, Any]:
+            return {"type": "http.disconnect"}
+
+        async def send(message: dict[str, Any]) -> None:
+            sent.append(message)
+
+        asyncio.run(response(scope, receive, send))
+        events = [_canonical_message(message) for message in sent]
+        response_start = next(
+            (message for message in sent if message["type"] == "http.response.start"), None
+        )
+        response_start_event = next(
+            (event for event in events if event["type"] == "http.response.start"), None
+        )
+        response_body = b"".join(
+            message.get("body", b"")
+            for message in sent
+            if message["type"] == "http.response.body"
+        )
+        observation = {
+            "response_status": response_start["status"] if response_start is not None else None,
+            "ordered_repeated_headers": (
+                response_start_event["headers"] if response_start_event is not None else []
+            ),
+            "response_bytes": (
+                {
+                    "encoding": "base64",
+                    "data": base64.b64encode(response_body).decode("ascii"),
+                }
+                if response_start is not None
+                else None
+            ),
+            "asgi_event_order": [event["type"] for event in events],
+            "asgi_events": events,
+        }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}
+        ],
+    }
+
+
 def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     surface = case.get("surface")
     required_fields = {
@@ -3594,6 +3769,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == REDIRECT_RESPONSE_OPERATION
     ):
         return _run_redirect_response_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == FILE_RESPONSE_SURFACE
+        and case.get("operation") == RESPONSE_OPERATION
+    ):
+        return _run_file_response_case(case)
     if isinstance(case, dict) and case.get("surface") in {
         RESPONSE_SURFACE,
         JSON_RESPONSE_SURFACE,

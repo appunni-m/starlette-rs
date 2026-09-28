@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterable, Callable, Iterable, Mapping
 from typing import Any
 
@@ -85,6 +86,60 @@ class StreamingResponse(Response):
 
     def set_cookie(self, key: str, value: str) -> None:
         """Append a cookie header before the stream begins."""
+        self._inner.set_cookie(key, value)
+
+    async def __call__(
+        self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
+    ) -> None:
+        await self._inner.asgi_call(scope, receive, send, self.background)
+
+
+class FileResponse(Response):
+    """Stream a file using the Rust-owned response and range implementation."""
+
+    __slots__ = (
+        "_inner",
+        "background",
+        "filename",
+        "media_type",
+        "path",
+        "stat_result",
+        "status_code",
+    )
+    chunk_size = 64 * 1024
+    max_ranges = 100
+
+    def __init__(
+        self,
+        path: str | os.PathLike[str],
+        status_code: int = 200,
+        headers: Mapping[str, str] | None = None,
+        media_type: str | None = None,
+        background: Any = None,
+        filename: str | None = None,
+        stat_result: os.stat_result | None = None,
+        content_disposition_type: str = "attachment",
+    ) -> None:
+        self.path = path
+        self.status_code = status_code
+        self.filename = filename
+        self.background = background
+        self.stat_result = stat_result
+        self._inner = _core.FileResponse(
+            path,
+            status_code,
+            headers,
+            media_type,
+            filename,
+            stat_result,
+            content_disposition_type,
+            self.chunk_size,
+            self.max_ranges,
+        )
+        self.media_type = self._inner.media_type
+
+    def set_cookie(self, key: str, value: str) -> None:
+        """Append a cookie header before the file response starts."""
         self._inner.set_cookie(key, value)
 
     async def __call__(

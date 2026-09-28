@@ -16,6 +16,7 @@ mod cors_runtime;
 mod datastructure_runtime;
 mod endpoint_runtime;
 mod exception_values;
+mod file_response_runtime;
 mod gzip_runtime;
 mod host_middleware_runtime;
 mod middleware_config_runtime;
@@ -936,6 +937,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     host_middleware_runtime::register(module)?;
     path_convertors_runtime::register(module)?;
     request_runtime::register(module)?;
+    file_response_runtime::register(module)?;
     router_runtime::register(module)?;
     gzip_runtime::register(module)?;
     server_error_runtime::register(module)?;

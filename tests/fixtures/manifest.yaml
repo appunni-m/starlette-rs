@@ -262,7 +262,8 @@
       "build/parity/inputs/parity/cors-middleware.json",
       "build/parity/inputs/parity/host-middleware.json",
       "build/parity/inputs/parity/config-runtime.json",
-      "build/parity/inputs/parity/schemas-runtime.json"
+      "build/parity/inputs/parity/schemas-runtime.json",
+      "build/parity/inputs/parity/file-response.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -5018,6 +5019,348 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only response correctness slice declares no benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.responses.FileResponse",
+      "kind": "type",
+      "source_path": "starlette/responses.py:296",
+      "storage_slug": "starlette-responses-FileResponse",
+      "operations": [
+        {
+          "id": "asgi-call",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.responses.FileResponse.__call__",
+            "signature": "FileResponse(path, status_code=200, headers=None, media_type=None, background=None, filename=None, stat_result=None, content_disposition_type='attachment'); async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "path",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "path"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "status_code",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "integer"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": 200
+                }
+              },
+              {
+                "id": "headers",
+                "style": "keyword",
+                "value_types": [
+                  "mapping",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "media_type",
+                "style": "keyword",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "background",
+                "style": "keyword",
+                "value_types": [
+                  "handle",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "filename",
+                "style": "keyword",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "stat_result",
+                "style": "keyword",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "content_disposition_type",
+                "style": "keyword",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": "attachment"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                },
+                {
+                  "path": "asgi_event_order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::FileResponse::new",
+              "signature": "FileResponse::new(path, display_path, status_code, ordered_headers, FileResponseOptions) -> Result<FileResponse, FileResponseError>; FileResponse::call_state(scope_type, method, request_headers, pathsend_extension, has_background) -> Result<FileResponseCall, FileResponseError>",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.responses.FileResponse",
+              "signature": "FileResponse(path, status_code=200, headers=None, media_type=None, background=None, filename=None, stat_result=None, content_disposition_type='attachment'); async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.get",
+              "dimension": "success_path",
+              "description": "Construct a file response with deterministic file bytes and stat metadata and observe the complete direct HTTP GET response. Upstream: starlette/responses.py::FileResponse.__call__; tests/test_responses.py::test_file_response_without_range.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.head",
+              "dimension": "parameter_combination",
+              "description": "Send the deterministic file response through a direct HTTP HEAD scope and observe headers plus the empty body event. Upstream: starlette/responses.py::FileResponse.__call__; tests/test_responses.py::test_file_response_head.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-206",
+              "dimension": "success_path",
+              "description": "Request one bounded byte range and observe the 206 response headers, body bytes, and event sequence. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.if-range-match",
+              "dimension": "parameter_combination",
+              "description": "Request a byte range with an If-Range validator matching the deterministic file metadata ETag. Upstream: starlette/responses.py::FileResponse._should_use_range; tests/test_responses.py::test_file_response_with_range_header.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.if-range-mismatch",
+              "dimension": "parameter_combination",
+              "description": "Request a byte range with a non-matching If-Range validator and observe the full response. Upstream: starlette/responses.py::FileResponse._should_use_range; tests/test_responses.py::test_file_response_range_multi_head.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.malformed-range-400",
+              "dimension": "error_path",
+              "description": "Submit a byte-range unit the implementation does not support and observe its live 400 plain-text response. Upstream: starlette/responses.py::MalformedRangeHeader; tests/test_responses.py::test_file_response_only_support_bytes_range.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.unsatisfiable-range-416",
+              "dimension": "error_path",
+              "description": "Request a byte range beyond the deterministic file size and observe the 416 Content-Range response. Upstream: starlette/responses.py::RangeNotSatisfiable; tests/test_responses.py::test_file_response_range_416.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.unicode-filename",
+              "dimension": "parameter_combination",
+              "description": "Serve the deterministic file with a Unicode download filename and observe its encoded Content-Disposition header. Upstream: starlette/responses.py::FileResponse.__init__; tests/test_responses.py::test_file_response_with_chinese_filename.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded FileResponse input slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only FileResponse correctness slice declares no benchmark workload."
           }
         }
       ]
