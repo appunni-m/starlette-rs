@@ -17,21 +17,21 @@ The matrix has 789 mappings: 703 fixture backlog rows, 50 reasoned
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
-untested. The active manifest indexes 18 parity input files containing 116
+untested. The active manifest indexes 18 parity input files containing 117
 cases, including 38 request/routing, 21 reverse-URL, four direct ASGI, eight
-basic Response/JSONResponse, three finite StreamingResponse, four RedirectResponse, eight GZip, six WebSocket
+basic Response/JSONResponse, four finite StreamingResponse, four RedirectResponse, eight GZip, six WebSocket
 protocol-tape, six WebSocket state-projection, five Request-style
 HTTPException, two callable-ASGI HTTPException, two registered-handler, and
 nine server-error workflows. Built-in Router
 converter cases select both profiles; typed Request, reverse URL, custom
 converter, and full WebSocket protocol cases select the Python package. Mount
 dispatch cases select both profiles, with Rust-native explicitly unsupported.
-The latest run `ca7e0adc-e449-4f0a-92fe-9d48211e1041`, finished at
-`2026-09-28T11:18:31.918Z`, selected 178 comparisons: 172 passed, zero failed,
-six `not_run`, and zero infrastructure errors. All 116 package comparisons
-passed; Rust-native passed 56 of 62. Its six `not_run` cases are four
+The latest run `85e21be2-b9ce-44b7-bbe1-ab86b0a587dc`, finished at
+`2026-09-28T11:33:04.955Z`, selected 180 comparisons: 174 passed, zero failed,
+six `not_run`, and zero infrastructure errors. All 117 package comparisons
+passed; Rust-native passed 57 of 63. Its six `not_run` cases are four
 Python-callable boundaries and two Mount cases. All six slash-redirect, four
-RedirectResponse, eight basic Response/JSONResponse, and three finite
+RedirectResponse, eight basic Response/JSONResponse, and four finite
 StreamingResponse cases passed on both profiles; all 21 reverse-URL cases
 passed on the Python package, and no named Rust-native route API is claimed.
 Target identities were dirty local trees, so the run is not clean aggregate or
@@ -81,22 +81,22 @@ The active input set is
 [`redirect-response.yaml`](../../tests/fixtures/sources/parity/redirect-response.yaml),
 [`responses-basic.yaml`](../../tests/fixtures/sources/parity/responses-basic.yaml),
 and [`streaming-response.yaml`](../../tests/fixtures/sources/parity/streaming-response.yaml).
-The manifest contains 116 cases across 18 files: four direct ASGI cases (`GET
+The manifest contains 117 cases across 18 files: four direct ASGI cases (`GET
 /hello` with lifespan, `GET /missing`, `POST /hello`, and a public slash
-redirect); eight basic Response/JSONResponse cases; three finite
+redirect); eight basic Response/JSONResponse cases; four finite
 StreamingResponse cases; four RedirectResponse cases; 38 request/routing cases covering Request dispatch, built-in
 converters, typed path values, slash redirects, Mount, and `WebSocketRoute`;
 21 reverse-URL cases; six WebSocket protocol-tape cases; six WebSocket
 state-projection cases; eight `GZipMiddleware` cases; five Request-style
 HTTPException cases; two callable-ASGI HTTPException cases; two
 registered-handler cases; and nine server-error cases. The latest run
-`ca7e0adc-e449-4f0a-92fe-9d48211e1041`, finished at
-`2026-09-28T11:18:31.918Z`, selected 178 comparisons: 172 executed and passed,
+`85e21be2-b9ce-44b7-bbe1-ab86b0a587dc`, finished at
+`2026-09-28T11:33:04.955Z`, selected 180 comparisons: 174 executed and passed,
 zero failed, six Rust-native rows were `not_run`, and there were zero
-infrastructure errors. All 116 Python-package cases passed; Rust-native passed
-56 of 62 selected comparisons. The six `not_run` cases cover four
+infrastructure errors. All 117 Python-package cases passed; Rust-native passed
+57 of 63 selected comparisons. The six `not_run` cases cover four
 Python-callable forms and two Mount cases. All six slash-redirect, four
-RedirectResponse, eight basic Response/JSONResponse, three finite
+RedirectResponse, eight basic Response/JSONResponse, four finite
 StreamingResponse, all 21 reverse-URL, and all 21 WebSocket comparisons passed.
 Target identities were dirty local trees, so the run is not clean aggregate or
 release proof. The

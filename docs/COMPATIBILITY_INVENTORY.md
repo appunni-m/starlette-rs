@@ -17,32 +17,32 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 116 input-only cases across 18 files: 38
+The active parity manifest indexes 117 input-only cases across 18 files: 38
 request/routing cases, 21 reverse-URL cases, four direct Starlette ASGI cases,
 eight basic Response/JSONResponse ASGI-call cases, eight GZip cases, six full
 WebSocket protocol-tape cases, six projected WebSocket state cases, five
 Request-style HTTPException cases, two callable-ASGI HTTPException cases, two
 registered-handler cases, nine server-error cases, four direct RedirectResponse
-ASGI-call cases, and three finite StreamingResponse ASGI-call cases. The
+ASGI-call cases, and four finite StreamingResponse ASGI-call cases. The
 protocol-tape, reverse-URL, and Request cases select the Python-package
 profile. Built-in Router, slash-redirect, RedirectResponse, Response,
 StreamingResponse, and JSONResponse cases select both profiles; Mount cases
 also select both, with their Rust-native rows declared unsupported. The six
 state-sequence cases select both profiles. The four direct RedirectResponse,
-all eight direct Response/JSONResponse, and three finite StreamingResponse
-cases were included in the latest run; all 30 source-to-target comparisons
-passed. Run `ca7e0adc-e449-4f0a-92fe-9d48211e1041`, finished at
-`2026-09-28T11:18:31.918Z`, selected 178 comparisons: 172 passed, zero failed,
-six were `not_run`, and there were zero infrastructure errors. All 116
-Python-package cases passed. Rust-native passed 56 of 62 selected cases; the
+all eight direct Response/JSONResponse, and four finite StreamingResponse
+cases were included in the latest run; all 32 source-to-target comparisons
+passed. Run `85e21be2-b9ce-44b7-bbe1-ab86b0a587dc`, finished at
+`2026-09-28T11:33:04.955Z`, selected 180 comparisons: 174 passed, zero failed,
+six were `not_run`, and there were zero infrastructure errors. All 117
+Python-package cases passed. Rust-native passed 57 of 63 selected cases; the
 remaining six rows are unsupported Python-callable and Mount boundaries. All
 21 reverse-URL cases and all 21 selected WebSocket comparisons passed. The six
 native `not_run` rows make `run` exit with status 2, so the all-target gate
 remains incomplete. Target identities were dirty local trees; this run is not
 clean aggregate or release proof. The manifest SHA-256 is
-`f5fc3dfa95ee75b241e827dce517becb6ae48aea43e95cdd3abde570a9514f29`; the
+`2ee1ab35646c0c711edf02dea3b695cdd86a6ab2db935f407c8c4e2413e947bb`; the
 target wheel SHA-256 is
-`c06dbe2322cbdad2c50736d44c00e0b127cd8eec6bd093a10e2d5028daf88fb6`. The two
+`959dd2d85e76a040576c0868026848bf82ace1f2692272a1cb20e9d5f05ee6a2`. The two
 registered-handler inputs in
 [`asgi-exception-handlers.yaml`](../tests/fixtures/sources/parity/asgi-exception-handlers.yaml)
 exercise status-code precedence over an `HTTPException` class handler and an
@@ -131,12 +131,12 @@ outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
 crosswalk snapshot, 36 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
-The active manifest separately indexes 18 parity input files with 116 cases:
+The active manifest separately indexes 18 parity input files with 117 cases:
 38 request/routing cases (including async and synchronous Request endpoints,
 a callable-instance ASGI route, slash redirects, and three `WebSocketRoute`
 dispatch cases), 21 reverse-URL cases, four direct ASGI cases for `/hello`,
 `/missing`, the wrong method, and a public slash redirect, eight basic
-`Response`/`JSONResponse` ASGI-call cases, three finite
+`Response`/`JSONResponse` ASGI-call cases, four finite
 `StreamingResponse` ASGI-call cases, eight `GZipMiddleware` cases, four direct
 `RedirectResponse` ASGI-call cases, six full WebSocket protocol-tape
 cases, six projected WebSocket state cases, five Request-style HTTPException
@@ -244,7 +244,7 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 116 currently indexed cases and
+The backlog distinguishes that work from the 117 currently indexed cases and
 the 703-row atlas backlog snapshot
 in [`PRIORITIZED_BACKLOG.md`](atlas/PRIORITIZED_BACKLOG.md).
 

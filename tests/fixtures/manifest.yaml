@@ -4299,6 +4299,18 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.binary-chunk",
+              "dimension": "input_family",
+              "description": "Pass one finite synchronous bytes chunk, defined as base64 input, through StreamingResponse and observe its exact ASGI body bytes. The pinned source passes bytes chunks through; the adjacent test_streaming_response_memoryview covers memoryview chunks but there is no dedicated raw-bytes test. Upstream source: starlette/responses.py::StreamingResponse.stream_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

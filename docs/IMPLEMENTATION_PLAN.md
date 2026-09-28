@@ -23,11 +23,11 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 116 input-only cases and 120 parity requirements
-across 18 indexed files. Latest integrated run `ca7e0adc-e449-4f0a-92fe-9d48211e1041`,
-finished at `2026-09-28T11:18:31.918Z`, selected 178 comparisons: 172 passed,
-zero failed, zero infrastructure errors, and six `not_run`. All 116
-Python-package cases passed; Rust-native passed 56 of 62 selected comparisons.
+The current parity contract has 117 input-only cases and 121 parity requirements
+across 18 indexed files. Latest integrated run `85e21be2-b9ce-44b7-bbe1-ab86b0a587dc`,
+finished at `2026-09-28T11:33:04.955Z`, selected 180 comparisons: 174 passed,
+zero failed, zero infrastructure errors, and six `not_run`. All 117
+Python-package cases passed; Rust-native passed 57 of 63 selected comparisons.
 The six unsupported Rust-native rows keep the all-target gate incomplete.
 
 ## 1. Decide the Python/Rust boundary
@@ -231,11 +231,14 @@ latest full run is summarized in section 3.
 
 ### Completed bounded goal: finite `StreamingResponse` output
 
-Three input-only cases cover finite synchronous text chunks: omitted generated
-`Content-Length`, preservation of a caller-supplied content length, and
-`text/plain` framing with per-chunk ASGI events. All six pinned-source versus
-target comparisons passed in run `ca7e0adc-e449-4f0a-92fe-9d48211e1041` across
-the installed Python package and Rust-native profile. This evidence does not
+Four input-only cases cover finite synchronous text and byte chunks: omitted
+generated `Content-Length`, preservation of a caller-supplied content length,
+`text/plain` framing with per-chunk ASGI events, and byte pass-through. All
+eight target comparisons passed in run
+`85e21be2-b9ce-44b7-bbe1-ab86b0a587dc` against the pinned source, installed
+Python package, and Rust-native profile. The byte case is supported by the
+pinned source pass-through branch; upstream has no dedicated raw-bytes test.
+This evidence does not
 establish lazy iteration, backpressure, asynchronous iterator lifecycle,
 disconnect handling, background tasks, or memoryview type parity.
 

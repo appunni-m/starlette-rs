@@ -1727,12 +1727,16 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     content = _exact(case["content"], {"kind", "value"}, "StreamingResponse content")
     if content["kind"] != "chunks" or not isinstance(content["value"], list):
         raise ContractError("StreamingResponse content must contain an array of chunks")
-    chunks: list[str] = []
+    chunks: list[tuple[str, str]] = []
     for index, chunk in enumerate(content["value"]):
         chunk = _exact(chunk, {"kind", "value"}, f"StreamingResponse content[{index}]")
-        if chunk["kind"] != "text":
-            raise ContractError("StreamingResponse chunks must be text in this input slice")
-        chunks.append(_string(chunk["value"], f"StreamingResponse content[{index}].value"))
+        if not isinstance(chunk["kind"], str) or chunk["kind"] not in {
+            "text",
+            "base64-bytes",
+        }:
+            raise ContractError("StreamingResponse chunks must be text or base64 bytes")
+        value = _string(chunk["value"], f"StreamingResponse content[{index}].value")
+        chunks.append((chunk["kind"], value))
 
     headers = case["header_pairs"]
     if not isinstance(headers, list) or any(
@@ -1748,9 +1752,24 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
 
     stimulus = (tuple(chunks), tuple(tuple(pair) for pair in headers), media_type)
     allowed = {
-        (("hello", "world"), (), None),
-        (("hello", "world"), (("content-length", "10"),), None),
-        (("1", ", ", "2", ", ", "3", ", ", "4", ", ", "5"), (), "text/plain"),
+        ((("text", "hello"), ("text", "world")), (), None),
+        ((("text", "hello"), ("text", "world")), (("content-length", "10"),), None),
+        (
+            (
+                ("text", "1"),
+                ("text", ", "),
+                ("text", "2"),
+                ("text", ", "),
+                ("text", "3"),
+                ("text", ", "),
+                ("text", "4"),
+                ("text", ", "),
+                ("text", "5"),
+            ),
+            (),
+            "text/plain",
+        ),
+        ((("base64-bytes", "AP8B"),), (), None),
     }
     if stimulus not in allowed:
         raise ContractError("StreamingResponse chunks and headers are outside this input slice")

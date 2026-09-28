@@ -1806,9 +1806,17 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             chunk_spec = _exact_object(
                 chunk_spec, {"kind", "value"}, f"StreamingResponse content chunk[{index}]"
             )
-            if chunk_spec["kind"] != "text" or not isinstance(chunk_spec["value"], str):
-                raise ValueError("StreamingResponse chunks must be strings in this input slice")
-            chunk = chunk_spec["value"]
+            if chunk_spec["kind"] == "text":
+                chunk = chunk_spec["value"]
+                if not isinstance(chunk, str):
+                    raise ValueError("StreamingResponse text chunks must be strings")
+            elif chunk_spec["kind"] == "base64-bytes":
+                encoded_chunk = chunk_spec["value"]
+                if not isinstance(encoded_chunk, str):
+                    raise ValueError("StreamingResponse base64-bytes chunks must be strings")
+                chunk = _decode_base64(encoded_chunk, f"content.value[{index}].value")
+            else:
+                raise ValueError("StreamingResponse chunks must be text or base64-bytes")
             content.append(chunk)
         streaming = case["streaming"]
         if streaming != "sync":

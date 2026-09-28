@@ -25,9 +25,9 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The active parity manifest indexes 116 input-only cases
+active and incomplete. The active parity manifest indexes 117 input-only cases
 across 18 files: 38 request/routing cases, 21 reverse-URL cases, four direct
-Starlette ASGI cases, eight basic Response/JSONResponse ASGI-call cases, three
+Starlette ASGI cases, eight basic Response/JSONResponse ASGI-call cases, four
 finite StreamingResponse ASGI-call cases, four RedirectResponse ASGI-call cases,
 eight GZip cases, six full WebSocket
 protocol-tape cases, six projected WebSocket state cases, five Request-style
@@ -38,13 +38,13 @@ profiles; RedirectResponse, Response, StreamingResponse, and JSONResponse
 cases also select both.
 Mount cases select both with Rust-native explicitly unsupported. Projected
 state cases select both profiles. The latest integrated run
-`ca7e0adc-e449-4f0a-92fe-9d48211e1041`, finished at
-`2026-09-28T11:18:31.918Z`, selected 178 comparisons: 172 passed, zero failed,
+`85e21be2-b9ce-44b7-bbe1-ab86b0a587dc`, finished at
+`2026-09-28T11:33:04.955Z`, selected 180 comparisons: 174 passed, zero failed,
 six Rust-native rows were `not_run`, and there were zero infrastructure errors.
-All 116 Python-package cases passed; Rust-native passed 56 of 62 selected
+All 117 Python-package cases passed; Rust-native passed 57 of 63 selected
 cases. The six `not_run` rows are unsupported Python-callable and Mount
 boundaries. All six slash-redirect, four RedirectResponse, all eight basic
-Response/JSONResponse, and all three finite StreamingResponse cases passed on
+Response/JSONResponse, and all four finite StreamingResponse cases passed on
 both profiles. All 21 reverse-URL and all 21 selected WebSocket comparisons
 passed. The six native `not_run` rows
 cause `run` to exit with status 2, so the all-target gate remains incomplete.

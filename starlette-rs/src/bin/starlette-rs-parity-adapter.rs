@@ -972,10 +972,17 @@ fn run_streaming_response_case(case: &Value) -> Result<Value, String> {
     for (index, chunk_value) in chunk_values.iter().enumerate() {
         let context = format!("StreamingResponse chunks.value[{index}]");
         let chunk = exact_object(chunk_value, &["kind", "value"], &context)?;
-        if string_field(chunk, "kind", &context)? != "text" {
-            return Err(format!("{context}.kind must be text"));
-        }
-        chunks.push(string_field(chunk, "value", &context)?.as_bytes().to_vec());
+        let kind = string_field(chunk, "kind", &context)?;
+        let value = string_field(chunk, "value", &context)?;
+        let bytes = match kind {
+            "text" => value.as_bytes().to_vec(),
+            "base64-bytes" => decode_base64(value, &format!("{context}.value"))?,
+            "memoryview" => {
+                return Err(format!("{context}.kind memoryview is unsupported"));
+            }
+            _ => return Err(format!("{context}.kind must be text or base64-bytes")),
+        };
+        chunks.push(bytes);
     }
 
     let status_code = case
