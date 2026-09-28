@@ -32,17 +32,17 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 216 input-only cases, 43 operations, and 262
+The current parity contract has 219 input-only cases, 43 operations, and 265
 parity requirements across 30 indexed files. Latest integrated run
-`47ae7c1f-68b8-4ef9-81a8-a604dd7d0916`, finished at
-`2026-09-28T23:28:00.182Z`, selected 287 profile comparisons: 283 passed, zero
+`97653ac3-be37-4d6b-acb9-2fb7c597d698`, finished at
+`2026-09-28T23:46:45.127Z`, selected 293 profile comparisons: 289 passed, zero
 failed, zero infrastructure errors, and four were `not_run`. The Python package
-passed all 216 selected comparisons; Rust-native passed 67 of 71. The four
+passed all 219 selected comparisons; Rust-native passed 70 of 74. The four
 remaining Rust-native rows require Python endpoint callables. The manifest
 SHA-256 is
-`aa69d7d2734f4478beb2bf05ba9e5420f04f541d29011a9d67a4c58551fcc7e1`; the
+`810ea6532cb0c6c6b297c82874a1e4859461f5d6cccadb2ca4bb32ca84466669`; the
 target wheel SHA-256 is
-`ae5afc4dad345adf2307b10e6e2965e11f1a02724547143b784624f8cc7627ae`. Both
+`a42326c9953230ff6e5f46050879471471e8e67edeecc029ed2ed93160675ad2`. Both
 target environments were built from dirty working trees. `make parity-run`
 builds the current Rust-native adapter before running; its nonzero status
 reflects the four explicitly unsupported callback rows.
@@ -76,26 +76,26 @@ Rust-native callable `not_run` rows.
 
 ## Completed bounded goal: Rust-native Mount child-scope and miss parity
 
-The public Rust-native `Mount` API now matches the Mount prefix, extends
-`root_path`, retains or initializes `app_root_path`, merges typed mount and
-child-route captures, dispatches a fixed child response, and returns a
-standalone 404 on a mount miss. The two input-only Mount workflows pass against
-the pinned source, installed package, and native API. The implementation is
-bounded to HTTP child routes with prebuilt responses; arbitrary ASGI child
-applications and middleware are not part of this slice. The Python facade
-remains a pass-through, while matching and scope decisions run in Rust.
+The public Rust-native `Mount` API matches the Mount prefix, extends
+`root_path`, retains or initializes `app_root_path`, merges inherited, mount,
+and child-route captures, dispatches a fixed child response, and distinguishes
+Mount misses from child 404 and 405 responses. Five input-only Mount workflows
+pass against the pinned source, installed package, and native API, including an
+inherited `path` value that survives the internal Mount remainder capture. The
+implementation is bounded to HTTP child routes with prebuilt responses;
+arbitrary ASGI child applications and middleware are not part of this slice.
+The Python facade remains a pass-through, while matching and scope decisions
+run in Rust.
 
-## Next bounded goal: Rust-native Mount scope edge parity
+## Next bounded goal: Rust-native nested Mount composition
 
-Extend the existing Mount cases with inherited path-parameter collisions,
-child-route misses, and child method mismatches. A child miss must retain the
-Mount scope extension while returning 404; a child method mismatch must retain
-the extension and produce the declared 405 behavior. Inherited values must
-survive unless a real mount or child capture replaces the same key, including
-when an inherited key is named `path`. Keep the input-only fixtures and compare
-live scope and response observations against the pinned source and installed
-package. Keep all matching, scope merging, and response decisions in Rust and
-leave Python wrappers as pass-throughs.
+Allow a native Mount to contain another native Mount and dispatch through both
+levels. Add input-only cases for accumulated `root_path`, retained top-level
+`app_root_path`, parameter overrides at each level, an inner Mount miss, and a
+successful inner response. Compare live scope and response observations with
+the pinned source and installed package. Keep recursive matching, scope
+merging, and fallback decisions in Rust and leave Python wrappers as
+pass-throughs.
 
 ## 2. Initial ASGI-to-response vertical slice (partial)
 

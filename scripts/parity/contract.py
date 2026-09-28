@@ -2187,6 +2187,7 @@ def _validate_route_dispatch_io(
     allow_query: bool = False,
     allow_headers: bool = False,
     allow_host: bool = False,
+    allow_inherited_mount_scope: bool = False,
 ) -> None:
     if case["scope"].get("type") != "http" or (
         not allow_query and case["scope"].get("query_string_base64") != ""
@@ -2205,6 +2206,7 @@ def _validate_route_dispatch_io(
         request_dispatch=True,
         allow_root_path=True,
         allow_host=allow_host,
+        allow_inherited_mount_scope=allow_inherited_mount_scope,
     )
 
 
@@ -2848,7 +2850,7 @@ def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
         _validate_http_route_input(route, f"Mount.routes[{index}]")
         for index, route in enumerate(mount["routes"])
     ]
-    _validate_route_dispatch_io(case)
+    _validate_route_dispatch_io(case, allow_inherited_mount_scope=True)
     path = case["scope"]["path"]
     root_path = case["scope"]["root_path"]
     route_path = _route_path_after_root(path, root_path)
@@ -2858,16 +2860,36 @@ def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
     if mount_captures is not None:
         remainder = mount_captures["_mount_path"]
         child_path = "/" + remainder
-        child_matches = any(
-            _route_template_matches(route["path"], child_path) for route in child_routes
-        )
+        matching_child_routes = [
+            route for route in child_routes if _route_template_matches(route["path"], child_path)
+        ]
     else:
-        child_matches = False
+        matching_child_routes = []
+    method = case["scope"]["method"].upper()
+    child_method_matches = any(
+        not route["methods"]
+        or method in {registered.upper() for registered in route["methods"]}
+        or (method == "HEAD" and "GET" in {registered.upper() for registered in route["methods"]})
+        for route in matching_child_routes
+    )
     derived = set()
-    if child_matches:
+    if mount_matches:
         derived.add("starlette.routing.Mount.route-dispatch.scope-extension")
     if not mount_matches:
         derived.add("starlette.routing.Mount.route-dispatch.miss")
+    if mount_matches and not matching_child_routes:
+        derived.add("starlette.routing.Mount.route-dispatch.child-not-found")
+    if matching_child_routes and not child_method_matches:
+        derived.add("starlette.routing.Mount.route-dispatch.child-method-not-allowed")
+    if mount_matches and "path_params" in case["scope"]:
+        inherited_names = set(case["scope"]["path_params"])
+        route_names = {"path"}
+        route_names.update(name for name, _ in _route_template_parameters(mount["path"]))
+        route_names.update(
+            name for route in child_routes for name, _ in _route_template_parameters(route["path"])
+        )
+        if inherited_names & route_names:
+            derived.add("starlette.routing.Mount.route-dispatch.inherited-path-parameter-collision")
     if not set(case["covers"]) <= derived:
         raise ContractError(
             "Mount case requirements are not exercised by its mount and scope inputs"
@@ -4610,6 +4632,7 @@ def _validate_dispatch_stimulus(
     allow_oserror_send: bool = False,
     allow_host: bool = False,
     allow_lifespan_callback_failures: bool = False,
+    allow_inherited_mount_scope: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -4638,24 +4661,34 @@ def _validate_dispatch_stimulus(
         elif args["send"] != {"kind": "capture-asgi-send"}:
             raise ContractError("send input must contain the fixed ASGI capture selector")
     elif scope.get("type") == "http":
-        scope = _exact(
-            scope,
-            {
-                "type",
-                "asgi",
-                "http_version",
-                "method",
-                "scheme",
-                "path",
-                "raw_path_base64",
-                "query_string_base64",
-                "root_path",
-                "headers_base64_pairs",
-                "client",
-                "server",
-            },
-            "HTTP scope input",
-        )
+        scope_fields = {
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        }
+        if allow_inherited_mount_scope:
+            scope_fields.update(key for key in ("app_root_path", "path_params") if key in scope)
+        scope = _exact(scope, scope_fields, "HTTP scope input")
+        if "app_root_path" in scope:
+            _string(scope["app_root_path"], "HTTP scope.app_root_path")
+        if "path_params" in scope:
+            path_params = scope["path_params"]
+            if not isinstance(path_params, dict) or any(
+                not isinstance(name, str) or not name or type(value) not in (str, int, float)
+                for name, value in path_params.items()
+            ):
+                raise ContractError(
+                    "HTTP scope.path_params must map non-empty names to strings or numbers"
+                )
         _string(scope["method"], "HTTP scope.method")
         path = _string(scope["path"], "HTTP scope.path")
         if scope["raw_path_base64"] != base64.b64encode(path.encode("ascii")).decode("ascii"):

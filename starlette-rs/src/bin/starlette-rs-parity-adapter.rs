@@ -654,25 +654,29 @@ fn run_mount_case(case: &Value) -> Result<Value, String> {
             "Mount dispatch requires an empty receive sequence and captured ASGI send",
         ));
     }
-    let scope = exact_object(
-        case.get("scope")
-            .ok_or_else(|| String::from("Mount scope is missing"))?,
-        &[
-            "type",
-            "asgi",
-            "http_version",
-            "method",
-            "scheme",
-            "path",
-            "raw_path_base64",
-            "query_string_base64",
-            "root_path",
-            "headers_base64_pairs",
-            "client",
-            "server",
-        ],
-        "Mount HTTP scope",
-    )?;
+    let scope_input = case
+        .get("scope")
+        .ok_or_else(|| String::from("Mount scope is missing"))?;
+    let mut scope_fields = vec![
+        "type",
+        "asgi",
+        "http_version",
+        "method",
+        "scheme",
+        "path",
+        "raw_path_base64",
+        "query_string_base64",
+        "root_path",
+        "headers_base64_pairs",
+        "client",
+        "server",
+    ];
+    for optional_field in ["app_root_path", "path_params"] {
+        if scope_input.get(optional_field).is_some() {
+            scope_fields.push(optional_field);
+        }
+    }
+    let scope = exact_object(scope_input, &scope_fields, "Mount HTTP scope")?;
     if string_field(scope, "type", "Mount scope")? != "http"
         || string_field(scope, "http_version", "Mount scope")? != "1.1"
         || string_field(scope, "scheme", "Mount scope")? != "http"
@@ -684,10 +688,19 @@ fn run_mount_case(case: &Value) -> Result<Value, String> {
     let path = string_field(scope, "path", "Mount scope")?;
     let root_path = string_field(scope, "root_path", "Mount scope")?;
     let method = string_field(scope, "method", "Mount scope")?;
+    let path_params = mount_inherited_path_params(scope.get("path_params"))?;
+    let mut mount_scope = MountScope::new(path, method, root_path).with_path_params(&path_params);
+    if let Some(app_root_path) = scope.get("app_root_path") {
+        mount_scope = mount_scope.with_app_root_path(
+            app_root_path
+                .as_str()
+                .ok_or_else(|| String::from("Mount scope app_root_path must be a string"))?,
+        );
+    }
     let mount =
         NativeMount::new(mount_path, application_routes).map_err(|error| error.to_string())?;
     let result = mount
-        .dispatch(&MountScope::new(path, method, root_path))
+        .dispatch(&mount_scope)
         .map_err(|error| error.to_string())?;
     let mount_scope = result
         .scope_extension
@@ -725,6 +738,44 @@ fn run_mount_case(case: &Value) -> Result<Value, String> {
             },
         }],
     }))
+}
+
+fn mount_inherited_path_params(
+    path_params: Option<&Value>,
+) -> Result<Vec<PathParameterCapture>, String> {
+    let Some(path_params) = path_params else {
+        return Ok(Vec::new());
+    };
+    let path_params = path_params
+        .as_object()
+        .ok_or_else(|| String::from("Mount scope path_params must be an object"))?;
+    path_params
+        .iter()
+        .map(|(name, value)| {
+            let (value, converter) = match value {
+                Value::String(value) => (value.clone(), PathConverter::String),
+                Value::Number(number) => {
+                    let value = number.to_string();
+                    let converter = if value.contains(['.', 'e', 'E']) {
+                        PathConverter::Float
+                    } else {
+                        PathConverter::Integer
+                    };
+                    (value, converter)
+                }
+                _ => {
+                    return Err(String::from(
+                        "Mount scope path_params values must be strings or numbers",
+                    ));
+                }
+            };
+            Ok(PathParameterCapture {
+                name: name.clone(),
+                value,
+                converter,
+            })
+        })
+        .collect()
 }
 
 fn mount_scope_observation(scope: &starlette_rs::MountScopeExtension) -> Result<Value, String> {

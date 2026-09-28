@@ -4310,7 +4310,7 @@
             {
               "id": "starlette.routing.Mount.route-dispatch.scope-extension",
               "dimension": "boundary",
-              "description": "A matching Mount extends root_path, retains app_root_path, and combines mount and child route path_params in the live child scope.",
+              "description": "A matching Mount extends root_path, retains app_root_path, and merges inherited, mount, and any child-route path_params into the live scope.",
               "lanes": [
                 "parity"
               ],
@@ -4323,6 +4323,42 @@
               "id": "starlette.routing.Mount.route-dispatch.miss",
               "dimension": "error_path",
               "description": "A scope outside the Mount path yields live standalone Mount 404 behavior without child-scope mutation.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.route-dispatch.child-not-found",
+              "dimension": "error_path",
+              "description": "A matching Mount retains its child scope when its mounted Router has no matching child path and returns 404.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.route-dispatch.child-method-not-allowed",
+              "dimension": "error_path",
+              "description": "A matching Mount retains the child scope and path captures when a child route path matches but its method does not.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.route-dispatch.inherited-path-parameter-collision",
+              "dimension": "boundary",
+              "description": "Inherited, mount, and child path parameters merge in order, while the mount's internal path capture does not replace an inherited path value.",
               "lanes": [
                 "parity"
               ],

@@ -361,6 +361,10 @@ def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
         scope["subprotocols"] = list(spec["subprotocols"])
     if "extensions" in spec:
         scope["extensions"] = dict(spec["extensions"])
+    if "app_root_path" in spec:
+        scope["app_root_path"] = spec["app_root_path"]
+    if "path_params" in spec:
+        scope["path_params"] = dict(spec["path_params"])
     return scope
 
 
@@ -2349,22 +2353,12 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
     previous_convertors = {
         spec["name"]: CONVERTOR_TYPES.get(spec["name"], _MISSING) for spec in custom_convertors
     }
-    mount_scope_observations: list[dict[str, Any]] = []
     route_index_observations: list[int] = []
 
     def make_endpoint(endpoint_spec: dict[str, Any], route_index: int) -> Any:
         async def endpoint(request: Any) -> Any:
             if is_router:
                 route_index_observations.append(route_index)
-            if is_mount:
-                request_scope = request.scope
-                mount_scope_observations.append(
-                    {
-                        "root_path": request_scope.get("root_path", ""),
-                        "app_root_path": request_scope.get("app_root_path"),
-                        "path_params": _route_path_params(request_scope),
-                    }
-                )
             kind = endpoint_spec.get("kind")
             if kind == "plain-text-response":
                 _strict_object(
@@ -2503,9 +2497,13 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             "asgi_event_order": [event["type"] for event in events],
             "asgi_events": events,
         }
-        mount_scope = mount_scope_observations[0] if mount_scope_observations else None
-        if len(mount_scope_observations) > 1:
-            raise RuntimeError("Mount child route endpoint ran more than once")
+        mount_scope = None
+        if is_mount and "app_root_path" in scope:
+            mount_scope = {
+                "root_path": scope.get("root_path", ""),
+                "app_root_path": scope.get("app_root_path"),
+                "path_params": _route_path_params(scope),
+            }
         return selected, mount_scope
 
     try:

@@ -379,6 +379,10 @@ def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
         scope["subprotocols"] = list(spec["subprotocols"])
     if "extensions" in spec:
         scope["extensions"] = dict(spec["extensions"])
+    if "app_root_path" in spec:
+        scope["app_root_path"] = spec["app_root_path"]
+    if "path_params" in spec:
+        scope["path_params"] = dict(spec["path_params"])
     return scope
 
 
