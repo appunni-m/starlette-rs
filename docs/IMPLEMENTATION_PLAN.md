@@ -32,27 +32,42 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 211 input-only cases, 43 operations, and 257
+The current parity contract has 216 input-only cases, 43 operations, and 262
 parity requirements across 30 indexed files. Latest integrated run
-`efd76095-d4d6-48a2-951f-030dde4bb49a`, finished at
-`2026-09-28T22:15:20.115Z`, selected 282 profile comparisons: 274 passed,
+`4fe0f48c-2699-48fe-9bf4-facc0d6bda51`, finished at
+`2026-09-28T22:39:11.328Z`, selected 287 profile comparisons: 279 passed,
 two failed, zero infrastructure errors, and six were `not_run`. The Python
-package passed 209 of 211 cases; Rust-native passed 65 of 71 selected
-comparisons. All 15 generator-lifespan cases passed on the Python package.
+package passed 214 of 216 cases; Rust-native passed 65 of 71 selected
+comparisons. All 20 generator-lifespan cases passed on the Python package.
 The remaining two debug traceback comparisons and six unsupported Rust-native
-rows keep the all-target gate incomplete.
+rows keep the all-target gate incomplete. The manifest SHA-256 is
+`0a0d54d32c2f036a6b754f7a230d445d53140687a5f887aebe40fbce2c7b6a6b`; the
+target wheel SHA-256 is
+`b2215ce485e51cb6f1908e9adf1bbf76948931d75310730d49a89a8a3e20edd3`. Both
+target trees in this run were dirty.
 
-## 1. Next bounded goal: lifespan state and cancellation
+## 1. Completed bounded goal: lifespan state and cancellation
 
-Extend the current lifespan slice with input-only oracle cases for yielded
-state mappings, missing `scope["state"]`, cancellation while entering,
-waiting for shutdown, and exiting. Compare scope mutation, cleanup order,
-startup/shutdown failure events, and the propagated cancellation. Rust's
-lifespan state machine owns each transition; the Python event loop runs the
-user callback and forwards its result or exception. Acceptance requires the
-installed Python package to match pinned Starlette exactly on those declared
-inputs, with Python wrappers remaining forwarding-only and no upstream runtime
-dependency.
+Five input-only cases now exercise yielded state merge, missing
+`scope["state"]`, and cancellation during context entry, shutdown receive, and
+context exit. The observations include post-call scope state, cleanup order,
+startup/shutdown events, and the propagated exception. All five match pinned
+Starlette 1.6.0 through the installed package; all 20 cases in the lifecycle
+generator slice pass. Rust's lifespan state machine owns the transitions and
+scope mutation. Python only creates the declared test callback and forwards
+its result or exception at runtime. This checkpoint covers these lifecycle
+inputs only; it does not establish cancellation parity across HTTP, WebSocket,
+streaming, or background tasks.
+
+## Next bounded goal: server-error debug traceback parity
+
+The integrated run still has two mismatches in debug-mode 500 responses: one
+plain-text traceback and one HTML traceback. Compare the source and package
+payloads, identify which traceback details are public behavior versus runtime
+frame differences, then either implement the behavior in Rust or document and
+apply only the already-declared reusable normalization. Preserve the original
+exception message and user-code frame, and keep the mismatch visible until the
+source/package result agrees under the manifest contract.
 
 ## 2. Initial ASGI-to-response vertical slice (partial)
 

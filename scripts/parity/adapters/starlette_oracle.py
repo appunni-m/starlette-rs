@@ -173,7 +173,7 @@ async def _request_stream_action(stream: Any, action: dict[str, Any]) -> dict[st
     return {"operation": operation, "value": _json_safe(value)}
 
 
-def _dispatch_error(exc: Exception) -> dict[str, Any]:
+def _dispatch_error(exc: BaseException) -> dict[str, Any]:
     cause = exc.__cause__
     return {
         "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
@@ -335,7 +335,10 @@ def _decode_b64(value: str, context: str) -> bytes:
 
 def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
     if spec["type"] == "lifespan":
-        return {"type": "lifespan", "asgi": dict(spec["asgi"])}
+        scope = {"type": "lifespan", "asgi": dict(spec["asgi"])}
+        if "state" in spec:
+            scope["state"] = dict(spec["state"])
+        return scope
     scope = {
         "type": spec["type"],
         "asgi": dict(spec["asgi"]),
@@ -715,6 +718,12 @@ def _materialize_exception_handlers(
     return handlers, exception_types
 
 
+def _raise_lifespan_failure(spec: dict[str, Any]) -> None:
+    if spec.get("failure_exception_type", "RuntimeError") == "CancelledError":
+        raise asyncio.CancelledError(spec["failure_message"])
+    raise RuntimeError(spec["failure_message"])
+
+
 def _materialize_application(
     app_spec: dict[str, Any],
 ) -> tuple[Any, list[str], list[dict[str, Any]], Any, list[dict[str, Any]]]:
@@ -751,7 +760,7 @@ def _materialize_application(
         "sync-generator",
         "async-generator",
     }:
-        if set(lifespan_spec) != {
+        required_fields = {
             "kind",
             "record_entry",
             "record_exit",
@@ -759,19 +768,23 @@ def _materialize_application(
             "failure_message",
             "yield_behavior",
             "shutdown_exception_behavior",
+        }
+        if not required_fields <= lifespan_spec.keys() or lifespan_spec.keys() - required_fields - {
+            "failure_exception_type",
+            "yield_state",
         }:
             raise ValueError("generator lifespan input has invalid fields")
 
         def sync_lifespan(_app: Any) -> Any:
             lifecycle_trace.append("entry")
             if lifespan_spec["failure_stage"] == "startup":
-                raise RuntimeError(lifespan_spec["failure_message"])
+                _raise_lifespan_failure(lifespan_spec)
             if lifespan_spec["yield_behavior"] == "none":
                 return
             try:
-                yield
+                yield lifespan_spec.get("yield_state")
                 if lifespan_spec["yield_behavior"] == "extra":
-                    yield
+                    yield lifespan_spec.get("yield_state")
             except RuntimeError:
                 if lifespan_spec["shutdown_exception_behavior"] == "suppress":
                     lifecycle_trace.append("suppressed-shutdown-error")
@@ -781,18 +794,18 @@ def _materialize_application(
                 if lifespan_spec["record_exit"]:
                     lifecycle_trace.append("exit")
                 if lifespan_spec["failure_stage"] == "shutdown":
-                    raise RuntimeError(lifespan_spec["failure_message"])
+                    _raise_lifespan_failure(lifespan_spec)
 
         async def async_lifespan(_app: Any) -> Any:
             lifecycle_trace.append("entry")
             if lifespan_spec["failure_stage"] == "startup":
-                raise RuntimeError(lifespan_spec["failure_message"])
+                _raise_lifespan_failure(lifespan_spec)
             if lifespan_spec["yield_behavior"] == "none":
                 return
             try:
-                yield
+                yield lifespan_spec.get("yield_state")
                 if lifespan_spec["yield_behavior"] == "extra":
-                    yield
+                    yield lifespan_spec.get("yield_state")
             except RuntimeError:
                 if lifespan_spec["shutdown_exception_behavior"] == "suppress":
                     lifecycle_trace.append("suppressed-shutdown-error")
@@ -802,7 +815,7 @@ def _materialize_application(
                 if lifespan_spec["record_exit"]:
                     lifecycle_trace.append("exit")
                 if lifespan_spec["failure_stage"] == "shutdown":
-                    raise RuntimeError(lifespan_spec["failure_message"])
+                    _raise_lifespan_failure(lifespan_spec)
 
         lifespan = sync_lifespan if lifespan_spec["kind"] == "sync-generator" else async_lifespan
     elif (
@@ -1255,6 +1268,10 @@ async def _invoke(
         "response_bytes": {"encoding": "base64", "data": base64.b64encode(body).decode("ascii")},
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
+        "lifespan_scope_state": {
+            "present": "state" in scope,
+            "value": _json_safe(scope.get("state")),
+        },
         "lifecycle_and_cleanup_effects": list(lifecycle_trace),
         "server_error_observation": _server_error_observation(app, start, body, captured_exception),
     }
@@ -3336,9 +3353,8 @@ async def _invoke_lifespan_around_dispatch(
         if message.get("type") == "lifespan.startup.complete":
             startup_complete.set()
 
-    lifespan_task = asyncio.create_task(
-        app(_make_scope(lifecycle_args["scope"]), receive_lifecycle, send_lifecycle)
-    )
+    lifespan_scope = _make_scope(lifecycle_args["scope"])
+    lifespan_task = asyncio.create_task(app(lifespan_scope, receive_lifecycle, send_lifecycle))
     startup_wait = asyncio.create_task(startup_complete.wait())
     try:
         done, _ = await asyncio.wait(
@@ -3377,6 +3393,10 @@ async def _invoke_lifespan_around_dispatch(
         "response_bytes": {"encoding": "base64", "data": ""},
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
+        "lifespan_scope_state": {
+            "present": "state" in lifespan_scope,
+            "value": _json_safe(lifespan_scope.get("state")),
+        },
         "lifecycle_and_cleanup_effects": list(lifecycle_trace),
         "server_error_observation": {"handler_calls": [], "debug_traceback": None},
         "deprecation_warnings": list(getattr(app, "_parity_lifespan_warnings", [])),
@@ -3403,6 +3423,9 @@ async def _invoke_lifespan_only(
     async def resolved(value: dict[str, Any]) -> dict[str, Any]:
         return value
 
+    async def cancelled(message: str) -> dict[str, Any]:
+        raise asyncio.CancelledError(message)
+
     def receive_lifecycle() -> Any:
         nonlocal action_index
         if action_index >= len(actions):
@@ -3411,6 +3434,8 @@ async def _invoke_lifespan_only(
         action_index += 1
         if action["kind"] == "raise":
             raise RuntimeError(action["message"])
+        if action["kind"] == "await-raise":
+            return cancelled(action["message"])
         return resolved(_message(action["message"]))
 
     async def record_send(message: dict[str, Any]) -> None:
@@ -3424,14 +3449,11 @@ async def _invoke_lifespan_only(
             raise RuntimeError(send_spec["message"])
         return record_send(message)
 
+    scope = _make_scope(lifecycle_args["scope"])
     try:
-        await app(
-            _make_scope(lifecycle_args["scope"]),
-            receive_lifecycle,
-            send_lifecycle,
-        )
+        await app(scope, receive_lifecycle, send_lifecycle)
         captured_exception = None
-    except Exception as exc:
+    except BaseException as exc:
         captured_exception = exc
 
     value = {
@@ -3440,6 +3462,10 @@ async def _invoke_lifespan_only(
         "response_bytes": {"encoding": "base64", "data": ""},
         "asgi_event_order": [event["type"] for event in workflow_events],
         "asgi_events": workflow_events,
+        "lifespan_scope_state": {
+            "present": "state" in scope,
+            "value": _json_safe(scope.get("state")),
+        },
         "lifecycle_and_cleanup_effects": list(lifecycle_trace),
         "server_error_observation": {"handler_calls": [], "debug_traceback": None},
         "deprecation_warnings": list(getattr(app, "_parity_lifespan_warnings", [])),

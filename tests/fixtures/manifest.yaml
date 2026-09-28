@@ -587,6 +587,15 @@
                   }
                 },
                 {
+                  "path": "lifespan_scope_state",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
                   "path": "lifecycle_and_cleanup_effects",
                   "value_types": [
                     "sequence"
@@ -1083,6 +1092,61 @@
               "id": "starlette.asgi.lifespan.async-generator.no-yield",
               "dimension": "error_path",
               "description": "An asynchronous generator that returns before its first yield fails entry with the context-manager protocol RuntimeError and does not run exit cleanup. Upstream: starlette/routing.py::Router.lifespan; CPython 3.12 generator context-manager protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.scope-state-merge",
+              "dimension": "protocol_variant",
+              "description": "A yielded lifespan state mapping updates the existing ASGI lifespan scope state in place. Upstream: starlette/routing.py::Router.lifespan.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.scope-state-required",
+              "dimension": "error_path",
+              "description": "Yielding lifespan state without a state mapping in the ASGI lifespan scope raises the declared runtime error and runs context cleanup. Upstream: starlette/routing.py::Router.lifespan.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.cancel-during-entry",
+              "dimension": "error_path",
+              "description": "Cancellation while awaiting lifespan context entry emits startup.failed and propagates cancellation without running context exit. Upstream: starlette/routing.py::Router.lifespan.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.cancel-during-shutdown-receive",
+              "dimension": "error_path",
+              "description": "Cancellation while awaiting the shutdown message runs context cleanup, emits shutdown.failed, and propagates cancellation. Upstream: starlette/routing.py::Router.lifespan.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.cancel-during-exit",
+              "dimension": "error_path",
+              "description": "Cancellation during lifespan context exit emits shutdown.failed and propagates cancellation after cleanup. Upstream: starlette/routing.py::Router.lifespan.",
               "lanes": [
                 "parity"
               ],

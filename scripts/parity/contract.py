@@ -4066,19 +4066,18 @@ def _validate_lifespan_marker(marker: Any) -> str:
         raise ContractError("lifespan input must use a declared context-manager marker")
     kind = marker.get("kind")
     if kind in {"sync-generator", "async-generator"}:
-        marker = _exact(
-            marker,
-            {
-                "kind",
-                "record_entry",
-                "record_exit",
-                "failure_stage",
-                "failure_message",
-                "yield_behavior",
-                "shutdown_exception_behavior",
-            },
-            "generator lifespan marker",
-        )
+        required = {
+            "kind",
+            "record_entry",
+            "record_exit",
+            "failure_stage",
+            "failure_message",
+            "yield_behavior",
+            "shutdown_exception_behavior",
+        }
+        optional = {"failure_exception_type", "yield_state"}
+        if not required <= marker.keys() or marker.keys() - required - optional:
+            raise ContractError("generator lifespan marker has invalid fields")
         if marker["kind"] not in {"sync-generator", "async-generator"}:
             raise ContractError("generator lifespan kind is unsupported")
         if marker["record_entry"] is not True or marker["record_exit"] is not True:
@@ -4090,6 +4089,17 @@ def _validate_lifespan_marker(marker: Any) -> str:
             raise ContractError("generator lifespan yield_behavior is unsupported")
         if marker["shutdown_exception_behavior"] not in {"propagate", "suppress"}:
             raise ContractError("generator lifespan shutdown exception behavior is unsupported")
+        exception_type = marker.get("failure_exception_type", "RuntimeError")
+        if exception_type not in {"RuntimeError", "CancelledError"}:
+            raise ContractError("generator lifespan failure exception type is unsupported")
+        if exception_type == "CancelledError" and (
+            marker["kind"] != "async-generator" or marker["failure_stage"] == "none"
+        ):
+            raise ContractError("generator cancellation requires an async generator failure")
+        if marker.get("yield_state") is not None and not isinstance(marker["yield_state"], dict):
+            raise ContractError("generator lifespan yield_state must be an object or null")
+        if marker.get("yield_state") is not None and marker["yield_behavior"] == "none":
+            raise ContractError("a generator without a yield cannot supply lifespan state")
         return marker["kind"]
     if kind == "async-context-manager-shadowed-specials":
         marker = _exact(
@@ -4136,6 +4146,15 @@ def _validate_lifespan_receive_actions(receive: Any) -> None:
         if second["exception_type"] != "RuntimeError":
             raise ContractError("lifecycle receive callback failure must raise RuntimeError")
         _string(second["message"], "lifecycle receive callback failure message")
+    elif second.get("kind") == "await-raise":
+        second = _exact(
+            second,
+            {"kind", "exception_type", "message"},
+            "lifecycle receive action[1]",
+        )
+        if second["exception_type"] != "CancelledError":
+            raise ContractError("awaited lifecycle receive failure must cancel the task")
+        _string(second["message"], "lifecycle receive cancellation message")
     else:
         raise ContractError("lifecycle receive action[1] must supply shutdown or raise")
 
@@ -4164,6 +4183,21 @@ def _lifespan_case_requirement(marker: dict[str, Any], lifecycle_args: dict[str,
     send = lifecycle_args["send"]
     receive = lifecycle_args["receive"]
     prefix = "sync" if kind == "sync-generator" else "async"
+    failure_exception_type = marker.get("failure_exception_type", "RuntimeError")
+    if receive[1].get("kind") == "await-raise":
+        if kind != "async-generator" or marker["failure_stage"] != "none":
+            raise ContractError("shutdown-wait cancellation requires a healthy async generator")
+        return "starlette.asgi.lifespan.cancel-during-shutdown-receive"
+    if failure_exception_type == "CancelledError":
+        if marker["failure_stage"] == "startup":
+            return "starlette.asgi.lifespan.cancel-during-entry"
+        if marker["failure_stage"] == "shutdown":
+            return "starlette.asgi.lifespan.cancel-during-exit"
+        raise ContractError("cancellation input must fail during entry or exit")
+    if marker.get("yield_state") is not None:
+        if "state" in lifecycle_args["scope"]:
+            return "starlette.asgi.lifespan.scope-state-merge"
+        return "starlette.asgi.lifespan.scope-state-required"
     if marker["yield_behavior"] == "none":
         if (
             marker["failure_stage"] != "none"
@@ -4225,6 +4259,19 @@ def _validate_lifespan_only_case(case: dict[str, Any], app_args: dict[str, Any])
         )
     _validate_lifespan_receive_actions(lifecycle_args["receive"])
     _validate_lifespan_send_callback(lifecycle_args["send"])
+    scope = lifecycle_args["scope"]
+    if not isinstance(scope, dict) or set(scope) not in (
+        {"type", "asgi"},
+        {"type", "asgi", "state"},
+    ):
+        raise ContractError("lifespan scope input has invalid fields")
+    if scope["type"] != "lifespan" or scope["asgi"] != {
+        "version": "3.0",
+        "spec_version": "2.4",
+    }:
+        raise ContractError("lifespan scope must use the declared ASGI versions")
+    if "state" in scope and not isinstance(scope["state"], dict):
+        raise ContractError("lifespan scope state must be an object")
     requirement = _lifespan_case_requirement(app_args["lifespan"], lifecycle_args)
     if case["covers"] != [requirement]:
         raise ContractError("lifespan-only input and requirement mapping differ")
@@ -4572,9 +4619,14 @@ def _validate_dispatch_stimulus(
     if not isinstance(scope, dict):
         raise ContractError("scope input must be an object")
     if scope.get("type") == "lifespan":
-        _exact(scope, {"type", "asgi"}, "lifespan scope input")
+        scope_fields = {"type", "asgi"}
+        if allow_lifespan_callback_failures and "state" in scope:
+            scope_fields.add("state")
+        _exact(scope, scope_fields, "lifespan scope input")
         if scope["asgi"] != {"version": "3.0", "spec_version": "2.4"}:
             raise ContractError("lifespan scope must use the declared ASGI versions")
+        if "state" in scope and not isinstance(scope["state"], dict):
+            raise ContractError("lifespan scope state must be an object")
         if allow_lifespan_callback_failures:
             _validate_lifespan_receive_actions(args["receive"])
             _validate_lifespan_send_callback(args["send"])
