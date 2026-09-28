@@ -42,6 +42,22 @@ RESPONSE_OPERATION = "asgi-call"
 _MISSING = object()
 
 
+class _InputAsyncIterator:
+    """Expose decoded case-input values through the async-iterator protocol."""
+
+    def __init__(self, values: list[Any]) -> None:
+        self._values = iter(values)
+
+    def __aiter__(self) -> _InputAsyncIterator:
+        return self
+
+    async def __anext__(self) -> Any:
+        try:
+            return next(self._values)
+        except StopIteration as exc:
+            raise StopAsyncIteration from exc
+
+
 @dataclass(frozen=True)
 class _CapturedDispatchError:
     error: dict[str, Any]
@@ -1799,8 +1815,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("StreamingResponse chunks must be text or base64-bytes")
             content.append(chunk)
         streaming = case["streaming"]
-        if streaming != "sync":
-            raise ValueError("StreamingResponse streaming must select the bounded sync iterator")
+        if streaming not in {"sync", "async-iterator"}:
+            raise ValueError("StreamingResponse streaming must select a supported iterator")
     elif surface == RESPONSE_SURFACE:
         if content_kind == "text":
             content = content_spec["value"]
@@ -1891,6 +1907,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }[surface]
     if streaming == "sync":
         content = iter(content)
+    elif streaming == "async-iterator":
+        content = _InputAsyncIterator(content)
     response_arguments: dict[str, Any] = {
         "content": content,
         "status_code": case["status_code"],

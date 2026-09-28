@@ -11,7 +11,7 @@ STYLE_PYTHON ?= $(STYLE_VENV)/bin/python
 RUFF ?= $(STYLE_PYTHON) -m ruff
 PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/python/starlette_rs_py
 
-.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint lint check build test parity-inputs parity-env parity-run contract-check benchmark-upstream rustdoc-check docs-check ci
+.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check lint check build test parity-inputs parity-env parity-run contract-check benchmark-upstream rustdoc-check docs-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
@@ -23,6 +23,7 @@ help: ## Show common Rust workspace commands
 	  '  make python-format  Check Python formatting' \
 	  '  make clippy    Run strict workspace Clippy' \
 	  '  make python-lint  Run Ruff checks on Python sources' \
+	  '  make project-policy-check  Enforce parity-only behavioral checks' \
 	  '  make lint      Run Rust and Python format/lint checks' \
 	  '  make check     Type-check all workspace targets and features' \
 	  '  make build     Link the PyO3 extension in extension-module mode' \
@@ -61,7 +62,10 @@ rustdoc-check: ## Check Rust documentation with warnings denied
 python-lint: ## Run Ruff lint checks on Python sources
 	$(RUFF) check $(PYTHON_SOURCES)
 
-lint: fmt python-format clippy python-lint ## Check Rust and Python formatting and lints
+project-policy-check: ## Enforce parity-only behavioral checks and repository test policy
+	$(PYTHON) scripts/check_project_policy.py
+
+lint: fmt python-format clippy python-lint project-policy-check ## Check Rust and Python formatting, lints, and project policy
 
 check: ## Type-check all workspace targets and features
 	$(CARGO) check --workspace --all-targets --all-features --locked

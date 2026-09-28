@@ -42,6 +42,9 @@
 - Maintain zero unit tests. Behavioral tests are input-driven parity
   comparisons that run the pinned source oracle against the installed Python
   package and Rust target through their public consumer interfaces.
+  `scripts/check_project_policy.py` enforces the absence of conventional
+  Python/Rust test sources and test-framework imports; keep `make test` bound
+  to the live parity runner.
 - Adapters dispatch by the manifest operation and derive every stimulus from
   the supplied input. A `case_id`, workload ID, requirement ID, or result
   artifact must never select hard-coded inputs, outputs, expected status, or a

@@ -1721,8 +1721,8 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("StreamingResponse observations must select asgi-call")
     if type(case["status_code"]) is not int or case["status_code"] != 200:
         raise ContractError("StreamingResponse status_code must be 200 for this input slice")
-    if case["streaming"] != "sync":
-        raise ContractError("StreamingResponse streaming must select the bounded sync iterator")
+    if case["streaming"] not in {"sync", "async-iterator"}:
+        raise ContractError("StreamingResponse streaming must select a declared iterator mode")
 
     content = _exact(case["content"], {"kind", "value"}, "StreamingResponse content")
     if content["kind"] != "chunks" or not isinstance(content["value"], list):
@@ -1751,7 +1751,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("StreamingResponse.media_type must be a string or null")
 
     stimulus = (tuple(chunks), tuple(tuple(pair) for pair in headers), media_type)
-    allowed = {
+    allowed_sync = {
         ((("text", "hello"), ("text", "world")), (), None),
         ((("text", "hello"), ("text", "world")), (("content-length", "10"),), None),
         (
@@ -1771,8 +1771,26 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         ),
         ((("base64-bytes", "AP8B"),), (), None),
     }
-    if stimulus not in allowed:
-        raise ContractError("StreamingResponse chunks and headers are outside this input slice")
+    async_iterator_stimulus = (
+        (
+            ("text", "1"),
+            ("text", "2"),
+            ("text", "3"),
+            ("text", "4"),
+            ("text", "5"),
+        ),
+        (),
+        "text/plain",
+    )
+    if case["streaming"] == "sync":
+        if stimulus not in allowed_sync:
+            raise ContractError("StreamingResponse chunks and headers are outside this input slice")
+    elif stimulus != async_iterator_stimulus or case["target_profiles"] != [
+        "python-package-cpython312"
+    ]:
+        raise ContractError(
+            "StreamingResponse async-iterator input is limited to its declared Python-package case"
+        )
     if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
         raise ContractError("StreamingResponse asgi-call uses empty receive and captured send")
     _validate_dispatch_stimulus(

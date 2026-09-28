@@ -539,6 +539,30 @@ impl StreamingResponse {
         &self.chunks
     }
 
+    /// Returns the `http.response.start` event for this response.
+    #[must_use]
+    pub fn start_event(&self) -> StreamingResponseEvent {
+        StreamingResponseEvent::Start {
+            status_code: self.status_code,
+            headers: self.headers.clone(),
+        }
+    }
+
+    /// Creates one streamed body event with the supplied continuation flag.
+    #[must_use]
+    pub fn body_event(body: impl Into<Vec<u8>>, more_body: bool) -> StreamingResponseEvent {
+        StreamingResponseEvent::Body {
+            body: body.into(),
+            more_body,
+        }
+    }
+
+    /// Creates the final empty body event for a completed stream.
+    #[must_use]
+    pub fn final_event() -> StreamingResponseEvent {
+        Self::body_event(Vec::new(), false)
+    }
+
     /// Returns the ASGI response events in send order.
     ///
     /// Every input chunk is sent with `more_body=true`. The sequence always
@@ -546,23 +570,14 @@ impl StreamingResponse {
     #[must_use]
     pub fn asgi_events(&self) -> Vec<StreamingResponseEvent> {
         let mut events = Vec::with_capacity(self.chunks.len() + 2);
-        events.push(StreamingResponseEvent::Start {
-            status_code: self.status_code,
-            headers: self.headers.clone(),
-        });
+        events.push(self.start_event());
         events.extend(
             self.chunks
                 .iter()
                 .cloned()
-                .map(|body| StreamingResponseEvent::Body {
-                    body,
-                    more_body: true,
-                }),
+                .map(|body| Self::body_event(body, true)),
         );
-        events.push(StreamingResponseEvent::Body {
-            body: Vec::new(),
-            more_body: false,
-        });
+        events.push(Self::final_event());
         events
     }
 }

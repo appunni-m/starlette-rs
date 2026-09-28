@@ -23,10 +23,10 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 117 input-only cases and 121 parity requirements
-across 18 indexed files. Latest integrated run `85e21be2-b9ce-44b7-bbe1-ab86b0a587dc`,
-finished at `2026-09-28T11:33:04.955Z`, selected 180 comparisons: 174 passed,
-zero failed, zero infrastructure errors, and six `not_run`. All 117
+The current parity contract has 118 input-only cases and 122 parity requirements
+across 18 indexed files. Latest integrated run `296735f7-a06b-465e-958b-44f40b32b88c`,
+finished at `2026-09-28T12:04:18.052Z`, selected 181 comparisons: 175 passed,
+zero failed, zero infrastructure errors, and six `not_run`. All 118
 Python-package cases passed; Rust-native passed 57 of 63 selected comparisons.
 The six unsupported Rust-native rows keep the all-target gate incomplete.
 
@@ -139,7 +139,9 @@ ordering gap only; it does not establish general ASGI concurrency,
 cancellation, or full-scope parity.
 
 The bounded sync-callable, ASGI-callable, exception-handler, server-error,
-and finite StreamingResponse cases in section 6 pass source/package parity.
+four finite synchronous StreamingResponse cases, and one finite async-iterator
+StreamingResponse case in section 6 pass source/package parity; the synchronous
+cases also pass against Rust-native.
 Six Rust-native observations remain explicitly `not_run`; the full Starlette
 replacement is still incomplete. Later work includes broader HTTP/WebSocket
 connection and request-body behavior, streaming backpressure and iterator
@@ -163,13 +165,13 @@ and 68 GZip benchmark IDs. All 74 now have input-only descriptors and exact
 source-versus-installed-package correctness gates. The full runner measured
 all 74 with zero failed and zero not-run source/package rows. Its latest result
 is `build/parity/upstream-benchmark-result.json`. Run
-`4b478188-8546-43ce-95fd-1b58e18672f7` ran from
-`2026-09-28T09:09:13.967Z` to `2026-09-28T09:10:42.274Z`; all 74 declared
+`5f88f441-8747-4d0f-9e1b-fb7153aeb218` ran from
+`2026-09-28T12:04:48.059Z` to `2026-09-28T12:06:19.166Z`; all 74 declared
 workload correctness gates passed for pinned source and the installed package.
 The recorded source revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
-Its correctness preflight, `351d9fe9-c482-4b2f-b181-f6f59a66c93b`, selected
-148 parity comparisons: 142 passed, zero failed, zero infrastructure errors,
-and six Rust-native rows were `not_run` (package 101/101; Rust-native 41/47).
+Its correctness preflight, `e45ffb4f-29e7-4267-b84d-91ed40d9ef97`, selected
+181 parity comparisons: 175 passed, zero failed, zero infrastructure errors,
+and six Rust-native rows were `not_run` (package 118/118; Rust-native 57/63).
 The target trees were dirty local trees, so this is not clean aggregate or
 release proof. The benchmark result records source, input, and manifest hashes.
 
@@ -229,18 +231,21 @@ method, partial, and ASGI callable instance were `not_run` under the manifest's
 declared unsupported boundary; this does not count as native parity. The
 latest full run is summarized in section 3.
 
-### Completed bounded goal: finite `StreamingResponse` output
+### Bounded `StreamingResponse` iteration slice
 
 Four input-only cases cover finite synchronous text and byte chunks: omitted
 generated `Content-Length`, preservation of a caller-supplied content length,
 `text/plain` framing with per-chunk ASGI events, and byte pass-through. All
-eight target comparisons passed in run
-`85e21be2-b9ce-44b7-bbe1-ab86b0a587dc` against the pinned source, installed
-Python package, and Rust-native profile. The byte case is supported by the
-pinned source pass-through branch; upstream has no dedicated raw-bytes test.
-This evidence does not
-establish lazy iteration, backpressure, asynchronous iterator lifecycle,
-disconnect handling, background tasks, or memoryview type parity.
+eight target comparisons pass against the pinned source, installed Python
+package, and Rust-native profile. A fifth input uses Starlette's custom async
+iterator test, yielding `"1"` through `"5"`. It passes against the source and
+installed Python package; its Rust-native profile is not selected because
+native async iteration is not implemented. The Python wrapper now sends the
+start event before iterating, emits each chunk lazily using Rust-built ASGI
+messages, and sends the final empty body event on exhaustion. The byte case is
+supported by the pinned source pass-through branch; upstream has no dedicated
+raw-bytes test. This evidence does not establish cancellation, disconnect
+races, background tasks, ASGI 2.4 `OSError` mapping, or memoryview type parity.
 
 ### HTTPException default-response slice: bounded parity verified
 

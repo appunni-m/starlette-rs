@@ -29,7 +29,8 @@ Rustdoc warnings fail `make rustdoc-check`. The `fmt-fix` and
 Python package directories, and excludes generated output. This project has no
 conventional Python or Rust unit-test suite: `make test` runs live comparisons
 between pinned Starlette, the installed Python package, and supported
-Rust-native workflows. Four currently selected Rust-native callable rows are
+Rust-native workflows. `make project-policy-check` enforces that policy.
+Four currently selected Rust-native callable rows are
 `not_run`, so the all-target parity command exits nonzero. The documentation
 checker uses only Python's standard library and checks repository-local
 Markdown link targets without network access.

@@ -4311,6 +4311,17 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.async-iterator",
+              "dimension": "input_family",
+              "description": "Construct a finite StreamingResponse from an async iterator yielding five ordered text chunks ('1' through '5'), then observe the exact ASGI events through normal iterator exhaustion. Scope is limited to the Python package profile while Rust-native async iterator semantics are pending. Upstream: starlette.responses.StreamingResponse.__call__; test: tests/test_responses.py::test_streaming_response_custom_iterator.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

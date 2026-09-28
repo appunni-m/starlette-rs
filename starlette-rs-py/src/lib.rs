@@ -60,6 +60,34 @@ struct PyWebSocketStateMachine {
 
 type PyDebugTracebackFrame = (String, usize, String, Vec<String>, usize);
 
+fn streaming_response_event_to_py<'py>(
+    py: Python<'py>,
+    event: StreamingResponseEvent,
+) -> PyResult<Bound<'py, PyDict>> {
+    let message = PyDict::new(py);
+    match event {
+        StreamingResponseEvent::Start {
+            status_code,
+            headers,
+        } => {
+            message.set_item("type", "http.response.start")?;
+            message.set_item("status", status_code)?;
+            let python_headers = PyList::empty(py);
+            for (name, value) in headers {
+                let pair = PyTuple::new(py, [PyBytes::new(py, &name), PyBytes::new(py, &value)])?;
+                python_headers.append(pair)?;
+            }
+            message.set_item("headers", python_headers)?;
+        }
+        StreamingResponseEvent::Body { body, more_body } => {
+            message.set_item("type", "http.response.body")?;
+            message.set_item("body", PyBytes::new(py, &body))?;
+            message.set_item("more_body", more_body)?;
+        }
+    }
+    Ok(message)
+}
+
 #[pymethods]
 impl PyExceptionHandlerTable {
     #[new]
@@ -599,31 +627,28 @@ impl PyStreamingResponse {
     fn asgi_messages<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         let messages = PyList::empty(py);
         for event in self.inner.asgi_events() {
-            let message = PyDict::new(py);
-            match event {
-                StreamingResponseEvent::Start {
-                    status_code,
-                    headers,
-                } => {
-                    message.set_item("type", "http.response.start")?;
-                    message.set_item("status", status_code)?;
-                    let python_headers = PyList::empty(py);
-                    for (name, value) in headers {
-                        let pair =
-                            PyTuple::new(py, [PyBytes::new(py, &name), PyBytes::new(py, &value)])?;
-                        python_headers.append(pair)?;
-                    }
-                    message.set_item("headers", python_headers)?;
-                }
-                StreamingResponseEvent::Body { body, more_body } => {
-                    message.set_item("type", "http.response.body")?;
-                    message.set_item("body", PyBytes::new(py, &body))?;
-                    message.set_item("more_body", more_body)?;
-                }
-            }
-            messages.append(message)?;
+            messages.append(streaming_response_event_to_py(py, event)?)?;
         }
         Ok(messages)
+    }
+
+    fn start_message<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        streaming_response_event_to_py(py, self.inner.start_event())
+    }
+
+    #[staticmethod]
+    fn body_message<'py>(
+        py: Python<'py>,
+        body: Vec<u8>,
+        more_body: bool,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let event = NativeStreamingResponse::body_event(body, more_body);
+        streaming_response_event_to_py(py, event)
+    }
+
+    #[staticmethod]
+    fn final_message<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        streaming_response_event_to_py(py, NativeStreamingResponse::final_event())
     }
 }
 

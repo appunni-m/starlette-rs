@@ -15,18 +15,19 @@ run with `python3.12 -m scripts.parity.cli benchmark-upstream`. The result is
 written to `build/parity/upstream-benchmark-result.json`; it records source
 revision `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, pinned benchmark-file
 hashes, and active input-catalog and manifest hashes. The current run
-`4b478188-8546-43ce-95fd-1b58e18672f7` ran from
-`2026-09-28T09:09:13.967Z` to `2026-09-28T09:10:42.274Z`: 74/74 workloads
+`5f88f441-8747-4d0f-9e1b-fb7153aeb218` ran from
+`2026-09-28T12:04:48.059Z` to `2026-09-28T12:06:19.166Z`: 74/74 workloads
 measured (six Router and 68 GZip), with zero failed and zero not-run
 source/package workloads. All 74 source/package correctness gates passed. Its
-correctness preflight, run `351d9fe9-c482-4b2f-b181-f6f59a66c93b`, selected 148
-parity comparisons: 142 passed, zero failed, zero infrastructure errors, and
-six Rust-native rows were `not_run` (package 101/101; Rust-native 41/47). The
+correctness preflight, run `e45ffb4f-29e7-4267-b84d-91ed40d9ef97`, selected 181
+parity comparisons: 175 passed, zero failed, zero infrastructure errors, and
+six Rust-native rows were `not_run` (package 118/118; Rust-native 57/63). The
 installed package wheel SHA-256 for this run is
-`cdec420f89e4788c965b3cb087101129125fce7be08bee96a1b1fe31ecd947ed`. The
+`a6256dd26111eba868f9faeea62c6666f3a10443dc86b75207267e5b5ade5c27`. The
 benchmark records Rust-native as `not_run` for all 74 workloads because that
 boundary is not equivalent; this lane does not establish native performance
-parity. The input-only workload catalog is
+parity. Target identities came from dirty local trees, so the benchmark is not
+clean aggregate or release proof. The input-only workload catalog is
 [`starlette-upstream-workloads.yaml`](../tests/fixtures/sources/benchmark/starlette-upstream-workloads.yaml);
 the source-invocation inventory is
 [`router-gzip-benchmark-workloads.csv`](atlas/reviews/router-gzip-benchmark-workloads.csv).
@@ -36,7 +37,7 @@ are ignored local outputs and are not committed.
 
 | Evidence | Artifact | Result |
 | --- | --- | --- |
-| Router/GZip upstream runner | `build/parity/upstream-benchmark-result.json` | `completed`; run `4b478188-8546-43ce-95fd-1b58e18672f7`, `2026-09-28T09:09:13.967Z`–`2026-09-28T09:10:42.274Z`; 74/74 measured, 6 Router + 68 GZip; source/package correctness gates all pass; Rust-native 74/74 `not_run`; preflight `351d9fe9-c482-4b2f-b181-f6f59a66c93b`: 142/148 parity comparisons pass, 6 unsupported Rust-native rows `not_run` |
+| Router/GZip upstream runner | `build/parity/upstream-benchmark-result.json` | `completed`; run `5f88f441-8747-4d0f-9e1b-fb7153aeb218`, `2026-09-28T12:04:48.059Z`–`2026-09-28T12:06:19.166Z`; 74/74 measured, 6 Router + 68 GZip; source/package correctness gates all pass; Rust-native 74/74 `not_run`; preflight `e45ffb4f-29e7-4267-b84d-91ed40d9ef97`: 175/181 parity comparisons pass, 6 unsupported Rust-native rows `not_run` |
 | Direct-ASGI smoke correctness | `build/parity/benchmark-correctness-result.json` | Historical smoke gate; separate from the 74-workload runner |
 | Direct-ASGI smoke measurement | `build/parity/benchmark-result.json` | Historical smoke result `not_proven`; does not describe the completed upstream runner |
 
