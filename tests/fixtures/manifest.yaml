@@ -3991,6 +3991,66 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.empty-response",
+              "dimension": "success_path",
+              "description": "Construct Response() with its default None content, status, headers, and media type, then observe the direct HTTP ASGI call. Upstream: starlette/responses.py::Response.__init__; tests/test_responses.py::test_empty_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.empty-204-response",
+              "dimension": "parameter_combination",
+              "description": "Construct Response(status_code=204) with default None content and media type, then observe the direct HTTP ASGI call. Upstream: starlette/responses.py::Response.init_headers; tests/test_responses.py::test_empty_204_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.non-empty-response",
+              "dimension": "parameter_combination",
+              "description": "Construct Response(content=\"hi\") without an explicit media type, then observe the direct HTTP ASGI call. Upstream: starlette/responses.py::Response.__init__; tests/test_responses.py::test_non_empty_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.response-do-not-add-redundant-charset",
+              "dimension": "parameter_combination",
+              "description": "Construct an empty Response with media_type=\"text/plain; charset=utf-8\" and observe the direct HTTP ASGI call. Upstream: starlette/responses.py::Response.init_headers; tests/test_responses.py::test_response_do_not_add_redundant_charset.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.populate-headers",
+              "dimension": "parameter_combination",
+              "description": "Construct Response(content=\"hi\", headers={}, media_type=\"text/html\") and observe the direct HTTP ASGI call. Upstream: starlette/responses.py::Response.init_headers; tests/test_responses.py::test_populate_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

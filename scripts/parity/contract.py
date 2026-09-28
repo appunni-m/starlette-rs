@@ -1644,32 +1644,61 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("case is outside the declared Response asgi-call operations")
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ContractError("Response observations must select asgi-call")
-    if type(case["status_code"]) is not int or case["status_code"] != 200:
-        raise ContractError("Response status_code must be 200 for this input slice")
+    if type(case["status_code"]) is not int or case["status_code"] not in {200, 204}:
+        raise ContractError("Response status_code must be 200 or 204 for this input slice")
     if case["header_pairs"] != []:
         raise ContractError("Response header_pairs must be empty for this input slice")
+    if case["media_type"] is not None and not isinstance(case["media_type"], str):
+        raise ContractError("Response media_type must be a string or null")
 
     content = _exact(case["content"], {"kind", "value"}, "Response content")
     content_kind = _string(content["kind"], "Response content.kind")
     if case["surface"] == RESPONSE_SURFACE:
         if content_kind == "text":
-            _string(content["value"], "Response text content.value")
-            expected_media_type = "text/plain"
+            value = _string(content["value"], "Response text content.value")
+            allowed = {
+                ("hi", 200, None),
+                ("hi", 200, "text/html"),
+                ("hello, world", 200, "text/plain"),
+            }
+            if (value, case["status_code"], case["media_type"]) not in allowed:
+                raise ContractError(
+                    "Response text, status_code, and media_type combination is unsupported"
+                )
         elif content_kind == "base64-bytes":
             encoded = _string(content["value"], "Response bytes content.value")
             try:
-                base64.b64decode(encoded, validate=True)
+                decoded = base64.b64decode(encoded, validate=True)
             except (ValueError, TypeError) as exc:
                 raise ContractError("Response bytes content.value must be valid base64") from exc
-            expected_media_type = "image/png"
+            if (
+                decoded != b"xxxxx"
+                or case["status_code"] != 200
+                or case["media_type"] != "image/png"
+            ):
+                raise ContractError(
+                    "Response bytes, status_code, and media_type combination is unsupported"
+                )
+        elif content_kind == "none":
+            if content["value"] is not None:
+                raise ContractError("Response none content.value must be null")
+            if (case["status_code"], case["media_type"]) not in {
+                (200, None),
+                (200, "text/plain; charset=utf-8"),
+                (204, None),
+            }:
+                raise ContractError(
+                    "Response none, status_code, and media_type combination is unsupported"
+                )
         else:
-            raise ContractError("Response content.kind must be text or base64-bytes")
+            raise ContractError("Response content.kind must be none, text, or base64-bytes")
     else:
         if content_kind != "json" or content["value"] is not None:
             raise ContractError("JSONResponse content must be json null for this input slice")
-        expected_media_type = None
-    if case["media_type"] != expected_media_type:
-        raise ContractError("Response media_type must match the declared input case")
+        if case["status_code"] != 200 or case["media_type"] is not None:
+            raise ContractError(
+                "JSONResponse status_code and media_type are fixed for this input slice"
+            )
     if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
         raise ContractError("Response asgi-call inputs use empty receive and captured send")
     _validate_dispatch_stimulus(

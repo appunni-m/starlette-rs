@@ -782,6 +782,12 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
     )?;
     let content_kind = string_field(content, "kind", "Response content")?;
     let body = match (label, content_kind) {
+        ("Response", "none") => {
+            if !content.get("value").is_some_and(Value::is_null) {
+                return Err(String::from("Response none content.value must be null"));
+            }
+            Vec::new()
+        }
         ("Response", "text") => string_field(content, "value", "Response text content")?
             .as_bytes()
             .to_vec(),
@@ -798,7 +804,7 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
         }
         ("Response", _) => {
             return Err(String::from(
-                "Response content kind must be text or base64-bytes",
+                "Response content kind must be none, text, or base64-bytes",
             ));
         }
         ("JSONResponse", _) => {

@@ -1799,8 +1799,10 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(encoded_content, str):
                 raise ValueError("Response base64-bytes content value must be a string")
             content = _decode_base64(encoded_content, "content.value")
+        elif content_kind == "none" and content_spec["value"] is None:
+            content = None
         else:
-            raise ValueError("Response content kind must be text or base64-bytes")
+            raise ValueError("Response content must be text, base64-bytes, or null")
     else:
         if content_kind != "json" or content_spec["value"] is not None:
             raise ValueError("JSONResponse content must select json with a null value")
