@@ -35,6 +35,9 @@ MOUNT_SURFACE = "starlette.routing.Mount"
 MOUNT_OPERATION = "route-dispatch"
 REDIRECT_RESPONSE_SURFACE = "starlette.responses.RedirectResponse"
 REDIRECT_RESPONSE_OPERATION = "asgi-call"
+RESPONSE_SURFACE = "starlette.responses.Response"
+JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
+RESPONSE_OPERATION = "asgi-call"
 _MISSING = object()
 
 
@@ -1730,6 +1733,175 @@ def _run_redirect_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "content",
+            "status_code",
+            "header_pairs",
+            "media_type",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        },
+        "Response ASGI-call case",
+    )
+    surface = case["surface"]
+    if surface not in {RESPONSE_SURFACE, JSON_RESPONSE_SURFACE}:
+        raise ValueError("workflow is outside the declared Response ASGI-call surfaces")
+    if not isinstance(case["case_id"], str):
+        raise ValueError("Response case_id must be a string")
+    for field in ("covers", "target_profiles", "assets"):
+        if not isinstance(case[field], list):
+            raise ValueError(f"Response {field} must be an array")
+    if case["operation"] != RESPONSE_OPERATION:
+        raise ValueError("Response cases must use the declared asgi-call operation")
+    if case["observations"] != [RESPONSE_OPERATION]:
+        raise ValueError("Response observations must select asgi-call")
+
+    content_spec = _strict_object(case["content"], {"kind", "value"}, "Response content")
+    content_kind = content_spec["kind"]
+    if surface == RESPONSE_SURFACE:
+        if content_kind == "text":
+            content = content_spec["value"]
+            if not isinstance(content, str):
+                raise ValueError("Response text content value must be a string")
+        elif content_kind == "base64-bytes":
+            encoded_content = content_spec["value"]
+            if not isinstance(encoded_content, str):
+                raise ValueError("Response base64-bytes content value must be a string")
+            content = _decode_b64(encoded_content, "content.value")
+        else:
+            raise ValueError("Response content kind must be text or base64-bytes")
+    else:
+        if content_kind != "json" or content_spec["value"] is not None:
+            raise ValueError("JSONResponse content must select json with a null value")
+        content = None
+
+    if type(case["status_code"]) is not int:
+        raise ValueError("Response status_code must be an integer")
+    header_pairs = case["header_pairs"]
+    if not isinstance(header_pairs, list) or any(
+        not isinstance(pair, list)
+        or len(pair) != 2
+        or any(not isinstance(part, str) for part in pair)
+        for pair in header_pairs
+    ):
+        raise ValueError("Response header_pairs must be string pairs")
+    media_type = case["media_type"]
+    if media_type is not None and not isinstance(media_type, str):
+        raise ValueError("Response media_type must be a string or null")
+
+    scope_spec = _strict_object(
+        case["scope"],
+        {
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        },
+        "Response HTTP scope",
+    )
+    if scope_spec["type"] != "http":
+        raise ValueError("Response ASGI-call requires an HTTP scope")
+    asgi_spec = _strict_object(scope_spec["asgi"], {"version", "spec_version"}, "ASGI version")
+    if any(not isinstance(asgi_spec[key], str) for key in asgi_spec):
+        raise ValueError("ASGI versions must be strings")
+    for field in ("http_version", "method", "scheme", "path", "root_path"):
+        if not isinstance(scope_spec[field], str):
+            raise ValueError(f"Response HTTP scope.{field} must be a string")
+    headers = scope_spec["headers_base64_pairs"]
+    if not isinstance(headers, list) or any(
+        not isinstance(pair, list)
+        or len(pair) != 2
+        or any(not isinstance(value, str) for value in pair)
+        for pair in headers
+    ):
+        raise ValueError("Response HTTP scope headers must be base64 string pairs")
+    for field in ("client", "server"):
+        address = scope_spec[field]
+        if (
+            not isinstance(address, list)
+            or len(address) != 2
+            or not isinstance(address[0], str)
+            or type(address[1]) is not int
+        ):
+            raise ValueError(f"Response HTTP scope.{field} must be a [host, port] pair")
+    if not isinstance(case["incoming"], list) or case["incoming"]:
+        raise ValueError("Response ASGI-call requires an empty incoming stream")
+    if case["send"] != {"kind": "capture-asgi-send"}:
+        raise ValueError("send input must select the declared ASGI message collector")
+
+    from starlette.responses import JSONResponse, Response
+
+    response_type = Response if surface == RESPONSE_SURFACE else JSONResponse
+    response_arguments: dict[str, Any] = {
+        "content": content,
+        "status_code": case["status_code"],
+        "headers": dict(header_pairs),
+    }
+    if media_type is not None:
+        response_arguments["media_type"] = media_type
+    response = response_type(**response_arguments)
+    scope = _make_scope(scope_spec)
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    asyncio.run(response(scope, receive, send))
+    events = [_canonical_message(message) for message in sent]
+    response_start = next(
+        (message for message in sent if message["type"] == "http.response.start"), None
+    )
+    response_start_event = next(
+        (event for event in events if event["type"] == "http.response.start"), None
+    )
+    response_body = b"".join(
+        message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+    )
+    observation = {
+        "response_status": response_start["status"] if response_start is not None else None,
+        "ordered_repeated_headers": (
+            response_start_event["headers"] if response_start_event is not None else []
+        ),
+        "response_bytes": (
+            {
+                "encoding": "base64",
+                "data": base64.b64encode(response_body).decode("ascii"),
+            }
+            if response_start is not None
+            else None
+        ),
+        "asgi_event_order": [event["type"] for event in events],
+        "asgi_events": events,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}],
+    }
+
+
 def _reverse_url_error(exc: Exception) -> dict[str, str]:
     return {"class": type(exc).__name__, "message": str(exc)}
 
@@ -2030,6 +2202,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == REDIRECT_RESPONSE_OPERATION
     ):
         return _run_redirect_response_case(case)
+    if isinstance(case, dict) and case.get("surface") in {
+        RESPONSE_SURFACE,
+        JSON_RESPONSE_SURFACE,
+    }:
+        return _run_basic_response_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") in {ROUTER_SURFACE, MOUNT_SURFACE}

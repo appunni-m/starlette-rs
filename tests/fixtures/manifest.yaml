@@ -250,7 +250,8 @@
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
       "build/parity/inputs/parity/reverse-url-routing.json",
-      "build/parity/inputs/parity/redirect-response.json"
+      "build/parity/inputs/parity/redirect-response.json",
+      "build/parity/inputs/parity/responses-basic.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -3768,6 +3769,467 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.responses.Response",
+      "kind": "type",
+      "source_path": "starlette/responses.py:29",
+      "storage_slug": "starlette-responses-Response",
+      "operations": [
+        {
+          "id": "asgi-call",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.responses.Response.__call__",
+            "signature": "Response(content=None, status_code=200, headers=None, media_type=None, background=None); async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "content",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "null",
+                  "string",
+                  "bytes"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "status_code",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "integer"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": 200
+                }
+              },
+              {
+                "id": "headers",
+                "style": "keyword",
+                "value_types": [
+                  "mapping",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "media_type",
+                "style": "keyword",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "background",
+                "style": "keyword",
+                "value_types": [
+                  "handle",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                },
+                {
+                  "path": "asgi_event_order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::Response::from_content",
+              "signature": "Response::from_content(status_code, body, media_type, ordered_headers) -> Result<Response, ResponseError>; Response::asgi_events() -> [ResponseEvent; 2]",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.responses.Response",
+              "signature": "Response(content=None, status_code=200, headers=None, media_type=None, background=None); async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.responses.Response.asgi-call.text-content",
+              "dimension": "input_family",
+              "description": "Construct Response(\"hello, world\", media_type=\"text/plain\") and invoke it directly through HTTP ASGI. Upstream: starlette/responses.py::Response.__call__; tests/test_responses.py::test_text_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.bytes-content",
+              "dimension": "input_family",
+              "description": "Construct Response(b\"xxxxx\", media_type=\"image/png\") and invoke it directly through HTTP ASGI. Upstream: starlette/responses.py::Response.__call__; tests/test_responses.py::test_bytes_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded basic-response contract makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only response correctness slice declares no benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.responses.JSONResponse",
+      "kind": "type",
+      "source_path": "starlette/responses.py:181",
+      "storage_slug": "starlette-responses-JSONResponse",
+      "operations": [
+        {
+          "id": "asgi-call",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.responses.Response.__call__",
+            "signature": "JSONResponse(content, status_code=200, headers=None, media_type=None, background=None); async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "content",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "any_json"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "status_code",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "integer"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": 200
+                }
+              },
+              {
+                "id": "headers",
+                "style": "keyword",
+                "value_types": [
+                  "mapping",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "media_type",
+                "style": "keyword",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "background",
+                "style": "keyword",
+                "value_types": [
+                  "handle",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                },
+                {
+                  "path": "asgi_event_order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::Response::from_content",
+              "signature": "Response::from_content(status_code, serde_json-rendered body, resolved JSON media type, ordered_headers) -> Result<Response, ResponseError>; Response::asgi_events() -> [ResponseEvent; 2]",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.responses.JSONResponse",
+              "signature": "JSONResponse(content, status_code=200, headers=None, media_type=None, background=None); async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.responses.JSONResponse.asgi-call.none-content",
+              "dimension": "input_family",
+              "description": "Construct JSONResponse(None) with its default media type and invoke it directly through HTTP ASGI. Upstream: starlette/responses.py::JSONResponse.render; tests/test_responses.py::test_json_none_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded basic-response contract makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only response correctness slice declares no benchmark workload."
           }
         }
       ]

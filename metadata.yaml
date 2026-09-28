@@ -120,6 +120,26 @@
       ]
     },
     {
+      "surface_id": "starlette.responses.Response",
+      "source_path": "starlette/responses.py:29",
+      "operations": [
+        {
+          "operation_id": "asgi-call",
+          "source_path": "starlette.responses.Response.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.responses.JSONResponse",
+      "source_path": "starlette/responses.py:181",
+      "operations": [
+        {
+          "operation_id": "asgi-call",
+          "source_path": "starlette.responses.Response.__call__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.responses.RedirectResponse",
       "source_path": "starlette/responses.py:204",
       "operations": [

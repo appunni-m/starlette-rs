@@ -24,6 +24,9 @@ const RESPONSE_SCHEMA: &str = "migration-parity/adapter-response@1";
 const SUBJECT_ID: &str = "rust-native";
 const REDIRECT_RESPONSE_SURFACE: &str = "starlette.responses.RedirectResponse";
 const REDIRECT_RESPONSE_OPERATION: &str = "asgi-call";
+const RESPONSE_SURFACE: &str = "starlette.responses.Response";
+const JSON_RESPONSE_SURFACE: &str = "starlette.responses.JSONResponse";
+const RESPONSE_OPERATION: &str = "asgi-call";
 const WEBSOCKET_SURFACE: &str = "starlette.websockets.WebSocket";
 const WEBSOCKET_OPERATION: &str = "protocol-sequence";
 const WEBSOCKET_STATE_OPERATION: &str = "state-sequence";
@@ -298,6 +301,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         (Some(REDIRECT_RESPONSE_SURFACE), Some(REDIRECT_RESPONSE_OPERATION)) => {
             return run_redirect_response_case(case);
         }
+        (Some(RESPONSE_SURFACE | JSON_RESPONSE_SURFACE), Some(RESPONSE_OPERATION)) => {
+            return run_basic_response_case(case);
+        }
         (Some("starlette.routing.Mount"), Some("route-dispatch")) => {
             return Err(String::from(
                 "Rust-native route adapter does not expose Mount child-scope dispatch",
@@ -562,9 +568,10 @@ fn run_redirect_response_case(case: &Value) -> Result<Value, String> {
             .ok_or_else(|| String::from("RedirectResponse asgi-call send input is missing"))?,
     )?;
 
-    let _scope = validate_redirect_response_scope(
+    let _scope = validate_asgi_http_scope(
         case.get("scope")
             .ok_or_else(|| String::from("RedirectResponse asgi-call scope is missing"))?,
+        "RedirectResponse",
     )?;
     let url = string_field(case, "url", "RedirectResponse asgi-call case")?;
     let status_code = case
@@ -628,7 +635,11 @@ fn run_redirect_response_case(case: &Value) -> Result<Value, String> {
     }))
 }
 
-fn validate_redirect_response_scope(scope: &Value) -> Result<&Map<String, Value>, String> {
+fn validate_asgi_http_scope<'a>(
+    scope: &'a Value,
+    response_name: &str,
+) -> Result<&'a Map<String, Value>, String> {
+    let context = format!("{response_name} HTTP scope");
     let scope = exact_object(
         scope,
         &[
@@ -645,67 +656,227 @@ fn validate_redirect_response_scope(scope: &Value) -> Result<&Map<String, Value>
             "client",
             "server",
         ],
-        "RedirectResponse HTTP scope",
+        &context,
     )?;
-    if string_field(scope, "type", "RedirectResponse HTTP scope")? != "http" {
-        return Err(String::from(
-            "RedirectResponse asgi-call scope.type must be http",
-        ));
+    if string_field(scope, "type", &context)? != "http" {
+        return Err(format!("{response_name} asgi-call scope.type must be http"));
     }
     let asgi = exact_object(
         scope
             .get("asgi")
-            .ok_or_else(|| String::from("RedirectResponse scope misses asgi"))?,
+            .ok_or_else(|| format!("{response_name} scope misses asgi"))?,
         &["version", "spec_version"],
-        "RedirectResponse HTTP scope.asgi",
+        &format!("{context}.asgi"),
     )?;
-    if string_field(asgi, "version", "RedirectResponse HTTP scope.asgi")? != "3.0"
-        || string_field(asgi, "spec_version", "RedirectResponse HTTP scope.asgi")? != "2.4"
+    if string_field(asgi, "version", &format!("{context}.asgi"))? != "3.0"
+        || string_field(asgi, "spec_version", &format!("{context}.asgi"))? != "2.4"
     {
-        return Err(String::from(
-            "RedirectResponse scope uses an unsupported ASGI version",
+        return Err(format!(
+            "{response_name} scope uses an unsupported ASGI version"
         ));
     }
     for field in ["http_version", "method", "scheme", "path", "root_path"] {
-        let _ = string_field(scope, field, "RedirectResponse HTTP scope")?;
+        let _ = string_field(scope, field, &context)?;
     }
     for field in ["raw_path_base64", "query_string_base64"] {
         decode_base64(
-            string_field(scope, field, "RedirectResponse HTTP scope")?,
-            &format!("RedirectResponse scope.{field}"),
+            string_field(scope, field, &context)?,
+            &format!("{response_name} scope.{field}"),
         )?;
     }
     let headers = scope
         .get("headers_base64_pairs")
         .and_then(Value::as_array)
-        .ok_or_else(|| {
-            String::from("RedirectResponse scope.headers_base64_pairs must be an array")
-        })?;
+        .ok_or_else(|| format!("{response_name} scope.headers_base64_pairs must be an array"))?;
     for (index, pair) in headers.iter().enumerate() {
         let pair = pair
             .as_array()
             .filter(|pair| pair.len() == 2)
-            .ok_or_else(|| format!("RedirectResponse scope header[{index}] must be a pair"))?;
+            .ok_or_else(|| format!("{response_name} scope header[{index}] must be a pair"))?;
         for (side, item) in pair.iter().enumerate() {
             let encoded = item.as_str().ok_or_else(|| {
-                format!("RedirectResponse scope header[{index}][{side}] must be base64")
+                format!("{response_name} scope header[{index}][{side}] must be base64")
             })?;
-            decode_base64(encoded, "RedirectResponse scope header")?;
+            decode_base64(encoded, &format!("{response_name} scope header"))?;
         }
     }
     validate_scope_address(
         scope
             .get("client")
-            .ok_or_else(|| String::from("RedirectResponse scope misses client"))?,
-        "RedirectResponse scope.client",
+            .ok_or_else(|| format!("{response_name} scope misses client"))?,
+        &format!("{response_name} scope.client"),
     )?;
     validate_scope_address(
         scope
             .get("server")
-            .ok_or_else(|| String::from("RedirectResponse scope misses server"))?,
-        "RedirectResponse scope.server",
+            .ok_or_else(|| format!("{response_name} scope misses server"))?,
+        &format!("{response_name} scope.server"),
     )?;
     Ok(scope)
+}
+
+fn run_basic_response_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "content",
+            "status_code",
+            "header_pairs",
+            "media_type",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        ],
+        "Response asgi-call case",
+    )?;
+    let case_id = string_field(case, "case_id", "Response asgi-call case")?;
+    let surface = string_field(case, "surface", "Response asgi-call case")?;
+    let label = match surface {
+        RESPONSE_SURFACE => "Response",
+        JSON_RESPONSE_SURFACE => "JSONResponse",
+        _ => return Err(String::from("unsupported response surface")),
+    };
+    if !case_id.starts_with(&format!("{surface}.{RESPONSE_OPERATION}."))
+        || string_field(case, "operation", "Response asgi-call case")? != RESPONSE_OPERATION
+        || case.get("observations") != Some(&json!([RESPONSE_OPERATION]))
+        || case.get("assets") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "case ID or selectors are outside the Response ASGI-call slice",
+        ));
+    }
+    validate_string_array(case, "covers", "Response asgi-call covers", false)?;
+    validate_string_array(
+        case,
+        "target_profiles",
+        "Response asgi-call target_profiles",
+        false,
+    )?;
+    if case.get("incoming") != Some(&json!([])) {
+        return Err(String::from(
+            "Response asgi-call requires an empty incoming sequence",
+        ));
+    }
+    validate_capture_send(
+        case.get("send")
+            .ok_or_else(|| String::from("Response asgi-call send input is missing"))?,
+    )?;
+    validate_asgi_http_scope(
+        case.get("scope")
+            .ok_or_else(|| String::from("Response asgi-call scope is missing"))?,
+        label,
+    )?;
+
+    let content = exact_object(
+        case.get("content")
+            .ok_or_else(|| String::from("Response asgi-call content is missing"))?,
+        &["kind", "value"],
+        "Response content",
+    )?;
+    let content_kind = string_field(content, "kind", "Response content")?;
+    let body = match (label, content_kind) {
+        ("Response", "text") => string_field(content, "value", "Response text content")?
+            .as_bytes()
+            .to_vec(),
+        ("Response", "base64-bytes") => decode_base64(
+            string_field(content, "value", "Response base64-bytes content")?,
+            "Response content.value",
+        )?,
+        ("JSONResponse", "json") => {
+            let value = content
+                .get("value")
+                .filter(|value| value.is_null())
+                .ok_or_else(|| String::from("JSONResponse content.value must be null"))?;
+            serde_json::to_vec(value).map_err(|error| error.to_string())?
+        }
+        ("Response", _) => {
+            return Err(String::from(
+                "Response content kind must be text or base64-bytes",
+            ));
+        }
+        ("JSONResponse", _) => {
+            return Err(String::from("JSONResponse content kind must be json"));
+        }
+        _ => return Err(String::from("unsupported response content")),
+    };
+    let status_code = case
+        .get("status_code")
+        .and_then(Value::as_u64)
+        .and_then(|value| u16::try_from(value).ok())
+        .ok_or_else(|| String::from("Response status_code must be an unsigned 16-bit integer"))?;
+    let header_pairs = case
+        .get("header_pairs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("Response header_pairs must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, pair)| {
+            let pair = pair
+                .as_array()
+                .filter(|pair| pair.len() == 2)
+                .ok_or_else(|| format!("Response header_pairs[{index}] must be a pair"))?;
+            let name = pair[0]
+                .as_str()
+                .ok_or_else(|| format!("Response header_pairs[{index}] name must be a string"))?;
+            let value = pair[1]
+                .as_str()
+                .ok_or_else(|| format!("Response header_pairs[{index}] value must be a string"))?;
+            Ok((name.to_owned(), value.to_owned()))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let requested_media_type = match case.get("media_type") {
+        Some(Value::Null) => None,
+        Some(Value::String(media_type)) => Some(media_type.as_str()),
+        _ => return Err(String::from("Response media_type must be a string or null")),
+    };
+    let media_type =
+        requested_media_type.or_else(|| (label == "JSONResponse").then_some("application/json"));
+
+    let response = Response::from_content(
+        status_code,
+        body,
+        media_type,
+        header_pairs
+            .iter()
+            .map(|(name, value)| (name.as_str(), value.as_str())),
+    )
+    .map_err(|error| error.to_string())?;
+    let events = response
+        .asgi_events()
+        .into_iter()
+        .map(canonical_response_event)
+        .collect::<Vec<_>>();
+    let event_order = events
+        .iter()
+        .filter_map(|event| event.get("type").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": RESPONSE_OPERATION,
+            "status": "ok",
+            "value": {
+                "response_status": response.status_code(),
+                "ordered_repeated_headers": canonical_headers(response.headers()),
+                "response_bytes": {
+                    "encoding": "base64",
+                    "data": encode_base64(response.body()),
+                },
+                "asgi_event_order": event_order,
+                "asgi_events": events,
+            },
+        }],
+    }))
 }
 
 fn run_websocket_state_case(case: &Value) -> Result<Value, String> {

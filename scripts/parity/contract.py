@@ -103,6 +103,26 @@ REDIRECT_RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "incoming",
     "send",
 }
+RESPONSE_SURFACE = "starlette.responses.Response"
+JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
+RESPONSE_SURFACES = {RESPONSE_SURFACE, JSON_RESPONSE_SURFACE}
+RESPONSE_OPERATION = "asgi-call"
+RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "content",
+    "status_code",
+    "header_pairs",
+    "media_type",
+    "scope",
+    "incoming",
+    "send",
+}
+RESPONSE_OBSERVATIONS = [
+    "response_status",
+    "ordered_repeated_headers",
+    "response_bytes",
+    "asgi_event_order",
+    "asgi_events",
+]
 REVERSE_URL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "route_graph",
     "lookup",
@@ -1618,6 +1638,48 @@ def _validate_redirect_response_case_stimulus(case: dict[str, Any]) -> None:
     )
 
 
+def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
+    _exact(case, RESPONSE_CASE_KEYS, "Response asgi-call case")
+    if case["surface"] not in RESPONSE_SURFACES or case["operation"] != RESPONSE_OPERATION:
+        raise ContractError("case is outside the declared Response asgi-call operations")
+    if case["observations"] != [RESPONSE_OPERATION]:
+        raise ContractError("Response observations must select asgi-call")
+    if type(case["status_code"]) is not int or case["status_code"] != 200:
+        raise ContractError("Response status_code must be 200 for this input slice")
+    if case["header_pairs"] != []:
+        raise ContractError("Response header_pairs must be empty for this input slice")
+
+    content = _exact(case["content"], {"kind", "value"}, "Response content")
+    content_kind = _string(content["kind"], "Response content.kind")
+    if case["surface"] == RESPONSE_SURFACE:
+        if content_kind == "text":
+            _string(content["value"], "Response text content.value")
+            expected_media_type = "text/plain"
+        elif content_kind == "base64-bytes":
+            encoded = _string(content["value"], "Response bytes content.value")
+            try:
+                base64.b64decode(encoded, validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError("Response bytes content.value must be valid base64") from exc
+            expected_media_type = "image/png"
+        else:
+            raise ContractError("Response content.kind must be text or base64-bytes")
+    else:
+        if content_kind != "json" or content["value"] is not None:
+            raise ContractError("JSONResponse content must be json null for this input slice")
+        expected_media_type = None
+    if case["media_type"] != expected_media_type:
+        raise ContractError("Response media_type must match the declared input case")
+    if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
+        raise ContractError("Response asgi-call inputs use empty receive and captured send")
+    _validate_dispatch_stimulus(
+        {"scope": case["scope"], "receive": case["incoming"], "send": case["send"]},
+        request_dispatch=True,
+    )
+    if case["scope"]["query_string_base64"] != "" or case["scope"]["headers_base64_pairs"] != []:
+        raise ContractError("Response asgi-call scope uses the direct HTTP baseline")
+
+
 def _route_method_matches(route: dict[str, Any], method: str) -> bool:
     return method in route["methods"] or (method == "HEAD" and "GET" in route["methods"])
 
@@ -2268,6 +2330,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and case.get("surface") == REDIRECT_RESPONSE_SURFACE
         and case.get("operation") == REDIRECT_RESPONSE_OPERATION
     )
+    is_response = isinstance(case, dict) and case.get("surface") in RESPONSE_SURFACES
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
@@ -2281,6 +2344,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_reverse_url
         else REDIRECT_RESPONSE_CASE_KEYS
         if is_redirect_response
+        else RESPONSE_CASE_KEYS
+        if is_response
         else CASE_KEYS
     )
     _exact(case, expected_case_keys, "case")
@@ -2306,6 +2371,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_redirect_response:
         if case["operation"] != REDIRECT_RESPONSE_OPERATION:
             raise ContractError("RedirectResponse cases must use the declared asgi-call operation")
+    elif is_response:
+        if case["operation"] != RESPONSE_OPERATION:
+            raise ContractError("Response cases must use the declared asgi-call operation")
     elif is_gzip:
         if case["operation"] != "__call__":
             raise ContractError("GZipMiddleware parity cases must call its public ASGI interface")
@@ -2375,6 +2443,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_redirect_response:
         _validate_redirect_response_case_stimulus(case)
+        return case
+    if is_response:
+        _validate_response_case_stimulus(case)
         return case
 
     if not isinstance(case["steps"], list) or len(case["steps"]) not in {2, 3}:

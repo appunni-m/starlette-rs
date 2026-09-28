@@ -25,25 +25,28 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The active parity manifest indexes 101 input-only cases
-across 15 files: 38 request/routing cases, 21 reverse-URL cases, four direct
-ASGI cases, eight GZip cases, six full WebSocket protocol-tape cases, six
-projected WebSocket state cases, five Request-style HTTPException cases, two
-callable-ASGI HTTPException cases, two registered-handler cases, and nine
-server-error cases. Reverse-URL and custom-converter cases select the
+active and incomplete. The active parity manifest indexes 108 input-only cases
+across 17 files: 38 request/routing cases, 21 reverse-URL cases, four direct
+Starlette ASGI cases, three basic Response/JSONResponse ASGI-call cases, four
+RedirectResponse ASGI-call cases, eight GZip cases, six full WebSocket
+protocol-tape cases, six projected WebSocket state cases, five Request-style
+HTTPException cases, two callable-ASGI HTTPException cases, two registered-
+handler cases, and nine server-error cases. Reverse-URL and custom-converter cases select the
 Python-package profile. Built-in Router and slash-redirect cases select both
-profiles; Mount cases select both with Rust-native explicitly unsupported.
-Projected state cases select both profiles. Run
-`b2fc5183-407c-4843-b9e3-7e228342159e`, finished
-at `2026-09-28T09:08:03.998Z`, selected 148 comparisons: 142 passed, zero
-failed, six Rust-native rows were `not_run`, and there were zero
-infrastructure errors. All 101 Python-package cases passed; Rust-native passed
-41 of 47 selected cases. The six `not_run` rows are unsupported Python-callable
-and Mount boundaries. All six slash-redirect cases passed on both profiles;
-all 21 reverse-URL and all 21 selected WebSocket comparisons passed. The six
-native `not_run` rows cause `run` to exit with status 2, so the all-target gate
-remains incomplete. Target identities were dirty local trees; this run is not
-clean aggregate or release proof. The server-error inputs verify default and registered 500 handling,
+profiles; RedirectResponse, Response, and JSONResponse cases also select both.
+Mount cases select both with Rust-native explicitly unsupported. Projected
+state cases select both profiles. The latest integrated run
+`1bd57c98-5fa1-498a-8575-f686e9c6c3f3`, finished at
+`2026-09-28T10:07:07.063Z`, selected 162 comparisons: 156 passed, zero failed,
+six Rust-native rows were `not_run`, and there were zero infrastructure errors.
+All 108 Python-package cases passed; Rust-native passed 48 of 54 selected
+cases. The six `not_run` rows are unsupported Python-callable and Mount
+boundaries. All six slash-redirect, four RedirectResponse, and three basic
+Response/JSONResponse cases passed on both profiles; all 21 reverse-URL and all
+21 selected WebSocket comparisons passed. The six native `not_run` rows cause
+`run` to exit with status 2, so the all-target gate remains incomplete. Target
+identities were dirty local trees; this run is not clean aggregate or release
+proof. The server-error inputs verify default and registered 500 handling,
 special handler-key order, text/HTML debug responses, response-start behavior,
 and the inner `HTTPException(500)` path. The artifact status is `completed`,
 and the separate Router/GZip benchmark lane completed all 74 source/package
@@ -119,8 +122,8 @@ selector. A related route or response example is not enough to claim coverage
 for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
-and observes it. The checked-in generated `coverage-matrix.csv` has 788 rows:
-21 `existing` mappings, 717 `backlog` rows, and 50 reasoned `not_applicable`
+and observes it. The checked-in generated `coverage-matrix.csv` has 789 rows:
+28 `existing` mappings, 711 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -162,9 +165,9 @@ and input-only fixture paths. It writes `api-review.csv`,
 For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 514 `supported`, 286
-`private/internal`, and 199 `uncertain` candidates. The coverage matrix has 788
-source mappings: 21 existing input mappings, 50 reasoned `not_applicable`
-entries, and 717 input-only backlog rows. These counts describe the current
+`private/internal`, and 199 `uncertain` candidates. The coverage matrix has 789
+source mappings: 28 existing input mappings, 50 reasoned `not_applicable`
+entries, and 711 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded
