@@ -759,10 +759,12 @@ fn validated_file_response_scope(scope: &Value) -> Result<(Map<String, Value>, b
     Ok((validated, pathsend_extension))
 }
 
+type HeaderPairs = Vec<(Vec<u8>, Vec<u8>)>;
+
 fn parse_scope_request_headers(
     scope: &Map<String, Value>,
     context: &str,
-) -> Result<Vec<(Vec<u8>, Vec<u8>)>, String> {
+) -> Result<HeaderPairs, String> {
     scope
         .get("headers_base64_pairs")
         .and_then(Value::as_array)

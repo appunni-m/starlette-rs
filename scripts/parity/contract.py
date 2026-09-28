@@ -1061,8 +1061,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             TRUSTED_HOST_SURFACE,
                         }
                         or (surface["id"], operation["id"]) in VALUE_FORMATTING_OPERATIONS
-                        or (surface["id"], operation["id"])
-                        in RUST_OWNED_PYTHON_OPERATIONS
+                        or (surface["id"], operation["id"]) in RUST_OWNED_PYTHON_OPERATIONS
                         or (surface["id"], operation["id"]) == REQUEST_DEFAULT_RECEIVE_OPERATION
                         or (surface["id"], operation["id"]) == STATUS_OPERATION
                         else profile_ids
@@ -2416,9 +2415,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             )
     if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
         raise ContractError("FileResponse asgi-call requires empty receive and captured send")
-    dispatch_scope = {
-        key: value for key, value in scope_spec.items() if key != "extensions"
-    }
+    dispatch_scope = {key: value for key, value in scope_spec.items() if key != "extensions"}
     _validate_dispatch_stimulus(
         {"scope": dispatch_scope, "receive": case["incoming"], "send": case["send"]},
         request_dispatch=True,
@@ -3371,8 +3368,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     )
     is_rust_owned_python = (
         isinstance(case, dict)
-        and (case.get("surface"), case.get("operation"))
-        in RUST_OWNED_PYTHON_OPERATIONS
+        and (case.get("surface"), case.get("operation")) in RUST_OWNED_PYTHON_OPERATIONS
     )
     is_default_receive = (
         isinstance(case, dict)
@@ -4704,15 +4700,12 @@ def _validate_config_case(case: dict[str, Any]) -> None:
     if operation == ("starlette.config.Config", "value-resolution"):
         if case["observations"] != ["lookup-results"]:
             raise ContractError("Config value resolution must select lookup-results")
-        config = _exact(
-            case["config"], {"env_prefix", "environ", "env_file_lines"}, "Config input"
-        )
+        config = _exact(case["config"], {"env_prefix", "environ", "env_file_lines"}, "Config input")
         if not isinstance(config["env_prefix"], str):
             raise ContractError("Config env_prefix must be a string")
         environ = config["environ"]
         if not isinstance(environ, dict) or any(
-            not isinstance(key, str) or not isinstance(value, str)
-            for key, value in environ.items()
+            not isinstance(key, str) or not isinstance(value, str) for key, value in environ.items()
         ):
             raise ContractError("Config environ must be a string mapping")
         lines = config["env_file_lines"]
@@ -4789,8 +4782,7 @@ def _validate_config_case(case: dict[str, Any]) -> None:
         raise ContractError("Environ mapping sequence must select action-results")
     initial = case["initial_environ"]
     if not isinstance(initial, dict) or any(
-        not isinstance(key, str) or not isinstance(value, str)
-        for key, value in initial.items()
+        not isinstance(key, str) or not isinstance(value, str) for key, value in initial.items()
     ):
         raise ContractError("Environ initial_environ must be a string mapping")
     actions = case["actions"]
@@ -4860,10 +4852,15 @@ def _validate_schema_route_input(route: Any, context: str) -> tuple[set[str], bo
         else:
             endpoint = _exact(endpoint, {"kind", "handlers"}, f"{context}.endpoint")
             handlers = endpoint["handlers"]
-            if not isinstance(handlers, dict) or not handlers or any(
-                not isinstance(name, str) or not name.isidentifier()
-                or not isinstance(docstring, str)
-                for name, docstring in handlers.items()
+            if (
+                not isinstance(handlers, dict)
+                or not handlers
+                or any(
+                    not isinstance(name, str)
+                    or not name.isidentifier()
+                    or not isinstance(docstring, str)
+                    for name, docstring in handlers.items()
+                )
             ):
                 raise ContractError(f"{context}.endpoint.handlers must map names to docstrings")
             handler_count = len(handlers)
@@ -4945,7 +4942,15 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
             "starlette.schemas.BaseSchemaGenerator.parse_docstring",
         }
         if selected != required or not all(
-            [has_route, has_converter, has_mount, has_host, has_head_only, has_excluded, has_class_endpoint]
+            [
+                has_route,
+                has_converter,
+                has_mount,
+                has_host,
+                has_head_only,
+                has_excluded,
+                has_class_endpoint,
+            ]
         ):
             raise ContractError("SchemaGenerator input does not exercise its declared route rules")
         expected = {"starlette.schemas.SchemaGenerator.get_schema"}
@@ -4963,8 +4968,10 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
         if case["observations"] != ["parsed-docstrings", "exception"]:
             raise ContractError("docstring parsing must select parsed-docstrings and exception")
         docstrings = case["docstrings"]
-        if not isinstance(docstrings, list) or not docstrings or any(
-            not isinstance(docstring, str) for docstring in docstrings
+        if (
+            not isinstance(docstrings, list)
+            or not docstrings
+            or any(not isinstance(docstring, str) for docstring in docstrings)
         ):
             raise ContractError("docstring parsing input must be a non-empty string array")
         malformed = any("[unterminated" in docstring for docstring in docstrings)
@@ -4980,7 +4987,9 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
                 raise ContractError("docstring parsing input must include a schema delimiter")
             if not any(not docstring.strip() for docstring in docstrings):
                 raise ContractError("docstring parsing input must include empty prose")
-            if not any(docstring.startswith("-") or docstring.strip() == "null" for docstring in docstrings):
+            if not any(
+                docstring.startswith("-") or docstring.strip() == "null" for docstring in docstrings
+            ):
                 raise ContractError("docstring parsing input must include a non-mapping YAML value")
             if set(case["covers"]) != {
                 "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",

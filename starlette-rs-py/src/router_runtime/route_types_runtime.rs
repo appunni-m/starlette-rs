@@ -884,17 +884,15 @@ fn initialize_http_route(
         (_, methods) => methods,
     };
     let app = if request_endpoint {
-        Some(
-            request_response_factory
-                .call1((endpoint.bind(py),))?
-                .unbind(),
-        )
+        request_response_factory
+            .call1((endpoint.bind(py),))?
+            .unbind()
     } else {
-        Some(endpoint.clone_ref(py))
+        endpoint.clone_ref(py)
     };
     let app = apply_middleware_inner(
         py,
-        app.as_ref().unwrap().bind(py),
+        app.bind(py),
         middleware.as_ref().map(|item| item.bind(py)),
         max_body_size.as_ref().map(|item| item.bind(py)),
     )?;
@@ -1058,10 +1056,8 @@ fn initialize_mount(
             "Routed paths must start with '/'",
         ));
     }
-    if app.as_ref().map_or(true, |value| value.bind(py).is_none())
-        && routes
-            .as_ref()
-            .map_or(true, |value| value.bind(py).is_none())
+    if app.as_ref().is_none_or(|value| value.bind(py).is_none())
+        && routes.as_ref().is_none_or(|value| value.bind(py).is_none())
     {
         return Err(PyAssertionError::new_err(
             "Either 'app=...', or 'routes=' must be specified",
@@ -1166,7 +1162,7 @@ fn compile_path_parts<'py>(
         convertors.set_item(&parameter, &convertor)?;
         if let Some(builtins) = builtin_convertors {
             let builtin = builtins.get_item(&converter_name)?;
-            has_custom |= builtin.map_or(true, |builtin| !convertor.is(&builtin));
+            has_custom |= builtin.is_none_or(|builtin| !convertor.is(&builtin));
         }
         index = end;
     }
@@ -1781,16 +1777,22 @@ fn dict_keys_as_strings(dict: &Bound<'_, PyDict>) -> PyResult<Vec<String>> {
 }
 
 #[pyfunction]
-fn route_handle(
-    py: Python<'_>,
-    route: &Bound<'_, PyAny>,
-    scope: &Bound<'_, PyDict>,
-    receive: &Bound<'_, PyAny>,
-    send: &Bound<'_, PyAny>,
-    route_kind: &str,
-    http_exception_type: &Bound<'_, PyAny>,
-    plain_text_response_type: &Bound<'_, PyAny>,
-) -> PyResult<Py<PyAny>> {
+fn route_handle(py: Python<'_>, args: RouteHandleArgs) -> PyResult<Py<PyAny>> {
+    let RouteHandleArgs {
+        route,
+        scope,
+        receive,
+        send,
+        route_kind,
+        http_exception_type,
+        plain_text_response_type,
+    } = args;
+    let route = route.bind(py);
+    let scope = scope.bind(py);
+    let receive = receive.bind(py);
+    let send = send.bind(py);
+    let http_exception_type = http_exception_type.bind(py);
+    let plain_text_response_type = plain_text_response_type.bind(py);
     if route_kind == "http" {
         let methods = route.getattr("methods")?;
         if !methods.is_none() && methods.is_truthy()? {
@@ -1820,6 +1822,18 @@ fn route_handle(
         .getattr("app")?
         .call1((scope, receive, send))
         .map(Bound::unbind)
+}
+
+#[derive(FromPyObject)]
+#[pyo3(from_item_all)]
+struct RouteHandleArgs {
+    route: Py<PyAny>,
+    scope: Py<PyDict>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    route_kind: String,
+    http_exception_type: Py<PyAny>,
+    plain_text_response_type: Py<PyAny>,
 }
 
 #[pyfunction]
@@ -2083,7 +2097,7 @@ fn mount_url_path_for(
             match route.call_method(
                 "url_path_for",
                 (nested_name.clone(),),
-                Some(&remaining_params.bind(py)),
+                Some(remaining_params.bind(py)),
             ) {
                 Ok(url) => {
                     let url_text = py.import("builtins")?.getattr("str")?.call1((&url,))?;
@@ -2155,7 +2169,7 @@ fn host_url_path_for(
             match route.call_method(
                 "url_path_for",
                 (nested_name.bind(py),),
-                Some(&remaining_params.bind(py)),
+                Some(remaining_params.bind(py)),
             ) {
                 Ok(url) => {
                     let path = py.import("builtins")?.getattr("str")?.call1((&url,))?;
@@ -2213,8 +2227,26 @@ fn dict_items_as_py(dict: &Bound<'_, PyDict>) -> PyResult<Vec<(String, Py<PyAny>
 }
 
 #[pyfunction]
-fn request_response(
-    py: Python<'_>,
+fn request_response(py: Python<'_>, args: RequestResponseArgs) -> PyResult<Py<PyAny>> {
+    into_python_awaitable(
+        py,
+        RequestResponseMachine {
+            endpoint: args.endpoint,
+            scope: args.scope,
+            receive: args.receive,
+            send: args.send,
+            request_type: args.request_type,
+            http_exception_type: args.http_exception_type,
+            run_in_threadpool: args.run_in_threadpool,
+            request: None,
+            pending: None,
+        },
+    )
+}
+
+#[derive(FromPyObject)]
+#[pyo3(from_item_all)]
+struct RequestResponseArgs {
     endpoint: Py<PyAny>,
     scope: Py<PyAny>,
     receive: Py<PyAny>,
@@ -2222,21 +2254,6 @@ fn request_response(
     request_type: Py<PyAny>,
     http_exception_type: Py<PyAny>,
     run_in_threadpool: Py<PyAny>,
-) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
-        py,
-        RequestResponseMachine {
-            endpoint,
-            scope,
-            receive,
-            send,
-            request_type,
-            http_exception_type,
-            run_in_threadpool,
-            request: None,
-            pending: None,
-        },
-    )
 }
 
 #[derive(Clone, Copy)]

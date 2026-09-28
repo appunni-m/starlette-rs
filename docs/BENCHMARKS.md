@@ -14,20 +14,29 @@ Run `make parity-inputs` to generate local benchmark JSON, then reproduce the
 run with `python3.12 -m scripts.parity.cli benchmark-upstream`. The result is
 written to `build/parity/upstream-benchmark-result.json`; it records source
 revision `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, pinned benchmark-file
-hashes, and active input-catalog and manifest hashes. The current run
-`5f88f441-8747-4d0f-9e1b-fb7153aeb218` ran from
-`2026-09-28T12:04:48.059Z` to `2026-09-28T12:06:19.166Z`: 74/74 workloads
-measured (six Router and 68 GZip), with zero failed and zero not-run
-source/package workloads. All 74 source/package correctness gates passed. Its
-correctness preflight, run `e45ffb4f-29e7-4267-b84d-91ed40d9ef97`, selected 181
-parity comparisons: 175 passed, zero failed, zero infrastructure errors, and
-six Rust-native rows were `not_run` (package 118/118; Rust-native 57/63). The
-installed package wheel SHA-256 for this run is
-`a6256dd26111eba868f9faeea62c6666f3a10443dc86b75207267e5b5ade5c27`. The
-benchmark records Rust-native as `not_run` for all 74 workloads because that
-boundary is not equivalent; this lane does not establish native performance
-parity. Target identities came from dirty local trees, so the benchmark is not
-clean aggregate or release proof. The input-only workload catalog is
+hashes, and active input-catalog and manifest hashes. The latest attempt,
+`2311eb92-753a-4d59-a882-a0d06ef1970e`, ran from
+`2026-09-28T20:54:10.030Z` to `2026-09-28T20:54:46.122Z` and finished
+`not_proven`: 0 of 74 workloads were measured and all 74 were `not_run` because
+the fresh correctness preflight did not pass. Preflight run
+`8118a073-211f-48a9-b9b1-a1c52dddbbe3` selected 267 comparisons: 259 passed,
+two debug traceback cases failed, six unsupported Rust-native rows were
+`not_run`, and there were zero infrastructure errors. Since the gate failed,
+the source and installed-package benchmark subjects were not started;
+Rust-native is also `not_run` for all 74 because its public dispatch boundary
+is not equivalent. This attempt makes no performance claim. The package wheel
+SHA-256 was
+`a65ef46ca4c84d14f213b6756270805d7bd65068d849c179280a0de7918db81d`.
+
+An earlier run, `5f88f441-8747-4d0f-9e1b-fb7153aeb218`, ran from
+`2026-09-28T12:04:48.059Z` to `2026-09-28T12:06:19.166Z` and measured 74/74
+workloads under the then-current comparison policy. Its preflight,
+`e45ffb4f-29e7-4267-b84d-91ed40d9ef97`, selected 181 comparisons: 175 passed,
+zero failed, zero infrastructure errors, and six Rust-native rows were
+`not_run` (package 118/118; Rust-native 57/63). That result is historical and
+does not replace the latest failed preflight. Target identities came from
+dirty local trees, so neither run is clean aggregate or release proof. The
+input-only workload catalog is
 [`starlette-upstream-workloads.yaml`](../tests/fixtures/sources/benchmark/starlette-upstream-workloads.yaml);
 the source-invocation inventory is
 [`router-gzip-benchmark-workloads.csv`](atlas/reviews/router-gzip-benchmark-workloads.csv).
@@ -37,7 +46,8 @@ are ignored local outputs and are not committed.
 
 | Evidence | Artifact | Result |
 | --- | --- | --- |
-| Router/GZip upstream runner | `build/parity/upstream-benchmark-result.json` | `completed`; run `5f88f441-8747-4d0f-9e1b-fb7153aeb218`, `2026-09-28T12:04:48.059Z`–`2026-09-28T12:06:19.166Z`; 74/74 measured, 6 Router + 68 GZip; source/package correctness gates all pass; Rust-native 74/74 `not_run`; preflight `e45ffb4f-29e7-4267-b84d-91ed40d9ef97`: 175/181 parity comparisons pass, 6 unsupported Rust-native rows `not_run` |
+| Router/GZip upstream runner, latest attempt | `build/parity/upstream-benchmark-result.json` | `not_proven`; run `2311eb92-753a-4d59-a882-a0d06ef1970e`; 0/74 measured, 74 `not_run`; preflight `8118a073-211f-48a9-b9b1-a1c52dddbbe3`: 259 pass, 2 fail, 6 unsupported native rows `not_run` |
+| Router/GZip upstream runner, earlier completed run | `build/parity/upstream-benchmark-result.json` | Historical `completed`; run `5f88f441-8747-4d0f-9e1b-fb7153aeb218`; 74/74 measured before the stricter current preflight; not current gate evidence |
 | Direct-ASGI smoke correctness | `build/parity/benchmark-correctness-result.json` | Historical smoke gate; separate from the 74-workload runner |
 | Direct-ASGI smoke measurement | `build/parity/benchmark-result.json` | Historical smoke result `not_proven`; does not describe the completed upstream runner |
 
@@ -83,18 +93,20 @@ timer excludes that per-call loop-entry overhead, so its numbers do not
 reproduce the upstream timings. It is an in-process Python ASGI dispatch
 measurement, not a Rust-kernel-only result or real-server throughput.
 
-## Completed goal: 74-workload Router/GZip benchmark lane
+## Earlier completed run: 74-workload Router/GZip benchmark lane
 
-The input catalog maps all 74 pinned source IDs to input-only workloads. The
-source and installed package matched the declared observations for all 74
-correctness gates,
-then both were measured using the same declared timer policy. The artifact
+The earlier run's input catalog maps all 74 pinned source IDs to input-only
+workloads. At that time, the source and installed package matched the declared
+observations for all 74 correctness gates, then both were measured using the
+same declared timer policy. The artifact
 records raw and post-normalization observation hashes:
 73 cases have identical raw hashes, while `test_routing_method_not_allowed`
 uses the declared `Allow` token-order normalization and has matching normalized
-hashes. The result accounts for all 74 as measured, with zero failed and zero
-not-run workloads. Rust-native remains explicitly `not_run` on each row
-because the public boundary is not equivalent. The strict aggregator accepts
+hashes. That historical result accounts for all 74 as measured, with zero
+failed and zero not-run workloads. In the latest attempt, the fresh parity
+gate failed before measurement, so none of those earlier timings serve as
+current correctness-gated performance evidence. Rust-native remains explicitly
+`not_run` on each row because the public boundary is not equivalent. The strict aggregator accepts
 the artifact, while the overall project status remains `not_proven` because
 the full compatibility denominator is incomplete.
 

@@ -29,15 +29,17 @@ class TrustedHostMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         await _core._trusted_host_middleware_call(
-            self.app,
-            self.allowed_hosts,
-            self.allow_any,
-            self.www_redirect,
-            scope,
-            receive,
-            send,
-            _core.HTTPConnection,
-            URL,
-            RedirectResponse,
-            PlainTextResponse,
+            {
+                "app": self.app,
+                "allowed_hosts": self.allowed_hosts,
+                "allow_any": self.allow_any,
+                "www_redirect": self.www_redirect,
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "connection_type": _core.HTTPConnection,
+                "url_type": URL,
+                "redirect_response_type": RedirectResponse,
+                "plain_text_response_type": PlainTextResponse,
+            }
         )

@@ -94,21 +94,26 @@ docstring YAML parsing and parser errors, and OpenAPI response rendering. Their
 Python `starlette.*` modules forward to Rust; the adapters run the same
 input-only cases against pinned Starlette 1.6.0.
 
-The latest integrated run `2fdd199d-c837-4160-a6c0-2a3cd6321a86` finished at
-`2026-09-28T19:27:15.856Z`, selected 251 profile comparisons, and started at
-`2026-09-28T19:26:47.713Z`. All 188 Python-package cases passed; Rust-native
-passed 57 of 63 selected cases. There were zero failed comparisons and zero
-infrastructure errors. Four arbitrary Python callable boundaries and two
-Mount cases are declared unsupported for Rust-native, so six rows are
-`not_run`; the CLI exits with status 2 and this is not an all-target pass.
-Manifest SHA-256 is
-`3622e0807a6accdc5be8b4c241becfe8fec409490fe9fdfdf90c13ebcd6eea6`; the
+The latest integrated run `5e4c615e-a9e4-4305-bd7a-850b21f427d7` finished at
+`2026-09-28T20:46:05.868Z`, after starting at `2026-09-28T20:45:33.579Z`. It
+selected 267 profile comparisons: the Python package passed 194 of 196, and
+Rust-native passed 65 of 71 selected cases. Two Python-package debug traceback
+cases failed; there were zero infrastructure errors. Four arbitrary Python
+callable boundaries and two Mount cases are declared unsupported for
+Rust-native, so six rows are `not_run`. The CLI exits with status 2; this is
+not an all-target pass. Manifest SHA-256 is
+`c208c4c65d1cb4c08d544b9ac74e8835092bacbd6114b3b8a0ef0b874d349211`; the
 installed wheel SHA-256 is
-`facb4d414cbf324ba885b812f1958f8b072e4436a9a2c9c71207f1516acd29ce`. The
+`e23ea2c9d10e4e7e6a732bedabff0d525df58d9e2b5fb3c430a350d0d6aec3ea`. The
 Python-package target tree was dirty during this local run, so it is not clean
-aggregate or release proof.
+aggregate or release proof. The two failures are
+`starlette.applications.Starlette.__call__.server-error.debug.plain-text-overrides-handler`
+and `.debug.html-selected-by-accept`: the endpoint exception is the same, but
+the Rust-backed thin facade produces a different internal traceback frame
+stack and source context. The comparator preserves those differences instead
+of normalizing them away.
 
-The synchronous function case, `starlette.applications.Starlette.request-dispatch.sync-get-items-0007-contextvar-worker`, sends `GET /items/0007` through a route declared as `/items/{item_id:int}`. It selects the converted integer path parameter, caller `ContextVar` propagation, execution on a worker thread distinct from the ASGI caller, one endpoint invocation, route-scope observations, and complete ASGI events. Run `480437e5-e1f4-4e25-91a5-1453ba82ea69` compares this case exactly between pinned Starlette 1.6.0 and the installed Python package. Its Rust-native row is `not_run` because that profile cannot invoke a Python callable through this boundary; the manifest declares the sync-endpoint observations unsupported for Rust-native.
+The synchronous function case, `starlette.applications.Starlette.request-dispatch.sync-get-items-0007-contextvar-worker`, sends `GET /items/0007` through a route declared as `/items/{item_id:int}`. It selects the converted integer path parameter, caller `ContextVar` propagation, execution on a worker thread distinct from the ASGI caller, one endpoint invocation, route-scope observations, and complete ASGI events. The latest integrated run above compares this case exactly between pinned Starlette 1.6.0 and the installed Python package. Its Rust-native row is `not_run` because that profile cannot invoke a Python callable through this boundary; the manifest declares the sync-endpoint observations unsupported for Rust-native.
 
 The active input contract adds two Request-style synchronous endpoint cases: `starlette.applications.Starlette.request-dispatch.sync-bound-method-get-items-0007` and `starlette.applications.Starlette.request-dispatch.sync-partial-get-items-0007`. Like the original function case, they select integer path conversion, caller `ContextVar` propagation, execution on a worker thread distinct from the ASGI caller, one invocation, route-scope observations, and complete ASGI events. The third case, `starlette.applications.Starlette.request-dispatch.asgi-callable-instance-get-items-0007`, declares a callable instance as the route's ASGI app. It receives `(scope, receive, send)` and selects route-scope observations and the complete live ASGI response events; it does not use a `Request` object or the AnyIO request-endpoint worker boundary. These are input-only parity cases, not expected outputs.
 
@@ -117,7 +122,8 @@ This follows pinned Starlette 1.6.0's route distinction: functions, bound method
 This repository uses live source-to-target parity as its behavioral gate and
 has no conventional Python or Rust unit-test suite. `make test` runs the
 declared source, installed-package, and supported Rust-native workflows; the
-six unsupported Rust-native rows keep the current all-target gate incomplete.
+two debug traceback differences and six unsupported Rust-native rows keep the
+current all-target gate incomplete.
 An earlier 95-case parity result, including Router converter, Mount dispatch,
 and reverse-URL cases, is generated locally at
 `build/parity/parity-result.json`; that file is ignored and not committed.
@@ -144,9 +150,9 @@ The earlier 51-case result selected 76 comparisons and had four Rust-native rows
 
 [`asgi-server-errors.yaml`](../tests/fixtures/sources/parity/asgi-server-errors.yaml) adds nine input-only HTTP cases through `Starlette.__call__`, all selected for the Python-package profile. The cases cover the no-handler default 500 response, a registered integer 500 handler, a registered `Exception` handler, both insertion orders for the special 500 and `Exception` handler keys, text and HTML debug tracebacks that take precedence over a configured 500 handler, an unhandled `RuntimeError` after response start, and a handled `HTTPException(500)` that stays on the inner handled-exception path. They map to `starlette.asgi.server-error.default-response`, `.status-500-handler`, `.exception-handler`, `.special-key-order`, `.debug-traceback`, `.response-started`, and `.handled-http-exception-500`.
 
-The exact case IDs are `starlette.applications.Starlette.__call__.server-error.default-response`, `.status-500-handler`, `.exception-handler`, `.special-key-order.status-then-exception`, `.special-key-order.exception-then-status`, `.debug.plain-text-overrides-handler`, `.debug.html-selected-by-accept`, `.runtime-error-after-response-start`, and `.handled-http-exception-500`. All nine passed source-versus-package comparison in run `480437e5-e1f4-4e25-91a5-1453ba82ea69`. No native cases are selected for these Python-callable app workflows.
+The exact case IDs are `starlette.applications.Starlette.__call__.server-error.default-response`, `.status-500-handler`, `.exception-handler`, `.special-key-order.status-then-exception`, `.special-key-order.exception-then-status`, `.debug.plain-text-overrides-handler`, `.debug.html-selected-by-accept`, `.runtime-error-after-response-start`, and `.handled-http-exception-500`. All nine passed source-versus-package comparison in the earlier run `480437e5-e1f4-4e25-91a5-1453ba82ea69`. In the latest integrated run, the other seven still pass, while the two debug traceback cases fail on different internal frame stacks and source context. No native cases are selected for these Python-callable app workflows.
 
-The debug cases declare the `starlette-debug-traceback` projection for response bytes, ASGI response events, and ordered headers. It compares the response format and stable exception/traceback markers while omitting source-specific frame paths and line numbers; it replaces `Content-Length` only for cases covering the debug-traceback requirement. The source and target result records retain the raw traceback bodies. All other selected response fields remain exact, subject only to the separate declared `Allow` token normalization.
+The operation declares the `starlette-debug-traceback` projection for response bytes, ASGI response events, and ordered headers. The comparator inspects each live response body and projects frame paths, line numbers, and `Content-Length` only when that body has Starlette's actual debug-traceback structure. When no debug traceback is present, response bytes and headers retain their exact comparison. This decision comes from the observed body, not a case or requirement identifier. The source and target result records retain the raw traceback bodies. All other selected response fields remain exact, subject only to the separate declared `Allow` token normalization.
 
 This evidence is limited to these input-defined `Starlette.__call__` workflows. `asgi-core.app.test_app_debug` remains backlog because these inputs construct the app with `debug=True`; they do not set `debug` after app construction. Direct `ServerErrorMiddleware` call-boundary behavior, arbitrary middleware ordering, TestClient behavior, WebSocket exception handling, and full replacement parity remain open.
 
@@ -215,7 +221,7 @@ The timer measures in-loop `await app(scope, receive, send)`. It includes fixtur
 
 ## Exact comparison and allowed normalization
 
-Comparison is exact for all selected fields except the narrow `allow-methods-as-set` normalization declared on `ordered_repeated_headers` and `asgi_events`, and the `starlette-debug-traceback` projection on the declared response fields for cases covering `starlette.asgi.server-error.debug-traceback`. The Allow normalization applies only to comma-separated tokens in an `Allow` header value: the comparator trims surrounding whitespace, sorts unique method tokens, and compares the normalized value. For the two debug cases, the traceback projection compares stable summary fields and normalizes the body-length header because source and target frame text can differ. Header names/order, duplicate headers, other header values, and event order stay exact. Result records retain the original unnormalized events, headers, and raw response bodies.
+Comparison is exact for all selected fields except the narrow `allow-methods-as-set` normalization declared on `ordered_repeated_headers` and `asgi_events`, and the declared `starlette-debug-traceback` normalization. The Allow normalization applies only to comma-separated tokens in an `Allow` header value: the comparator trims surrounding whitespace, sorts unique method tokens, and compares the normalized value. The traceback normalization activates only when live observations contain an actual Starlette debug traceback; it replaces frame paths and line numbers and normalizes the body-length header. All other traceback bytes, header names/order, duplicate headers, unrelated values, and event order stay exact. With no traceback body, raw response bytes and header values remain exact. Result records retain the original unnormalized events, headers, and raw response bodies.
 
 The request-scope mutations are covered by the three original HTTP `request-dispatch` cases and the new typed path-parameter cases. Mounted routes and non-empty `root_path` now have bounded dispatch observations; pre-existing `path_params` beyond the declared mount merge and other application paths remain outside this slice. The successful `__call__` workflow schedules lifespan startup, HTTP dispatch, and lifespan shutdown on the same app task; it verifies that the lifespan context stays active across that in-flight dispatch and exits afterward. This covers one successful lifecycle path, not broader lifespan behavior. The Rust-native `Starlette::call` is an additive, bounded response dispatcher over a path/method projection, not a full ASGI application object. The Rust request adapter's routed-scope model is likewise not a public Rust `Request`.
 
@@ -227,7 +233,7 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@4` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 188 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. See `build/parity/results/config-schemas-run-2.json`; generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 196 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. See `build/parity/results/config-schemas-run-2.json`; generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 

@@ -27,15 +27,17 @@ class CORSMiddleware:
         max_age: int = 600,
     ) -> None:
         self._runtime = _core.CORSMiddleware(
-            app,
-            allow_origins,
-            allow_methods,
-            allow_headers,
-            allow_credentials,
-            allow_origin_regex,
-            allow_private_network,
-            expose_headers,
-            max_age,
+            {
+                "app": app,
+                "allow_origins": allow_origins,
+                "allow_methods": allow_methods,
+                "allow_headers": allow_headers,
+                "allow_credentials": allow_credentials,
+                "allow_origin_regex": allow_origin_regex,
+                "allow_private_network": allow_private_network,
+                "expose_headers": expose_headers,
+                "max_age": max_age,
+            }
         )
 
     @property

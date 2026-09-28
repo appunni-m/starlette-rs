@@ -103,8 +103,7 @@ impl PyRequestBodyLimitResponder {
             .borrow()
             .scope
             .as_ref()
-            .map(|value| value.clone_ref(py))
-            .unwrap_or_else(|| py.None())
+            .map_or_else(|| py.None(), |value| value.clone_ref(py))
     }
 
     #[setter(_scope)]
@@ -118,8 +117,7 @@ impl PyRequestBodyLimitResponder {
             .borrow()
             .receive
             .as_ref()
-            .map(|value| value.clone_ref(py))
-            .unwrap_or_else(|| py.None())
+            .map_or_else(|| py.None(), |value| value.clone_ref(py))
     }
 
     #[setter(_receive)]
@@ -133,8 +131,7 @@ impl PyRequestBodyLimitResponder {
             .borrow()
             .send
             .as_ref()
-            .map(|value| value.clone_ref(py))
-            .unwrap_or_else(|| py.None())
+            .map_or_else(|| py.None(), |value| value.clone_ref(py))
     }
 
     #[setter(_send)]

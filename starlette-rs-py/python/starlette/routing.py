@@ -118,13 +118,15 @@ def _request_response(endpoint: Callable[..., Any]) -> Callable[..., Any]:
         scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await _core.request_response(
-            endpoint,
-            scope,
-            receive,
-            send,
-            Request,
-            HTTPException,
-            run_in_threadpool,
+            {
+                "endpoint": endpoint,
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "request_type": Request,
+                "http_exception_type": HTTPException,
+                "run_in_threadpool": run_in_threadpool,
+            }
         )
 
     return app
@@ -161,9 +163,7 @@ class BaseRoute:
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
-        await _core.base_route_call(
-            self, scope, receive, send, PlainTextResponse, WebSocketClose
-        )
+        await _core.base_route_call(self, scope, receive, send, PlainTextResponse, WebSocketClose)
 
 
 class Route(BaseRoute):
@@ -227,27 +227,25 @@ class Route(BaseRoute):
         )
 
     def matches(self, scope: dict[str, Any]) -> tuple[Match, dict[str, Any]]:
-        return _core.route_matches(
-            self, scope, Match, "http", _BUILTIN_CONVERTOR_TYPES
-        )
+        return _core.route_matches(self, scope, Match, "http", _BUILTIN_CONVERTOR_TYPES)
 
     async def handle(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await _core.route_handle(
-            self,
-            scope,
-            receive,
-            send,
-            "http",
-            HTTPException,
-            PlainTextResponse,
+            {
+                "route": self,
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "route_kind": "http",
+                "http_exception_type": HTTPException,
+                "plain_text_response_type": PlainTextResponse,
+            }
         )
 
     def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
-        return _core.route_url_path_for(
-            self, name, path_params, NoMatchFound, URLPath, "http"
-        )
+        return _core.route_url_path_for(self, name, path_params, NoMatchFound, URLPath, "http")
 
     def __eq__(self, other: object) -> bool:
         return _core.route_equal(self, other, Route, "http")
@@ -312,27 +310,25 @@ class WebSocketRoute(BaseRoute):
         )
 
     def matches(self, scope: dict[str, Any]) -> tuple[Match, dict[str, Any]]:
-        return _core.route_matches(
-            self, scope, Match, "websocket", _BUILTIN_CONVERTOR_TYPES
-        )
+        return _core.route_matches(self, scope, Match, "websocket", _BUILTIN_CONVERTOR_TYPES)
 
     async def handle(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await _core.route_handle(
-            self,
-            scope,
-            receive,
-            send,
-            "websocket",
-            HTTPException,
-            PlainTextResponse,
+            {
+                "route": self,
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "route_kind": "websocket",
+                "http_exception_type": HTTPException,
+                "plain_text_response_type": PlainTextResponse,
+            }
         )
 
     def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
-        return _core.route_url_path_for(
-            self, name, path_params, NoMatchFound, URLPath, "websocket"
-        )
+        return _core.route_url_path_for(self, name, path_params, NoMatchFound, URLPath, "websocket")
 
     def __eq__(self, other: object) -> bool:
         return _core.route_equal(self, other, WebSocketRoute, "websocket")
@@ -403,27 +399,25 @@ class Mount(BaseRoute):
         return getattr(self._base_app, "routes", [])
 
     def matches(self, scope: dict[str, Any]) -> tuple[Match, dict[str, Any]]:
-        return _core.route_matches(
-            self, scope, Match, "mount", _BUILTIN_CONVERTOR_TYPES
-        )
+        return _core.route_matches(self, scope, Match, "mount", _BUILTIN_CONVERTOR_TYPES)
 
     async def handle(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await _core.route_handle(
-            self,
-            scope,
-            receive,
-            send,
-            "mount",
-            HTTPException,
-            PlainTextResponse,
+            {
+                "route": self,
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "route_kind": "mount",
+                "http_exception_type": HTTPException,
+                "plain_text_response_type": PlainTextResponse,
+            }
         )
 
     def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
-        return _core.mount_url_path_for(
-            self, name, path_params, NoMatchFound, URLPath
-        )
+        return _core.mount_url_path_for(self, name, path_params, NoMatchFound, URLPath)
 
     def __eq__(self, other: object) -> bool:
         return _core.route_equal(self, other, Mount, "mount")
@@ -484,27 +478,25 @@ class Host(BaseRoute):
         return _core.route_children(self.app)
 
     def matches(self, scope: dict[str, Any]) -> tuple[Match, dict[str, Any]]:
-        return _core.route_matches(
-            self, scope, Match, "host", _BUILTIN_CONVERTOR_TYPES
-        )
+        return _core.route_matches(self, scope, Match, "host", _BUILTIN_CONVERTOR_TYPES)
 
     async def handle(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await _core.route_handle(
-            self,
-            scope,
-            receive,
-            send,
-            "host",
-            HTTPException,
-            PlainTextResponse,
+            {
+                "route": self,
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "route_kind": "host",
+                "http_exception_type": HTTPException,
+                "plain_text_response_type": PlainTextResponse,
+            }
         )
 
     def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
-        return _core.host_url_path_for(
-            self, name, path_params, NoMatchFound, URLPath
-        )
+        return _core.host_url_path_for(self, name, path_params, NoMatchFound, URLPath)
 
     def __eq__(self, other: object) -> bool:
         return _core.route_equal(self, other, Host, "host")
@@ -571,18 +563,21 @@ class Router:
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await self._runtime.dispatch(
-            self.routes,
-            self,
-            scope,
-            receive,
-            send,
-            self._default,
-            self.redirect_slashes,
-            URL,
-            RedirectResponse,
-            HTTPException,
-            PlainTextResponse,
-            WebSocketClose,
+            {
+                "routes": self.routes,
+                "router": self,
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "default": self._default,
+                "redirect_slashes": self.redirect_slashes,
+                "url_type": URL,
+                "redirect_response_type": RedirectResponse,
+                "http_exception_type": HTTPException,
+                "plain_text_response_type": PlainTextResponse,
+                "websocket_close_type": WebSocketClose,
+                "exception_handler": None,
+            }
         )
 
     async def _dispatch_starlette(
@@ -593,26 +588,35 @@ class Router:
         exception_handler: Callable[..., Any],
     ) -> None:
         await self._runtime.dispatch(
-            self.routes,
-            self,
-            scope,
-            receive,
-            send,
-            None,
-            self.redirect_slashes,
-            URL,
-            RedirectResponse,
-            HTTPException,
-            PlainTextResponse,
-            WebSocketClose,
-            exception_handler,
+            {
+                "routes": self.routes,
+                "router": self,
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "default": None,
+                "redirect_slashes": self.redirect_slashes,
+                "url_type": URL,
+                "redirect_response_type": RedirectResponse,
+                "http_exception_type": HTTPException,
+                "plain_text_response_type": PlainTextResponse,
+                "websocket_close_type": WebSocketClose,
+                "exception_handler": exception_handler,
+            }
         )
 
     async def not_found(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await self._runtime.not_found(
-            scope, receive, send, HTTPException, PlainTextResponse, WebSocketClose
+            {
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "http_exception_type": HTTPException,
+                "plain_text_response_type": PlainTextResponse,
+                "websocket_close_type": WebSocketClose,
+            }
         )
 
     async def lifespan(
@@ -637,16 +641,12 @@ class Router:
         name: str | None = None,
         include_in_schema: bool = True,
     ) -> None:
-        _core.router_add_route(
-            self.routes, Route, path, endpoint, methods, name, include_in_schema
-        )
+        _core.router_add_route(self.routes, Route, path, endpoint, methods, name, include_in_schema)
 
     def add_websocket_route(
         self, path: str, endpoint: Callable[..., Any], name: str | None = None
     ) -> None:
-        _core.router_add_websocket_route(
-            self.routes, WebSocketRoute, path, endpoint, name
-        )
+        _core.router_add_websocket_route(self.routes, WebSocketRoute, path, endpoint, name)
 
     def __eq__(self, other: object) -> bool:
         return _core.route_equal(self, other, Router, "router")

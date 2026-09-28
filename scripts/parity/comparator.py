@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import base64
-from html.parser import HTMLParser
+import re
 from typing import Any
 
 from .contract import ContractError, validate_workflow_result
@@ -93,140 +93,127 @@ def _normalize_allow_methods(path: str, value: Any) -> Any:
     raise ContractError(f"allow-methods-as-set normalization is not allowed for {path!r}")
 
 
-class _TracebackHeadingParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self._in_heading = False
-        self.parts: list[str] = []
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag == "h2":
-            self._in_heading = True
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "h2":
-            self._in_heading = False
-
-    def handle_data(self, data: str) -> None:
-        if self._in_heading:
-            self.parts.append(data)
+_TEXT_TRACEBACK_FRAME = re.compile(rb"(?m)^([ \t]*File ).*(, line )\d+(?=, in |$)")
+_HTML_TRACEBACK_PATH = re.compile(rb'(<span class="frame-filename">).*?(</span>)')
+_HTML_TRACEBACK_LINE = re.compile(rb"(,\s*line <i>)\d+(</i>)")
+_HTML_SOURCE_LINE_NUMBER = re.compile(rb'(<span class="lineno">)\d+(\.</span>)')
+_HTML_FRAME_REFERENCE = re.compile(rb'((?:id|data-frame-id)=")[^"]*(")')
 
 
-def _debug_traceback_summary(body: bytes) -> dict[str, Any] | None:
+def _normalize_debug_traceback_body(body: bytes) -> bytes | None:
+    """Normalize only frame paths and line numbers in actual debug traceback bytes."""
     if body.startswith(b"Traceback (most recent call last):"):
-        lines = body.decode("utf-8", errors="replace").rstrip("\n").splitlines()
-        return {
-            "format": "text",
-            "exception_line": lines[-1] if lines else "",
-            "traceback_header_present": bool(
-                lines and lines[0] == "Traceback (most recent call last):"
-            ),
-        }
+        if not _TEXT_TRACEBACK_FRAME.search(body):
+            return None
+        return _TEXT_TRACEBACK_FRAME.sub(rb'\1"<frame-path>"\2<line>', body)
     if b"<title>Starlette Debugger</title>" in body:
-        document = body.decode("utf-8", errors="replace")
-        heading = _TracebackHeadingParser()
-        heading.feed(document)
-        return {
-            "format": "html",
-            "exception_heading": "".join(heading.parts),
-            "traceback_title_present": 'class="traceback-title">Traceback' in document,
-        }
+        if not (
+            b'<div class="traceback-container">' in body
+            and b'<p class="traceback-title">Traceback</p>' in body
+            and b'<p class="frame-title">' in body
+        ):
+            return None
+        normalized = _HTML_TRACEBACK_PATH.sub(rb"\1<frame-path>\2", body)
+        normalized = _HTML_TRACEBACK_LINE.sub(rb"\1<line>\2", normalized)
+        normalized = _HTML_SOURCE_LINE_NUMBER.sub(rb"\1<line>\2", normalized)
+        return _HTML_FRAME_REFERENCE.sub(rb"\1<frame-reference>\2", normalized)
     return None
 
 
-def _normalize_debug_traceback(path: str, value: Any) -> Any:
-    """Strip only interpreter-specific traceback frames from the declared response fields."""
-    if path == "ordered_repeated_headers":
-        if not isinstance(value, list):
-            return value
-        normalized_headers = []
-        for pair in value:
-            if not isinstance(pair, list) or len(pair) != 2:
-                return value
-            try:
-                name = base64.b64decode(pair[0], validate=True).lower()
-            except (ValueError, TypeError):
-                return value
-            if name == b"content-length":
-                normalized_headers.append(
-                    [pair[0], base64.b64encode(b"<debug-traceback-body-length>").decode("ascii")]
-                )
-            else:
-                normalized_headers.append(pair)
-        return normalized_headers
-    if path == "response_bytes":
-        if (
-            not isinstance(value, dict)
-            or set(value) != {"encoding", "data"}
-            or value["encoding"] != "base64"
-        ):
-            return value
+def _body_bytes(value: Any) -> bytes | None:
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"encoding", "data"}
+        or value["encoding"] != "base64"
+    ):
+        return None
+    try:
+        return base64.b64decode(value["data"], validate=True)
+    except (ValueError, TypeError):
+        return None
+
+
+def _event_traceback_bodies(value: Any) -> dict[int, bytes]:
+    if not isinstance(value, list):
+        return {}
+    bodies = {}
+    for index, event in enumerate(value):
+        if not isinstance(event, dict) or event.get("type") != "http.response.body":
+            continue
+        body = _body_bytes(event.get("body"))
+        normalized = _normalize_debug_traceback_body(body) if body is not None else None
+        if normalized is not None:
+            bodies[index] = normalized
+    return bodies
+
+
+def _observation_has_debug_traceback(value: dict[str, Any]) -> bool:
+    body = _body_bytes(value.get("response_bytes"))
+    if body is not None and _normalize_debug_traceback_body(body) is not None:
+        return True
+    return bool(_event_traceback_bodies(value.get("asgi_events")))
+
+
+def _normalize_content_length(headers: Any) -> Any:
+    if not isinstance(headers, list):
+        return headers
+    normalized = []
+    for pair in headers:
+        if not isinstance(pair, list) or len(pair) != 2:
+            return headers
         try:
-            body = base64.b64decode(value["data"], validate=True)
+            name = base64.b64decode(pair[0], validate=True).lower()
         except (ValueError, TypeError):
+            return headers
+        if name == b"content-length":
+            normalized.append(
+                [pair[0], base64.b64encode(b"<debug-traceback-body-length>").decode("ascii")]
+            )
+        else:
+            normalized.append(pair)
+    return normalized
+
+
+def _normalize_debug_traceback(
+    path: str, value: Any, *, observation_has_debug_traceback: bool
+) -> Any:
+    """Normalize dynamic traceback fields only when live observations contain a traceback."""
+    if path == "ordered_repeated_headers":
+        if not observation_has_debug_traceback:
             return value
-        summary = _debug_traceback_summary(body)
-        if summary is None:
-            return {"format": "raw", "data": value["data"]}
-        return {"format": "debug-traceback", "summary": summary}
+        return _normalize_content_length(value)
+    if path == "response_bytes":
+        body = _body_bytes(value)
+        normalized = _normalize_debug_traceback_body(body) if body is not None else None
+        if normalized is None:
+            return value
+        return {"encoding": "base64", "data": base64.b64encode(normalized).decode("ascii")}
     if path == "asgi_events":
-        if not isinstance(value, list):
+        traceback_bodies = _event_traceback_bodies(value)
+        if not traceback_bodies or not isinstance(value, list):
             return value
         normalized: list[Any] = []
-        for event in value:
+        for index, event in enumerate(value):
             if not isinstance(event, dict):
                 normalized.append(event)
                 continue
             if event.get("type") == "http.response.start":
-                headers = event.get("headers")
-                if not isinstance(headers, list):
-                    normalized.append(event)
-                    continue
-                normalized_headers = []
-                for pair in headers:
-                    if not isinstance(pair, list) or len(pair) != 2:
-                        normalized_headers = headers
-                        break
-                    try:
-                        name = base64.b64decode(pair[0], validate=True).lower()
-                    except (ValueError, TypeError):
-                        normalized_headers = headers
-                        break
-                    if name == b"content-length":
-                        normalized_headers.append(
-                            [
-                                pair[0],
-                                base64.b64encode(b"<debug-traceback-body-length>").decode("ascii"),
-                            ]
-                        )
-                    else:
-                        normalized_headers.append(pair)
                 updated = dict(event)
-                updated["headers"] = normalized_headers
+                updated["headers"] = _normalize_content_length(event.get("headers"))
                 normalized.append(updated)
                 continue
             if event.get("type") != "http.response.body":
                 normalized.append(event)
                 continue
-            body_value = event.get("body")
-            if (
-                not isinstance(body_value, dict)
-                or set(body_value) != {"encoding", "data"}
-                or body_value["encoding"] != "base64"
-            ):
-                normalized.append(event)
-                continue
-            try:
-                body = base64.b64decode(body_value["data"], validate=True)
-            except (ValueError, TypeError):
-                normalized.append(event)
-                continue
-            summary = _debug_traceback_summary(body)
-            if summary is None:
+            normalized_body = traceback_bodies.get(index)
+            if normalized_body is None:
                 normalized.append(event)
                 continue
             updated = dict(event)
-            updated["body"] = {"format": "debug-traceback", "summary": summary}
+            updated["body"] = {
+                "encoding": "base64",
+                "data": base64.b64encode(normalized_body).decode("ascii"),
+            }
             normalized.append(updated)
         return normalized
     raise ContractError(f"starlette-debug-traceback normalization is not allowed for {path!r}")
@@ -345,6 +332,8 @@ def compare_workflows(
                 )
             )
             continue
+        left_has_debug_traceback = _observation_has_debug_traceback(left_value)
+        right_has_debug_traceback = _observation_has_debug_traceback(right_value)
         for selector in selectors:
             path = selector["path"]
             left_field = left_value[path]
@@ -358,10 +347,16 @@ def compare_workflows(
                         left_field = _normalize_allow_methods(path, left_field)
                         right_field = _normalize_allow_methods(path, right_field)
                     elif kind == "starlette-debug-traceback":
-                        if "starlette.asgi.server-error.debug-traceback" in case["covers"]:
-                            left_field = _normalize_debug_traceback(path, left_field)
-                            right_field = _normalize_debug_traceback(path, right_field)
-                            compare_kind = "exact"
+                        left_field = _normalize_debug_traceback(
+                            path,
+                            left_field,
+                            observation_has_debug_traceback=left_has_debug_traceback,
+                        )
+                        right_field = _normalize_debug_traceback(
+                            path,
+                            right_field,
+                            observation_has_debug_traceback=right_has_debug_traceback,
+                        )
                     else:
                         raise ContractError(
                             f"unsupported normalization for {path}: {normalization_step!r}"

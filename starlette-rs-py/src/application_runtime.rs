@@ -327,6 +327,19 @@ impl StarletteCall {
     }
 }
 
+#[derive(FromPyObject)]
+#[pyo3(from_item_all)]
+struct ExceptionMiddlewareArgs {
+    app: Py<PyAny>,
+    handlers: Py<PyAny>,
+    http_exception_type: Py<PyAny>,
+    websocket_exception_type: Py<PyAny>,
+    http_builtin_handler: Py<PyAny>,
+    websocket_builtin_handler: Py<PyAny>,
+    response_type: Py<PyAny>,
+    plain_text_response_type: Py<PyAny>,
+}
+
 /// Rust runtime behind Starlette's public `ExceptionMiddleware` facade.
 #[pyclass(name = "ExceptionMiddlewareRuntime", unsendable)]
 pub(crate) struct PyExceptionMiddlewareRuntime {
@@ -346,17 +359,17 @@ pub(crate) struct PyExceptionMiddlewareRuntime {
 #[pymethods]
 impl PyExceptionMiddlewareRuntime {
     #[new]
-    fn new(
-        py: Python<'_>,
-        app: Py<PyAny>,
-        handlers: Py<PyAny>,
-        http_exception_type: Py<PyAny>,
-        websocket_exception_type: Py<PyAny>,
-        http_builtin_handler: Py<PyAny>,
-        websocket_builtin_handler: Py<PyAny>,
-        response_type: Py<PyAny>,
-        plain_text_response_type: Py<PyAny>,
-    ) -> PyResult<Self> {
+    fn new(py: Python<'_>, args: ExceptionMiddlewareArgs) -> PyResult<Self> {
+        let ExceptionMiddlewareArgs {
+            app,
+            handlers,
+            http_exception_type,
+            websocket_exception_type,
+            http_builtin_handler,
+            websocket_builtin_handler,
+            response_type,
+            plain_text_response_type,
+        } = args;
         let mut runtime = Self {
             app,
             handlers: Vec::new(),
@@ -792,7 +805,7 @@ impl ExceptionMiddlewareCall {
             .connection
             .as_ref()
             .ok_or_else(|| PyRuntimeError::new_err("exception middleware lost its connection"))?;
-        let is_async = crate::background::is_async_callable(py, &handler.bind(py))
+        let is_async = crate::background::is_async_callable(py, handler.bind(py))
             .map_err(|error| self.chain_to_original(py, error))?;
         let awaitable = if is_async {
             handler

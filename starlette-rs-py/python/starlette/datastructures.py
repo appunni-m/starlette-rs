@@ -114,9 +114,7 @@ class URLPath(str):
         self.host = host
 
     def make_absolute_url(self, base_url: str | URL) -> URL:
-        return _core._urlpath_make_absolute_url(
-            str(self), self.protocol, self.host, base_url, URL
-        )
+        return _core._urlpath_make_absolute_url(str(self), self.protocol, self.host, base_url, URL)
 
 
 class State:

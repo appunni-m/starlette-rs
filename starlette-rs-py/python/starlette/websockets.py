@@ -103,9 +103,7 @@ class WebSocket(HTTPConnection):
         await self._protocol.close(self.send, code, reason)
 
     async def send_denial_response(self, response: Response) -> None:
-        await self._protocol.send_denial_response(
-            self.scope, response, self.receive, self.send
-        )
+        await self._protocol.send_denial_response(self.scope, response, self.receive, self.send)
 
 
 class WebSocketClose:

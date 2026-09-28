@@ -17,26 +17,26 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 188 input-only cases across 28 files,
-covering 42 operations and 234 parity requirements. The authored cases span
+The active parity manifest indexes 196 input-only cases across 29 files,
+covering 43 operations and 242 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 WebSockets, exceptions, status constants, endpoints, authentication,
 middleware, configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-The latest integrated run `2fdd199d-c837-4160-a6c0-2a3cd6321a86` finished at
-`2026-09-28T19:27:15.856Z` after starting at `2026-09-28T19:26:47.713Z`. It
-selected 251 profile comparisons: all 188 Python-package cases passed, and the
-Rust-native profile passed 57 of 63 selected cases. There were zero failed
-comparisons and zero infrastructure errors. Four arbitrary Python callable
-boundaries and two Mount cases are declared unsupported for Rust-native, so
-those six rows are `not_run` and the CLI exits with status 2; this is not an
-all-target pass. The Python-package target tree was dirty when captured, so
-this run is not clean aggregate or release proof. The manifest SHA-256 is
-`3622e0807a6accdc5be8b4c241becfe8fec409490fe9fdfdf90c13ebcd6eea6`; the
+The latest integrated run `5e4c615e-a9e4-4305-bd7a-850b21f427d7` finished at
+`2026-09-28T20:46:05.868Z` after starting at `2026-09-28T20:45:33.579Z`. It
+selected 267 profile comparisons: the Python package passed 194 of 196, and
+Rust-native passed 65 of 71 selected cases. Two Python-package debug traceback
+comparisons failed, with zero infrastructure errors. Four arbitrary Python
+callable boundaries and two Mount cases are declared unsupported for
+Rust-native, so six rows are `not_run`; the CLI exits with status 2 and this is
+not an all-target pass. The Python-package target tree was dirty when captured,
+so this run is not clean aggregate or release proof. The manifest SHA-256 is
+`c208c4c65d1cb4c08d544b9ac74e8835092bacbd6114b3b8a0ef0b874d349211`; the
 target wheel SHA-256 is
-`facb4d414cbf324ba885b812f1958f8b072e4436a9a2c9c71207f1516acd29ce`. The two
+`e23ea2c9d10e4e7e6a732bedabff0d525df58d9e2b5fb3c430a350d0d6aec3ea`. The two
 registered-handler inputs in
 [`asgi-exception-handlers.yaml`](../tests/fixtures/sources/parity/asgi-exception-handlers.yaml)
 exercise status-code precedence over an `HTTPException` class handler and an
@@ -51,9 +51,11 @@ including one exception after a complete 200 response; only the explicit-detail
 406 case is supported by the Rust-native response builder. The nine server-error
 inputs cover the default response, registered 500 and `Exception` handlers,
 special-key order, debug text/HTML responses, response-start handling, and a
-handled `HTTPException(500)` through the installed package. The debug body
-comparison uses the declared stable traceback projection; raw bodies remain in
-the result artifacts. The WebSocket inputs also include six ordered
+handled `HTTPException(500)` through the installed package. Seven pass in the
+latest run; the two debug traceback cases fail because their internal frame
+stacks and source context differ after the declared path/line/body-length
+projection. Raw bodies remain in the result artifacts. The WebSocket inputs
+also include six ordered
 receive/send callback-tape comparisons on the Python package, six projected
 state cases on both targets, three package-profile route-dispatch cases, and
 the 16 convenience/close cases described above. The earlier run's 21 selected
@@ -62,10 +64,13 @@ handlers, direct `ServerErrorMiddleware` invocation, arbitrary middleware
 ordering, and TestClient propagation remain outside the active contract.
 `asgi-core.app.test_app_debug` stays in backlog because its input
 constructs the app with debug enabled rather than setting debug after
-construction. The parity artifact status is `completed`, but six `not_run`
-rows keep the all-target gate incomplete.
-The separate Router/GZip benchmark lane completed all 74 source/package
-workloads; Rust-native remains `not_run` for that non-equivalent benchmark
+construction. The parity artifact status is `completed`, but two failed
+comparisons and six `not_run` rows keep the all-target gate incomplete.
+The latest Router/GZip benchmark attempt did not measure workloads: its fresh
+preflight found the same two debug traceback differences, so all 74 rows are
+`not_run`. An earlier run completed all 74 source/package workloads under the
+then-current comparator; it remains historical evidence, not the current
+gate. Rust-native remains `not_run` for that non-equivalent benchmark
 boundary. Its ignored local result files are `build/parity/parity-result.json`
 and `build/parity/upstream-benchmark-result.json`.
 These results cover the selected workflows only and do not establish full
@@ -127,8 +132,8 @@ every `not_applicable` mapping has a concrete reason. In this checked-in
 crosswalk snapshot, 37 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest has since grown to 28 files
-and 188 cases, including three configuration cases and four schema cases in
+input files with 136 cases. The active manifest has since grown to 29 files
+and 196 cases, including three configuration cases and four schema cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
 and [`schemas-runtime.yaml`](../tests/fixtures/sources/parity/schemas-runtime.yaml).
 The `starlette.websockets.WebSocket.protocol-sequence`

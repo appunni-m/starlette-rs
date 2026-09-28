@@ -187,8 +187,29 @@ fn trusted_host_contains(allowed_hosts: &Bound<'_, PyAny>) -> PyResult<bool> {
 }
 
 #[pyfunction(name = "_trusted_host_middleware_call")]
-fn trusted_host_middleware_call(
-    py: Python<'_>,
+fn trusted_host_middleware_call(py: Python<'_>, args: TrustedHostCallArgs) -> PyResult<Py<PyAny>> {
+    into_python_awaitable(
+        py,
+        TrustedHostCall {
+            app: args.app,
+            allowed_hosts: args.allowed_hosts,
+            allow_any: args.allow_any,
+            www_redirect: args.www_redirect,
+            scope: args.scope,
+            receive: args.receive,
+            send: args.send,
+            connection_type: args.connection_type,
+            url_type: args.url_type,
+            redirect_response_type: args.redirect_response_type,
+            plain_text_response_type: args.plain_text_response_type,
+            pending: false,
+        },
+    )
+}
+
+#[derive(FromPyObject)]
+#[pyo3(from_item_all)]
+struct TrustedHostCallArgs {
     app: Py<PyAny>,
     allowed_hosts: Py<PyAny>,
     allow_any: Py<PyAny>,
@@ -200,24 +221,6 @@ fn trusted_host_middleware_call(
     url_type: Py<PyAny>,
     redirect_response_type: Py<PyAny>,
     plain_text_response_type: Py<PyAny>,
-) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
-        py,
-        TrustedHostCall {
-            app,
-            allowed_hosts,
-            allow_any,
-            www_redirect,
-            scope,
-            receive,
-            send,
-            connection_type,
-            url_type,
-            redirect_response_type,
-            plain_text_response_type,
-            pending: false,
-        },
-    )
 }
 
 struct TrustedHostCall {

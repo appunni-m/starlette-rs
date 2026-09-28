@@ -36,6 +36,35 @@ struct RouteTypes {
     host: Py<PyAny>,
 }
 
+#[derive(FromPyObject)]
+#[pyo3(from_item_all)]
+struct RouterDispatchArgs {
+    routes: Py<PyAny>,
+    router: Py<PyAny>,
+    scope: Py<PyAny>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    default: Option<Py<PyAny>>,
+    redirect_slashes: bool,
+    url_type: Py<PyAny>,
+    redirect_response_type: Py<PyAny>,
+    http_exception_type: Py<PyAny>,
+    plain_text_response_type: Py<PyAny>,
+    websocket_close_type: Py<PyAny>,
+    exception_handler: Option<Py<PyAny>>,
+}
+
+#[derive(FromPyObject)]
+#[pyo3(from_item_all)]
+struct RouterNotFoundArgs {
+    scope: Py<PyAny>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    http_exception_type: Py<PyAny>,
+    plain_text_response_type: Py<PyAny>,
+    websocket_close_type: Py<PyAny>,
+}
+
 struct RouterRoutes {
     routes: Vec<Py<PyAny>>,
     kinds: Vec<RouteKind>,
@@ -71,24 +100,22 @@ impl PyRouterRuntime {
         }
     }
 
-    #[pyo3(signature = (routes, router, scope, receive, send, default, redirect_slashes, url_type, redirect_response_type, http_exception_type, plain_text_response_type, websocket_close_type, exception_handler=None))]
-    fn dispatch(
-        &self,
-        py: Python<'_>,
-        routes: Py<PyAny>,
-        router: Py<PyAny>,
-        scope: Py<PyAny>,
-        receive: Py<PyAny>,
-        send: Py<PyAny>,
-        default: Option<Py<PyAny>>,
-        redirect_slashes: bool,
-        url_type: Py<PyAny>,
-        redirect_response_type: Py<PyAny>,
-        http_exception_type: Py<PyAny>,
-        plain_text_response_type: Py<PyAny>,
-        websocket_close_type: Py<PyAny>,
-        exception_handler: Option<Py<PyAny>>,
-    ) -> PyResult<Py<PyAny>> {
+    fn dispatch(&self, py: Python<'_>, args: RouterDispatchArgs) -> PyResult<Py<PyAny>> {
+        let RouterDispatchArgs {
+            routes,
+            router,
+            scope,
+            receive,
+            send,
+            default,
+            redirect_slashes,
+            url_type,
+            redirect_response_type,
+            http_exception_type,
+            plain_text_response_type,
+            websocket_close_type,
+            exception_handler,
+        } = args;
         into_python_awaitable(
             py,
             RouterDispatchMachine {
@@ -116,17 +143,15 @@ impl PyRouterRuntime {
         )
     }
 
-    #[pyo3(signature = (scope, receive, send, http_exception_type, plain_text_response_type, websocket_close_type))]
-    fn not_found(
-        &self,
-        py: Python<'_>,
-        scope: Py<PyAny>,
-        receive: Py<PyAny>,
-        send: Py<PyAny>,
-        http_exception_type: Py<PyAny>,
-        plain_text_response_type: Py<PyAny>,
-        websocket_close_type: Py<PyAny>,
-    ) -> PyResult<Py<PyAny>> {
+    fn not_found(&self, py: Python<'_>, args: RouterNotFoundArgs) -> PyResult<Py<PyAny>> {
+        let RouterNotFoundArgs {
+            scope,
+            receive,
+            send,
+            http_exception_type,
+            plain_text_response_type,
+            websocket_close_type,
+        } = args;
         into_python_awaitable(
             py,
             NotFoundMachine {
@@ -494,15 +519,17 @@ impl RouterDispatchMachine {
                 &routes.http_indexes,
                 self.redirect_slashes,
                 |candidate_path, native_full_index| match supplemental_matches(
-                    py,
-                    scope,
-                    &path,
-                    candidate_path,
-                    &routes.routes,
-                    &routes.custom_http_indexes,
-                    native_full_index,
-                    &mut child_scopes,
-                    false,
+                    SupplementalMatchArgs {
+                        py,
+                        scope,
+                        current_path: &path,
+                        candidate_path,
+                        routes: &routes.routes,
+                        route_indexes: &routes.custom_http_indexes,
+                        native_full_index,
+                        child_scopes: &mut child_scopes,
+                        websocket: false,
+                    },
                 ) {
                     Ok(matches) => matches,
                     Err(error) => {
@@ -539,15 +566,17 @@ impl RouterDispatchMachine {
                 &routes.websocket_indexes,
                 false,
                 |candidate_path, native_full_index| match supplemental_matches(
-                    py,
-                    scope,
-                    &path,
-                    candidate_path,
-                    &routes.routes,
-                    &routes.custom_websocket_indexes,
-                    native_full_index,
-                    &mut child_scopes,
-                    true,
+                    SupplementalMatchArgs {
+                        py,
+                        scope,
+                        current_path: &path,
+                        candidate_path,
+                        routes: &routes.routes,
+                        route_indexes: &routes.custom_websocket_indexes,
+                        native_full_index,
+                        child_scopes: &mut child_scopes,
+                        websocket: true,
+                    },
                 ) {
                     Ok(matches) => matches,
                     Err(error) => {
@@ -667,17 +696,32 @@ fn route_methods(route: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
         .collect()
 }
 
-fn supplemental_matches(
-    py: Python<'_>,
-    scope: &Bound<'_, PyDict>,
-    current_path: &str,
-    candidate_path: &str,
-    routes: &[Py<PyAny>],
-    route_indexes: &[usize],
+struct SupplementalMatchArgs<'a, 'py> {
+    py: Python<'py>,
+    scope: &'a Bound<'py, PyDict>,
+    current_path: &'a str,
+    candidate_path: &'a str,
+    routes: &'a [Py<PyAny>],
+    route_indexes: &'a [usize],
     native_full_index: Option<usize>,
-    child_scopes: &mut HashMap<usize, Py<PyAny>>,
+    child_scopes: &'a mut HashMap<usize, Py<PyAny>>,
     websocket: bool,
+}
+
+fn supplemental_matches(
+    args: SupplementalMatchArgs<'_, '_>,
 ) -> PyResult<Vec<SupplementalRouteMatch>> {
+    let SupplementalMatchArgs {
+        py,
+        scope,
+        current_path,
+        candidate_path,
+        routes,
+        route_indexes,
+        native_full_index,
+        child_scopes,
+        websocket,
+    } = args;
     let candidate_scope = if candidate_path == current_path {
         scope.clone().into_any()
     } else {

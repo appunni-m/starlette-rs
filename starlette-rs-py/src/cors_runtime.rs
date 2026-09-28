@@ -58,22 +58,35 @@ pub(crate) struct PyCORSMiddlewareRuntime {
     plain_text_response_type: Py<PyAny>,
 }
 
+#[derive(FromPyObject)]
+#[pyo3(from_item_all)]
+struct CorsMiddlewareArgs {
+    app: Py<PyAny>,
+    allow_origins: Py<PyAny>,
+    allow_methods: Py<PyAny>,
+    allow_headers: Py<PyAny>,
+    allow_credentials: Py<PyAny>,
+    allow_origin_regex: Option<Py<PyAny>>,
+    allow_private_network: Py<PyAny>,
+    expose_headers: Py<PyAny>,
+    max_age: Py<PyAny>,
+}
+
 #[pymethods]
 impl PyCORSMiddlewareRuntime {
     #[new]
-    #[pyo3(signature = (app, allow_origins, allow_methods, allow_headers, allow_credentials, allow_origin_regex, allow_private_network, expose_headers, max_age))]
-    fn new(
-        py: Python<'_>,
-        app: Py<PyAny>,
-        allow_origins: Py<PyAny>,
-        allow_methods: Py<PyAny>,
-        allow_headers: Py<PyAny>,
-        allow_credentials: Py<PyAny>,
-        allow_origin_regex: Option<Py<PyAny>>,
-        allow_private_network: Py<PyAny>,
-        expose_headers: Py<PyAny>,
-        max_age: Py<PyAny>,
-    ) -> PyResult<Self> {
+    fn new(py: Python<'_>, args: CorsMiddlewareArgs) -> PyResult<Self> {
+        let CorsMiddlewareArgs {
+            app,
+            allow_origins,
+            allow_methods,
+            allow_headers,
+            allow_credentials,
+            allow_origin_regex,
+            allow_private_network,
+            expose_headers,
+            max_age,
+        } = args;
         let cors_module = py.import("starlette.middleware.cors")?;
         let all_methods = cors_module.getattr("ALL_METHODS")?;
         let allow_methods = if allow_methods.bind(py).contains("*")? {
@@ -484,12 +497,16 @@ impl CorsCall {
             let requested_method =
                 PyString::new(py, requested_method.as_deref().unwrap_or_default());
             let requested_headers = find_header_value(&headers, b"access-control-request-headers")?
-                .map(|value| PyString::new(py, &value).into_any().unbind())
-                .unwrap_or_else(|| py.None());
+                .map_or_else(
+                    || py.None(),
+                    |value| PyString::new(py, &value).into_any().unbind(),
+                );
             let requested_private_network =
                 find_header_value(&headers, b"access-control-request-private-network")?
-                    .map(|value| PyString::new(py, &value).into_any().unbind())
-                    .unwrap_or_else(|| py.None());
+                    .map_or_else(
+                        || py.None(),
+                        |value| PyString::new(py, &value).into_any().unbind(),
+                    );
             let response = {
                 let middleware = self.middleware.borrow(py);
                 build_preflight_response_values(

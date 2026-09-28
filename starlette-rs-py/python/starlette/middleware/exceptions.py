@@ -25,14 +25,16 @@ class ExceptionMiddleware:
         self.app = app
         self.debug = debug
         self._runtime = _core.ExceptionMiddlewareRuntime(
-            app,
-            handlers,
-            HTTPException,
-            WebSocketException,
-            self.http_exception,
-            self.websocket_exception,
-            Response,
-            PlainTextResponse,
+            {
+                "app": app,
+                "handlers": handlers,
+                "http_exception_type": HTTPException,
+                "websocket_exception_type": WebSocketException,
+                "http_builtin_handler": self.http_exception,
+                "websocket_builtin_handler": self.websocket_exception,
+                "response_type": Response,
+                "plain_text_response_type": PlainTextResponse,
+            }
         )
 
     def add_exception_handler(

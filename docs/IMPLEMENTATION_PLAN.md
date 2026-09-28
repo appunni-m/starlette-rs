@@ -23,13 +23,14 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 188 input-only cases, 42 operations, and 234
-parity requirements across 28 indexed files. Latest integrated run
-`2fdd199d-c837-4160-a6c0-2a3cd6321a86`, finished at
-`2026-09-28T19:27:15.856Z`, selected 251 profile comparisons: all 188
-Python-package cases passed; Rust-native passed 57 of 63 selected comparisons.
-There were zero failed comparisons and zero infrastructure errors. The six
-declared unsupported Rust-native rows keep the all-target gate incomplete.
+The current parity contract has 196 input-only cases, 43 operations, and 242
+parity requirements across 29 indexed files. Latest integrated run
+`5e4c615e-a9e4-4305-bd7a-850b21f427d7`, finished at
+`2026-09-28T20:46:05.868Z`, selected 267 profile comparisons: the Python
+package passed 194 of 196 cases; Rust-native passed 65 of 71 selected
+comparisons. Two debug traceback comparisons failed and six declared
+unsupported Rust-native rows were `not_run`; there were zero infrastructure
+errors. The all-target gate is incomplete.
 
 ## 1. Decide the Python/Rust boundary
 

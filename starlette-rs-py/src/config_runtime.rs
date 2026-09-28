@@ -177,7 +177,7 @@ impl PyConfig {
             self.file_values.bind(py).get_item(&key)?
         } else {
             let default = default.bind(py);
-            (!default.is(&py.get_type::<PyUndefined>())).then(|| default.clone())
+            (!default.is(py.get_type::<PyUndefined>())).then(|| default.clone())
         };
         let Some(value) = value else {
             return Err(PyKeyError::new_err(format!(

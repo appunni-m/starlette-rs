@@ -2662,9 +2662,7 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             (event for event in events if event["type"] == "http.response.start"), None
         )
         response_body = b"".join(
-            message.get("body", b"")
-            for message in sent
-            if message["type"] == "http.response.body"
+            message.get("body", b"") for message in sent if message["type"] == "http.response.body"
         )
         observation = {
             "response_status": response_start["status"] if response_start is not None else None,
@@ -2685,9 +2683,7 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [
-            {"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}
-        ],
+        "observations": [{"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}],
     }
 
 
@@ -3427,9 +3423,17 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                     try:
                         value = config(*arguments)
                     except Exception as exc:
-                        result = {"key": lookup["key"], "outcome": "error", "error": _error_snapshot(exc)}
+                        result = {
+                            "key": lookup["key"],
+                            "outcome": "error",
+                            "error": _error_snapshot(exc),
+                        }
                     else:
-                        result = {"key": lookup["key"], "outcome": "value", "value": _json_safe(value)}
+                        result = {
+                            "key": lookup["key"],
+                            "outcome": "value",
+                            "value": _json_safe(value),
+                        }
                     results.append(result)
             finally:
                 os.chdir(previous_directory)
@@ -3502,8 +3506,7 @@ def _schema_endpoint(spec: dict[str, Any]) -> Any:
     if spec["kind"] == "function":
         return _schema_function(spec["docstring"])
     methods = {
-        name: _schema_function(docstring, name)
-        for name, docstring in spec["handlers"].items()
+        name: _schema_function(docstring, name) for name, docstring in spec["handlers"].items()
     }
     methods["__call__"] = _schema_function("", "__call__")
     return type("SchemaEndpoint", (), methods)()
