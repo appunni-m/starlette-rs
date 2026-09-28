@@ -1,0 +1,7 @@
+edition = "2024"
+reorder_imports = true
+hard_tabs = false
+tab_spaces = 4
+max_width = 100
+newline_style = "Unix"
+use_small_heuristics = "Default"

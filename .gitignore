@@ -1,0 +1,17 @@
+/target/
+/dist/
+/build/
+# Parity inputs/results are reproducibly generated from committed YAML sources.
+/build/parity/
+/.venv/
+/.venv-style/
+__pycache__/
+*.py[cod]
+*.so
+*.dylib
+*.dll
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

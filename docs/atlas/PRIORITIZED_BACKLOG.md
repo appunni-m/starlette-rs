@@ -1,0 +1,157 @@
+# Compatibility atlas and implementation backlog
+
+**Authority:** Starlette 1.6.0, commit
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The target checkout is currently
+uncommitted. This document records work order and links to bounded evidence;
+it is not itself a parity artifact or a claim of full compatibility. The full
+replacement objective remains active and incomplete.
+
+## P0 — Close the source-backed atlas (complete)
+
+The merged review disposes all 999 API candidates as `supported`,
+`private/internal`, or `uncertain`, with pinned-source evidence. It maps all
+514 upstream test functions, 24 documentation navigation pages, and four
+shared test support modules into the [coverage matrix](coverage-matrix.csv).
+The matrix has 784 mappings: 718 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 16 existing input mappings. It maps selected
+HTTPException, registered-handler, server-error, WebSocket protocol-tape,
+state-projection, and route-dispatch behaviors to input files.
+It is not a one-to-one index of every active parity case, so backlog status
+does not prove a behavior is untested. The active manifest indexes ten parity
+input files containing 51 cases: ten request/routing, three direct ASGI, eight
+GZip, six full WebSocket protocol-tape, six projected WebSocket state, five
+Request-style HTTPException, two callable-ASGI HTTPException, two
+registered-handler, and nine server-error workflows. Protocol-tape and route
+cases select the Python-package profile; the six projected state cases select
+both target profiles. Run `480437e5-e1f4-4e25-91a5-1453ba82ea69`, finished at
+`2026-09-28T05:59:25.632Z`, selected 76 comparisons: 72 passed, zero failed,
+four Rust-native callable rows were `not_run`, and there were zero
+infrastructure errors. All 51 Python-package cases passed; Rust-native passed
+21 of 25 selected cases. All 21 WebSocket comparisons passed: six protocol
+tapes and three route cases on the Python package, plus six state cases on
+both targets. The four Python-callable boundaries remain `not_run`, so the
+all-target gate is incomplete. Target identities were dirty local trees; this
+run is not clean aggregate or release proof. The static merger check passes
+against the pinned Starlette commit.
+
+## P1 — Complete the Python/Rust boundary prototype (remaining)
+
+The current slice crosses the Python/Rust boundary for a bounded set of
+request and ASGI flows. Exact Python-package parity now covers async Request
+endpoints, synchronous functions, bound methods and partials through AnyIO,
+plus callable-instance routes invoked as ASGI apps. The remaining boundary
+work includes cancellation, broader exception identity/chaining, streaming
+backpressure, lifespan failure paths, concurrency, and other Python/Rust
+ownership decisions. Keep Python callable execution on the reviewed Python
+boundary; do not add a Rust callback bridge without a separate contract. The
+HTTPException slice covers exceptions raised before response start by
+matched HTTP request-style endpoints, one callable-ASGI exception after
+response start, status-code handler precedence over an HTTPException class
+handler, and async-handler reuse of a body consumed by the endpoint. The
+server-error slice now covers default and registered 500 handling, special
+handler-key order, text/HTML debug responses, response-start state, and handled
+`HTTPException(500)`. All 21 WebSocket comparisons passed: six protocol-tape
+cases on the Python package, six state projections on both targets, and three
+route-dispatch cases on the Python package. Convenience methods, denial
+responses, WebSocket exception handlers, direct middleware
+invocation, arbitrary middleware ordering, and TestClient propagation remain
+open.
+
+## P2 — Scoped ASGI and WebSocket workflows (bounded parity recorded)
+
+The active input set is
+[`asgi-http-get-text.yaml`](../../tests/fixtures/sources/parity/asgi-http-get-text.yaml),
+[`asgi-request-items.yaml`](../../tests/fixtures/sources/parity/asgi-request-items.yaml),
+[`gzip-middleware.yaml`](../../tests/fixtures/sources/parity/gzip-middleware.yaml),
+[`asgi-http-exceptions.yaml`](../../tests/fixtures/sources/parity/asgi-http-exceptions.yaml),
+[`asgi-callable-http-exceptions.yaml`](../../tests/fixtures/sources/parity/asgi-callable-http-exceptions.yaml),
+[`asgi-exception-handlers.yaml`](../../tests/fixtures/sources/parity/asgi-exception-handlers.yaml),
+[`asgi-server-errors.yaml`](../../tests/fixtures/sources/parity/asgi-server-errors.yaml),
+[`websocket-protocol.yaml`](../../tests/fixtures/sources/parity/websocket-protocol.yaml),
+[`websocket-state-sequence.yaml`](../../tests/fixtures/sources/parity/websocket-state-sequence.yaml),
+and
+[`websocket-route-dispatch.yaml`](../../tests/fixtures/sources/parity/websocket-route-dispatch.yaml).
+It contains 51 cases across ten files: three direct ASGI cases (`GET /hello`
+with lifespan, `GET /missing`, and `POST /hello`); ten request/routing cases
+(`GET /items/0007`, its 404 and 405 cases, sync function, bound method,
+partial, callable-instance ASGI dispatch, and three `WebSocketRoute` dispatch
+cases); six WebSocket protocol-tape cases; six WebSocket state-projection cases;
+eight `GZipMiddleware` cases, five
+Request-style HTTPException cases, two callable-ASGI HTTPException cases, two
+registered-handler cases, and nine server-error cases. Run
+`480437e5-e1f4-4e25-91a5-1453ba82ea69`, finished at
+`2026-09-28T05:59:25.632Z`, selected 76 comparisons: 72 executed and passed,
+zero failed, four Rust-native rows were `not_run`, and there were zero
+infrastructure errors. All 51 Python-package cases passed; Rust-native passed
+21 cases, including the explicit-detail HTTPException response, with four
+Python-callable cases unsupported for that profile. All 21 selected WebSocket
+comparisons passed: six callback tapes and three route cases on the Python
+package, plus six projected state cases across both targets. Those four
+`not_run` cases make `run` exit with status 2, so the all-target gate is
+incomplete. Target identities were dirty local trees, so the run is not clean
+aggregate or release proof. The
+new handler inputs check that status 405 beats a previously registered
+HTTPException class handler, and that an async subclass handler can read a
+chunked request body already cached by the endpoint. The other HTTPException
+cases cover five matched HTTP request-style endpoint exceptions before
+response start and two callable-ASGI exceptions (one before and one after
+response start); the after-start case captures the chained RuntimeError and
+partial event tape. The server-error inputs check default 500 behavior,
+registered handlers, special handler-key order, debug text/HTML responses,
+response-start behavior, and handled `HTTPException(500)`. The Rust-native
+response builder does not resolve default Python status phrases and cannot
+invoke arbitrary Python ASGI callables. This status does not claim the full
+Starlette surface is compatible. See the
+`build/parity/parity-result.json`.
+
+The six cases in `websocket-protocol.yaml` drive raw `WebSocket.receive()` and
+`WebSocket.send(message)` actions across handshake/text/close, disconnect
+return, invalid transition, receive after disconnect, binary exchange, and a
+connected send callback raising `OSError`. They select the complete ordered
+receive/send ASGI callback tape for the Python-package profile, including each
+attempted send when the callback raises. The six cases in
+`websocket-state-sequence.yaml` duplicate those action sequences and compare
+each action's outcome and optional exact error message plus both final states
+across source, Python package, and Rust-native profiles; they exclude payloads,
+callback tapes, and Python exception metadata. The three cases in
+`websocket-route-dispatch.yaml` cover a matched root-path route, an unmatched
+WebSocket Router close, and a standalone `WebSocketRoute` called with an HTTP
+scope. They select route scope, ASGI events, response status, and response
+bytes for the Python-package profile. The inputs contain no expected outputs.
+All 21 WebSocket comparisons passed in the run above. JSON convenience
+methods, iterators, and denial-response behavior remain package-test-only and
+in the parity backlog.
+
+The separate Router/GZip benchmark lane completed all 74 source-versus-package
+workloads. Its result is documented in [Benchmark mapping](../BENCHMARKS.md);
+Rust-native remains `not_run` for those non-equivalent workloads. Benchmark
+completion is evidence for that workload catalog only; see its
+`build/parity/upstream-benchmark-result.json`.
+
+The declared workflows exercise these public consumer interfaces:
+
+1. Construct a Starlette application with a `GET /hello` route and a
+   `PlainTextResponse` endpoint.
+2. Define a fresh HTTP ASGI scope and `http.request` message for each case and
+   separate source-oracle, Rust-native, and installed-package targets.
+3. Select response-start status, ordered/repeated headers, response body bytes,
+   ASGI send-event order and termination, raised public exception identity and
+   observable payload when applicable, and lifecycle/cleanup effects.
+4. The adjacent route-miss and wrong-method workflows are now present for both
+   the `/hello` route and the request-observer route. Their expected status or
+   error values stay in live observations, never in input files.
+5. Require exact oracle/target observations by default and retain distinct
+   results for the Rust-native and Python-package targets.
+
+This is a partial implementation increment. It does not narrow the full
+Starlette compatibility target, establish project-wide drop-in status, or
+assert exact parity before the coordinated gate records that result.
+
+## P3 — Expand by atlas requirements
+
+Implement routing, connections, requests/responses, middleware, authentication,
+background tasks, data structures, forms/uploads, static files, templates,
+schemas, configuration, WSGI, and TestClient in dependency-aware groups.
+Promote remaining fixture-backlog entries into the single active manifest as
+independent inputs and keep unsupported behavior visible until implemented
+and compared.

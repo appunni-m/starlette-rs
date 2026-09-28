@@ -1,0 +1,59 @@
+[build-system]
+requires = ["maturin==1.14.1"]
+build-backend = "maturin"
+
+[project]
+name = "starlette-rs-py"
+dynamic = ["version"]
+description = "Starlette-compatible Python package backed by Rust"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "BSD-3-Clause"
+license-files = ["LICENSE.md", "THIRD_PARTY_NOTICES.md"]
+dependencies = ["anyio>=3.6.2,<5"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Repository = "https://github.com/appunni-m/starlette-rs"
+Upstream = "https://github.com/Kludex/starlette"
+
+[tool.maturin]
+manifest-path = "starlette-rs-py/Cargo.toml"
+python-source = "starlette-rs-py/python"
+python-packages = ["starlette", "starlette_rs_py"]
+module-name = "starlette_rs_py._core"
+features = ["pyo3/extension-module"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["build", "dist", "target"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "RUF"]
+
+# The app inspects callable objects' `__call__` method and intentionally loads
+# the compatibility modules before the extension import. The request and route
+# slot order is intentional and part of the handwritten object layout.
+[tool.ruff.lint.per-file-ignores]
+"starlette-rs-py/python/starlette/applications.py" = ["B004", "I001"]
+"starlette-rs-py/python/starlette/requests.py" = ["RUF023"]
+"starlette-rs-py/python/starlette/routing.py" = ["B004", "RUF023"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

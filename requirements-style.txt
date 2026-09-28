@@ -1,0 +1,2 @@
+# Exact, standalone formatter/linter release used by local Make targets and CI.
+ruff==0.16.8

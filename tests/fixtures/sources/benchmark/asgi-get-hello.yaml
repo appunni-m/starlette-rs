@@ -1,0 +1,38 @@
+{
+  "schema": "migration-parity/benchmark-input@1",
+  "workloads": [
+    {
+      "workload_id": "starlette.asgi.get-hello.direct-dispatch",
+      "covers": ["starlette.asgi.get-hello.latency"],
+      "subjects": [
+        {"kind": "oracle", "id": "starlette-python"},
+        {"kind": "target_profile", "id": "rust-native-local"},
+        {"kind": "target_profile", "id": "python-package-cpython312"}
+      ],
+      "input": {
+        "kind": "parity_case",
+        "case_id": "starlette.applications.Starlette.__call__.get-hello"
+      },
+      "measurement": {
+        "boundary": "observed_steps",
+        "step_ids": ["dispatch"],
+        "metrics": ["latency"],
+        "warmup_iterations": 20,
+        "measurement_iterations": 100,
+        "samples": 30,
+        "concurrency": 1,
+        "cache_state": "warm",
+        "correctness_gate": "parity_pass"
+      }
+    }
+  ],
+  "suites": [
+    {
+      "suite_id": "direct-asgi-smoke",
+      "description": "Direct ASGI GET /hello dispatch smoke benchmark; not representative of the full router or GZip workload suite.",
+      "members": [
+        {"workload_id": "starlette.asgi.get-hello.direct-dispatch", "weight": 1}
+      ]
+    }
+  ]
+}

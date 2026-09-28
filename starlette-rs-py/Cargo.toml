@@ -1,0 +1,23 @@
+[package]
+name = "starlette-rs-py"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "PyO3 extension scaffold for the Starlette compatibility package"
+readme = "../README.md"
+
+[lib]
+name = "_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3.workspace = true
+starlette-rs = { path = "../starlette-rs" }
+
+[build-dependencies]
+pyo3-build-config.workspace = true
+
+[lints]
+workspace = true

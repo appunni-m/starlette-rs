@@ -1,0 +1,107 @@
+{
+  "schema": "starlette-rs/api-source-metadata@1",
+  "authority": {
+    "name": "Starlette",
+    "version": "1.6.0",
+    "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
+    "package_path": "starlette"
+  },
+  "api_sources": [
+    {
+      "surface_id": "starlette.applications.Starlette",
+      "source_path": "starlette/applications.py:20",
+      "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.applications.Starlette.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.applications.Starlette.__call__"
+        },
+        {
+          "operation_id": "request-dispatch",
+          "source_path": "starlette.applications.Starlette.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.middleware.gzip.GZipMiddleware",
+      "source_path": "starlette/middleware/gzip.py:40",
+      "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.middleware.gzip.GZipMiddleware.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.middleware.gzip.GZipMiddleware.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.websockets.WebSocket",
+      "source_path": "starlette/websockets.py:26",
+      "operations": [
+        {
+          "operation_id": "protocol-sequence",
+          "source_path": "starlette.websockets.WebSocket"
+        },
+        {
+          "operation_id": "state-sequence",
+          "source_path": "starlette.websockets.WebSocket"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.routing.WebSocketRoute",
+      "source_path": "starlette/routing.py:297",
+      "operations": [
+        {
+          "operation_id": "route-dispatch",
+          "source_path": "starlette.routing.WebSocketRoute"
+        }
+      ]
+    }
+  ],
+  "api_inventory": {
+    "package_path": "starlette",
+    "public_source_files": [
+      "starlette/__init__.py",
+      "starlette/applications.py",
+      "starlette/authentication.py",
+      "starlette/background.py",
+      "starlette/concurrency.py",
+      "starlette/config.py",
+      "starlette/convertors.py",
+      "starlette/datastructures.py",
+      "starlette/endpoints.py",
+      "starlette/exceptions.py",
+      "starlette/formparsers.py",
+      "starlette/middleware/__init__.py",
+      "starlette/middleware/authentication.py",
+      "starlette/middleware/base.py",
+      "starlette/middleware/body_limit.py",
+      "starlette/middleware/cors.py",
+      "starlette/middleware/errors.py",
+      "starlette/middleware/exceptions.py",
+      "starlette/middleware/gzip.py",
+      "starlette/middleware/httpsredirect.py",
+      "starlette/middleware/sessions.py",
+      "starlette/middleware/trustedhost.py",
+      "starlette/middleware/wsgi.py",
+      "starlette/requests.py",
+      "starlette/responses.py",
+      "starlette/routing.py",
+      "starlette/schemas.py",
+      "starlette/staticfiles.py",
+      "starlette/status.py",
+      "starlette/templating.py",
+      "starlette/testclient.py",
+      "starlette/types.py",
+      "starlette/websockets.py"
+    ],
+    "documentation_root": "docs",
+    "test_source_root": "tests"
+  }
+}

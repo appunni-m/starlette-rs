@@ -1,0 +1,175 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.routing.WebSocketRoute.route-dispatch.matched-root-path",
+      "surface": "starlette.routing.WebSocketRoute",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.WebSocketRoute.route-dispatch.matched-root-path"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "dispatch": "application",
+      "route": {
+        "path": "/rooms/{room:str}"
+      },
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/edge/rooms/blue",
+        "raw_path_base64": "L2VkZ2Uvcm9vbXMvYmx1ZQ==",
+        "query_string_base64": "",
+        "root_path": "/edge",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        }
+      ],
+      "endpoint_actions": [
+        {
+          "action": "accept",
+          "subprotocol": "chat"
+        },
+        {
+          "action": "send_text",
+          "text": "room-ready:blue"
+        },
+        {
+          "action": "close",
+          "code": 1000,
+          "reason": "done"
+        }
+      ],
+      "observations": [
+        "route-dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.WebSocketRoute.route-dispatch.router-miss-close",
+      "surface": "starlette.routing.WebSocketRoute",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.WebSocketRoute.route-dispatch.router-miss-close"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "dispatch": "application",
+      "route": {
+        "path": "/rooms/{room:str}"
+      },
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/missing",
+        "raw_path_base64": "L21pc3Npbmc=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [],
+      "endpoint_actions": [],
+      "observations": [
+        "route-dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.WebSocketRoute.route-dispatch.http-scope-404",
+      "surface": "starlette.routing.WebSocketRoute",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.WebSocketRoute.route-dispatch.http-scope-404"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "dispatch": "standalone-route",
+      "route": {
+        "path": "/rooms/{room:str}"
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/rooms/blue",
+        "raw_path_base64": "L3Jvb21zL2JsdWU=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "endpoint_actions": [],
+      "observations": [
+        "route-dispatch"
+      ]
+    }
+  ]
+}

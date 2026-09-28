@@ -1,0 +1,909 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://starlette-rs.dev/schemas/migration-parity-result-v4.json",
+  "title": "Starlette migration parity result with isolated environment provenance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "identity",
+    "status",
+    "summary",
+    "comparisons",
+    "infrastructure_errors"
+  ],
+  "properties": {
+    "schema": {
+      "const": "migration-parity/parity-result@4"
+    },
+    "identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "infrastructure_failed",
+        "cancelled",
+        "invalid"
+      ]
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "comparisons": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/comparison"
+      }
+    },
+    "infrastructure_errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/infrastructureError"
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "started_at",
+        "finished_at",
+        "manifest",
+        "inputs",
+        "assets",
+        "oracles",
+        "targets",
+        "command",
+        "environments"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "schema",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "const": "tests/fixtures/manifest.yaml"
+            },
+            "schema": {
+              "const": "migration-parity/manifest@2"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "schema",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "schema": {
+                "const": "migration-parity/parity-input@4"
+              },
+              "sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        "assets": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "oracles": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "oracle_id",
+              "name",
+              "version",
+              "revision",
+              "runtime",
+              "module_path",
+              "dependency_lock_sha256",
+              "os",
+              "architecture",
+              "environment_sha256",
+              "runtime_lock_sha256"
+            ],
+            "properties": {
+              "oracle_id": {
+                "const": "starlette-python"
+              },
+              "name": {
+                "const": "Starlette"
+              },
+              "version": {
+                "const": "1.6.0"
+              },
+              "revision": {
+                "const": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f"
+              },
+              "runtime": {
+                "type": "string",
+                "minLength": 1
+              },
+              "module_path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "dependency_lock_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "os": {
+                "type": "string",
+                "minLength": 1
+              },
+              "architecture": {
+                "type": "string",
+                "minLength": 1
+              },
+              "environment_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "runtime_lock_sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "target_profile",
+              "target_id",
+              "revision",
+              "dirty",
+              "runtime",
+              "backend",
+              "features",
+              "package_version",
+              "target_tree_sha256",
+              "dependency_lock_sha256",
+              "os",
+              "architecture",
+              "environment_sha256"
+            ],
+            "properties": {
+              "target_profile": {
+                "enum": [
+                  "rust-native-local",
+                  "python-package-cpython312"
+                ]
+              },
+              "target_id": {
+                "enum": [
+                  "rust-native",
+                  "python-package"
+                ]
+              },
+              "revision": {
+                "type": "string",
+                "minLength": 1
+              },
+              "dirty": {
+                "type": "boolean"
+              },
+              "runtime": {
+                "type": "string",
+                "minLength": 1
+              },
+              "backend": {
+                "type": "string",
+                "minLength": 1
+              },
+              "features": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "package_version": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "target_tree_sha256": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "dependency_lock_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "os": {
+                "type": "string",
+                "minLength": 1
+              },
+              "architecture": {
+                "type": "string",
+                "minLength": 1
+              },
+              "environment_sha256": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "command": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "command_id",
+            "argv",
+            "cwd",
+            "timeout_seconds"
+          ],
+          "properties": {
+            "command_id": {
+              "enum": [
+                "parity",
+                "oracle-only"
+              ]
+            },
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "cwd": {
+              "const": "."
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "environments": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/pythonEnvironment"
+              },
+              {
+                "$ref": "#/$defs/rustEnvironment"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selected",
+        "executed",
+        "passed",
+        "failed",
+        "not_run",
+        "infrastructure_errors"
+      ],
+      "properties": {
+        "selected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "executed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_run": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "infrastructure_errors": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "status",
+        "observations"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "failed",
+            "skipped",
+            "unsupported"
+          ]
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/observation"
+          }
+        }
+      }
+    },
+    "observation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step_id",
+            "status",
+            "value"
+          ],
+          "properties": {
+            "step_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "status": {
+              "const": "ok"
+            },
+            "value": {
+              "type": [
+                "null",
+                "boolean",
+                "number",
+                "string",
+                "array",
+                "object"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step_id",
+            "status",
+            "error",
+            "partial_value"
+          ],
+          "properties": {
+            "step_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "status": {
+              "const": "error"
+            },
+            "error": {
+              "$ref": "#/$defs/publicError"
+            },
+            "partial_value": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/jsonValue"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step_id",
+            "status",
+            "reason"
+          ],
+          "properties": {
+            "step_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "status": {
+              "enum": [
+                "skipped",
+                "unsupported"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "publicError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class",
+        "kind",
+        "message",
+        "stage",
+        "code",
+        "cause",
+        "suppress_context"
+      ],
+      "properties": {
+        "class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "code": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "cause": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/publicCause"
+            }
+          ]
+        },
+        "suppress_context": {
+          "type": "boolean"
+        }
+      }
+    },
+    "publicCause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class",
+        "message",
+        "attributes"
+      ],
+      "properties": {
+        "class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        }
+      }
+    },
+    "jsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        }
+      ]
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "target_profile",
+        "requirements",
+        "source",
+        "target",
+        "outcome",
+        "diffs"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_profile": {
+          "enum": [
+            "rust-native-local",
+            "python-package-cpython312"
+          ]
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/workflow"
+        },
+        "target": {
+          "$ref": "#/$defs/workflow"
+        },
+        "outcome": {
+          "enum": [
+            "pass",
+            "fail",
+            "not_run"
+          ]
+        },
+        "diffs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diff"
+          }
+        }
+      }
+    },
+    "diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step_id",
+        "path",
+        "kind",
+        "source",
+        "target",
+        "message"
+      ],
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": [
+            "null",
+            "boolean",
+            "number",
+            "string",
+            "array",
+            "object"
+          ]
+        },
+        "target": {
+          "type": [
+            "null",
+            "boolean",
+            "number",
+            "string",
+            "array",
+            "object"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "infrastructureError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "id",
+        "kind",
+        "message"
+      ],
+      "properties": {
+        "scope": {
+          "enum": [
+            "oracle",
+            "target",
+            "collector",
+            "runner",
+            "artifact",
+            "aggregation"
+          ]
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "pythonEnvironment": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "python",
+            "runtime",
+            "os",
+            "architecture",
+            "dependency_lock_path",
+            "dependency_lock_sha256",
+            "installed_lock_sha256",
+            "artifact_sha256",
+            "environment_sha256"
+          ],
+          "properties": {
+            "id": {
+              "const": "starlette-oracle-cpython312"
+            },
+            "python": {
+              "type": "string",
+              "pattern": "^build/parity/envs/"
+            },
+            "runtime": {
+              "type": "string",
+              "pattern": "^CPython 3\\.12\\."
+            },
+            "os": {
+              "type": "string",
+              "minLength": 1
+            },
+            "architecture": {
+              "type": "string",
+              "minLength": 1
+            },
+            "dependency_lock_path": {
+              "const": "scripts/parity/locks/asgi-runtime-cpython312.txt"
+            },
+            "dependency_lock_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "installed_lock_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "artifact_sha256": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/sha256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "environment_sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "python",
+            "runtime",
+            "os",
+            "architecture",
+            "dependency_lock_path",
+            "dependency_lock_sha256",
+            "installed_lock_sha256",
+            "artifact_sha256",
+            "environment_sha256"
+          ],
+          "properties": {
+            "id": {
+              "const": "starlette-rs-py-cpython312"
+            },
+            "python": {
+              "type": "string",
+              "pattern": "^build/parity/envs/"
+            },
+            "runtime": {
+              "type": "string",
+              "pattern": "^CPython 3\\.12\\."
+            },
+            "os": {
+              "type": "string",
+              "minLength": 1
+            },
+            "architecture": {
+              "type": "string",
+              "minLength": 1
+            },
+            "dependency_lock_path": {
+              "const": "scripts/parity/locks/asgi-runtime-cpython312.txt"
+            },
+            "dependency_lock_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "installed_lock_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "artifact_sha256": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/sha256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "environment_sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        }
+      ]
+    },
+    "rustEnvironment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "runtime",
+        "os",
+        "architecture",
+        "rustc",
+        "cargo",
+        "dependency_lock_path",
+        "dependency_lock_sha256",
+        "environment_sha256"
+      ],
+      "properties": {
+        "id": {
+          "const": "rust-native-local"
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "os": {
+          "type": "string",
+          "minLength": 1
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rustc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cargo": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dependency_lock_path": {
+          "const": "Cargo.lock"
+        },
+        "dependency_lock_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "environment_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

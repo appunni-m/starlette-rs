@@ -1,0 +1,298 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.applications.Starlette.__call__.exception-handler.status-code-precedence",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.exception-handler.status-code",
+        "starlette.asgi.exception-handler.exception-class",
+        "starlette.asgi.exception-handler.async-callback"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/func",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "unreached",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": []
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": [
+                {
+                  "key": {
+                    "kind": "exception-class",
+                    "name": "HTTPException"
+                  },
+                  "handler": {
+                    "kind": "json-exception-detail-response",
+                    "status_from_exception": true
+                  }
+                },
+                {
+                  "key": {
+                    "kind": "status-code",
+                    "status_code": 405
+                  },
+                  "handler": {
+                    "kind": "json-literal-response",
+                    "status_code": 405,
+                    "content": {
+                      "detail": "Custom message"
+                    }
+                  }
+                }
+              ]
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "scheme": "http",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ],
+                "method": "POST",
+                "path": "/func",
+                "raw_path_base64": "L2Z1bmM="
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.exception-handler.request-body-cache-reuse",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.exception-handler.exception-class",
+        "starlette.asgi.exception-handler.async-callback",
+        "starlette.asgi.exception-handler.request-body-cache-reuse"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/consume_body_in_endpoint_and_handler",
+                  "methods": [
+                    "POST"
+                  ],
+                  "endpoint": {
+                    "kind": "http-exception-after-body",
+                    "exception_class": "BodyReuseException",
+                    "status_code": 422,
+                    "detail": null
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": [
+                {
+                  "key": {
+                    "kind": "exception-class",
+                    "name": "BodyReuseException",
+                    "base_class": "HTTPException"
+                  },
+                  "handler": {
+                    "kind": "request-body-json-response",
+                    "body_field": "body",
+                    "status_from_exception": true
+                  }
+                }
+              ]
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "scheme": "http",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ],
+                "method": "POST",
+                "path": "/consume_body_in_endpoint_and_handler",
+                "raw_path_base64": "L2NvbnN1bWVfYm9keV9pbl9lbmRwb2ludF9hbmRfaGFuZGxlcg=="
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "SGVs",
+                  "more_body": true
+                },
+                {
+                  "type": "http.request",
+                  "body_base64": "bG8h",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

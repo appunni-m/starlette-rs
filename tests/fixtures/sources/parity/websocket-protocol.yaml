@@ -1,0 +1,458 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.websockets.WebSocket.protocol-sequence.handshake-text-close",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "protocol-sequence",
+      "covers": [
+        "starlette.websocket.protocol.handshake-text-close"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.receive",
+          "text": "ping"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-connect",
+          "action": "receive"
+        },
+        {
+          "action_id": "accept",
+          "action": "send",
+          "message": {
+            "type": "websocket.accept",
+            "subprotocol": "chat",
+            "headers_base64_pairs": []
+          }
+        },
+        {
+          "action_id": "receive-text",
+          "action": "receive"
+        },
+        {
+          "action_id": "send-text",
+          "action": "send",
+          "message": {
+            "type": "websocket.send",
+            "text": "pong"
+          }
+        },
+        {
+          "action_id": "close",
+          "action": "send",
+          "message": {
+            "type": "websocket.close",
+            "code": 1000,
+            "reason": "done"
+          }
+        }
+      ],
+      "observations": [
+        "protocol-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.protocol-sequence.disconnect",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "protocol-sequence",
+      "covers": [
+        "starlette.websocket.protocol.disconnect"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        },
+        {
+          "type": "websocket.disconnect",
+          "code": 1001,
+          "reason": "going away"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-connect",
+          "action": "receive"
+        },
+        {
+          "action_id": "accept",
+          "action": "send",
+          "message": {
+            "type": "websocket.accept",
+            "subprotocol": null,
+            "headers_base64_pairs": []
+          }
+        },
+        {
+          "action_id": "receive-disconnect",
+          "action": "receive"
+        }
+      ],
+      "observations": [
+        "protocol-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.protocol-sequence.invalid-transition",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "protocol-sequence",
+      "covers": [
+        "starlette.websocket.protocol.invalid-transition"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [],
+      "actions": [
+        {
+          "action_id": "send-before-accept",
+          "action": "send",
+          "message": {
+            "type": "websocket.send",
+            "text": "premature"
+          }
+        }
+      ],
+      "observations": [
+        "protocol-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.protocol-sequence.receive-after-disconnect",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "protocol-sequence",
+      "covers": [
+        "starlette.websocket.protocol.receive-after-disconnect"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        },
+        {
+          "type": "websocket.disconnect",
+          "code": 1001,
+          "reason": "going away"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-connect",
+          "action": "receive"
+        },
+        {
+          "action_id": "accept",
+          "action": "send",
+          "message": {
+            "type": "websocket.accept",
+            "subprotocol": null,
+            "headers_base64_pairs": []
+          }
+        },
+        {
+          "action_id": "receive-disconnect",
+          "action": "receive"
+        },
+        {
+          "action_id": "receive-after-disconnect",
+          "action": "receive"
+        }
+      ],
+      "observations": [
+        "protocol-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.protocol-sequence.binary-exchange",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "protocol-sequence",
+      "covers": [
+        "starlette.websocket.protocol.binary-exchange"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        },
+        {
+          "type": "websocket.receive",
+          "bytes_base64": "AAEC/w=="
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-connect",
+          "action": "receive"
+        },
+        {
+          "action_id": "accept",
+          "action": "send",
+          "message": {
+            "type": "websocket.accept",
+            "subprotocol": null,
+            "headers_base64_pairs": []
+          }
+        },
+        {
+          "action_id": "receive-binary",
+          "action": "receive"
+        },
+        {
+          "action_id": "send-binary",
+          "action": "send",
+          "message": {
+            "type": "websocket.send",
+            "bytes_base64": "AAEC/w=="
+          }
+        }
+      ],
+      "observations": [
+        "protocol-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.protocol-sequence.send-oserror-disconnect",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "protocol-sequence",
+      "covers": [
+        "starlette.websocket.protocol.send-oserror-disconnect"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-connect",
+          "action": "receive"
+        },
+        {
+          "action_id": "accept",
+          "action": "send",
+          "message": {
+            "type": "websocket.accept",
+            "subprotocol": null,
+            "headers_base64_pairs": []
+          }
+        },
+        {
+          "action_id": "send-fails",
+          "action": "send",
+          "message": {
+            "type": "websocket.send",
+            "text": "lost"
+          },
+          "send_error": {
+            "kind": "os-error",
+            "message": "peer closed"
+          }
+        }
+      ],
+      "observations": [
+        "protocol-sequence"
+      ]
+    }
+  ]
+}

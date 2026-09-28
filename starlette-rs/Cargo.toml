@@ -1,0 +1,20 @@
+[package]
+name = "starlette-rs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Rust-native core for the Starlette replacement"
+readme = "../README.md"
+
+[lib]
+name = "starlette_rs"
+
+[dependencies]
+flate2.workspace = true
+sha2 = "0.10"
+serde_json = "1"
+
+[lints]
+workspace = true

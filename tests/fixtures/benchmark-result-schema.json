@@ -1,0 +1,1243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://starlette-rs.dev/schemas/migration-parity-benchmark-result-v1.json",
+  "title": "Starlette migration benchmark result with correctness and input provenance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "identity",
+    "status",
+    "summary",
+    "workloads",
+    "upstream_suite"
+  ],
+  "properties": {
+    "schema": {
+      "const": "migration-parity/benchmark-result@1"
+    },
+    "identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "not_proven"
+      ]
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "workloads": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "$ref": "#/$defs/workload"
+      }
+    },
+    "upstream_suite": {
+      "$ref": "#/$defs/upstreamSuite"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "fileIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "caseInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "path",
+        "sha256",
+        "case_sha256"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "case_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "started_at",
+        "finished_at",
+        "manifest",
+        "benchmark_inputs",
+        "parity_case_input",
+        "source_validation",
+        "parity_gate",
+        "native_parity_adapter",
+        "prepared_environments",
+        "machine",
+        "command"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "manifest": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/fileIdentity"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "tests/fixtures/manifest.yaml"
+                },
+                "schema": {
+                  "const": "migration-parity/manifest@2"
+                }
+              }
+            }
+          ]
+        },
+        "benchmark_inputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/fileIdentity"
+              },
+              {
+                "properties": {
+                  "schema": {
+                    "const": "migration-parity/benchmark-input@1"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "parity_case_input": {
+          "$ref": "#/$defs/caseInput"
+        },
+        "source_validation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "scope_mode",
+            "scope_id",
+            "oracle_commit",
+            "oracle_package",
+            "runtime_dependency_lock_sha256",
+            "indexed_input_files",
+            "cases",
+            "target_profiles",
+            "operations",
+            "parity_tooling_sources_compiled",
+            "parity_passes_claimed"
+          ],
+          "properties": {
+            "schema": {
+              "const": "migration-parity/manifest@2"
+            },
+            "scope_mode": {
+              "type": "string"
+            },
+            "scope_id": {
+              "type": "string"
+            },
+            "oracle_commit": {
+              "const": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f"
+            },
+            "oracle_package": {
+              "type": "string",
+              "minLength": 1
+            },
+            "runtime_dependency_lock_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "indexed_input_files": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cases": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "target_profiles": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "operations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "parity_tooling_sources_compiled": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "parity_passes_claimed": {
+              "const": 0
+            }
+          }
+        },
+        "parity_gate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "case_id",
+            "parity_run_id",
+            "parity_result_path",
+            "parity_result_sha256",
+            "profiles",
+            "summary",
+            "oracles",
+            "targets",
+            "comparison_outcomes",
+            "infrastructure_errors"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "pass",
+                "failed"
+              ]
+            },
+            "case_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "parity_run_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "parity_result_path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "parity_result_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "profiles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "summary": {
+              "type": "object"
+            },
+            "oracles": {
+              "type": "array"
+            },
+            "targets": {
+              "type": "array"
+            },
+            "comparison_outcomes": {
+              "type": "array"
+            },
+            "infrastructure_errors": {
+              "type": "array"
+            }
+          }
+        },
+        "native_parity_adapter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "argv",
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "prepared_environments": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "python",
+              "runtime",
+              "os",
+              "architecture",
+              "dependency_lock_path",
+              "dependency_lock_sha256",
+              "installed_lock_sha256",
+              "artifact_sha256",
+              "environment_sha256"
+            ],
+            "properties": {
+              "id": {
+                "enum": [
+                  "starlette-oracle-cpython312",
+                  "starlette-rs-py-cpython312"
+                ]
+              },
+              "python": {
+                "type": "string"
+              },
+              "runtime": {
+                "type": "string"
+              },
+              "os": {
+                "type": "string"
+              },
+              "architecture": {
+                "type": "string"
+              },
+              "dependency_lock_path": {
+                "type": "string"
+              },
+              "dependency_lock_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "installed_lock_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "artifact_sha256": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "environment_sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        "machine": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "platform",
+            "architecture",
+            "processor",
+            "logical_cpu_count",
+            "python",
+            "python_executable",
+            "rustc",
+            "cargo"
+          ],
+          "properties": {
+            "platform": {
+              "type": "string"
+            },
+            "architecture": {
+              "type": "string"
+            },
+            "processor": {
+              "type": "string"
+            },
+            "logical_cpu_count": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "python": {
+              "type": "string"
+            },
+            "python_executable": {
+              "type": "string"
+            },
+            "rustc": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cargo": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "command": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "argv",
+            "cwd"
+          ],
+          "properties": {
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "cwd": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declared_workloads",
+        "measured_workloads",
+        "measured_subjects",
+        "not_run_subjects",
+        "source_documented_workloads",
+        "source_documented_workloads_matched",
+        "source_documented_workloads_not_run"
+      ],
+      "properties": {
+        "declared_workloads": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "measured_workloads": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "measured_subjects": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_run_subjects": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_documented_workloads": {
+          "const": 74
+        },
+        "source_documented_workloads_matched": {
+          "const": 0
+        },
+        "source_documented_workloads_not_run": {
+          "const": 74
+        }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workload_id",
+        "covers",
+        "input",
+        "correctness_gate",
+        "measurement_policy",
+        "subjects",
+        "comparison"
+      ],
+      "properties": {
+        "workload_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "covers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "case_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "parity_case"
+            },
+            "case_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "correctness_gate": {
+          "type": "object"
+        },
+        "measurement_policy": {
+          "type": "object"
+        },
+        "subjects": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/notRunOracleSubject"
+                },
+                {
+                  "$ref": "#/$defs/measuredSourceSubject"
+                }
+              ]
+            },
+            {
+              "$ref": "#/$defs/notRunNativeSubject"
+            },
+            {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/notRunPackageSubject"
+                },
+                {
+                  "$ref": "#/$defs/measuredPackageSubject"
+                }
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "comparison": {
+          "type": "object"
+        }
+      }
+    },
+    "parityOracleIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "oracle_id",
+        "name",
+        "version",
+        "revision",
+        "runtime",
+        "module_path",
+        "dependency_lock_sha256",
+        "os",
+        "architecture",
+        "environment_sha256",
+        "runtime_lock_sha256"
+      ],
+      "properties": {
+        "oracle_id": {
+          "const": "starlette-python"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "const": "1.6.0"
+        },
+        "revision": {
+          "const": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f"
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "module_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dependency_lock_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "os": {
+          "type": "string",
+          "minLength": 1
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "runtime_lock_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "parityTargetIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_profile",
+        "target_id",
+        "revision",
+        "dirty",
+        "runtime",
+        "backend",
+        "features",
+        "package_version",
+        "target_tree_sha256",
+        "dependency_lock_sha256",
+        "os",
+        "architecture",
+        "environment_sha256"
+      ],
+      "properties": {
+        "target_profile": {
+          "enum": [
+            "rust-native-local",
+            "python-package-cpython312"
+          ]
+        },
+        "target_id": {
+          "enum": [
+            "rust-native",
+            "python-package"
+          ]
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "backend": {
+          "type": "string",
+          "minLength": 1
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "package_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "target_tree_sha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dependency_lock_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "os": {
+          "type": "string",
+          "minLength": 1
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment_sha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "target_profile": {
+                "const": "rust-native-local"
+              }
+            },
+            "required": [
+              "target_profile"
+            ]
+          },
+          "then": {
+            "properties": {
+              "target_id": {
+                "const": "rust-native"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "target_profile": {
+                "const": "python-package-cpython312"
+              }
+            },
+            "required": [
+              "target_profile"
+            ]
+          },
+          "then": {
+            "properties": {
+              "target_id": {
+                "const": "python-package"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sourceWorkerIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "starlette_version",
+        "package_version",
+        "module_path",
+        "core_extension_path",
+        "python_executable",
+        "environment_prefix",
+        "runtime",
+        "os",
+        "architecture",
+        "source_revision",
+        "target_tree_sha256",
+        "wheel_sha256"
+      ],
+      "properties": {
+        "subject_id": {
+          "const": "starlette-python"
+        },
+        "starlette_version": {
+          "const": "1.6.0"
+        },
+        "package_version": {
+          "type": "null"
+        },
+        "module_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "core_extension_path": {
+          "type": "null"
+        },
+        "python_executable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment_prefix": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "os": {
+          "type": "string",
+          "minLength": 1
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_revision": {
+          "const": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f"
+        },
+        "target_tree_sha256": {
+          "type": "null"
+        },
+        "wheel_sha256": {
+          "type": "null"
+        }
+      }
+    },
+    "packageWorkerIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "starlette_version",
+        "package_version",
+        "module_path",
+        "core_extension_path",
+        "python_executable",
+        "environment_prefix",
+        "runtime",
+        "os",
+        "architecture",
+        "source_revision",
+        "target_tree_sha256",
+        "wheel_sha256"
+      ],
+      "properties": {
+        "subject_id": {
+          "const": "python-package-cpython312"
+        },
+        "starlette_version": {
+          "const": "0.1.0"
+        },
+        "package_version": {
+          "const": "0.1.0"
+        },
+        "module_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "core_extension_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "python_executable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment_prefix": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "os": {
+          "type": "string",
+          "minLength": 1
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_revision": {
+          "type": "null"
+        },
+        "target_tree_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "wheel_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "router_instance_is_asgi_callable",
+        "gzip_middleware_module_available"
+      ],
+      "properties": {
+        "router_instance_is_asgi_callable": {
+          "type": "boolean"
+        },
+        "gzip_middleware_module_available": {
+          "type": "boolean"
+        }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "warmup_iterations",
+        "measurement_iterations_per_sample",
+        "samples",
+        "statistics"
+      ],
+      "properties": {
+        "unit": {
+          "const": "nanoseconds_per_dispatch"
+        },
+        "warmup_iterations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "measurement_iterations_per_sample": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "samples": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "statistics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "median",
+            "mean",
+            "stdev",
+            "min",
+            "max",
+            "p50",
+            "p95",
+            "p99"
+          ],
+          "properties": {
+            "median": {
+              "type": "number"
+            },
+            "mean": {
+              "type": "number"
+            },
+            "stdev": {
+              "type": "number",
+              "minimum": 0
+            },
+            "min": {
+              "type": "number"
+            },
+            "max": {
+              "type": "number"
+            },
+            "p50": {
+              "type": "number"
+            },
+            "p95": {
+              "type": "number"
+            },
+            "p99": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "notRunOracleSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "status",
+        "identity",
+        "reason"
+      ],
+      "properties": {
+        "subject_id": {
+          "const": "starlette-python"
+        },
+        "status": {
+          "const": "not_run"
+        },
+        "identity": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/parityOracleIdentity"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "notRunNativeSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "status",
+        "identity",
+        "reason"
+      ],
+      "properties": {
+        "subject_id": {
+          "const": "rust-native-local"
+        },
+        "status": {
+          "const": "not_run"
+        },
+        "identity": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parityTargetIdentity"
+                },
+                {
+                  "properties": {
+                    "target_profile": {
+                      "const": "rust-native-local"
+                    },
+                    "target_id": {
+                      "const": "rust-native"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "notRunPackageSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "status",
+        "identity",
+        "reason"
+      ],
+      "properties": {
+        "subject_id": {
+          "const": "python-package-cpython312"
+        },
+        "status": {
+          "const": "not_run"
+        },
+        "identity": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parityTargetIdentity"
+                },
+                {
+                  "properties": {
+                    "target_profile": {
+                      "const": "python-package-cpython312"
+                    },
+                    "target_id": {
+                      "const": "python-package"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "measuredSourceSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "status",
+        "identity",
+        "capabilities",
+        "measurement"
+      ],
+      "properties": {
+        "subject_id": {
+          "const": "starlette-python"
+        },
+        "status": {
+          "const": "measured"
+        },
+        "identity": {
+          "$ref": "#/$defs/sourceWorkerIdentity"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/capabilities"
+        },
+        "measurement": {
+          "$ref": "#/$defs/measurement"
+        }
+      }
+    },
+    "measuredPackageSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "status",
+        "identity",
+        "capabilities",
+        "measurement"
+      ],
+      "properties": {
+        "subject_id": {
+          "const": "python-package-cpython312"
+        },
+        "status": {
+          "const": "measured"
+        },
+        "identity": {
+          "$ref": "#/$defs/packageWorkerIdentity"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/capabilities"
+        },
+        "measurement": {
+          "$ref": "#/$defs/measurement"
+        }
+      }
+    },
+    "upstreamSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "source_revision",
+        "documented_workload_count",
+        "matched_workload_count",
+        "not_run_workload_count",
+        "workloads"
+      ],
+      "properties": {
+        "status": {
+          "const": "not_run"
+        },
+        "source_revision": {
+          "const": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f"
+        },
+        "documented_workload_count": {
+          "const": 74
+        },
+        "matched_workload_count": {
+          "const": 0
+        },
+        "not_run_workload_count": {
+          "const": 74
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_files": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "source_workload_categories": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "workloads": {
+          "type": "array",
+          "minItems": 74,
+          "maxItems": 74,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "workload_id",
+              "category",
+              "status",
+              "reason"
+            ],
+            "properties": {
+              "workload_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "category": {
+                "enum": [
+                  "router",
+                  "gzip"
+                ]
+              },
+              "status": {
+                "const": "not_run"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
