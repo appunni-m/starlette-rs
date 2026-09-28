@@ -34,17 +34,19 @@ this plan identify recorded executions.
 
 The current parity contract has 216 input-only cases, 43 operations, and 262
 parity requirements across 30 indexed files. Latest integrated run
-`4fe0f48c-2699-48fe-9bf4-facc0d6bda51`, finished at
-`2026-09-28T22:39:11.328Z`, selected 287 profile comparisons: 279 passed,
-two failed, zero infrastructure errors, and six were `not_run`. The Python
-package passed 214 of 216 cases; Rust-native passed 65 of 71 selected
-comparisons. All 20 generator-lifespan cases passed on the Python package.
-The remaining two debug traceback comparisons and six unsupported Rust-native
-rows keep the all-target gate incomplete. The manifest SHA-256 is
-`0a0d54d32c2f036a6b754f7a230d445d53140687a5f887aebe40fbce2c7b6a6b`; the
+`894f9f90-b389-4f9d-ae4b-8e1d793630a3`, finished at
+`2026-09-28T23:01:00.598Z`, selected 287 profile comparisons: 281 passed, zero
+failed, zero infrastructure errors, and six were `not_run`. The Python package
+passed all 216 selected comparisons; Rust-native passed 65 of 71. All 20
+generator-lifespan cases passed on the Python package. The six remaining
+Rust-native rows are four Python-callable endpoint forms and the two Mount
+dispatch cases below. The manifest SHA-256 is
+`363186e96eefd758f6019417532401efc3ff4b30775ba6b0089652fa0df7d8a1`; the
 target wheel SHA-256 is
-`b2215ce485e51cb6f1908e9adf1bbf76948931d75310730d49a89a8a3e20edd3`. Both
-target trees in this run were dirty.
+`22a537da8f58545749e9142bc1a1b4a4c7bd1e357ac208c2becc3e7a05bee09e`. The
+Python package environment identity is a dirty-tree build; Rust-native was
+recorded from a clean tree. `make parity-run` still exits nonzero because the
+six Rust-native observations are explicitly unsupported.
 
 ## 1. Completed bounded goal: lifespan state and cancellation
 
@@ -59,15 +61,33 @@ its result or exception at runtime. This checkpoint covers these lifecycle
 inputs only; it does not establish cancellation parity across HTTP, WebSocket,
 streaming, or background tasks.
 
-## Next bounded goal: server-error debug traceback parity
+## Completed bounded goal: server-error debug traceback parity
 
-The integrated run still has two mismatches in debug-mode 500 responses: one
-plain-text traceback and one HTML traceback. Compare the source and package
-payloads, identify which traceback details are public behavior versus runtime
-frame differences, then either implement the behavior in Rust or document and
-apply only the already-declared reusable normalization. Preserve the original
-exception message and user-code frame, and keep the mismatch visible until the
-source/package result agrees under the manifest contract.
+The two debug-mode 500 response mismatches came from Python framework stack
+frames and source snippets present in the oracle but absent from the
+Rust-dispatched package. The declared reusable traceback projection now removes
+only frames from modules under the `starlette/` package, keeps user-code frames
+and the exception summary, and normalizes the remaining source paths, line
+numbers, HTML frame IDs, and body length. It activates only for the live
+Starlette debug-traceback structure and changes parity comparison only; the
+Python runtime wrappers remain pass-through. Both text and HTML debug cases
+match source/package behavior. The integrated result above has zero parity
+failures; the all-target command remains incomplete only for its six
+Rust-native `not_run` rows.
+
+## Next bounded goal: Rust-native Mount child-scope and miss parity
+
+Implement the two existing Mount route-dispatch cases through the public
+Rust-native API. A matched `/tenants/{tenant:str}` Mount must dispatch its child
+`/items/{item_id:int}` route, produce the declared response, and expose the
+same `root_path`, `app_root_path`, and merged typed `path_params` as the source.
+A mount-path miss must leave `mount_scope` absent and produce Starlette's 404
+response. Keep the current input-only cases and compare the full response and
+scope observations against the pinned source and installed package. Put route
+matching, parameter conversion, child-scope construction, and miss behavior in
+the Rust core; preserve the Python wrappers as pass-throughs. This closes the
+two Mount `not_run` rows without conflating them with the four endpoint shapes
+that require Python callbacks.
 
 ## 2. Initial ASGI-to-response vertical slice (partial)
 

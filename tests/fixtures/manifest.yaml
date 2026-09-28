@@ -980,7 +980,7 @@
             {
               "id": "starlette.asgi.server-error.debug-traceback",
               "dimension": "boundary",
-              "description": "In debug mode, the public application dispatch returns text or HTML traceback output ahead of a configured 500 handler and re-raises the original error. Compare stable traceback markers and exception summary while excluding source-specific frame paths and line numbers. Upstream: starlette/middleware/errors.py::debug_response.",
+              "description": "In debug mode, public application dispatch returns text or HTML traceback output ahead of a configured 500 handler and re-raises the original error. Compare the exception summary and user-code frames while projecting out Python frames and source snippets from modules under the Starlette package, plus source-specific paths and line numbers. Upstream: starlette/middleware/errors.py::debug_response.",
               "lanes": [
                 "parity"
               ],

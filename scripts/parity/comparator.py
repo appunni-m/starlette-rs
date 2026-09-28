@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import re
+from html.parser import HTMLParser
 from typing import Any
 
 from .contract import ContractError, validate_workflow_result
@@ -94,10 +95,155 @@ def _normalize_allow_methods(path: str, value: Any) -> Any:
 
 
 _TEXT_TRACEBACK_FRAME = re.compile(rb"(?m)^([ \t]*File ).*(, line )\d+(?=, in |$)")
+_TEXT_TRACEBACK_HEADER = re.compile(
+    rb'^(?P<indent>[ \t]*)File "(?P<filename>[^"]+)", line \d+(?:, in .*)?(?:\r?\n)?$'
+)
 _HTML_TRACEBACK_PATH = re.compile(rb'(<span class="frame-filename">).*?(</span>)')
 _HTML_TRACEBACK_LINE = re.compile(rb"(,\s*line <i>)\d+(</i>)")
 _HTML_SOURCE_LINE_NUMBER = re.compile(rb'(<span class="lineno">)\d+(\.</span>)')
 _HTML_FRAME_REFERENCE = re.compile(rb'((?:id|data-frame-id)=")[^"]*(")')
+
+
+def _is_starlette_frame(filename: str) -> bool:
+    """Identify frames defined by Python modules in the Starlette package."""
+    path_parts = filename.replace("\\", "/").split("/")
+    return filename.endswith(".py") and "starlette" in path_parts[:-1]
+
+
+def _remove_starlette_text_frames(body: bytes) -> bytes:
+    """Remove framework-owned frames while retaining user frames and the error."""
+    lines = body.splitlines(keepends=True)
+    retained: list[bytes] = []
+    removed = False
+    index = 0
+    while index < len(lines):
+        match = _TEXT_TRACEBACK_HEADER.match(lines[index])
+        if match is None or not _is_starlette_frame(match.group("filename").decode()):
+            retained.append(lines[index])
+            index += 1
+            continue
+
+        removed = True
+        frame_indent = len(match.group("indent"))
+        index += 1
+        while index < len(lines):
+            line_indent = len(lines[index]) - len(lines[index].lstrip(b" \t"))
+            if line_indent <= frame_indent:
+                break
+            index += 1
+    return b"".join(retained) if removed else body
+
+
+def _remove_starlette_html_frames(body: bytes) -> bytes:
+    """Remove Starlette's rendered frame blocks without changing user-code HTML."""
+    try:
+        source = body.decode("utf-8")
+    except UnicodeDecodeError:
+        return body
+
+    line_offsets: list[int] = []
+    offset = 0
+    for line in source.splitlines(keepends=True):
+        line_offsets.append(offset)
+        offset += len(line)
+
+    class FrameParser(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.div_stack: list[dict[str, Any] | None] = []
+            self.frame_blocks: list[dict[str, Any]] = []
+            self.active_filename: dict[str, Any] | None = None
+            self.malformed = False
+
+        def _source_offset(self) -> int:
+            line, column = self.getpos()
+            if line > len(line_offsets):
+                return len(source)
+            return line_offsets[line - 1] + column
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            attributes = dict(attrs)
+            if tag == "div":
+                in_traceback = any(
+                    block is not None and block.get("traceback_container")
+                    for block in self.div_stack
+                )
+                block = None
+                if in_traceback and len(self.div_stack) == 2:
+                    block = {
+                        "start": self._source_offset(),
+                        "filename": "",
+                        "end": None,
+                    }
+                elif attributes.get("class") == "traceback-container":
+                    block = {"traceback_container": True}
+                self.div_stack.append(block)
+            if tag == "span" and attributes.get("class") == "frame-filename":
+                self.active_filename = next(
+                    (
+                        block
+                        for block in reversed(self.div_stack)
+                        if block is not None and "filename" in block
+                    ),
+                    None,
+                )
+
+        def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            self.handle_starttag(tag, attrs)
+            self.handle_endtag(tag)
+
+        def handle_data(self, data: str) -> None:
+            if self.active_filename is not None:
+                self.active_filename["filename"] += data
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag == "span" and self.active_filename is not None:
+                self.active_filename = None
+            if tag != "div":
+                return
+            if not self.div_stack:
+                self.malformed = True
+                return
+            block = self.div_stack.pop()
+            if block is None or "filename" not in block:
+                return
+            closing_tag_end = source.find(">", self._source_offset())
+            if closing_tag_end < 0:
+                self.malformed = True
+                return
+            block["end"] = closing_tag_end + 1
+            self.frame_blocks.append(block)
+
+    parser = FrameParser()
+    parser.feed(source)
+    if parser.malformed or parser.div_stack:
+        return body
+
+    ranges: list[tuple[int, int]] = []
+    for block in parser.frame_blocks:
+        filename = block["filename"]
+        if not filename or not _is_starlette_frame(filename):
+            continue
+        start = block["start"]
+        end = block["end"]
+        while start > 0 and source[start - 1] in " \t\r\n":
+            start -= 1
+        while end < len(source) and source[end] in " \t\r\n":
+            end += 1
+        ranges.append((start, end))
+    if not ranges:
+        return body
+
+    ranges.sort()
+    merged_ranges: list[tuple[int, int]] = []
+    for start, end in ranges:
+        if merged_ranges and start <= merged_ranges[-1][1]:
+            merged_ranges[-1] = (merged_ranges[-1][0], max(merged_ranges[-1][1], end))
+        else:
+            merged_ranges.append((start, end))
+    for start, end in reversed(merged_ranges):
+        source = source[:start] + source[end:]
+    return source.encode("utf-8")
 
 
 def _normalize_debug_traceback_body(body: bytes) -> bytes | None:
@@ -105,6 +251,7 @@ def _normalize_debug_traceback_body(body: bytes) -> bytes | None:
     if body.startswith(b"Traceback (most recent call last):"):
         if not _TEXT_TRACEBACK_FRAME.search(body):
             return None
+        body = _remove_starlette_text_frames(body)
         return _TEXT_TRACEBACK_FRAME.sub(rb'\1"<frame-path>"\2<line>', body)
     if b"<title>Starlette Debugger</title>" in body:
         if not (
@@ -113,6 +260,7 @@ def _normalize_debug_traceback_body(body: bytes) -> bytes | None:
             and b'<p class="frame-title">' in body
         ):
             return None
+        body = _remove_starlette_html_frames(body)
         normalized = _HTML_TRACEBACK_PATH.sub(rb"\1<frame-path>\2", body)
         normalized = _HTML_TRACEBACK_LINE.sub(rb"\1<line>\2", normalized)
         normalized = _HTML_SOURCE_LINE_NUMBER.sub(rb"\1<line>\2", normalized)
