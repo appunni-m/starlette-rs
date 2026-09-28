@@ -3623,7 +3623,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_middleware_construction
         else (["middleware", "dispatch"],)
         if is_protocol_middleware
-        else (["application", "dispatch"], ["application", "lifecycle", "dispatch"])
+        else (
+            ["application", "dispatch"],
+            ["application", "lifecycle", "dispatch"],
+            ["application", "lifecycle"],
+        )
     )
     if step_ids not in allowed_step_sequences:
         raise ContractError("case steps must follow the declared construction and dispatch order")
@@ -3743,12 +3747,19 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     app_args = {
         key: descriptor["value"] for key, descriptor in case["steps"][0]["arguments"].items()
     }
+    lifespan_only = step_ids == ["application", "lifecycle"]
+    if lifespan_only:
+        _validate_lifespan_only_case(case, app_args)
     if is_gzip:
         _validate_gzip_constructor_stimulus(app_args)
     elif is_protocol_middleware:
         _validate_asgi_middleware_constructor(case["surface"], app_args)
     else:
-        _validate_application_stimulus(app_args, case["operation"] == "request-dispatch")
+        _validate_application_stimulus(
+            app_args,
+            case["operation"] == "request-dispatch",
+            allow_lifespan_variants=lifespan_only,
+        )
     server_error_case = not is_protocol_middleware and _is_server_error_stimulus(app_args)
     body_reuse = False
     if not is_protocol_middleware:
@@ -3770,6 +3781,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 allow_nonempty_body=body_reuse,
                 allow_headers=server_error_case,
                 allow_query=case["operation"] == "__call__",
+                allow_lifespan_callback_failures=lifespan_only,
             )
     dispatch = case["steps"][-1]
     dispatch_args = {key: descriptor["value"] for key, descriptor in dispatch["arguments"].items()}
@@ -3786,6 +3798,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if dispatch_args["scope"]["type"] not in {"http", "websocket"} or schedule != ["dispatch"]:
             raise ContractError("ASGI middleware cases must dispatch one HTTP or WebSocket scope")
         expected_schedule = ["dispatch"]
+    elif step_ids == ["application", "lifecycle"]:
+        if dispatch_args["scope"]["type"] != "lifespan":
+            raise ContractError("lifespan-only workflow must use a lifespan scope")
+        expected_schedule = ["lifespan.startup", "lifespan.shutdown"]
     elif step_ids == ["application", "lifecycle", "dispatch"]:
         lifecycle_args = {
             key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
@@ -4039,7 +4055,184 @@ def _validate_server_error_application(args: dict[str, Any]) -> None:
         raise ContractError("RuntimeError server-error cases do not use HTTPException handlers")
 
 
-def _validate_application_stimulus(args: dict[str, Any], request_dispatch: bool) -> None:
+def _validate_lifespan_marker(marker: Any) -> str:
+    if marker == {
+        "kind": "async-context-manager",
+        "record_entry": True,
+        "record_exit": True,
+    }:
+        return "async-context-manager"
+    if not isinstance(marker, dict):
+        raise ContractError("lifespan input must use a declared context-manager marker")
+    kind = marker.get("kind")
+    if kind in {"sync-generator", "async-generator"}:
+        marker = _exact(
+            marker,
+            {
+                "kind",
+                "record_entry",
+                "record_exit",
+                "failure_stage",
+                "failure_message",
+                "yield_behavior",
+                "shutdown_exception_behavior",
+            },
+            "generator lifespan marker",
+        )
+        if marker["kind"] not in {"sync-generator", "async-generator"}:
+            raise ContractError("generator lifespan kind is unsupported")
+        if marker["record_entry"] is not True or marker["record_exit"] is not True:
+            raise ContractError("generator lifespan must record entry and exit effects")
+        if marker["failure_stage"] not in {"none", "startup", "shutdown"}:
+            raise ContractError("generator lifespan failure_stage is unsupported")
+        _string(marker["failure_message"], "generator lifespan failure_message")
+        if marker["yield_behavior"] not in {"none", "single", "extra"}:
+            raise ContractError("generator lifespan yield_behavior is unsupported")
+        if marker["shutdown_exception_behavior"] not in {"propagate", "suppress"}:
+            raise ContractError("generator lifespan shutdown exception behavior is unsupported")
+        return marker["kind"]
+    if kind == "async-context-manager-shadowed-specials":
+        marker = _exact(
+            marker,
+            {
+                "kind",
+                "class_entry_effect",
+                "instance_entry_effect",
+                "class_exit_effect",
+                "instance_exit_effect",
+            },
+            "shadowed async context-manager marker",
+        )
+        for name in (
+            "class_entry_effect",
+            "instance_entry_effect",
+            "class_exit_effect",
+            "instance_exit_effect",
+        ):
+            _string(marker[name], f"shadowed async context-manager {name}")
+        return marker["kind"]
+    raise ContractError("lifespan input must use a declared context-manager marker")
+
+
+def _validate_lifespan_receive_actions(receive: Any) -> None:
+    if not isinstance(receive, list) or len(receive) != 2:
+        raise ContractError("lifecycle receive actions must contain two callback outcomes")
+    first = _exact(receive[0], {"kind", "message"}, "lifecycle receive action[0]")
+    if first["kind"] != "message" or first["message"] != {"type": "lifespan.startup"}:
+        raise ContractError("lifecycle receive action[0] must supply lifespan.startup")
+    second = receive[1]
+    if not isinstance(second, dict):
+        raise ContractError("lifecycle receive action[1] must be a record")
+    if second.get("kind") == "message":
+        second = _exact(second, {"kind", "message"}, "lifecycle receive action[1]")
+        if second["message"] != {"type": "lifespan.shutdown"}:
+            raise ContractError("lifecycle receive action[1] must supply lifespan.shutdown")
+    elif second.get("kind") == "raise":
+        second = _exact(
+            second,
+            {"kind", "exception_type", "message"},
+            "lifecycle receive action[1]",
+        )
+        if second["exception_type"] != "RuntimeError":
+            raise ContractError("lifecycle receive callback failure must raise RuntimeError")
+        _string(second["message"], "lifecycle receive callback failure message")
+    else:
+        raise ContractError("lifecycle receive action[1] must supply shutdown or raise")
+
+
+def _validate_lifespan_send_callback(send: Any) -> None:
+    if send == {"kind": "capture-asgi-send"}:
+        return
+    send = _exact(
+        send,
+        {"kind", "message_type", "exception_type", "message"},
+        "lifecycle send callback",
+    )
+    if (
+        send["kind"] != "raise-on-call"
+        or send["message_type"] != "lifespan.startup.complete"
+        or send["exception_type"] != "RuntimeError"
+    ):
+        raise ContractError("lifecycle send callback failure must target startup.complete")
+    _string(send["message"], "lifecycle send callback failure message")
+
+
+def _lifespan_case_requirement(marker: dict[str, Any], lifecycle_args: dict[str, Any]) -> str:
+    kind = _validate_lifespan_marker(marker)
+    if kind == "async-context-manager-shadowed-specials":
+        return "starlette.asgi.lifespan.async-context-manager-special-method-lookup"
+    send = lifecycle_args["send"]
+    receive = lifecycle_args["receive"]
+    prefix = "sync" if kind == "sync-generator" else "async"
+    if marker["yield_behavior"] == "none":
+        if (
+            marker["failure_stage"] != "none"
+            or marker["shutdown_exception_behavior"] != "propagate"
+            or send.get("kind") != "capture-asgi-send"
+            or receive[1].get("kind") != "message"
+        ):
+            raise ContractError("a generator without a yield requires normal lifecycle callbacks")
+        return f"starlette.asgi.lifespan.{prefix}-generator.no-yield"
+    if marker["shutdown_exception_behavior"] == "suppress":
+        if (
+            marker["failure_stage"] != "none"
+            or marker["yield_behavior"] != "single"
+            or send.get("kind") != "capture-asgi-send"
+            or receive[1].get("kind") != "raise"
+        ):
+            raise ContractError(
+                "shutdown exception suppression requires one shutdown callback error"
+            )
+        return f"starlette.asgi.lifespan.{prefix}-generator.shutdown-error-suppressed"
+    if marker["yield_behavior"] == "extra":
+        if (
+            marker["failure_stage"] != "none"
+            or send.get("kind") != "capture-asgi-send"
+            or receive[1].get("kind") != "message"
+        ):
+            raise ContractError("an extra generator yield requires normal shutdown")
+        return f"starlette.asgi.lifespan.{prefix}-generator.extra-yield"
+    if send.get("kind") == "raise-on-call":
+        return "starlette.asgi.lifespan.startup-send-call-error"
+    if receive[1].get("kind") == "raise":
+        return "starlette.asgi.lifespan.shutdown-receive-call-error"
+    suffix = {
+        "none": "success",
+        "startup": "startup-failure",
+        "shutdown": "shutdown-failure",
+    }[marker["failure_stage"]]
+    return f"starlette.asgi.lifespan.{prefix}-generator.{suffix}"
+
+
+def _validate_lifespan_only_case(case: dict[str, Any], app_args: dict[str, Any]) -> None:
+    if case["operation"] != "__call__" or case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError(
+            "Python lifespan callback cases must target the package __call__ surface"
+        )
+    if [step["step_id"] for step in case["steps"]] != ["application", "lifecycle"]:
+        raise ContractError("lifespan-only workflows must contain application then lifecycle")
+    lifecycle_args = {
+        key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
+    }
+    marker_kind = _validate_lifespan_marker(app_args["lifespan"])
+    if marker_kind not in {
+        "sync-generator",
+        "async-generator",
+        "async-context-manager-shadowed-specials",
+    }:
+        raise ContractError(
+            "lifespan-only workflow requires an explicit generator or special-method marker"
+        )
+    _validate_lifespan_receive_actions(lifecycle_args["receive"])
+    _validate_lifespan_send_callback(lifecycle_args["send"])
+    requirement = _lifespan_case_requirement(app_args["lifespan"], lifecycle_args)
+    if case["covers"] != [requirement]:
+        raise ContractError("lifespan-only input and requirement mapping differ")
+
+
+def _validate_application_stimulus(
+    args: dict[str, Any], request_dispatch: bool, allow_lifespan_variants: bool = False
+) -> None:
     if set(args) != {
         "debug",
         "routes",
@@ -4059,12 +4252,11 @@ def _validate_application_stimulus(args: dict[str, Any], request_dispatch: bool)
     handlers = args["exception_handlers"]
     if handlers != []:
         _validate_exception_handler_registry(handlers)
-    if args["lifespan"] != {
-        "kind": "async-context-manager",
-        "record_entry": True,
-        "record_exit": True,
-    }:
-        raise ContractError("lifespan input must use the declared async-context-manager markers")
+    lifespan_kind = _validate_lifespan_marker(args["lifespan"])
+    if lifespan_kind != "async-context-manager" and not allow_lifespan_variants:
+        raise ContractError(
+            "generator and special-method lifespan markers require lifecycle-only input"
+        )
     if not isinstance(args["routes"], list) or len(args["routes"]) != 1:
         raise ContractError("application input must contain exactly one route")
     route = args["routes"][0]
@@ -4370,6 +4562,7 @@ def _validate_dispatch_stimulus(
     allow_query: bool = False,
     allow_oserror_send: bool = False,
     allow_host: bool = False,
+    allow_lifespan_callback_failures: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -4382,8 +4575,16 @@ def _validate_dispatch_stimulus(
         _exact(scope, {"type", "asgi"}, "lifespan scope input")
         if scope["asgi"] != {"version": "3.0", "spec_version": "2.4"}:
             raise ContractError("lifespan scope must use the declared ASGI versions")
-        if args["receive"] != [{"type": "lifespan.startup"}, {"type": "lifespan.shutdown"}]:
+        if allow_lifespan_callback_failures:
+            _validate_lifespan_receive_actions(args["receive"])
+            _validate_lifespan_send_callback(args["send"])
+        elif args["receive"] != [
+            {"type": "lifespan.startup"},
+            {"type": "lifespan.shutdown"},
+        ]:
             raise ContractError("lifespan input must include startup followed by shutdown")
+        elif args["send"] != {"kind": "capture-asgi-send"}:
+            raise ContractError("send input must contain the fixed ASGI capture selector")
     elif scope.get("type") == "http":
         scope = _exact(
             scope,
@@ -4483,6 +4684,8 @@ def _validate_dispatch_stimulus(
     else:
         raise ContractError("scope type must be http or lifespan")
     if args["send"] != {"kind": "capture-asgi-send"}:
+        if allow_lifespan_callback_failures and scope.get("type") == "lifespan":
+            return
         if not allow_oserror_send:
             raise ContractError("send input must contain the fixed ASGI capture selector")
         send = _exact(
@@ -5823,6 +6026,11 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     app_arguments = {
         key: descriptor["value"] for key, descriptor in case["steps"][0]["arguments"].items()
     }
+    if case["execution_schedule"] == ["lifespan.startup", "lifespan.shutdown"]:
+        lifecycle_args = {
+            key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
+        }
+        return {_lifespan_case_requirement(app_arguments["lifespan"], lifecycle_args)}
     route = app_arguments["routes"][0]
     endpoint = route["endpoint"]
     dispatch_arguments = {

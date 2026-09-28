@@ -221,7 +221,7 @@ impl AwaitableStateMachine for BackgroundTaskCall {
                 Ok(MachineAction::Await(awaitable))
             }
             MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -265,7 +265,7 @@ impl AwaitableStateMachine for BackgroundTasksCall {
                 self.pull_next(py)
             }
             MachineResume::Value(_) => self.pull_next(py),
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -285,7 +285,7 @@ impl AwaitableStateMachine for ThreadpoolCall {
                 Ok(MachineAction::Await(awaitable))
             }
             MachineResume::Value(value) => Ok(MachineAction::Complete(value)),
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Error(error) => Err(error),
         }
     }

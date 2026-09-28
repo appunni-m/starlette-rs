@@ -6,6 +6,19 @@ and links to bounded evidence; it is not itself a parity artifact or a claim
 of full compatibility. The full replacement objective remains active and
 incomplete.
 
+## Current parity snapshot
+
+The active contract now has 211 input-only cases across 30 files, covering 43
+operations and 257 requirements. Run
+`efd76095-d4d6-48a2-951f-030dde4bb49a` selected 282 comparisons: 274 passed,
+two failed, zero infrastructure errors, and six `not_run`. The Python package
+passed 209 of 211 cases; Rust-native passed 65 of 71 selected cases. All 15
+generator-lifespan cases passed on the Python package, including no-yield
+errors, extra yields, and shutdown-error suppression. The two debug traceback differences and six
+unsupported Rust-native rows keep the full gate incomplete. See
+[Migration parity contract and evidence](../PARITY.md) for the latest detailed
+scope and evidence.
+
 ## P0 — Close the source-backed atlas (complete)
 
 The merged review disposes all 999 API candidates as `supported`,
@@ -28,7 +41,7 @@ converter cases select both profiles; typed Request, reverse URL, custom
 converter, async-iterator StreamingResponse, and full WebSocket protocol cases
 select the Python package. Mount dispatch cases select both profiles, with
 Rust-native explicitly unsupported.
-The latest run `296735f7-a06b-465e-958b-44f40b32b88c`, finished at
+The P0 snapshot run `296735f7-a06b-465e-958b-44f40b32b88c`, finished at
 `2026-09-28T12:04:18.052Z`, selected 181 comparisons: 175 passed, zero failed,
 six `not_run`, and zero infrastructure errors. All 118 package comparisons
 passed; Rust-native passed 57 of 63. Its six `not_run` cases are four
@@ -48,9 +61,13 @@ request and ASGI flows. Exact Python-package parity now covers async Request
 endpoints, synchronous functions, bound methods and partials through AnyIO,
 plus callable-instance routes invoked as ASGI apps. The remaining boundary
 work includes cancellation, broader exception identity/chaining, streaming
-backpressure, lifespan failure paths, concurrency, and other Python/Rust
-ownership decisions. Keep Python callable execution on the reviewed Python
-boundary; do not add a Rust callback bridge without a separate contract. The
+backpressure, broader lifespan state and concurrency, and other Python/Rust
+ownership decisions. The new bounded generator-lifespan slice covers sync and
+async entry/cleanup, startup/shutdown failures, synchronous callback-call
+failures, special-method lookup, extra-yield errors, and shutdown-error
+suppression. Rust implements the generator context-manager protocol and calls
+the Python generator methods through PyO3. Python owns user callables and event
+loop execution. The
 HTTPException slice covers exceptions raised before response start by
 matched HTTP request-style endpoints, one callable-ASGI exception after
 response start, status-code handler precedence over an HTTPException class
@@ -66,7 +83,7 @@ open.
 
 ## P2 — Scoped ASGI and WebSocket workflows (bounded parity recorded)
 
-The active input set is
+The P2 checkpoint input set is
 [`asgi-http-get-text.yaml`](../../tests/fixtures/sources/parity/asgi-http-get-text.yaml),
 [`asgi-request-items.yaml`](../../tests/fixtures/sources/parity/asgi-request-items.yaml),
 [`gzip-middleware.yaml`](../../tests/fixtures/sources/parity/gzip-middleware.yaml),

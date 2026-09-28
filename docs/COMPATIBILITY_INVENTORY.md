@@ -17,26 +17,27 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 196 input-only cases across 29 files,
-covering 43 operations and 242 parity requirements. The authored cases span
+The active parity manifest indexes 211 input-only cases across 30 files,
+covering 43 operations and 257 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 WebSockets, exceptions, status constants, endpoints, authentication,
 middleware, configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-The latest integrated run `5e4c615e-a9e4-4305-bd7a-850b21f427d7` finished at
-`2026-09-28T20:46:05.868Z` after starting at `2026-09-28T20:45:33.579Z`. It
-selected 267 profile comparisons: the Python package passed 194 of 196, and
-Rust-native passed 65 of 71 selected cases. Two Python-package debug traceback
-comparisons failed, with zero infrastructure errors. Four arbitrary Python
-callable boundaries and two Mount cases are declared unsupported for
-Rust-native, so six rows are `not_run`; the CLI exits with status 2 and this is
-not an all-target pass. The Python-package target tree was dirty when captured,
-so this run is not clean aggregate or release proof. The manifest SHA-256 is
-`c208c4c65d1cb4c08d544b9ac74e8835092bacbd6114b3b8a0ef0b874d349211`; the
+The latest integrated run `efd76095-d4d6-48a2-951f-030dde4bb49a` finished at
+`2026-09-28T22:15:20.115Z` after starting at `2026-09-28T22:14:46.991Z`. It
+selected 282 profile comparisons: 274 passed, two failed, zero infrastructure
+errors, and six were `not_run`. The Python package passed 209 of 211 cases;
+Rust-native passed 65 of 71 selected cases. All 15 generator-lifespan,
+callback-call, special-method, no-yield, extra-yield, and suppression cases
+passed on the Python package. Four arbitrary Python-callable boundaries and two Mount cases
+are unsupported for Rust-native. The CLI exits with status 2 and this is not
+an all-target pass. Both target trees were dirty when captured, so this is not
+clean aggregate or release proof. The manifest SHA-256 is
+`5cf2ceb233eb416a3ab482ee1b00cbb94f767fb619c5e315f654617a0eba8cfb`; the
 target wheel SHA-256 is
-`e23ea2c9d10e4e7e6a732bedabff0d525df58d9e2b5fb3c430a350d0d6aec3ea`. The two
+`ab1015bc1afe59b3f6444c77409d457a42b3990fd92f844c800d0ded5f0ef92a`. The two
 registered-handler inputs in
 [`asgi-exception-handlers.yaml`](../tests/fixtures/sources/parity/asgi-exception-handlers.yaml)
 exercise status-code precedence over an `HTTPException` class handler and an
@@ -68,7 +69,9 @@ construction. The parity artifact status is `completed`, but two failed
 comparisons and six `not_run` rows keep the all-target gate incomplete.
 The latest Router/GZip benchmark attempt did not measure workloads: its fresh
 preflight found the same two debug traceback differences, so all 74 rows are
-`not_run`. An earlier run completed all 74 source/package workloads under the
+`not_run`. A subsequent full parity run added nine lifecycle cases and
+reconfirmed those two failures; the benchmark command has not been rerun. An
+earlier run completed all 74 source/package workloads under the
 then-current comparator; it remains historical evidence, not the current
 gate. Rust-native remains `not_run` for that non-equivalent benchmark
 boundary. Its ignored local result files are `build/parity/parity-result.json`
@@ -132,8 +135,9 @@ every `not_applicable` mapping has a concrete reason. In this checked-in
 crosswalk snapshot, 37 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest has since grown to 29 files
-and 196 cases, including three configuration cases and four schema cases in
+input files with 136 cases. The active manifest has since grown to 30 files
+and 211 cases, including three configuration cases, four schema cases, and
+15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
 and [`schemas-runtime.yaml`](../tests/fixtures/sources/parity/schemas-runtime.yaml).
 The `starlette.websockets.WebSocket.protocol-sequence`

@@ -292,7 +292,7 @@ impl AwaitableStateMachine for WebSocketReceiveMachine {
                 self.record_message(py, &message)?;
                 Ok(MachineAction::Complete(message))
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -368,7 +368,7 @@ impl AwaitableStateMachine for WebSocketSendMachine {
                 self.callback_pending = false;
                 Ok(MachineAction::Complete(py.None()))
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Error(error) => self.callback_error(py, error),
         }
     }
@@ -465,7 +465,7 @@ impl AwaitableStateMachine for TypedReceiveMachine {
         match input {
             MachineResume::Start => self.start(py),
             MachineResume::Value(message) => self.finish_message(py, message),
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -561,7 +561,7 @@ impl AwaitableStateMachine for AcceptMachine {
                     )),
                 }
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -639,7 +639,7 @@ impl AwaitableStateMachine for FramedSendMachine {
                 self.pending = false;
                 Ok(MachineAction::Complete(py.None()))
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -725,7 +725,7 @@ impl AwaitableStateMachine for DenialResponseMachine {
                 self.pending = false;
                 Ok(MachineAction::Complete(py.None()))
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -870,7 +870,7 @@ impl AwaitableStateMachine for WebSocketIteratorThrow {
             }
             MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),
             MachineResume::Error(error) => Err(error),
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
         }
     }
 }
@@ -894,7 +894,7 @@ impl AwaitableStateMachine for WebSocketIteratorClose {
             }
             MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),
             MachineResume::Error(error) => Err(error),
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
         }
     }
 }
@@ -921,7 +921,7 @@ impl AwaitableStateMachine for WebSocketIteratorStep {
                 self.running.set(false);
                 Ok(MachineAction::Complete(value))
             }
-            MachineResume::AsyncIterationComplete => {
+            MachineResume::AsyncIterationComplete(_) => {
                 self.finish();
                 Err(PyRuntimeError::new_err(
                     "async generator raised StopAsyncIteration",

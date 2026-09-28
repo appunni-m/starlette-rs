@@ -28,6 +28,16 @@ is not equivalent. This attempt makes no performance claim. The package wheel
 SHA-256 was
 `a65ef46ca4c84d14f213b6756270805d7bd65068d849c179280a0de7918db81d`.
 
+The preceding full parity run `a217b1d7-5baa-45e2-a3c1-7f373b8a5d5d` selected
+276 comparisons after adding nine lifecycle cases: 268 passed, two debug
+traceback cases failed, six Rust-native rows were `not_run`, and there were
+zero infrastructure errors. The current run
+`efd76095-d4d6-48a2-951f-030dde4bb49a` selected 282 comparisons after adding
+six generator-protocol cases: 274 passed, the same two debug traceback cases
+failed, six Rust-native rows were `not_run`, and there were zero infrastructure
+errors. The benchmark command was not rerun, and its 74 workloads remain
+unmeasured until the two Python-package failures are resolved.
+
 An earlier run, `5f88f441-8747-4d0f-9e1b-fb7153aeb218`, ran from
 `2026-09-28T12:04:48.059Z` to `2026-09-28T12:06:19.166Z` and measured 74/74
 workloads under the then-current comparison policy. Its preflight,

@@ -300,7 +300,7 @@ impl AwaitableStateMachine for StarletteCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => {
                 Err(PyRuntimeError::new_err(
                     "Starlette application continuation has no pending ASGI call",
@@ -629,7 +629,7 @@ impl AwaitableStateMachine for ExceptionSendCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("exception middleware sender has no pending send"),
             ),
@@ -688,7 +688,7 @@ impl AwaitableStateMachine for ExceptionMiddlewareCall {
                 }
                 Some(ExceptionPending::PassThrough) | None => Err(error),
             },
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
         }
     }
 }

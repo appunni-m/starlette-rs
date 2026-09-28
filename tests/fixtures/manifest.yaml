@@ -263,7 +263,8 @@
       "build/parity/inputs/parity/host-middleware.json",
       "build/parity/inputs/parity/config-runtime.json",
       "build/parity/inputs/parity/schemas-runtime.json",
-      "build/parity/inputs/parity/file-response.json"
+      "build/parity/inputs/parity/file-response.json",
+      "build/parity/inputs/parity/lifespan-generators.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -602,6 +603,15 @@
                   "comparison": {
                     "kind": "exact"
                   }
+                },
+                {
+                  "path": "deprecation_warnings",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 }
               ],
               "error": {
@@ -698,6 +708,94 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.sync-generator.success",
+              "dimension": "protocol_variant",
+              "description": "A synchronous generator lifespan enters and exits through startup and shutdown, records cleanup, emits its deprecation warning, and completes both ASGI lifecycle events. Upstream: starlette/routing.py::Router.__init__ and Router.lifespan; tests/test_routing.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.sync-generator.startup-failure",
+              "dimension": "error_path",
+              "description": "A synchronous generator lifespan that raises before yielding emits startup.failed, records entry without exit cleanup, preserves its constructor deprecation warning, and propagates the input exception. Upstream: starlette/routing.py::Router.__init__ and Router.lifespan; tests/test_routing.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.sync-generator.shutdown-failure",
+              "dimension": "error_path",
+              "description": "A synchronous generator lifespan that raises during generator completion emits startup.complete then shutdown.failed, records entry and cleanup, preserves its constructor deprecation warning, and propagates the input exception. Upstream: starlette/routing.py::Router.__init__ and Router.lifespan; tests/test_routing.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.async-generator.success",
+              "dimension": "protocol_variant",
+              "description": "An asynchronous generator lifespan enters and exits through startup and shutdown, records cleanup, emits its deprecation warning, and completes both ASGI lifecycle events. Upstream: starlette/routing.py::Router.__init__ and Router.lifespan; tests/test_routing.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.async-generator.startup-failure",
+              "dimension": "error_path",
+              "description": "An asynchronous generator lifespan that raises before yielding emits startup.failed, records entry without exit cleanup, preserves its constructor deprecation warning, and propagates the input exception. Upstream: starlette/routing.py::Router.__init__ and Router.lifespan; tests/test_routing.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.async-generator.shutdown-failure",
+              "dimension": "error_path",
+              "description": "An asynchronous generator lifespan that raises during generator completion emits startup.complete then shutdown.failed, records entry and cleanup, preserves its constructor deprecation warning, and propagates the input exception. Upstream: starlette/routing.py::Router.__init__ and Router.lifespan; tests/test_routing.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.startup-send-call-error",
+              "dimension": "error_path",
+              "description": "A synchronous exception raised by the send callback while startup.complete is invoked triggers cleanup, emits startup.failed, and propagates the callback exception. Upstream: starlette/routing.py::Router.__init__ and Router.lifespan; tests/test_routing.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.shutdown-receive-call-error",
+              "dimension": "error_path",
+              "description": "A synchronous exception raised by the receive callback while waiting for shutdown triggers cleanup, emits shutdown.failed, and propagates the callback exception. Upstream: starlette/routing.py::Router.__init__ and Router.lifespan; tests/test_routing.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },
@@ -912,6 +1010,83 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.async-context-manager-special-method-lookup",
+              "dimension": "boundary",
+              "description": "An async context manager instance with shadowing __aenter__ and __aexit__ attributes follows Python async-with type-level special-method lookup through the lifespan protocol. Upstream: starlette/routing.py::Router.lifespan; Python data model special-method lookup.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.sync-generator.extra-yield",
+              "dimension": "protocol_variant",
+              "description": "A synchronous generator that yields a second value on normal shutdown is closed and fails with contextlib-compatible RuntimeError text. Upstream: starlette/routing.py::Router.lifespan; CPython 3.12 generator context-manager protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.async-generator.extra-yield",
+              "dimension": "protocol_variant",
+              "description": "An asynchronous generator that yields a second value on normal shutdown is closed and fails with contextlib-compatible RuntimeError text. Upstream: starlette/routing.py::Router.lifespan; CPython 3.12 generator context-manager protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.sync-generator.shutdown-error-suppressed",
+              "dimension": "error_path",
+              "description": "A synchronous generator lifespan catches and suppresses a shutdown callback exception, runs cleanup, and allows shutdown.complete. Upstream: starlette/routing.py::Router.lifespan; CPython 3.12 generator context-manager protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.async-generator.shutdown-error-suppressed",
+              "dimension": "error_path",
+              "description": "An asynchronous generator lifespan catches and suppresses a shutdown callback exception, runs cleanup, and allows shutdown.complete. Upstream: starlette/routing.py::Router.lifespan; CPython 3.12 generator context-manager protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.sync-generator.no-yield",
+              "dimension": "error_path",
+              "description": "A synchronous generator that returns before its first yield fails entry with the context-manager protocol RuntimeError and does not run exit cleanup. Upstream: starlette/routing.py::Router.lifespan; CPython 3.12 generator context-manager protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.async-generator.no-yield",
+              "dimension": "error_path",
+              "description": "An asynchronous generator that returns before its first yield fails entry with the context-manager protocol RuntimeError and does not run exit cleanup. Upstream: starlette/routing.py::Router.lifespan; CPython 3.12 generator context-manager protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             }

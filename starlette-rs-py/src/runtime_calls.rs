@@ -94,7 +94,7 @@ impl AwaitableStateMachine for ResponseCallMachine {
                 }
                 self.next_action(py)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Error(error) => {
                 match self.pending.take() {
                     Some(ResponsePending::Send) => {
@@ -277,7 +277,7 @@ impl AwaitableStateMachine for StreamingCallMachine {
                 }
                 self.next_action(py)
             }
-            MachineResume::AsyncIterationComplete => match self.pending.take() {
+            MachineResume::AsyncIterationComplete(_) => match self.pending.take() {
                 Some(StreamingPending::PullChunk) if self.async_iterable => {
                     self.advance(StreamingResponseCallInput::ChunkPulled(Ok(None)))?;
                     self.next_action(py)

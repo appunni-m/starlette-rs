@@ -8,7 +8,8 @@ use std::collections::HashSet;
 
 use pyo3::class::basic::CompareOp;
 use pyo3::exceptions::{
-    PyAssertionError, PyKeyError, PyNotImplementedError, PyRuntimeError, PyValueError,
+    PyAssertionError, PyKeyError, PyNotImplementedError, PyRuntimeError, PyStopAsyncIteration,
+    PyStopIteration, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyBytes, PyDict, PyList, PySet, PyString, PyTuple};
@@ -47,6 +48,10 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(request_response, module)?)?;
     module.add_function(wrap_pyfunction!(router_lifespan, module)?)?;
     module.add_class::<PyDefaultLifespanRuntime>()?;
+    module.add_class::<PySyncGeneratorLifespanFactory>()?;
+    module.add_class::<PyAsyncGeneratorLifespanFactory>()?;
+    module.add_class::<PySyncGeneratorLifespanContextManager>()?;
+    module.add_class::<PyAsyncGeneratorLifespanContextManager>()?;
     Ok(())
 }
 
@@ -54,6 +59,433 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 struct PyDefaultLifespanRuntime {
     #[allow(dead_code)]
     router: Py<PyAny>,
+}
+
+/// Callable adapter created by Rust for deprecated synchronous generator lifespans.
+#[pyclass(name = "_SyncGeneratorLifespanFactory", dict, unsendable)]
+struct PySyncGeneratorLifespanFactory {
+    lifespan: Py<PyAny>,
+}
+
+#[pymethods]
+impl PySyncGeneratorLifespanFactory {
+    fn __call__(&self, py: Python<'_>, app: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        let generator = self.lifespan.bind(py).call1((app,))?;
+        Py::new(
+            py,
+            PySyncGeneratorLifespanContextManager {
+                generator: generator.unbind(),
+            },
+        )
+        .map(|manager| manager.into_any())
+    }
+
+    fn __getattr__(&self, py: Python<'_>, name: &str) -> PyResult<Py<PyAny>> {
+        if name == "__wrapped__" {
+            Ok(self.lifespan.clone_ref(py))
+        } else {
+            self.lifespan.bind(py).getattr(name).map(Bound::unbind)
+        }
+    }
+}
+
+/// Callable adapter created by Rust for deprecated asynchronous generator lifespans.
+#[pyclass(name = "_AsyncGeneratorLifespanFactory", dict, unsendable)]
+struct PyAsyncGeneratorLifespanFactory {
+    lifespan: Py<PyAny>,
+}
+
+#[pymethods]
+impl PyAsyncGeneratorLifespanFactory {
+    fn __call__(&self, py: Python<'_>, app: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        let generator = self.lifespan.bind(py).call1((app,))?;
+        Py::new(
+            py,
+            PyAsyncGeneratorLifespanContextManager {
+                generator: generator.unbind(),
+            },
+        )
+        .map(|manager| manager.into_any())
+    }
+
+    fn __getattr__(&self, py: Python<'_>, name: &str) -> PyResult<Py<PyAny>> {
+        if name == "__wrapped__" {
+            Ok(self.lifespan.clone_ref(py))
+        } else {
+            self.lifespan.bind(py).getattr(name).map(Bound::unbind)
+        }
+    }
+}
+
+/// Exposes the async context-manager protocol while Rust drives a Python generator.
+#[pyclass(name = "_SyncGeneratorLifespanContextManager", unsendable)]
+struct PySyncGeneratorLifespanContextManager {
+    generator: Py<PyAny>,
+}
+
+#[pymethods]
+impl PySyncGeneratorLifespanContextManager {
+    fn __aenter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            SyncGeneratorEnter {
+                generator: self.generator.clone_ref(py),
+            },
+        )
+    }
+
+    fn __aexit__(
+        &self,
+        py: Python<'_>,
+        exception_type: Py<PyAny>,
+        exception: Py<PyAny>,
+        traceback: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            SyncGeneratorExit {
+                generator: self.generator.clone_ref(py),
+                exception_type,
+                exception,
+                traceback,
+            },
+        )
+    }
+}
+
+/// Exposes the async context-manager protocol while Rust drives an async generator.
+#[pyclass(name = "_AsyncGeneratorLifespanContextManager", unsendable)]
+struct PyAsyncGeneratorLifespanContextManager {
+    generator: Py<PyAny>,
+}
+
+#[pymethods]
+impl PyAsyncGeneratorLifespanContextManager {
+    fn __aenter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            AsyncGeneratorEnter {
+                generator: self.generator.clone_ref(py),
+                pending: false,
+            },
+        )
+    }
+
+    fn __aexit__(
+        &self,
+        py: Python<'_>,
+        exception_type: Py<PyAny>,
+        exception: Py<PyAny>,
+        traceback: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let mode = if exception_type.bind(py).is_none() {
+            AsyncGeneratorExitMode::Normal
+        } else {
+            AsyncGeneratorExitMode::Exceptional {
+                exception: generator_exception_value(py, &exception_type, &exception)?,
+                traceback,
+            }
+        };
+        into_python_awaitable(
+            py,
+            AsyncGeneratorExit {
+                generator: self.generator.clone_ref(py),
+                mode,
+                pending: None,
+            },
+        )
+    }
+}
+
+struct SyncGeneratorEnter {
+    generator: Py<PyAny>,
+}
+
+impl AwaitableStateMachine for SyncGeneratorEnter {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => match self.generator.bind(py).call_method0("__next__") {
+                Ok(value) => Ok(MachineAction::Complete(value.unbind())),
+                Err(error) if error.is_instance_of::<PyStopIteration>(py) => {
+                    Err(generator_did_not_yield(py)?)
+                }
+                Err(error) => Err(error),
+            },
+            MachineResume::Error(error) => Err(error),
+            _ => Err(PyRuntimeError::new_err(
+                "synchronous generator entry resumed unexpectedly",
+            )),
+        }
+    }
+}
+
+struct SyncGeneratorExit {
+    generator: Py<PyAny>,
+    exception_type: Py<PyAny>,
+    exception: Py<PyAny>,
+    traceback: Py<PyAny>,
+}
+
+impl AwaitableStateMachine for SyncGeneratorExit {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => {
+                if self.exception_type.bind(py).is_none() {
+                    match self.generator.bind(py).call_method0("__next__") {
+                        Ok(_) => {
+                            self.generator.bind(py).call_method0("close")?;
+                            Err(PyRuntimeError::new_err("generator didn't stop"))
+                        }
+                        Err(error) if error.is_instance_of::<PyStopIteration>(py) => {
+                            Ok(MachineAction::Complete(python_bool(py, false)))
+                        }
+                        Err(error) => Err(error),
+                    }
+                } else {
+                    let exception =
+                        generator_exception_value(py, &self.exception_type, &self.exception)?;
+                    match self
+                        .generator
+                        .bind(py)
+                        .call_method1("throw", (exception.bind(py),))
+                    {
+                        Ok(_) => {
+                            self.generator.bind(py).call_method0("close")?;
+                            Err(PyRuntimeError::new_err(
+                                "generator didn't stop after throw()",
+                            ))
+                        }
+                        Err(error) => {
+                            generator_throw_error(py, error, &exception, &self.traceback, true)
+                        }
+                    }
+                }
+            }
+            MachineResume::Error(error) => Err(error),
+            _ => Err(PyRuntimeError::new_err(
+                "synchronous generator exit resumed unexpectedly",
+            )),
+        }
+    }
+}
+
+enum AsyncGeneratorExitMode {
+    Normal,
+    Exceptional {
+        exception: Py<PyAny>,
+        traceback: Py<PyAny>,
+    },
+}
+
+enum AsyncGeneratorExitPending {
+    NormalStep,
+    ExceptionalStep {
+        exception: Py<PyAny>,
+        traceback: Py<PyAny>,
+    },
+    NormalClose,
+    ExceptionalClose,
+}
+
+struct AsyncGeneratorEnter {
+    generator: Py<PyAny>,
+    pending: bool,
+}
+
+impl AwaitableStateMachine for AsyncGeneratorEnter {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start if !self.pending => {
+                let next = self.generator.bind(py).call_method0("__anext__")?;
+                self.pending = true;
+                Ok(MachineAction::Await(next.unbind()))
+            }
+            MachineResume::Value(value) if self.pending => {
+                self.pending = false;
+                Ok(MachineAction::Complete(value))
+            }
+            MachineResume::AsyncIterationComplete(_) if self.pending => {
+                self.pending = false;
+                Err(generator_did_not_yield(py)?)
+            }
+            MachineResume::Error(error) if self.pending => {
+                self.pending = false;
+                Err(error)
+            }
+            _ => Err(PyRuntimeError::new_err(
+                "asynchronous generator entry resumed unexpectedly",
+            )),
+        }
+    }
+}
+
+struct AsyncGeneratorExit {
+    generator: Py<PyAny>,
+    mode: AsyncGeneratorExitMode,
+    pending: Option<AsyncGeneratorExitPending>,
+}
+
+impl AwaitableStateMachine for AsyncGeneratorExit {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start if self.pending.is_none() => self.start(py),
+            MachineResume::Value(value) => self.resume_value(py, value),
+            MachineResume::AsyncIterationComplete(error) => {
+                self.resume_async_iteration_complete(py, error)
+            }
+            MachineResume::Error(error) => self.resume_error(py, error),
+            _ => Err(PyRuntimeError::new_err(
+                "asynchronous generator exit resumed unexpectedly",
+            )),
+        }
+    }
+}
+
+impl AsyncGeneratorExit {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        match &self.mode {
+            AsyncGeneratorExitMode::Normal => {
+                let next = self.generator.bind(py).call_method0("__anext__")?;
+                self.pending = Some(AsyncGeneratorExitPending::NormalStep);
+                Ok(MachineAction::Await(next.unbind()))
+            }
+            AsyncGeneratorExitMode::Exceptional {
+                exception,
+                traceback,
+            } => {
+                let thrown = self
+                    .generator
+                    .bind(py)
+                    .call_method1("athrow", (exception.bind(py),))?;
+                self.pending = Some(AsyncGeneratorExitPending::ExceptionalStep {
+                    exception: exception.clone_ref(py),
+                    traceback: traceback.clone_ref(py),
+                });
+                Ok(MachineAction::Await(thrown.unbind()))
+            }
+        }
+    }
+
+    fn resume_value(&mut self, py: Python<'_>, _value: Py<PyAny>) -> PyResult<MachineAction> {
+        let pending = self.take_pending()?;
+        let close_pending = match pending {
+            AsyncGeneratorExitPending::NormalStep => AsyncGeneratorExitPending::NormalClose,
+            AsyncGeneratorExitPending::ExceptionalStep { .. } => {
+                AsyncGeneratorExitPending::ExceptionalClose
+            }
+            AsyncGeneratorExitPending::NormalClose => {
+                return Err(PyRuntimeError::new_err("generator didn't stop"));
+            }
+            AsyncGeneratorExitPending::ExceptionalClose => {
+                return Err(PyRuntimeError::new_err(
+                    "generator didn't stop after athrow()",
+                ));
+            }
+        };
+        let close = self.generator.bind(py).call_method0("aclose")?;
+        self.pending = Some(close_pending);
+        Ok(MachineAction::Await(close.unbind()))
+    }
+
+    fn resume_async_iteration_complete(
+        &mut self,
+        py: Python<'_>,
+        error: PyErr,
+    ) -> PyResult<MachineAction> {
+        match self.take_pending()? {
+            AsyncGeneratorExitPending::NormalStep => {
+                Ok(MachineAction::Complete(python_bool(py, false)))
+            }
+            AsyncGeneratorExitPending::ExceptionalStep { exception, .. } => Ok(
+                MachineAction::Complete(python_bool(py, !error.value(py).is(exception.bind(py)))),
+            ),
+            AsyncGeneratorExitPending::NormalClose
+            | AsyncGeneratorExitPending::ExceptionalClose => Err(error),
+        }
+    }
+
+    fn resume_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        match self.take_pending()? {
+            AsyncGeneratorExitPending::ExceptionalStep {
+                exception,
+                traceback,
+            } => generator_throw_error(py, error, &exception, &traceback, false),
+            AsyncGeneratorExitPending::NormalStep => Err(error),
+            AsyncGeneratorExitPending::NormalClose
+            | AsyncGeneratorExitPending::ExceptionalClose => Err(error),
+        }
+    }
+
+    fn take_pending(&mut self) -> PyResult<AsyncGeneratorExitPending> {
+        self.pending.take().ok_or_else(|| {
+            PyRuntimeError::new_err("asynchronous generator exit has no pending operation")
+        })
+    }
+}
+
+fn generator_exception_value(
+    py: Python<'_>,
+    exception_type: &Py<PyAny>,
+    exception: &Py<PyAny>,
+) -> PyResult<Py<PyAny>> {
+    if exception.bind(py).is_none() {
+        exception_type.bind(py).call0().map(Bound::unbind)
+    } else {
+        Ok(exception.clone_ref(py))
+    }
+}
+
+fn generator_did_not_yield(py: Python<'_>) -> PyResult<PyErr> {
+    let error = PyRuntimeError::new_err("generator didn't yield");
+    error.value(py).setattr("__suppress_context__", true)?;
+    Ok(error)
+}
+
+fn generator_throw_error(
+    py: Python<'_>,
+    error: PyErr,
+    original: &Py<PyAny>,
+    traceback: &Py<PyAny>,
+    synchronous: bool,
+) -> PyResult<MachineAction> {
+    let value = error.value(py);
+    if synchronous && error.is_instance_of::<PyStopIteration>(py) {
+        return Ok(MachineAction::Complete(python_bool(
+            py,
+            !value.is(original.bind(py)),
+        )));
+    }
+
+    if error.is_instance_of::<PyRuntimeError>(py) {
+        if value.is(original.bind(py)) {
+            original
+                .bind(py)
+                .setattr("__traceback__", traceback.bind(py))?;
+            return Ok(MachineAction::Complete(python_bool(py, false)));
+        }
+
+        let original_is_iteration = original.bind(py).is_instance_of::<PyStopIteration>()
+            || (!synchronous && original.bind(py).is_instance_of::<PyStopAsyncIteration>());
+        if original_is_iteration && value.getattr("__cause__")?.is(original.bind(py)) {
+            original
+                .bind(py)
+                .setattr("__traceback__", traceback.bind(py))?;
+            return Ok(MachineAction::Complete(python_bool(py, false)));
+        }
+        return Err(error);
+    }
+
+    if value.is(original.bind(py)) {
+        original
+            .bind(py)
+            .setattr("__traceback__", traceback.bind(py))?;
+        return Ok(MachineAction::Complete(python_bool(py, false)));
+    }
+    Err(error)
+}
+
+fn python_bool(py: Python<'_>, value: bool) -> Py<PyAny> {
+    PyBool::new(py, value).to_owned().into_any().unbind()
 }
 
 struct DefaultLifespanTransition;
@@ -157,7 +589,7 @@ impl AwaitableStateMachine for RouterLifespanMachine {
                 let pending = self.take_pending()?;
                 self.resume_error(py, pending, error)
             }
-            MachineResume::AsyncIterationComplete => {
+            MachineResume::AsyncIterationComplete(_) => {
                 Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
             }
             _ => Err(PyRuntimeError::new_err(
@@ -190,15 +622,18 @@ impl RouterLifespanMachine {
             RouterLifespanPending::StartupReceive => self.enter_context(py),
             RouterLifespanPending::Enter => self.entered(py, value),
             RouterLifespanPending::StartupSend => {
-                self.await_receive(py, RouterLifespanPending::ShutdownReceive)
+                match self.await_receive(py, RouterLifespanPending::ShutdownReceive) {
+                    Ok(action) => Ok(action),
+                    Err(error) => self.exit_with_error(py, error, true),
+                }
             }
             RouterLifespanPending::ShutdownReceive => self.exit_normally(py),
             RouterLifespanPending::NormalExit => self.send_shutdown_complete(py),
             RouterLifespanPending::ErrorExit { original, started } => {
-                if value.bind(py).is_truthy()? {
-                    self.send_shutdown_complete(py)
-                } else {
-                    self.send_failure(py, original, started)
+                match value.bind(py).is_truthy() {
+                    Ok(true) => self.send_shutdown_complete(py),
+                    Ok(false) => self.send_failure(py, original, started),
+                    Err(error) => self.send_failure(py, error, started),
                 }
             }
             RouterLifespanPending::FailureSend { original } => Err(original),
@@ -235,7 +670,13 @@ impl RouterLifespanMachine {
             Ok(context_manager) => context_manager,
             Err(error) => return self.send_failure(py, error, false),
         };
-        let enter = match context_manager.call_method0("__aenter__") {
+        // `async with` resolves special methods on the manager's type, even when
+        // an instance has attributes with the same names.
+        let enter = match context_manager
+            .get_type()
+            .getattr("__aenter__")
+            .and_then(|method| method.call1((context_manager.clone(),)))
+        {
             Ok(enter) => enter,
             Err(error) => return self.send_failure(py, error, false),
         };
@@ -274,9 +715,11 @@ impl RouterLifespanMachine {
                 "lifespan context manager was not entered",
             ));
         };
+        let context_manager = context_manager.bind(py);
         let exit = match context_manager
-            .bind(py)
-            .call_method1("__aexit__", (py.None(), py.None(), py.None()))
+            .get_type()
+            .getattr("__aexit__")
+            .and_then(|method| method.call1((context_manager, py.None(), py.None(), py.None())))
         {
             Ok(exit) => exit,
             Err(error) => return self.send_failure(py, error, true),
@@ -297,10 +740,13 @@ impl RouterLifespanMachine {
         let exception = original.value(py);
         let exception_type = exception.getattr("__class__")?;
         let traceback = exception.getattr("__traceback__")?;
+        let context_manager = context_manager.bind(py);
         let exit = match context_manager
-            .bind(py)
-            .call_method1("__aexit__", (exception_type, exception, traceback))
-        {
+            .get_type()
+            .getattr("__aexit__")
+            .and_then(|method| {
+                method.call1((context_manager, exception_type, exception, traceback))
+            }) {
             Ok(exit) => exit,
             Err(error) => return self.send_failure(py, error, started),
         };
@@ -359,7 +805,13 @@ impl RouterLifespanMachine {
         if let Some(message) = message {
             event.set_item("message", message)?;
         }
-        let send = self.send.bind(py).call1((event,))?;
+        let send = match self.send.bind(py).call1((event,)) {
+            Ok(send) => send,
+            Err(error) if matches!(&pending, RouterLifespanPending::StartupSend) => {
+                return self.exit_with_error(py, error, false);
+            }
+            Err(error) => return Err(error),
+        };
         self.pending = Some(pending);
         Ok(MachineAction::Await(send.unbind()))
     }
@@ -507,7 +959,7 @@ fn initialize_route(
 }
 
 #[pyfunction]
-#[pyo3(signature = (router, routes, default, lifespan, middleware, max_body_size, runtime_type, http_route_type, websocket_route_type, mount_type, host_route_type, default_lifespan_factory, async_generator_lifespan_factory, generator_lifespan_factory, deprecation_warning_type))]
+#[pyo3(signature = (router, routes, default, lifespan, middleware, max_body_size, runtime_type, http_route_type, websocket_route_type, mount_type, host_route_type, default_lifespan_factory, deprecation_warning_type))]
 #[allow(clippy::too_many_arguments)]
 fn initialize_router_state(
     py: Python<'_>,
@@ -523,8 +975,6 @@ fn initialize_router_state(
     mount_type: Py<PyAny>,
     host_route_type: Py<PyAny>,
     default_lifespan_factory: Py<PyAny>,
-    async_generator_lifespan_factory: Py<PyAny>,
-    generator_lifespan_factory: Py<PyAny>,
     deprecation_warning_type: Py<PyAny>,
 ) -> PyResult<Py<PyTuple>> {
     let router_bound = router.bind(py);
@@ -543,8 +993,6 @@ fn initialize_router_state(
         router_bound,
         lifespan,
         default_lifespan_factory.bind(py),
-        async_generator_lifespan_factory.bind(py),
-        generator_lifespan_factory.bind(py),
         deprecation_warning_type.bind(py),
     )?;
     let runtime = runtime_type.bind(py).call1((
@@ -574,8 +1022,6 @@ fn build_lifespan_context(
     router: &Bound<'_, PyAny>,
     lifespan: Option<Py<PyAny>>,
     default_lifespan_factory: &Bound<'_, PyAny>,
-    async_generator_lifespan_factory: &Bound<'_, PyAny>,
-    generator_lifespan_factory: &Bound<'_, PyAny>,
     deprecation_warning_type: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
     let Some(lifespan) = lifespan.filter(|value| !value.bind(py).is_none()) else {
@@ -593,9 +1039,13 @@ fn build_lifespan_context(
             "async generator function lifespans are deprecated, use an @contextlib.asynccontextmanager function instead",
             deprecation_warning_type,
         )?;
-        return async_generator_lifespan_factory
-            .call1((lifespan_bound,))
-            .map(Bound::unbind);
+        let factory = Py::new(
+            py,
+            PyAsyncGeneratorLifespanFactory {
+                lifespan: lifespan.clone_ref(py),
+            },
+        )?;
+        return Ok(factory.into_any());
     }
     let is_generator = inspect
         .getattr("isgeneratorfunction")?
@@ -607,9 +1057,13 @@ fn build_lifespan_context(
             "generator function lifespans are deprecated, use an @contextlib.asynccontextmanager function instead",
             deprecation_warning_type,
         )?;
-        return generator_lifespan_factory
-            .call1((lifespan_bound,))
-            .map(Bound::unbind);
+        let factory = Py::new(
+            py,
+            PySyncGeneratorLifespanFactory {
+                lifespan: lifespan.clone_ref(py),
+            },
+        )?;
+        return Ok(factory.into_any());
     }
     Ok(lifespan)
 }
@@ -1882,7 +2336,7 @@ impl AwaitableStateMachine for BaseRouteCallMachine {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => {
+            MachineResume::AsyncIterationComplete(_) => {
                 Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
             }
             _ => Err(PyRuntimeError::new_err(
@@ -2281,7 +2735,7 @@ impl AwaitableStateMachine for RequestResponseMachine {
             MachineResume::Start if self.pending.is_none() => self.start(py),
             MachineResume::Value(value) => self.resume_value(py, value),
             MachineResume::Error(error) => self.resume_error(py, error),
-            MachineResume::AsyncIterationComplete => {
+            MachineResume::AsyncIterationComplete(_) => {
                 Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
             }
             _ => Err(PyRuntimeError::new_err(

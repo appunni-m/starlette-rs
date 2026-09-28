@@ -733,21 +733,117 @@ def _materialize_application(
     }:
         raise ValueError("Starlette.__init__ arguments do not match the declared workflow")
     lifespan_spec = app_spec["lifespan"]
-    if lifespan_spec != {
+    lifecycle_trace: list[str] = []
+    if lifespan_spec == {
         "kind": "async-context-manager",
         "record_entry": True,
         "record_exit": True,
     }:
-        raise ValueError("lifespan input must use the declared async-context-manager marker")
-    lifecycle_trace: list[str] = []
 
-    @contextlib.asynccontextmanager
-    async def lifespan(_app: Any) -> Any:
-        lifecycle_trace.append("entry")
-        try:
-            yield
-        finally:
-            lifecycle_trace.append("exit")
+        @contextlib.asynccontextmanager
+        async def lifespan(_app: Any) -> Any:
+            lifecycle_trace.append("entry")
+            try:
+                yield
+            finally:
+                lifecycle_trace.append("exit")
+    elif isinstance(lifespan_spec, dict) and lifespan_spec.get("kind") in {
+        "sync-generator",
+        "async-generator",
+    }:
+        if set(lifespan_spec) != {
+            "kind",
+            "record_entry",
+            "record_exit",
+            "failure_stage",
+            "failure_message",
+            "yield_behavior",
+            "shutdown_exception_behavior",
+        }:
+            raise ValueError("generator lifespan input has invalid fields")
+
+        def sync_lifespan(_app: Any) -> Any:
+            lifecycle_trace.append("entry")
+            if lifespan_spec["failure_stage"] == "startup":
+                raise RuntimeError(lifespan_spec["failure_message"])
+            if lifespan_spec["yield_behavior"] == "none":
+                return
+            try:
+                yield
+                if lifespan_spec["yield_behavior"] == "extra":
+                    yield
+            except RuntimeError:
+                if lifespan_spec["shutdown_exception_behavior"] == "suppress":
+                    lifecycle_trace.append("suppressed-shutdown-error")
+                    return
+                raise
+            finally:
+                if lifespan_spec["record_exit"]:
+                    lifecycle_trace.append("exit")
+                if lifespan_spec["failure_stage"] == "shutdown":
+                    raise RuntimeError(lifespan_spec["failure_message"])
+
+        async def async_lifespan(_app: Any) -> Any:
+            lifecycle_trace.append("entry")
+            if lifespan_spec["failure_stage"] == "startup":
+                raise RuntimeError(lifespan_spec["failure_message"])
+            if lifespan_spec["yield_behavior"] == "none":
+                return
+            try:
+                yield
+                if lifespan_spec["yield_behavior"] == "extra":
+                    yield
+            except RuntimeError:
+                if lifespan_spec["shutdown_exception_behavior"] == "suppress":
+                    lifecycle_trace.append("suppressed-shutdown-error")
+                    return
+                raise
+            finally:
+                if lifespan_spec["record_exit"]:
+                    lifecycle_trace.append("exit")
+                if lifespan_spec["failure_stage"] == "shutdown":
+                    raise RuntimeError(lifespan_spec["failure_message"])
+
+        lifespan = sync_lifespan if lifespan_spec["kind"] == "sync-generator" else async_lifespan
+    elif (
+        isinstance(lifespan_spec, dict)
+        and lifespan_spec.get("kind") == "async-context-manager-shadowed-specials"
+    ):
+        if set(lifespan_spec) != {
+            "kind",
+            "class_entry_effect",
+            "instance_entry_effect",
+            "class_exit_effect",
+            "instance_exit_effect",
+        }:
+            raise ValueError("shadowed async context-manager input has invalid fields")
+
+        class ContextManager:
+            async def __aenter__(self) -> None:
+                lifecycle_trace.append(lifespan_spec["class_entry_effect"])
+                return None
+
+            async def __aexit__(self, _exc_type: Any, _exc: Any, _tb: Any) -> bool:
+                lifecycle_trace.append(lifespan_spec["class_exit_effect"])
+                return False
+
+        context_manager = ContextManager()
+
+        async def shadowed_enter() -> None:
+            lifecycle_trace.append(lifespan_spec["instance_entry_effect"])
+            return None
+
+        async def shadowed_exit(_exc_type: Any, _exc: Any, _tb: Any) -> bool:
+            lifecycle_trace.append(lifespan_spec["instance_exit_effect"])
+            return False
+
+        context_manager.__aenter__ = shadowed_enter
+        context_manager.__aexit__ = shadowed_exit
+
+        def lifespan(_app: Any) -> Any:
+            return context_manager
+    else:
+        raise ValueError("lifespan input must use a declared context-manager marker")
 
     route_objects = []
     request_observations: list[dict[str, Any]] = []
@@ -1063,14 +1159,23 @@ def _materialize_application(
         else:
             raise ValueError(f"unsupported endpoint kind: {response_spec['kind']!r}")
         route_objects.append(Route(route["path"], route_endpoint, methods=route["methods"]))
-    app = Starlette(
-        debug=app_spec["debug"],
-        routes=route_objects,
-        middleware=app_spec["middleware"],
-        exception_handlers=exception_handlers,
-        lifespan=lifespan,
-        max_body_size=app_spec["max_body_size"],
-    )
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter("always")
+        app = Starlette(
+            debug=app_spec["debug"],
+            routes=route_objects,
+            middleware=app_spec["middleware"],
+            exception_handlers=exception_handlers,
+            lifespan=lifespan,
+            max_body_size=app_spec["max_body_size"],
+        )
+    app._parity_lifespan_warnings = [
+        {
+            "category": f"{item.category.__module__}.{item.category.__qualname__}",
+            "message": str(item.message),
+        }
+        for item in recorded_warnings
+    ]
     app._parity_server_error_handler_calls = handler_calls
     return app, lifecycle_trace, request_observations, route_endpoint, sync_endpoint_states
 
@@ -1186,6 +1291,8 @@ async def _invoke(
                 error=_dispatch_error(captured_exception),
                 partial_value=result,
             )
+    else:
+        result["deprecation_warnings"] = list(getattr(app, "_parity_lifespan_warnings", []))
     return result
 
 
@@ -3272,8 +3379,76 @@ async def _invoke_lifespan_around_dispatch(
         "asgi_events": events,
         "lifecycle_and_cleanup_effects": list(lifecycle_trace),
         "server_error_observation": {"handler_calls": [], "debug_traceback": None},
+        "deprecation_warnings": list(getattr(app, "_parity_lifespan_warnings", [])),
     }
     return lifecycle_value, dispatch_value
+
+
+async def _invoke_lifespan_only(
+    app: Any,
+    lifecycle_args: dict[str, Any],
+    lifecycle_trace: list[str],
+) -> dict[str, Any] | _CapturedDispatchError:
+    """Run a complete lifecycle input while observing callback invocation effects."""
+    if lifecycle_args["scope"].get("type") != "lifespan":
+        raise ValueError("the lifecycle workflow step must use a lifespan scope")
+    if lifecycle_args["send"].get("kind") not in {"capture-asgi-send", "raise-on-call"}:
+        raise ValueError("send input must select a declared lifecycle callback")
+
+    actions = lifecycle_args["receive"]
+    action_index = 0
+    send_spec = lifecycle_args["send"]
+    workflow_events: list[dict[str, Any]] = []
+
+    async def resolved(value: dict[str, Any]) -> dict[str, Any]:
+        return value
+
+    def receive_lifecycle() -> Any:
+        nonlocal action_index
+        if action_index >= len(actions):
+            raise RuntimeError("lifespan receive input was exhausted")
+        action = actions[action_index]
+        action_index += 1
+        if action["kind"] == "raise":
+            raise RuntimeError(action["message"])
+        return resolved(_message(action["message"]))
+
+    async def record_send(message: dict[str, Any]) -> None:
+        workflow_events.append(_canonical_message(message))
+
+    def send_lifecycle(message: dict[str, Any]) -> Any:
+        if (
+            send_spec["kind"] == "raise-on-call"
+            and message.get("type") == send_spec["message_type"]
+        ):
+            raise RuntimeError(send_spec["message"])
+        return record_send(message)
+
+    try:
+        await app(
+            _make_scope(lifecycle_args["scope"]),
+            receive_lifecycle,
+            send_lifecycle,
+        )
+        captured_exception = None
+    except Exception as exc:
+        captured_exception = exc
+
+    value = {
+        "response_status": None,
+        "ordered_repeated_headers": [],
+        "response_bytes": {"encoding": "base64", "data": ""},
+        "asgi_event_order": [event["type"] for event in workflow_events],
+        "asgi_events": workflow_events,
+        "lifecycle_and_cleanup_effects": list(lifecycle_trace),
+        "server_error_observation": {"handler_calls": [], "debug_traceback": None},
+        "deprecation_warnings": list(getattr(app, "_parity_lifespan_warnings", [])),
+    }
+    if captured_exception is None:
+        return value
+    error = _dispatch_error(captured_exception)
+    error["stage"] = "lifespan"
+    return _CapturedDispatchError(error=error, partial_value=value)
 
 
 def _exception_value_snapshot(instance: Any, fields: tuple[str, ...], phase: str) -> dict[str, Any]:
@@ -3832,12 +4007,23 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(
                 "request-dispatch cases must contain application then request-dispatch"
             )
-    elif step_ids not in (["application", "lifecycle", "dispatch"], ["application", "dispatch"]):
+    elif step_ids not in (
+        ["application", "lifecycle"],
+        ["application", "lifecycle", "dispatch"],
+        ["application", "dispatch"],
+    ):
         raise ValueError("oracle adapter received a workflow outside the declared ASGI slice")
     elif (
-        step_ids == ["application", "lifecycle", "dispatch"]
-        and schedule != ["lifespan.startup", "dispatch", "lifespan.shutdown"]
-    ) or (step_ids == ["application", "dispatch"] and schedule != ["dispatch"]):
+        (
+            step_ids == ["application", "lifecycle"]
+            and schedule != ["lifespan.startup", "lifespan.shutdown"]
+        )
+        or (
+            step_ids == ["application", "lifecycle", "dispatch"]
+            and schedule != ["lifespan.startup", "dispatch", "lifespan.shutdown"]
+        )
+        or (step_ids == ["application", "dispatch"] and schedule != ["dispatch"])
+    ):
         raise ValueError("execution schedule does not match the ASGI workflow steps")
     if not is_request_dispatch and steps[-1].get("operation") != "__call__":
         raise ValueError("legacy ASGI cases must dispatch through Starlette.__call__")
@@ -3866,6 +4052,10 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ) = _materialize_application(application_arguments)
 
     async def run_steps() -> list[dict[str, Any]]:
+        if schedule == ["lifespan.startup", "lifespan.shutdown"]:
+            lifecycle_args = {name: item["value"] for name, item in steps[1]["arguments"].items()}
+            value = await _invoke_lifespan_only(app, lifecycle_args, lifecycle_trace)
+            return [_workflow_observation("lifecycle", value)]
         if schedule == ["lifespan.startup", "dispatch", "lifespan.shutdown"]:
             lifecycle_args = {name: item["value"] for name, item in steps[1]["arguments"].items()}
             dispatch_args = {name: item["value"] for name, item in steps[2]["arguments"].items()}

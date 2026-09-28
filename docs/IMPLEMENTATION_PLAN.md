@@ -5,6 +5,15 @@ compatibility remains the target at every stage. A stage's completed scope is
 evidence for that scope only; scaffolding or one passing example cannot
 establish drop-in compatibility.
 
+## Runtime architecture
+
+The upstream Starlette distribution is a source oracle and is not a runtime
+dependency. Rust owns Starlette decisions, branching, iteration, ordering,
+state, and error policy. Python `starlette.*` modules forward inputs and
+callbacks, convert values at the PyO3 boundary, and await Python callables on
+their owning event loop. The runtime-wrapper policy check rejects Python
+control flow in these facades.
+
 ## 0. Establish the contract (current)
 
 - Pin Starlette 1.6.0 and record FastAPI 0.141.1 as a downstream reference
@@ -23,22 +32,27 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 196 input-only cases, 43 operations, and 242
-parity requirements across 29 indexed files. Latest integrated run
-`5e4c615e-a9e4-4305-bd7a-850b21f427d7`, finished at
-`2026-09-28T20:46:05.868Z`, selected 267 profile comparisons: the Python
-package passed 194 of 196 cases; Rust-native passed 65 of 71 selected
-comparisons. Two debug traceback comparisons failed and six declared
-unsupported Rust-native rows were `not_run`; there were zero infrastructure
-errors. The all-target gate is incomplete.
+The current parity contract has 211 input-only cases, 43 operations, and 257
+parity requirements across 30 indexed files. Latest integrated run
+`efd76095-d4d6-48a2-951f-030dde4bb49a`, finished at
+`2026-09-28T22:15:20.115Z`, selected 282 profile comparisons: 274 passed,
+two failed, zero infrastructure errors, and six were `not_run`. The Python
+package passed 209 of 211 cases; Rust-native passed 65 of 71 selected
+comparisons. All 15 generator-lifespan cases passed on the Python package.
+The remaining two debug traceback comparisons and six unsupported Rust-native
+rows keep the all-target gate incomplete.
 
-## 1. Decide the Python/Rust boundary
+## 1. Next bounded goal: lifespan state and cancellation
 
-Prototype arbitrary sync and async Python endpoint calls on Python's event
-loop, including cancellation, context variables, streaming, exceptions,
-threadpool behavior, and lifespan cleanup. Define which layers remain Python
-and which operations enter Rust. Do not assume a native Rust runtime can invoke
-Python callables while preserving these semantics.
+Extend the current lifespan slice with input-only oracle cases for yielded
+state mappings, missing `scope["state"]`, cancellation while entering,
+waiting for shutdown, and exiting. Compare scope mutation, cleanup order,
+startup/shutdown failure events, and the propagated cancellation. Rust's
+lifespan state machine owns each transition; the Python event loop runs the
+user callback and forwards its result or exception. Acceptance requires the
+installed Python package to match pinned Starlette exactly on those declared
+inputs, with Python wrappers remaining forwarding-only and no upstream runtime
+dependency.
 
 ## 2. Initial ASGI-to-response vertical slice (partial)
 

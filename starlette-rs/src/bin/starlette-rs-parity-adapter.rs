@@ -3478,6 +3478,7 @@ fn finish_lifespan(
         "asgi_events": session.events,
         "lifecycle_and_cleanup_effects": session.trace,
         "server_error_observation": {"handler_calls": [], "debug_traceback": null},
+        "deprecation_warnings": [],
     });
     Ok(LifecycleResult { value })
 }
@@ -3618,6 +3619,7 @@ fn run_dispatch(
         "asgi_events": events,
         "lifecycle_and_cleanup_effects": lifecycle_trace,
         "server_error_observation": {"handler_calls": [], "debug_traceback": null},
+        "deprecation_warnings": [],
     }))
 }
 

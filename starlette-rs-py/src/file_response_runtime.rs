@@ -165,7 +165,7 @@ impl AwaitableStateMachine for FileResponseMachine {
                 }
                 self.next_action(py)
             }
-            MachineResume::AsyncIterationComplete => Err(PyRuntimeError::new_err(
+            MachineResume::AsyncIterationComplete(_) => Err(PyRuntimeError::new_err(
                 "file response unexpectedly received async-iteration completion",
             )),
             MachineResume::Error(error) => {

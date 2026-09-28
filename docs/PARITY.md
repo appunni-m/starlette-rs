@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 196 input-only cases in 29 indexed files, covering 43 operations and 242 parity requirements. The cases cover bounded Starlette application, routing, request, response, WebSocket, exception, status, endpoint, authentication, middleware, configuration, and schema behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 211 input-only cases in 30 indexed files, covering 43 operations and 257 parity requirements. The cases cover bounded Starlette application, routing, request, response, WebSocket, exception, status, endpoint, authentication, middleware, configuration, and schema behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -75,6 +75,20 @@ parameters, response, and mount miss. The source and Python package execute
 both Mount cases; Rust-native records them as unsupported because it has no
 Mount API.
 
+[`lifespan-generators.yaml`](../tests/fixtures/sources/parity/lifespan-generators.yaml)
+adds 15 Python-package `Starlette.__call__` lifecycle cases: sync and async
+generator lifespans each cover success, startup failure, and shutdown failure;
+six cases cover generators that return without yielding, extra yields, and
+suppression of shutdown callback errors; two cases cover synchronous exceptions
+while invoking startup `send` and shutdown `receive`; and one verifies
+type-level `__aenter__`/`__aexit__` lookup when the manager instance shadows
+them. All 15 pass against the pinned source. Rust
+owns generator detection, deprecation policy, generator context-manager state,
+sync-to-async adaptation, lifecycle ordering, and failure transitions. Rust
+drives Python's generator protocol methods; the Python callable and event loop
+remain the host boundary. The package facade no longer defines generator
+factory, context-manager, or lift helpers.
+
 [`reverse-url-routing.yaml`](../tests/fixtures/sources/parity/reverse-url-routing.yaml)
 adds 21 input-only cases for `Route`, `WebSocketRoute`, `Router`, `Mount`,
 `Starlette`, and `Request` reverse URL generation. It covers the built-in path
@@ -94,19 +108,19 @@ docstring YAML parsing and parser errors, and OpenAPI response rendering. Their
 Python `starlette.*` modules forward to Rust; the adapters run the same
 input-only cases against pinned Starlette 1.6.0.
 
-The latest integrated run `5e4c615e-a9e4-4305-bd7a-850b21f427d7` finished at
-`2026-09-28T20:46:05.868Z`, after starting at `2026-09-28T20:45:33.579Z`. It
-selected 267 profile comparisons: the Python package passed 194 of 196, and
-Rust-native passed 65 of 71 selected cases. Two Python-package debug traceback
-cases failed; there were zero infrastructure errors. Four arbitrary Python
-callable boundaries and two Mount cases are declared unsupported for
-Rust-native, so six rows are `not_run`. The CLI exits with status 2; this is
-not an all-target pass. Manifest SHA-256 is
-`c208c4c65d1cb4c08d544b9ac74e8835092bacbd6114b3b8a0ef0b874d349211`; the
+The latest integrated run `efd76095-d4d6-48a2-951f-030dde4bb49a` finished at
+`2026-09-28T22:15:20.115Z`, after starting at `2026-09-28T22:14:46.991Z`. It
+selected 282 profile comparisons: 274 passed, two failed, zero infrastructure
+errors, and six were `not_run`. The Python package passed 209 of 211 cases;
+Rust-native passed 65 of 71 selected comparisons. All 15 generator-lifespan
+cases passed on the Python package. Four arbitrary Python-callable boundaries
+and two Mount cases are unsupported for Rust-native. The CLI exits with status
+2; this is not an all-target pass. Manifest SHA-256 is
+`5cf2ceb233eb416a3ab482ee1b00cbb94f767fb619c5e315f654617a0eba8cfb`; the
 installed wheel SHA-256 is
-`e23ea2c9d10e4e7e6a732bedabff0d525df58d9e2b5fb3c430a350d0d6aec3ea`. The
-Python-package target tree was dirty during this local run, so it is not clean
-aggregate or release proof. The two failures are
+`ab1015bc1afe59b3f6444c77409d457a42b3990fd92f844c800d0ded5f0ef92a`. Both
+target trees were dirty during this local run, so it is not clean aggregate or
+release proof. The two failures are
 `starlette.applications.Starlette.__call__.server-error.debug.plain-text-overrides-handler`
 and `.debug.html-selected-by-accept`: the endpoint exception is the same, but
 the Rust-backed thin facade produces a different internal traceback frame
@@ -223,7 +237,7 @@ The timer measures in-loop `await app(scope, receive, send)`. It includes fixtur
 
 Comparison is exact for all selected fields except the narrow `allow-methods-as-set` normalization declared on `ordered_repeated_headers` and `asgi_events`, and the declared `starlette-debug-traceback` normalization. The Allow normalization applies only to comma-separated tokens in an `Allow` header value: the comparator trims surrounding whitespace, sorts unique method tokens, and compares the normalized value. The traceback normalization activates only when live observations contain an actual Starlette debug traceback; it replaces frame paths and line numbers and normalizes the body-length header. All other traceback bytes, header names/order, duplicate headers, unrelated values, and event order stay exact. With no traceback body, raw response bytes and header values remain exact. Result records retain the original unnormalized events, headers, and raw response bodies.
 
-The request-scope mutations are covered by the three original HTTP `request-dispatch` cases and the new typed path-parameter cases. Mounted routes and non-empty `root_path` now have bounded dispatch observations; pre-existing `path_params` beyond the declared mount merge and other application paths remain outside this slice. The successful `__call__` workflow schedules lifespan startup, HTTP dispatch, and lifespan shutdown on the same app task; it verifies that the lifespan context stays active across that in-flight dispatch and exits afterward. This covers one successful lifecycle path, not broader lifespan behavior. The Rust-native `Starlette::call` is an additive, bounded response dispatcher over a path/method projection, not a full ASGI application object. The Rust request adapter's routed-scope model is likewise not a public Rust `Request`.
+The request-scope mutations are covered by the three original HTTP `request-dispatch` cases and the new typed path-parameter cases. Mounted routes and non-empty `root_path` now have bounded dispatch observations; pre-existing `path_params` beyond the declared mount merge and other application paths remain outside this slice. The successful `__call__` workflow schedules lifespan startup, HTTP dispatch, and lifespan shutdown on the same app task; it verifies that the lifespan context stays active across that in-flight dispatch and exits afterward. The new lifecycle-only cases cover sync/async generator entry and cleanup, startup/shutdown failures, synchronous callback-call failures, and type-based special-method lookup. Other lifespan state, cancellation, and concurrency behaviors remain outside this slice. The Rust-native `Starlette::call` is an additive, bounded response dispatcher over a path/method projection, not a full ASGI application object. The Rust request adapter's routed-scope model is likewise not a public Rust `Request`.
 
 ## Isolated environments and adapter protocol
 
@@ -233,7 +247,7 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@4` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 196 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. See `build/parity/results/config-schemas-run-2.json`; generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 205 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. See `build/parity/results/config-schemas-run-2.json`; generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 

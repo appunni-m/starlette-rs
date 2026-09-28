@@ -454,7 +454,7 @@ impl AwaitableStateMachine for CorsCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("CORS middleware continuation is not pending"),
             ),
@@ -610,7 +610,7 @@ impl AwaitableStateMachine for CorsSendMessage {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("CORS send continuation is not pending"),
             ),

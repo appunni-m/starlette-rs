@@ -96,7 +96,7 @@ impl AwaitableStateMachine for HttpEndpointCall {
                 self.pending = None;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "HTTP endpoint continuation has a pending operation",
             )),
@@ -259,7 +259,7 @@ impl AwaitableStateMachine for WebSocketEndpointCall {
                 ) => self.protocol_error(py, error),
                 None => Err(error),
             },
-            MachineResume::AsyncIterationComplete => {
+            MachineResume::AsyncIterationComplete(_) => {
                 let error = PyStopAsyncIteration::new_err(());
                 match self.pending.take() {
                     Some(
@@ -475,7 +475,7 @@ impl AwaitableStateMachine for WebSocketDecodeCall {
                 self.pending_error = None;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete if self.pending => {
+            MachineResume::AsyncIterationComplete(_) if self.pending => {
                 self.pending = false;
                 self.pending_error = None;
                 Err(PyStopAsyncIteration::new_err(()))
@@ -484,7 +484,7 @@ impl AwaitableStateMachine for WebSocketDecodeCall {
                 "WebSocket decode continuation has no pending operation",
             )),
             MachineResume::Error(error) => Err(error),
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "WebSocket decode continuation has a pending operation",
             )),

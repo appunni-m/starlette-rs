@@ -66,7 +66,7 @@ impl AwaitableStateMachine for HttpsRedirectCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("HTTPS redirect middleware continuation is not pending"),
             ),
@@ -250,7 +250,7 @@ impl AwaitableStateMachine for TrustedHostCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("trusted-host middleware continuation is not pending"),
             ),

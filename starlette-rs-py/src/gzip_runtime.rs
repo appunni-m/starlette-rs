@@ -111,7 +111,7 @@ impl AwaitableStateMachine for GzipMiddlewareCall {
                 Ok(MachineAction::Complete(py.None()))
             }
             MachineResume::Error(error) if self.pending => Err(error),
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => {
                 Err(PyRuntimeError::new_err(
                     "GZip middleware continuation has no pending application call",
@@ -249,7 +249,7 @@ impl AwaitableStateMachine for GzipSendMessage {
                     "GZip send continuation has no pending operation",
                 )),
             },
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "GZip send continuation has no pending operation",
             )),

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
-import functools
 import re
 from collections.abc import Callable, Iterable, Sequence
 from enum import Enum
@@ -69,17 +67,6 @@ def _apply_middleware(
     return _core.apply_route_middleware(app, middleware, max_body_size)
 
 
-class _AsyncLiftContextManager(contextlib.AbstractAsyncContextManager[Any]):
-    def __init__(self, cm: Any) -> None:
-        self._cm = cm
-
-    async def __aenter__(self) -> Any:
-        return self._cm.__enter__()
-
-    async def __aexit__(self, *exc_info: Any) -> Any:
-        return self._cm.__exit__(*exc_info)
-
-
 class _DefaultLifespan:
     def __init__(self, router: Router) -> None:
         self._router = router
@@ -97,20 +84,6 @@ class _DefaultLifespan:
 
 def _default_lifespan_factory(router: Router) -> _DefaultLifespan:
     return _DefaultLifespan(router)
-
-
-def _async_generator_lifespan_factory(lifespan: Callable[..., Any]) -> Callable[..., Any]:
-    return contextlib.asynccontextmanager(lifespan)
-
-
-def _generator_lifespan_factory(lifespan: Callable[..., Any]) -> Callable[..., Any]:
-    context_manager = contextlib.contextmanager(lifespan)
-
-    @functools.wraps(context_manager)
-    def wrapper(app: Any) -> _AsyncLiftContextManager:
-        return _AsyncLiftContextManager(context_manager(app))
-
-    return wrapper
 
 
 def _request_response(endpoint: Callable[..., Any]) -> Callable[..., Any]:
@@ -549,8 +522,6 @@ class Router:
             Mount,
             Host,
             _default_lifespan_factory,
-            _async_generator_lifespan_factory,
-            _generator_lifespan_factory,
             StarletteDeprecationWarning,
         )
 

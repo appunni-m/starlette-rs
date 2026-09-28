@@ -332,7 +332,7 @@ impl AwaitableStateMachine for RouterDispatchMachine {
                     "router dispatch resumed without a pending operation",
                 )),
             },
-            MachineResume::AsyncIterationComplete => {
+            MachineResume::AsyncIterationComplete(_) => {
                 Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
             }
             _ => Err(PyRuntimeError::new_err(
@@ -629,7 +629,7 @@ impl AwaitableStateMachine for NotFoundMachine {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => {
+            MachineResume::AsyncIterationComplete(_) => {
                 Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
             }
             _ => Err(PyRuntimeError::new_err(

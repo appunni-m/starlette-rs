@@ -190,7 +190,7 @@ impl AwaitableStateMachine for ServerErrorSendCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("server-error send continuation has no pending send"),
             ),
@@ -245,7 +245,7 @@ impl AwaitableStateMachine for ServerErrorCall {
                 }
                 None => Err(error),
             },
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
         }
     }
 }

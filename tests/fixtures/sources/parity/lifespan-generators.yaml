@@ -1,0 +1,1938 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-sync-generator-success",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.sync-generator.success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "sync-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "none",
+                "failure_message": "unused lifespan failure message",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-sync-generator-startup-failure",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.sync-generator.startup-failure"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "sync-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "startup",
+                "failure_message": "lifespan generator failed during startup",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-sync-generator-shutdown-failure",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.sync-generator.shutdown-failure"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "sync-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "shutdown",
+                "failure_message": "lifespan generator failed during shutdown",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-async-generator-success",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.async-generator.success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "none",
+                "failure_message": "unused lifespan failure message",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-async-generator-startup-failure",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.async-generator.startup-failure"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "startup",
+                "failure_message": "lifespan generator failed during startup",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-async-generator-shutdown-failure",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.async-generator.shutdown-failure"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "shutdown",
+                "failure_message": "lifespan generator failed during shutdown",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-sync-generator-startup-send-call-error",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.startup-send-call-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "sync-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "none",
+                "failure_message": "unused lifespan failure message",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "raise-on-call",
+                "message_type": "lifespan.startup.complete",
+                "exception_type": "RuntimeError",
+                "message": "send callback failed during startup completion"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-async-generator-shutdown-receive-call-error",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.shutdown-receive-call-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "none",
+                "failure_message": "unused lifespan failure message",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "raise",
+                  "exception_type": "RuntimeError",
+                  "message": "receive callback failed during shutdown"
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-async-context-manager-shadowed-specials",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.async-context-manager-special-method-lookup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager-shadowed-specials",
+                "class_entry_effect": "class-entry",
+                "instance_entry_effect": "instance-entry",
+                "class_exit_effect": "class-exit",
+                "instance_exit_effect": "instance-exit"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-sync-generator-extra-yield",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.sync-generator.extra-yield"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "sync-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "none",
+                "failure_message": "unused lifespan failure message",
+                "yield_behavior": "extra",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-async-generator-extra-yield",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.async-generator.extra-yield"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "none",
+                "failure_message": "unused lifespan failure message",
+                "yield_behavior": "extra",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-sync-generator-shutdown-error-suppressed",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.sync-generator.shutdown-error-suppressed"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "sync-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "none",
+                "failure_message": "unused lifespan failure message",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "suppress"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "raise",
+                  "exception_type": "RuntimeError",
+                  "message": "receive callback failed during shutdown"
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-async-generator-shutdown-error-suppressed",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.async-generator.shutdown-error-suppressed"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "none",
+                "failure_message": "unused lifespan failure message",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "suppress"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "raise",
+                  "exception_type": "RuntimeError",
+                  "message": "receive callback failed during shutdown"
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-sync-generator-no-yield",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.sync-generator.no-yield"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "sync-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "none",
+                "failure_message": "unused lifespan failure message",
+                "yield_behavior": "none",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-async-generator-no-yield",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.async-generator.no-yield"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "none",
+                "failure_message": "unused lifespan failure message",
+                "yield_behavior": "none",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    }
+  ]
+}

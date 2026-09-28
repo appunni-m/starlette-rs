@@ -410,7 +410,7 @@ impl AwaitableStateMachine for RequiresCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => {
+            MachineResume::AsyncIterationComplete(_) => {
                 Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
             }
             _ => Err(PyRuntimeError::new_err(
@@ -665,7 +665,7 @@ impl AwaitableStateMachine for AuthenticationMiddlewareCall {
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "authentication middleware resumed without a pending operation",
             )),
-            MachineResume::AsyncIterationComplete => {
+            MachineResume::AsyncIterationComplete(_) => {
                 Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
             }
         }

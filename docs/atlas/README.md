@@ -25,7 +25,7 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The active parity manifest indexes 118 input-only cases
+active and incomplete. At the source-mapping checkpoint, the parity manifest indexed 118 input-only cases
 across 18 files: 38 request/routing cases, 21 reverse-URL cases, four direct
 Starlette ASGI cases, eight basic Response/JSONResponse ASGI-call cases, four
 finite synchronous and one finite async-iterator StreamingResponse ASGI-call
@@ -38,7 +38,7 @@ and async-iterator streaming cases select the Python-package profile. Built-in
 Router, slash-redirect, RedirectResponse, Response, JSONResponse, and four
 synchronous StreamingResponse cases select both profiles. Mount cases select
 both with Rust-native explicitly unsupported. Projected state cases select
-both profiles. The latest integrated run
+both profiles. The integrated checkpoint run
 `296735f7-a06b-465e-958b-44f40b32b88c`, finished at
 `2026-09-28T12:04:18.052Z`, selected 181 comparisons: 175 passed, zero failed,
 six Rust-native rows were `not_run`, and there were zero infrastructure errors.
@@ -59,6 +59,19 @@ workloads; its evidence is summarized in
 [Benchmark mapping](../BENCHMARKS.md) and recorded in local generated result
 files under `build/parity/`. These bounded results do not establish full
 compatibility.
+
+The current contract has since grown to 211 input-only cases across 30 files,
+covering 43 operations and 257 requirements. The latest integrated run
+`efd76095-d4d6-48a2-951f-030dde4bb49a` selected 282 comparisons: 274 passed,
+two failed, zero infrastructure errors, and six were `not_run`. The Python
+package passed 209 of 211 cases; Rust-native passed 65 of 71 selected cases.
+All 15 generator-lifespan, callback-call, special-method, extra-yield, and
+suppression cases pass on the Python package. The two known debug traceback
+differences remain, and six Rust-native rows are unsupported Python-callable or
+Mount boundaries. Both target trees
+were dirty, so this is not clean aggregate or release proof. See
+[Migration parity contract and evidence](../PARITY.md) for current scope and
+the case breakdown; the Router/GZip benchmark lane remains `not_proven`.
 
 ## Candidate review CSV
 

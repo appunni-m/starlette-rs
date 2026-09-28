@@ -711,7 +711,7 @@ impl AwaitableStateMachine for BodyMachine {
                     }
                 }
             }
-            MachineResume::AsyncIterationComplete => {
+            MachineResume::AsyncIterationComplete(_) => {
                 self.abort_collection();
                 self.stream.fail();
                 Err(PyRuntimeError::new_err(
@@ -842,7 +842,7 @@ impl AwaitableStateMachine for StreamMachine {
                     }
                 }
             }
-            MachineResume::AsyncIterationComplete => {
+            MachineResume::AsyncIterationComplete(_) => {
                 self.fail_stream();
                 self.finish(false);
                 Err(PyRuntimeError::new_err(
@@ -1028,7 +1028,7 @@ impl AwaitableStateMachine for JsonMachine {
                 borrow_runtime_mut(&self.shared)?.json_object = Some(result.clone_ref(py));
                 Ok(MachineAction::Complete(result))
             }
-            MachineResume::AsyncIterationComplete => Err(PyRuntimeError::new_err(
+            MachineResume::AsyncIterationComplete(_) => Err(PyRuntimeError::new_err(
                 "request body collection completed unexpectedly",
             )),
             MachineResume::Error(error) => Err(error),

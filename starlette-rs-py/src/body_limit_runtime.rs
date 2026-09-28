@@ -304,7 +304,7 @@ impl AwaitableStateMachine for BodyLimitMiddlewareCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("request body limit middleware has no pending ASGI call"),
             ),
@@ -381,7 +381,7 @@ impl AwaitableStateMachine for BodyLimitCallMachine {
                 Some(BodyLimitCallPending::ReplacementResponse) => self.cleanup_error(py, error),
                 None => Err(error),
             },
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "request body limit middleware received an unexpected start signal",
             )),
@@ -509,7 +509,7 @@ impl AwaitableStateMachine for BodyLimitReceiveMachine {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("request body limit receive has no pending receive"),
             ),
@@ -589,7 +589,7 @@ impl AwaitableStateMachine for BodyLimitSendMachine {
                 self.pending = None;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "request body limit send received an unexpected start signal",
             )),

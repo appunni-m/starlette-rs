@@ -24,8 +24,9 @@ pub(crate) enum MachineResume {
     /// This is separate from `StopIteration`: the latter completes the delegated
     /// object's `__await__` iterator and its `.value` is delivered as [`Self::Value`].
     /// The Rust state machine decides whether async-iteration completion is expected
-    /// in its current state.
-    AsyncIterationComplete,
+    /// in its current state. The original exception is retained for protocols that
+    /// distinguish completion caused by the same exception object.
+    AsyncIterationComplete(PyErr),
     /// An awaited Python object failed or the outer task threw into the awaitable.
     Error(PyErr),
 }
@@ -115,7 +116,7 @@ impl PythonAwaitable {
                     }
                     Err(error) if error.is_instance_of::<PyStopAsyncIteration>(py) => {
                         self.active_iterator = None;
-                        input = DriverInput::Machine(MachineResume::AsyncIterationComplete);
+                        input = DriverInput::Machine(MachineResume::AsyncIterationComplete(error));
                     }
                     Err(error) => {
                         self.active_iterator = None;
