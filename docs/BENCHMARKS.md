@@ -15,16 +15,15 @@ run with `python3.12 -m scripts.parity.cli benchmark-upstream`. The result is
 written to `build/parity/upstream-benchmark-result.json`; it records source
 revision `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, pinned benchmark-file
 hashes, and active input-catalog and manifest hashes. The current run
-`b306e8f9-faf5-447c-b26c-99c2e3ca81e3` ran from
-`2026-09-28T07:24:27.015Z` to `2026-09-28T07:25:51.163Z`: 74/74 workloads
+`4b478188-8546-43ce-95fd-1b58e18672f7` ran from
+`2026-09-28T09:09:13.967Z` to `2026-09-28T09:10:42.274Z`: 74/74 workloads
 measured (six Router and 68 GZip), with zero failed and zero not-run
-source/package workloads. All 139 declared input relations passed separately
-for pinned source and the installed Python package. Its correctness preflight,
-run `0f710d97-0df1-4112-aba3-484a54ea51da`, selected 115 parity comparisons:
-109 passed, zero failed, zero infrastructure errors, and six Rust-native rows
-were `not_run` (package 74/74; Rust-native 35/41). The installed package wheel
-SHA-256 for this run is
-`a56c7683cb22358658f0329d1358281d53492bbe2e7a143194e868c5095ec35f`. The
+source/package workloads. All 74 source/package correctness gates passed. Its
+correctness preflight, run `351d9fe9-c482-4b2f-b181-f6f59a66c93b`, selected 148
+parity comparisons: 142 passed, zero failed, zero infrastructure errors, and
+six Rust-native rows were `not_run` (package 101/101; Rust-native 41/47). The
+installed package wheel SHA-256 for this run is
+`cdec420f89e4788c965b3cb087101129125fce7be08bee96a1b1fe31ecd947ed`. The
 benchmark records Rust-native as `not_run` for all 74 workloads because that
 boundary is not equivalent; this lane does not establish native performance
 parity. The input-only workload catalog is
@@ -37,7 +36,7 @@ are ignored local outputs and are not committed.
 
 | Evidence | Artifact | Result |
 | --- | --- | --- |
-| Router/GZip upstream runner | `build/parity/upstream-benchmark-result.json` | `completed`; run `b306e8f9-faf5-447c-b26c-99c2e3ca81e3`, `2026-09-28T07:24:27.015Z`–`2026-09-28T07:25:51.163Z`; 74/74 measured, 6 Router + 68 GZip; 139/139 input relations pass for source and package; Rust-native 74/74 `not_run`; preflight `0f710d97-0df1-4112-aba3-484a54ea51da`: 109/115 parity comparisons pass, 6 unsupported Rust-native rows `not_run` |
+| Router/GZip upstream runner | `build/parity/upstream-benchmark-result.json` | `completed`; run `4b478188-8546-43ce-95fd-1b58e18672f7`, `2026-09-28T09:09:13.967Z`–`2026-09-28T09:10:42.274Z`; 74/74 measured, 6 Router + 68 GZip; source/package correctness gates all pass; Rust-native 74/74 `not_run`; preflight `351d9fe9-c482-4b2f-b181-f6f59a66c93b`: 142/148 parity comparisons pass, 6 unsupported Rust-native rows `not_run` |
 | Direct-ASGI smoke correctness | `build/parity/benchmark-correctness-result.json` | Historical smoke gate; separate from the 74-workload runner |
 | Direct-ASGI smoke measurement | `build/parity/benchmark-result.json` | Historical smoke result `not_proven`; does not describe the completed upstream runner |
 
@@ -86,8 +85,8 @@ measurement, not a Rust-kernel-only result or real-server throughput.
 ## Completed goal: 74-workload Router/GZip benchmark lane
 
 The input catalog maps all 74 pinned source IDs to input-only workloads. The
-source and installed package passed all 139 declared input relations per
-subject and matched the declared observations for all 74 correctness gates,
+source and installed package matched the declared observations for all 74
+correctness gates,
 then both were measured using the same declared timer policy. The artifact
 records raw and post-normalization observation hashes:
 73 cases have identical raw hashes, while `test_routing_method_not_allowed`
@@ -144,31 +143,9 @@ invocation follows the source workload's scope/message reuse policy; validation
 and decompression remain outside timing. The custom runner records wall-clock
 samples only, not CodSpeed CPU, memory, or allocation measurements.
 
-## FastAPI follow-on lane
+## Downstream consumer scope
 
-Use FastAPI `0.141.1` source commit
-`95f8322ee1dcda7ceace7b1c4f6c9915b36d748f` and pin Pydantic 2.13.4. The exact
-release lock resolves Starlette 1.3.1, so the matched benchmark environment
-must use a separately generated lock that changes only the Starlette pin to
-1.6.0 and records its digest. Keep Python, HTTPX/HTTPX2, Pydantic, and all other
-dependencies fixed across the two app variants.
-
-At the pinned commit, `tests/benchmarks/test_general_performance.py` has 20
-request workloads covering sync/async handlers, validation, dependencies,
-dict/model responses, response models, and large payloads. The pinned tree also
-has one OpenAPI workload in `tests/benchmarks/test_openapi.py`.
-
-FastAPI keeps three separate memory workloads under `tests/memory_benchmarks/`,
-run by its CI in CodSpeed memory mode:
-
-| Workload | Measured operation | Correctness gate |
-| --- | --- | --- |
-| `test_dependency_graph` | Build an app with a 101-deep dependency chain and 50 endpoint dependency parameters, exposed through GET and POST routes | Two dynamic routes exist with the expected methods |
-| `test_route_dependency_graph` | Build 20 routes sharing a 101-deep dependency chain | Exactly 20 matching API routes exist |
-| `test_openapi_dependency_graph` | Generate OpenAPI for 20 routes backed by a 101-deep dependency chain | All 20 paths exist and expose the expected `query_value` parameter |
-
-Mirror these three inputs and memory-mode measurements separately from the 21
-simulation workloads. A Starlette router-only dispatch is not equivalent to a
-FastAPI request that performs validation and dependency injection. This matches
-FastAPI's own warning to compare equivalent feature sets:
-[FastAPI benchmark guidance](https://fastapi.tiangolo.com/benchmarks/).
+FastAPI `0.141.1` is recorded as a pinned downstream reference in
+[`UPSTREAM.md`](UPSTREAM.md), but FastAPI and Pydantic behavior and benchmarks
+are outside this Starlette replacement's current scope. The benchmark evidence
+here covers pinned Starlette 1.6.0 workloads only.

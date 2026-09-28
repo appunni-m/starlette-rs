@@ -7,7 +7,8 @@ establish drop-in compatibility.
 
 ## 0. Establish the contract (current)
 
-- Pin Starlette 1.6.0, FastAPI 0.141.1, and the reference repository identities.
+- Pin Starlette 1.6.0 and record FastAPI 0.141.1 as a downstream reference
+  identity only.
 - Keep root `metadata.yaml` authoritative for pinned API-source references and
   API inventory roots; keep the parity manifest as the active behavior contract.
 - Finish API/signature/deprecation and dependency/license inventories with
@@ -22,8 +23,8 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 95 input-only cases and 99 parity requirements
-across 14 indexed files. The latest full run is recorded below; its six
+The current parity contract has 101 input-only cases and 105 parity requirements
+across 15 indexed files. The latest full run is recorded below; its six
 unsupported Rust-native rows keep the all-target gate incomplete.
 
 ## 1. Decide the Python/Rust boundary
@@ -96,19 +97,19 @@ integer conversion limit. Two Mount cases compare child-scope extension and
 mount misses. Rust-native runs the built-in Router projection; it marks the
 Mount cases and four Python-callable Request endpoint shapes unsupported.
 
-The integrated full run `bf0c58d3-7f49-4d49-af44-33b58dfee7ab`, finished at
-`2026-09-28T08:21:52.500Z`, selected 136 comparisons: 130 passed, zero failed,
-zero infrastructure errors, and six `not_run`. All 95 package comparisons
-and 35 of 41 Rust-native comparisons passed. Its manifest SHA-256 is
-`bd825c4795ed7edee4fd6dc05dcb7597ced1cfac1a4389acc5fb080b9b4ed5ec`; the
+The integrated full run `b2fc5183-407c-4843-b9e3-7e228342159e`, finished at
+`2026-09-28T09:08:03.998Z`, selected 148 comparisons: 142 passed, zero failed,
+zero infrastructure errors, and six `not_run`. All 101 package comparisons
+and 41 of 47 Rust-native comparisons passed. Its manifest SHA-256 is
+`f40bd02d232ff032835781aec47a532f6787a375289f14b8213ca9f0758e70ea`; the
 target wheel SHA-256 is
-`2411ef8d6d7f21a872e4ef35e1e5abf15094805f8aee27e49c2cb0b84849e977`. The
+`4faf7bf1db038332fa0734e5c86b37c56e55e0fbb71db4ac110c620fe1e498b1`. The
 result is local evidence from dirty trees, not an all-target or release pass.
 The 21-case reverse URL slice now covers the named Python route surfaces and
 `Request.url_for`; the Rust-native named Route/Router API and Rust custom
-converter registration remain open. Trailing-slash redirects and
-route/router/mount-local middleware are present in the Python compatibility
-layer but are not yet covered by input-only parity cases.
+converter registration remain open. Route/router/mount-local middleware is
+present in the Python compatibility layer but is not yet covered by input-only
+parity cases.
 
 ### Completed bounded goal: reverse URL generation
 
@@ -138,8 +139,8 @@ The bounded sync-callable, ASGI-callable, exception-handler, and server-error
 application cases in section 6 pass source/package parity. Six Rust-native
 observations remain explicitly `not_run`; the full Starlette replacement is
 still incomplete. Later work includes broader HTTP/WebSocket connection and
-request-body behavior, streaming, trailing-slash redirects, route-local
-middleware, Host reverse lookup, direct `ServerErrorMiddleware` call-boundary
+request-body behavior, streaming, route-local middleware, Host reverse lookup,
+direct `ServerErrorMiddleware` call-boundary
 parity, WebSocket exception handlers, remaining TestClient
 exception-propagation modes, arbitrary middleware ordering, middleware
 composition, authentication, background tasks, and concurrency.
@@ -158,13 +159,13 @@ and 68 GZip benchmark IDs. All 74 now have input-only descriptors and exact
 source-versus-installed-package correctness gates. The full runner measured
 all 74 with zero failed and zero not-run source/package rows. Its latest result
 is `build/parity/upstream-benchmark-result.json`. Run
-`b306e8f9-faf5-447c-b26c-99c2e3ca81e3` ran from
-`2026-09-28T07:24:27.015Z` to `2026-09-28T07:25:51.163Z`; all 139 declared
-input relations passed separately for pinned source and the installed package.
+`4b478188-8546-43ce-95fd-1b58e18672f7` ran from
+`2026-09-28T09:09:13.967Z` to `2026-09-28T09:10:42.274Z`; all 74 declared
+workload correctness gates passed for pinned source and the installed package.
 The recorded source revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
-Its correctness preflight, `0f710d97-0df1-4112-aba3-484a54ea51da`, selected
-115 parity comparisons: 109 passed, zero failed, zero infrastructure errors,
-and six Rust-native rows were `not_run` (package 74/74; Rust-native 35/41).
+Its correctness preflight, `351d9fe9-c482-4b2f-b181-f6f59a66c93b`, selected
+148 parity comparisons: 142 passed, zero failed, zero infrastructure errors,
+and six Rust-native rows were `not_run` (package 101/101; Rust-native 41/47).
 The target trees were dirty local trees, so this is not clean aggregate or
 release proof. The benchmark result records source, input, and manifest hashes.
 
@@ -385,8 +386,6 @@ fail clearly. Python package metadata includes `Obsoletes-Dist: starlette` only
 if packaging checks show value, but it is not an enforcement mechanism: the
 [Python Packaging User Guide](https://packaging.python.org/en/latest/specifications/core-metadata/)
 marks `Obsoletes-Dist` as rarely used and says popular installers ignore such
-fields. FastAPI's declared dependency on the
-distribution `starlette` remains a known resolver/interoperability question
-that must be answered by the matched FastAPI consumer lane before calling the
-package a drop-in replacement. Do not write installation instructions that
-silently overlay upstream files.
+fields. This project does not claim FastAPI compatibility or replacement of
+FastAPI's declared `starlette` dependency. Do not write installation
+instructions that silently overlay upstream files.

@@ -79,6 +79,7 @@ ROUTER_SURFACE = "starlette.routing.Router"
 ROUTER_OPERATION = "route-dispatch"
 ROUTER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "custom_convertors",
+    "redirect_slashes",
     "routes",
     "scope",
     "incoming",
@@ -1536,8 +1537,10 @@ def _validate_http_route_input(
     return route
 
 
-def _validate_route_dispatch_io(case: dict[str, Any]) -> None:
-    if case["scope"].get("type") != "http" or case["scope"].get("query_string_base64") != "":
+def _validate_route_dispatch_io(case: dict[str, Any], *, allow_query: bool = False) -> None:
+    if case["scope"].get("type") != "http" or (
+        not allow_query and case["scope"].get("query_string_base64") != ""
+    ):
         raise ContractError(
             "route-dispatch cases require a direct HTTP scope without a query string"
         )
@@ -1554,12 +1557,89 @@ def _validate_route_dispatch_io(case: dict[str, Any]) -> None:
     )
 
 
+def _route_method_matches(route: dict[str, Any], method: str) -> bool:
+    return method in route["methods"] or (method == "HEAD" and "GET" in route["methods"])
+
+
+def _router_redirect_candidate(path: str, route_path: str) -> str | None:
+    if route_path == "/":
+        return None
+    return path.rstrip("/") if route_path.endswith("/") else path + "/"
+
+
+def _router_redirect_requirements(
+    routes: list[dict[str, Any]],
+    path: str,
+    root_path: str,
+    method: str,
+    redirect_slashes: bool,
+    custom_convertors: dict[str, dict[str, Any]],
+    query_string_base64: str,
+) -> set[str]:
+    """Derive redirect coverage from the live Router match and candidate inputs."""
+    prefix = "starlette.routing.Router.route-dispatch."
+    original_route_path = _route_path_after_root(path, root_path)
+    original_matches = [
+        route
+        for route in routes
+        if _route_template_matches(route["path"], original_route_path, custom_convertors)
+    ]
+    if original_matches:
+        # Router handles both full and partial original-path matches before it
+        # considers slash redirects.
+        return set()
+
+    candidate_path = _router_redirect_candidate(path, original_route_path)
+    if candidate_path is None:
+        return set()
+    candidate_route_path = _route_path_after_root(candidate_path, root_path)
+    candidate_matches = [
+        route
+        for route in routes
+        if _route_template_matches(route["path"], candidate_route_path, custom_convertors)
+    ]
+
+    if not redirect_slashes:
+        if candidate_matches:
+            return {prefix + "redirect-disabled"}
+        return set()
+    if not candidate_matches:
+        return {prefix + "redirect-no-counterpart"}
+    if not any(_route_method_matches(route, method) for route in candidate_matches):
+        return {prefix + "redirect-candidate-partial-method-match"}
+
+    derived: set[str] = set()
+    if root_path and not original_route_path.endswith("/") and query_string_base64:
+        derived.add(prefix + "redirect-slash-append-root-path-query")
+    if (
+        original_route_path.endswith("/")
+        and len(original_route_path) - len(original_route_path.rstrip("/")) > 1
+    ):
+        derived.add(prefix + "redirect-rstrip-repeated-slashes")
+    return derived
+
+
+def _application_has_slash_redirect(
+    routes: list[dict[str, Any]], path: str, root_path: str
+) -> bool:
+    original_route_path = _route_path_after_root(path, root_path)
+    if any(_route_template_matches(route["path"], original_route_path) for route in routes):
+        return False
+    candidate_path = _router_redirect_candidate(path, original_route_path)
+    if candidate_path is None:
+        return False
+    candidate_route_path = _route_path_after_root(candidate_path, root_path)
+    return any(_route_template_matches(route["path"], candidate_route_path) for route in routes)
+
+
 def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     _exact(case, ROUTER_CASE_KEYS, "Router route-dispatch case")
     if case["surface"] != ROUTER_SURFACE or case["operation"] != ROUTER_OPERATION:
         raise ContractError("case is outside the declared Router route-dispatch operation")
     if case["observations"] != [ROUTER_OPERATION]:
         raise ContractError("Router observations must select route-dispatch")
+    if type(case["redirect_slashes"]) is not bool:
+        raise ContractError("Router redirect_slashes must be boolean")
     if not isinstance(case["routes"], list) or not case["routes"]:
         raise ContractError("Router route-dispatch requires a non-empty route list")
     if not isinstance(case["custom_convertors"], list):
@@ -1594,7 +1674,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "Router route-dispatch scope must declare string path, root_path, and method"
         )
-    _validate_route_dispatch_io(case)
+    _validate_route_dispatch_io(case, allow_query=True)
     route_path = _route_path_after_root(path, root_path)
     matched = [
         route
@@ -1603,6 +1683,17 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         if _route_template_matches(route["path"], route_path, custom_convertors)
     ]
     derived: set[str] = set()
+    derived.update(
+        _router_redirect_requirements(
+            routes,
+            path,
+            root_path,
+            method,
+            case["redirect_slashes"],
+            custom_convertors,
+            case["scope"]["query_string_base64"],
+        )
+    )
     for route in matched:
         for _name, converter in _route_template_parameters(route["path"]):
             if converter in custom_convertors:
@@ -2355,6 +2446,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 case["operation"] == "request-dispatch",
                 allow_nonempty_body=body_reuse,
                 allow_headers=server_error_case,
+                allow_query=case["operation"] == "__call__",
             )
     dispatch = case["steps"][-1]
     dispatch_args = {key: descriptor["value"] for key, descriptor in dispatch["arguments"].items()}
@@ -2921,6 +3013,7 @@ def _validate_dispatch_stimulus(
     allow_nonempty_body: bool = False,
     allow_headers: bool = False,
     allow_root_path: bool = False,
+    allow_query: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -2971,7 +3064,7 @@ def _validate_dispatch_stimulus(
             raise ContractError("HTTP scope differs from the declared direct-ASGI baseline")
         if scope["client"] != ["127.0.0.1", 12345] or scope["server"] != ["testserver", 80]:
             raise ContractError("HTTP scope client/server differ from the declared baseline")
-        if not request_dispatch and scope["query_string_base64"] != "":
+        if not request_dispatch and not allow_query and scope["query_string_base64"] != "":
             raise ContractError("HTTP scope query value differs from the declared baseline")
         if not request_dispatch and not allow_headers and scope["headers_base64_pairs"] != []:
             raise ContractError("HTTP scope header values differ from the declared baseline")
@@ -3411,6 +3504,10 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                     "starlette.asgi.get-hello.dispatch",
                 }
             )
+        elif not path_matches and _application_has_slash_redirect(
+            app_arguments["routes"], path, scope.get("root_path", "")
+        ):
+            coverage.add("starlette.asgi.get-hello.slash-redirect")
         elif not path_matches:
             coverage.add("starlette.asgi.get-hello.route-miss-404")
         else:

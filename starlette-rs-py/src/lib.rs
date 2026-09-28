@@ -194,6 +194,16 @@ impl PyRouteTable {
         )
     }
 
+    /// Finds a matching trailing-slash alternative using the ASGI `root_path`.
+    fn find_slash_redirect_path(
+        &self,
+        path: &str,
+        root_path: &str,
+        method: &str,
+    ) -> Option<String> {
+        self.inner.find_slash_redirect_path(path, root_path, method)
+    }
+
     /// Builds one route's path from converter-formatted parameters.
     fn build_path(
         &self,
@@ -510,6 +520,19 @@ impl PyResponse {
             headers.unwrap_or_default(),
         )
         .map_err(response_error)?;
+        Ok(Self { inner })
+    }
+
+    /// Creates a Starlette-compatible redirect response from a URL string.
+    #[staticmethod]
+    #[pyo3(signature = (url, status_code=307, headers=None))]
+    fn redirect(
+        url: String,
+        status_code: u16,
+        headers: Option<Vec<(String, String)>>,
+    ) -> PyResult<Self> {
+        let inner = Response::redirect(&url, status_code, &headers.unwrap_or_default())
+            .map_err(response_error)?;
         Ok(Self { inner })
     }
 

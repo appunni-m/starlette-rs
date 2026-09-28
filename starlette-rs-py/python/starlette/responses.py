@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from typing import Any
-from urllib.parse import quote
 
 from starlette_rs_py import _core
 
@@ -81,12 +80,10 @@ class RedirectResponse(Response):
         headers: Mapping[str, str] | None = None,
         background: Any = None,
     ) -> None:
-        response_headers = dict(headers or {})
-        for name in tuple(response_headers):
-            if name.lower() == "location":
-                del response_headers[name]
-        response_headers["location"] = quote(str(url), safe=":/%#?=@[]!$&'()*+,;")
-        super().__init__(b"", status_code, response_headers, background=background)
+        if background is not None:
+            raise NotImplementedError("background tasks are outside this slice")
+        header_pairs = [] if headers is None else list(headers.items())
+        self._inner = _core.Response.redirect(str(url), status_code, header_pairs)
 
 
 class JSONResponse(Response):

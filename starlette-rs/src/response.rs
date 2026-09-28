@@ -193,6 +193,67 @@ impl Response {
         )
     }
 
+    /// Creates Starlette's redirect response from a URL string.
+    ///
+    /// The URL is quoted using the same safe characters as
+    /// `urllib.parse.quote(url, safe=":/%#?=@[]!$&'()*+,;")`. Caller headers
+    /// are lowercased and retained in input order. The quoted `location`
+    /// replaces any existing location header in place, while duplicate
+    /// location headers are removed. `content-length: 0` is added according
+    /// to the normal Starlette response rules before a new location header.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ResponseError::HeaderDataIsNotLatin1`] if a caller header
+    /// cannot be encoded as Latin-1.
+    pub fn redirect(
+        url: &str,
+        status_code: u16,
+        headers: &[(String, String)],
+    ) -> Result<Self, ResponseError> {
+        let mut raw_headers = Vec::with_capacity(headers.len() + 2);
+        for (name, value) in headers {
+            let lower_name = name.to_lowercase();
+            raw_headers.push((
+                encode_latin1(&lower_name).ok_or(ResponseError::HeaderDataIsNotLatin1)?,
+                encode_latin1(value).ok_or(ResponseError::HeaderDataIsNotLatin1)?,
+            ));
+        }
+
+        if !raw_headers
+            .iter()
+            .any(|(name, _)| name.as_slice() == b"content-length")
+            && status_code >= 200
+            && status_code != 204
+            && status_code != 304
+        {
+            raw_headers.push((b"content-length".to_vec(), b"0".to_vec()));
+        }
+
+        let quoted_url = quote_redirect_url(url).into_bytes();
+        let mut has_location = false;
+        let mut normalized_headers = Vec::with_capacity(raw_headers.len() + 1);
+        for (name, value) in raw_headers {
+            if name == b"location" {
+                if !has_location {
+                    normalized_headers.push((name, quoted_url.clone()));
+                    has_location = true;
+                }
+            } else {
+                normalized_headers.push((name, value));
+            }
+        }
+        if !has_location {
+            normalized_headers.push((b"location".to_vec(), quoted_url));
+        }
+
+        Ok(Self {
+            status_code,
+            headers: normalized_headers,
+            body: Vec::new(),
+        })
+    }
+
     /// Creates a response from explicit status, body, and ordered raw headers.
     ///
     /// This constructor does not validate headers or synthesize defaults; it
@@ -620,6 +681,22 @@ fn append_quoted_cookie_char(cookie: &mut Vec<u8>, character: char) -> Result<()
 
 fn encode_latin1(value: &str) -> Option<Vec<u8>> {
     value.chars().map(encode_latin1_char).collect()
+}
+
+fn quote_redirect_url(url: &str) -> String {
+    const SAFE: &[u8] = b":/%#?=@[]!$&'()*+,;";
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut quoted = String::with_capacity(url.len());
+    for byte in url.as_bytes() {
+        if byte.is_ascii_alphanumeric() || b"_.-~".contains(byte) || SAFE.contains(byte) {
+            quoted.push(char::from(*byte));
+        } else {
+            quoted.push('%');
+            quoted.push(char::from(HEX[(byte >> 4) as usize]));
+            quoted.push(char::from(HEX[(byte & 0x0f) as usize]));
+        }
+    }
+    quoted
 }
 
 fn encode_latin1_char(character: char) -> Option<u8> {

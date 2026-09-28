@@ -246,6 +246,7 @@
       "build/parity/inputs/parity/websocket-route-dispatch.json",
       "build/parity/inputs/parity/websocket-state-sequence.json",
       "build/parity/inputs/parity/router-converter-dispatch.json",
+      "build/parity/inputs/parity/router-slash-redirect.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
       "build/parity/inputs/parity/reverse-url-routing.json"
@@ -885,6 +886,18 @@
                 "parity"
               ],
               "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.get-hello.slash-redirect",
+              "dimension": "protocol_variant",
+              "description": "Exercise the public Starlette ASGI callable with a request path that redirects to its declared route and preserve the nonempty query through the live response. Upstream: starlette/applications.py::Starlette.__call__; starlette/routing.py::Router.app; tests/test_routing.py::test_router.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             }
@@ -2567,7 +2580,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.routing.Router.__call__",
+            "path": "starlette.routing.Router.app",
             "signature": "async __call__(scope, receive, send) -> None; dispatches through the ordered route list",
             "parameters": [
               {
@@ -2830,6 +2843,66 @@
                 "parity"
               ],
               "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.redirect-slash-append-root-path-query",
+              "dimension": "parameter_combination",
+              "description": "Append one slash to an unmatched HTTP path when the candidate route exists, retaining the scope root_path and query string in the live redirect. Upstream: starlette/routing.py::Router.app; tests/test_routing.py::test_router.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.redirect-rstrip-repeated-slashes",
+              "dimension": "input_family",
+              "description": "When the unmatched route path ends in repeated slashes, remove every trailing slash before matching the redirect candidate. Upstream: starlette/routing.py::Router.app; tests/test_routing.py::test_router.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.redirect-candidate-partial-method-match",
+              "dimension": "error_path",
+              "description": "A candidate path that partially matches by path but rejects the request method still triggers the Router slash redirect. Upstream: starlette/routing.py::Router.app; tests/test_routing.py::test_router.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.redirect-disabled",
+              "dimension": "parameter",
+              "description": "With redirect_slashes disabled, an unmatched path is not redirected even when its slash candidate has a matching route. Upstream: starlette/routing.py::Router.app; tests/test_routing.py::test_router.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.redirect-no-counterpart",
+              "dimension": "error_path",
+              "description": "With redirects enabled, an unmatched path whose slash candidate has no route counterpart falls through to the live default route behavior. Upstream: starlette/routing.py::Router.app; tests/test_routing.py::test_router.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             }

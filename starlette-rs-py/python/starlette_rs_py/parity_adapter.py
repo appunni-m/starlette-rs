@@ -1569,8 +1569,12 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
         return Route(route_spec["path"], endpoint=endpoint, methods=route_spec["methods"])
 
     if case["surface"] == "starlette.routing.Router":
+        redirect_slashes = case["redirect_slashes"]
+        if type(redirect_slashes) is not bool:
+            raise ValueError("Router redirect_slashes must be a boolean")
         app = Router(
-            routes=[make_route(route, index) for index, route in enumerate(case["routes"])]
+            routes=[make_route(route, index) for index, route in enumerate(case["routes"])],
+            redirect_slashes=redirect_slashes,
         )
     elif case["surface"] == "starlette.routing.Mount":
         mount = case["mount"]

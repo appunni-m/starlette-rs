@@ -77,7 +77,7 @@
       "operations": [
         {
           "operation_id": "route-dispatch",
-          "source_path": "starlette.routing.Router.__call__"
+          "source_path": "starlette.routing.Router.app"
         },
         {
           "operation_id": "url_path_for",

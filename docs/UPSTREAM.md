@@ -31,16 +31,9 @@ The inventory reads tracked Python source from this commit. The untracked
 | Local checkout | `/Users/lazytrot/work/fastapi`, detached at the exact tag commit, clean |
 
 The pinned release commit's `uv.lock` resolves Starlette **1.3.1** and Pydantic
-**2.13.4**. The Starlette 1.6.0 / Pydantic 2.13.4 combination applies to the
-planned matched FastAPI lane, so generate a separate lock from this tag that
-pins those versions while holding the other resolved dependencies constant.
-Record that derived lock's digest and do not describe it as the upstream
-release lock. At this tag, the request and OpenAPI benchmarks are under
-`tests/benchmarks/`; three additional CodSpeed memory workloads are under
-`tests/memory_benchmarks/`.
-
-FastAPI remains a downstream consumer only. FastAPI and Pydantic behavior is
-outside this project's implementation scope.
+**2.13.4**. This checkout records the downstream version only; this project
+does not create a derived FastAPI environment or implement FastAPI/Pydantic
+behavior. FastAPI remains outside the Starlette replacement scope.
 
 ## Reference structure
 

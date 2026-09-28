@@ -59,7 +59,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.match-int",
@@ -119,7 +120,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.match-float",
@@ -179,7 +181,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.match-uuid",
@@ -239,7 +242,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.match-path",
@@ -299,7 +303,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.miss-string-empty",
@@ -359,7 +364,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.miss-int-invalid",
@@ -419,7 +425,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.miss-float-invalid",
@@ -479,7 +486,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.miss-uuid-invalid",
@@ -539,7 +547,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.miss-path-linebreak",
@@ -599,7 +608,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.order-parameter-before-static",
@@ -673,7 +683,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.order-static-before-parameter",
@@ -747,7 +758,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.root-path-match",
@@ -807,7 +819,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.root-path-prefix-boundary",
@@ -867,7 +880,8 @@
       "observations": [
         "route-dispatch"
       ],
-      "custom_convertors": []
+      "custom_convertors": [],
+      "redirect_slashes": true
     },
     {
       "case_id": "starlette.routing.Router.route-dispatch.custom-string-converter-override",
@@ -931,7 +945,8 @@
       },
       "observations": [
         "route-dispatch"
-      ]
+      ],
+      "redirect_slashes": true
     }
   ]
 }

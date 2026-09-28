@@ -1413,6 +1413,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             common_keys
             | {
                 "custom_convertors",
+                "redirect_slashes",
                 "routes",
                 "scope",
                 "incoming",
@@ -1519,7 +1520,10 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             )
 
         if is_router:
-            application = Router(routes=route_objects)
+            application = Router(
+                routes=route_objects,
+                redirect_slashes=case["redirect_slashes"],
+            )
         else:
             mount_spec = case["mount"]
             _strict_object(mount_spec, {"path", "routes"}, "Mount input")

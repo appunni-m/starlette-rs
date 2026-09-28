@@ -17,26 +17,27 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 95 input-only cases across 14 files: 33
-request/routing cases, 21 reverse-URL cases, three direct ASGI cases, eight
+The active parity manifest indexes 101 input-only cases across 15 files: 38
+request/routing cases, 21 reverse-URL cases, four direct ASGI cases, eight
 GZip cases, six full WebSocket protocol-tape cases, six projected WebSocket
 state cases, five Request-style HTTPException cases, two callable-ASGI
 HTTPException cases, two registered-handler cases, and nine server-error
-cases. The protocol-tape, route-dispatch, reverse-URL, and Request cases select
-the Python-package profile; the six state-sequence cases select both
-Rust-native and Python-package profiles. Run
-`bf0c58d3-7f49-4d49-af44-33b58dfee7ab`, finished at
-`2026-09-28T08:21:52.500Z`, selected 136 comparisons: 130 passed, zero failed,
-six were `not_run`, and there were zero infrastructure errors. All 95
-Python-package cases passed. Rust-native passed 35 of 41 selected cases; the
+cases. The protocol-tape, reverse-URL, and Request cases select the
+Python-package profile. Built-in Router and slash-redirect cases select both
+profiles; Mount cases also select both, with their Rust-native rows declared
+unsupported. The six state-sequence cases select both profiles. Run
+`b2fc5183-407c-4843-b9e3-7e228342159e`, finished at
+`2026-09-28T09:08:03.998Z`, selected 148 comparisons: 142 passed, zero failed,
+six were `not_run`, and there were zero infrastructure errors. All 101
+Python-package cases passed. Rust-native passed 41 of 47 selected cases; the
 remaining six rows are unsupported Python-callable and Mount boundaries. All
 21 reverse-URL cases and all 21 selected WebSocket comparisons passed. The six
 native `not_run` rows make `run` exit with status 2, so the all-target gate
 remains incomplete. Target identities were dirty local trees; this run is not
 clean aggregate or release proof. The manifest SHA-256 is
-`bd825c4795ed7edee4fd6dc05dcb7597ced1cfac1a4389acc5fb080b9b4ed5ec`; the
+`f40bd02d232ff032835781aec47a532f6787a375289f14b8213ca9f0758e70ea`; the
 target wheel SHA-256 is
-`2411ef8d6d7f21a872e4ef35e1e5abf15094805f8aee27e49c2cb0b84849e977`. The two
+`4faf7bf1db038332fa0734e5c86b37c56e55e0fbb71db4ac110c620fe1e498b1`. The two
 registered-handler inputs in
 [`asgi-exception-handlers.yaml`](../tests/fixtures/sources/parity/asgi-exception-handlers.yaml)
 exercise status-code precedence over an `HTTPException` class handler and an
@@ -108,28 +109,29 @@ re-exports or `__all__`.
 
 ## Completed atlas coverage
 
-The [`coverage matrix`](atlas/coverage-matrix.csv) contains 787 mappings:
+The [`coverage matrix`](atlas/coverage-matrix.csv) contains 788 mappings:
 
 | Mapping | Count |
 | --- | ---: |
 | Upstream test functions and methods | 514 source functions represented by 537 behavior mappings |
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
-| All source mappings | 787 |
-| Existing input mappings in the atlas matrix | 19 |
+| All source mappings | 788 |
+| Existing input mappings in the atlas matrix | 21 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 718 |
+| New input-only fixture backlog | 717 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 19 `existing` mappings point to authored YAML input
+crosswalk snapshot, 21 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
-The active manifest separately indexes 14 parity input files with 95 cases:
-33 request/routing cases (including async and synchronous Request endpoints,
-a callable-instance ASGI route, and three `WebSocketRoute` dispatch cases), 21
-reverse-URL cases, three direct ASGI cases for `/hello`, `/missing`, and the
-wrong method, eight `GZipMiddleware` cases, six full WebSocket protocol-tape
+The active manifest separately indexes 15 parity input files with 101 cases:
+38 request/routing cases (including async and synchronous Request endpoints,
+a callable-instance ASGI route, slash redirects, and three `WebSocketRoute`
+dispatch cases), 21 reverse-URL cases, four direct ASGI cases for `/hello`,
+`/missing`, the wrong method, and a public slash redirect, eight
+`GZipMiddleware` cases, six full WebSocket protocol-tape
 cases, six projected WebSocket state cases, five Request-style HTTPException
 cases, two callable-ASGI HTTPException cases, two registered-handler cases,
 and nine server-error cases. The `starlette.websockets.WebSocket.protocol-sequence`
@@ -156,7 +158,7 @@ The five upstream HTTPException tests and
 the HTTPException documentation contract map to the two exception input files;
 `test_handled_exc_after_response` has a declared partial observation of its
 after-start behavior, while its `TestClient(raise_server_exceptions=False)`
-branch remains outside this slice. The remaining 718 backlog rows are atlas
+branch remains outside this slice. The remaining 717 backlog rows are atlas
 mapping status, not proof that those behaviors are absent from active inputs or
 untested.
 The merger validates the pinned upstream commit, all 999 API rows, evidence
@@ -236,7 +238,7 @@ block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
 The backlog distinguishes that work from the 51 currently indexed cases and
-the 718-row atlas backlog snapshot
+the 717-row atlas backlog snapshot
 in [`PRIORITIZED_BACKLOG.md`](atlas/PRIORITIZED_BACKLOG.md).
 
 ## Generate the source candidate catalog

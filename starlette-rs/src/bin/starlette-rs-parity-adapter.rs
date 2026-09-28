@@ -317,6 +317,7 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
             "assets",
             "custom_convertors",
             "routes",
+            "redirect_slashes",
             "scope",
             "incoming",
             "send",
@@ -340,6 +341,10 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
         .and_then(Value::as_array)
         .filter(|routes| !routes.is_empty())
         .ok_or_else(|| String::from("Router routes must be a non-empty array"))?;
+    let redirect_slashes = case
+        .get("redirect_slashes")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| String::from("Router redirect_slashes must be a boolean"))?;
     let mut route_table = RouteTable::new();
     for route in routes {
         let route = exact_object(
@@ -411,8 +416,6 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
     if string_field(scope, "type", "Router scope")? != "http"
         || string_field(scope, "http_version", "Router scope")? != "1.1"
         || string_field(scope, "scheme", "Router scope")? != "http"
-        || !string_field(scope, "query_string_base64", "Router scope")?.is_empty()
-        || scope.get("headers_base64_pairs") != Some(&json!([]))
     {
         return Err(String::from(
             "Router scope differs from the declared HTTP baseline",
@@ -421,14 +424,24 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
     let path = string_field(scope, "path", "Router scope")?;
     let root_path = string_field(scope, "root_path", "Router scope")?;
     let method = string_field(scope, "method", "Router scope")?;
+    let query_string = decode_base64(
+        string_field(scope, "query_string_base64", "Router scope")?,
+        "Router scope.query_string_base64",
+    )?;
     let route_match = route_table.matches_detailed_with_root_path(path, root_path, method);
     let route_index = match &route_match {
         DetailedRouteMatch::Matched { route_index, .. }
         | DetailedRouteMatch::MethodNotAllowed { route_index, .. } => Some(*route_index),
         DetailedRouteMatch::NotFound => None,
     };
-    let response = match &route_match {
-        DetailedRouteMatch::Matched { route_index, .. } => {
+    let redirect_path = if redirect_slashes && matches!(&route_match, DetailedRouteMatch::NotFound)
+    {
+        route_table.find_slash_redirect_path(path, root_path, method)
+    } else {
+        None
+    };
+    let response = match (&route_match, redirect_path) {
+        (DetailedRouteMatch::Matched { route_index, .. }, _) => {
             let route = exact_object(
                 &routes[*route_index],
                 &["kind", "path", "methods", "endpoint"],
@@ -446,7 +459,15 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
                 .ok_or_else(|| String::from("selected endpoint status_code must fit u16"))?;
             Response::plain_text_with_status(status as u16, content)
         }
-        DetailedRouteMatch::MethodNotAllowed { .. } | DetailedRouteMatch::NotFound => route_match
+        (DetailedRouteMatch::MethodNotAllowed { .. }, _) => route_match
+            .fallback_response()
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| String::from("Router fallback did not provide a response"))?,
+        (DetailedRouteMatch::NotFound, Some(redirect_path)) => {
+            let location = scope_url(scope, &redirect_path, &query_string)?;
+            Response::redirect(&location, 307, &[]).map_err(|error| error.to_string())?
+        }
+        (DetailedRouteMatch::NotFound, None) => route_match
             .fallback_response()
             .map_err(|error| error.to_string())?
             .ok_or_else(|| String::from("Router fallback did not provide a response"))?,
@@ -1000,7 +1021,7 @@ fn run_application_case(case: &Value) -> Result<Value, String> {
         .filter(|steps| matches!(steps.len(), 2 | 3))
         .ok_or_else(|| String::from("workflow case must contain application and dispatch steps"))?;
 
-    let (application, lifespan_spec) = build_application(&steps[0])?;
+    let (application, lifespan_spec, route_table) = build_application(&steps[0])?;
     let mut result_observations = Vec::new();
     if steps.len() == 3 {
         if observations.len() != 2
@@ -1018,7 +1039,7 @@ fn run_application_case(case: &Value) -> Result<Value, String> {
                 "lifespan must be running before HTTP dispatch",
             ));
         }
-        let dispatch = run_dispatch(&steps[2], &application, &lifecycle.trace)?;
+        let dispatch = run_dispatch(&steps[2], &application, &route_table, &lifecycle.trace)?;
         let dispatch_events = dispatch
             .get("asgi_events")
             .and_then(Value::as_array)
@@ -1043,7 +1064,7 @@ fn run_application_case(case: &Value) -> Result<Value, String> {
                 "a dispatch-only workflow must select only the dispatch observation",
             ));
         }
-        let dispatch = run_dispatch(&steps[1], &application, &[])?;
+        let dispatch = run_dispatch(&steps[1], &application, &route_table, &[])?;
         result_observations.push(json!({
             "step_id": "dispatch",
             "status": "ok",
@@ -2268,7 +2289,7 @@ fn argument_value<'a>(
         .ok_or_else(|| format!("{context}.{name}.value is missing"))
 }
 
-fn build_application(step: &Value) -> Result<(NativeApplication, Value), String> {
+fn build_application(step: &Value) -> Result<(NativeApplication, Value, RouteTable), String> {
     let arguments = step_arguments(step, "application", "__init__", None)?;
     let expected_arguments = [
         "debug",
@@ -2415,9 +2436,17 @@ fn build_application(step: &Value) -> Result<(NativeApplication, Value), String>
     if string_field(lifespan_spec, "kind", "lifespan input")? != "async-context-manager" {
         return Err(String::from("lifespan kind must be async-context-manager"));
     }
+    let mut route_table = RouteTable::new();
+    route_table
+        .add_route(path, methods.clone())
+        .map_err(|error| error.to_string())?;
     let application = NativeApplication::new([ApplicationRoute::new(path, methods, response)])
         .map_err(|error| error.to_string())?;
-    Ok((application, Value::Object(lifespan_spec.clone())))
+    Ok((
+        application,
+        Value::Object(lifespan_spec.clone()),
+        route_table,
+    ))
 }
 
 struct LifecycleResult {
@@ -2574,6 +2603,7 @@ fn lifespan_event(action: LifespanAction) -> Result<Value, String> {
 fn run_dispatch(
     step: &Value,
     application: &NativeApplication,
+    route_table: &RouteTable,
     lifecycle_trace: &[String],
 ) -> Result<Value, String> {
     let arguments = step_arguments(step, "dispatch", "__call__", Some("application"))?;
@@ -2607,6 +2637,11 @@ fn run_dispatch(
     }
     let path = string_field(scope_object, "path", "HTTP scope input")?;
     let method = string_field(scope_object, "method", "HTTP scope input")?;
+    let root_path = string_field(scope_object, "root_path", "HTTP scope input")?;
+    let query_string = decode_base64(
+        string_field(scope_object, "query_string_base64", "HTTP scope input")?,
+        "scope.query_string_base64",
+    )?;
     let receive_value = argument_value(arguments, "receive", "dispatch arguments")?;
     let receive_messages = parse_http_receive_messages(receive_value)?;
     let mut receive_index = 0usize;
@@ -2617,9 +2652,28 @@ fn run_dispatch(
     };
     let send = argument_value(arguments, "send", "dispatch arguments")?;
     validate_capture_send(send)?;
-    let scope = HttpScope::new(path, method);
     let mut events = Vec::new();
-    {
+    let route_match = route_table.matches_detailed_with_root_path(path, root_path, method);
+    let redirect = if matches!(&route_match, DetailedRouteMatch::NotFound) {
+        route_table
+            .find_slash_redirect_path(path, root_path, method)
+            .map(|candidate| scope_url(scope_object, &candidate, &query_string))
+            .transpose()?
+            .map(|location| Response::redirect(&location, 307, &[]))
+            .transpose()
+            .map_err(|error| error.to_string())?
+    } else {
+        None
+    };
+    if let Some(response) = redirect {
+        events.extend(
+            response
+                .asgi_events()
+                .into_iter()
+                .map(canonical_response_event),
+        );
+    } else {
+        let scope = HttpScope::new(path, method);
         let mut send = |event: ResponseEvent| {
             events.push(canonical_response_event(event));
             ready(Ok::<(), String>(()))
@@ -2729,6 +2783,132 @@ fn canonical_headers(headers: &[(Vec<u8>, Vec<u8>)]) -> Vec<Value> {
         .iter()
         .map(|(name, value)| json!([encode_base64(name), encode_base64(value)]))
         .collect()
+}
+
+fn scope_url(
+    scope: &Map<String, Value>,
+    path: &str,
+    query_string: &[u8],
+) -> Result<String, String> {
+    let scheme = scope
+        .get("scheme")
+        .and_then(Value::as_str)
+        .unwrap_or("http");
+    let query = String::from_utf8(query_string.to_vec())
+        .map_err(|error| format!("scope query string is not UTF-8: {error}"))?;
+
+    let mut host_header = None;
+    let headers = scope
+        .get("headers_base64_pairs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("scope.headers_base64_pairs must be an array"))?;
+    for (index, pair) in headers.iter().enumerate() {
+        let pair = pair
+            .as_array()
+            .filter(|pair| pair.len() == 2)
+            .ok_or_else(|| format!("scope header[{index}] must be a pair"))?;
+        let name = decode_base64(
+            pair[0]
+                .as_str()
+                .ok_or_else(|| format!("scope header[{index}] name must be base64"))?,
+            "scope header name",
+        )?;
+        let value = decode_base64(
+            pair[1]
+                .as_str()
+                .ok_or_else(|| format!("scope header[{index}] value must be base64"))?,
+            "scope header value",
+        )?;
+        if name == b"host" {
+            let candidate = decode_latin1(&value);
+            if valid_host_header(&candidate) {
+                host_header = Some(candidate);
+            }
+            break;
+        }
+    }
+
+    let netloc = if let Some(host_header) = host_header {
+        Some(host_header)
+    } else {
+        match scope.get("server") {
+            None | Some(Value::Null) => None,
+            Some(Value::Array(server)) if server.len() == 2 => {
+                let host = server[0]
+                    .as_str()
+                    .ok_or_else(|| String::from("scope.server host must be a string"))?;
+                let port = server[1]
+                    .as_u64()
+                    .ok_or_else(|| String::from("scope.server port must be unsigned"))?;
+                let default_port = match scheme {
+                    "http" | "ws" => 80,
+                    "https" | "wss" => 443,
+                    _ => return Err(format!("unsupported URL scheme {scheme:?}")),
+                };
+                Some(if port == default_port {
+                    host.to_owned()
+                } else {
+                    format!("{host}:{port}")
+                })
+            }
+            Some(_) => return Err(String::from("scope.server must be a pair or null")),
+        }
+    };
+
+    let mut url = if let Some(netloc) = netloc {
+        format!("{scheme}://{netloc}{path}")
+    } else {
+        path.to_owned()
+    };
+    if !query.is_empty() {
+        url.push('?');
+        url.push_str(&query);
+    }
+    Ok(url)
+}
+
+fn valid_host_header(value: &str) -> bool {
+    if let Some(bracketed) = value.strip_prefix('[') {
+        let Some(end) = bracketed.find(']') else {
+            return false;
+        };
+        let address = &bracketed[..end];
+        let suffix = &bracketed[end + 1..];
+        let Some((left, right)) = address.split_once(':') else {
+            return false;
+        };
+        if !left.bytes().all(|byte| byte.is_ascii_hexdigit())
+            || right.is_empty()
+            || !right
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() || matches!(byte, b':' | b'.'))
+        {
+            return false;
+        }
+        if suffix.is_empty() {
+            return true;
+        }
+        let Some(port) = suffix.strip_prefix(':') else {
+            return false;
+        };
+        return !port.is_empty() && port.bytes().all(|byte| byte.is_ascii_digit());
+    }
+
+    let (host, port) = if let Some((host, port)) = value.rsplit_once(':') {
+        if host.contains(':') {
+            return false;
+        }
+        (host, Some(port))
+    } else {
+        (value, None)
+    };
+
+    !host.is_empty()
+        && host
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-'))
+        && port
+            .is_none_or(|port| !port.is_empty() && port.bytes().all(|byte| byte.is_ascii_digit()))
 }
 
 fn validate_capture_send(send: &Value) -> Result<(), String> {

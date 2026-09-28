@@ -764,6 +764,52 @@ class Router:
         child_scope = {"endpoint": route.endpoint, "path_params": path_params}
         return (Match.FULL if matched == "matched" else Match.PARTIAL), route, child_scope
 
+    def _slash_redirect_scope(self, scope: dict[str, Any]) -> dict[str, Any] | None:
+        """Return a copied scope with a matching alternate slash path, if any."""
+
+        if scope.get("type") != "http" or not self.redirect_slashes:
+            return None
+
+        route_path = _get_route_path(scope)
+        if route_path == "/":
+            return None
+
+        if self._custom_http_route_indexes:
+            redirect_scope = dict(scope)
+            if route_path.endswith("/"):
+                redirect_scope["path"] = redirect_scope["path"].rstrip("/")
+            else:
+                redirect_scope["path"] = redirect_scope["path"] + "/"
+            # Preserve route declaration order when Python converter callbacks
+            # are present. Built-in route.matches calls still delegate their
+            # matching decision to Rust.
+            match, _route, _child_scope = self._select_route(redirect_scope)
+            return redirect_scope if match != Match.NONE else None
+
+        redirect_path = self._route_table.find_slash_redirect_path(
+            scope["path"], scope.get("root_path", ""), scope.get("method", "GET")
+        )
+        if redirect_path is not None:
+            redirect_scope = dict(scope)
+            redirect_scope["path"] = redirect_path
+            return redirect_scope
+
+        return None
+
+    async def _send_slash_redirect(
+        self,
+        scope: dict[str, Any],
+        receive: Callable[..., Any],
+        send: Callable[..., Any],
+    ) -> bool:
+        redirect_scope = self._slash_redirect_scope(scope)
+        if redirect_scope is None:
+            return False
+
+        redirect_url = URL(scope=redirect_scope)
+        await RedirectResponse(url=str(redirect_url))(scope, receive, send)
+        return True
+
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
@@ -783,20 +829,8 @@ class Router:
             await route.handle(scope, receive, send)
             return
 
-        route_path = _get_route_path(scope)
-        if scope["type"] == "http" and self.redirect_slashes and route_path != "/":
-            redirect_scope = dict(scope)
-            if route_path.endswith("/"):
-                redirect_scope["path"] = redirect_scope["path"].rstrip("/")
-            else:
-                redirect_scope["path"] = redirect_scope["path"] + "/"
-            redirect_match, _redirect_route, _redirect_child_scope = self._select_route(
-                redirect_scope
-            )
-            if redirect_match != Match.NONE:
-                redirect_url = URL(scope=redirect_scope)
-                await RedirectResponse(url=str(redirect_url))(scope, receive, send)
-                return
+        if await self._send_slash_redirect(scope, receive, send):
+            return
         await self.default(scope, receive, send)
 
     async def not_found(

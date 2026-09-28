@@ -12,7 +12,8 @@ use crate::{Response, ResponseError};
 /// and `{name:path}` converters.
 /// Only these five built-in converters are recognized by the Rust-native
 /// table; Python-registered custom URL converters remain outside this API.
-/// It does not implement slash redirects. Use
+/// Slash redirect detection is available through
+/// [`find_slash_redirect_path`](Self::find_slash_redirect_path). Use
 /// [`matches_detailed_with_root_path`](Self::matches_detailed_with_root_path)
 /// when matching an ASGI scope with a `root_path`.
 /// Registered method names are uppercased, and a `GET` route also accepts
@@ -481,6 +482,41 @@ impl RouteTable {
         method: &str,
     ) -> DetailedRouteMatch {
         self.matches_detailed(get_route_path(path, root_path), method)
+    }
+
+    /// Returns Starlette's trailing-slash alternative when it matches a route.
+    ///
+    /// `path` is the full ASGI scope path. The method toggles its trailing
+    /// slash using Starlette's `rstrip("/")` behavior when the path relative
+    /// to `root_path` ends in `/`, or appends `/` otherwise. It returns the
+    /// candidate only when a route accepts its path, including a method-only
+    /// partial match. A relative path of exactly `/` is never redirected.
+    /// This checks only routes registered in this table; it does not recurse
+    /// into mounted routers or invoke custom converters.
+    #[must_use]
+    pub fn find_slash_redirect_path(
+        &self,
+        path: &str,
+        root_path: &str,
+        method: &str,
+    ) -> Option<String> {
+        let route_path = get_route_path(path, root_path);
+        if route_path == "/" {
+            return None;
+        }
+
+        let candidate = if route_path.ends_with('/') {
+            path.trim_end_matches('/').to_owned()
+        } else {
+            format!("{path}/")
+        };
+
+        match self.matches_detailed_with_root_path(&candidate, root_path, method) {
+            DetailedRouteMatch::Matched { .. } | DetailedRouteMatch::MethodNotAllowed { .. } => {
+                Some(candidate)
+            }
+            DetailedRouteMatch::NotFound => None,
+        }
     }
 
     /// Returns the number of registered routes.

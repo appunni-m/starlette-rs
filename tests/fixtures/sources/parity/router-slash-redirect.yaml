@@ -1,0 +1,444 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.slash-append-root-path-query",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.redirect-slash-append-root-path-query"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/catalog/",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "slash-target",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/tenant/catalog",
+        "raw_path_base64": "L3RlbmFudC9jYXRhbG9n",
+        "query_string_base64": "cGFnZT0y",
+        "root_path": "/tenant",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": []
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.rstrip-repeated-slashes",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.redirect-rstrip-repeated-slashes"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/catalog",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "slash-target",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/catalog///",
+        "raw_path_base64": "L2NhdGFsb2cvLy8=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": []
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.candidate-partial-method-match",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.redirect-candidate-partial-method-match"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/assets/",
+          "methods": [
+            "POST"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "slash-target",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/assets",
+        "raw_path_base64": "L2Fzc2V0cw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": []
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.redirect-disabled",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.redirect-disabled"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "redirect_slashes": false,
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/catalog/",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "slash-target",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/catalog",
+        "raw_path_base64": "L2NhdGFsb2c=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": []
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.no-counterpart",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.redirect-no-counterpart"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/elsewhere/",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "slash-target",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/catalog",
+        "raw_path_base64": "L2NhdGFsb2c=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": []
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.slash-redirect",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.get-hello.slash-redirect"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/hello/",
+                "raw_path_base64": "L2hlbGxvLw==",
+                "query_string_base64": "c291cmNlPXJvdXRlcg==",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

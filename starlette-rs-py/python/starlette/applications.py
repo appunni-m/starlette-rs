@@ -125,6 +125,8 @@ class Starlette:
         scope.setdefault("router", self.router)
         match, route, child_scope = self.router._select_route(scope)
         if match == Match.NONE or route is None:
+            if await self.router._send_slash_redirect(scope, receive, send):
+                return
             await self._dispatch_http_exception(scope, receive, send, HTTPException(404))
             return
 
