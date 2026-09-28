@@ -1346,7 +1346,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -4328,6 +4328,232 @@
             "applicability": "required",
             "target_profiles": [
               "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded basic-response contract makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only response correctness slice declares no benchmark workload."
+          }
+        },
+        {
+          "id": "asgi-call-with-execution-trace",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.responses.StreamingResponse.__call__",
+            "signature": "StreamingResponse(content, status_code=200, headers=None, media_type=None, background=None); async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "content",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "status_code",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "integer"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": 200
+                }
+              },
+              {
+                "id": "headers",
+                "style": "keyword",
+                "value_types": [
+                  "mapping",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "media_type",
+                "style": "keyword",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "background",
+                "style": "keyword",
+                "value_types": [
+                  "handle",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                },
+                {
+                  "path": "asgi_event_order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "execution_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::StreamingResponse::from_chunks",
+              "signature": "StreamingResponse::from_chunks(status_code, byte_chunks, media_type, ordered_headers) -> Result<StreamingResponse, ResponseError>; StreamingResponse::asgi_events() -> Vec<StreamingResponseEvent>",
+              "support": {
+                "status": "partial",
+                "reason": "Rust-native framing has no producer/background lifecycle trace at this boundary.",
+                "missing_requirements": [
+                  "starlette.responses.StreamingResponse.asgi-call.async-generator-background"
+                ]
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.responses.StreamingResponse",
+              "signature": "StreamingResponse(content, status_code=200, headers=None, media_type=None, background=None); async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.async-generator-background",
+              "dimension": "input_family",
+              "description": "Construct StreamingResponse from a finite async generator yielding nine ordered text chunks for 1, 2, 3, 4, 5, with media_type=text/plain, and an async background values recorder consuming 6, 7, 8, 9. Capture the live ordered trace of generator yields, ASGI send callbacks, and background-recorder execution through the public ASGI call. Select the Python package profile. Pinned sources: tests/test_responses.py:101-126; starlette/responses.py:222-255,282-283; starlette/background.py:12-23.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
               "python-package-cpython312"
             ]
           },

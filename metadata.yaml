@@ -136,6 +136,10 @@
         {
           "operation_id": "asgi-call",
           "source_path": "starlette.responses.StreamingResponse.__call__"
+        },
+        {
+          "operation_id": "asgi-call-with-execution-trace",
+          "source_path": "starlette.responses.StreamingResponse.__call__"
         }
       ]
     },

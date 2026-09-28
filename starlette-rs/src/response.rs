@@ -48,6 +48,54 @@ pub enum ResponseEvent {
     },
 }
 
+/// The next operation for a runtime driving a [`Response`] ASGI call.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ResponseCallStep {
+    /// Send one response event to the ASGI `send` callable.
+    Send(ResponseEvent),
+    /// Invoke and await the caller-owned background callback.
+    RunBackground,
+    /// The response and optional background callback completed successfully.
+    Complete,
+    /// An operation failed; no further response or background steps are due.
+    Failed,
+}
+
+/// An operation result supplied to [`ResponseCall::advance`].
+#[derive(Debug, PartialEq, Eq)]
+pub enum ResponseCallInput<E> {
+    /// Result of awaiting one ASGI `send` call.
+    Send(Result<(), E>),
+    /// Result of invoking and awaiting the background callback.
+    BackgroundFinished(Result<(), E>),
+}
+
+/// A failed operation or invalid input to the response-call state machine.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ResponseCallError<E> {
+    /// The supplied send or background operation failed.
+    Operation(E),
+    /// The input does not match the operation requested by the current step.
+    UnexpectedInput,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum ResponseCallPhase {
+    SendStart,
+    SendBody,
+    RunBackground,
+    Complete,
+    Failed,
+}
+
+/// Runtime-agnostic control flow for one response ASGI call.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResponseCall {
+    events: [ResponseEvent; 2],
+    has_background_callback: bool,
+    phase: ResponseCallPhase,
+}
+
 /// An ASGI response event produced by [`StreamingResponse`].
 ///
 /// This separate event type retains the `more_body` flag required by a
@@ -82,6 +130,70 @@ pub struct StreamingResponse {
     status_code: u16,
     headers: Vec<(Vec<u8>, Vec<u8>)>,
     chunks: Vec<Vec<u8>>,
+}
+
+/// The next operation for a runtime driving a [`StreamingResponse`] ASGI call.
+///
+/// `PullChunk` requests exactly one chunk from the caller-owned stream. The
+/// driver reports that pull, send, or background operation through
+/// [`StreamingResponseCall::advance`]. Python objects and async runtimes stay
+/// outside this state machine.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum StreamingResponseCallStep {
+    /// Send one response event to the ASGI `send` callable.
+    Send(StreamingResponseEvent),
+    /// Pull one chunk from the response's caller-owned iterator.
+    PullChunk,
+    /// Invoke and await the caller-owned background callback.
+    RunBackground,
+    /// The response and optional background callback completed successfully.
+    Complete,
+    /// An operation failed; no further response or background steps are due.
+    Failed,
+}
+
+/// An operation result supplied to [`StreamingResponseCall::advance`].
+#[derive(Debug, PartialEq, Eq)]
+pub enum StreamingResponseCallInput<E> {
+    /// Result of awaiting one ASGI `send` call.
+    Send(Result<(), E>),
+    /// Result of pulling exactly one stream item.
+    ChunkPulled(Result<Option<Vec<u8>>, E>),
+    /// Result of invoking and awaiting the background callback.
+    BackgroundFinished(Result<(), E>),
+}
+
+/// A failed operation or invalid input to the streaming-call state machine.
+#[derive(Debug, PartialEq, Eq)]
+pub enum StreamingResponseCallError<E> {
+    /// The supplied send, chunk-pull, or background operation failed.
+    Operation(E),
+    /// The input does not match the operation requested by the current step.
+    UnexpectedInput,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum StreamingResponseCallPhase {
+    SendStart,
+    PullChunk,
+    SendChunk(Vec<u8>),
+    SendFinal,
+    RunBackground,
+    Complete,
+    Failed,
+}
+
+/// Runtime-agnostic control flow for one streaming ASGI response call.
+///
+/// The caller performs the operation returned by [`Self::step`] and passes
+/// its result to [`Self::advance`]. A supplied operation error is returned
+/// immediately and moves the call to a terminal failed state. In particular,
+/// a failed chunk pull or send skips the final send and the background step.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StreamingResponseCall {
+    start_event: StreamingResponseEvent,
+    has_background_callback: bool,
+    phase: StreamingResponseCallPhase,
 }
 
 /// An error produced while constructing a cookie header.
@@ -453,6 +565,72 @@ impl Response {
             },
         ]
     }
+
+    /// Starts a response ASGI call with an optional runtime-owned callback.
+    #[must_use]
+    pub fn call_state(&self, has_background_callback: bool) -> ResponseCall {
+        ResponseCall {
+            events: self.asgi_events(),
+            has_background_callback,
+            phase: ResponseCallPhase::SendStart,
+        }
+    }
+}
+
+impl ResponseCall {
+    /// Returns the operation required to advance this call.
+    #[must_use]
+    pub fn step(&self) -> ResponseCallStep {
+        match &self.phase {
+            ResponseCallPhase::SendStart => ResponseCallStep::Send(self.events[0].clone()),
+            ResponseCallPhase::SendBody => ResponseCallStep::Send(self.events[1].clone()),
+            ResponseCallPhase::RunBackground => ResponseCallStep::RunBackground,
+            ResponseCallPhase::Complete => ResponseCallStep::Complete,
+            ResponseCallPhase::Failed => ResponseCallStep::Failed,
+        }
+    }
+
+    /// Applies one operation result and returns the next required step.
+    pub fn advance<E>(
+        &mut self,
+        input: ResponseCallInput<E>,
+    ) -> Result<ResponseCallStep, ResponseCallError<E>> {
+        let phase = std::mem::replace(&mut self.phase, ResponseCallPhase::Failed);
+        self.phase = match (phase, input) {
+            (ResponseCallPhase::SendStart, ResponseCallInput::Send(Ok(()))) => {
+                ResponseCallPhase::SendBody
+            }
+            (ResponseCallPhase::SendBody, ResponseCallInput::Send(Ok(()))) => {
+                if self.has_background_callback {
+                    ResponseCallPhase::RunBackground
+                } else {
+                    ResponseCallPhase::Complete
+                }
+            }
+            (
+                ResponseCallPhase::SendStart | ResponseCallPhase::SendBody,
+                ResponseCallInput::Send(Err(error)),
+            ) => return Err(ResponseCallError::Operation(error)),
+            (ResponseCallPhase::RunBackground, ResponseCallInput::BackgroundFinished(Ok(()))) => {
+                ResponseCallPhase::Complete
+            }
+            (
+                ResponseCallPhase::RunBackground,
+                ResponseCallInput::BackgroundFinished(Err(error)),
+            ) => return Err(ResponseCallError::Operation(error)),
+            (phase, _) => {
+                if matches!(
+                    &phase,
+                    ResponseCallPhase::Complete | ResponseCallPhase::Failed
+                ) {
+                    self.phase = phase;
+                }
+                return Err(ResponseCallError::UnexpectedInput);
+            }
+        };
+
+        Ok(self.step())
+    }
 }
 
 impl StreamingResponse {
@@ -521,6 +699,18 @@ impl StreamingResponse {
         })
     }
 
+    /// Appends a cookie using the same encoding and validation as [`Response`].
+    pub fn set_cookie(&mut self, key: &str, value: &str) -> Result<(), ResponseError> {
+        let mut response = Response {
+            status_code: self.status_code,
+            headers: self.headers.clone(),
+            body: Vec::new(),
+        };
+        response.set_cookie(key, value)?;
+        self.headers = response.headers;
+        Ok(())
+    }
+
     /// Returns the response status code.
     #[must_use]
     pub const fn status_code(&self) -> u16 {
@@ -563,6 +753,12 @@ impl StreamingResponse {
         Self::body_event(Vec::new(), false)
     }
 
+    /// Starts a lazy ASGI call driven by one chunk pull per state-machine step.
+    #[must_use]
+    pub fn call_state(&self, has_background_callback: bool) -> StreamingResponseCall {
+        StreamingResponseCall::new(self, has_background_callback)
+    }
+
     /// Returns the ASGI response events in send order.
     ///
     /// Every input chunk is sent with `more_body=true`. The sequence always
@@ -579,6 +775,110 @@ impl StreamingResponse {
         );
         events.push(Self::final_event());
         events
+    }
+}
+
+impl StreamingResponseCall {
+    /// Starts a streaming ASGI call for `response`.
+    ///
+    /// `has_background_callback` records whether the caller supplied a
+    /// background operation. The callback itself remains owned and invoked by
+    /// the runtime adapter after the final response event succeeds.
+    #[must_use]
+    pub fn new(response: &StreamingResponse, has_background_callback: bool) -> Self {
+        Self {
+            start_event: response.start_event(),
+            has_background_callback,
+            phase: StreamingResponseCallPhase::SendStart,
+        }
+    }
+
+    /// Returns the operation required to advance this call.
+    ///
+    /// The caller must report the operation's result to [`Self::advance`]
+    /// before requesting the next step. Terminal steps can be inspected
+    /// repeatedly.
+    #[must_use]
+    pub fn step(&self) -> StreamingResponseCallStep {
+        match &self.phase {
+            StreamingResponseCallPhase::SendStart => {
+                StreamingResponseCallStep::Send(self.start_event.clone())
+            }
+            StreamingResponseCallPhase::PullChunk => StreamingResponseCallStep::PullChunk,
+            StreamingResponseCallPhase::SendChunk(body) => {
+                StreamingResponseCallStep::Send(StreamingResponse::body_event(body.clone(), true))
+            }
+            StreamingResponseCallPhase::SendFinal => {
+                StreamingResponseCallStep::Send(StreamingResponse::final_event())
+            }
+            StreamingResponseCallPhase::RunBackground => StreamingResponseCallStep::RunBackground,
+            StreamingResponseCallPhase::Complete => StreamingResponseCallStep::Complete,
+            StreamingResponseCallPhase::Failed => StreamingResponseCallStep::Failed,
+        }
+    }
+
+    /// Applies one operation result and returns the next required step.
+    ///
+    /// Each error value is returned unchanged in
+    /// [`StreamingResponseCallError::Operation`]. The state becomes terminal
+    /// before the error is returned, so a failed send, pull, or callback can
+    /// never produce another response or background step.
+    pub fn advance<E>(
+        &mut self,
+        input: StreamingResponseCallInput<E>,
+    ) -> Result<StreamingResponseCallStep, StreamingResponseCallError<E>> {
+        let phase = std::mem::replace(&mut self.phase, StreamingResponseCallPhase::Failed);
+        self.phase = match (phase, input) {
+            (StreamingResponseCallPhase::SendStart, StreamingResponseCallInput::Send(Ok(())))
+            | (
+                StreamingResponseCallPhase::SendChunk(_),
+                StreamingResponseCallInput::Send(Ok(())),
+            ) => StreamingResponseCallPhase::PullChunk,
+            (StreamingResponseCallPhase::SendFinal, StreamingResponseCallInput::Send(Ok(()))) => {
+                if self.has_background_callback {
+                    StreamingResponseCallPhase::RunBackground
+                } else {
+                    StreamingResponseCallPhase::Complete
+                }
+            }
+            (
+                StreamingResponseCallPhase::SendStart
+                | StreamingResponseCallPhase::SendChunk(_)
+                | StreamingResponseCallPhase::SendFinal,
+                StreamingResponseCallInput::Send(Err(error)),
+            ) => return Err(StreamingResponseCallError::Operation(error)),
+            (
+                StreamingResponseCallPhase::PullChunk,
+                StreamingResponseCallInput::ChunkPulled(Ok(Some(body))),
+            ) => StreamingResponseCallPhase::SendChunk(body),
+            (
+                StreamingResponseCallPhase::PullChunk,
+                StreamingResponseCallInput::ChunkPulled(Ok(None)),
+            ) => StreamingResponseCallPhase::SendFinal,
+            (
+                StreamingResponseCallPhase::PullChunk,
+                StreamingResponseCallInput::ChunkPulled(Err(error)),
+            ) => return Err(StreamingResponseCallError::Operation(error)),
+            (
+                StreamingResponseCallPhase::RunBackground,
+                StreamingResponseCallInput::BackgroundFinished(Ok(())),
+            ) => StreamingResponseCallPhase::Complete,
+            (
+                StreamingResponseCallPhase::RunBackground,
+                StreamingResponseCallInput::BackgroundFinished(Err(error)),
+            ) => return Err(StreamingResponseCallError::Operation(error)),
+            (phase, _) => {
+                if matches!(
+                    &phase,
+                    StreamingResponseCallPhase::Complete | StreamingResponseCallPhase::Failed
+                ) {
+                    self.phase = phase;
+                }
+                return Err(StreamingResponseCallError::UnexpectedInput);
+            }
+        };
+
+        Ok(self.step())
     }
 }
 

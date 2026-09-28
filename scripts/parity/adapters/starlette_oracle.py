@@ -14,6 +14,7 @@ import platform
 import subprocess
 import sys
 import threading
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
@@ -39,23 +40,54 @@ RESPONSE_SURFACE = "starlette.responses.Response"
 JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
 STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 RESPONSE_OPERATION = "asgi-call"
+STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 _MISSING = object()
 
 
 class _InputAsyncIterator:
     """Expose decoded case-input values through the async-iterator protocol."""
 
-    def __init__(self, values: list[Any]) -> None:
+    def __init__(
+        self, values: list[Any], execution_trace: list[dict[str, Any]] | None = None
+    ) -> None:
         self._values = iter(values)
+        self._execution_trace = execution_trace
 
     def __aiter__(self) -> _InputAsyncIterator:
         return self
 
     async def __anext__(self) -> Any:
         try:
-            return next(self._values)
+            value = next(self._values)
         except StopIteration as exc:
             raise StopAsyncIteration from exc
+        if self._execution_trace is not None:
+            self._execution_trace.append({"event": "iterator-yield", "value": _json_safe(value)})
+        return value
+
+
+def _input_sync_iterator(values: list[Any], execution_trace: list[dict[str, Any]]) -> Iterator[Any]:
+    for value in values:
+        execution_trace.append({"event": "iterator-yield", "value": _json_safe(value)})
+        yield value
+
+
+async def _input_async_generator(
+    values: list[Any], execution_trace: list[dict[str, Any]] | None
+) -> AsyncIterator[Any]:
+    for value in values:
+        if execution_trace is not None:
+            execution_trace.append({"event": "iterator-yield", "value": _json_safe(value)})
+        yield value
+
+
+async def _record_background_values(
+    values: list[str], execution_trace: list[dict[str, Any]]
+) -> None:
+    execution_trace.append({"event": "background-start"})
+    for value in values:
+        execution_trace.append({"event": "background-value", "value": value})
+    execution_trace.append({"event": "background-complete"})
 
 
 @dataclass(frozen=True)
@@ -1770,6 +1802,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if surface == STREAMING_RESPONSE_SURFACE:
         required_fields.add("streaming")
+        if "background" in case:
+            required_fields.add("background")
     _strict_object(
         case,
         required_fields,
@@ -1786,8 +1820,13 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     for field in ("covers", "target_profiles", "assets"):
         if not isinstance(case[field], list):
             raise ValueError(f"Response {field} must be an array")
-    if case["operation"] != RESPONSE_OPERATION:
-        raise ValueError("Response cases must use the declared asgi-call operation")
+    expected_operation = (
+        STREAMING_RESPONSE_TRACE_OPERATION
+        if surface == STREAMING_RESPONSE_SURFACE and case.get("streaming") == "async-generator"
+        else RESPONSE_OPERATION
+    )
+    if case["operation"] != expected_operation:
+        raise ValueError("Response case must use the declared operation for its input mode")
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ValueError("Response observations must select asgi-call")
 
@@ -1815,7 +1854,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("StreamingResponse chunks must be text or base64-bytes")
             content.append(chunk)
         streaming = case["streaming"]
-        if streaming not in {"sync", "async-iterator"}:
+        if streaming not in {"sync", "async-iterator", "async-generator"}:
             raise ValueError("StreamingResponse streaming must select a supported iterator")
     elif surface == RESPONSE_SURFACE:
         if content_kind == "text":
@@ -1898,6 +1937,22 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["send"] != {"kind": "capture-asgi-send"}:
         raise ValueError("send input must select the declared ASGI message collector")
 
+    background_values: list[str] | None = None
+    if "background" in case:
+        background_spec = _strict_object(
+            case["background"], {"kind", "values"}, "Response background"
+        )
+        if background_spec["kind"] != "async-values-recorder":
+            raise ValueError("Response background must select the async values recorder")
+        values = background_spec["values"]
+        if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+            raise ValueError("Response background values must be an array of strings")
+        background_values = values
+
+    execution_trace = (
+        [] if streaming == "async-generator" or background_values is not None else None
+    )
+
     from starlette.responses import JSONResponse, Response, StreamingResponse
 
     response_type = {
@@ -1906,9 +1961,15 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         STREAMING_RESPONSE_SURFACE: StreamingResponse,
     }[surface]
     if streaming == "sync":
-        content = iter(content)
+        content = (
+            _input_sync_iterator(content, execution_trace)
+            if execution_trace is not None
+            else iter(content)
+        )
     elif streaming == "async-iterator":
-        content = _InputAsyncIterator(content)
+        content = _InputAsyncIterator(content, execution_trace)
+    elif streaming == "async-generator":
+        content = _input_async_generator(content, execution_trace)
     response_arguments: dict[str, Any] = {
         "content": content,
         "status_code": case["status_code"],
@@ -1916,6 +1977,14 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if media_type is not None:
         response_arguments["media_type"] = media_type
+    if background_values is not None:
+        from starlette.background import BackgroundTask
+
+        if execution_trace is None:
+            raise RuntimeError("background execution requires an execution trace")
+        response_arguments["background"] = BackgroundTask(
+            _record_background_values, background_values, execution_trace
+        )
     response = response_type(**response_arguments)
     scope = _make_scope(scope_spec)
     sent: list[dict[str, Any]] = []
@@ -1925,6 +1994,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
     async def send(message: dict[str, Any]) -> None:
         sent.append(message)
+        if execution_trace is not None:
+            execution_trace.append({"event": "asgi-send", "message": _canonical_message(message)})
 
     asyncio.run(response(scope, receive, send))
     events = [_canonical_message(message) for message in sent]
@@ -1953,10 +2024,14 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
     }
+    if execution_trace is not None:
+        observation["execution_trace"] = execution_trace
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [{"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}],
+        "observations": [
+            {"step_id": case["observations"][0], "status": "ok", "value": observation}
+        ],
     }
 
 

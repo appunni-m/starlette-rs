@@ -108,6 +108,7 @@ JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
 RESPONSE_SURFACES = {RESPONSE_SURFACE, JSON_RESPONSE_SURFACE}
 STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 STREAMING_RESPONSE_OPERATION = "asgi-call"
+STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 RESPONSE_OPERATION = "asgi-call"
 RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "content",
@@ -862,6 +863,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             (WEBSOCKET_SURFACE, WEBSOCKET_OPERATION),
                         }
                         or (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
+                        or (surface["id"], operation["id"])
+                        == (STREAMING_RESPONSE_SURFACE, STREAMING_RESPONSE_TRACE_OPERATION)
                         else profile_ids
                     )
                     if set(policy["target_profiles"]) != expected_parity_profiles:
@@ -1711,17 +1714,18 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
-    _exact(case, STREAMING_RESPONSE_CASE_KEYS, "StreamingResponse asgi-call case")
-    if (
-        case["surface"] != STREAMING_RESPONSE_SURFACE
-        or case["operation"] != STREAMING_RESPONSE_OPERATION
-    ):
+    case_keys = STREAMING_RESPONSE_CASE_KEYS | ({"background"} if "background" in case else set())
+    _exact(case, case_keys, "StreamingResponse asgi-call case")
+    if case["surface"] != STREAMING_RESPONSE_SURFACE or case["operation"] not in {
+        STREAMING_RESPONSE_OPERATION,
+        STREAMING_RESPONSE_TRACE_OPERATION,
+    }:
         raise ContractError("case is outside the declared StreamingResponse asgi-call operation")
     if case["observations"] != [STREAMING_RESPONSE_OPERATION]:
         raise ContractError("StreamingResponse observations must select asgi-call")
     if type(case["status_code"]) is not int or case["status_code"] != 200:
         raise ContractError("StreamingResponse status_code must be 200 for this input slice")
-    if case["streaming"] not in {"sync", "async-iterator"}:
+    if case["streaming"] not in {"sync", "async-iterator", "async-generator"}:
         raise ContractError("StreamingResponse streaming must select a declared iterator mode")
 
     content = _exact(case["content"], {"kind", "value"}, "StreamingResponse content")
@@ -1749,6 +1753,22 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     media_type = case["media_type"]
     if media_type is not None and not isinstance(media_type, str):
         raise ContractError("StreamingResponse.media_type must be a string or null")
+
+    background = case.get("background")
+    if background is not None:
+        background = _exact(
+            background,
+            {"kind", "values"},
+            "StreamingResponse background recorder",
+        )
+        if background["kind"] != "async-values-recorder":
+            raise ContractError("StreamingResponse background kind is unsupported")
+        if (
+            not isinstance(background["values"], list)
+            or not background["values"]
+            or any(not isinstance(value, str) for value in background["values"])
+        ):
+            raise ContractError("StreamingResponse background values must be non-empty strings")
 
     stimulus = (tuple(chunks), tuple(tuple(pair) for pair in headers), media_type)
     allowed_sync = {
@@ -1782,14 +1802,45 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         (),
         "text/plain",
     )
+    async_generator_stimulus = (
+        (
+            ("text", "1"),
+            ("text", ", "),
+            ("text", "2"),
+            ("text", ", "),
+            ("text", "3"),
+            ("text", ", "),
+            ("text", "4"),
+            ("text", ", "),
+            ("text", "5"),
+        ),
+        (),
+        "text/plain",
+    )
     if case["streaming"] == "sync":
-        if stimulus not in allowed_sync:
+        if stimulus not in allowed_sync or background is not None:
             raise ContractError("StreamingResponse chunks and headers are outside this input slice")
-    elif stimulus != async_iterator_stimulus or case["target_profiles"] != [
-        "python-package-cpython312"
-    ]:
+    elif case["streaming"] == "async-iterator":
+        if (
+            stimulus != async_iterator_stimulus
+            or background is not None
+            or case["target_profiles"] != ["python-package-cpython312"]
+        ):
+            raise ContractError(
+                "StreamingResponse async-iterator input is limited to its declared Python-package case"
+            )
+    elif (
+        stimulus != async_generator_stimulus
+        or background is None
+        or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
+        or case["target_profiles"] != ["python-package-cpython312"]
+    ):
         raise ContractError(
-            "StreamingResponse async-iterator input is limited to its declared Python-package case"
+            "StreamingResponse async-generator/background input is limited to its declared Python-package case"
+        )
+    if case["streaming"] != "async-generator" and case["operation"] != STREAMING_RESPONSE_OPERATION:
+        raise ContractError(
+            "StreamingResponse execution-trace operation requires an async generator"
         )
     if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
         raise ContractError("StreamingResponse asgi-call uses empty receive and captured send")
@@ -2455,7 +2506,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     is_streaming_response = (
         isinstance(case, dict)
         and case.get("surface") == STREAMING_RESPONSE_SURFACE
-        and case.get("operation") == STREAMING_RESPONSE_OPERATION
+        and case.get("operation")
+        in {STREAMING_RESPONSE_OPERATION, STREAMING_RESPONSE_TRACE_OPERATION}
     )
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
@@ -2476,6 +2528,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_streaming_response
         else CASE_KEYS
     )
+    if is_streaming_response and "background" in case:
+        expected_case_keys = expected_case_keys | {"background"}
     _exact(case, expected_case_keys, "case")
     case_id = _string(case["case_id"], "case.case_id")
     is_gzip = case["surface"] == GZIP_SURFACE
@@ -2503,8 +2557,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if case["operation"] != RESPONSE_OPERATION:
             raise ContractError("Response cases must use the declared asgi-call operation")
     elif is_streaming_response:
-        if case["operation"] != STREAMING_RESPONSE_OPERATION:
-            raise ContractError("StreamingResponse cases must use the declared asgi-call operation")
+        if case["operation"] not in {
+            STREAMING_RESPONSE_OPERATION,
+            STREAMING_RESPONSE_TRACE_OPERATION,
+        }:
+            raise ContractError("StreamingResponse cases must use a declared ASGI-call operation")
     elif is_gzip:
         if case["operation"] != "__call__":
             raise ContractError("GZipMiddleware parity cases must call its public ASGI interface")
@@ -2515,7 +2572,13 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError(
             "only the declared Starlette and WebSocket protocol profiles are in scope"
         )
-    if not case_id.startswith(f"{case['surface']}.{case['operation']}.") or case["assets"] != []:
+    identity_operation = (
+        STREAMING_RESPONSE_OPERATION
+        if (case["surface"], case["operation"])
+        == (STREAMING_RESPONSE_SURFACE, STREAMING_RESPONSE_TRACE_OPERATION)
+        else case["operation"]
+    )
+    if not case_id.startswith(f"{case['surface']}.{identity_operation}.") or case["assets"] != []:
         raise ContractError(
             "case ID must bind to the declared surface and this slice has no assets"
         )

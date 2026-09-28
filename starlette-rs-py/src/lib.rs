@@ -1,10 +1,14 @@
 //! Python boundary for the first Starlette compatibility slice.
 //!
 //! The extension delegates route matching, response construction, cookie
-//! generation, response event construction, and lifespan state transitions to
-//! `starlette-rs`. Python remains responsible for invoking Python endpoints,
-//! running user async context managers on the active event loop, and awaiting
-//! ASGI `send` callbacks.
+//! generation, response event sequencing, and lifespan state transitions to
+//! `starlette-rs`. Python owns user callables and the active event loop; Rust
+//! continuations invoke and await callbacks through that loop without creating
+//! a second executor or event loop.
+
+mod awaitable;
+mod background;
+mod runtime_calls;
 
 use pyo3::exceptions::PyKeyError;
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
@@ -18,9 +22,8 @@ use starlette_rs::{
     QueryParams as NativeQueryParams, RequestBodyAccumulator as NativeRequestBodyAccumulator,
     RequestBodyError, RequestHeaders as NativeRequestHeaders, Response, ResponseError,
     ResponseEvent, RouteTable, ServerErrorPlan, ServerErrorPolicy as NativeServerErrorPolicy,
-    ServerErrorState as NativeServerErrorState, StreamingResponse as NativeStreamingResponse,
-    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope,
-    connection_url as native_connection_url, parse_cookie_header,
+    ServerErrorState as NativeServerErrorState, WebSocketState, WebSocketStateMachine,
+    classify_scope, connection_url as native_connection_url, parse_cookie_header,
 };
 
 type RouteDecision = (
@@ -59,34 +62,6 @@ struct PyWebSocketStateMachine {
 }
 
 type PyDebugTracebackFrame = (String, usize, String, Vec<String>, usize);
-
-fn streaming_response_event_to_py<'py>(
-    py: Python<'py>,
-    event: StreamingResponseEvent,
-) -> PyResult<Bound<'py, PyDict>> {
-    let message = PyDict::new(py);
-    match event {
-        StreamingResponseEvent::Start {
-            status_code,
-            headers,
-        } => {
-            message.set_item("type", "http.response.start")?;
-            message.set_item("status", status_code)?;
-            let python_headers = PyList::empty(py);
-            for (name, value) in headers {
-                let pair = PyTuple::new(py, [PyBytes::new(py, &name), PyBytes::new(py, &value)])?;
-                python_headers.append(pair)?;
-            }
-            message.set_item("headers", python_headers)?;
-        }
-        StreamingResponseEvent::Body { body, more_body } => {
-            message.set_item("type", "http.response.body")?;
-            message.set_item("body", PyBytes::new(py, &body))?;
-            message.set_item("more_body", more_body)?;
-        }
-    }
-    Ok(message)
-}
 
 #[pymethods]
 impl PyExceptionHandlerTable {
@@ -531,19 +506,15 @@ struct PyResponse {
     inner: Response,
 }
 
-#[pyclass(name = "StreamingResponse")]
-struct PyStreamingResponse {
-    inner: NativeStreamingResponse,
-}
-
 #[pymethods]
 impl PyResponse {
     #[new]
     #[pyo3(signature = (content=None, status_code=200, headers=None, media_type=None))]
     fn new(
+        py: Python<'_>,
         content: Option<Bound<'_, PyAny>>,
         status_code: u16,
-        headers: Option<Vec<(String, String)>>,
+        headers: Option<Py<PyAny>>,
         media_type: Option<String>,
     ) -> PyResult<Self> {
         let body = render_content(content.as_ref())?;
@@ -551,7 +522,7 @@ impl PyResponse {
             status_code,
             body,
             media_type.as_deref(),
-            headers.unwrap_or_default(),
+            runtime_calls::header_pairs(py, headers)?,
         )
         .map_err(response_error)?;
         Ok(Self { inner })
@@ -561,13 +532,61 @@ impl PyResponse {
     #[staticmethod]
     #[pyo3(signature = (url, status_code=307, headers=None))]
     fn redirect(
+        py: Python<'_>,
         url: String,
         status_code: u16,
-        headers: Option<Vec<(String, String)>>,
+        headers: Option<Py<PyAny>>,
     ) -> PyResult<Self> {
-        let inner = Response::redirect(&url, status_code, &headers.unwrap_or_default())
-            .map_err(response_error)?;
+        let inner = Response::redirect(
+            &url,
+            status_code,
+            &runtime_calls::header_pairs(py, headers)?,
+        )
+        .map_err(response_error)?;
         Ok(Self { inner })
+    }
+
+    #[staticmethod]
+    #[pyo3(signature = (content, status_code=200, headers=None, media_type=None))]
+    fn json(
+        py: Python<'_>,
+        content: Vec<u8>,
+        status_code: u16,
+        headers: Option<Py<PyAny>>,
+        media_type: Option<String>,
+    ) -> PyResult<Self> {
+        let inner = Response::from_content(
+            status_code,
+            content,
+            Some(media_type.as_deref().unwrap_or("application/json")),
+            runtime_calls::header_pairs(py, headers)?,
+        )
+        .map_err(response_error)?;
+        Ok(Self { inner })
+    }
+
+    #[staticmethod]
+    fn render_json(py: Python<'_>, content: Py<PyAny>) -> PyResult<Vec<u8>> {
+        let options = PyDict::new(py);
+        options.set_item("ensure_ascii", false)?;
+        options.set_item("allow_nan", false)?;
+        options.set_item("separators", PyTuple::new(py, [",", ":"])?)?;
+        py.import("json")?
+            .getattr("dumps")?
+            .call((content,), Some(&options))?
+            .call_method1("encode", ("utf-8",))?
+            .extract::<Vec<u8>>()
+    }
+
+    fn asgi_call(
+        &self,
+        py: Python<'_>,
+        scope: &Bound<'_, PyDict>,
+        receive: Py<PyAny>,
+        send: Py<PyAny>,
+        background: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        runtime_calls::response_call(py, &self.inner, scope, receive, send, background)
     }
 
     fn set_cookie(&mut self, key: &str, value: &str) -> PyResult<()> {
@@ -601,54 +620,6 @@ impl PyResponse {
             messages.append(message)?;
         }
         Ok(messages)
-    }
-}
-
-#[pymethods]
-impl PyStreamingResponse {
-    #[new]
-    #[pyo3(signature = (chunks, status_code=200, headers=None, media_type=None))]
-    fn new(
-        chunks: Vec<Vec<u8>>,
-        status_code: u16,
-        headers: Option<Vec<(String, String)>>,
-        media_type: Option<String>,
-    ) -> PyResult<Self> {
-        let inner = NativeStreamingResponse::from_chunks(
-            status_code,
-            chunks,
-            media_type.as_deref(),
-            headers.unwrap_or_default(),
-        )
-        .map_err(response_error)?;
-        Ok(Self { inner })
-    }
-
-    fn asgi_messages<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
-        let messages = PyList::empty(py);
-        for event in self.inner.asgi_events() {
-            messages.append(streaming_response_event_to_py(py, event)?)?;
-        }
-        Ok(messages)
-    }
-
-    fn start_message<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        streaming_response_event_to_py(py, self.inner.start_event())
-    }
-
-    #[staticmethod]
-    fn body_message<'py>(
-        py: Python<'py>,
-        body: Vec<u8>,
-        more_body: bool,
-    ) -> PyResult<Bound<'py, PyDict>> {
-        let event = NativeStreamingResponse::body_event(body, more_body);
-        streaming_response_event_to_py(py, event)
-    }
-
-    #[staticmethod]
-    fn final_message<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        streaming_response_event_to_py(py, NativeStreamingResponse::final_event())
     }
 }
 
@@ -887,7 +858,8 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCookies>()?;
     module.add_class::<PyRequestBodyAccumulator>()?;
     module.add_class::<PyResponse>()?;
-    module.add_class::<PyStreamingResponse>()?;
+    runtime_calls::register(module)?;
+    background::register(module)?;
     module.add_class::<PyLifespanState>()?;
     module.add_class::<PyGzipConfig>()?;
     module.add_class::<PyGzipResponder>()?;
