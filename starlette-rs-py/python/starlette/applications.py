@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import URLPath
 from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
 from starlette.middleware.errors import ServerErrorMiddleware
@@ -73,6 +74,9 @@ class Starlette:
             class_bindings,
         )
         self.middleware_stack: Callable[..., Any] | None = None
+
+    def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
+        return self.router.url_path_for(name, **path_params)
 
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]

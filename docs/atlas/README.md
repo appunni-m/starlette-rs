@@ -25,21 +25,20 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The active parity manifest indexes 51 input-only cases
-across ten files: ten request/routing cases, three direct ASGI cases, eight
-GZip cases, six full WebSocket protocol-tape cases, six projected WebSocket
-state cases, five Request-style HTTPException cases, two callable-ASGI
-HTTPException cases, two registered-handler cases, and nine server-error
-cases. Full protocol tapes and route dispatch select the Python-package
-profile; projected state cases select both Rust-native and Python-package
-profiles. Run `480437e5-e1f4-4e25-91a5-1453ba82ea69`, finished at
-`2026-09-28T05:59:25.632Z`, selected 76 comparisons: 72 passed, zero failed,
-four Rust-native callable rows were `not_run`, and there were zero
-infrastructure errors. All 51 Python-package cases passed; Rust-native passed
-21 of 25 selected cases. The four `not_run` rows remain unsupported
-Python-callable boundaries. All 21 selected WebSocket comparisons passed: six
-protocol tapes and three route cases on the Python package, plus six projected
-state cases across both targets. The four native `not_run` rows cause `run` to
+active and incomplete. The active parity manifest indexes 95 input-only cases
+across 14 files: 33 request/routing cases, 21 reverse-URL cases, three direct
+ASGI cases, eight GZip cases, six full WebSocket protocol-tape cases, six
+projected WebSocket state cases, five Request-style HTTPException cases, two
+callable-ASGI HTTPException cases, two registered-handler cases, and nine
+server-error cases. Reverse-URL and route-dispatch cases select the
+Python-package profile; projected state cases select both Rust-native and
+Python-package profiles. Run `bf0c58d3-7f49-4d49-af44-33b58dfee7ab`, finished
+at `2026-09-28T08:21:52.500Z`, selected 136 comparisons: 130 passed, zero
+failed, six Rust-native rows were `not_run`, and there were zero
+infrastructure errors. All 95 Python-package cases passed; Rust-native passed
+35 of 41 selected cases. The six `not_run` rows are unsupported
+Python-callable and Mount boundaries. All 21 reverse-URL and all 21 selected
+WebSocket comparisons passed. The six native `not_run` rows cause `run` to
 exit with status 2, so the all-target gate remains incomplete. Target
 identities were dirty local trees; this run is not clean aggregate or release
 proof. The server-error inputs verify default and registered 500 handling,
@@ -118,8 +117,8 @@ selector. A related route or response example is not enough to claim coverage
 for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
-and observes it. The checked-in generated `coverage-matrix.csv` has 784 rows:
-16 `existing` mappings, 718 `backlog` rows, and 50 reasoned `not_applicable`
+and observes it. The checked-in generated `coverage-matrix.csv` has 787 rows:
+19 `existing` mappings, 718 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -161,8 +160,8 @@ and input-only fixture paths. It writes `api-review.csv`,
 For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 514 `supported`, 286
-`private/internal`, and 199 `uncertain` candidates. The coverage matrix has 784
-source mappings: 16 existing input mappings, 50 reasoned `not_applicable`
+`private/internal`, and 199 `uncertain` candidates. The coverage matrix has 787
+source mappings: 19 existing input mappings, 50 reasoned `not_applicable`
 entries, and 718 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.

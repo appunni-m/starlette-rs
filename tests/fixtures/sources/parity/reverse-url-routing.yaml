@@ -1,0 +1,776 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Route.url_path_for.static-route",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.static-path"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/",
+        "name": "homepage",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "homepage",
+        "path_params": {}
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.str-converter",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.str-converter"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/users/{username:str}",
+        "name": "user",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "user",
+        "path_params": {
+          "username": "ada"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.int-converter",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.int-converter"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/items/{item_id:int}",
+        "name": "item",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "item",
+        "path_params": {
+          "item_id": 7
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.float-converter",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.float-converter"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/price/{amount:float}",
+        "name": "price",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "price",
+        "path_params": {
+          "amount": 25.5
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.path-converter",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.path-converter"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/assets/{file_path:path}",
+        "name": "asset",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "asset",
+        "path_params": {
+          "file_path": "css/base.css"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.uuid-converter",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.uuid-converter"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/objects/{object_id:uuid}",
+        "name": "object",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "object",
+        "path_params": {
+          "object_id": "ec38df32-ceda-4cfa-9b4a-1aeb94ad551a"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.parameter-mismatch",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.parameter-mismatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/users/{username}",
+        "name": "user",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "user",
+        "path_params": {}
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.str-converter-error",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.converter-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/users/{username:str}",
+        "name": "user",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "user",
+        "path_params": {
+          "username": "ada/lovelace"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.custom-str-override",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.custom-converter-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/custom/{slug:str}",
+        "name": "custom",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "custom",
+        "path_params": {
+          "slug": "MiXeD"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [
+        {
+          "name": "str",
+          "regex": "[A-Za-z]+",
+          "lowercase": true,
+          "lowercase_to_string": true
+        }
+      ],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.WebSocketRoute.url_path_for.websocket-protocol",
+      "surface": "starlette.routing.WebSocketRoute",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.WebSocketRoute.url_path_for.protocol"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "websocket-route",
+        "path": "/ws/{room:str}",
+        "name": "websocket-room",
+        "observer": null
+      },
+      "lookup": {
+        "name": "websocket-room",
+        "path_params": {
+          "room": "blue"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.first-success",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.first-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/users/{username:str}",
+            "name": "member",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/objects/{object_id:int}",
+            "name": "member",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "member",
+        "path_params": {
+          "object_id": 7
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.mismatch",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.mismatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "name": "homepage",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "missing",
+        "path_params": {}
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Mount.url_path_for.direct-path",
+      "surface": "starlette.routing.Mount",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Mount.url_path_for.direct-path"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "mount",
+        "path": "/static",
+        "name": "static",
+        "routes": []
+      },
+      "lookup": {
+        "name": "static",
+        "path_params": {
+          "path": "/css/base.css"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Mount.url_path_for.nested-route",
+      "surface": "starlette.routing.Mount",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Mount.url_path_for.nested-route"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "mount",
+        "path": "/{tenant:str}/api",
+        "name": "api",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/users/{user_id:int}",
+            "name": "user",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "api:user",
+        "path_params": {
+          "tenant": "acme",
+          "user_id": 7
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Mount.url_path_for.double-mount",
+      "surface": "starlette.routing.Mount",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Mount.url_path_for.double-mount"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "mount",
+        "path": "/edge",
+        "name": "edge",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/v2",
+            "name": "v2",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/items/{item_id:int}",
+                "name": "item",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "edge:v2:item",
+        "path_params": {
+          "item_id": 42
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Mount.url_path_for.missing-path",
+      "surface": "starlette.routing.Mount",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Mount.url_path_for.mismatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "mount",
+        "path": "/static",
+        "name": "static",
+        "routes": []
+      },
+      "lookup": {
+        "name": "static",
+        "path_params": {}
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.url_for.mounted-app-root-path",
+      "surface": "starlette.requests.Request",
+      "operation": "url_for",
+      "covers": [
+        "starlette.requests.Request.url_for.mount-app-root-path"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/submount",
+            "name": "mount",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/probe",
+                "name": "probe",
+                "methods": [
+                  "GET"
+                ],
+                "observer": "request-url-for"
+              },
+              {
+                "kind": "http-route",
+                "path": "/users/{user_id:int}",
+                "name": "user",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "mount:user",
+        "path_params": {
+          "user_id": 7
+        }
+      },
+      "request_scope": {
+        "provider": "dispatch",
+        "type": "http",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/edge/submount/probe",
+        "root_path": "/edge",
+        "app_root_path": null,
+        "server": [
+          "www.example.org",
+          443
+        ]
+      },
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.url_for.router-provider",
+      "surface": "starlette.requests.Request",
+      "operation": "url_for",
+      "covers": [
+        "starlette.requests.Request.url_for.router-provider"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/home",
+            "name": "homepage",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "homepage",
+        "path_params": {}
+      },
+      "request_scope": {
+        "provider": "router",
+        "type": "http",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "root_path": "",
+        "app_root_path": null,
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.url_for.app-provider",
+      "surface": "starlette.requests.Request",
+      "operation": "url_for",
+      "covers": [
+        "starlette.requests.Request.url_for.app-provider"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "starlette-app",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/home",
+            "name": "homepage",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "homepage",
+        "path_params": {}
+      },
+      "request_scope": {
+        "provider": "app",
+        "type": "http",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/outside/home",
+        "root_path": "/outside",
+        "app_root_path": "/outside",
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.url_for.missing-context",
+      "surface": "starlette.requests.Request",
+      "operation": "url_for",
+      "covers": [
+        "starlette.requests.Request.url_for.missing-context"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": null,
+      "lookup": {
+        "name": "homepage",
+        "path_params": {}
+      },
+      "request_scope": {
+        "provider": "none",
+        "type": "http",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "root_path": "",
+        "app_root_path": null,
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.url_path_for.forwarder",
+      "surface": "starlette.applications.Starlette",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.applications.Starlette.url_path_for.forwarder"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "starlette-app",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/func",
+            "name": "func_homepage",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "func_homepage",
+        "path_params": {}
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    }
+  ]
+}

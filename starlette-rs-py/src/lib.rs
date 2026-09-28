@@ -193,6 +193,28 @@ impl PyRouteTable {
                 .matches_detailed_with_root_path(path, root_path, method),
         )
     }
+
+    /// Builds one route's path from converter-formatted parameters.
+    fn build_path(
+        &self,
+        route_index: usize,
+        path_params: Vec<(String, String)>,
+    ) -> PyResult<String> {
+        self.inner
+            .build_path(route_index, &path_params)
+            .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+
+    /// Partially builds one route's path and returns parameters for a child route.
+    fn build_path_partial(
+        &self,
+        route_index: usize,
+        path_params: Vec<(String, String)>,
+    ) -> PyResult<(String, Vec<(String, String)>)> {
+        self.inner
+            .build_path_partial(route_index, &path_params)
+            .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
 }
 
 fn route_decision(py: Python<'_>, route_match: DetailedRouteMatch) -> PyResult<RouteDecision> {

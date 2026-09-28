@@ -247,7 +247,8 @@
       "build/parity/inputs/parity/websocket-state-sequence.json",
       "build/parity/inputs/parity/router-converter-dispatch.json",
       "build/parity/inputs/parity/request-path-param-types.json",
-      "build/parity/inputs/parity/mount-route-dispatch.json"
+      "build/parity/inputs/parity/mount-route-dispatch.json",
+      "build/parity/inputs/parity/reverse-url-routing.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -1329,7 +1330,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -1352,6 +1353,121 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Request semantic observations are outside the direct GET /hello smoke benchmark."
+          }
+        },
+        {
+          "id": "url_path_for",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.applications.Starlette.url_path_for",
+            "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "name",
+                "style": "positional",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "path_params",
+                "style": "variadic_keyword",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": {}
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "reverse-url",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not declare the Python Starlette URL forwarding method.",
+                "blocker": "No Rust-native Starlette application url_path_for interface is exposed for this compatibility operation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.applications.Starlette.url_path_for",
+              "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.applications.Starlette.url_path_for.forwarder",
+              "dimension": "success_path",
+              "description": "Starlette.url_path_for forwards the named lookup to its configured Router. Upstream: tests/test_applications.py::test_url_path_for.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded contract adds input-only parity evidence; it makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
           }
         }
       ]
@@ -2318,6 +2434,121 @@
             "applicability": "not_applicable",
             "reason": "This input-only route-dispatch slice does not declare a benchmark workload."
           }
+        },
+        {
+          "id": "url_path_for",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.WebSocketRoute.url_path_for",
+            "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "name",
+                "style": "positional",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "path_params",
+                "style": "variadic_keyword",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": {}
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "reverse-url",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not declare the Python named URL lookup interface.",
+                "blocker": "No Rust-native named Route/Router/Mount reverse lookup API is exposed for this compatibility operation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.WebSocketRoute.url_path_for",
+              "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.WebSocketRoute.url_path_for.protocol",
+              "dimension": "protocol_variant",
+              "description": "Generated WebSocketRoute URLPath identifies the websocket protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded contract adds input-only parity evidence; it makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
+          }
         }
       ]
     },
@@ -2618,6 +2849,132 @@
             "applicability": "not_applicable",
             "reason": "This input-only route-selection slice declares no benchmark workload."
           }
+        },
+        {
+          "id": "url_path_for",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Router.url_path_for",
+            "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "name",
+                "style": "positional",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "path_params",
+                "style": "variadic_keyword",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": {}
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "reverse-url",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not declare the Python named URL lookup interface.",
+                "blocker": "No Rust-native named Route/Router/Mount reverse lookup API is exposed for this compatibility operation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Router.url_path_for",
+              "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Router.url_path_for.first-success",
+              "dimension": "success_path",
+              "description": "Router skips earlier NoMatchFound results and returns the first later matching route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.url_path_for.mismatch",
+              "dimension": "error_path",
+              "description": "Router raises NoMatchFound when every route rejects the requested name or parameter set.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded contract adds input-only parity evidence; it makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
+          }
         }
       ]
     },
@@ -2822,6 +3179,521 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only Mount slice declares no benchmark workload."
+          }
+        },
+        {
+          "id": "url_path_for",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Mount.url_path_for",
+            "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "name",
+                "style": "positional",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "path_params",
+                "style": "variadic_keyword",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": {}
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "reverse-url",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not declare the Python named URL lookup interface.",
+                "blocker": "No Rust-native named Route/Router/Mount reverse lookup API is exposed for this compatibility operation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Mount.url_path_for",
+              "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Mount.url_path_for.direct-path",
+              "dimension": "success_path",
+              "description": "A named Mount accepts its path keyword and strips its leading slash before prefixing.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.url_path_for.nested-route",
+              "dimension": "success_path",
+              "description": "A namespaced Mount child lookup combines mount and child path parameters.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.url_path_for.double-mount",
+              "dimension": "parameter_combination",
+              "description": "A namespaced lookup composes two nested Mount prefixes and passes parameters to the leaf route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.url_path_for.mismatch",
+              "dimension": "error_path",
+              "description": "A missing path or extra parameter on direct Mount lookup raises NoMatchFound.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded contract adds input-only parity evidence; it makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.routing.Route",
+      "kind": "type",
+      "source_path": "starlette/routing.py:197",
+      "storage_slug": "routing-route",
+      "operations": [
+        {
+          "id": "url_path_for",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Route.url_path_for",
+            "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "name",
+                "style": "positional",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "path_params",
+                "style": "variadic_keyword",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": {}
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "reverse-url",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not declare the Python named URL lookup interface.",
+                "blocker": "No Rust-native named Route/Router/Mount reverse lookup API is exposed for this compatibility operation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Route.url_path_for",
+              "signature": "url_path_for(self, name, /, **path_params) -> URLPath",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Route.url_path_for.static-path",
+              "dimension": "success_path",
+              "description": "Generate a named static route URLPath with no path parameters.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.url_path_for.str-converter",
+              "dimension": "input_family",
+              "description": "Interpolate a non-empty slash-free value using the built-in string converter.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.url_path_for.int-converter",
+              "dimension": "input_family",
+              "description": "Interpolate an integer through the built-in decimal integer converter.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.url_path_for.float-converter",
+              "dimension": "input_family",
+              "description": "Interpolate a finite non-negative float using the built-in float formatter.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.url_path_for.path-converter",
+              "dimension": "input_family",
+              "description": "Interpolate a multi-segment suffix using the path converter.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.url_path_for.uuid-converter",
+              "dimension": "input_family",
+              "description": "Interpolate a UUID value using the built-in UUID converter.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.url_path_for.parameter-mismatch",
+              "dimension": "error_path",
+              "description": "A wrong route name or non-exact path parameter key set raises NoMatchFound.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.url_path_for.converter-error",
+              "dimension": "error_path",
+              "description": "A built-in string converter rejects slash-containing reverse values with AssertionError.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.url_path_for.custom-converter-override",
+              "dimension": "boundary",
+              "description": "A Python-registered converter overriding str supplies its own regex and to_string behavior.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded contract adds input-only parity evidence; it makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.requests.Request",
+      "kind": "type",
+      "source_path": "starlette/requests.py:214",
+      "storage_slug": "requests-request",
+      "operations": [
+        {
+          "id": "url_for",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.Request.url_for",
+            "signature": "url_for(self, name, /, **path_params) -> URL",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "name",
+                "style": "positional",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "path_params",
+                "style": "variadic_keyword",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": {}
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "reverse-url",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not declare the Python named URL lookup interface.",
+                "blocker": "No Rust-native named Route/Router/Mount reverse lookup API is exposed for this compatibility operation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.url_for",
+              "signature": "url_for(self, name, /, **path_params) -> URL",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.requests.Request.url_for.mount-app-root-path",
+              "dimension": "boundary",
+              "description": "An ASGI Request inside a Mount keeps the top-level app_root_path while adding the child mount prefix.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.requests.Request.url_for.router-provider",
+              "dimension": "boundary",
+              "description": "Request.url_for uses scope.router when present.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.requests.Request.url_for.app-provider",
+              "dimension": "boundary",
+              "description": "Request.url_for falls back to scope.app when scope.router is absent.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.requests.Request.url_for.missing-context",
+              "dimension": "error_path",
+              "description": "Request.url_for raises RuntimeError when neither router nor app is present in scope.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded contract adds input-only parity evidence; it makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
           }
         }
       ]

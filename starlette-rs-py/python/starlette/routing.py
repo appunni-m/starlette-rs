@@ -15,7 +15,7 @@ from starlette_rs_py import _core
 
 from starlette.concurrency import run_in_threadpool
 from starlette.convertors import _BUILTIN_CONVERTOR_TYPES, CONVERTOR_TYPES, Convertor
-from starlette.datastructures import URL
+from starlette.datastructures import URL, URLPath
 from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
 from starlette.requests import Request
@@ -175,6 +175,44 @@ def _convert_rust_match(
     return converted
 
 
+def _format_path_params(
+    route: BaseRoute, path_params: dict[str, Any], *, partial: bool = False
+) -> tuple[str, dict[str, Any]]:
+    """Format already selected path parameters through Rust or custom callbacks."""
+
+    remaining = dict(path_params)
+    if route._route_table is not None:
+        if partial:
+            formatted: list[tuple[str, str]] = []
+            path = route.path_format
+            consumed: set[str] = set()
+            for name, value in path_params.items():
+                placeholder = "{" + name + "}"
+                if placeholder in path:
+                    value = route.param_convertors[name].to_string(value)
+                    formatted.append((name, value))
+                    path = path.replace(placeholder, value)
+                    consumed.add(name)
+            path, _unmatched = route._route_table.build_path_partial(0, formatted)
+            remaining = {name: value for name, value in path_params.items() if name not in consumed}
+            return path, remaining
+
+        formatted = [
+            (name, route.param_convertors[name].to_string(value))
+            for name, value in path_params.items()
+        ]
+        return route._route_table.build_path(0, formatted), {}
+
+    path = route.path_format
+    for name, value in list(remaining.items()):
+        placeholder = "{" + name + "}"
+        if placeholder in path:
+            value = route.param_convertors[name].to_string(value)
+            path = path.replace(placeholder, value)
+            remaining.pop(name)
+    return path, remaining
+
+
 def _is_async_callable(endpoint: Callable[..., Any]) -> bool:
     """Match Starlette's async-callable detection, including partials."""
 
@@ -244,6 +282,9 @@ class BaseRoute:
     _uses_custom_convertors: bool
 
     def matches(self, scope: dict[str, Any]) -> tuple[Match, dict[str, Any]]:
+        raise NotImplementedError()  # pragma: no cover
+
+    def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
         raise NotImplementedError()  # pragma: no cover
 
     async def handle(
@@ -362,6 +403,13 @@ class Route(BaseRoute):
             return
         await self.app(scope, receive, send)
 
+    def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
+        if name != self.name or set(path_params) != set(self.param_convertors):
+            raise NoMatchFound(name, path_params)
+        path, remaining = _format_path_params(self, path_params)
+        assert not remaining
+        return URLPath(path=path, protocol="http")
+
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, Route)
@@ -448,6 +496,13 @@ class WebSocketRoute(BaseRoute):
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await self.app(scope, receive, send)
+
+    def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
+        if name != self.name or set(path_params) != set(self.param_convertors):
+            raise NoMatchFound(name, path_params)
+        path, remaining = _format_path_params(self, path_params)
+        assert not remaining
+        return URLPath(path=path, protocol="websocket")
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -544,6 +599,32 @@ class Mount(BaseRoute):
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await self.app(scope, receive, send)
+
+    def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
+        path_params = dict(path_params)
+        if self.name is not None and name == self.name and "path" in path_params:
+            path_params["path"] = path_params["path"].lstrip("/")
+            path, path_params = _format_path_params(self, path_params, partial=True)
+            if not path_params:
+                return URLPath(path=path)
+        elif self.name is None or name.startswith(self.name + ":"):
+            remaining_name = name if self.name is None else name[len(self.name) + 1 :]
+            path_kwarg = path_params.get("path")
+            path_params["path"] = ""
+            path_prefix, remaining_params = _format_path_params(self, path_params, partial=True)
+            if path_kwarg is not None:
+                remaining_params["path"] = path_kwarg
+            path_params = remaining_params
+            for route in self.routes or []:
+                try:
+                    url = route.url_path_for(remaining_name, **remaining_params)
+                    return URLPath(
+                        path=path_prefix.rstrip("/") + str(url),
+                        protocol=url.protocol,
+                    )
+                except NoMatchFound:
+                    pass
+        raise NoMatchFound(name, path_params)
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, Mount) and self.path == other.path and self.app == other.app
@@ -727,6 +808,14 @@ class Router:
             raise HTTPException(status_code=404)
         else:
             await PlainTextResponse("Not Found", status_code=404)(scope, receive, send)
+
+    def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
+        for route in self.routes:
+            try:
+                return route.url_path_for(name, **path_params)
+            except NoMatchFound:
+                pass
+        raise NoMatchFound(name, path_params)
 
     def mount(self, path: str, app: Callable[..., Any], name: str | None = None) -> None:
         route = Mount(path, app=app, name=name)

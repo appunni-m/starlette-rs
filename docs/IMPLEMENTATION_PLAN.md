@@ -22,9 +22,9 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 74 input-only cases and 78 requirements across
-13 source files. The latest full run is recorded below; its six unsupported
-Rust-native rows keep the all-target gate incomplete.
+The current parity contract has 95 input-only cases and 99 parity requirements
+across 14 indexed files. The latest full run is recorded below; its six
+unsupported Rust-native rows keep the all-target gate incomplete.
 
 ## 1. Decide the Python/Rust boundary
 
@@ -96,19 +96,31 @@ integer conversion limit. Two Mount cases compare child-scope extension and
 mount misses. Rust-native runs the built-in Router projection; it marks the
 Mount cases and four Python-callable Request endpoint shapes unsupported.
 
-The integrated full run `990d1a3d-8f50-4512-af90-311bae9b15e9`, finished at
-`2026-09-28T07:24:11.251Z`, selected 115 comparisons: 109 passed, zero failed,
-zero infrastructure errors, and six `not_run`. All 74 package comparisons
+The integrated full run `bf0c58d3-7f49-4d49-af44-33b58dfee7ab`, finished at
+`2026-09-28T08:21:52.500Z`, selected 136 comparisons: 130 passed, zero failed,
+zero infrastructure errors, and six `not_run`. All 95 package comparisons
 and 35 of 41 Rust-native comparisons passed. Its manifest SHA-256 is
-`b428c4608a4578bbafc847be89de61def130bf92f462cbe36fefe972d29706e5`; the
+`bd825c4795ed7edee4fd6dc05dcb7597ced1cfac1a4389acc5fb080b9b4ed5ec`; the
 target wheel SHA-256 is
-`54b69db249fdc173bd29ccbb6de8f761c8e4b759f102cca2e048daa2022b7767`. The
-result is local evidence from a dirty tree, not an all-target or release pass.
-Reverse URL generation (`Router`/`Route`/`Mount.url_path_for` and
-`Request.url_for`) and Rust custom converter registration remain open.
-Trailing-slash redirects and route/router/mount-local middleware are present in
-the Python compatibility layer but are not yet covered by input-only parity
-cases.
+`2411ef8d6d7f21a872e4ef35e1e5abf15094805f8aee27e49c2cb0b84849e977`. The
+result is local evidence from dirty trees, not an all-target or release pass.
+The 21-case reverse URL slice now covers the named Python route surfaces and
+`Request.url_for`; the Rust-native named Route/Router API and Rust custom
+converter registration remain open. Trailing-slash redirects and
+route/router/mount-local middleware are present in the Python compatibility
+layer but are not yet covered by input-only parity cases.
+
+### Completed bounded goal: reverse URL generation
+
+The input-only `reverse-url-routing.yaml` slice covers `Route`,
+`WebSocketRoute`, `Router`, `Mount`, `Starlette`, and `Request` URL generation.
+It exercises built-in converter formatting and errors, a Python custom
+converter override, first-success router selection, direct and nested mounts,
+`app_root_path`, provider fallback, missing context, and the top-level
+application forwarder. All 21 source/package comparisons passed. Rust owns the
+built-in path substitution primitive used by the Python package; the
+Rust-native named URL API is still unimplemented and is excluded from these
+comparisons.
 
 ### Completed bounded goal: run HTTP inside an active lifespan
 
@@ -125,12 +137,12 @@ cancellation, or full-scope parity.
 The bounded sync-callable, ASGI-callable, exception-handler, and server-error
 application cases in section 6 pass source/package parity. Six Rust-native
 observations remain explicitly `not_run`; the full Starlette replacement is
-still incomplete. Later work includes reverse URL generation, broader
-HTTP/WebSocket connection and request-body behavior, streaming, direct
-`ServerErrorMiddleware` call-boundary parity, WebSocket exception handlers,
-remaining TestClient exception-propagation modes, arbitrary middleware
-ordering, middleware composition, authentication, background tasks, and
-concurrency.
+still incomplete. Later work includes broader HTTP/WebSocket connection and
+request-body behavior, streaming, trailing-slash redirects, route-local
+middleware, Host reverse lookup, direct `ServerErrorMiddleware` call-boundary
+parity, WebSocket exception handlers, remaining TestClient
+exception-propagation modes, arbitrary middleware ordering, middleware
+composition, authentication, background tasks, and concurrency.
 
 ## 4. Optional and edge features
 

@@ -61,6 +61,7 @@ class HTTPConnection(Mapping[str, Any]):
         "_query_params",
         "_cookies",
         "_url",
+        "_base_url",
         "_state",
     )
 
@@ -73,6 +74,7 @@ class HTTPConnection(Mapping[str, Any]):
         self._query_params: Any = None
         self._cookies: Any = None
         self._url: URL | None = None
+        self._base_url: URL | None = None
         self._state: State | None = None
 
     def __getitem__(self, key: str) -> Any:
@@ -96,6 +98,29 @@ class HTTPConnection(Mapping[str, Any]):
         if self._url is None:
             self._url = URL(scope=self.scope)
         return self._url
+
+    @property
+    def base_url(self) -> URL:
+        if self._base_url is None:
+            base_url_scope = dict(self.scope)
+            app_root_path = base_url_scope.get("app_root_path", base_url_scope.get("root_path", ""))
+            path = app_root_path
+            if not path.endswith("/"):
+                path += "/"
+            base_url_scope["path"] = path
+            base_url_scope["query_string"] = b""
+            base_url_scope["root_path"] = app_root_path
+            self._base_url = URL(scope=base_url_scope)
+        return self._base_url
+
+    def url_for(self, name: str, /, **path_params: Any) -> URL:
+        url_path_provider = self.scope.get("router") or self.scope.get("app")
+        if url_path_provider is None:
+            raise RuntimeError(
+                "The `url_for` method can only be used inside a Starlette application or with a router."
+            )
+        url_path = url_path_provider.url_path_for(name, **path_params)
+        return url_path.make_absolute_url(base_url=self.base_url)
 
     @property
     def headers(self) -> Headers:

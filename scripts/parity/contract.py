@@ -92,6 +92,28 @@ MOUNT_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "incoming",
     "send",
 }
+REVERSE_URL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "route_graph",
+    "lookup",
+    "request_scope",
+    "custom_convertors",
+}
+REVERSE_URL_OPERATIONS = {
+    ("starlette.applications.Starlette", "url_path_for"),
+    ("starlette.routing.Route", "url_path_for"),
+    ("starlette.routing.WebSocketRoute", "url_path_for"),
+    ("starlette.routing.Router", "url_path_for"),
+    ("starlette.routing.Mount", "url_path_for"),
+    ("starlette.requests.Request", "url_for"),
+}
+REVERSE_URL_SURFACE_KINDS = {
+    "starlette.applications.Starlette": "starlette-app",
+    "starlette.routing.Route": "http-route",
+    "starlette.routing.WebSocketRoute": "websocket-route",
+    "starlette.routing.Router": "router",
+    "starlette.routing.Mount": "mount",
+}
+REVERSE_URL_OBSERVATION = "reverse-url"
 STEP_KEYS = {"step_id", "surface", "operation", "receiver", "arguments"}
 VALUE_TYPES = {
     "null",
@@ -655,7 +677,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
             # top-level infrastructure errors in the parity result.
             expected_error_fields = (
                 set()
-                if key in WEBSOCKET_PROJECTED_ERROR_OPERATIONS
+                if key in WEBSOCKET_PROJECTED_ERROR_OPERATIONS or key in REVERSE_URL_OPERATIONS
                 else {
                     "class",
                     "kind",
@@ -805,6 +827,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             (WEBSOCKET_ROUTE_SURFACE, WEBSOCKET_ROUTE_OPERATION),
                             (WEBSOCKET_SURFACE, WEBSOCKET_OPERATION),
                         }
+                        or (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
                         else profile_ids
                     )
                     if set(policy["target_profiles"]) != expected_parity_profiles:
@@ -1668,11 +1691,426 @@ def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_reverse_path(
+    path: Any, custom: dict[str, dict[str, Any]], context: str
+) -> list[tuple[str, str]]:
+    path = _string(path, context)
+    if not path.startswith("/"):
+        raise ContractError(f"{context} must start with '/'")
+    parameter = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)(?::([a-zA-Z_][a-zA-Z0-9_]*))?\}")
+    parsed: list[tuple[str, str]] = []
+    offset = 0
+    for match in parameter.finditer(path):
+        if "{" in path[offset : match.start()] or "}" in path[offset : match.start()]:
+            raise ContractError(f"{context} contains malformed route parameters")
+        name, converter = match.groups()
+        converter = converter or "str"
+        if converter not in {"str", "path", "int", "float", "uuid"} | set(custom):
+            raise ContractError(f"{context} uses an undeclared converter {converter!r}")
+        parsed.append((name, converter))
+        offset = match.end()
+    if "{" in path[offset:] or "}" in path[offset:]:
+        raise ContractError(f"{context} contains malformed route parameters")
+    if len({name for name, _ in parsed}) != len(parsed):
+        raise ContractError(f"{context} repeats a route parameter name")
+    return parsed
+
+
+def _validate_reverse_route_node(
+    node: Any,
+    context: str,
+    custom: dict[str, dict[str, Any]],
+    *,
+    allow_observer: bool,
+) -> dict[str, Any]:
+    if not isinstance(node, dict) or not isinstance(node.get("kind"), str):
+        raise ContractError(f"{context} must declare a route node kind")
+    kind = node["kind"]
+    if kind in {"router", "starlette-app"}:
+        node = _exact(node, {"kind", "routes"}, context)
+        routes = node["routes"]
+        if not isinstance(routes, list) or not routes:
+            raise ContractError(f"{context}.routes must be a non-empty array")
+        for index, route in enumerate(routes):
+            _validate_reverse_route_node(
+                route,
+                f"{context}.routes[{index}]",
+                custom,
+                allow_observer=allow_observer,
+            )
+        return node
+    if kind == "mount":
+        node = _exact(node, {"kind", "path", "name", "routes"}, context)
+        _validate_reverse_path(node["path"], custom, f"{context}.path")
+        if node["name"] is not None:
+            _string(node["name"], f"{context}.name")
+        if not isinstance(node["routes"], list):
+            raise ContractError(f"{context}.routes must be an array")
+        for index, route in enumerate(node["routes"]):
+            _validate_reverse_route_node(
+                route,
+                f"{context}.routes[{index}]",
+                custom,
+                allow_observer=allow_observer,
+            )
+        return node
+    if kind == "http-route":
+        node = _exact(node, {"kind", "path", "name", "methods", "observer"}, context)
+        _validate_reverse_path(node["path"], custom, f"{context}.path")
+        if node["name"] is not None:
+            _string(node["name"], f"{context}.name")
+        methods = node["methods"]
+        if (
+            not isinstance(methods, list)
+            or not methods
+            or any(not isinstance(method, str) or not method for method in methods)
+            or len(methods) != len(set(methods))
+        ):
+            raise ContractError(f"{context}.methods must be a non-empty unique string array")
+    elif kind == "websocket-route":
+        node = _exact(node, {"kind", "path", "name", "observer"}, context)
+        _validate_reverse_path(node["path"], custom, f"{context}.path")
+        if node["name"] is not None:
+            _string(node["name"], f"{context}.name")
+    else:
+        raise ContractError(f"{context}.kind is unsupported")
+    if node["observer"] not in {None, "request-url-for"}:
+        raise ContractError(f"{context}.observer is unsupported")
+    if node["observer"] is not None and (not allow_observer or kind != "http-route"):
+        raise ContractError(f"{context}.observer is only available on Request HTTP probes")
+    return node
+
+
+def _reverse_route_candidates(
+    node: dict[str, Any],
+    name: str,
+    path_params: dict[str, Any],
+    custom: dict[str, dict[str, Any]],
+) -> list[tuple[int, dict[str, Any]]]:
+    """Return structurally successful lookup candidates in route-list order."""
+    kind = node["kind"]
+    if kind in {"http-route", "websocket-route"}:
+        expected = {key for key, _ in _validate_reverse_path(node["path"], custom, "route path")}
+        return [(0, node)] if node["name"] == name and expected == set(path_params) else []
+    if kind in {"router", "starlette-app"}:
+        results: list[tuple[int, dict[str, Any]]] = []
+        for index, route in enumerate(node["routes"]):
+            results.extend(
+                (index, match)
+                for _nested_index, match in _reverse_route_candidates(
+                    route, name, path_params, custom
+                )
+            )
+        return results
+    if kind == "mount":
+        mount_parameters = {
+            key for key, _ in _validate_reverse_path(node["path"], custom, "mount path")
+        }
+        # Mount adds a trailing {path:path} parameter to its own compiled path.
+        mount_parameters.add("path")
+        if node["name"] is not None and name == node["name"]:
+            return (
+                [(0, node)]
+                if "path" in path_params and mount_parameters == set(path_params)
+                else []
+            )
+        if node["name"] is None:
+            child_name = name
+        elif name.startswith(node["name"] + ":"):
+            child_name = name[len(node["name"]) + 1 :]
+        else:
+            return []
+        remaining = {
+            key: value for key, value in path_params.items() if key not in mount_parameters
+        }
+        if "path" in path_params:
+            remaining["path"] = path_params["path"]
+        results = []
+        for index, route in enumerate(node["routes"]):
+            results.extend(
+                (index, match)
+                for _nested_index, match in _reverse_route_candidates(
+                    route, child_name, remaining, custom
+                )
+            )
+        return results
+    raise ContractError("reverse route graph has an unsupported node")
+
+
+def _reverse_route_nodes(node: dict[str, Any]) -> list[dict[str, Any]]:
+    if node["kind"] in {"router", "starlette-app", "mount"}:
+        result: list[dict[str, Any]] = []
+        for child in node["routes"]:
+            result.extend(_reverse_route_nodes(child))
+        return result
+    return [node]
+
+
+def _reverse_effective_observer_paths(
+    node: dict[str, Any], prefix: str = ""
+) -> list[tuple[str, list[str]]]:
+    if node["kind"] in {"router", "starlette-app"}:
+        result: list[tuple[str, list[str]]] = []
+        for child in node["routes"]:
+            result.extend(_reverse_effective_observer_paths(child, prefix))
+        return result
+    if node["kind"] == "mount":
+        mount_path = node["path"]
+        next_prefix = prefix.rstrip("/") + mount_path
+        result = []
+        for child in node["routes"]:
+            result.extend(_reverse_effective_observer_paths(child, next_prefix))
+        return result
+    if node["observer"] == "request-url-for":
+        effective_path = prefix.rstrip("/") + node["path"]
+        return [(effective_path or "/", [method for method in node.get("methods", ["GET"])])]
+    return []
+
+
+def _reverse_node_depth(node: dict[str, Any], kind: str) -> int:
+    if node["kind"] not in {"router", "starlette-app", "mount"}:
+        return 0
+    own = 1 if node["kind"] == kind else 0
+    return own + max((_reverse_node_depth(child, kind) for child in node["routes"]), default=0)
+
+
+def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
+    surface = case["surface"]
+    operation = case["operation"]
+    graph = case["route_graph"]
+    lookup = case["lookup"]
+    params = lookup["path_params"]
+    custom = {item["name"]: item for item in case["custom_convertors"]}
+    derived: set[str] = set()
+
+    def rid(suffix: str) -> str:
+        return f"{surface}.{operation}.{suffix}"
+
+    if surface == "starlette.requests.Request":
+        provider = case["request_scope"]["provider"]
+        if provider == "none":
+            derived.add(rid("missing-context"))
+        elif provider == "router":
+            derived.add(rid("router-provider"))
+        elif provider == "app":
+            derived.add(rid("app-provider"))
+        elif provider == "dispatch":
+            scope = case["request_scope"]
+            if scope["root_path"]:
+                derived.add(rid("mount-app-root-path"))
+        return derived
+
+    candidates = _reverse_route_candidates(graph, lookup["name"], params, custom)
+    found = bool(candidates)
+    if surface == "starlette.routing.Route":
+        route = graph
+        expected = _validate_reverse_path(route["path"], custom, "Route.path")
+        if route["name"] == lookup["name"] and {name for name, _ in expected} == set(params):
+            if not expected:
+                derived.add(rid("static-path"))
+            converter_suffixes = {
+                "str": "str-converter",
+                "int": "int-converter",
+                "float": "float-converter",
+                "path": "path-converter",
+                "uuid": "uuid-converter",
+            }
+            for _name, converter in expected:
+                suffix = converter_suffixes.get(converter)
+                if suffix:
+                    derived.add(rid(suffix))
+                if converter in custom:
+                    derived.add(rid("custom-converter-override"))
+                value = params[_name]
+                if (
+                    (converter == "str" and (not str(value) or "/" in str(value)))
+                    or (converter == "int" and int(value) < 0)
+                    or (converter == "float" and float(value) < 0)
+                ):
+                    derived.add(rid("converter-error"))
+        else:
+            derived.add(rid("parameter-mismatch"))
+    elif surface == "starlette.routing.WebSocketRoute":
+        if found:
+            derived.add(rid("protocol"))
+    elif surface == "starlette.routing.Router":
+        if found:
+            first_candidate = min(index for index, _route in candidates)
+            if first_candidate > 0:
+                derived.add(rid("first-success"))
+        else:
+            derived.add(rid("mismatch"))
+    elif surface == "starlette.routing.Mount":
+        if found:
+            if lookup["name"] == graph["name"]:
+                derived.add(rid("direct-path"))
+            else:
+                derived.add(rid("nested-route"))
+                if _reverse_node_depth(graph, "mount") > 1:
+                    derived.add(rid("double-mount"))
+        else:
+            derived.add(rid("mismatch"))
+    elif surface == "starlette.applications.Starlette" and found:
+        derived.add(rid("forwarder"))
+    return derived
+
+
+def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
+    _exact(case, REVERSE_URL_CASE_KEYS, "reverse URL case")
+    key = (case["surface"], case["operation"])
+    if key not in REVERSE_URL_OPERATIONS:
+        raise ContractError("case is outside the declared reverse URL operations")
+    if case["observations"] != [REVERSE_URL_OBSERVATION]:
+        raise ContractError("reverse URL observations must select reverse-url")
+    if not isinstance(case["custom_convertors"], list):
+        raise ContractError("reverse URL custom_convertors must be an array")
+    custom: dict[str, dict[str, Any]] = {}
+    for index, raw in enumerate(case["custom_convertors"]):
+        context = f"reverse URL custom_convertors[{index}]"
+        convertor = _exact(raw, {"name", "regex", "lowercase", "lowercase_to_string"}, context)
+        name = _string(convertor["name"], f"{context}.name")
+        regex = _string(convertor["regex"], f"{context}.regex")
+        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", name) is None or not regex:
+            raise ContractError(f"{context} must define a converter identifier and non-empty regex")
+        try:
+            re.compile(regex)
+        except re.error as exc:
+            raise ContractError(f"{context}.regex is invalid: {exc}") from exc
+        if (
+            type(convertor["lowercase"]) is not bool
+            or type(convertor["lowercase_to_string"]) is not bool
+        ):
+            raise ContractError(f"{context} lowercase flags must be boolean")
+        if name in custom:
+            raise ContractError(f"reverse URL converter {name!r} is registered more than once")
+        custom[name] = convertor
+
+    graph = case["route_graph"]
+    lookup = _exact(case["lookup"], {"name", "path_params"}, "reverse URL lookup")
+    _string(lookup["name"], "reverse URL lookup.name")
+    if not isinstance(lookup["path_params"], dict):
+        raise ContractError("reverse URL lookup.path_params must be an object")
+    for name, value in lookup["path_params"].items():
+        _string(name, "reverse URL path parameter name")
+        if isinstance(value, (dict, list)):
+            raise ContractError("reverse URL path parameter values must be JSON scalars")
+
+    request_scope = case["request_scope"]
+    if key[0] == "starlette.requests.Request":
+        request_scope = _exact(
+            request_scope,
+            {
+                "provider",
+                "type",
+                "method",
+                "scheme",
+                "path",
+                "root_path",
+                "app_root_path",
+                "server",
+            },
+            "Request URL scope",
+        )
+        if request_scope["provider"] not in {"dispatch", "router", "app", "none"}:
+            raise ContractError("Request URL scope.provider is unsupported")
+        if request_scope["type"] != "http":
+            raise ContractError("Request.url_for cases require an HTTP scope")
+        for name in ("method", "scheme", "path"):
+            _string(request_scope[name], f"Request URL scope.{name}")
+        if not isinstance(request_scope["root_path"], str):
+            raise ContractError("Request URL scope.root_path must be a string")
+        if request_scope["scheme"] not in {"http", "https"}:
+            raise ContractError("Request URL scope.scheme must be http or https")
+        if not request_scope["path"].startswith("/") or (
+            request_scope["root_path"] and not request_scope["root_path"].startswith("/")
+        ):
+            raise ContractError("Request URL scope path and root_path must be absolute")
+        app_root_path = request_scope["app_root_path"]
+        if app_root_path is not None and (
+            not isinstance(app_root_path, str)
+            or (app_root_path and not app_root_path.startswith("/"))
+        ):
+            raise ContractError("Request URL scope.app_root_path must be null or an absolute path")
+        server = request_scope["server"]
+        if (
+            not isinstance(server, list)
+            or len(server) != 2
+            or not isinstance(server[0], str)
+            or type(server[1]) is not int
+            or server[1] < 0
+        ):
+            raise ContractError("Request URL scope.server must be [host, non-negative port]")
+        provider = request_scope["provider"]
+        if provider == "none":
+            if graph is not None:
+                raise ContractError("Request provider none requires route_graph null")
+        else:
+            if graph is None:
+                raise ContractError("Request URL provider requires a route_graph")
+            expected_kind = {"dispatch": "router", "router": "router", "app": "starlette-app"}[
+                provider
+            ]
+            if not isinstance(graph, dict) or graph.get("kind") != expected_kind:
+                raise ContractError(
+                    f"Request provider {provider!r} requires a {expected_kind} route_graph"
+                )
+    else:
+        if request_scope is not None:
+            raise ContractError("direct url_path_for cases must set request_scope to null")
+        expected_kind = REVERSE_URL_SURFACE_KINDS[key[0]]
+        if not isinstance(graph, dict) or graph.get("kind") != expected_kind:
+            raise ContractError(f"{key[0]} cases require a {expected_kind} route_graph")
+
+    allow_observer = (
+        key[0] == "starlette.requests.Request" and request_scope["provider"] == "dispatch"
+    )
+    if graph is not None:
+        graph = _validate_reverse_route_node(
+            graph, "reverse URL route_graph", custom, allow_observer=allow_observer
+        )
+    if key[0] == "starlette.requests.Request" and allow_observer:
+        observers = _reverse_effective_observer_paths(graph)
+        if len(observers) != 1:
+            raise ContractError(
+                "Request dispatch requires exactly one request-url-for observer route"
+            )
+        route_path = _route_path_after_root(request_scope["path"], request_scope["root_path"])
+        observer_path, methods = observers[0]
+        if request_scope["method"] not in methods or not _route_template_matches(
+            observer_path, route_path, custom
+        ):
+            raise ContractError("Request scope does not select its request-url-for observer route")
+    if custom and key[0] != "starlette.routing.Route":
+        raise ContractError("custom URL convertors are scoped to direct Route.url_path_for cases")
+    derived = _reverse_input_requirements(case)
+    if not set(case["covers"]) <= derived:
+        raise ContractError(
+            "reverse URL case claims requirements not exercised by its route graph and lookup inputs: "
+            f"{sorted(set(case['covers']) - derived)}"
+        )
+
+
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     is_websocket = isinstance(case, dict) and case.get("surface") == WEBSOCKET_SURFACE
-    is_websocket_route = isinstance(case, dict) and case.get("surface") == WEBSOCKET_ROUTE_SURFACE
-    is_router = isinstance(case, dict) and case.get("surface") == ROUTER_SURFACE
-    is_mount = isinstance(case, dict) and case.get("surface") == MOUNT_SURFACE
+    is_websocket_route = (
+        isinstance(case, dict)
+        and case.get("surface") == WEBSOCKET_ROUTE_SURFACE
+        and case.get("operation") == WEBSOCKET_ROUTE_OPERATION
+    )
+    is_router = (
+        isinstance(case, dict)
+        and case.get("surface") == ROUTER_SURFACE
+        and case.get("operation") == ROUTER_OPERATION
+    )
+    is_mount = (
+        isinstance(case, dict)
+        and case.get("surface") == MOUNT_SURFACE
+        and case.get("operation") == MOUNT_OPERATION
+    )
+    is_reverse_url = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) in REVERSE_URL_OPERATIONS
+    )
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
@@ -1682,6 +2120,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_router
         else MOUNT_CASE_KEYS
         if is_mount
+        else REVERSE_URL_CASE_KEYS
+        if is_reverse_url
         else CASE_KEYS
     )
     _exact(case, expected_case_keys, "case")
@@ -1701,6 +2141,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_mount:
         if case["operation"] != MOUNT_OPERATION:
             raise ContractError("Mount cases must use the declared route-dispatch operation")
+    elif is_reverse_url:
+        if (case["surface"], case["operation"]) not in REVERSE_URL_OPERATIONS:
+            raise ContractError("case must use a declared reverse URL operation")
     elif is_gzip:
         if case["operation"] != "__call__":
             raise ContractError("GZipMiddleware parity cases must call its public ASGI interface")
@@ -1764,6 +2207,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_mount:
         _validate_mount_case_stimulus(case)
+        return case
+    if is_reverse_url:
+        _validate_reverse_url_case_stimulus(case)
         return case
 
     if not isinstance(case["steps"], list) or len(case["steps"]) not in {2, 3}:

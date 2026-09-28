@@ -17,20 +17,22 @@ The matrix has 787 mappings: 718 fixture backlog rows, 50 reasoned
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
-untested. The active manifest indexes 13 parity input files containing 74
-cases, including 33 request/routing, three direct ASGI, eight GZip, six
-WebSocket protocol-tape, six WebSocket state-projection, five Request-style
-HTTPException, two callable-ASGI HTTPException, two registered-handler, and
-nine server-error workflows. Built-in Router converter cases select both
-profiles; typed Request, custom converter, and full WebSocket protocol cases
-select the Python package. Mount cases select both profiles, with Rust-native
-explicitly unsupported. The latest run `990d1a3d-8f50-4512-af90-311bae9b15e9`,
-finished at `2026-09-28T07:24:11.251Z`, selected 115 comparisons: 109 passed,
-zero failed, six `not_run`, and zero infrastructure errors. All 74 package
-comparisons passed; Rust-native passed 35 of 41. Its six `not_run` cases are
-four Python-callable boundaries and two Mount cases. Target identities were
-dirty local trees, so the run is not clean aggregate or release proof. The
-static merger check passes against the pinned Starlette commit.
+untested. The active manifest indexes 14 parity input files containing 95
+cases, including 33 request/routing, 21 reverse-URL, three direct ASGI, eight
+GZip, six WebSocket protocol-tape, six WebSocket state-projection, five
+Request-style HTTPException, two callable-ASGI HTTPException, two
+registered-handler, and nine server-error workflows. Built-in Router
+converter cases select both profiles; typed Request, reverse URL, custom
+converter, and full WebSocket protocol cases select the Python package. Mount
+dispatch cases select both profiles, with Rust-native explicitly unsupported.
+The latest run `bf0c58d3-7f49-4d49-af44-33b58dfee7ab`, finished at
+`2026-09-28T08:21:52.500Z`, selected 136 comparisons: 130 passed, zero failed,
+six `not_run`, and zero infrastructure errors. All 95 package comparisons
+passed; Rust-native passed 35 of 41. Its six `not_run` cases are four
+Python-callable boundaries and two Mount cases. All 21 reverse-URL cases
+passed on the Python package; no named Rust-native route API is claimed. Target
+identities were dirty local trees, so the run is not clean aggregate or release
+proof. The static merger check passes against the pinned Starlette commit.
 
 ## P1 — Complete the Python/Rust boundary prototype (remaining)
 
@@ -67,24 +69,25 @@ The active input set is
 [`asgi-server-errors.yaml`](../../tests/fixtures/sources/parity/asgi-server-errors.yaml),
 [`websocket-protocol.yaml`](../../tests/fixtures/sources/parity/websocket-protocol.yaml),
 [`websocket-state-sequence.yaml`](../../tests/fixtures/sources/parity/websocket-state-sequence.yaml),
-and
 [`websocket-route-dispatch.yaml`](../../tests/fixtures/sources/parity/websocket-route-dispatch.yaml),
 [`router-converter-dispatch.yaml`](../../tests/fixtures/sources/parity/router-converter-dispatch.yaml),
 [`request-path-param-types.yaml`](../../tests/fixtures/sources/parity/request-path-param-types.yaml),
-and [`mount-route-dispatch.yaml`](../../tests/fixtures/sources/parity/mount-route-dispatch.yaml).
-The manifest contains 74 cases across 13 files: three direct ASGI cases (`GET
+[`mount-route-dispatch.yaml`](../../tests/fixtures/sources/parity/mount-route-dispatch.yaml),
+and [`reverse-url-routing.yaml`](../../tests/fixtures/sources/parity/reverse-url-routing.yaml).
+The manifest contains 95 cases across 14 files: three direct ASGI cases (`GET
 /hello` with lifespan, `GET /missing`, and `POST /hello`); 33 request/routing
 cases covering Request dispatch, built-in converters, typed path values, Mount,
-and `WebSocketRoute`; six WebSocket protocol-tape cases; six WebSocket
+and `WebSocketRoute`; 21 reverse-URL cases; six WebSocket protocol-tape cases; six WebSocket
 state-projection cases; eight `GZipMiddleware` cases; five Request-style
 HTTPException cases; two callable-ASGI HTTPException cases; two
 registered-handler cases; and nine server-error cases. The latest run
-`990d1a3d-8f50-4512-af90-311bae9b15e9`, finished at
-`2026-09-28T07:24:11.251Z`, selected 115 comparisons: 109 executed and passed,
+`bf0c58d3-7f49-4d49-af44-33b58dfee7ab`, finished at
+`2026-09-28T08:21:52.500Z`, selected 136 comparisons: 130 executed and passed,
 zero failed, six Rust-native rows were `not_run`, and there were zero
-infrastructure errors. All 74 Python-package cases passed; Rust-native passed
+infrastructure errors. All 95 Python-package cases passed; Rust-native passed
 35 of 41 selected comparisons. The six `not_run` cases cover four
-Python-callable forms and two Mount cases. All 21 WebSocket comparisons passed.
+Python-callable forms and two Mount cases. All 21 reverse-URL and all 21
+WebSocket comparisons passed.
 Target identities were dirty local trees, so the run is not clean aggregate or
 release proof. The
 new handler inputs check that status 405 beats a previously registered

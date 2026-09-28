@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple
 from urllib.parse import SplitResult, urlsplit
 
 from starlette_rs_py import _core
@@ -107,6 +107,42 @@ class URL:
 
     def __eq__(self, other: object) -> bool:
         return str(self) == str(other)
+
+
+class URLPath(str):
+    """A route path with optional protocol and host metadata."""
+
+    def __new__(
+        cls,
+        path: str,
+        protocol: Literal["http", "websocket", ""] = "",
+        host: str = "",
+    ) -> URLPath:
+        assert protocol in ("http", "websocket", "")
+        return str.__new__(cls, path)
+
+    def __init__(
+        self,
+        path: str,
+        protocol: Literal["http", "websocket", ""] = "",
+        host: str = "",
+    ) -> None:
+        self.protocol = protocol
+        self.host = host
+
+    def make_absolute_url(self, base_url: str | URL) -> URL:
+        if isinstance(base_url, str):
+            base_url = URL(base_url)
+        if self.protocol:
+            scheme = {
+                "http": {True: "https", False: "http"},
+                "websocket": {True: "wss", False: "ws"},
+            }[self.protocol][base_url.is_secure]
+        else:
+            scheme = base_url.scheme
+        netloc = self.host or base_url.netloc
+        path = base_url.path.rstrip("/") + str(self)
+        return URL(scheme=scheme, netloc=netloc, path=path)
 
 
 class State:

@@ -177,6 +177,26 @@ pub enum RouteError {
     UnknownPathConverter(String),
     /// A parameter name occurs more than once in a path pattern.
     DuplicatePathParameter(String),
+    /// The requested insertion index is not present in the table.
+    RouteIndexOutOfBounds(usize),
+    /// A replacement name appears in the path without a declared converter.
+    UnknownPathParameter(String),
+    /// Parameter values contain a duplicate name.
+    DuplicatePathParameterValue(String),
+    /// A strict path build did not receive exactly the route's parameter names.
+    PathParameterNamesMismatch {
+        /// Parameter names declared by the route, in pattern order.
+        expected: Vec<String>,
+        /// Parameter names supplied by the caller, in input order.
+        provided: Vec<String>,
+    },
+    /// A preformatted path parameter violates its built-in converter contract.
+    InvalidPathParameter {
+        /// Parameter name from the route pattern.
+        name: String,
+        /// Stable description of the rejected value.
+        reason: &'static str,
+    },
 }
 
 impl Display for RouteError {
@@ -188,6 +208,25 @@ impl Display for RouteError {
             }
             Self::DuplicatePathParameter(name) => {
                 write!(formatter, "duplicate path parameter '{name}'")
+            }
+            Self::RouteIndexOutOfBounds(route_index) => {
+                write!(formatter, "route index {route_index} is out of bounds")
+            }
+            Self::UnknownPathParameter(name) => {
+                write!(formatter, "path parameter '{name}' has no route converter")
+            }
+            Self::DuplicatePathParameterValue(name) => {
+                write!(
+                    formatter,
+                    "path parameter '{name}' was supplied more than once"
+                )
+            }
+            Self::PathParameterNamesMismatch { expected, provided } => write!(
+                formatter,
+                "route path parameters {expected:?} do not match supplied parameters {provided:?}"
+            ),
+            Self::InvalidPathParameter { name, reason } => {
+                write!(formatter, "invalid path parameter '{name}': {reason}")
             }
         }
     }
@@ -250,6 +289,126 @@ impl RouteTable {
             methods: normalized_methods,
         });
         Ok(route_index)
+    }
+
+    /// Builds a route path from converter-formatted parameter values.
+    ///
+    /// Parameter names must exactly match those declared by the route. The
+    /// caller supplies each value after applying the corresponding
+    /// `Convertor.to_string` behavior at its language boundary. This method
+    /// performs structural substitution and validates the built-in string,
+    /// integer, and float output forms. UUID values preserve the converter's
+    /// `str(value)` result; path values are inserted as-is. Values are not
+    /// percent-escaped, matching Starlette's `URLPath` behavior.
+    ///
+    /// # Errors
+    ///
+    /// Returns a route-index, parameter-name, duplicate-value, or built-in
+    /// converter-output error.
+    pub fn build_path(
+        &self,
+        route_index: usize,
+        path_params: &[(String, String)],
+    ) -> Result<String, RouteError> {
+        let route = self
+            .routes
+            .get(route_index)
+            .ok_or(RouteError::RouteIndexOutOfBounds(route_index))?;
+        let expected = route
+            .path_segments
+            .iter()
+            .flatten()
+            .filter_map(|segment| match segment {
+                PathSegment::Parameter { name, .. } => Some(name.clone()),
+                PathSegment::Static(_) => None,
+            })
+            .collect::<Vec<_>>();
+        let mut provided_set = HashSet::new();
+        for (name, _) in path_params {
+            if !provided_set.insert(name.as_str()) {
+                return Err(RouteError::DuplicatePathParameterValue(name.clone()));
+            }
+        }
+        let provided = path_params
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect::<Vec<_>>();
+        if expected.len() != provided.len()
+            || expected
+                .iter()
+                .any(|name| !provided_set.contains(name.as_str()))
+        {
+            return Err(RouteError::PathParameterNamesMismatch { expected, provided });
+        }
+
+        let (path, remaining) = self.build_path_partial(route_index, path_params)?;
+        debug_assert!(remaining.is_empty());
+        Ok(path)
+    }
+
+    /// Replaces supplied route parameters and returns values not used by the
+    /// pattern, matching the partial substitution used by Starlette `Mount`.
+    ///
+    /// Missing route parameters remain as `{name}` placeholders. Extra values
+    /// remain in the returned vector in input order so a caller can pass them
+    /// to a nested route. The supplied values must already be formatted by
+    /// their converter's `to_string` method.
+    ///
+    /// # Errors
+    ///
+    /// Returns a route-index, duplicate-value, or built-in converter-output
+    /// error.
+    pub fn build_path_partial(
+        &self,
+        route_index: usize,
+        path_params: &[(String, String)],
+    ) -> Result<(String, Vec<(String, String)>), RouteError> {
+        let route = self
+            .routes
+            .get(route_index)
+            .ok_or(RouteError::RouteIndexOutOfBounds(route_index))?;
+        let mut converters = HashMap::new();
+        let mut output = String::new();
+        if let Some(pattern) = &route.path_segments {
+            for segment in pattern {
+                match segment {
+                    PathSegment::Static(literal) => output.push_str(literal),
+                    PathSegment::Parameter { name, converter } => {
+                        output.push('{');
+                        output.push_str(name);
+                        output.push('}');
+                        converters.insert(name.as_str(), converter);
+                    }
+                }
+            }
+        } else {
+            output.push_str(&route.path);
+        }
+
+        let mut provided_names = HashSet::new();
+        let mut consumed = HashSet::new();
+        for (name, value) in path_params {
+            if !provided_names.insert(name.as_str()) {
+                return Err(RouteError::DuplicatePathParameterValue(name.clone()));
+            }
+            let placeholder = format!("{{{name}}}");
+            if !output.contains(&placeholder) {
+                continue;
+            }
+            let Some(converter) = converters.get(name.as_str()) else {
+                return Err(RouteError::UnknownPathParameter(name.clone()));
+            };
+            let formatted = format_path_parameter(name, value, converter)?;
+            output = output.replace(&placeholder, &formatted);
+            consumed.insert(name.as_str());
+        }
+
+        let remaining = path_params
+            .iter()
+            .filter(|(name, _)| !consumed.contains(name.as_str()))
+            .cloned()
+            .collect();
+        Ok((output, remaining))
     }
 
     /// Matches a path and method, preserving Starlette's ordered fallback.
@@ -533,6 +692,62 @@ fn canonical_integer(value: &str) -> String {
     } else {
         String::from(without_leading_zeroes)
     }
+}
+
+fn format_path_parameter(
+    name: &str,
+    value: &str,
+    converter: &PathConverter,
+) -> Result<String, RouteError> {
+    let invalid = |reason| RouteError::InvalidPathParameter {
+        name: String::from(name),
+        reason,
+    };
+
+    match converter {
+        PathConverter::String if value.is_empty() => {
+            Err(invalid("string converter values must not be empty"))
+        }
+        PathConverter::String if value.contains('/') => Err(invalid(
+            "string converter values may not contain path separators",
+        )),
+        PathConverter::Integer
+            if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) =>
+        {
+            Err(invalid(
+                "integer converter values must be non-negative ASCII decimal digits",
+            ))
+        }
+        PathConverter::Integer => Ok(canonical_integer(value)),
+        PathConverter::Float if !valid_float_lexeme(value) => Err(invalid(
+            "float converter values must use non-negative decimal notation",
+        )),
+        PathConverter::Float | PathConverter::Uuid | PathConverter::Path => Ok(String::from(value)),
+        PathConverter::String => Ok(String::from(value)),
+    }
+}
+
+fn valid_float_lexeme(value: &str) -> bool {
+    // Python's `float(-0.0) >= 0.0` is true, and its fixed-point formatter
+    // consequently emits `-0` after trimming the fractional zeroes.
+    if value == "-0" {
+        return true;
+    }
+
+    let bytes = value.as_bytes();
+    let digit_end = bytes
+        .iter()
+        .take_while(|byte| byte.is_ascii_digit())
+        .count();
+    if digit_end == 0 {
+        return false;
+    }
+    if digit_end == bytes.len() {
+        return true;
+    }
+    bytes.get(digit_end) == Some(&b'.')
+        && digit_end + 1 < bytes.len()
+        && bytes[digit_end + 1..].iter().all(u8::is_ascii_digit)
 }
 
 fn method_not_allowed_response(

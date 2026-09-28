@@ -1623,6 +1623,198 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _reverse_url_error(exc: Exception) -> dict[str, str]:
+    return {"class": type(exc).__name__, "message": str(exc)}
+
+
+def _reverse_url_path_value(url_path: Any) -> dict[str, str]:
+    return {"path": str(url_path), "protocol": url_path.protocol, "host": url_path.host}
+
+
+def _build_reverse_route_node(
+    node: dict[str, Any],
+    lookup: dict[str, Any],
+    observation: dict[str, Any],
+) -> Any:
+    from starlette.responses import Response
+    from starlette.routing import Mount, Route, Router, WebSocketRoute
+
+    kind = node["kind"]
+    observer = node.get("observer")
+
+    async def request_endpoint(request: Any) -> Response:
+        if observer == "request-url-for":
+            try:
+                value = request.url_for(lookup["name"], **lookup["path_params"])
+                observation["result"] = {"url": str(value)}
+            except Exception as exc:
+                observation["result"] = {"error": _reverse_url_error(exc)}
+        return Response()
+
+    async def websocket_endpoint(websocket: Any) -> None:
+        del websocket
+
+    if kind == "http-route":
+        return Route(
+            node["path"],
+            request_endpoint,
+            methods=node["methods"],
+            name=node["name"],
+        )
+    if kind == "websocket-route":
+        return WebSocketRoute(node["path"], websocket_endpoint, name=node["name"])
+    if kind == "router":
+        return Router(
+            routes=[
+                _build_reverse_route_node(child, lookup, observation) for child in node["routes"]
+            ]
+        )
+    if kind == "mount":
+        return Mount(
+            node["path"],
+            routes=[
+                _build_reverse_route_node(child, lookup, observation) for child in node["routes"]
+            ],
+            name=node["name"],
+        )
+    if kind == "starlette-app":
+        from starlette.applications import Starlette
+
+        return Starlette(
+            routes=[
+                _build_reverse_route_node(child, lookup, observation) for child in node["routes"]
+            ]
+        )
+    raise ValueError(f"unsupported reverse URL route node kind: {kind!r}")
+
+
+def _reverse_request_scope(spec: dict[str, Any]) -> dict[str, Any]:
+    path = spec["path"]
+    scope = {
+        "type": spec["type"],
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": spec["method"],
+        "scheme": spec["scheme"],
+        "path": path,
+        "raw_path": path.encode("utf-8"),
+        "query_string": b"",
+        "root_path": spec["root_path"],
+        "headers": [],
+        "client": ("127.0.0.1", 12345),
+        "server": tuple(spec["server"]),
+    }
+    if spec["app_root_path"] is not None:
+        scope["app_root_path"] = spec["app_root_path"]
+    return scope
+
+
+def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.convertors import CONVERTOR_TYPES, Convertor, register_url_convertor
+    from starlette.requests import Request
+
+    previous_convertors = {
+        spec["name"]: CONVERTOR_TYPES.get(spec["name"], _MISSING)
+        for spec in case["custom_convertors"]
+    }
+    observation: dict[str, Any] = {}
+    lookup = case["lookup"]
+    try:
+        for spec in case["custom_convertors"]:
+
+            class InputConvertor(Convertor[str]):
+                def __init__(self, raw: dict[str, Any]) -> None:
+                    self.regex = raw["regex"]
+                    self.lowercase = raw["lowercase"]
+                    self.lowercase_to_string = raw["lowercase_to_string"]
+
+                def convert(self, value: str) -> str:
+                    return value.lower() if self.lowercase else value
+
+                def to_string(self, value: Any) -> str:
+                    text = str(value)
+                    return text.lower() if self.lowercase_to_string else text
+
+            register_url_convertor(spec["name"], InputConvertor(spec))
+
+        graph_spec = case["route_graph"]
+        if case["surface"] == "starlette.requests.Request":
+            request_scope = case["request_scope"]
+            if graph_spec is None:
+                graph = None
+            else:
+                graph = _build_reverse_route_node(graph_spec, lookup, observation)
+
+            async def dispatched_url() -> dict[str, Any]:
+                scope = _reverse_request_scope(request_scope)
+                provider = request_scope["provider"]
+                if provider == "none":
+                    observation["result"] = _request_url_value(Request(scope), lookup)
+                elif provider == "router":
+                    scope["router"] = graph
+                    observation["result"] = _request_url_value(Request(scope), lookup)
+                elif provider == "app":
+                    scope["app"] = graph
+                    observation["result"] = _request_url_value(Request(scope), lookup)
+                else:
+
+                    async def receive() -> dict[str, Any]:
+                        return {"type": "http.disconnect"}
+
+                    async def send(message: dict[str, Any]) -> None:
+                        del message
+
+                    await graph(scope, receive, send)
+                    if "result" not in observation:
+                        raise RuntimeError("request URL observer route did not run")
+                return observation["result"]
+
+            observed = asyncio.run(dispatched_url())
+        else:
+            graph = _build_reverse_route_node(graph_spec, lookup, observation)
+            if case["surface"] == "starlette.routing.Route":
+                result = graph.url_path_for(lookup["name"], **lookup["path_params"])
+            elif case["surface"] == "starlette.routing.WebSocketRoute":
+                result = graph.url_path_for(lookup["name"], **lookup["path_params"])
+            elif case["surface"] == "starlette.routing.Router":
+                result = graph.url_path_for(lookup["name"], **lookup["path_params"])
+            elif case["surface"] == "starlette.routing.Mount":
+                result = graph.url_path_for(lookup["name"], **lookup["path_params"])
+            elif case["surface"] == "starlette.applications.Starlette":
+                result = graph.url_path_for(lookup["name"], **lookup["path_params"])
+            else:
+                raise ValueError(f"unsupported reverse URL surface: {case['surface']!r}")
+            observed = _reverse_url_path_value(result)
+    except Exception as exc:
+        observed = {"error": _reverse_url_error(exc)}
+    finally:
+        for name, old_convertor in previous_convertors.items():
+            if old_convertor is _MISSING:
+                CONVERTOR_TYPES.pop(name, None)
+            else:
+                CONVERTOR_TYPES[name] = old_convertor
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "reverse-url",
+                "status": "ok",
+                "value": {"reverse-url": observed},
+            }
+        ],
+    }
+
+
+def _request_url_value(request: Any, lookup: dict[str, Any]) -> dict[str, Any]:
+    try:
+        value = request.url_for(lookup["name"], **lookup["path_params"])
+        return {"url": str(value)}
+    except Exception as exc:
+        return {"error": _reverse_url_error(exc)}
+
+
 async def _invoke_lifespan_around_dispatch(
     app: Any,
     lifecycle_args: dict[str, Any],
@@ -1705,6 +1897,8 @@ async def _invoke_lifespan_around_dispatch(
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if isinstance(case, dict) and case.get("operation") in {"url_path_for", "url_for"}:
+        return _run_reverse_url_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == WEBSOCKET_SURFACE

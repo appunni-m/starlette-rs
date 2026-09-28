@@ -22,6 +22,10 @@
         {
           "operation_id": "request-dispatch",
           "source_path": "starlette.applications.Starlette.__call__"
+        },
+        {
+          "operation_id": "url_path_for",
+          "source_path": "starlette.applications.Starlette.url_path_for"
         }
       ]
     },
@@ -60,6 +64,10 @@
         {
           "operation_id": "route-dispatch",
           "source_path": "starlette.routing.WebSocketRoute"
+        },
+        {
+          "operation_id": "url_path_for",
+          "source_path": "starlette.routing.WebSocketRoute.url_path_for"
         }
       ]
     },
@@ -70,6 +78,10 @@
         {
           "operation_id": "route-dispatch",
           "source_path": "starlette.routing.Router.__call__"
+        },
+        {
+          "operation_id": "url_path_for",
+          "source_path": "starlette.routing.Router.url_path_for"
         }
       ]
     },
@@ -80,6 +92,30 @@
         {
           "operation_id": "route-dispatch",
           "source_path": "starlette.routing.BaseRoute.__call__"
+        },
+        {
+          "operation_id": "url_path_for",
+          "source_path": "starlette.routing.Mount.url_path_for"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.routing.Route",
+      "source_path": "starlette/routing.py:197",
+      "operations": [
+        {
+          "operation_id": "url_path_for",
+          "source_path": "starlette.routing.Route.url_path_for"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.requests.Request",
+      "source_path": "starlette/requests.py:214",
+      "operations": [
+        {
+          "operation_id": "url_for",
+          "source_path": "starlette.requests.Request.url_for"
         }
       ]
     }
