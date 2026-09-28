@@ -70,6 +70,17 @@ VALUE_FORMATTING_OPERATIONS = {
 }
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 STATUS_OPERATION = ("starlette.status", "module-symbol-sequence")
+CONFIG_OPERATIONS = {
+    ("starlette.config.Config", "value-resolution"),
+    ("starlette.config.Config", "constructor-warning"),
+    ("starlette.config.Environ", "mapping-sequence"),
+}
+SCHEMA_OPERATIONS = {
+    ("starlette.schemas.SchemaGenerator", "schema-generation"),
+    ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"),
+    ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
+}
+RUST_OWNED_PYTHON_OPERATIONS = CONFIG_OPERATIONS | SCHEMA_OPERATIONS
 WEBSOCKET_PROJECTED_ERROR_OPERATIONS = {
     (WEBSOCKET_SURFACE, WEBSOCKET_OPERATION),
     (WEBSOCKET_SURFACE, WEBSOCKET_STATE_OPERATION),
@@ -875,6 +886,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 if key in WEBSOCKET_PROJECTED_ERROR_OPERATIONS
                 or key in REVERSE_URL_OPERATIONS
                 or key in VALUE_FORMATTING_OPERATIONS
+                or key in RUST_OWNED_PYTHON_OPERATIONS
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 else {
                     "class",
@@ -1038,6 +1050,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             TRUSTED_HOST_SURFACE,
                         }
                         or (surface["id"], operation["id"]) in VALUE_FORMATTING_OPERATIONS
+                        or (surface["id"], operation["id"])
+                        in RUST_OWNED_PYTHON_OPERATIONS
                         or (surface["id"], operation["id"]) == REQUEST_DEFAULT_RECEIVE_OPERATION
                         or (surface["id"], operation["id"]) == STATUS_OPERATION
                         else profile_ids
@@ -3242,6 +3256,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) in VALUE_FORMATTING_OPERATIONS
     )
+    is_rust_owned_python = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation"))
+        in RUST_OWNED_PYTHON_OPERATIONS
+    )
     is_default_receive = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_DEFAULT_RECEIVE_OPERATION
@@ -3277,6 +3296,24 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             {"instances"} if case["surface"] == EXCEPTION_VALUES_SURFACE else {"middleware"}
         )
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | value_keys
+    elif is_rust_owned_python:
+        input_keys = {
+            ("starlette.config.Config", "value-resolution"): {"config", "lookups"},
+            ("starlette.config.Config", "constructor-warning"): {"env_file"},
+            ("starlette.config.Environ", "mapping-sequence"): {
+                "initial_environ",
+                "actions",
+            },
+            ("starlette.schemas.SchemaGenerator", "schema-generation"): {
+                "base_schema",
+                "routes",
+            },
+            ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"): {
+                "docstrings",
+            },
+            ("starlette.schemas.OpenAPIResponse", "openapi-response-render"): {"content"},
+        }[(case["surface"], case["operation"])]
+        expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
     elif is_default_receive:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
     elif is_status_symbols:
@@ -3341,6 +3378,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_value_formatting:
         if case["operation"] != VALUE_FORMATTING_OPERATION:
             raise ContractError("value-formatting cases must use their declared operation")
+    elif is_rust_owned_python:
+        if (case["surface"], case["operation"]) not in RUST_OWNED_PYTHON_OPERATIONS:
+            raise ContractError("configuration and schema cases must use declared operations")
     elif is_default_receive:
         if case["observations"] != ["receive"]:
             raise ContractError("default receive cases must select the receive observation")
@@ -3412,6 +3452,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_status_symbols:
         _validate_status_symbols_case(case)
+        return case
+    if is_rust_owned_python:
+        if (case["surface"], case["operation"]) in CONFIG_OPERATIONS:
+            _validate_config_case(case)
+        else:
+            _validate_schema_case(case)
         return case
 
     if is_body_limit:
@@ -4525,6 +4571,315 @@ def _validate_status_symbols_case(case: dict[str, Any]) -> None:
         exercised.add("starlette.status.module-symbol-sequence.directory-listing")
     if set(case["covers"]) != exercised:
         raise ContractError("status module coverage must match the requested input behaviors")
+
+
+def _validate_config_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("configuration parity currently targets the Python package profile")
+    if case["assets"] != []:
+        raise ContractError("configuration parity does not use external assets")
+
+    operation = (case["surface"], case["operation"])
+    if operation == ("starlette.config.Config", "value-resolution"):
+        if case["observations"] != ["lookup-results"]:
+            raise ContractError("Config value resolution must select lookup-results")
+        config = _exact(
+            case["config"], {"env_prefix", "environ", "env_file_lines"}, "Config input"
+        )
+        if not isinstance(config["env_prefix"], str):
+            raise ContractError("Config env_prefix must be a string")
+        environ = config["environ"]
+        if not isinstance(environ, dict) or any(
+            not isinstance(key, str) or not isinstance(value, str)
+            for key, value in environ.items()
+        ):
+            raise ContractError("Config environ must be a string mapping")
+        lines = config["env_file_lines"]
+        if not isinstance(lines, list) or any(not isinstance(line, str) for line in lines):
+            raise ContractError("Config env_file_lines must be a string array")
+        lookups = case["lookups"]
+        if not isinstance(lookups, list) or not lookups:
+            raise ContractError("Config lookups must be a non-empty array")
+        file_values = {}
+        for line in lines:
+            stripped = line.strip()
+            if "=" in stripped and not stripped.startswith("#"):
+                key, value = stripped.split("=", 1)
+                file_values[key.strip()] = value.strip().strip("\"'")
+        selected: set[str] = set()
+        for index, raw in enumerate(lookups):
+            if not isinstance(raw, dict):
+                raise ContractError(f"Config lookups[{index}] must be an object")
+            lookup = _exact(
+                raw,
+                {"key", "cast", "default"}
+                if "cast" in raw and "default" in raw
+                else {"key", "cast"}
+                if "cast" in raw
+                else {"key", "default"}
+                if "default" in raw
+                else {"key"},
+                f"Config lookups[{index}]",
+            )
+            key = _string(lookup["key"], f"Config lookups[{index}].key")
+            cast = lookup.get("cast")
+            if cast is not None and cast not in {"str", "bool", "int"}:
+                raise ContractError(f"Config lookups[{index}].cast is unsupported")
+            prefixed = config["env_prefix"] + key
+            has_default = "default" in lookup
+            if prefixed in environ and prefixed in file_values:
+                selected.add("starlette.config.Config.environment-precedence")
+            if prefixed in file_values:
+                selected.add("starlette.config.Config.file-precedence")
+            if has_default:
+                selected.add("starlette.config.Config.default-values")
+            elif prefixed not in environ and prefixed not in file_values:
+                selected.add("starlette.config.Config.missing-key-error")
+            if config["env_prefix"]:
+                selected.add("starlette.config.Config.env-prefix")
+            raw_value = environ.get(prefixed, file_values.get(prefixed))
+            if cast == "bool" and raw_value is not None:
+                selected.add("starlette.config.Config.bool-cast")
+                if raw_value.lower() not in {"true", "1", "false", "0"}:
+                    selected.add("starlette.config.Config.invalid-bool-error")
+            if cast == "int" and raw_value is not None:
+                try:
+                    int(raw_value)
+                except ValueError:
+                    selected.add("starlette.config.Config.cast-error")
+        if set(case["covers"]) != selected:
+            raise ContractError("Config value-resolution coverage must match its input lookups")
+        return
+
+    if operation == ("starlette.config.Config", "constructor-warning"):
+        if case["observations"] != ["warning-results"]:
+            raise ContractError("Config constructor must select warning-results")
+        env_file = _exact(case["env_file"], {"kind", "file_name"}, "Config env_file")
+        if env_file["kind"] != "missing-temporary-file":
+            raise ContractError("Config warning input must identify a missing temporary file")
+        _string(env_file["file_name"], "Config env_file.file_name")
+        if case["covers"] != ["starlette.config.Config.missing-file-warning"]:
+            raise ContractError("Config constructor coverage must match its warning input")
+        return
+
+    if operation != ("starlette.config.Environ", "mapping-sequence"):
+        raise ContractError("configuration case uses an undeclared operation")
+    if case["observations"] != ["action-results"]:
+        raise ContractError("Environ mapping sequence must select action-results")
+    initial = case["initial_environ"]
+    if not isinstance(initial, dict) or any(
+        not isinstance(key, str) or not isinstance(value, str)
+        for key, value in initial.items()
+    ):
+        raise ContractError("Environ initial_environ must be a string mapping")
+    actions = case["actions"]
+    if not isinstance(actions, list) or not actions:
+        raise ContractError("Environ actions must be a non-empty array")
+    selected = set()
+    read_keys: set[str] = set()
+    present_keys = set(initial)
+    for index, raw in enumerate(actions):
+        context = f"Environ actions[{index}]"
+        if not isinstance(raw, dict) or not isinstance(raw.get("action"), str):
+            raise ContractError(f"{context} must be an action object")
+        action = raw["action"]
+        if action in {"set", "delete", "get", "contains"}:
+            expected = {"action", "key", "value"} if action == "set" else {"action", "key"}
+            item = _exact(raw, expected, context)
+            key = _string(item["key"], f"{context}.key")
+            if action == "set":
+                if not isinstance(item["value"], str):
+                    raise ContractError(f"{context}.value must be a string")
+                if key not in read_keys:
+                    selected.add("starlette.config.Environ.set-before-read")
+                else:
+                    selected.add("starlette.config.Environ.read-freezes-set")
+                present_keys.add(key)
+            elif action == "delete":
+                if key not in read_keys:
+                    selected.add("starlette.config.Environ.delete-before-read")
+                    present_keys.discard(key)
+                else:
+                    selected.add("starlette.config.Environ.read-freezes-delete")
+            else:
+                if action == "get":
+                    selected.add("starlette.config.Environ.read-value")
+                elif key not in present_keys:
+                    selected.add("starlette.config.Environ.missing-key-membership-freezes-key")
+                read_keys.add(key)
+        elif action == "iterate":
+            _exact(raw, {"action"}, context)
+            selected.add("starlette.config.Environ.iteration")
+        elif action == "length":
+            _exact(raw, {"action"}, context)
+            selected.add("starlette.config.Environ.length")
+        else:
+            raise ContractError(f"{context}.action is unsupported")
+    if set(case["covers"]) != selected:
+        raise ContractError("Environ mapping coverage must match its action sequence")
+
+
+def _validate_schema_route_input(route: Any, context: str) -> tuple[set[str], bool]:
+    if not isinstance(route, dict) or not isinstance(route.get("kind"), str):
+        raise ContractError(f"{context} must be a route object")
+    kind = route["kind"]
+    if kind in {"route", "websocket-route"}:
+        allowed = {"kind", "path", "endpoint"}
+        if kind == "route":
+            allowed |= {key for key in ("methods", "include_in_schema") if key in route}
+        item = _exact(route, allowed, context)
+        _string(item["path"], f"{context}.path")
+        endpoint = item["endpoint"]
+        if not isinstance(endpoint, dict) or endpoint.get("kind") not in {"function", "class"}:
+            raise ContractError(f"{context}.endpoint must describe a function or class")
+        if endpoint["kind"] == "function":
+            endpoint = _exact(endpoint, {"kind", "docstring"}, f"{context}.endpoint")
+            _string(endpoint["docstring"], f"{context}.endpoint.docstring")
+            handler_count = 1
+        else:
+            endpoint = _exact(endpoint, {"kind", "handlers"}, f"{context}.endpoint")
+            handlers = endpoint["handlers"]
+            if not isinstance(handlers, dict) or not handlers or any(
+                not isinstance(name, str) or not name.isidentifier()
+                or not isinstance(docstring, str)
+                for name, docstring in handlers.items()
+            ):
+                raise ContractError(f"{context}.endpoint.handlers must map names to docstrings")
+            handler_count = len(handlers)
+        if kind == "route":
+            if "methods" in item and (
+                not isinstance(item["methods"], list)
+                or any(not isinstance(method, str) for method in item["methods"])
+            ):
+                raise ContractError(f"{context}.methods must be a string array")
+            if "include_in_schema" in item and type(item["include_in_schema"]) is not bool:
+                raise ContractError(f"{context}.include_in_schema must be boolean")
+        selected: set[str] = set()
+        if kind == "route":
+            selected.add("starlette.schemas.BaseSchemaGenerator.get_endpoints")
+            if item.get("include_in_schema", True):
+                selected.add("starlette.schemas.BaseSchemaGenerator.parse_docstring")
+            if ":" in item["path"]:
+                selected.add("starlette.schemas.BaseSchemaGenerator._remove_converter")
+        return selected, handler_count > 0
+    if kind in {"mount", "host"}:
+        allowed = {"kind", "routes", "path" if kind == "mount" else "host"}
+        item = _exact(route, allowed, context)
+        _string(item["path" if kind == "mount" else "host"], f"{context}.{kind}")
+        nested_routes = item["routes"]
+        if not isinstance(nested_routes, list):
+            raise ContractError(f"{context}.routes must be an array")
+        selected: set[str] = {"starlette.schemas.BaseSchemaGenerator.get_endpoints"}
+        has_child = False
+        for index, child in enumerate(nested_routes):
+            child_selected, child_present = _validate_schema_route_input(
+                child, f"{context}.routes[{index}]"
+            )
+            selected |= child_selected
+            has_child |= child_present
+        if kind == "mount":
+            selected.add("starlette.schemas.BaseSchemaGenerator._remove_converter")
+        return selected, has_child
+    raise ContractError(f"{context}.kind is unsupported")
+
+
+def _validate_schema_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("schema parity currently targets the Python package profile")
+    if case["assets"] != []:
+        raise ContractError("schema parity does not use external assets")
+
+    operation = (case["surface"], case["operation"])
+    if operation == ("starlette.schemas.SchemaGenerator", "schema-generation"):
+        if case["observations"] != ["endpoints", "schema"]:
+            raise ContractError("SchemaGenerator must select endpoints and schema")
+        if not isinstance(case["base_schema"], dict) or not isinstance(case["routes"], list):
+            raise ContractError("SchemaGenerator base_schema and routes must be records and arrays")
+        selected: set[str] = {"starlette.schemas.SchemaGenerator.get_schema"}
+        has_route = False
+        has_converter = False
+        has_mount = False
+        has_host = False
+        has_head_only = False
+        has_excluded = False
+        has_class_endpoint = False
+        for index, route in enumerate(case["routes"]):
+            route_selected, route_present = _validate_schema_route_input(
+                route, f"SchemaGenerator routes[{index}]"
+            )
+            selected |= route_selected
+            has_route |= route_present
+            has_mount |= route.get("kind") == "mount"
+            has_host |= route.get("kind") == "host"
+            if route.get("kind") == "route":
+                has_head_only |= route.get("methods") == ["HEAD"]
+                has_excluded |= route.get("include_in_schema") is False
+                endpoint = route.get("endpoint", {})
+                has_class_endpoint |= endpoint.get("kind") == "class"
+                has_converter |= ":" in route.get("path", "")
+        required = {
+            "starlette.schemas.SchemaGenerator.get_schema",
+            "starlette.schemas.BaseSchemaGenerator.get_endpoints",
+            "starlette.schemas.BaseSchemaGenerator._remove_converter",
+            "starlette.schemas.BaseSchemaGenerator.parse_docstring",
+        }
+        if selected != required or not all(
+            [has_route, has_converter, has_mount, has_host, has_head_only, has_excluded, has_class_endpoint]
+        ):
+            raise ContractError("SchemaGenerator input does not exercise its declared route rules")
+        expected = {"starlette.schemas.SchemaGenerator.get_schema"}
+        expected |= {
+            "starlette.schemas.BaseSchemaGenerator.get_endpoints",
+            "starlette.schemas.BaseSchemaGenerator._remove_converter",
+            "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
+            "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section",
+        }
+        if set(case["covers"]) != expected:
+            raise ContractError("SchemaGenerator coverage must match its route input")
+        return
+
+    if operation == ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"):
+        if case["observations"] != ["parsed-docstrings", "exception"]:
+            raise ContractError("docstring parsing must select parsed-docstrings and exception")
+        docstrings = case["docstrings"]
+        if not isinstance(docstrings, list) or not docstrings or any(
+            not isinstance(docstring, str) for docstring in docstrings
+        ):
+            raise ContractError("docstring parsing input must be a non-empty string array")
+        malformed = any("[unterminated" in docstring for docstring in docstrings)
+        if malformed:
+            if len(docstrings) != 1 or case["covers"] != [
+                "starlette.schemas.BaseSchemaGenerator.parse_docstring.malformed-yaml"
+            ]:
+                raise ContractError("malformed YAML input must isolate its parser error")
+        else:
+            if not any("responses:" in docstring for docstring in docstrings):
+                raise ContractError("docstring parsing input must include a YAML mapping")
+            if not any("---" in docstring for docstring in docstrings):
+                raise ContractError("docstring parsing input must include a schema delimiter")
+            if not any(not docstring.strip() for docstring in docstrings):
+                raise ContractError("docstring parsing input must include empty prose")
+            if not any(docstring.startswith("-") or docstring.strip() == "null" for docstring in docstrings):
+                raise ContractError("docstring parsing input must include a non-mapping YAML value")
+            if set(case["covers"]) != {
+                "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
+                "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section",
+                "starlette.schemas.BaseSchemaGenerator.parse_docstring.non-mapping-filter",
+            }:
+                raise ContractError("docstring parsing coverage must match its input examples")
+        return
+
+    if operation != ("starlette.schemas.OpenAPIResponse", "openapi-response-render"):
+        raise ContractError("schema case uses an undeclared operation")
+    if case["observations"] != ["media-type", "rendered-bytes"]:
+        raise ContractError("OpenAPIResponse must select media-type and rendered-bytes")
+    if not isinstance(case["content"], dict):
+        raise ContractError("OpenAPIResponse content must be a mapping")
+    if set(case["covers"]) != {
+        "starlette.schemas.OpenAPIResponse.render",
+        "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse",
+    }:
+        raise ContractError("OpenAPIResponse coverage must match render and generator response")
 
 
 def _validate_value_formatting_case(case: dict[str, Any]) -> None:

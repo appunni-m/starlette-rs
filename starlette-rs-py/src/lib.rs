@@ -1,16 +1,17 @@
-//! Python boundary for the first Starlette compatibility slice.
+//! Python bindings for the Rust-owned Starlette compatibility runtime.
 //!
-//! The extension delegates route matching, response construction, cookie
-//! generation, response event sequencing, and lifespan state transitions to
-//! `starlette-rs`. Python owns user callables and the active event loop; Rust
-//! continuations invoke and await callbacks through that loop without creating
-//! a second executor or event loop.
+//! The public `starlette.*` modules are thin call-through façades. This
+//! extension translates Python protocol objects at the boundary and delegates
+//! compatibility behavior to Rust. Python owns user callables and the active
+//! event loop; Rust continuations invoke and await callbacks through that loop
+//! without creating a second executor or event loop.
 
 mod application_runtime;
 mod authentication_runtime;
 mod awaitable;
 mod background;
 mod body_limit_runtime;
+mod config_runtime;
 mod cors_runtime;
 mod datastructure_runtime;
 mod endpoint_runtime;
@@ -22,6 +23,7 @@ mod path_convertors_runtime;
 mod request_runtime;
 mod router_runtime;
 mod runtime_calls;
+mod schemas_runtime;
 mod server_error_runtime;
 mod status_runtime;
 mod websocket_calls;
@@ -928,6 +930,8 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     cors_runtime::register(module)?;
     application_runtime::register(module)?;
     exception_values::register(module)?;
+    config_runtime::register(module)?;
+    schemas_runtime::register(module)?;
     middleware_config_runtime::register(module)?;
     host_middleware_runtime::register(module)?;
     path_convertors_runtime::register(module)?;

@@ -276,6 +276,60 @@
           "source_path": "starlette.middleware.trustedhost.TrustedHostMiddleware.__call__"
         }
       ]
+    },
+    {
+      "surface_id": "starlette.config.Environ",
+      "source_path": "starlette/config.py:18",
+      "operations": [
+        {
+          "operation_id": "mapping-sequence",
+          "source_path": "starlette.config.Environ.__getitem__, __setitem__, __delitem__, __iter__, and __len__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.config.Config",
+      "source_path": "starlette/config.py:49",
+      "operations": [
+        {
+          "operation_id": "value-resolution",
+          "source_path": "starlette.config.Config.__call__, Config.get, Config._read_file, and Config._perform_cast"
+        },
+        {
+          "operation_id": "constructor-warning",
+          "source_path": "starlette.config.Config.__init__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.schemas.BaseSchemaGenerator",
+      "source_path": "starlette/schemas.py:36",
+      "operations": [
+        {
+          "operation_id": "schema-docstring-parsing",
+          "source_path": "starlette.schemas.BaseSchemaGenerator.parse_docstring"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.schemas.SchemaGenerator",
+      "source_path": "starlette/schemas.py:128",
+      "operations": [
+        {
+          "operation_id": "schema-generation",
+          "source_path": "starlette.schemas.SchemaGenerator.__init__, SchemaGenerator.get_schema, BaseSchemaGenerator.get_endpoints, _remove_converter, and parse_docstring"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.schemas.OpenAPIResponse",
+      "source_path": "starlette/schemas.py:18",
+      "operations": [
+        {
+          "operation_id": "openapi-response-render",
+          "source_path": "starlette.schemas.OpenAPIResponse.render and BaseSchemaGenerator.OpenAPIResponse"
+        }
+      ]
     }
   ],
   "api_inventory": {

@@ -111,6 +111,8 @@ release clearance.
 - Keep Rust core dependencies separate from Python runtime and build
   dependencies. Pin features and native components explicitly before a crate
   or wheel release.
+- Keep the minimal Python runtime independent of PyYAML. Install the
+  `schemas` extra to enable YAML-backed schema parsing and OpenAPI responses.
 - Do not require optional templates, multipart, YAML, or client packages for a
   minimal ASGI application.
 - Generate a new locked graph per supported Python/platform build, record the

@@ -1,0 +1,100 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.config.Config.value-resolution.environment-file-default-and-casts",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.environment-precedence",
+        "starlette.config.Config.file-precedence",
+        "starlette.config.Config.env-prefix",
+        "starlette.config.Config.default-values",
+        "starlette.config.Config.missing-key-error",
+        "starlette.config.Config.bool-cast",
+        "starlette.config.Config.invalid-bool-error",
+        "starlette.config.Config.cast-error"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "config": {
+        "env_prefix": "APP_",
+        "environ": {
+          "APP_FROM_ENV": "environment value",
+          "APP_PRECEDENCE": "environment wins",
+          "APP_BOOL_TRUE": "TRUE",
+          "APP_BOOL_ONE": "1",
+          "APP_BOOL_FALSE": "0",
+          "APP_BOOL_INVALID": "yes",
+          "APP_INT_INVALID": "not-an-integer"
+        },
+        "env_file_lines": [
+          "# comments are ignored",
+          " APP_FROM_FILE = 'file value' ",
+          "APP_PRECEDENCE=file loses",
+          "APP_FILE_BOOL=True",
+          "APP_DUPLICATE=first",
+          "APP_DUPLICATE=second",
+          "not-an-assignment",
+          ""
+        ]
+      },
+      "lookups": [
+        {"key": "FROM_ENV", "cast": "str"},
+        {"key": "FROM_FILE", "cast": "str"},
+        {"key": "PRECEDENCE", "cast": "str"},
+        {"key": "FILE_BOOL", "cast": "bool"},
+        {"key": "BOOL_TRUE", "cast": "bool"},
+        {"key": "BOOL_ONE", "cast": "bool"},
+        {"key": "BOOL_FALSE", "cast": "bool"},
+        {"key": "DUPLICATE", "cast": "str"},
+        {"key": "DEFAULTED", "cast": "int", "default": "23"},
+        {"key": "NULL_DEFAULT", "default": null},
+        {"key": "MISSING"},
+        {"key": "BOOL_INVALID", "cast": "bool"},
+        {"key": "INT_INVALID", "cast": "int"}
+      ],
+      "observations": ["lookup-results"]
+    },
+    {
+      "case_id": "starlette.config.Environ.mapping-sequence.reads-freeze-keys-and-preserve-mapping-operations",
+      "surface": "starlette.config.Environ",
+      "operation": "mapping-sequence",
+      "covers": [
+        "starlette.config.Environ.set-before-read",
+        "starlette.config.Environ.delete-before-read",
+        "starlette.config.Environ.read-value",
+        "starlette.config.Environ.read-freezes-set",
+        "starlette.config.Environ.read-freezes-delete",
+        "starlette.config.Environ.iteration",
+        "starlette.config.Environ.length",
+        "starlette.config.Environ.missing-key-membership-freezes-key"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "initial_environ": {"READ_ONLY_AFTER": "initial", "REMOVE_BEFORE_READ": "remove me"},
+      "actions": [
+        {"action": "set", "key": "SET_BEFORE_READ", "value": "written"},
+        {"action": "delete", "key": "REMOVE_BEFORE_READ"},
+        {"action": "get", "key": "READ_ONLY_AFTER"},
+        {"action": "set", "key": "READ_ONLY_AFTER", "value": "changed"},
+        {"action": "delete", "key": "READ_ONLY_AFTER"},
+        {"action": "contains", "key": "MISSING_KEY"},
+        {"action": "set", "key": "MISSING_KEY", "value": "later"},
+        {"action": "iterate"},
+        {"action": "length"}
+      ],
+      "observations": ["action-results"]
+    },
+    {
+      "case_id": "starlette.config.Config.constructor-warning.missing-file",
+      "surface": "starlette.config.Config",
+      "operation": "constructor-warning",
+      "covers": ["starlette.config.Config.missing-file-warning"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "env_file": {"kind": "missing-temporary-file", "file_name": "absent.env"},
+      "observations": ["warning-results"]
+    }
+  ]
+}

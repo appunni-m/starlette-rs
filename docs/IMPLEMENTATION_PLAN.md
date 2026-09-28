@@ -23,10 +23,10 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 181 input-only cases, 36 operations, and 208
-parity requirements across 26 indexed files. Latest integrated run
-`7b635097-b506-47a0-aa50-3d078ee02796`, finished at
-`2026-09-28T18:36:34.422Z`, selected 244 profile comparisons: all 181
+The current parity contract has 188 input-only cases, 42 operations, and 234
+parity requirements across 28 indexed files. Latest integrated run
+`2fdd199d-c837-4160-a6c0-2a3cd6321a86`, finished at
+`2026-09-28T19:27:15.856Z`, selected 251 profile comparisons: all 188
 Python-package cases passed; Rust-native passed 57 of 63 selected comparisons.
 There were zero failed comparisons and zero infrastructure errors. The six
 declared unsupported Rust-native rows keep the all-target gate incomplete.
@@ -154,10 +154,14 @@ composition, authentication, background tasks, and concurrency.
 
 ## 4. Optional and edge features
 
-Static files, forms/uploads, templates, schemas, config, WSGI, and TestClient;
-then broader streaming lifecycle, duplicate headers/cookies, failure
-propagation, cancellation, and platform-specific paths. Keep optional
-dependencies feature-gated and preserve unsupported coverage visibly.
+Configuration and schema generation now have seven package-only live parity
+cases across six Rust-backed public operations. The minimal package keeps
+PyYAML optional behind its `schemas` extra. Next implement FileResponse and
+its range/conditional-request behavior, then StaticFiles; forms/uploads,
+templates, WSGI, and TestClient remain open. Continue with broader streaming
+lifecycle, duplicate headers/cookies, failure propagation, cancellation, and
+platform-specific paths. Keep optional dependencies feature-gated and
+preserve unsupported coverage visibly.
 
 ## 5. Completed bounded goal: Router/GZip benchmark parity
 

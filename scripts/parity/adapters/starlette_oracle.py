@@ -15,6 +15,7 @@ import os
 import platform
 import subprocess
 import sys
+import tempfile
 import threading
 import warnings
 from collections.abc import AsyncIterator, Iterator
@@ -58,6 +59,16 @@ VALUE_FORMATTING_OPERATION = "value-formatting"
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 STATUS_SURFACE = "starlette.status"
 STATUS_OPERATION = "module-symbol-sequence"
+CONFIG_OPERATIONS = {
+    ("starlette.config.Config", "value-resolution"),
+    ("starlette.config.Config", "constructor-warning"),
+    ("starlette.config.Environ", "mapping-sequence"),
+}
+SCHEMA_OPERATIONS = {
+    ("starlette.schemas.SchemaGenerator", "schema-generation"),
+    ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"),
+    ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
+}
 _MISSING = object()
 
 
@@ -3328,6 +3339,202 @@ def _run_value_formatting_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _error_snapshot(exc: Exception) -> dict[str, str]:
+    return {"class": f"{type(exc).__module__}.{type(exc).__qualname__}", "message": str(exc)}
+
+
+def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.config import Config, Environ
+
+    surface_operation = (case["surface"], case["operation"])
+    if surface_operation == ("starlette.config.Config", "value-resolution"):
+        config_input = case["config"]
+        with tempfile.TemporaryDirectory() as directory:
+            previous_directory = os.getcwd()
+            os.chdir(directory)
+            try:
+                Path(".env").write_text("\n".join(config_input["env_file_lines"]), encoding="utf-8")
+                config = Config(
+                    env_file=".env",
+                    environ=config_input["environ"],
+                    env_prefix=config_input["env_prefix"],
+                )
+                results = []
+                for lookup in case["lookups"]:
+                    cast = getattr(builtins, lookup["cast"]) if "cast" in lookup else None
+                    arguments = [lookup["key"], cast]
+                    if "default" in lookup:
+                        arguments.append(lookup["default"])
+                    try:
+                        value = config(*arguments)
+                    except Exception as exc:
+                        result = {"key": lookup["key"], "outcome": "error", "error": _error_snapshot(exc)}
+                    else:
+                        result = {"key": lookup["key"], "outcome": "value", "value": _json_safe(value)}
+                    results.append(result)
+            finally:
+                os.chdir(previous_directory)
+        value = {"lookup-results": results}
+    elif surface_operation == ("starlette.config.Config", "constructor-warning"):
+        previous_directory = os.getcwd()
+        with tempfile.TemporaryDirectory() as directory:
+            os.chdir(directory)
+            try:
+                with warnings.catch_warnings(record=True) as recorded:
+                    warnings.simplefilter("always")
+                    Config(env_file=case["env_file"]["file_name"])
+                results = [
+                    {
+                        "category": f"{item.category.__module__}.{item.category.__qualname__}",
+                        "message": str(item.message),
+                    }
+                    for item in recorded
+                ]
+            finally:
+                os.chdir(previous_directory)
+        value = {"warning-results": results}
+    else:
+        environ = Environ(dict(case["initial_environ"]))
+        results = []
+        for action in case["actions"]:
+            name = action["action"]
+            result = {"action": name}
+            if "key" in action:
+                result["key"] = action["key"]
+            try:
+                if name == "set":
+                    environ[action["key"]] = action["value"]
+                elif name == "delete":
+                    del environ[action["key"]]
+                elif name == "get":
+                    result["value"] = _json_safe(environ[action["key"]])
+                elif name == "contains":
+                    result["value"] = action["key"] in environ
+                elif name == "iterate":
+                    result["value"] = list(environ)
+                else:
+                    result["value"] = len(environ)
+            except Exception as exc:
+                result["error"] = _error_snapshot(exc)
+            else:
+                result["outcome"] = "ok"
+            results.append(result)
+        value = {"action-results": results}
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": selector, "status": "ok", "value": value}
+            for selector in case["observations"]
+        ],
+    }
+
+
+def _schema_function(docstring: str, name: str = "endpoint") -> Any:
+    async def endpoint(*_args: Any, **_kwargs: Any) -> None:
+        return None
+
+    endpoint.__name__ = name
+    endpoint.__doc__ = docstring
+    return endpoint
+
+
+def _schema_endpoint(spec: dict[str, Any]) -> Any:
+    if spec["kind"] == "function":
+        return _schema_function(spec["docstring"])
+    methods = {
+        name: _schema_function(docstring, name)
+        for name, docstring in spec["handlers"].items()
+    }
+    methods["__call__"] = _schema_function("", "__call__")
+    return type("SchemaEndpoint", (), methods)()
+
+
+def _schema_routes(specs: list[dict[str, Any]]) -> list[Any]:
+    from starlette.routing import Host, Mount, Route, Router, WebSocketRoute
+
+    routes = []
+    for spec in specs:
+        kind = spec["kind"]
+        if kind == "route":
+            kwargs = {}
+            if "methods" in spec:
+                kwargs["methods"] = spec["methods"]
+            if "include_in_schema" in spec:
+                kwargs["include_in_schema"] = spec["include_in_schema"]
+            routes.append(Route(spec["path"], _schema_endpoint(spec["endpoint"]), **kwargs))
+        elif kind == "websocket-route":
+            routes.append(WebSocketRoute(spec["path"], _schema_endpoint(spec["endpoint"])))
+        elif kind == "mount":
+            routes.append(Mount(spec["path"], routes=_schema_routes(spec["routes"])))
+        else:
+            routes.append(Host(spec["host"], Router(routes=_schema_routes(spec["routes"]))))
+    return routes
+
+
+def _endpoint_observation(endpoint: Any) -> dict[str, Any]:
+    return {
+        "path": endpoint.path,
+        "http_method": endpoint.http_method,
+        "docstring": endpoint.func.__doc__,
+    }
+
+
+def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
+    surface_operation = (case["surface"], case["operation"])
+    if surface_operation == ("starlette.schemas.SchemaGenerator", "schema-generation"):
+        from starlette.schemas import SchemaGenerator
+
+        generator = SchemaGenerator(case["base_schema"])
+        endpoints = generator.get_endpoints(_schema_routes(case["routes"]))
+        schema = generator.get_schema(_schema_routes(case["routes"]))
+        value = {
+            "endpoints": [_endpoint_observation(endpoint) for endpoint in endpoints],
+            "schema": _json_safe(schema),
+        }
+    elif surface_operation == ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"):
+        from starlette.schemas import BaseSchemaGenerator
+
+        generator = BaseSchemaGenerator()
+        parsed_docstrings = []
+        first_error = None
+        for docstring in case["docstrings"]:
+            try:
+                parsed = generator.parse_docstring(_schema_function(docstring))
+            except Exception as exc:
+                error = _error_snapshot(exc)
+                parsed_docstrings.append({"outcome": "error", "error": error})
+                if first_error is None:
+                    first_error = error
+            else:
+                parsed_docstrings.append({"outcome": "value", "value": _json_safe(parsed)})
+        value = {"parsed-docstrings": parsed_docstrings, "exception": first_error}
+    else:
+        from starlette.requests import Request
+        from starlette.schemas import OpenAPIResponse, SchemaGenerator
+
+        generator = SchemaGenerator(case["content"])
+        direct = OpenAPIResponse(case["content"])
+        application = type("SchemaApplication", (), {"routes": []})()
+        request = Request({"type": "http", "method": "GET", "app": application})
+        generated = generator.OpenAPIResponse(request)
+        value = {
+            "media-type": {"direct": direct.media_type, "generated": generated.media_type},
+            "rendered-bytes": {
+                "direct": _json_safe(direct.render(case["content"])),
+                "generated": _json_safe(generated.render(case["content"])),
+            },
+        }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": selector, "status": "ok", "value": value}
+            for selector in case["observations"]
+        ],
+    }
+
+
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if (
         isinstance(case, dict)
@@ -3339,6 +3546,10 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         STATUS_OPERATION,
     ):
         return _run_status_symbols_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in CONFIG_OPERATIONS:
+        return _run_config_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in SCHEMA_OPERATIONS:
+        return _run_schema_case(case)
     if (
         isinstance(case, dict)
         and case.get("operation") == VALUE_FORMATTING_OPERATION

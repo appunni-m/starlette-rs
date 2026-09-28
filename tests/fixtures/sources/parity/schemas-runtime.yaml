@@ -1,0 +1,155 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.schemas.SchemaGenerator.schema-generation.route-selection-prefixes-and-converters",
+      "surface": "starlette.schemas.SchemaGenerator",
+      "operation": "schema-generation",
+      "covers": [
+        "starlette.schemas.SchemaGenerator.get_schema",
+        "starlette.schemas.BaseSchemaGenerator.get_endpoints",
+        "starlette.schemas.BaseSchemaGenerator._remove_converter",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "base_schema": {
+        "openapi": "3.0.0",
+        "info": {"title": "Schema parity", "version": "1.0"},
+        "paths": {"/base": {"get": {"description": "preserved base path"}}}
+      },
+      "routes": [
+        {
+          "kind": "route",
+          "path": "/users/{user_id:int}",
+          "methods": ["GET", "HEAD"],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "Endpoint prose before the schema.\n\n---\nresponses:\n  200:\n    description: User detail\n"
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/head-only",
+          "methods": ["HEAD"],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "responses:\n  200:\n    description: Excluded HEAD operation\n"
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/hidden",
+          "methods": ["GET"],
+          "include_in_schema": false,
+          "endpoint": {
+            "kind": "function",
+            "docstring": "responses:\n  200:\n    description: Excluded route\n"
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/organizations",
+          "endpoint": {
+            "kind": "class",
+            "handlers": {
+              "get": "responses:\n  200:\n    description: Organization list\n",
+              "post": "responses:\n  201:\n    description: Organization created\n"
+            }
+          }
+        },
+        {
+          "kind": "websocket-route",
+          "path": "/socket",
+          "endpoint": {"kind": "function", "docstring": "responses:\n  200:\n    description: Not an HTTP route\n"}
+        },
+        {
+          "kind": "mount",
+          "path": "/api/{version:int}",
+          "routes": [
+            {
+              "kind": "route",
+              "path": "/status",
+              "methods": ["GET"],
+              "endpoint": {
+                "kind": "function",
+                "docstring": "responses:\n  200:\n    description: Mounted status\n"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "host",
+          "host": "api.example.test",
+          "routes": [
+            {
+              "kind": "mount",
+              "path": "/tenant",
+              "routes": [
+                {
+                  "kind": "route",
+                  "path": "/health",
+                  "methods": ["GET"],
+                  "endpoint": {
+                    "kind": "function",
+                    "docstring": "responses:\n  200:\n    description: Host mounted health\n"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "observations": ["endpoints", "schema"]
+    },
+    {
+      "case_id": "starlette.schemas.BaseSchemaGenerator.schema-docstring-parsing.yaml-mapping-filter",
+      "surface": "starlette.schemas.BaseSchemaGenerator",
+      "operation": "schema-docstring-parsing",
+      "covers": [
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.non-mapping-filter"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "docstrings": [
+        "A prose-only endpoint docstring.",
+        "responses:\n  200:\n    description: Mapping document\n",
+        "Notes before schema delimiter.\n---\nresponses:\n  202:\n    description: Final section\n",
+        "- one\n- two\n",
+        "null\n",
+        ""
+      ],
+      "observations": ["parsed-docstrings", "exception"]
+    },
+    {
+      "case_id": "starlette.schemas.BaseSchemaGenerator.schema-docstring-parsing.malformed-yaml",
+      "surface": "starlette.schemas.BaseSchemaGenerator",
+      "operation": "schema-docstring-parsing",
+      "covers": ["starlette.schemas.BaseSchemaGenerator.parse_docstring.malformed-yaml"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "docstrings": ["responses:\n  200: [unterminated\n"],
+      "observations": ["parsed-docstrings", "exception"]
+    },
+    {
+      "case_id": "starlette.schemas.OpenAPIResponse.openapi-response-render.dictionary-render",
+      "surface": "starlette.schemas.OpenAPIResponse",
+      "operation": "openapi-response-render",
+      "covers": [
+        "starlette.schemas.OpenAPIResponse.render",
+        "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "content": {
+        "openapi": "3.0.0",
+        "info": {"title": "Example API", "version": "1.0"},
+        "paths": {"/health": {"get": {"responses": {"200": {"description": "Healthy"}}}}}
+      },
+      "observations": ["media-type", "rendered-bytes"]
+    }
+  ]
+}

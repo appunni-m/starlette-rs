@@ -17,25 +17,26 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 181 input-only cases across 26 files,
-covering 36 operations and 208 parity requirements. The authored cases span
+The active parity manifest indexes 188 input-only cases across 28 files,
+covering 42 operations and 234 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
-WebSockets, exceptions, status constants, endpoints, authentication, and
-middleware. The exact operation and profile denominator is in the parity
-manifest; generated JSON and run results remain ignored local build outputs.
+WebSockets, exceptions, status constants, endpoints, authentication,
+middleware, configuration, and schemas. The exact operation and profile
+denominator is in the parity manifest; generated JSON and run results remain
+ignored local build outputs.
 
-The latest integrated run `7b635097-b506-47a0-aa50-3d078ee02796` finished at
-`2026-09-28T18:36:34.422Z` after starting at `2026-09-28T18:36:06.797Z`. It
-selected 244 profile comparisons: all 181 Python-package cases passed, and the
+The latest integrated run `2fdd199d-c837-4160-a6c0-2a3cd6321a86` finished at
+`2026-09-28T19:27:15.856Z` after starting at `2026-09-28T19:26:47.713Z`. It
+selected 251 profile comparisons: all 188 Python-package cases passed, and the
 Rust-native profile passed 57 of 63 selected cases. There were zero failed
 comparisons and zero infrastructure errors. Four arbitrary Python callable
 boundaries and two Mount cases are declared unsupported for Rust-native, so
 those six rows are `not_run` and the CLI exits with status 2; this is not an
-all-target pass. The target trees were dirty when captured, so this run is not
-clean aggregate or release proof. The manifest SHA-256 is
-`25a8f6d231d86ed418f1dc9f837a61ba0f421042260a6661faa174651015bd39`; the
+all-target pass. The Python-package target tree was dirty when captured, so
+this run is not clean aggregate or release proof. The manifest SHA-256 is
+`3622e0807a6accdc5be8b4c241becfe8fec409490fe9fdfdf90c13ebcd6eea6`; the
 target wheel SHA-256 is
-`7fcd9472941b2f8af0c42934a55d7426c7c6137538c57e2a2ff85e459ec70da6`. The two
+`facb4d414cbf324ba885b812f1958f8b072e4436a9a2c9c71207f1516acd29ce`. The two
 registered-handler inputs in
 [`asgi-exception-handlers.yaml`](../tests/fixtures/sources/parity/asgi-exception-handlers.yaml)
 exercise status-code precedence over an `HTTPException` class handler and an
@@ -125,18 +126,12 @@ outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
 crosswalk snapshot, 37 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
-The active manifest separately indexes 19 parity input files with 136 cases:
-38 request/routing cases (including async and synchronous Request endpoints,
-a callable-instance ASGI route, slash redirects, and three `WebSocketRoute`
-dispatch cases), 21 reverse-URL cases, four direct ASGI cases for `/hello`,
-`/missing`, the wrong method, and a public slash redirect, eight basic
-`Response`/`JSONResponse` ASGI-call cases, seven `StreamingResponse` cases, eight
-`GZipMiddleware` cases, four direct
-`RedirectResponse` ASGI-call cases, six full WebSocket protocol-tape
-cases, six projected WebSocket state cases, 14 WebSocket convenience cases,
-two WebSocketClose cases, five Request-style HTTPException
-cases, two callable-ASGI HTTPException cases, two registered-handler cases,
-and nine server-error cases. The `starlette.websockets.WebSocket.protocol-sequence`
+The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
+input files with 136 cases. The active manifest has since grown to 28 files
+and 188 cases, including three configuration cases and four schema cases in
+[`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
+and [`schemas-runtime.yaml`](../tests/fixtures/sources/parity/schemas-runtime.yaml).
+The `starlette.websockets.WebSocket.protocol-sequence`
 operation contains six cases whose Python-package observations preserve the
 ordered receive/send ASGI callback tape, including attempted sends whose
 callback raises. The `starlette.websockets.WebSocket.state-sequence` operation repeats
@@ -149,8 +144,8 @@ output, async-generator API availability/control calls, denial-response
 extension behavior, and final states. The separate
 `starlette.websockets.WebSocketClose.call-sequence` operation observes
 construction defaults, mutable properties, and its ASGI close event. These
-new inputs are validated but await a live run. The earlier 18 protocol/state
-comparisons passed under the previous manifest. The route operation is
+inputs all pass in the latest integrated Python-package run, and the six
+projected state cases also pass in Rust-native. The route operation is
 `starlette.routing.WebSocketRoute.route-dispatch`; its cases are
 `matched-root-path`, `router-miss-close`, and `http-scope-404`; all three passed
 in the Python-package profile. The

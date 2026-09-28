@@ -1,10 +1,10 @@
 {
   "schema": "migration-parity/manifest@2",
   "scope": {
-    "id": "starlette-1.6.0-asgi-http-gzip-websocket-slice",
+    "id": "starlette-1.6.0-asgi-http-config-schema-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, docstring-based schema generation, and OpenAPI response rendering.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -260,7 +260,9 @@
       "build/parity/inputs/parity/host-routing.json",
       "build/parity/inputs/parity/status-constants.json",
       "build/parity/inputs/parity/cors-middleware.json",
-      "build/parity/inputs/parity/host-middleware.json"
+      "build/parity/inputs/parity/host-middleware.json",
+      "build/parity/inputs/parity/config-runtime.json",
+      "build/parity/inputs/parity/schemas-runtime.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -7754,6 +7756,887 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only middleware slice declares no benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.config.Environ",
+      "kind": "type",
+      "source_path": "starlette/config.py:18",
+      "storage_slug": "starlette-config-Environ-mapping-sequence",
+      "operations": [
+        {
+          "id": "mapping-sequence",
+          "kind": "protocol_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.config.Environ.__getitem__, __setitem__, __delitem__, __iter__, and __len__",
+            "signature": "Environ(environ=os.environ); observe mapping operations and read freezes",
+            "parameters": [
+              {
+                "id": "initial_environ",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "action-results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not yet expose this Python compatibility operation.",
+                "blocker": "No Rust-native public operation is declared for this module slice."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.config.Environ",
+              "signature": "Environ(environ=os.environ); observe mapping operations and read freezes",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.config.Environ.set-before-read",
+              "dimension": "protocol_variant",
+              "description": "Allow setting an environment key before it has been read. Upstream: starlette/config.py:27-30.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Environ.delete-before-read",
+              "dimension": "protocol_variant",
+              "description": "Allow deleting an environment key before it has been read. Upstream: starlette/config.py:32-35.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Environ.read-value",
+              "dimension": "success_path",
+              "description": "Read a configured environment value and record that access. Upstream: starlette/config.py:23-25.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Environ.read-freezes-set",
+              "dimension": "error_path",
+              "description": "Reject setting a key after its value has been read. Upstream: starlette/config.py:27-30.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Environ.read-freezes-delete",
+              "dimension": "error_path",
+              "description": "Reject deleting a key after its value has been read. Upstream: starlette/config.py:32-35.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Environ.iteration",
+              "dimension": "protocol_variant",
+              "description": "Expose the underlying environment mapping iterator. Upstream: starlette/config.py:37-38.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Environ.length",
+              "dimension": "protocol_variant",
+              "description": "Expose the underlying environment mapping length. Upstream: starlette/config.py:40-41.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Environ.missing-key-membership-freezes-key",
+              "dimension": "error_path",
+              "description": "Membership reads and freezes a missing key through the MutableMapping protocol. Upstream: starlette/config.py:23-25.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.config.Config",
+      "kind": "type",
+      "source_path": "starlette/config.py:49",
+      "storage_slug": "starlette-config-Config",
+      "operations": [
+        {
+          "id": "value-resolution",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.config.Config.__call__, Config.get, Config._read_file, and Config._perform_cast",
+            "signature": "Config(...); __call__(key, cast=None, default=undefined) -> Any",
+            "parameters": [
+              {
+                "id": "config",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "lookups",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "lookup-results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not yet expose this Python compatibility operation.",
+                "blocker": "No Rust-native public operation is declared for this module slice."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.config.Config",
+              "signature": "Config(...); __call__(key, cast=None, default=undefined) -> Any",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.config.Config.environment-precedence",
+              "dimension": "parameter_combination",
+              "description": "Prefer an environment value over an env-file value with the same prefixed key. Upstream: starlette/config.py:100-105.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.file-precedence",
+              "dimension": "parameter_combination",
+              "description": "Read a value from the configured env file when no environment value exists. Upstream: starlette/config.py:104-105.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.env-prefix",
+              "dimension": "parameter",
+              "description": "Prefix requested keys before environment and file lookups. Upstream: starlette/config.py:100.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.default-values",
+              "dimension": "parameter_combination",
+              "description": "Cast and return a supplied default when neither environment nor file contains the key. Upstream: starlette/config.py:107-108.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.missing-key-error",
+              "dimension": "error_path",
+              "description": "Raise KeyError when a key is missing and no default is supplied. Upstream: starlette/config.py:109.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.bool-cast",
+              "dimension": "parameter_combination",
+              "description": "Convert the accepted string forms true, false, 1, and 0 to booleans. Upstream: starlette/config.py:129-136.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.invalid-bool-error",
+              "dimension": "error_path",
+              "description": "Reject unsupported boolean strings with the Config-specific ValueError. Upstream: starlette/config.py:133-136.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.cast-error",
+              "dimension": "error_path",
+              "description": "Translate TypeError and ValueError from a requested cast to a Config-specific ValueError. Upstream: starlette/config.py:137-140.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "constructor-warning",
+          "kind": "constructor",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.config.Config.__init__",
+            "signature": "Config(env_file=None, environ=environ, env_prefix=\"\", encoding=\"utf-8\")",
+            "parameters": [
+              {
+                "id": "env_file",
+                "style": "option",
+                "value_types": [
+                  "path"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "warning-results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not yet expose this Python compatibility operation.",
+                "blocker": "No Rust-native public operation is declared for this module slice."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.config.Config",
+              "signature": "Config(env_file=None, environ=environ, env_prefix=\"\", encoding=\"utf-8\")",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.config.Config.missing-file-warning",
+              "dimension": "error_path",
+              "description": "Emit a UserWarning when a configured env file does not exist. Upstream: starlette/config.py:60-64.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.schemas.BaseSchemaGenerator",
+      "kind": "type",
+      "source_path": "starlette/schemas.py:36",
+      "storage_slug": "starlette-schemas-BaseSchemaGenerator",
+      "operations": [
+        {
+          "id": "schema-docstring-parsing",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.schemas.BaseSchemaGenerator.parse_docstring",
+            "signature": "parse_docstring(func_or_method) -> dict[str, Any]",
+            "parameters": [
+              {
+                "id": "docstrings",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "parsed-docstrings",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "exception",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not yet expose this Python compatibility operation.",
+                "blocker": "No Rust-native public operation is declared for this module slice."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.schemas.BaseSchemaGenerator",
+              "signature": "parse_docstring(func_or_method) -> dict[str, Any]",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
+              "dimension": "success_path",
+              "description": "Parse mapping-valued YAML from an endpoint docstring. Upstream: starlette/schemas.py:98-120.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section",
+              "dimension": "parameter",
+              "description": "Use the final YAML section after the --- delimiter. Upstream: starlette/schemas.py:108-113.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.schemas.BaseSchemaGenerator.parse_docstring.non-mapping-filter",
+              "dimension": "parameter_combination",
+              "description": "Return an empty mapping when the docstring is empty prose or YAML that is not a mapping. Upstream: starlette/schemas.py:102-118.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.schemas.BaseSchemaGenerator.parse_docstring.malformed-yaml",
+              "dimension": "error_path",
+              "description": "Preserve the YAML parser error raised for malformed endpoint documentation. Upstream: starlette/schemas.py:111-113.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.schemas.SchemaGenerator",
+      "kind": "type",
+      "source_path": "starlette/schemas.py:128",
+      "storage_slug": "starlette-schemas-SchemaGenerator",
+      "operations": [
+        {
+          "id": "schema-generation",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.schemas.SchemaGenerator.__init__, SchemaGenerator.get_schema, BaseSchemaGenerator.get_endpoints, _remove_converter, and parse_docstring",
+            "signature": "SchemaGenerator(base_schema); get_schema(routes) -> dict[str, Any]",
+            "parameters": [
+              {
+                "id": "base_schema",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "routes",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "endpoints",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "schema",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not yet expose this Python compatibility operation.",
+                "blocker": "No Rust-native public operation is declared for this module slice."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.schemas.SchemaGenerator",
+              "signature": "SchemaGenerator(base_schema); get_schema(routes) -> dict[str, Any]",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.schemas.BaseSchemaGenerator.get_endpoints",
+              "dimension": "success_path",
+              "description": "Collect documented HTTP functions and method handlers from routes, mounts, and hosts while excluding HEAD, WebSocket routes, and routes hidden from the schema. Upstream: starlette/schemas.py:40-87.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.schemas.BaseSchemaGenerator._remove_converter",
+              "dimension": "parameter",
+              "description": "Remove path converter names from documented route paths and mount prefixes. Upstream: starlette/schemas.py:89-96.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.schemas.SchemaGenerator.get_schema",
+              "dimension": "success_path",
+              "description": "Copy the base schema, preserve existing paths, and insert documented route operations at converted paths. Upstream: starlette/schemas.py:128-148.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.schemas.OpenAPIResponse",
+      "kind": "type",
+      "source_path": "starlette/schemas.py:18",
+      "storage_slug": "starlette-schemas-OpenAPIResponse",
+      "operations": [
+        {
+          "id": "openapi-response-render",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.schemas.OpenAPIResponse.render and BaseSchemaGenerator.OpenAPIResponse",
+            "signature": "OpenAPIResponse(content).render(content) -> bytes",
+            "parameters": [
+              {
+                "id": "content",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "media-type",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "rendered-bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not yet expose this Python compatibility operation.",
+                "blocker": "No Rust-native public operation is declared for this module slice."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.schemas.OpenAPIResponse",
+              "signature": "OpenAPIResponse(content).render(content) -> bytes",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.schemas.OpenAPIResponse.render",
+              "dimension": "success_path",
+              "description": "Render a dictionary schema as YAML bytes with the OpenAPI response media type. Upstream: starlette/schemas.py:18-24.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse",
+              "dimension": "success_path",
+              "description": "Build an OpenAPI response from the application routes using the configured schema generator. Upstream: starlette/schemas.py:122-125.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This behavior is outside the declared benchmark workloads."
           }
         }
       ]
