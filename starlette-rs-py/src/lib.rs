@@ -12,6 +12,7 @@ mod awaitable;
 mod background;
 mod body_limit_runtime;
 mod config_runtime;
+mod cookie_runtime;
 mod cors_runtime;
 mod datastructure_runtime;
 mod endpoint_runtime;
@@ -813,8 +814,36 @@ impl PyResponse {
         self.inner.status_code()
     }
 
-    fn set_cookie(&mut self, key: &str, value: &str) -> PyResult<()> {
-        self.inner.set_cookie(key, value).map_err(response_error)
+    #[pyo3(signature = (key, value="", max_age=None, expires=None, path="/", domain=None, secure=false, httponly=false, samesite="lax", partitioned=false))]
+    #[allow(clippy::too_many_arguments)]
+    fn set_cookie(
+        &mut self,
+        py: Python<'_>,
+        key: &str,
+        value: &str,
+        max_age: Option<Py<PyAny>>,
+        expires: Option<Py<PyAny>>,
+        path: Option<&str>,
+        domain: Option<&str>,
+        secure: bool,
+        httponly: bool,
+        samesite: Option<&str>,
+        partitioned: bool,
+    ) -> PyResult<()> {
+        let options = cookie_runtime::options_from_python(
+            py,
+            max_age,
+            expires,
+            path.map(str::to_owned),
+            domain.map(str::to_owned),
+            secure,
+            httponly,
+            samesite.map(str::to_owned),
+            partitioned,
+        )?;
+        self.inner
+            .set_cookie_with_options(key, value, &options)
+            .map_err(response_error)
     }
 
     fn asgi_messages<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
@@ -1137,7 +1166,10 @@ fn response_body_bytes(py: Python<'_>, content: Option<&Bound<'_, PyAny>>) -> Py
 }
 
 fn response_error(error: ResponseError) -> PyErr {
-    PyValueError::new_err(error.to_string())
+    match error {
+        ResponseError::InvalidSameSite => PyAssertionError::new_err(error.to_string()),
+        _ => PyValueError::new_err(error.to_string()),
+    }
 }
 
 fn server_error_plan_parts(plan: ServerErrorPlan) -> (&'static str, Option<usize>) {

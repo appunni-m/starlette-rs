@@ -203,7 +203,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@5",
+      "input_schema": "migration-parity/parity-input@6",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -6857,6 +6857,40 @@
               "id": "starlette.responses.Response.asgi-call.memoryview-content",
               "dimension": "input_family",
               "description": "Construct Response from a memoryview over the input bytes and invoke it through HTTP ASGI, preserving memoryview as the outgoing body while comparing its bytes. Upstream: starlette/responses.py::Response.render and Response.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.set-cookie-attributes",
+              "dimension": "parameter_combination",
+              "description": "Apply input-defined Response.set_cookie calls covering Max-Age, expires as an RFC HTTP-date string, Domain, HttpOnly, Path omission, SameSite omission, and Secure, then invoke the response through HTTP ASGI. Upstream: starlette/responses.py::Response.set_cookie; tests/test_responses.py::test_set_cookie, test_set_cookie_path_none, test_set_cookie_samesite_none, and test_expires_on_set_cookie.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.cookie-expiration-inputs",
+              "dimension": "parameter_combination",
+              "description": "Apply input-defined timezone-aware datetime and integer-offset expires values with a fixed time source, then invoke Response through HTTP ASGI. This records the conversion required at the Python boundary. Upstream: starlette/responses.py::Response.set_cookie; tests/test_responses.py::test_expires_on_set_cookie.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.partitioned-cookie-version-error",
+              "dimension": "error_path",
+              "description": "Attempt Response.set_cookie(partitioned=True) on CPython 3.12 and observe the version-gated error before ASGI dispatch. Upstream: starlette/responses.py::Response.set_cookie; tests/test_responses.py::test_set_cookie_raises_for_invalid_python_version.",
               "lanes": [
                 "parity"
               ],

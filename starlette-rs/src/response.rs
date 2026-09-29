@@ -12,6 +12,45 @@ pub struct Response {
     body: Vec<u8>,
 }
 
+/// Optional attributes for a `Set-Cookie` response header.
+///
+/// Attribute values are strings so the Python boundary can preserve
+/// `http.cookies.Morsel`'s value conversion before Rust serializes the header.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CookieOptions {
+    /// `Max-Age` attribute value.
+    pub max_age: Option<String>,
+    /// `expires` attribute value, formatted as an HTTP date when appropriate.
+    pub expires: Option<String>,
+    /// `Path` attribute value. `None` omits the attribute.
+    pub path: Option<String>,
+    /// `Domain` attribute value.
+    pub domain: Option<String>,
+    /// Whether to emit the `Secure` flag.
+    pub secure: bool,
+    /// Whether to emit the `HttpOnly` flag.
+    pub httponly: bool,
+    /// `SameSite` attribute value. `None` omits the attribute.
+    pub samesite: Option<String>,
+    /// Whether to emit the `Partitioned` flag.
+    pub partitioned: bool,
+}
+
+impl Default for CookieOptions {
+    fn default() -> Self {
+        Self {
+            max_age: None,
+            expires: None,
+            path: Some(String::from("/")),
+            domain: None,
+            secure: false,
+            httponly: false,
+            samesite: Some(String::from("lax")),
+            partitioned: false,
+        }
+    }
+}
+
 /// One Python traceback frame reduced to values needed by the debug renderer.
 ///
 /// The Python boundary extracts filename, source context, and code metadata
@@ -363,6 +402,8 @@ pub enum ResponseError {
     InvalidCookieValue,
     /// Cookie names and values must be encodable as Latin-1 response headers.
     CookieDataIsNotLatin1,
+    /// SameSite must be one of `strict`, `lax`, or `none`.
+    InvalidSameSite,
 }
 
 impl Display for ResponseError {
@@ -377,6 +418,9 @@ impl Display for ResponseError {
             }
             Self::CookieDataIsNotLatin1 => {
                 formatter.write_str("cookie data cannot be encoded as Latin-1")
+            }
+            Self::InvalidSameSite => {
+                formatter.write_str("samesite must be either 'strict', 'lax' or 'none'")
             }
         }
     }
@@ -672,7 +716,6 @@ impl Response {
     /// The output has `Path=/; SameSite=lax` attributes. Calling this multiple
     /// times appends distinct `set-cookie` headers in call order. Values that
     /// need quoting are quoted and escaped using the `SimpleCookie` format.
-    /// This first slice does not expose Starlette's optional cookie attributes.
     ///
     /// # Errors
     ///
@@ -681,11 +724,36 @@ impl Response {
     /// semicolons, and non-ASCII Latin-1 values are quoted and octal-escaped
     /// like `http.cookies.SimpleCookie`.
     pub fn set_cookie(&mut self, key: &str, value: &str) -> Result<(), ResponseError> {
+        self.set_cookie_with_options(key, value, &CookieOptions::default())
+    }
+
+    /// Appends a cookie using the supplied Starlette cookie attributes.
+    ///
+    /// Attribute spelling and ordering follow `http.cookies.Morsel`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for invalid cookie data, an invalid SameSite value,
+    /// or data that cannot be encoded as Latin-1.
+    pub fn set_cookie_with_options(
+        &mut self,
+        key: &str,
+        value: &str,
+        options: &CookieOptions,
+    ) -> Result<(), ResponseError> {
         if key.is_empty() || !is_cookie_token(key) {
             return Err(ResponseError::InvalidCookieName);
         }
         if value.chars().any(is_cookie_control) {
             return Err(ResponseError::InvalidCookieValue);
+        }
+        if options.samesite.as_ref().is_some_and(|samesite| {
+            !matches!(
+                samesite.to_ascii_lowercase().as_str(),
+                "strict" | "lax" | "none"
+            )
+        }) {
+            return Err(ResponseError::InvalidSameSite);
         }
 
         let mut cookie = encode_latin1(key).ok_or(ResponseError::CookieDataIsNotLatin1)?;
@@ -699,7 +767,14 @@ impl Response {
             }
             cookie.push(b'"');
         }
-        cookie.extend_from_slice(b"; Path=/; SameSite=lax");
+        append_cookie_attribute(&mut cookie, "Domain", options.domain.as_deref())?;
+        append_cookie_attribute(&mut cookie, "expires", options.expires.as_deref())?;
+        append_cookie_flag(&mut cookie, "HttpOnly", options.httponly);
+        append_cookie_attribute(&mut cookie, "Max-Age", options.max_age.as_deref())?;
+        append_cookie_flag(&mut cookie, "Partitioned", options.partitioned);
+        append_cookie_attribute(&mut cookie, "Path", options.path.as_deref())?;
+        append_cookie_attribute(&mut cookie, "SameSite", options.samesite.as_deref())?;
+        append_cookie_flag(&mut cookie, "Secure", options.secure);
         self.headers.push((b"set-cookie".to_vec(), cookie));
         Ok(())
     }
@@ -1543,6 +1618,27 @@ fn is_cookie_token(value: &str) -> bool {
 
 fn is_cookie_control(character: char) -> bool {
     matches!(u32::from(character), 0..=31 | 127)
+}
+
+fn append_cookie_attribute(
+    cookie: &mut Vec<u8>,
+    name: &str,
+    value: Option<&str>,
+) -> Result<(), ResponseError> {
+    if let Some(value) = value.filter(|value| !value.is_empty()) {
+        cookie.extend_from_slice(b"; ");
+        cookie.extend_from_slice(name.as_bytes());
+        cookie.push(b'=');
+        cookie.extend(encode_latin1(value).ok_or(ResponseError::CookieDataIsNotLatin1)?);
+    }
+    Ok(())
+}
+
+fn append_cookie_flag(cookie: &mut Vec<u8>, name: &str, enabled: bool) {
+    if enabled {
+        cookie.extend_from_slice(b"; ");
+        cookie.extend_from_slice(name.as_bytes());
+    }
 }
 
 fn append_quoted_cookie_char(cookie: &mut Vec<u8>, character: char) -> Result<(), ResponseError> {

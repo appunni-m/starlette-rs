@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterable, Callable, Iterable, Mapping
-from typing import Any
+from datetime import datetime
+from typing import Any, Literal
 
 from starlette_rs_py import _core
 
@@ -53,9 +54,23 @@ class Response:
         """
         return _core.Response.render_content(content, self.charset)
 
-    def set_cookie(self, key: str, value: str) -> None:
+    def set_cookie(
+        self,
+        key: str,
+        value: str = "",
+        max_age: int | None = None,
+        expires: datetime | str | int | None = None,
+        path: str | None = "/",
+        domain: str | None = None,
+        secure: bool = False,
+        httponly: bool = False,
+        samesite: Literal["lax", "strict", "none"] | None = "lax",
+        partitioned: bool = False,
+    ) -> None:
         """Append a cookie header through the Rust response implementation."""
-        self._inner.set_cookie(key, value)
+        self._inner.set_cookie(
+            key, value, max_age, expires, path, domain, secure, httponly, samesite, partitioned
+        )
 
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]

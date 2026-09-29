@@ -26,14 +26,14 @@ use mime_guess as _;
 use serde_json::{Map, Number, Value, json};
 use sha2::{Digest, Sha256};
 use starlette_rs::{
-    ApplicationRoute, AsgiScopeKind, Cookies, DEFAULT_EXCLUDED_CONTENT_TYPES, DetailedRouteMatch,
-    FileMetadata, FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
-    FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader, GzipResponseStart, HttpScope,
-    LifespanAction, LifespanState, Mount as NativeMount, MountChild, MountScope, PathConverter,
-    PathParameterCapture, QueryParams, RequestBodyAccumulator, RequestHeaders, Response,
-    ResponseEvent, RouteTable, Starlette as NativeApplication, StaticFiles as NativeStaticFiles,
-    StaticFilesError, StaticFilesResponse, StreamingResponse, StreamingResponseEvent,
-    WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
+    ApplicationRoute, AsgiScopeKind, CookieOptions, Cookies, DEFAULT_EXCLUDED_CONTENT_TYPES,
+    DetailedRouteMatch, FileMetadata, FileResponse as NativeFileResponse, FileResponseCallInput,
+    FileResponseCallStep, FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader,
+    GzipResponseStart, HttpScope, LifespanAction, LifespanState, Mount as NativeMount, MountChild,
+    MountScope, PathConverter, PathParameterCapture, QueryParams, RequestBodyAccumulator,
+    RequestHeaders, Response, ResponseEvent, RouteTable, Starlette as NativeApplication,
+    StaticFiles as NativeStaticFiles, StaticFilesError, StaticFilesResponse, StreamingResponse,
+    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
 };
 
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
@@ -207,6 +207,25 @@ fn string_field<'a>(
         .get(field)
         .and_then(Value::as_str)
         .ok_or_else(|| format!("{context}.{field} must be a string"))
+}
+
+fn optional_string_field(
+    object: &Map<String, Value>,
+    field: &str,
+    context: &str,
+) -> Result<Option<String>, String> {
+    match object.get(field) {
+        Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value.clone())),
+        _ => Err(format!("{context}.{field} must be a string or null")),
+    }
+}
+
+fn bool_field(object: &Map<String, Value>, field: &str, context: &str) -> Result<bool, String> {
+    object
+        .get(field)
+        .and_then(Value::as_bool)
+        .ok_or_else(|| format!("{context}.{field} must be a boolean"))
 }
 
 fn identity() -> Result<Value, String> {
@@ -1335,26 +1354,26 @@ fn parse_scope_request_headers(
 }
 
 fn run_basic_response_case(case: &Value) -> Result<Value, String> {
-    let case = exact_object(
-        case,
-        &[
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "content",
-            "status_code",
-            "header_pairs",
-            "media_type",
-            "scope",
-            "incoming",
-            "send",
-            "observations",
-        ],
-        "Response asgi-call case",
-    )?;
+    let mut expected_fields = vec![
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "content",
+        "status_code",
+        "header_pairs",
+        "media_type",
+        "scope",
+        "incoming",
+        "send",
+        "observations",
+    ];
+    if case.get("cookie_actions").is_some() {
+        expected_fields.push("cookie_actions");
+    }
+    let case = exact_object(case, &expected_fields, "Response asgi-call case")?;
     let case_id = string_field(case, "case_id", "Response asgi-call case")?;
     let surface = string_field(case, "surface", "Response asgi-call case")?;
     let label = match surface {
@@ -1464,7 +1483,7 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
     let media_type =
         requested_media_type.or_else(|| (label == "JSONResponse").then_some("application/json"));
 
-    let response = Response::from_content(
+    let mut response = Response::from_content(
         status_code,
         body,
         media_type,
@@ -1473,6 +1492,9 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
             .map(|(name, value)| (name.as_str(), value.as_str())),
     )
     .map_err(|error| error.to_string())?;
+    if let Some(actions) = case.get("cookie_actions") {
+        apply_response_cookie_actions(&mut response, actions)?;
+    }
     let events = response
         .asgi_events()
         .into_iter()
@@ -1502,6 +1524,61 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
             },
         }],
     }))
+}
+
+fn apply_response_cookie_actions(response: &mut Response, value: &Value) -> Result<(), String> {
+    let actions = value
+        .as_array()
+        .ok_or_else(|| String::from("Response cookie_actions must be an array"))?;
+    for (index, raw_action) in actions.iter().enumerate() {
+        let context = format!("Response cookie_actions[{index}]");
+        let action = exact_object(
+            raw_action,
+            &[
+                "method",
+                "key",
+                "value",
+                "max_age",
+                "expires",
+                "path",
+                "domain",
+                "secure",
+                "httponly",
+                "samesite",
+                "partitioned",
+            ],
+            &context,
+        )?;
+        if string_field(action, "method", &context)? != "set" {
+            return Err(format!("{context}.method must be set"));
+        }
+        let key = string_field(action, "key", &context)?;
+        let cookie_value = string_field(action, "value", &context)?;
+        let max_age = match action.get("max_age") {
+            Some(Value::Null) => None,
+            Some(Value::Number(value)) => Some(
+                value
+                    .as_i64()
+                    .ok_or_else(|| format!("{context}.max_age must fit a signed 64-bit integer"))?
+                    .to_string(),
+            ),
+            _ => return Err(format!("{context}.max_age must be an integer or null")),
+        };
+        let options = CookieOptions {
+            max_age,
+            expires: optional_string_field(action, "expires", &context)?,
+            path: optional_string_field(action, "path", &context)?,
+            domain: optional_string_field(action, "domain", &context)?,
+            secure: bool_field(action, "secure", &context)?,
+            httponly: bool_field(action, "httponly", &context)?,
+            samesite: optional_string_field(action, "samesite", &context)?,
+            partitioned: bool_field(action, "partitioned", &context)?,
+        };
+        response
+            .set_cookie_with_options(key, cookie_value, &options)
+            .map_err(|error| format!("{context}: {error}"))?;
+    }
+    Ok(())
 }
 
 fn run_streaming_response_case(case: &Value) -> Result<Value, String> {

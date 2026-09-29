@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use pyo3::exceptions::{
-    PyAttributeError, PyImportError, PyOSError, PyRuntimeError, PyStopAsyncIteration,
+    PyAttributeError, PyImportError, PyOSError, PyRuntimeError, PyStopAsyncIteration, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyTuple};
@@ -1090,5 +1090,5 @@ fn collapse_single_task_group_error(py: Python<'_>, error: PyErr) -> PyResult<Py
 }
 
 fn response_error(error: ResponseError) -> PyErr {
-    pyo3::exceptions::PyValueError::new_err(error.to_string())
+    PyValueError::new_err(error.to_string())
 }

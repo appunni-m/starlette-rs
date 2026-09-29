@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@5",
+  "schema": "migration-parity/parity-input@6",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.request-dispatch.converted-path-param-string",

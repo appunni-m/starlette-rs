@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@5",
+  "schema": "migration-parity/parity-input@6",
   "cases": [
     {
       "case_id": "starlette.responses.Response.asgi-call.text-content",
@@ -501,6 +501,232 @@
       },
       "observations": [
         "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.Response.asgi-call.set-cookie-attributes",
+      "surface": "starlette.responses.Response",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.Response.asgi-call.set-cookie-attributes"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "content": {
+        "kind": "text",
+        "value": "hello, world"
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "cookie_actions": [
+        {
+          "method": "set",
+          "key": "mycookie",
+          "value": "myvalue",
+          "max_age": 10,
+          "expires": "Thu, 22 Jan 2037 12:00:10 GMT",
+          "path": "/",
+          "domain": "localhost",
+          "secure": true,
+          "httponly": true,
+          "samesite": "none",
+          "partitioned": false
+        },
+        {
+          "method": "set",
+          "key": "minimal",
+          "value": "value",
+          "max_age": null,
+          "expires": null,
+          "path": null,
+          "domain": null,
+          "secure": false,
+          "httponly": false,
+          "samesite": null,
+          "partitioned": false
+        }
+      ]
+    },
+    {
+      "case_id": "starlette.responses.Response.asgi-call.cookie-expiration-inputs",
+      "surface": "starlette.responses.Response",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.Response.asgi-call.cookie-expiration-inputs"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "content": {
+        "kind": "text",
+        "value": "hello, world"
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "cookie_actions": [
+        {
+          "method": "set",
+          "key": "datetime",
+          "value": "value",
+          "max_age": null,
+          "expires": {
+            "kind": "datetime-iso8601",
+            "value": "2037-01-22T12:00:10+00:00"
+          },
+          "path": "/",
+          "domain": null,
+          "secure": false,
+          "httponly": false,
+          "samesite": "lax",
+          "partitioned": false
+        },
+        {
+          "method": "set",
+          "key": "offset",
+          "value": "value",
+          "max_age": null,
+          "expires": {
+            "kind": "integer-offset",
+            "value": 10,
+            "time_now": "2037-01-22T12:00:00+00:00"
+          },
+          "path": "/",
+          "domain": null,
+          "secure": false,
+          "httponly": false,
+          "samesite": "lax",
+          "partitioned": false
+        }
+      ]
+    },
+    {
+      "case_id": "starlette.responses.Response.asgi-call.partitioned-cookie-version-error",
+      "surface": "starlette.responses.Response",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.Response.asgi-call.partitioned-cookie-version-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "content": {
+        "kind": "text",
+        "value": "hello, world"
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "cookie_actions": [
+        {
+          "method": "set",
+          "key": "versioned",
+          "value": "value",
+          "max_age": null,
+          "expires": null,
+          "path": "/",
+          "domain": null,
+          "secure": false,
+          "httponly": false,
+          "samesite": "lax",
+          "partitioned": true
+        }
       ]
     }
   ]

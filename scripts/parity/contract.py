@@ -9,6 +9,7 @@ import math
 import re
 import statistics
 import sys
+from datetime import datetime
 from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from pathlib import Path
@@ -16,7 +17,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@5"
+INPUT_SCHEMA = "migration-parity/parity-input@6"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -2353,7 +2354,9 @@ def _validate_redirect_response_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
-    case_keys = RESPONSE_CASE_KEYS | ({"render_override"} if "render_override" in case else set())
+    case_keys = RESPONSE_CASE_KEYS | {
+        key for key in ("render_override", "cookie_actions") if key in case
+    }
     _exact(case, case_keys, "Response asgi-call case")
     if case["surface"] not in RESPONSE_SURFACES or case["operation"] != RESPONSE_OPERATION:
         raise ContractError("case is outside the declared Response asgi-call operations")
@@ -2365,6 +2368,108 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("Response header_pairs must be empty for this input slice")
     if case["media_type"] is not None and not isinstance(case["media_type"], str):
         raise ContractError("Response media_type must be a string or null")
+
+    if "cookie_actions" in case:
+        actions = case["cookie_actions"]
+        if not isinstance(actions, list):
+            raise ContractError("Response cookie_actions must be an array")
+        for index, raw_action in enumerate(actions):
+            action = _exact(
+                raw_action,
+                {
+                    "method",
+                    "key",
+                    "value",
+                    "max_age",
+                    "expires",
+                    "path",
+                    "domain",
+                    "secure",
+                    "httponly",
+                    "samesite",
+                    "partitioned",
+                },
+                f"Response cookie_actions[{index}]",
+            )
+            if action["method"] != "set":
+                raise ContractError("Response cookie action method must be set")
+            _string(action["key"], f"Response cookie_actions[{index}].key")
+            _string(action["value"], f"Response cookie_actions[{index}].value")
+            if action["max_age"] is not None and type(action["max_age"]) is not int:
+                raise ContractError(
+                    f"Response cookie_actions[{index}].max_age must be an integer or null"
+                )
+            expires = action["expires"]
+            if isinstance(expires, dict):
+                kind = expires.get("kind")
+                if kind == "datetime-iso8601":
+                    expires = _exact(
+                        expires,
+                        {"kind", "value"},
+                        f"Response cookie_actions[{index}].expires",
+                    )
+                    value = _string(
+                        expires["value"],
+                        f"Response cookie_actions[{index}].expires.value",
+                    )
+                    try:
+                        parsed = datetime.fromisoformat(value)
+                    except ValueError as exc:
+                        raise ContractError(
+                            f"Response cookie_actions[{index}].expires.value must be ISO-8601"
+                        ) from exc
+                    if parsed.tzinfo is None or parsed.utcoffset() is None:
+                        raise ContractError(
+                            f"Response cookie_actions[{index}].expires.value must include a timezone"
+                        )
+                    if case["target_profiles"] != ["python-package-cpython312"]:
+                        raise ContractError("Python datetime cookie expiry is Python-package-only")
+                elif kind == "integer-offset":
+                    expires = _exact(
+                        expires,
+                        {"kind", "value", "time_now"},
+                        f"Response cookie_actions[{index}].expires",
+                    )
+                    if type(expires["value"]) is not int:
+                        raise ContractError(
+                            f"Response cookie_actions[{index}].expires.value must be an integer"
+                        )
+                    time_now = _string(
+                        expires["time_now"],
+                        f"Response cookie_actions[{index}].expires.time_now",
+                    )
+                    try:
+                        parsed = datetime.fromisoformat(time_now)
+                    except ValueError as exc:
+                        raise ContractError(
+                            f"Response cookie_actions[{index}].expires.time_now must be ISO-8601"
+                        ) from exc
+                    if parsed.tzinfo is None or parsed.utcoffset() is None:
+                        raise ContractError(
+                            f"Response cookie_actions[{index}].expires.time_now must include a timezone"
+                        )
+                    if case["target_profiles"] != ["python-package-cpython312"]:
+                        raise ContractError("Integer-offset cookie expiry is Python-package-only")
+                else:
+                    raise ContractError(
+                        f"Response cookie_actions[{index}].expires kind is unsupported"
+                    )
+            elif expires is not None and not isinstance(expires, str):
+                raise ContractError(
+                    f"Response cookie_actions[{index}].expires must be a string, tagged object, or null"
+                )
+            for field in ("path", "domain", "samesite"):
+                if action[field] is not None and not isinstance(action[field], str):
+                    raise ContractError(
+                        f"Response cookie_actions[{index}].{field} must be a string or null"
+                    )
+            for field in ("secure", "httponly", "partitioned"):
+                if type(action[field]) is not bool:
+                    raise ContractError(
+                        f"Response cookie_actions[{index}].{field} must be a boolean"
+                    )
+            if action["partitioned"] and case["target_profiles"] != ["python-package-cpython312"]:
+                raise ContractError("partitioned cookie boundary input is Python-package-only")
 
     content = _exact(case["content"], {"kind", "value"}, "Response content")
     content_kind = _string(content["kind"], "Response content.kind")
@@ -4491,6 +4596,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     )
     if is_response and isinstance(case, dict) and "render_override" in case:
         expected_case_keys = expected_case_keys | {"render_override"}
+    if is_response and isinstance(case, dict) and "cookie_actions" in case:
+        expected_case_keys = expected_case_keys | {"cookie_actions"}
     if is_value_formatting:
         value_keys = (
             {"instances"} if case["surface"] == EXCEPTION_VALUES_SURFACE else {"middleware"}
@@ -4881,7 +4988,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 and not record_matches
                 and "any_json" not in allowed_types
                 # JSON cannot encode Python exception-class keys or callback
-                # values. parity-input@5 therefore encodes this declared
+                # values. parity-input@6 therefore encodes this declared
                 # mapping parameter as an ordered array of tagged entries;
                 # `_validate_application_stimulus` validates and materializes
                 # that representation before either live adapter calls Starlette.

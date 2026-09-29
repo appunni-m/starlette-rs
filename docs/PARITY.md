@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 281 input-only cases in 36 indexed files, covering 54 operations and 344 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 284 input-only cases in 36 indexed files, covering 54 operations and 347 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -183,24 +183,21 @@ separate scheduling assertion for `check_config`, cross-platform
 `os.stat_result` fields and Windows path normalization and semantics, and
 remaining validator branches.
 
-Integrated run `f4df4b18-8c74-46a4-9d33-96a0f684a9b6` started at
-`2026-09-29T08:34:48.928Z` and finished at `2026-09-29T08:35:37.866Z`. It
-selected 396 profile comparisons: 392 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 279 applicable
-cases; Rust-native passed 113 of 117 selected cases. The four Rust-native rows
-require arbitrary Python endpoint callables. The Rust-native target was clean.
-The installed Python package is fingerprinted by package contents and reports
-the content digest
-`2439b52be8a2a8407264489553f5a1b9cef00aecd655bc8113eacd43dce3fc27` as a
+Integrated run `0d3e8df6-3a5d-479f-8128-5a989a099527` started at
+`2026-09-29T09:19:26.859Z` and finished at `2026-09-29T09:20:19.101Z`. It
+selected 400 profile comparisons: 396 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 282 applicable
+cases; Rust-native passed 114 of 118 selected cases. The four Rust-native rows
+require arbitrary Python endpoint callables. Both targets were dirty. The
+installed Python package reports content digest
+`e7c8c631f4eb6c261c3f001c795afd4c47201b92421aea011469ca2941a8c914` as its
 `dirty-tree` revision. Manifest SHA-256:
-`21aa07faa2275cd65b735ce09a5a04f25949652b438d34032f535f188422023b`.
+`34800bdf2af2e02957803473e359418230e286ff92ffea751ee9fc54ecdbf6dc`.
+Target wheel SHA-256:
+`10a18ab68ed02fc170d66ecb30afa1ca40cad5638c89fe588176427313080899`.
 `make parity-run` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this run does not establish full Starlette
 parity or release readiness.
-Target wheel SHA-256:
-`71f943856c333550a10257d0a9b4dbe6530e399d472dbb52207d1e300a16cd9a`.
-`make parity-run` exits with status 2 for the four explicitly unsupported native
-callable rows; this is not release proof.
 
 The package policy check confirms there is no upstream Starlette runtime
 dependency and no Python control flow in its runtime facades. Routing template
@@ -324,6 +321,10 @@ The Rust compressor uses `flate2`'s streaming gzip encoder and preserves zlib's 
 
 The legacy `__call__` profile selects exact response status, ordered repeated header bytes, body bytes, ASGI event order, complete ASGI events, and lifecycle/cleanup effects. The `request-dispatch` profile selects request observations, route-scope observations, response status, ordered repeated header bytes, ASGI event order, and complete ASGI events. Missing ASGI message fields remain missing in evidence. Repeated `Set-Cookie` headers must be produced by the two `Response.set_cookie` calls; adapters cannot inject output header values.
 
+The `Response.asgi-call.set-cookie-attributes` input applies a fixture-defined sequence of public `Response.set_cookie` calls before ASGI dispatch. It covers optional attributes, a fixed HTTP-date expiry string, and omitted `Path` and `SameSite` values. The source, installed Python package, and Rust-native adapter construct their own headers from those same calls; the observation compares the complete ordered header bytes. Package-only cases also exercise timezone-aware `datetime` and integer-offset expiry conversion against a fixture-controlled clock, plus the CPython 3.12 `partitioned=True` error before ASGI dispatch.
+
+The PyO3 boundary converts Python `datetime` expiry values with `email.utils.format_datetime(usegmt=True)` and integer expiry offsets with `http.cookies._getdate`, then passes only formatted strings to Rust. These inputs and their exact formatting follow the active interpreter's standard-library contract and clock, so reimplementing that conversion in Rust would duplicate Python-specific semantics. The boundary also reads `sys.version_info` for `partitioned=True`, because Starlette gates that option on the running Python version. These conversions and the version error are covered by the package-only inputs above; Rust owns cookie validation, attribute ordering, and header serialization.
+
 The manifest includes one direct-ASGI GET `/hello` latency workload in [`inputs/benchmark/asgi-get-hello.yaml`](../tests/fixtures/sources/benchmark/asgi-get-hello.yaml). It selects the pinned source oracle and both target profiles, times only the dispatch step, and requires a fresh successful exact parity run first. The benchmark worker then resolves the same parity case from its indexed input, verifies the input and case digests, and runs a fresh source-versus-installed-package probe before collecting samples. Warm-up, measurement count, sample count, concurrency, and cache state come from the benchmark input.
 
 For this smoke case, the worker constructs the app and starts its fixture lifespan before warmups, keeps the lifespan active across fresh HTTP scopes and ASGI message/callback containers for every dispatch, then shuts down after sampling. It requires ordered `lifespan.startup.complete` and `lifespan.shutdown.complete` events and compares the completed cleanup trace with the source probe, outside timed regions. Each measured call's HTTP events are also checked against the probe immediately after its timer stops.
@@ -342,9 +343,9 @@ Run `prepare-env` before either oracle-only or full parity evidence. It builds t
 
 Each adapter runs in a fresh process. The runner sends one strict JSON `migration-parity/adapter-request@1` object on stdin and accepts exactly one JSON response object on stdout. The response envelope remains `migration-parity/adapter-response@1`; its opaque workflow payload follows the versioned parity-input and parity-result contracts. Diagnostics go to stderr. Identity responses are checked against the source revision or installed target environment before workflows run. The result schema is `migration-parity/parity-result@4`, which retains oracle revision/module/lock provenance, target revision/tree/lock/package identity, and per-side environment fingerprints. Unknown fields, duplicate JSON keys, malformed output, absent interpreters/adapters, crashes, timeouts, identity mismatches, missing or extra observations, skipped evidence, and unsupported evidence cannot pass.
 
-The `parity-input@5` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
+The `parity-input@6` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 281 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. Generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 284 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. Generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 

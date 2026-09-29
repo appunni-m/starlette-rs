@@ -57,14 +57,15 @@ pub use request::{
     RequestStreamProgress, RequestStreamState, parse_cookie_header,
 };
 pub use response::{
-    DebugTracebackFrame, Response, ResponseCall, ResponseCallError, ResponseCallInput,
-    ResponseCallStep, ResponseError, ResponseEvent, StreamingResponse, StreamingResponseCall,
-    StreamingResponseCallError, StreamingResponseCallInput, StreamingResponseCallStep,
-    StreamingResponseDisconnectCall, StreamingResponseDisconnectCallError,
-    StreamingResponseDisconnectCallInput, StreamingResponseDisconnectCallStep,
-    StreamingResponseDisconnectListener, StreamingResponseDisconnectListenerError,
-    StreamingResponseDisconnectListenerInput, StreamingResponseDisconnectListenerStep,
-    StreamingResponseDisconnectMessage, StreamingResponseEvent,
+    CookieOptions, DebugTracebackFrame, Response, ResponseCall, ResponseCallError,
+    ResponseCallInput, ResponseCallStep, ResponseError, ResponseEvent, StreamingResponse,
+    StreamingResponseCall, StreamingResponseCallError, StreamingResponseCallInput,
+    StreamingResponseCallStep, StreamingResponseDisconnectCall,
+    StreamingResponseDisconnectCallError, StreamingResponseDisconnectCallInput,
+    StreamingResponseDisconnectCallStep, StreamingResponseDisconnectListener,
+    StreamingResponseDisconnectListenerError, StreamingResponseDisconnectListenerInput,
+    StreamingResponseDisconnectListenerStep, StreamingResponseDisconnectMessage,
+    StreamingResponseEvent,
 };
 pub use route_table::{
     DetailedRouteMatch, PathConverter, PathParameterCapture, RouteError, RouteMatch, RouteTable,

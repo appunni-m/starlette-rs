@@ -3562,6 +3562,65 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _apply_response_cookie_action(response: Any, raw_action: dict[str, Any], index: int) -> None:
+    action = _strict_object(
+        raw_action,
+        {
+            "method",
+            "key",
+            "value",
+            "max_age",
+            "expires",
+            "path",
+            "domain",
+            "secure",
+            "httponly",
+            "samesite",
+            "partitioned",
+        },
+        f"Response cookie_actions[{index}]",
+    )
+    if action["method"] != "set":
+        raise ValueError("Response cookie action method must be set")
+    expires = action["expires"]
+    clock_timestamp: float | None = None
+    if isinstance(expires, dict):
+        if expires["kind"] == "datetime-iso8601":
+            from datetime import datetime
+
+            expires = datetime.fromisoformat(expires["value"])
+        elif expires["kind"] == "integer-offset":
+            from datetime import datetime
+
+            clock_timestamp = datetime.fromisoformat(expires["time_now"]).timestamp()
+            expires = expires["value"]
+        else:
+            raise ValueError("Response cookie expires input has an unsupported kind")
+    arguments = {
+        "key": action["key"],
+        "value": action["value"],
+        "max_age": action["max_age"],
+        "expires": expires,
+        "path": action["path"],
+        "domain": action["domain"],
+        "secure": action["secure"],
+        "httponly": action["httponly"],
+        "samesite": action["samesite"],
+        "partitioned": action["partitioned"],
+    }
+    if clock_timestamp is None:
+        response.set_cookie(**arguments)
+    else:
+        import time
+
+        original_time = time.time
+        time.time = lambda: clock_timestamp
+        try:
+            response.set_cookie(**arguments)
+        finally:
+            time.time = original_time
+
+
 def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     surface = case.get("surface")
     required_fields = {
@@ -3582,6 +3641,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if "render_override" in case:
         required_fields.add("render_override")
+    if "cookie_actions" in case:
+        required_fields.add("cookie_actions")
     if surface == STREAMING_RESPONSE_SURFACE:
         required_fields.add("streaming")
         required_fields.update(
@@ -3849,6 +3910,28 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             _record_background_values, background_values, execution_trace
         )
     response = response_type(**response_arguments)
+    try:
+        for index, raw_action in enumerate(case.get("cookie_actions", [])):
+            _apply_response_cookie_action(response, raw_action, index)
+    except Exception as exc:
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": [
+                {
+                    "step_id": case["observations"][0],
+                    "status": "error",
+                    "error": _dispatch_error(exc),
+                    "partial_value": {
+                        "response_status": None,
+                        "ordered_repeated_headers": [],
+                        "response_bytes": {"encoding": "base64", "data": ""},
+                        "asgi_event_order": [],
+                        "asgi_events": [],
+                    },
+                }
+            ],
+        }
     scope = _make_scope(scope_spec)
     sent: list[dict[str, Any]] = []
     receive_gate = asyncio.Event() if receive_behavior is not None else None
