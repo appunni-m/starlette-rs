@@ -1790,6 +1790,31 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 or endpoint_spec["stop_after_chunks"] < 1
             ):
                 raise ValueError("BaseHTTPMiddleware request-stream endpoint input is invalid")
+        elif route_kind == "file-response":
+            endpoint_spec = _strict_object(
+                endpoint_spec,
+                {"kind", "file"},
+                "BaseHTTPMiddleware FileResponse endpoint",
+            )
+            file_input = _strict_object(
+                endpoint_spec["file"],
+                {"name", "contents_base64", "mtime_seconds"},
+                "BaseHTTPMiddleware FileResponse file",
+            )
+            name = file_input["name"]
+            if (
+                not isinstance(name, str)
+                or not name
+                or name in {".", ".."}
+                or "/" in name
+                or "\\" in name
+                or Path(name).name != name
+                or not isinstance(file_input["contents_base64"], str)
+                or type(file_input["mtime_seconds"]) not in {int, float}
+                or not math.isfinite(file_input["mtime_seconds"])
+            ):
+                raise ValueError("BaseHTTPMiddleware FileResponse file input is invalid")
+            _decode_b64(file_input["contents_base64"], "BaseHTTPMiddleware FileResponse contents")
         elif route_kind == "raise-exception":
             _strict_object(
                 endpoint_spec,
@@ -2162,24 +2187,24 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         {"scope", "receive", "receive_after_events", "send_checkpoints"},
         "BaseHTTPMiddleware request",
     )
-    scope_spec = _strict_object(
-        request["scope"],
-        {
-            "type",
-            "asgi",
-            "http_version",
-            "method",
-            "scheme",
-            "path",
-            "raw_path_base64",
-            "query_string_base64",
-            "root_path",
-            "headers_base64_pairs",
-            "client",
-            "server",
-        },
-        "BaseHTTPMiddleware HTTP scope",
-    )
+    scope_value = request["scope"]
+    scope_keys = {
+        "type",
+        "asgi",
+        "http_version",
+        "method",
+        "scheme",
+        "path",
+        "raw_path_base64",
+        "query_string_base64",
+        "root_path",
+        "headers_base64_pairs",
+        "client",
+        "server",
+    }
+    if isinstance(scope_value, dict) and "extensions" in scope_value:
+        scope_keys.add("extensions")
+    scope_spec = _strict_object(scope_value, scope_keys, "BaseHTTPMiddleware HTTP scope")
     _strict_object(
         scope_spec["asgi"], {"version", "spec_version"}, "BaseHTTPMiddleware ASGI version"
     )
@@ -2199,6 +2224,28 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         or not isinstance(scope_spec["root_path"], str)
     ):
         raise ValueError("BaseHTTPMiddleware request scope does not select its declared route case")
+    extensions = scope_spec.get("extensions", {})
+    if not isinstance(extensions, dict):
+        raise ValueError("BaseHTTPMiddleware scope.extensions must be an object")
+    has_pathsend_extension = "http.response.pathsend" in extensions
+    file_response_pathsend = route_kind == "file-response" and has_pathsend_extension
+    if (
+        (extensions and extensions != {"http.response.pathsend": {}})
+        or (route_kind == "file-response" and not file_response_pathsend)
+        or (route_kind != "file-response" and extensions)
+    ):
+        raise ValueError(
+            "BaseHTTPMiddleware scope extensions are supported only for FileResponse pathsend"
+        )
+    if file_response_pathsend and (
+        route_spec["methods"] != ["GET"]
+        or scope_spec["method"] != "GET"
+        or returned != "call-next"
+        or dispatch_actions != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
+    ):
+        raise ValueError(
+            "FileResponse pathsend requires a GET route returned directly through call_next"
+        )
     if _decode_b64(scope_spec["raw_path_base64"], "BaseHTTPMiddleware raw path") != path.encode(
         "ascii"
     ) or _decode_b64(scope_spec["query_string_base64"], "BaseHTTPMiddleware query string"):
@@ -2223,7 +2270,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         ):
             raise ValueError(f"BaseHTTPMiddleware scope.{name} must be a host/port pair")
     receive_specs = request["receive"]
-    if not isinstance(receive_specs, list) or not receive_specs:
+    if not isinstance(receive_specs, list) or (not receive_specs and not file_response_pathsend):
         raise ValueError("BaseHTTPMiddleware request requires HTTP body events")
     request_event_specs = []
     disconnect_event_indices = []
@@ -2267,11 +2314,14 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             {"kind", "class", "message"},
             "BaseHTTPMiddleware exhausted receive behavior",
         )
+        allowed_receive_exceptions = (
+            {"NotImplementedError"} if file_response_pathsend else {"AssertionError"}
+        )
         if (
             receive_after_events["kind"] != "raise"
-            or receive_after_events["class"] != "AssertionError"
+            or receive_after_events["class"] not in allowed_receive_exceptions
         ):
-            raise ValueError("exhausted receive may only raise an input-defined AssertionError")
+            raise ValueError("exhausted receive exception is not allowed for this case")
         if not isinstance(receive_after_events["message"], str):
             raise ValueError("exhausted receive exception message must be a string")
     send_checkpoints = request["send_checkpoints"]
@@ -2639,6 +2689,24 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         downstream_spec is None or downstream_spec["kind"] != "stream-until-disconnect-app"
     ):
         raise ValueError("call_next response body read requires a streaming-until-disconnect app")
+    if route_kind == "file-response":
+        if (
+            not file_response_pathsend
+            or receive_specs
+            or request["receive_after_events"]
+            != {
+                "kind": "raise",
+                "class": "NotImplementedError",
+                "message": "Should not be called!",
+            }
+            or send_checkpoints
+        ):
+            raise ValueError(
+                "BaseHTTPMiddleware FileResponse input requires pathsend and an unused receive callback"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.pathsend-event-forwarding"
+        )
     if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
         raise ValueError("BaseHTTPMiddleware covers differ from its input actions")
 
@@ -2647,7 +2715,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.middleware import Middleware
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.requests import Request
-    from starlette.responses import PlainTextResponse, Response
+    from starlette.responses import FileResponse, PlainTextResponse, Response
     from starlette.routing import Route
 
     execution_trace: list[dict[str, Any]] = []
@@ -2663,6 +2731,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     dispatch_disconnect_checks: list[dict[str, Any]] = []
     downstream_stream_cancellation_results: list[dict[str, Any]] = []
     downstream_stream_guard_fired = False
+    file_response_temporary_directory = None
 
     class InputDefinedBaseHTTPMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Any, call_next: Any) -> Any:
@@ -2826,6 +2895,24 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     if len(downstream_stream_reads) >= stop_after_chunks:
                         break
                 return Response()
+        elif route_kind == "file-response":
+            file_input = endpoint_spec["file"]
+            file_response_temporary_directory = tempfile.TemporaryDirectory(
+                prefix="starlette-file-response-"
+            )
+            file_response_path = Path(file_response_temporary_directory.name) / file_input["name"]
+            file_response_path.write_bytes(
+                _decode_b64(
+                    file_input["contents_base64"], "BaseHTTPMiddleware FileResponse contents"
+                )
+            )
+            os.utime(
+                file_response_path,
+                (file_input["mtime_seconds"], file_input["mtime_seconds"]),
+            )
+
+            async def endpoint(_request: Any) -> Any:
+                return FileResponse(file_response_path)
         else:
 
             def endpoint(_request: Any) -> Any:
@@ -3115,6 +3202,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         propagated_exception = None
     except Exception as exc:
         propagated_exception = _base_http_exception_value(exc)
+    finally:
+        if file_response_temporary_directory is not None:
+            file_response_temporary_directory.cleanup()
     if downstream_stream_guard_fired:
         raise TimeoutError(
             "input-defined BaseHTTPMiddleware streaming guard expired before http.disconnect"

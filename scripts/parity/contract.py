@@ -92,6 +92,7 @@ BASE_HTTP_REQUIREMENTS = {
     "downstream_receive_transformation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-middleware-receive-transformation",
     "repeated_disconnect_polling": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.repeated-disconnect-polling",
     "request_disconnect_observation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.request-disconnect-observation",
+    "pathsend_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.pathsend-event-forwarding",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -1001,8 +1002,16 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     elif normalization_kind == "file-response-temp-path":
                         _exact(normalization_spec, {"kind"}, f"{octx}.normalization")
                         if (
-                            key != (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
-                            or observation["path"] != "asgi_events"
+                            key
+                            not in {
+                                (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION),
+                                BASE_HTTP_WORKFLOW_OPERATION_KEY,
+                            }
+                            or observation["path"] not in {"asgi_events", "execution_trace"}
+                            or (
+                                key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
+                                and observation["path"] != "asgi_events"
+                            )
                             or comparison["kind"] != "ordered"
                         ):
                             raise ContractError(
@@ -5187,6 +5196,36 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 or endpoint["stop_after_chunks"] < 1
             ):
                 raise ContractError("BaseHTTPMiddleware request-stream endpoint input is invalid")
+        elif route_kind == "file-response":
+            endpoint = _exact(
+                endpoint_value,
+                {"kind", "file"},
+                "BaseHTTPMiddleware FileResponse endpoint",
+            )
+            file_input = _exact(
+                endpoint["file"],
+                {"name", "contents_base64", "mtime_seconds"},
+                "BaseHTTPMiddleware FileResponse file",
+            )
+            name = file_input["name"]
+            if (
+                not isinstance(name, str)
+                or not name
+                or name in {".", ".."}
+                or "/" in name
+                or "\\" in name
+                or Path(name).name != name
+                or not isinstance(file_input["contents_base64"], str)
+                or type(file_input["mtime_seconds"]) not in {int, float}
+                or not math.isfinite(file_input["mtime_seconds"])
+            ):
+                raise ContractError("BaseHTTPMiddleware FileResponse file input is invalid")
+            try:
+                base64.b64decode(file_input["contents_base64"], validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError(
+                    "BaseHTTPMiddleware FileResponse file contents must be base64"
+                ) from exc
         else:
             raise ContractError("BaseHTTPMiddleware route endpoint kind is unsupported")
 
@@ -5569,24 +5608,24 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         {"scope", "receive", "receive_after_events", "send_checkpoints"},
         "BaseHTTPMiddleware request input",
     )
-    scope = _exact(
-        request["scope"],
-        {
-            "type",
-            "asgi",
-            "http_version",
-            "method",
-            "scheme",
-            "path",
-            "raw_path_base64",
-            "query_string_base64",
-            "root_path",
-            "headers_base64_pairs",
-            "client",
-            "server",
-        },
-        "BaseHTTPMiddleware HTTP scope",
-    )
+    scope_value = request["scope"]
+    scope_keys = {
+        "type",
+        "asgi",
+        "http_version",
+        "method",
+        "scheme",
+        "path",
+        "raw_path_base64",
+        "query_string_base64",
+        "root_path",
+        "headers_base64_pairs",
+        "client",
+        "server",
+    }
+    if isinstance(scope_value, dict) and "extensions" in scope_value:
+        scope_keys.add("extensions")
+    scope = _exact(scope_value, scope_keys, "BaseHTTPMiddleware HTTP scope")
     asgi = _exact(scope["asgi"], {"version", "spec_version"}, "BaseHTTPMiddleware ASGI version")
     path = _string(scope["path"], "BaseHTTPMiddleware scope.path")
     if (
@@ -5603,6 +5642,28 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     ):
         raise ContractError(
             "BaseHTTPMiddleware request scope does not select its declared route case"
+        )
+    extensions = scope.get("extensions", {})
+    if not isinstance(extensions, dict):
+        raise ContractError("BaseHTTPMiddleware scope.extensions must be an object")
+    has_pathsend_extension = "http.response.pathsend" in extensions
+    file_response_pathsend = route_kind == "file-response" and has_pathsend_extension
+    if (
+        (extensions and extensions != {"http.response.pathsend": {}})
+        or (route_kind == "file-response" and not file_response_pathsend)
+        or (route_kind != "file-response" and extensions)
+    ):
+        raise ContractError(
+            "BaseHTTPMiddleware scope extensions are supported only for FileResponse pathsend"
+        )
+    if file_response_pathsend and (
+        route_methods != ["GET"]
+        or scope["method"] != "GET"
+        or returned != "call-next"
+        or actions != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
+    ):
+        raise ContractError(
+            "FileResponse pathsend requires a GET route returned directly through call_next"
         )
     try:
         raw_path = base64.b64decode(scope["raw_path_base64"], validate=True)
@@ -5636,7 +5697,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             raise ContractError(f"BaseHTTPMiddleware scope.{name} must be a host/port pair")
 
     receive = request["receive"]
-    if not isinstance(receive, list) or not receive:
+    if not isinstance(receive, list) or (not receive and not file_response_pathsend):
         raise ContractError("BaseHTTPMiddleware request requires HTTP body event inputs")
     request_events: list[dict[str, Any]] = []
     disconnect_events: list[int] = []
@@ -5687,11 +5748,14 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             {"kind", "class", "message"},
             "BaseHTTPMiddleware exhausted receive behavior",
         )
+        allowed_receive_exceptions = (
+            {"NotImplementedError"} if file_response_pathsend else {"AssertionError"}
+        )
         if (
             receive_after_events["kind"] != "raise"
-            or receive_after_events["class"] != "AssertionError"
+            or receive_after_events["class"] not in allowed_receive_exceptions
         ):
-            raise ContractError("exhausted receive may only raise an input-defined AssertionError")
+            raise ContractError("exhausted receive exception is not allowed for this case")
         _string(receive_after_events["message"], "exhausted receive exception message")
     send_checkpoints = request["send_checkpoints"]
     if (
@@ -6018,6 +6082,22 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "call_next response body read requires a streaming-until-disconnect app"
         )
+    if route_kind == "file-response":
+        if (
+            not file_response_pathsend
+            or receive
+            or request["receive_after_events"]
+            != {
+                "kind": "raise",
+                "class": "NotImplementedError",
+                "message": "Should not be called!",
+            }
+            or send_checkpoints
+        ):
+            raise ContractError(
+                "BaseHTTPMiddleware FileResponse input requires pathsend and an unused receive callback"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["pathsend_forwarding"])
     if set(case["covers"]) != requirements:
         raise ContractError(
             "BaseHTTPMiddleware covers must match the input middleware, request, and dispatch actions: "

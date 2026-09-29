@@ -17,22 +17,22 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 335 input-only cases across 38 files,
-covering 56 operations and 411 parity requirements. The authored cases span
+The active parity manifest indexes 336 input-only cases across 38 files,
+covering 56 operations and 412 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `29b8e21f-90a6-43b5-97b1-979552db5618` started at
-`2026-09-29T18:40:17.007Z` and finished at `2026-09-29T18:41:18.990Z`. It
-selected 472 profile comparisons: 468 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 333 applicable
+Integrated run `4b533da9-4e21-4df4-8e65-b36f9dda5a22` started at
+`2026-09-29T19:05:30.433Z` and finished at `2026-09-29T19:06:44.370Z`. It
+selected 473 profile comparisons: 469 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 334 applicable
 comparisons; Rust-native passed 135 of 139, with four rows requiring Python
 callables marked `not_run`. All 28 FileResponse cases passed on both profiles,
 all eight SessionMiddleware cases passed on the Python package profile, and all
-twenty BaseHTTPMiddleware cases passed there. Those cases cover header
+twenty-one BaseHTTPMiddleware cases passed there. Those cases cover header
 mutation, replacement responses, body-cache replay, response-completion receive
 racing, exception/context propagation (including cause, TaskGroup
 `ExceptionGroup` context, and suppression-state observations), partial-stream
@@ -89,18 +89,20 @@ events match the source exactly. The two disconnect cases map to
 `http.disconnect` before dispatch checks `Request.is_disconnected()`; the other
 observes dispatch caching `b"hi"`, polling the following disconnect, then
 downstream receiving the cached body and disconnect. Both return `True` from
-the live request check and match the source exactly. The catch case covers
+the live request check and match the source exactly. The pathsend workflow maps
+to `tests/middleware/test_base.py:1219-1259`, forwarding FileResponse events
+through BaseHTTPMiddleware without calling the receive callback. The catch case covers
 `test_exception_can_be_caught` at
 `tests/middleware/test_base.py:338-356`: dispatch catches `ValueError("TEST")`
 from `call_next` and returns status 400 with body `TEST`. The Rust-native target
 was clean at revision
-`067c191d1010aaafb2c8e34c01ac51bb63c1ee58+source-fnv1a64-e5a0df1c1dca21b4`;
+`3a6b0aa157f37aad11c31c4650b9899145772839+source-fnv1a64-1cbccbc7dcbf916b`;
 the installed Python-package target was dirty with tree SHA-256
-`c087a7bf38872cf4942de94843775aa77ceb4f5904a85b0cd085bbb847d3b03f`.
+`fdff192aadb47b36542b33a06c53b0388a96dec29474d5d429785d7ffe8c6d16`.
 Manifest SHA-256:
-`405f83a94b2e0507981c338e9f9d1585cee7202c0ccd7e1f194ac57b1fd12f93`.
+`40eb2219e33151fd7988aeacce5a99d2368d3447fba8f7fc186561323a26b3ee`.
 Parity wheel artifact SHA-256:
-`f9c8434c43ddb3356b9d35866badf0e8cf7ca730f227e97af6914221a66cf12c`.
+`5570181fde32d83487e692fa908db24fba86b5d06a9bcf6fc1487a016d35c8d3`.
 The four unsupported Rust-native Python-callable rows keep the overall gate
 incomplete; this run is not full parity or release proof.
 Thirty-seven StaticFiles cases are authored across
@@ -275,7 +277,7 @@ crosswalk snapshot, 130 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 38 indexed files
-and 335 cases, including twenty BaseHTTPMiddleware cases and 28 FileResponse
+and 336 cases, including twenty-one BaseHTTPMiddleware cases and 28 FileResponse
 cases, 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in

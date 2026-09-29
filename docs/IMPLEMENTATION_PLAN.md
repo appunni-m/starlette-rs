@@ -32,16 +32,16 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 335 input-only cases, 56 operations, and 411
+The current parity contract has 336 input-only cases, 56 operations, and 412
 parity requirements across 38 indexed files, including bounded
 SessionMiddleware and BaseHTTPMiddleware workflow slices. Latest integrated
-run `29b8e21f-90a6-43b5-97b1-979552db5618`, from
-`2026-09-29T18:40:17.007Z` to `2026-09-29T18:41:18.990Z`, selected 472 profile
-comparisons: 468 passed, zero failed, zero infrastructure errors, and four
-were `not_run`. The Python package passed all 333 applicable comparisons;
+run `4b533da9-4e21-4df4-8e65-b36f9dda5a22`, from
+`2026-09-29T19:05:30.433Z` to `2026-09-29T19:06:44.370Z`, selected 473 profile
+comparisons: 469 passed, zero failed, zero infrastructure errors, and four
+were `not_run`. The Python package passed all 334 applicable comparisons;
 Rust-native passed 135 of 139, with four Python-callable rows `not_run`. All 28
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
-passed on the Python package profile, and all twenty BaseHTTPMiddleware
+passed on the Python package profile, and all twenty-one BaseHTTPMiddleware
 cases passed there. They include the two post-call-next stream-read cases from
 `tests/middleware/test_base.py:715-773`: after the endpoint exhausts
 `request.stream()` or reads `request.body()`, dispatch captures the live result
@@ -81,12 +81,14 @@ catch case covers `test_exception_can_be_caught` at
 The discarded-response-stream case maps to
 `tests/middleware/test_base.py:473-546` and verifies async iterator closure,
 downstream cancellation, replacement response events, and disconnect
-observations. The installed package artifact SHA-256 is
-`ee265bdd635ff07a3b221680df5d007acb1d848c4c7f2086765d9f048ed0493a`; its
+observations. The pathsend case maps to
+`tests/middleware/test_base.py:1219-1259` and forwards FileResponse events
+through BaseHTTPMiddleware while its receive callback remains unused. The installed package artifact SHA-256 is
+`5570181fde32d83487e692fa908db24fba86b5d06a9bcf6fc1487a016d35c8d3`; its
 content tree SHA-256 is
-`24664f6118d6096bf31fd7057c629e642e8eb7b9e40619c2e57f54b819410064`.
+`fdff192aadb47b36542b33a06c53b0388a96dec29474d5d429785d7ffe8c6d16`.
 Manifest SHA-256:
-`4ecd931543157e320e9085893c8f83740a177b154f31b0b39a99dc9a6b745a16`.
+`40eb2219e33151fd7988aeacce5a99d2368d3447fba8f7fc186561323a26b3ee`.
 `make parity-run` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 

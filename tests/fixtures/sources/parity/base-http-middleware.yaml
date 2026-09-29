@@ -1842,6 +1842,95 @@
       "observations": [
         "base-http-workflow"
       ]
+    },
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.pathsend-event-forwarding",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.pathsend-event-forwarding"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "file-response",
+              "file": {
+                "name": "example.txt",
+                "contents_base64": "PGZpbGUgY29udGVudD4=",
+                "mtime_seconds": 1700000000.0
+              }
+            }
+          }
+        ],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [
+            [
+              "aG9zdA==",
+              "dGVzdHNlcnZlcg=="
+            ]
+          ],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ],
+          "extensions": {
+            "http.response.pathsend": {}
+          }
+        },
+        "receive": [],
+        "receive_after_events": {
+          "kind": "raise",
+          "class": "NotImplementedError",
+          "message": "Should not be called!"
+        },
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
     }
   ]
 }

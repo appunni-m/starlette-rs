@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers five BaseHTTPMiddleware behaviors through configured Middleware or a direct ASGI wrapper: response-header mutation, replacement responses, request-body cache/replay, response completion waking a blocked downstream receive, and cancellation of a discarded response stream.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -3616,6 +3616,9 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "normalization": {
+                    "kind": "file-response-temp-path"
                   }
                 },
                 {
@@ -3643,6 +3646,9 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "normalization": {
+                    "kind": "file-response-temp-path"
                   }
                 },
                 {
@@ -3979,6 +3985,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.request-disconnect-observation",
               "dimension": "boundary",
               "description": "Observe Request.is_disconnected() after a downstream ASGI app consumes http.disconnect, both directly and after dispatch caches a request body and polls the following disconnect. Compare the returned boolean, raw receive calls, downstream receive messages, and ordered response events. Upstream: tests/middleware/test_base.py:894-976; starlette/middleware/base.py:20-59,80-93,112-130; starlette/requests.py:234-260,313-328.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.pathsend-event-forwarding",
+              "dimension": "boundary",
+              "description": "Forward a FileResponse http.response.pathsend event through the configured BaseHTTPMiddleware stack when the extension is present. Compare status, exact response headers, event ordering, and the input basename while normalizing only the harness temporary root. Upstream: tests/middleware/test_base.py:1219-1259; starlette/middleware/base.py:112-197; starlette/responses.py:344-392.",
               "lanes": [
                 "parity"
               ],

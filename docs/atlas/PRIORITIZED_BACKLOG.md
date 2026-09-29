@@ -8,15 +8,15 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 335 input-only cases across 38 files, covering 56
-operations and 411 requirements. Run `29b8e21f-90a6-43b5-97b1-979552db5618` from
-`2026-09-29T18:40:17.007Z` to `2026-09-29T18:41:18.990Z`; it selected 472
-comparisons: 468 passed, zero failed, zero infrastructure errors, and four
-`not_run`. The Python package passed all 333 applicable cases; Rust-native
+The active contract has 336 input-only cases across 38 files, covering 56
+operations and 412 requirements. Run `4b533da9-4e21-4df4-8e65-b36f9dda5a22` from
+`2026-09-29T19:05:30.433Z` to `2026-09-29T19:06:44.370Z`; it selected 473
+comparisons: 469 passed, zero failed, zero infrastructure errors, and four
+`not_run`. The Python package passed all 334 applicable cases; Rust-native
 passed 135 of 139 selected cases. The four unsupported Rust-native rows require
 arbitrary Python callables. All 28 FileResponse cases passed on both profiles;
-all eight SessionMiddleware cases and all twenty BaseHTTPMiddleware cases
-passed on the Python package profile. The twenty BaseHTTPMiddleware cases
+all eight SessionMiddleware cases and all twenty-one BaseHTTPMiddleware cases
+passed on the Python package profile. The twenty-one BaseHTTPMiddleware cases
 cover configured-header mutation, awaited `call_next` response replacement,
 body-cache replay, response-completion unblocking downstream receive,
 exception-context propagation, caught downstream `ValueError` handling,
@@ -77,14 +77,14 @@ downstream wrapper doubles the request body, and the endpoint observes
 interleavings, disconnect ordering across stacked middleware, broader
 exception-group shapes beyond the observed TaskGroup context and caught
 `ValueError`, varied or malformed `http.response.debug` frames, broader
-cancellation and cleanup ordering, path-send responses, and additional
+cancellation and cleanup ordering, path-send combinations beyond the covered FileResponse forwarding case, and additional
 streaming behaviors unproven. The Rust-native target was clean at revision
-`067c191d1010aaafb2c8e34c01ac51bb63c1ee58+source-fnv1a64-e5a0df1c1dca21b4`;
+`3a6b0aa157f37aad11c31c4650b9899145772839+source-fnv1a64-1cbccbc7dcbf916b`;
 the Python-package target tree SHA-256 is
-`c087a7bf38872cf4942de94843775aa77ceb4f5904a85b0cd085bbb847d3b03f`. Manifest
-SHA-256: `405f83a94b2e0507981c338e9f9d1585cee7202c0ccd7e1f194ac57b1fd12f93`;
+`fdff192aadb47b36542b33a06c53b0388a96dec29474d5d429785d7ffe8c6d16`. Manifest
+SHA-256: `40eb2219e33151fd7988aeacce5a99d2368d3447fba8f7fc186561323a26b3ee`;
 package wheel SHA-256:
-`f9c8434c43ddb3356b9d35866badf0e8cf7ca730f227e97af6914221a66cf12c`.
+`5570181fde32d83487e692fa908db24fba86b5d06a9bcf6fc1487a016d35c8d3`.
 See [Migration parity contract and evidence](../PARITY.md) for current scope.
 
 ## P0 — Close the source-backed atlas (complete)
@@ -93,8 +93,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 791 mappings: 611 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 130 existing input mappings. It maps selected
+The current matrix has 791 mappings: 610 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 131 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

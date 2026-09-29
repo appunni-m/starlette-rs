@@ -8,7 +8,13 @@ import re
 from html.parser import HTMLParser
 from typing import Any
 
-from .contract import ContractError, validate_workflow_result
+from .contract import (
+    BASE_HTTP_REQUIREMENTS,
+    BASE_HTTP_SURFACE,
+    BASE_HTTP_WORKFLOW_OPERATION,
+    ContractError,
+    validate_workflow_result,
+)
 
 
 def _diff(
@@ -541,16 +547,34 @@ def _normalize_multipart_range_boundary(
     raise ContractError(f"multipart-range-boundary normalization is not allowed for {path!r}")
 
 
-def _normalize_file_response_temp_path(value: Any, *, file_basename: str, side: str) -> Any:
-    """Normalize only a FileResponse pathsend temporary root, retaining its input basename."""
+def _has_file_response_pathsend(value: Any, *, observation_path: str) -> bool:
+    if not isinstance(value, list):
+        return False
+    if observation_path == "asgi_events":
+        return any(
+            isinstance(event, dict) and event.get("type") == "http.response.pathsend"
+            for event in value
+        )
+    if observation_path == "execution_trace":
+        return any(
+            isinstance(entry, dict)
+            and isinstance(entry.get("message"), dict)
+            and entry["message"].get("type") == "http.response.pathsend"
+            for entry in value
+        )
+    return False
+
+
+def _normalize_file_response_temp_path(
+    value: Any, *, file_basename: str, side: str, observation_path: str
+) -> Any:
+    """Normalize a FileResponse pathsend temporary root, retaining its input basename."""
     if not isinstance(value, list):
         return value
 
-    normalized: list[Any] = []
-    for event in value:
+    def normalize_pathsend_event(event: Any) -> Any:
         if not isinstance(event, dict) or event.get("type") != "http.response.pathsend":
-            normalized.append(event)
-            continue
+            return event
 
         emitted_path = event.get("path")
         normalized_event = dict(event)
@@ -576,8 +600,27 @@ def _normalize_file_response_temp_path(value: Any, *, file_basename: str, side: 
             normalized_event["path"] = f"<invalid-file-response-temp-path:{side}>"
         else:
             normalized_event["path"] = f"<file-response-temp-root>/{file_basename}"
-        normalized.append(normalized_event)
-    return normalized
+        return normalized_event
+
+    if observation_path == "asgi_events":
+        return [normalize_pathsend_event(event) for event in value]
+    if observation_path == "execution_trace":
+        normalized_trace = []
+        for entry in value:
+            if (
+                isinstance(entry, dict)
+                and isinstance(entry.get("message"), dict)
+                and entry["message"].get("type") == "http.response.pathsend"
+            ):
+                normalized_entry = dict(entry)
+                normalized_entry["message"] = normalize_pathsend_event(entry["message"])
+                normalized_trace.append(normalized_entry)
+            else:
+                normalized_trace.append(entry)
+        return normalized_trace
+    raise ContractError(
+        f"file-response-temp-path normalization is not allowed for {observation_path!r}"
+    )
 
 
 def compare_workflows(
@@ -721,13 +764,52 @@ def compare_workflows(
                         )
                     elif kind == "file-response-temp-path":
                         if (
-                            case.get("surface") != "starlette.responses.FileResponse"
-                            or path != "asgi_events"
+                            case.get("surface")
+                            not in {"starlette.responses.FileResponse", BASE_HTTP_SURFACE}
+                            or path
+                            not in {
+                                "asgi_events",
+                                "execution_trace",
+                            }
+                            or (
+                                case.get("surface") == "starlette.responses.FileResponse"
+                                and path != "asgi_events"
+                            )
                         ):
                             raise ContractError(
-                                "file-response-temp-path normalization is only allowed for FileResponse asgi_events"
+                                "file-response-temp-path normalization is only allowed for FileResponse ASGI events"
                             )
-                        file_input = case.get("file")
+                        if case.get("surface") == BASE_HTTP_SURFACE:
+                            if case.get("operation") != BASE_HTTP_WORKFLOW_OPERATION:
+                                raise ContractError(
+                                    "BaseHTTPMiddleware path normalization requires base-http-workflow"
+                                )
+                            has_pathsend_coverage = BASE_HTTP_REQUIREMENTS[
+                                "pathsend_forwarding"
+                            ] in case.get("covers", [])
+                            observed_pathsend = any(
+                                _has_file_response_pathsend(field, observation_path=path)
+                                for field in (left_field, right_field)
+                            )
+                            if not has_pathsend_coverage:
+                                if observed_pathsend:
+                                    raise ContractError(
+                                        "BaseHTTPMiddleware emitted pathsend without declared input coverage"
+                                    )
+                                continue
+                            routes = case.get("application", {}).get("routes", [])
+                            endpoint = (
+                                routes[0].get("endpoint", {})
+                                if isinstance(routes, list)
+                                and routes
+                                and isinstance(routes[0], dict)
+                                else {}
+                            )
+                            file_input = (
+                                endpoint.get("file") if isinstance(endpoint, dict) else None
+                            )
+                        else:
+                            file_input = case.get("file")
                         if not isinstance(file_input, dict) or not isinstance(
                             file_input.get("name"), str
                         ):
@@ -736,10 +818,16 @@ def compare_workflows(
                             )
                         file_basename = file_input["name"]
                         left_field = _normalize_file_response_temp_path(
-                            left_field, file_basename=file_basename, side="source"
+                            left_field,
+                            file_basename=file_basename,
+                            side="source",
+                            observation_path=path,
                         )
                         right_field = _normalize_file_response_temp_path(
-                            right_field, file_basename=file_basename, side="target"
+                            right_field,
+                            file_basename=file_basename,
+                            side="target",
+                            observation_path=path,
                         )
                     else:
                         raise ContractError(
