@@ -124,14 +124,19 @@ impl StaticFiles {
         check_dir: bool,
         follow_symlink: bool,
     ) -> Result<Self, StaticFilesError> {
-        if check_dir
-            && let Some(directory) = directory.as_ref()
-            && !fs::metadata(directory).is_ok_and(|metadata| metadata.is_dir())
-        {
-            return Err(StaticFilesError::DirectoryConfiguration(format!(
-                "Directory '{}' does not exist",
-                directory.display()
-            )));
+        let directory_error = match (check_dir, directory.as_ref()) {
+            (true, Some(directory))
+                if !fs::metadata(directory).is_ok_and(|metadata| metadata.is_dir()) =>
+            {
+                Some(StaticFilesError::DirectoryConfiguration(format!(
+                    "Directory '{}' does not exist",
+                    directory.display()
+                )))
+            }
+            _ => None,
+        };
+        if let Some(error) = directory_error {
+            return Err(error);
         }
         Ok(Self {
             directory,

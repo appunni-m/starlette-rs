@@ -231,6 +231,16 @@ fn bool_field(object: &Map<String, Value>, field: &str, context: &str) -> Result
         .ok_or_else(|| format!("{context}.{field} must be a boolean"))
 }
 
+fn lower_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        output.push(char::from(HEX[(byte >> 4) as usize]));
+        output.push(char::from(HEX[(byte & 0x0f) as usize]));
+    }
+    output
+}
+
 fn identity() -> Result<Value, String> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workspace_root = manifest_dir
@@ -261,7 +271,7 @@ fn identity() -> Result<Value, String> {
             lock_path.display()
         )
     })?;
-    let dependency_lock_sha256 = format!("{:x}", Sha256::digest(&lock_bytes));
+    let dependency_lock_sha256 = lower_hex(&Sha256::digest(&lock_bytes));
     if let Ok(expected) = env::var("STARLETTE_PARITY_DEPENDENCY_LOCK_SHA256") {
         if expected != dependency_lock_sha256 {
             return Err(String::from(

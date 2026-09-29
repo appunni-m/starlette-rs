@@ -69,9 +69,11 @@ impl PyHTTPConnection {
         if !is_http && !is_websocket {
             return Err(PyAssertionError::new_err(""));
         }
-        if let Some(expected_type) = expected_type
-            && !scope_type.eq(expected_type)?
-        {
+        let matches_expected_type = match expected_type {
+            Some(expected_type) => scope_type.eq(expected_type)?,
+            None => true,
+        };
+        if !matches_expected_type {
             return Err(PyAssertionError::new_err(""));
         }
         Ok(Self {

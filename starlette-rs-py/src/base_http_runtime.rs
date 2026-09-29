@@ -1,0 +1,1236 @@
+//! Rust-owned BaseHTTPMiddleware ASGI orchestration.
+//!
+//! Python dispatch and ASGI callbacks remain Python callables. Their awaitables
+//! are driven by the active Python task through `PythonAwaitable`; AnyIO supplies
+//! the backend-neutral task group and rendezvous streams used by `call_next`.
+
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use pyo3::exceptions::{PyAssertionError, PyKeyError, PyRuntimeError, PyStopAsyncIteration};
+use pyo3::prelude::*;
+use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
+
+use crate::awaitable::{
+    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+};
+
+type SharedHeaders = Rc<RefCell<Vec<(Vec<u8>, Vec<u8>)>>>;
+type SharedCall = Rc<RefCell<BaseHTTPCallState>>;
+
+pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PyBaseHTTPMiddlewareRuntime>()?;
+    module.add_class::<PyBaseHTTPResponse>()?;
+    module.add_class::<PyBaseHTTPHeaders>()?;
+    module.add_class::<PyBaseHTTPBodyIterator>()?;
+    module.add_function(wrap_pyfunction!(select_dispatch, module)?)?;
+    module.add_function(wrap_pyfunction!(default_dispatch, module)?)?;
+    Ok(())
+}
+
+/// Stateless PyO3 entry point. The ASGI protocol state belongs to each call.
+#[pyclass(name = "BaseHTTPMiddlewareRuntime")]
+pub(crate) struct PyBaseHTTPMiddlewareRuntime;
+
+#[pymethods]
+impl PyBaseHTTPMiddlewareRuntime {
+    #[new]
+    fn new() -> Self {
+        Self
+    }
+
+    fn __call__(
+        &self,
+        py: Python<'_>,
+        app: Py<PyAny>,
+        dispatch: Py<PyAny>,
+        scope: Py<PyAny>,
+        receive: Py<PyAny>,
+        send: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            BaseHTTPCallMachine {
+                app,
+                dispatch,
+                scope,
+                receive,
+                send,
+                shared: None,
+                pending: None,
+            },
+        )
+    }
+}
+
+/// Select the explicit dispatch callback or the subclass's bound method.
+#[pyfunction(name = "_base_http_select_dispatch")]
+fn select_dispatch(
+    py: Python<'_>,
+    owner: Py<PyAny>,
+    dispatch: Option<Py<PyAny>>,
+) -> PyResult<Py<PyAny>> {
+    match dispatch {
+        Some(dispatch) => Ok(dispatch),
+        None => owner.bind(py).getattr("dispatch").map(Bound::unbind),
+    }
+}
+
+/// Produce the default `dispatch()` failure from Rust.
+#[pyfunction(name = "_base_http_default_dispatch")]
+fn default_dispatch(py: Python<'_>) -> PyResult<Py<PyAny>> {
+    into_python_awaitable(py, DefaultDispatchMachine)
+}
+
+struct DefaultDispatchMachine;
+
+impl AwaitableStateMachine for DefaultDispatchMachine {
+    fn resume(&mut self, _py: Python<'_>, _input: MachineResume) -> PyResult<MachineAction> {
+        Err(pyo3::exceptions::PyNotImplementedError::new_err(()))
+    }
+}
+
+struct BaseHTTPCallState {
+    app: Py<PyAny>,
+    scope: Py<PyAny>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    send_stream: Py<PyAny>,
+    receive_stream: Py<PyAny>,
+    response_sent: Py<PyAny>,
+    task_group: Py<PyAny>,
+    app_error: Option<PyErr>,
+    exception_already_raised: bool,
+}
+
+impl BaseHTTPCallState {
+    fn clone_app(&self, py: Python<'_>) -> Py<PyAny> {
+        self.app.clone_ref(py)
+    }
+
+    fn clone_scope(&self, py: Python<'_>) -> Py<PyAny> {
+        self.scope.clone_ref(py)
+    }
+
+    fn clone_receive(&self, py: Python<'_>) -> Py<PyAny> {
+        self.receive.clone_ref(py)
+    }
+
+    fn clone_send(&self, py: Python<'_>) -> Py<PyAny> {
+        self.send.clone_ref(py)
+    }
+
+    fn clone_send_stream(&self, py: Python<'_>) -> Py<PyAny> {
+        self.send_stream.clone_ref(py)
+    }
+
+    fn clone_receive_stream(&self, py: Python<'_>) -> Py<PyAny> {
+        self.receive_stream.clone_ref(py)
+    }
+
+    fn clone_response_sent(&self, py: Python<'_>) -> Py<PyAny> {
+        self.response_sent.clone_ref(py)
+    }
+
+    fn clone_task_group(&self, py: Python<'_>) -> Py<PyAny> {
+        self.task_group.clone_ref(py)
+    }
+
+    fn record_app_error(&mut self, error: PyErr) {
+        self.app_error = Some(error);
+    }
+}
+
+enum BaseHTTPPending {
+    PassThrough,
+    TaskGroupEnter,
+    Dispatch,
+    Response,
+    TaskGroupExit { body_error: Option<PyErr> },
+}
+
+struct BaseHTTPCallMachine {
+    app: Py<PyAny>,
+    dispatch: Py<PyAny>,
+    scope: Py<PyAny>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    shared: Option<SharedCall>,
+    pending: Option<BaseHTTPPending>,
+}
+
+impl AwaitableStateMachine for BaseHTTPCallMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => self.start(py),
+            MachineResume::Value(value) => match self.pending.take() {
+                Some(BaseHTTPPending::PassThrough) => Ok(MachineAction::Complete(value)),
+                Some(BaseHTTPPending::TaskGroupEnter) => self.start_dispatch(py),
+                Some(BaseHTTPPending::Dispatch) => self.call_response(py, value),
+                Some(BaseHTTPPending::Response) => self.finish_response(py),
+                Some(BaseHTTPPending::TaskGroupExit { body_error }) => {
+                    let suppressed = value.bind(py).is_truthy()?;
+                    self.finish_task_group(py, body_error, suppressed)
+                }
+                None => Err(PyRuntimeError::new_err(
+                    "BaseHTTPMiddleware resumed without a pending operation",
+                )),
+            },
+            MachineResume::AsyncIterationComplete(error) => self.resume_error(py, error),
+            MachineResume::Error(error) => self.resume_error(py, error),
+        }
+    }
+}
+
+impl BaseHTTPCallMachine {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let scope = self.scope.bind(py).cast::<PyDict>()?;
+        let scope_type = scope
+            .get_item("type")?
+            .ok_or_else(|| PyKeyError::new_err("type"))?
+            .extract::<String>()?;
+        if scope_type != "http" {
+            let call = self
+                .app
+                .bind(py)
+                .call1((scope, &self.receive, &self.send))?;
+            self.pending = Some(BaseHTTPPending::PassThrough);
+            return Ok(MachineAction::Await(call.unbind()));
+        }
+
+        let streams = py.import("anyio")?.getattr("create_memory_object_stream")?;
+        let (send_stream, receive_stream) = streams.call0()?.extract::<(Py<PyAny>, Py<PyAny>)>()?;
+        let response_sent = py.import("anyio")?.getattr("Event")?.call0()?.unbind();
+        let task_group = py.import("anyio")?.getattr("create_task_group")?.call0()?;
+        let enter = task_group.call_method0("__aenter__")?;
+        let shared = Rc::new(RefCell::new(BaseHTTPCallState {
+            app: self.app.clone_ref(py),
+            scope: self.scope.clone_ref(py),
+            receive: self.receive.clone_ref(py),
+            send: self.send.clone_ref(py),
+            send_stream,
+            receive_stream,
+            response_sent,
+            task_group: task_group.unbind(),
+            app_error: None,
+            exception_already_raised: false,
+        }));
+        self.shared = Some(shared);
+        self.pending = Some(BaseHTTPPending::TaskGroupEnter);
+        Ok(MachineAction::Await(enter.unbind()))
+    }
+
+    fn start_dispatch(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let shared = self.shared_ref()?.clone();
+        let (scope, receive) = {
+            let state = shared.borrow();
+            (state.clone_scope(py), state.clone_receive(py))
+        };
+        let request_type = py.import("starlette.requests")?.getattr("Request")?;
+        let request = request_type.call1((scope, receive))?;
+        let call_next = Py::new(py, PyBaseHTTPCallNext { shared })?.into_any();
+        let dispatch = self.dispatch.bind(py).call1((request, call_next))?;
+        self.pending = Some(BaseHTTPPending::Dispatch);
+        Ok(MachineAction::Await(dispatch.unbind()))
+    }
+
+    fn call_response(&mut self, py: Python<'_>, response: Py<PyAny>) -> PyResult<MachineAction> {
+        let shared = self.shared_ref()?.clone();
+        let (scope, receive, send) = {
+            let state = shared.borrow();
+            (
+                state.clone_scope(py),
+                state.clone_receive(py),
+                state.clone_send(py),
+            )
+        };
+        let awaitable = match response.bind(py).call1((scope, receive, send)) {
+            Ok(awaitable) => awaitable,
+            Err(error) => return self.finish_with_error(py, error),
+        };
+        self.pending = Some(BaseHTTPPending::Response);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn finish_response(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let shared = self.shared_ref()?.clone();
+        let event = shared.borrow().clone_response_sent(py);
+        event.bind(py).call_method0("set")?;
+        self.finish_success(py)
+    }
+
+    fn finish_success(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let shared = self.shared_ref()?.clone();
+        close_receive_stream(py, &shared)?;
+        let group = shared.borrow().clone_task_group(py);
+        let awaitable = group
+            .bind(py)
+            .call_method1("__aexit__", (py.None(), py.None(), py.None()))?;
+        self.pending = Some(BaseHTTPPending::TaskGroupExit { body_error: None });
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn finish_with_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        let shared = self.shared_ref()?.clone();
+        close_receive_stream(py, &shared)?;
+        let group = shared.borrow().clone_task_group(py);
+        let traceback = error
+            .traceback(py)
+            .map_or_else(|| py.None().into_bound(py), Bound::into_any);
+        let awaitable = group.bind(py).call_method1(
+            "__aexit__",
+            (error.get_type(py), error.value(py), traceback),
+        )?;
+        self.pending = Some(BaseHTTPPending::TaskGroupExit {
+            body_error: Some(error),
+        });
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn finish_task_group(
+        &mut self,
+        py: Python<'_>,
+        body_error: Option<PyErr>,
+        suppressed: bool,
+    ) -> PyResult<MachineAction> {
+        if let Some(error) = body_error {
+            if !suppressed {
+                close_streams(py, &self.shared_ref()?.clone())?;
+                return Err(crate::runtime_calls::collapse_single_task_group_error(
+                    py, error,
+                )?);
+            }
+        }
+
+        let shared = self.shared_ref()?.clone();
+        close_streams(py, &shared)?;
+        let error = {
+            let mut state = shared.borrow_mut();
+            if state.exception_already_raised {
+                None
+            } else {
+                state.app_error.take()
+            }
+        };
+        match error {
+            Some(error) => Err(error),
+            None => Ok(MachineAction::Complete(py.None())),
+        }
+    }
+
+    fn resume_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        match self.pending.take() {
+            Some(BaseHTTPPending::PassThrough) => Err(error),
+            Some(BaseHTTPPending::TaskGroupEnter) => {
+                if let Some(shared) = self.shared.as_ref() {
+                    close_streams(py, shared)?;
+                }
+                Err(error)
+            }
+            Some(BaseHTTPPending::TaskGroupExit { body_error }) => {
+                let _ = body_error;
+                close_streams(py, &self.shared_ref()?.clone())?;
+                Err(crate::runtime_calls::collapse_single_task_group_error(
+                    py, error,
+                )?)
+            }
+            Some(BaseHTTPPending::Dispatch | BaseHTTPPending::Response) => {
+                self.finish_with_error(py, error)
+            }
+            None => Err(error),
+        }
+    }
+
+    fn shared_ref(&self) -> PyResult<&SharedCall> {
+        self.shared
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("BaseHTTPMiddleware state is unavailable"))
+    }
+}
+
+fn close_receive_stream(py: Python<'_>, shared: &SharedCall) -> PyResult<()> {
+    let receive_stream = shared.borrow().clone_receive_stream(py);
+    receive_stream.bind(py).call_method0("close")?;
+    Ok(())
+}
+
+fn close_streams(py: Python<'_>, shared: &SharedCall) -> PyResult<()> {
+    let send_stream = shared.borrow().clone_send_stream(py);
+    send_stream.bind(py).call_method0("close")?;
+    close_receive_stream(py, shared)
+}
+
+#[pyclass(unsendable)]
+struct PyBaseHTTPCallNext {
+    shared: SharedCall,
+}
+
+#[pymethods]
+impl PyBaseHTTPCallNext {
+    fn __call__(&self, py: Python<'_>, _request: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            CallNextMachine {
+                shared: self.shared.clone(),
+                pending_receive: false,
+                info: None,
+            },
+        )
+    }
+}
+
+struct CallNextMachine {
+    shared: SharedCall,
+    pending_receive: bool,
+    info: Option<Py<PyAny>>,
+}
+
+impl AwaitableStateMachine for CallNextMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => self.start(py),
+            MachineResume::Value(message) if self.pending_receive => {
+                self.pending_receive = false;
+                self.make_response(py, message)
+            }
+            MachineResume::Value(_) => Err(PyRuntimeError::new_err(
+                "call_next received an unexpected result",
+            )),
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                self.receive_error(py, error)
+            }
+        }
+    }
+}
+
+impl CallNextMachine {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let task_group = self.shared.borrow().clone_task_group(py);
+        let child = into_python_awaitable(
+            py,
+            DownstreamAppMachine {
+                shared: self.shared.clone(),
+                pending: false,
+            },
+        )?;
+        let factory = Py::new(py, AwaitableFactory { awaitable: child })?;
+        task_group.bind(py).call_method1("start_soon", (factory,))?;
+        self.receive_first_message(py)
+    }
+
+    fn receive_first_message(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let stream = self.shared.borrow().clone_receive_stream(py);
+        let awaitable = stream.bind(py).call_method0("receive")?;
+        self.pending_receive = true;
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn make_response(&mut self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
+        let message_bound = message.bind(py).cast::<PyDict>()?;
+        let mut info = match message_bound.get_item("info")? {
+            Some(info) if !info.is_none() => Some(info.unbind()),
+            _ => None,
+        };
+        let message_type = message_bound
+            .get_item("type")?
+            .ok_or_else(|| PyKeyError::new_err("type"))?
+            .extract::<String>()?;
+        if message_type == "http.response.debug" && info.is_some() {
+            self.info = info;
+            return self.receive_after_debug(py);
+        }
+        if message_type != "http.response.start" {
+            return Err(PyAssertionError::new_err(format!(
+                "Unexpected message: {}",
+                message_bound.repr()?.extract::<String>()?
+            )));
+        }
+        let status_code = message_bound
+            .get_item("status")?
+            .ok_or_else(|| PyKeyError::new_err("status"))?
+            .extract::<u16>()?;
+        let raw_headers = message_bound
+            .get_item("headers")?
+            .ok_or_else(|| PyKeyError::new_err("headers"))?
+            .extract::<Vec<(Vec<u8>, Vec<u8>)>>()?;
+        let stream = self.shared.borrow().clone_receive_stream(py);
+        let response = Py::new(
+            py,
+            PyBaseHTTPResponse::new(
+                status_code,
+                raw_headers,
+                info.take().or_else(|| self.info.take()),
+                stream,
+            ),
+        )?;
+        let wrapper = py
+            .import("starlette.middleware.base")?
+            .getattr("_StreamingResponse")?
+            .call1((response,))?;
+        Ok(MachineAction::Complete(wrapper.unbind()))
+    }
+
+    fn receive_after_debug(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let stream = self.shared.borrow().clone_receive_stream(py);
+        let awaitable = stream.bind(py).call_method0("receive")?;
+        self.pending_receive = true;
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn receive_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        if !is_end_of_stream(py, &error)? {
+            return Err(error);
+        }
+        let (app_error, receive_stream) = {
+            let mut state = self.shared.borrow_mut();
+            (state.app_error.take(), state.receive_stream.clone_ref(py))
+        };
+        if let Some(app_error) = app_error {
+            self.shared.borrow_mut().exception_already_raised = true;
+            Err(preserve_application_exception(py, app_error)?)
+        } else {
+            let _ = receive_stream;
+            Err(PyRuntimeError::new_err("No response returned."))
+        }
+    }
+}
+
+#[pyclass(unsendable)]
+struct AwaitableFactory {
+    awaitable: Py<PyAny>,
+}
+
+#[pymethods]
+impl AwaitableFactory {
+    fn __call__(&self, py: Python<'_>) -> Py<PyAny> {
+        self.awaitable.clone_ref(py)
+    }
+}
+
+struct DownstreamAppMachine {
+    shared: SharedCall,
+    pending: bool,
+}
+
+impl AwaitableStateMachine for DownstreamAppMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => self.start(py),
+            MachineResume::Value(_) if self.pending => {
+                self.pending = false;
+                self.close_sender(py)?;
+                Ok(MachineAction::Complete(py.None()))
+            }
+            MachineResume::Value(_) => Err(PyRuntimeError::new_err(
+                "downstream app received an unexpected result",
+            )),
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                self.handle_error(py, error)
+            }
+        }
+    }
+}
+
+impl DownstreamAppMachine {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let (app, scope, receive, send) = {
+            let state = self.shared.borrow();
+            (
+                state.clone_app(py),
+                state.clone_scope(py),
+                Py::new(
+                    py,
+                    PyBaseHTTPReceiveOrDisconnect {
+                        shared: self.shared.clone(),
+                    },
+                )?
+                .into_any(),
+                Py::new(
+                    py,
+                    PyBaseHTTPSendNoError {
+                        shared: self.shared.clone(),
+                    },
+                )?
+                .into_any(),
+            )
+        };
+        let awaitable = match app.bind(py).call1((scope, receive, send)) {
+            Ok(awaitable) => awaitable,
+            Err(error) => return self.handle_error(py, error),
+        };
+        self.pending = true;
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn handle_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        self.close_sender(py)?;
+        if error.is_instance_of::<pyo3::exceptions::PyException>(py) {
+            self.shared.borrow_mut().record_app_error(error);
+            Ok(MachineAction::Complete(py.None()))
+        } else {
+            Err(error)
+        }
+    }
+
+    fn close_sender(&self, py: Python<'_>) -> PyResult<()> {
+        let stream = self.shared.borrow().clone_send_stream(py);
+        stream.bind(py).call_method0("close")?;
+        Ok(())
+    }
+}
+
+#[pyclass(unsendable)]
+struct PyBaseHTTPReceiveOrDisconnect {
+    shared: SharedCall,
+}
+
+#[pymethods]
+impl PyBaseHTTPReceiveOrDisconnect {
+    fn __call__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            ReceiveOrDisconnectMachine {
+                shared: self.shared.clone(),
+                pending: false,
+            },
+        )
+    }
+}
+
+struct ReceiveOrDisconnectMachine {
+    shared: SharedCall,
+    pending: bool,
+}
+
+impl AwaitableStateMachine for ReceiveOrDisconnectMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => {
+                let (event, receive) = {
+                    let state = self.shared.borrow();
+                    (state.clone_response_sent(py), state.clone_receive(py))
+                };
+                if event.bind(py).call_method0("is_set")?.extract::<bool>()? {
+                    return Ok(MachineAction::Complete(disconnect_message(py)?));
+                }
+                let awaitable = receive.bind(py).call0()?;
+                self.pending = true;
+                Ok(MachineAction::Await(awaitable.unbind()))
+            }
+            MachineResume::Value(value) if self.pending => Ok(MachineAction::Complete(value)),
+            MachineResume::Value(_) => Err(PyRuntimeError::new_err(
+                "receive callback completed without a pending receive",
+            )),
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                Err(error)
+            }
+        }
+    }
+}
+
+#[pyclass(unsendable)]
+struct PyBaseHTTPSendNoError {
+    shared: SharedCall,
+}
+
+#[pymethods]
+impl PyBaseHTTPSendNoError {
+    fn __call__(&self, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            SendNoErrorMachine {
+                stream: self.shared.borrow().clone_send_stream(py),
+                message,
+                pending: false,
+            },
+        )
+    }
+}
+
+struct SendNoErrorMachine {
+    stream: Py<PyAny>,
+    message: Py<PyAny>,
+    pending: bool,
+}
+
+impl AwaitableStateMachine for SendNoErrorMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => {
+                let awaitable = self
+                    .stream
+                    .bind(py)
+                    .call_method1("send", (self.message.bind(py),))?;
+                self.pending = true;
+                Ok(MachineAction::Await(awaitable.unbind()))
+            }
+            MachineResume::Value(_) if self.pending => Ok(MachineAction::Complete(py.None())),
+            MachineResume::Value(_) => Err(PyRuntimeError::new_err(
+                "send stream completed without a pending send",
+            )),
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                if is_broken_resource(py, &error)? {
+                    Ok(MachineAction::Complete(py.None()))
+                } else {
+                    Err(error)
+                }
+            }
+        }
+    }
+}
+
+#[pyclass(unsendable)]
+pub(crate) struct PyBaseHTTPResponse {
+    status_code: u16,
+    headers: SharedHeaders,
+    info: Option<Py<PyAny>>,
+    receive_stream: Py<PyAny>,
+}
+
+impl PyBaseHTTPResponse {
+    fn new(
+        status_code: u16,
+        raw_headers: Vec<(Vec<u8>, Vec<u8>)>,
+        info: Option<Py<PyAny>>,
+        receive_stream: Py<PyAny>,
+    ) -> Self {
+        Self {
+            status_code,
+            headers: Rc::new(RefCell::new(raw_headers)),
+            info,
+            receive_stream,
+        }
+    }
+}
+
+#[pymethods]
+impl PyBaseHTTPResponse {
+    #[getter]
+    fn status_code(&self) -> u16 {
+        self.status_code
+    }
+
+    #[setter]
+    fn set_status_code(&mut self, status_code: u16) {
+        self.status_code = status_code;
+    }
+
+    #[getter]
+    fn raw_headers(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        raw_headers_to_python(py, &self.headers)
+    }
+
+    #[setter]
+    fn set_raw_headers(&mut self, value: Vec<(Vec<u8>, Vec<u8>)>) {
+        *self.headers.borrow_mut() = value;
+    }
+
+    #[getter]
+    fn headers(&self, py: Python<'_>) -> PyResult<Py<PyBaseHTTPHeaders>> {
+        Py::new(
+            py,
+            PyBaseHTTPHeaders {
+                values: self.headers.clone(),
+            },
+        )
+    }
+
+    #[getter]
+    fn info(&self, py: Python<'_>) -> Py<PyAny> {
+        self.info
+            .as_ref()
+            .map_or_else(|| py.None(), |info| info.clone_ref(py))
+    }
+
+    #[getter]
+    fn body_iterator(&self, py: Python<'_>) -> PyResult<Py<PyBaseHTTPBodyIterator>> {
+        Py::new(
+            py,
+            PyBaseHTTPBodyIterator {
+                receive_stream: self.receive_stream.clone_ref(py),
+                finished: Rc::new(RefCell::new(false)),
+                pending: Rc::new(RefCell::new(false)),
+            },
+        )
+    }
+
+    fn asgi_call(
+        &self,
+        py: Python<'_>,
+        _scope: Py<PyAny>,
+        _receive: Py<PyAny>,
+        send: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            BaseHTTPResponseCallMachine {
+                status_code: self.status_code,
+                headers: self.headers.clone(),
+                info: self.info.as_ref().map(|value| value.clone_ref(py)),
+                receive_stream: self.receive_stream.clone_ref(py),
+                send,
+                phase: ResponsePhase::Start,
+                pending: None,
+                debug_sent: false,
+            },
+        )
+    }
+}
+
+#[pyclass(unsendable)]
+struct PyBaseHTTPHeaders {
+    values: SharedHeaders,
+}
+
+#[pymethods]
+impl PyBaseHTTPHeaders {
+    fn __getitem__(&self, py: Python<'_>, key: &str) -> PyResult<Py<PyAny>> {
+        let key = key.to_ascii_lowercase().into_bytes();
+        let values = self.values.borrow();
+        let value = values
+            .iter()
+            .rev()
+            .find(|(name, _)| name.eq_ignore_ascii_case(&key))
+            .map(|(_, value)| value)
+            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(key_to_string(&key)))?;
+        PyBytes::new(py, value)
+            .call_method1("decode", ("latin-1",))
+            .map(Bound::unbind)
+    }
+
+    fn __setitem__(&self, py: Python<'_>, key: &str, value: &str) -> PyResult<()> {
+        let key = key.to_ascii_lowercase().into_bytes();
+        let value = PyString::new(py, value)
+            .call_method1("encode", ("latin-1",))?
+            .extract::<Vec<u8>>()?;
+        let mut values = self.values.borrow_mut();
+        if let Some(first) = values
+            .iter()
+            .position(|(name, _)| name.eq_ignore_ascii_case(&key))
+        {
+            let replaced_key = values[first].0.clone();
+            values[first] = (key, value);
+            let mut index = first + 1;
+            while index < values.len() {
+                if values[index].0.eq_ignore_ascii_case(&replaced_key) {
+                    values.remove(index);
+                } else {
+                    index += 1;
+                }
+            }
+        } else {
+            values.push((key, value));
+        }
+        Ok(())
+    }
+
+    fn __delitem__(&self, key: &str) -> PyResult<()> {
+        let key = key.to_ascii_lowercase().into_bytes();
+        let mut values = self.values.borrow_mut();
+        let old_len = values.len();
+        values.retain(|(name, _)| !name.eq_ignore_ascii_case(&key));
+        if old_len == values.len() {
+            return Err(pyo3::exceptions::PyKeyError::new_err(key_to_string(&key)));
+        }
+        Ok(())
+    }
+
+    fn __contains__(&self, key: &str) -> bool {
+        let key = key.to_ascii_lowercase().into_bytes();
+        self.values
+            .borrow()
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case(&key))
+    }
+
+    fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let values = self.values.borrow();
+        let mut keys = Vec::<String>::new();
+        for (name, _) in values.iter() {
+            let key = String::from_utf8_lossy(name).to_ascii_lowercase();
+            if !keys.iter().any(|candidate| candidate == &key) {
+                keys.push(key);
+            }
+        }
+        PyList::new(py, keys)?
+            .call_method0("__iter__")
+            .map(Bound::unbind)
+    }
+
+    fn __len__(&self) -> usize {
+        let values = self.values.borrow();
+        let mut keys = Vec::<Vec<u8>>::new();
+        for (name, _) in values.iter() {
+            if !keys
+                .iter()
+                .any(|candidate| candidate.eq_ignore_ascii_case(name))
+            {
+                keys.push(name.clone());
+            }
+        }
+        keys.len()
+    }
+
+    fn items(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let values = self.values.borrow();
+        let result = PyList::empty(py);
+        let mut keys = Vec::<Vec<u8>>::new();
+        for (name, value) in values.iter() {
+            if keys
+                .iter()
+                .any(|candidate| candidate.eq_ignore_ascii_case(name))
+            {
+                continue;
+            }
+            keys.push(name.clone());
+            let pair = PyTuple::new(
+                py,
+                [
+                    PyBytes::new(py, name).call_method1("decode", ("latin-1",))?,
+                    PyBytes::new(py, value).call_method1("decode", ("latin-1",))?,
+                ],
+            )?;
+            result.append(pair)?;
+        }
+        Ok(result.into_any().unbind())
+    }
+}
+
+#[pyclass(unsendable)]
+pub(crate) struct PyBaseHTTPBodyIterator {
+    receive_stream: Py<PyAny>,
+    finished: Rc<RefCell<bool>>,
+    pending: Rc<RefCell<bool>>,
+}
+
+#[pymethods]
+impl PyBaseHTTPBodyIterator {
+    fn __aiter__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    fn __anext__(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let borrowed = slf.borrow(py);
+        let receive_stream = borrowed.receive_stream.clone_ref(py);
+        let finished = borrowed.finished.clone();
+        let pending = borrowed.pending.clone();
+        drop(borrowed);
+        into_python_awaitable(
+            py,
+            BodyIteratorMachine {
+                receive_stream,
+                finished,
+                pending,
+                waiting: false,
+            },
+        )
+    }
+}
+
+struct BodyIteratorMachine {
+    receive_stream: Py<PyAny>,
+    finished: Rc<RefCell<bool>>,
+    pending: Rc<RefCell<bool>>,
+    waiting: bool,
+}
+
+impl AwaitableStateMachine for BodyIteratorMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => self.receive(py),
+            MachineResume::Value(message) if self.waiting => {
+                self.waiting = false;
+                *self.pending.borrow_mut() = false;
+                let message = message.bind(py).cast::<PyDict>()?;
+                let message_type = message
+                    .get_item("type")?
+                    .ok_or_else(|| PyKeyError::new_err("type"))?
+                    .extract::<String>()?;
+                if message_type == "http.response.pathsend" {
+                    *self.finished.borrow_mut() = true;
+                    return Ok(MachineAction::Complete(message.clone().into_any().unbind()));
+                }
+                if message_type != "http.response.body" {
+                    return Err(PyAssertionError::new_err(format!(
+                        "Unexpected message: {}",
+                        message.repr()?.extract::<String>()?
+                    )));
+                }
+                let body = message
+                    .get_item("body")?
+                    .unwrap_or_else(|| PyBytes::new(py, b"").into_any());
+                let more_body = message
+                    .get_item("more_body")?
+                    .map(|value| value.extract::<bool>())
+                    .transpose()?
+                    .unwrap_or(false);
+                if !more_body {
+                    *self.finished.borrow_mut() = true;
+                }
+                if body.is_truthy()? {
+                    return Ok(MachineAction::Complete(body.unbind()));
+                }
+                if more_body {
+                    self.receive(py)
+                } else {
+                    Err(PyStopAsyncIteration::new_err(()))
+                }
+            }
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                if self.waiting && is_end_of_stream(py, &error)? {
+                    *self.finished.borrow_mut() = true;
+                    *self.pending.borrow_mut() = false;
+                    Err(PyStopAsyncIteration::new_err(()))
+                } else {
+                    Err(error)
+                }
+            }
+            MachineResume::Value(_) => Err(PyRuntimeError::new_err(
+                "body stream received an unexpected result",
+            )),
+        }
+    }
+}
+
+impl BodyIteratorMachine {
+    fn receive(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        if *self.finished.borrow() {
+            return Err(PyStopAsyncIteration::new_err(()));
+        }
+        let awaitable = self.receive_stream.bind(py).call_method0("receive")?;
+        self.waiting = true;
+        *self.pending.borrow_mut() = true;
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+}
+
+#[derive(Clone, Copy)]
+enum ResponsePhase {
+    Start,
+    ReceiveBody,
+    FinishBody,
+    Complete,
+}
+
+enum ResponsePending {
+    SendDebug,
+    SendStart,
+    ReceiveBody,
+    SendChunk { more_body: bool },
+    SendFinal,
+    SendPathsend,
+}
+
+struct BaseHTTPResponseCallMachine {
+    status_code: u16,
+    headers: SharedHeaders,
+    info: Option<Py<PyAny>>,
+    receive_stream: Py<PyAny>,
+    send: Py<PyAny>,
+    phase: ResponsePhase,
+    pending: Option<ResponsePending>,
+    debug_sent: bool,
+}
+
+impl AwaitableStateMachine for BaseHTTPResponseCallMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => self.next_action(py),
+            MachineResume::Value(value) => match self.pending.take() {
+                Some(ResponsePending::SendDebug) => {
+                    self.debug_sent = true;
+                    self.phase = ResponsePhase::Start;
+                    self.next_action(py)
+                }
+                Some(ResponsePending::SendStart) => {
+                    self.phase = ResponsePhase::ReceiveBody;
+                    self.next_action(py)
+                }
+                Some(ResponsePending::ReceiveBody) => self.process_body_message(py, value),
+                Some(ResponsePending::SendChunk { more_body }) => {
+                    if more_body {
+                        self.phase = ResponsePhase::ReceiveBody;
+                        self.next_action(py)
+                    } else {
+                        self.phase = ResponsePhase::FinishBody;
+                        self.next_action(py)
+                    }
+                }
+                Some(ResponsePending::SendFinal) | Some(ResponsePending::SendPathsend) => {
+                    self.phase = ResponsePhase::Complete;
+                    self.next_action(py)
+                }
+                None => Err(PyRuntimeError::new_err(
+                    "BaseHTTP response resumed without a pending operation",
+                )),
+            },
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                match self.pending.take() {
+                    Some(ResponsePending::ReceiveBody) if is_end_of_stream(py, &error)? => {
+                        self.phase = ResponsePhase::FinishBody;
+                        self.next_action(py)
+                    }
+                    Some(_) | None => Err(error),
+                }
+            }
+        }
+    }
+}
+
+impl BaseHTTPResponseCallMachine {
+    fn next_action(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        match self.phase {
+            ResponsePhase::Start => {
+                if !self.debug_sent {
+                    if let Some(info) = self.info.as_ref() {
+                        let message = PyDict::new(py);
+                        message.set_item("type", "http.response.debug")?;
+                        message.set_item("info", info.bind(py))?;
+                        return self.send_message(
+                            py,
+                            message.into_any().unbind(),
+                            ResponsePending::SendDebug,
+                        );
+                    }
+                }
+                let message = self.start_message(py)?;
+                self.send_message(py, message, ResponsePending::SendStart)
+            }
+            ResponsePhase::ReceiveBody => {
+                let awaitable = self.receive_stream.bind(py).call_method0("receive")?;
+                self.pending = Some(ResponsePending::ReceiveBody);
+                Ok(MachineAction::Await(awaitable.unbind()))
+            }
+            ResponsePhase::FinishBody => {
+                let message = PyDict::new(py);
+                message.set_item("type", "http.response.body")?;
+                message.set_item("body", PyBytes::new(py, b""))?;
+                message.set_item("more_body", false)?;
+                self.send_message(py, message.into_any().unbind(), ResponsePending::SendFinal)
+            }
+            ResponsePhase::Complete => Ok(MachineAction::Complete(py.None())),
+        }
+    }
+
+    fn process_body_message(
+        &mut self,
+        py: Python<'_>,
+        message: Py<PyAny>,
+    ) -> PyResult<MachineAction> {
+        let message = message.bind(py).cast::<PyDict>()?;
+        let message_type = message
+            .get_item("type")?
+            .ok_or_else(|| PyKeyError::new_err("type"))?
+            .extract::<String>()?;
+        if message_type == "http.response.pathsend" {
+            return self.send_message(
+                py,
+                message.clone().into_any().unbind(),
+                ResponsePending::SendPathsend,
+            );
+        }
+        if message_type != "http.response.body" {
+            return Err(PyAssertionError::new_err(format!(
+                "Unexpected message: {}",
+                message.repr()?.extract::<String>()?
+            )));
+        }
+        let body = message
+            .get_item("body")?
+            .unwrap_or_else(|| PyBytes::new(py, b"").into_any());
+        let more_body = message
+            .get_item("more_body")?
+            .map(|value| value.extract::<bool>())
+            .transpose()?
+            .unwrap_or(false);
+        if body.is_truthy()? {
+            let output = PyDict::new(py);
+            output.set_item("type", "http.response.body")?;
+            output.set_item("body", body)?;
+            output.set_item("more_body", true)?;
+            return self.send_message(
+                py,
+                output.into_any().unbind(),
+                ResponsePending::SendChunk { more_body },
+            );
+        }
+        if more_body {
+            self.phase = ResponsePhase::ReceiveBody;
+            return self.next_action(py);
+        }
+        self.phase = ResponsePhase::FinishBody;
+        self.next_action(py)
+    }
+
+    fn start_message(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let message = PyDict::new(py);
+        message.set_item("type", "http.response.start")?;
+        message.set_item("status", self.status_code)?;
+        message.set_item("headers", raw_headers_list(py, &self.headers)?)?;
+        Ok(message.into_any().unbind())
+    }
+
+    fn send_message(
+        &mut self,
+        py: Python<'_>,
+        message: Py<PyAny>,
+        pending: ResponsePending,
+    ) -> PyResult<MachineAction> {
+        let awaitable = self.send.bind(py).call1((message,))?;
+        self.pending = Some(pending);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+}
+
+fn raw_headers_to_python(py: Python<'_>, headers: &SharedHeaders) -> PyResult<Py<PyAny>> {
+    Ok(raw_headers_list(py, headers)?.into_any().unbind())
+}
+
+fn raw_headers_list<'py>(py: Python<'py>, headers: &SharedHeaders) -> PyResult<Bound<'py, PyList>> {
+    let result = PyList::empty(py);
+    for (name, value) in headers.borrow().iter() {
+        result.append(PyTuple::new(
+            py,
+            [PyBytes::new(py, name), PyBytes::new(py, value)],
+        )?)?;
+    }
+    Ok(result)
+}
+
+fn disconnect_message(py: Python<'_>) -> PyResult<Py<PyAny>> {
+    let message = PyDict::new(py);
+    message.set_item("type", "http.disconnect")?;
+    Ok(message.into_any().unbind())
+}
+
+fn is_end_of_stream(py: Python<'_>, error: &PyErr) -> PyResult<bool> {
+    let end_of_stream = py.import("anyio")?.getattr("EndOfStream")?;
+    error.value(py).is_instance(&end_of_stream)
+}
+
+fn is_broken_resource(py: Python<'_>, error: &PyErr) -> PyResult<bool> {
+    let broken_resource = py.import("anyio")?.getattr("BrokenResourceError")?;
+    error.value(py).is_instance(&broken_resource)
+}
+
+fn preserve_application_exception(py: Python<'_>, error: PyErr) -> PyResult<PyErr> {
+    let value = error.value(py);
+    let cause = value.getattr("__cause__")?;
+    let cause = if cause.is_truthy()? {
+        Some(PyErr::from_value(cause))
+    } else {
+        let suppress_context = value.getattr("__suppress_context__")?.extract::<bool>()?;
+        let context = value.getattr("__context__")?;
+        if suppress_context || context.is_none() {
+            None
+        } else {
+            Some(PyErr::from_value(context))
+        }
+    };
+    error.set_cause(py, cause);
+    Ok(error)
+}
+
+fn key_to_string(key: &[u8]) -> String {
+    String::from_utf8_lossy(key).into_owned()
+}

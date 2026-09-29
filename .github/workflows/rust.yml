@@ -60,8 +60,25 @@ jobs:
         run: rustup toolchain install 1.96.1 --profile minimal
       - name: Create the pinned style-tool environment
         run: make style-setup PYTHON=python
-      - name: Check Python style, repository policy, generated parity contract, and documentation links
-        run: make python-format python-lint project-policy-check contract-check docs-check
+      - name: Check Python style, repository policy, generated parity contract, workflows, and documentation links
+        run: make python-format python-lint project-policy-check workflows-check contract-check docs-check
+
+  supply-chain:
+    name: Rust dependency security and license policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.1 --profile minimal
+          rustup default 1.96.1
+      - name: Install pinned supply-chain tools
+        run: make supply-chain-tools
+      - name: Check advisories, licenses, duplicate versions, and sources
+        run: make supply-chain-check
 
   source-parity:
     name: Pinned Starlette source parity

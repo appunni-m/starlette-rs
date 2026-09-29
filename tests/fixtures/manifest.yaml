@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers two BaseHTTPMiddleware workflows through Starlette configured Middleware: dispatch awaits call_next and mutates the returned response header, and dispatch awaits call_next before returning a replacement response.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -276,7 +276,8 @@
       "build/parity/inputs/parity/static-files.json",
       "build/parity/inputs/parity/static-files-lookup.json",
       "build/parity/inputs/parity/static-files-async-boundary.json",
-      "build/parity/inputs/parity/session-middleware.json"
+      "build/parity/inputs/parity/session-middleware.json",
+      "build/parity/inputs/parity/base-http-middleware.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -3503,6 +3504,198 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Authentication is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.base.BaseHTTPMiddleware",
+      "kind": "type",
+      "source_path": "starlette/middleware/base.py:96",
+      "storage_slug": "starlette-middleware-base-BaseHTTPMiddleware",
+      "operations": [
+        {
+          "id": "base-http-workflow",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.base.BaseHTTPMiddleware.__call__",
+            "signature": "Starlette configured Middleware stack invokes async BaseHTTPMiddleware.__call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                },
+                {
+                  "path": "asgi_event_order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "BaseHTTPMiddleware is a Python ASGI middleware consumer contract in this slice, with no Rust-native middleware consumer surface.",
+                "authority": "The declared parity target profile is python-package-cpython312 only."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.base.BaseHTTPMiddleware.__call__",
+              "signature": "async __call__(scope, receive, send) -> None through Starlette configured Middleware",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+              "dimension": "success_path",
+              "description": "Construct a Starlette app with Middleware(CustomMiddleware) in its configured middleware list and invoke the app ASGI interface. Upstream: tests/middleware/test_base.py:179-187; starlette/applications.py:73-78.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.await-call-next-header-mutation",
+              "dimension": "success_path",
+              "description": "Await call_next(request), mutate the returned response headers in dispatch, and return that response. Upstream: docs/middleware.md:282-302; tests/middleware/test_base.py:179-187.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-replacement-response",
+              "dimension": "protocol_variant",
+              "description": "Await call_next(request) for a route miss, then return a replacement PlainTextResponse from dispatch. Upstream: tests/middleware/test_base.py:190-205.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only BaseHTTPMiddleware slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only BaseHTTPMiddleware correctness slice declares no benchmark workload."
           }
         }
       ]

@@ -122,6 +122,16 @@
       ]
     },
     {
+      "surface_id": "starlette.middleware.base.BaseHTTPMiddleware",
+      "source_path": "starlette/middleware/base.py:96",
+      "operations": [
+        {
+          "operation_id": "base-http-workflow",
+          "source_path": "starlette.middleware.base.BaseHTTPMiddleware.__call__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
       "source_path": "starlette/middleware/body_limit.py:30",
       "operations": [

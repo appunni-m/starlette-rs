@@ -3,6 +3,8 @@
 .DEFAULT_GOAL := help
 
 CARGO ?= cargo
+CARGO_DENY_VERSION ?= 0.20.2
+CARGO_AUDIT_VERSION ?= 0.22.2
 PYTHON ?= python3
 PARITY_PYTHON ?= python3.12
 STARLETTE_ORACLE_ROOT ?= ../starlette
@@ -10,8 +12,10 @@ STYLE_VENV ?= .venv-style
 STYLE_PYTHON ?= $(STYLE_VENV)/bin/python
 RUFF ?= $(STYLE_PYTHON) -m ruff
 PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/python/starlette_rs_py
+CARGO_DENY ?= cargo deny
+CARGO_AUDIT ?= cargo audit
 
-.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check lint check build test parity-inputs parity-env parity-adapter parity-run contract-check source-inventory-check benchmark-upstream rustdoc-check docs-check ci
+.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check workflows-check lint check build test parity-inputs parity-env parity-adapter parity-run contract-check source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
@@ -24,7 +28,9 @@ help: ## Show common Rust workspace commands
 	  '  make clippy    Run strict workspace Clippy' \
 	  '  make python-lint  Run Ruff checks on Python sources' \
 	  '  make project-policy-check  Enforce parity-only behavioral checks' \
+	  '  make workflows-check  Lint GitHub Actions workflows' \
 	  '  make lint      Run Rust and Python format/lint checks' \
+	  '  make supply-chain-check  Audit Rust advisories, licenses, versions, and sources' \
 	  '  make check     Type-check all workspace targets and features' \
 	  '  make build     Link the PyO3 extension in extension-module mode' \
 	  '  make parity-inputs  Generate ignored JSON inputs from authored YAML' \
@@ -36,6 +42,7 @@ help: ## Show common Rust workspace commands
 	  '  make benchmark-upstream  Run 74 correctness-gated Starlette source/package workloads' \
 	  '  make docs-check  Check local documentation links offline' \
 	  '  make ci        Run the local quality-gate sequence' \
+	  '  make supply-chain-tools  Install pinned cargo-deny and cargo-audit tools' \
 	  '' \
 	  'Set CARGO, PYTHON, PARITY_PYTHON, STYLE_VENV, STYLE_PYTHON, or RUFF to override local tools.'
 
@@ -67,7 +74,18 @@ python-lint: ## Run Ruff lint checks on Python sources
 project-policy-check: ## Enforce parity-only behavioral checks and repository test policy
 	$(PYTHON) scripts/check_project_policy.py
 
-lint: fmt python-format clippy python-lint project-policy-check ## Check Rust and Python formatting, lints, and project policy
+workflows-check: ## Validate GitHub Actions workflows with checksum-pinned actionlint
+	$(PYTHON) scripts/check_workflows.py
+
+lint: fmt python-format clippy python-lint project-policy-check workflows-check ## Check Rust and Python formatting, lints, workflow syntax, and project policy
+
+supply-chain-tools: ## Install the pinned cargo-deny and cargo-audit tools
+	$(CARGO) install cargo-deny --version "$(CARGO_DENY_VERSION)" --locked
+	$(CARGO) install cargo-audit --version "$(CARGO_AUDIT_VERSION)" --locked
+
+supply-chain-check: ## Audit Rust advisories, licenses, duplicate versions, wildcard versions, and sources
+	$(CARGO_DENY) check advisories bans licenses sources
+	$(CARGO_AUDIT) --deny warnings
 
 check: ## Type-check all workspace targets and features
 	$(CARGO) check --workspace --all-targets --all-features --locked
@@ -102,4 +120,4 @@ benchmark-upstream: contract-check parity-env ## Run 74 correctness-gated Starle
 docs-check: ## Check local Markdown links without network access
 	$(PYTHON) scripts/check_docs.py
 
-ci: lint rustdoc-check check build source-inventory-check parity-run docs-check ## Run formatting, lint, compilation, source inventory, live parity, and docs gates
+ci: lint rustdoc-check check build supply-chain-check source-inventory-check parity-run docs-check ## Run formatting, lint, compilation, supply-chain, source inventory, live parity, and docs gates

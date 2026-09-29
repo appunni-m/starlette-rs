@@ -14,11 +14,12 @@ floor; use Python 3.12 for the local style-tool environment.
 ## Local quality gates
 
 Create the isolated Ruff environment once, then run the same formatting, lint,
-compile, live parity, and documentation checks used by CI:
+compile, dependency-policy, live parity, and documentation checks used by CI:
 
 ```sh
 make style-setup PYTHON=python3.12
-make fmt python-format clippy rustdoc-check python-lint check build test docs-check
+make supply-chain-tools
+make lint rustdoc-check check build supply-chain-check test docs-check
 ```
 
 `make fmt`, `make rustdoc-check`, and `make python-format` are read-only checks.
@@ -26,10 +27,16 @@ Rustdoc warnings fail `make rustdoc-check`. The `fmt-fix` and
 `python-format-fix` targets apply formatting. Ruff is pinned in
 `requirements-style.txt`; its rules and formatting settings live in
 `pyproject.toml`. Ruff covers all maintained Python under `scripts/`, both
-Python package directories, and excludes generated output. This project has no
-conventional Python or Rust unit-test suite: `make test` runs live comparisons
-between pinned Starlette, the installed Python package, and supported
-Rust-native workflows. `make project-policy-check` enforces that policy.
+Python package directories, and excludes generated output. `make lint` also
+checks workflow syntax with checksum-verified actionlint. The
+`supply-chain-check` target runs cargo-deny against all workspace features and
+cargo-audit against the locked Rust dependency graph. `make supply-chain-tools`
+installs cargo-deny 0.20.2 and cargo-audit 0.22.2; the workflow checker
+downloads its pinned actionlint release into ignored `target/` on first use.
+This project has no conventional Python or Rust unit-test suite: `make test`
+runs live comparisons between pinned Starlette, the installed Python package,
+and supported Rust-native workflows. `make project-policy-check` enforces that
+policy.
 Four currently selected Rust-native callable rows are
 `not_run`, so the all-target parity command exits nonzero. The documentation
 checker uses only Python's standard library and checks repository-local
@@ -43,8 +50,9 @@ example:
 PYO3_PYTHON="$(command -v python3.12)" make check build test
 ```
 
-`make ci` runs formatting, lint, Rust compilation/documentation, live parity,
-and local documentation-link checks. It does not run the benchmark lane; use the commands in
+`make ci` runs formatting, lint, Rust compilation/documentation, dependency
+policy, live parity, and local documentation-link checks. It does not run the
+benchmark lane; use the commands in
 [`docs/PARITY.md`](docs/PARITY.md) for parity work and
 [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) for benchmark status.
 

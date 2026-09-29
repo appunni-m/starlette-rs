@@ -9,7 +9,7 @@ use std::fmt::{self, Display, Formatter};
 use base64::Engine;
 use base64::alphabet;
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig, URL_SAFE_NO_PAD};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha1::{Digest, Sha1};
 
 type HmacSha1 = Hmac<Sha1>;

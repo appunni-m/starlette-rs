@@ -1,0 +1,39 @@
+# Dependency policy for the Rust workspace. Keep exceptions version-specific
+# and explain why the dependency graph cannot currently be unified.
+[graph]
+all-features = true
+
+[advisories]
+# Fail on vulnerabilities, unsound or unmaintained advisories, and yanked
+# versions. There are currently no advisory exceptions.
+unmaintained = "all"
+unsound = "all"
+yanked = "deny"
+unused-ignored-advisory = "deny"
+ignore = []
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+skip = [
+]
+
+[licenses]
+confidence-threshold = 0.95
+include-dev = true
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",
+    "MIT",
+    "Unicode-3.0",
+]
+
+[licenses.private]
+ignore = false
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

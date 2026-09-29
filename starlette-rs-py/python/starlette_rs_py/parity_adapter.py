@@ -63,6 +63,8 @@ HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddle
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
 SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
 SESSION_WORKFLOW_OPERATION = "session-workflow"
+BASE_HTTP_SURFACE = "starlette.middleware.base.BaseHTTPMiddleware"
+BASE_HTTP_WORKFLOW_OPERATION = "base-http-workflow"
 EXCEPTION_VALUES_SURFACE = "starlette.exceptions"
 MIDDLEWARE_CONFIG_SURFACE = "starlette.middleware.Middleware"
 VALUE_FORMATTING_OPERATION = "value-formatting"
@@ -5368,6 +5370,302 @@ def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "application",
+            "request",
+            "observations",
+        },
+        "BaseHTTPMiddleware base-http-workflow case",
+    )
+    if case["surface"] != BASE_HTTP_SURFACE or case["operation"] != BASE_HTTP_WORKFLOW_OPERATION:
+        raise ValueError("workflow is outside the BaseHTTPMiddleware base-http-workflow operation")
+    if not isinstance(case["case_id"], str):
+        raise ValueError("BaseHTTPMiddleware case_id must be a string")
+    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+        raise ValueError(
+            "BaseHTTPMiddleware workflow selects only the Python-package profile and no assets"
+        )
+    if case["observations"] != [BASE_HTTP_WORKFLOW_OPERATION]:
+        raise ValueError("BaseHTTPMiddleware observations must select base-http-workflow")
+
+    application = _exact_object(
+        case["application"],
+        {"debug", "routes", "middleware"},
+        "BaseHTTPMiddleware application",
+    )
+    if type(application["debug"]) is not bool:
+        raise ValueError("BaseHTTPMiddleware application.debug must be boolean")
+    if not isinstance(application["routes"], list) or len(application["routes"]) > 1:
+        raise ValueError("BaseHTTPMiddleware workflow supports zero or one route")
+    route_spec = None
+    if application["routes"]:
+        route_spec = _exact_object(
+            application["routes"][0],
+            {"kind", "path", "methods", "endpoint"},
+            "BaseHTTPMiddleware route",
+        )
+        endpoint_spec = _exact_object(
+            route_spec["endpoint"],
+            {"kind", "content", "status_code"},
+            "BaseHTTPMiddleware route endpoint",
+        )
+        if (
+            route_spec["kind"] != "http-route"
+            or route_spec["path"] != "/"
+            or route_spec["methods"] != ["GET"]
+            or endpoint_spec["kind"] != "plain-text-response"
+            or not isinstance(endpoint_spec["content"], str)
+            or type(endpoint_spec["status_code"]) is not int
+            or not 100 <= endpoint_spec["status_code"] <= 599
+        ):
+            raise ValueError("BaseHTTPMiddleware route input is invalid")
+    middleware_specs = application["middleware"]
+    if not isinstance(middleware_specs, list) or len(middleware_specs) != 1:
+        raise ValueError("BaseHTTPMiddleware workflow requires one configured Middleware")
+    middleware_spec = _exact_object(
+        middleware_specs[0],
+        {"kind", "dispatch_actions"},
+        "BaseHTTPMiddleware configured Middleware",
+    )
+    if middleware_spec["kind"] != "base-http-middleware":
+        raise ValueError("configured middleware must be a BaseHTTPMiddleware subclass")
+    dispatch_actions = middleware_spec["dispatch_actions"]
+    if not isinstance(dispatch_actions, list) or not dispatch_actions:
+        raise ValueError("BaseHTTPMiddleware dispatch_actions must be non-empty")
+    awaited = False
+    returned = None
+    saw_header_mutation = False
+    for index, raw_action in enumerate(dispatch_actions):
+        context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
+        if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
+            raise ValueError(f"{context} must be tagged")
+        kind = raw_action["kind"]
+        if kind == "await-call-next":
+            _exact_object(raw_action, {"kind"}, context)
+            if awaited or index != 0:
+                raise ValueError("BaseHTTPMiddleware dispatch must await call_next first")
+            awaited = True
+        elif kind == "set-call-next-response-header":
+            action = _exact_object(raw_action, {"kind", "name", "value"}, context)
+            if not awaited or returned is not None or saw_header_mutation:
+                raise ValueError("response header mutation requires one awaited call_next response")
+            if (
+                not isinstance(action["name"], str)
+                or not action["name"]
+                or not isinstance(action["value"], str)
+                or not action["value"]
+                or any(char in action["name"] + action["value"] for char in "\r\n")
+            ):
+                raise ValueError("BaseHTTPMiddleware response header input is invalid")
+            saw_header_mutation = True
+        elif kind == "return-call-next-response":
+            _exact_object(raw_action, {"kind"}, context)
+            if not awaited or returned is not None or index != len(dispatch_actions) - 1:
+                raise ValueError("call_next response must be returned as the final dispatch action")
+            returned = "call-next"
+        elif kind == "return-plain-text-response":
+            action = _exact_object(raw_action, {"kind", "content", "status_code"}, context)
+            if (
+                not awaited
+                or returned is not None
+                or saw_header_mutation
+                or index != len(dispatch_actions) - 1
+                or not isinstance(action["content"], str)
+                or type(action["status_code"]) is not int
+                or not 100 <= action["status_code"] <= 599
+            ):
+                raise ValueError("replacement response must follow call_next and end dispatch")
+            returned = "replacement"
+        else:
+            raise ValueError(f"{context} has an unsupported action kind")
+    if not awaited or returned is None or saw_header_mutation != (returned == "call-next"):
+        raise ValueError("BaseHTTPMiddleware dispatch action sequence is incomplete")
+    if (returned == "call-next") != bool(route_spec):
+        raise ValueError("BaseHTTPMiddleware route input differs from dispatch response action")
+
+    required_covers = {
+        f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware"
+    }
+    if saw_header_mutation:
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.await-call-next-header-mutation"
+        )
+    if returned == "replacement":
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response"
+        )
+    if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
+        raise ValueError("BaseHTTPMiddleware covers differ from its configured actions")
+
+    request = _exact_object(case["request"], {"scope", "receive"}, "BaseHTTPMiddleware request")
+    scope_spec = _exact_object(
+        request["scope"],
+        {
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        },
+        "BaseHTTPMiddleware HTTP scope",
+    )
+    _exact_object(
+        scope_spec["asgi"], {"version", "spec_version"}, "BaseHTTPMiddleware ASGI version"
+    )
+    path = scope_spec["path"]
+    if (
+        scope_spec["type"] != "http"
+        or scope_spec["asgi"] != {"version": "3.0", "spec_version": "2.4"}
+        or scope_spec["method"] != "GET"
+        or scope_spec["scheme"] != "http"
+        or not isinstance(scope_spec["http_version"], str)
+        or not isinstance(path, str)
+        or (route_spec is not None and path != route_spec["path"])
+        or (route_spec is None and path == "/")
+        or not isinstance(scope_spec["root_path"], str)
+    ):
+        raise ValueError("BaseHTTPMiddleware request scope does not select its declared route case")
+    if _decode_base64(scope_spec["raw_path_base64"], "BaseHTTPMiddleware raw path") != path.encode(
+        "ascii"
+    ) or _decode_base64(scope_spec["query_string_base64"], "BaseHTTPMiddleware query string"):
+        raise ValueError("BaseHTTPMiddleware scope raw path or query input is invalid")
+    headers = scope_spec["headers_base64_pairs"]
+    if not isinstance(headers, list):
+        raise ValueError("BaseHTTPMiddleware scope headers must be an array")
+    for index, pair in enumerate(headers):
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise ValueError(f"BaseHTTPMiddleware scope header[{index}] is invalid")
+        for value in pair:
+            if not isinstance(value, str):
+                raise ValueError(f"BaseHTTPMiddleware scope header[{index}] is invalid")
+            _decode_base64(value, f"BaseHTTPMiddleware scope header[{index}]")
+    for name in ("client", "server"):
+        address = scope_spec[name]
+        if (
+            not isinstance(address, list)
+            or len(address) != 2
+            or not isinstance(address[0], str)
+            or type(address[1]) is not int
+        ):
+            raise ValueError(f"BaseHTTPMiddleware scope.{name} must be a host/port pair")
+    receive_specs = request["receive"]
+    if not isinstance(receive_specs, list) or len(receive_specs) != 1:
+        raise ValueError("BaseHTTPMiddleware request requires one empty HTTP body event")
+    receive_spec = _exact_object(
+        receive_specs[0],
+        {"type", "body_base64", "more_body"},
+        "BaseHTTPMiddleware HTTP request event",
+    )
+    if (
+        receive_spec["type"] != "http.request"
+        or receive_spec["body_base64"] != ""
+        or receive_spec["more_body"] is not False
+    ):
+        raise ValueError("BaseHTTPMiddleware request must contain one empty final body event")
+
+    from starlette.applications import Starlette
+    from starlette.middleware import Middleware
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+
+    class InputDefinedBaseHTTPMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Any, call_next: Any) -> Any:
+            response = None
+            for action in dispatch_actions:
+                kind = action["kind"]
+                if kind == "await-call-next":
+                    response = await call_next(request)
+                elif kind == "set-call-next-response-header":
+                    response.headers[action["name"]] = action["value"]
+                elif kind == "return-call-next-response":
+                    return response
+                elif kind == "return-plain-text-response":
+                    return PlainTextResponse(
+                        action["content"],
+                        status_code=action["status_code"],
+                    )
+            raise RuntimeError("BaseHTTPMiddleware dispatch action sequence returned no response")
+
+    routes = []
+    if route_spec is not None:
+        endpoint_spec = route_spec["endpoint"]
+
+        def endpoint(_request: Any) -> Any:
+            return PlainTextResponse(
+                endpoint_spec["content"],
+                status_code=endpoint_spec["status_code"],
+            )
+
+        routes.append(Route(route_spec["path"], endpoint, methods=route_spec["methods"]))
+    app = Starlette(
+        debug=application["debug"],
+        routes=routes,
+        middleware=[Middleware(InputDefinedBaseHTTPMiddleware)],
+    )
+    scope = _make_scope(scope_spec)
+    incoming = [_make_message(receive_specs[0])]
+    sent: list[dict[str, Any]] = []
+    receive_index = 0
+
+    async def receive() -> dict[str, Any]:
+        nonlocal receive_index
+        if receive_index < len(incoming):
+            message = incoming[receive_index]
+            receive_index += 1
+            return message
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    asyncio.run(app(scope, receive, send))
+    events = [_canonical_message(message) for message in sent]
+    start = next((event for event in events if event["type"] == "http.response.start"), None)
+    if start is None:
+        raise RuntimeError("Starlette completed without an http.response.start event")
+    body = b"".join(
+        message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+    )
+    value = {
+        "response_status": start["status"],
+        "ordered_repeated_headers": start["headers"],
+        "response_bytes": {
+            "encoding": "base64",
+            "data": base64.b64encode(body).decode("ascii"),
+        },
+        "asgi_event_order": [event["type"] for event in events],
+        "asgi_events": events,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": BASE_HTTP_WORKFLOW_OPERATION,
+                "status": "ok",
+                "value": value,
+            }
+        ],
+    }
+
+
 def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     _exact_object(
         case,
@@ -5837,6 +6135,12 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == BASE_HTTP_SURFACE
+        and case.get("operation") == BASE_HTTP_WORKFLOW_OPERATION
+    ):
+        return _run_base_http_workflow_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == SESSION_MIDDLEWARE_SURFACE

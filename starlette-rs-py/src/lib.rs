@@ -10,6 +10,7 @@ mod application_runtime;
 mod authentication_runtime;
 mod awaitable;
 mod background;
+mod base_http_runtime;
 mod body_limit_runtime;
 mod config_runtime;
 mod cookie_runtime;
@@ -1138,6 +1139,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRequestBodyAccumulator>()?;
     module.add_class::<PyResponse>()?;
     runtime_calls::register(module)?;
+    base_http_runtime::register(module)?;
     background::register(module)?;
     authentication_runtime::register(module)?;
     datastructure_runtime::register(module)?;

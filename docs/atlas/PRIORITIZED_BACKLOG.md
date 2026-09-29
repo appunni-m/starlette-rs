@@ -8,14 +8,15 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 313 input-only cases across 37 files, covering 55
-operations and 390 requirements. Run `2a46e263-b1d2-4b80-bde4-262075bd998c`
-selected 448 comparisons: 444 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 311 applicable cases;
+The active contract has 315 input-only cases across 38 files, covering 56
+operations and 393 requirements. Run `d2f5ae29-d00b-4cd5-8fcb-89fd74c1fc90`
+selected 450 comparisons: 446 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 313 applicable cases;
 Rust-native passed 133 of 137 selected cases. The four unsupported Rust-native
 rows require arbitrary Python callables. All 27 FileResponse cases passed on
-both profiles; all eight SessionMiddleware cases passed on the Python package
-profile. The target identities are content-addressed dirty-tree snapshots.
+both profiles; all eight SessionMiddleware cases and both BaseHTTPMiddleware
+cases passed on the Python package profile. The target identities are
+content-addressed dirty-tree snapshots.
 See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
 

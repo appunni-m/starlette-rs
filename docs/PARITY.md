@@ -1,12 +1,14 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 313 input-only cases in 37 indexed files, covering 55 operations and 390 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware (including a bounded SessionMiddleware workflow), configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 315 input-only cases in 38 indexed files, covering 56 operations and 393 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
 Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/fixtures/sources/parity/`](../tests/fixtures/sources/parity/) and [`tests/fixtures/sources/benchmark/`](../tests/fixtures/sources/). Run `make parity-inputs` or `python3.12 -m scripts.parity.generate_inputs` to serialize the indexed source definitions as JSON under `build/parity/inputs/{parity,benchmark}/`; `make contract-check` regenerates those files before offline contract validation. Generated inputs and parity/benchmark result JSON beneath `build/parity/` are ignored local build outputs, not checked-in fixtures or committed artifacts. Recreate them locally before running a parity or benchmark command.
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
+
+The latest integrated run, `d2f5ae29-d00b-4cd5-8fcb-89fd74c1fc90`, finished at `2026-09-29T12:54:01.764Z`. It selected 450 profile comparisons: 446 passed, zero failed, zero infrastructure errors, and four Rust-native rows were `not_run` because they require Python callables. The Python package passed all 313 applicable comparisons; Rust-native passed 133 of 137. Manifest SHA-256: `db9fea9f87e72494aebf8edc59d4cec67906d9b2a858ea7ce73a0be65bd4c5bb`. The installed package wheel SHA-256 is `1f1f592034af80c6dff0309284dfbbd6566ad857943d94e8eb727bdb82cd6506`. The working targets were dirty. `make parity-run` exits 2 for the four explicitly unsupported Rust-native rows; this run is not full parity or release proof.
 
 ## Input-only cases
 
@@ -37,6 +39,10 @@ poll leaves `http.disconnect` queued for the later check. Both cases match the
 pinned source and installed package exactly.
 
 The upstream basis is `starlette/requests.py` (`HTTPConnection.headers`, `query_params`, `path_params`, `cookies`, and `Request.stream`/`body`/`json`), `starlette/datastructures.py` (`ImmutableMultiDict` and `Headers`), and `starlette/routing.py` (`Route.matches` and `Router.app`). Related pinned tests include `tests/test_requests.py::test_request_query_params`, `test_request_headers`, `test_request_cookies`, `test_request_json`, `tests/test_routing.py::test_route_converters`, and `test_router`.
+
+[`base-http-middleware.yaml`](../tests/fixtures/sources/parity/base-http-middleware.yaml) adds two Python-package cases through a configured `Middleware(CustomMiddleware)` stack. One awaits `call_next` and mutates the response header; the other awaits `call_next` and returns an input-defined replacement response. Their ASGI response events and ordered headers are compared against the live Starlette 1.6.0 source. Rust owns the middleware state machine and response sending; the Python facade forwards construction, user dispatch invocation, awaitables, and callback values at the PyO3 boundary. These cases cover only the declared empty-request flows and do not establish general `BaseHTTPMiddleware` parity.
+
+The pinned implementation's `_CachedRequest` behavior is still missing: dispatch body reads are not cached/replayed, and the response does not receive Starlette's `wrapped_receive`. The disconnect path also checks the response-sent event before awaiting `receive()` rather than racing an in-flight receive against response completion. Repeated-disconnect behavior, suppressed exception context, full `MutableHeaders` APIs and live `raw_headers` mutation, cancellation, ContextVars, exception groups, background tasks, and broader streaming paths remain unverified or incomplete. The atlas backlog retains the remaining upstream middleware cases.
 
 [`router-converter-dispatch.yaml`](../tests/fixtures/sources/parity/router-converter-dispatch.yaml)
 adds 15 Router cases for built-in `str`, `int`, `float`, `uuid`, and `path`
@@ -183,7 +189,8 @@ separate scheduling assertion for `check_config`, cross-platform
 `os.stat_result` fields and Windows path normalization and semantics, and
 remaining validator branches.
 
-Integrated run `2a46e263-b1d2-4b80-bde4-262075bd998c` started at
+Earlier integrated run `2a46e263-b1d2-4b80-bde4-262075bd998c` (superseded by
+the latest run recorded above) started at
 `2026-09-29T12:09:32.851Z` and finished at `2026-09-29T12:10:30.993Z`. It
 selected 448 profile comparisons: 444 passed, zero failed, zero infrastructure
 errors, and four were `not_run`. The Python package passed all 311 selected

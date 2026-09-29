@@ -107,25 +107,34 @@ release clearance.
 - [`flate2` 1.1.10 manifest and feature definitions](https://docs.rs/crate/flate2/1.1.10)
 - [`libz-sys` 1.1.29 backend and licensing notes](https://docs.rs/crate/libz-sys/1.1.29)
 
-## Rust signed-session-cookie support
+## Rust hashing and signed-session-cookie support
 
 | Crate | Locked version | Role | Cargo manifest license |
 | --- | --- | --- | --- |
 | `base64` | `0.22.1` | URL-safe encoding for signed-cookie timestamps and signatures, plus payload encoding | MIT OR Apache-2.0 |
-| `hmac` | `0.12.1` | HMAC construction and verification for timestamped session cookies | MIT OR Apache-2.0 |
-| `sha1` | `0.10.7` | SHA-1 digest used to match the pinned ItsDangerous signer format | MIT OR Apache-2.0 |
-| `subtle` | `2.6.1` (transitive) | Constant-time tag comparison through `digest 0.10.7`, a dependency of `hmac` | BSD-3-Clause |
+| `hmac` | `0.13.0` | HMAC construction and verification for timestamped session cookies | MIT OR Apache-2.0 |
+| `sha1` | `0.11.0` | SHA-1 digest used to match the pinned ItsDangerous signer format | MIT OR Apache-2.0 |
+| `sha2` | `0.11.0` | SHA-256 identity digest used by the Rust-native parity adapter | MIT OR Apache-2.0 |
+| `digest` | `0.11.3` (transitive) | Shared digest API used by `hmac`, `sha1`, `sha2`, and `md-5` | MIT OR Apache-2.0 |
+| `block-buffer` | `0.12.1` (transitive) | Shared digest block buffering | MIT OR Apache-2.0 |
+| `crypto-common` | `0.2.2` (transitive) | Shared cryptographic traits and primitives | MIT OR Apache-2.0 |
+| `ctutils` | `0.4.2` (transitive) | Constant-time utilities in the shared digest stack | MIT OR Apache-2.0 |
+| `cmov` | `0.5.4` (transitive) | Conditional-move primitive used by `ctutils` | MIT OR Apache-2.0 |
+| `cpufeatures` | `0.3.1` (transitive) | CPU feature detection for RustCrypto hash implementations | MIT OR Apache-2.0 |
 
 The versions come from the workspace `Cargo.lock`; license expressions come
 from the corresponding locked crate `Cargo.toml` files in the local Cargo
 registry. These are metadata facts, not a review of each crate archive's
-included license files. The direct crates and the transitive `subtle` crate
-must be included in the eventual Rust distribution notice audit.
+included license files. `deny.toml` requires one shared `digest` version,
+rejects unreviewed licenses and dependency sources, and records the RustSec
+advisory policy. The listed direct and transitive crates must be included in
+the eventual Rust distribution notice audit.
 
 - [`base64` 0.22.1 manifest](https://docs.rs/crate/base64/0.22.1)
-- [`hmac` 0.12.1 manifest](https://docs.rs/crate/hmac/0.12.1)
-- [`sha1` 0.10.7 manifest](https://docs.rs/crate/sha1/0.10.7)
-- [`subtle` 2.6.1 manifest](https://docs.rs/crate/subtle/2.6.1)
+- [`hmac` 0.13.0 manifest](https://docs.rs/crate/hmac/0.13.0)
+- [`sha1` 0.11.0 manifest](https://docs.rs/crate/sha1/0.11.0)
+- [`sha2` 0.11.0 manifest](https://docs.rs/crate/sha2/0.11.0)
+- [`digest` 0.11.3 manifest](https://docs.rs/crate/digest/0.11.3)
 
 The parity environments keep the upstream oracle separate from the installed
 Starlette-RS package. `scripts/parity/locks/starlette-oracle-cpython312.txt`

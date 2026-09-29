@@ -17,32 +17,32 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 313 input-only cases across 37 files,
-covering 55 operations and 390 parity requirements. The authored cases span
+The active parity manifest indexes 315 input-only cases across 38 files,
+covering 56 operations and 393 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
-middleware (including a bounded SessionMiddleware workflow), configuration, and schemas. The exact operation and profile
+middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `2a46e263-b1d2-4b80-bde4-262075bd998c` started at
-`2026-09-29T12:09:32.851Z` and finished at `2026-09-29T12:10:30.993Z`. It
-selected 448 profile comparisons: 444 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 311 applicable
+Integrated run `d2f5ae29-d00b-4cd5-8fcb-89fd74c1fc90` started at
+`2026-09-29T12:52:56.339Z` and finished at `2026-09-29T12:54:01.764Z`. It
+selected 450 profile comparisons: 446 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 313 applicable
 comparisons; Rust-native passed 133 of 137, with four rows requiring Python
 callables marked `not_run`. All 27 FileResponse cases passed on both profiles,
-and all eight SessionMiddleware cases passed on the Python package profile.
-The Rust-native target was dirty at revision
-`268ccde19b0eef1d0c7401303daca50ff940abf9+source-fnv1a64-6d02a046883b0cf5`;
-the installed Python package was content-addressed as
-`dirty-tree:8285e8f4e2f6b18e01e8d5f2766d7aabc960413e18b00b26b8f5b1a14bfad646`.
+all eight SessionMiddleware cases passed on the Python package profile, and
+both new BaseHTTPMiddleware cases passed on that profile. The Rust-native
+target was dirty at revision
+`7ca977e9c9a82883e4724633027465447024bf8d+source-fnv1a64-e5a0df1c1dca21b4`;
+the installed Python package target tree SHA-256 is
+`b039386aa8279818572b0c466f4784a4827d4e180067a934a2c8a133632d319f`.
 Manifest SHA-256:
-`287280853528a55a455e26e2ecb9c2f6c0600e7d7a853c0f41b04c82af99cfb6`.
+`db9fea9f87e72494aebf8edc59d4cec67906d9b2a858ea7ce73a0be65bd4c5bb`.
 Package wheel artifact SHA-256:
-`5fc234604060873cb4f1c6b5933743790007443feae652d74e6182574c8c5f22`.
-This run covers the active disconnect-cancellation, cookie-mutation,
-FileResponse range, and StreamingResponse iterator inputs;
-the four unsupported Rust-native Python-callable rows keep the overall gate incomplete.
+`1f1f592034af80c6dff0309284dfbbd6566ad857943d94e8eb727bdb82cd6506`.
+The four unsupported Rust-native Python-callable rows keep the overall gate
+incomplete; this run is not full parity or release proof.
 Thirty-seven StaticFiles cases are authored across
 three inputs. Fourteen `lookup_path` cases run on both profiles and all 28
 comparisons pass; all 69 StaticFiles profile comparisons pass (34 Rust-native

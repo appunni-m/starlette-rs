@@ -64,6 +64,18 @@ WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
 SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
 SESSION_WORKFLOW_OPERATION = "session-workflow"
 SESSION_WORKFLOW_OPERATION_KEY = (SESSION_MIDDLEWARE_SURFACE, SESSION_WORKFLOW_OPERATION)
+BASE_HTTP_SURFACE = "starlette.middleware.base.BaseHTTPMiddleware"
+BASE_HTTP_WORKFLOW_OPERATION = "base-http-workflow"
+BASE_HTTP_WORKFLOW_OPERATION_KEY = (BASE_HTTP_SURFACE, BASE_HTTP_WORKFLOW_OPERATION)
+BASE_HTTP_WORKFLOW_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "application",
+    "request",
+}
+BASE_HTTP_REQUIREMENTS = {
+    "construct": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware",
+    "header_mutation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.await-call-next-header-mutation",
+    "replacement_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response",
+}
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
     "signed_cookie_round_trip": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.signed-cookie-round-trip",
@@ -1007,6 +1019,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
+                or key == BASE_HTTP_WORKFLOW_OPERATION_KEY
                 or key in AUTHENTICATION_OPERATIONS
                 else {
                     "class",
@@ -1165,6 +1178,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION),
                             (WEBSOCKET_CLOSE_SURFACE, WEBSOCKET_CLOSE_OPERATION),
                             SESSION_WORKFLOW_OPERATION_KEY,
+                            BASE_HTTP_WORKFLOW_OPERATION_KEY,
                         }
                         or (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
                         or (surface["id"], operation["id"])
@@ -4979,6 +4993,205 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
+    application = _exact(
+        case["application"],
+        {"debug", "routes", "middleware"},
+        "BaseHTTPMiddleware application input",
+    )
+    if type(application["debug"]) is not bool:
+        raise ContractError("BaseHTTPMiddleware application.debug must be boolean")
+    routes = application["routes"]
+    if not isinstance(routes, list) or len(routes) > 1:
+        raise ContractError("BaseHTTPMiddleware workflow supports zero or one input route")
+    if routes:
+        route = _exact(
+            routes[0],
+            {"kind", "path", "methods", "endpoint"},
+            "BaseHTTPMiddleware route input",
+        )
+        endpoint = _exact(
+            route["endpoint"],
+            {"kind", "content", "status_code"},
+            "BaseHTTPMiddleware route endpoint",
+        )
+        if (
+            route["kind"] != "http-route"
+            or route["path"] != "/"
+            or route["methods"] != ["GET"]
+            or endpoint["kind"] != "plain-text-response"
+            or not isinstance(endpoint["content"], str)
+            or type(endpoint["status_code"]) is not int
+            or not 100 <= endpoint["status_code"] <= 599
+        ):
+            raise ContractError("BaseHTTPMiddleware configured route input is invalid")
+
+    middleware = application["middleware"]
+    if not isinstance(middleware, list) or len(middleware) != 1:
+        raise ContractError("BaseHTTPMiddleware input requires one configured middleware")
+    custom = _exact(
+        middleware[0],
+        {"kind", "dispatch_actions"},
+        "BaseHTTPMiddleware configured Middleware input",
+    )
+    if custom["kind"] != "base-http-middleware":
+        raise ContractError("configured middleware must be a BaseHTTPMiddleware subclass")
+    actions = custom["dispatch_actions"]
+    if not isinstance(actions, list) or not actions:
+        raise ContractError("BaseHTTPMiddleware dispatch_actions must be a non-empty array")
+
+    awaited = False
+    returned: str | None = None
+    saw_header_mutation = False
+    for index, raw_action in enumerate(actions):
+        context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
+        if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
+            raise ContractError(f"{context} must be a tagged object")
+        kind = raw_action["kind"]
+        if kind == "await-call-next":
+            _exact(raw_action, {"kind"}, context)
+            if awaited or index != 0:
+                raise ContractError("BaseHTTPMiddleware dispatch must await call_next first")
+            awaited = True
+        elif kind == "set-call-next-response-header":
+            action = _exact(raw_action, {"kind", "name", "value"}, context)
+            if not awaited or returned is not None or saw_header_mutation:
+                raise ContractError(
+                    "response header mutation requires one awaited call_next response"
+                )
+            _string(action["name"], f"{context}.name")
+            _string(action["value"], f"{context}.value")
+            if any(char in action["name"] + action["value"] for char in "\r\n"):
+                raise ContractError("BaseHTTPMiddleware header input cannot contain CR or LF")
+            saw_header_mutation = True
+        elif kind == "return-call-next-response":
+            _exact(raw_action, {"kind"}, context)
+            if not awaited or returned is not None or index != len(actions) - 1:
+                raise ContractError(
+                    "call_next response must be returned as the final dispatch action"
+                )
+            returned = "call-next"
+        elif kind == "return-plain-text-response":
+            action = _exact(raw_action, {"kind", "content", "status_code"}, context)
+            if (
+                not awaited
+                or returned is not None
+                or saw_header_mutation
+                or index != len(actions) - 1
+                or not isinstance(action["content"], str)
+                or type(action["status_code"]) is not int
+                or not 100 <= action["status_code"] <= 599
+            ):
+                raise ContractError("replacement response must follow call_next and end dispatch")
+            returned = "replacement"
+        else:
+            raise ContractError(f"{context} has an unsupported action kind")
+    if not awaited or returned is None:
+        raise ContractError(
+            "BaseHTTPMiddleware dispatch must await call_next and return a response"
+        )
+    if saw_header_mutation != (returned == "call-next"):
+        raise ContractError("BaseHTTPMiddleware call_next response actions are incomplete")
+    if (returned == "call-next") != bool(routes):
+        raise ContractError(
+            "BaseHTTPMiddleware route input differs from the dispatch response action"
+        )
+
+    request = _exact(
+        case["request"],
+        {"scope", "receive"},
+        "BaseHTTPMiddleware request input",
+    )
+    scope = _exact(
+        request["scope"],
+        {
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        },
+        "BaseHTTPMiddleware HTTP scope",
+    )
+    asgi = _exact(scope["asgi"], {"version", "spec_version"}, "BaseHTTPMiddleware ASGI version")
+    path = _string(scope["path"], "BaseHTTPMiddleware scope.path")
+    if (
+        scope["type"] != "http"
+        or asgi != {"version": "3.0", "spec_version": "2.4"}
+        or scope["method"] != "GET"
+        or scope["scheme"] != "http"
+        or not isinstance(scope["http_version"], str)
+        or not isinstance(scope["root_path"], str)
+        or (bool(routes) and path != routes[0]["path"])
+        or (not routes and path == "/")
+    ):
+        raise ContractError(
+            "BaseHTTPMiddleware request scope does not select its declared route case"
+        )
+    try:
+        raw_path = base64.b64decode(scope["raw_path_base64"], validate=True)
+        query_string = base64.b64decode(scope["query_string_base64"], validate=True)
+    except (ValueError, TypeError) as exc:
+        raise ContractError("BaseHTTPMiddleware scope path/query must be base64") from exc
+    if raw_path != path.encode("ascii") or query_string:
+        raise ContractError("BaseHTTPMiddleware scope raw path or query input is invalid")
+    if not isinstance(scope["headers_base64_pairs"], list):
+        raise ContractError("BaseHTTPMiddleware scope headers must be a base64 pair array")
+    for index, pair in enumerate(scope["headers_base64_pairs"]):
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(value, str) for value in pair)
+        ):
+            raise ContractError(f"BaseHTTPMiddleware scope header[{index}] is invalid")
+        try:
+            for value in pair:
+                base64.b64decode(value, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(f"BaseHTTPMiddleware scope header[{index}] is not base64") from exc
+    for name in ("client", "server"):
+        address = scope[name]
+        if (
+            not isinstance(address, list)
+            or len(address) != 2
+            or not isinstance(address[0], str)
+            or type(address[1]) is not int
+        ):
+            raise ContractError(f"BaseHTTPMiddleware scope.{name} must be a host/port pair")
+    receive = request["receive"]
+    if not isinstance(receive, list) or len(receive) != 1:
+        raise ContractError("BaseHTTPMiddleware request requires one empty HTTP body event")
+    event = _exact(
+        receive[0],
+        {"type", "body_base64", "more_body"},
+        "BaseHTTPMiddleware HTTP request event",
+    )
+    if (
+        event["type"] != "http.request"
+        or event["body_base64"] != ""
+        or event["more_body"] is not False
+    ):
+        raise ContractError("BaseHTTPMiddleware request must contain one empty final body event")
+
+    requirements = {BASE_HTTP_REQUIREMENTS["construct"]}
+    if saw_header_mutation:
+        requirements.add(BASE_HTTP_REQUIREMENTS["header_mutation"])
+    if returned == "replacement":
+        requirements.add(BASE_HTTP_REQUIREMENTS["replacement_response"])
+    if set(case["covers"]) != requirements:
+        raise ContractError(
+            "BaseHTTPMiddleware covers must match the configured middleware and dispatch actions: "
+            f"expected={sorted(requirements)}, actual={sorted(case['covers'])}"
+        )
+
+
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     is_websocket = isinstance(case, dict) and case.get("surface") == WEBSOCKET_SURFACE
     is_websocket_close = isinstance(case, dict) and case.get("surface") == WEBSOCKET_CLOSE_SURFACE
@@ -5068,6 +5281,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == SESSION_WORKFLOW_OPERATION_KEY
     )
+    is_base_http_workflow = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == BASE_HTTP_WORKFLOW_OPERATION_KEY
+    )
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
@@ -5099,6 +5316,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_status_symbols
         else SESSION_WORKFLOW_CASE_KEYS
         if is_session_workflow
+        else BASE_HTTP_WORKFLOW_CASE_KEYS
+        if is_base_http_workflow
         else CASE_KEYS
     )
     if is_response and isinstance(case, dict) and "render_override" in case:
@@ -5268,6 +5487,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_session_workflow:
         if (case["surface"], case["operation"]) != SESSION_WORKFLOW_OPERATION_KEY:
             raise ContractError("session cases must use the declared session-workflow operation")
+    elif is_base_http_workflow:
+        if (case["surface"], case["operation"]) != BASE_HTTP_WORKFLOW_OPERATION_KEY:
+            raise ContractError("BaseHTTPMiddleware cases must use base-http-workflow")
     elif case["surface"] != "starlette.applications.Starlette" or case["operation"] not in {
         "__call__",
         "request-dispatch",
@@ -5298,6 +5520,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     selected_profile_ids = set(selected_profiles)
     if is_session_workflow and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("SessionMiddleware cases select only the Python-package profile")
+    if is_base_http_workflow and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError("BaseHTTPMiddleware cases select only the Python-package profile")
     requirements: dict[str, dict[str, Any]] = {}
     operations: dict[tuple[str, str], dict[str, Any]] = {}
     for surface in manifest["surfaces"]:
@@ -5315,6 +5539,17 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if declared_requirements != set(SESSION_REQUIREMENTS.values()):
             raise ContractError(
                 "SessionMiddleware session-workflow must declare the complete canonical requirement set"
+            )
+    if is_base_http_workflow:
+        base_http_operation = operations.get(BASE_HTTP_WORKFLOW_OPERATION_KEY)
+        declared_requirements = (
+            {item["id"] for item in base_http_operation["requirements"]}
+            if base_http_operation is not None
+            else set()
+        )
+        if declared_requirements != set(BASE_HTTP_REQUIREMENTS.values()):
+            raise ContractError(
+                "BaseHTTPMiddleware base-http-workflow must declare the complete canonical requirement set"
             )
     covers = case["covers"]
     if (
@@ -5355,6 +5590,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if case["observations"] != [SESSION_WORKFLOW_OPERATION]:
             raise ContractError("SessionMiddleware observations must select session-workflow")
         _validate_session_workflow_case(case)
+        return case
+    if is_base_http_workflow:
+        if case["observations"] != [BASE_HTTP_WORKFLOW_OPERATION]:
+            raise ContractError("BaseHTTPMiddleware observations must select base-http-workflow")
+        _validate_base_http_workflow_case(case)
         return case
     if is_rust_owned_python:
         if (case["surface"], case["operation"]) in CONFIG_OPERATIONS:

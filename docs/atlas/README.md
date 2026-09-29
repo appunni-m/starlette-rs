@@ -60,16 +60,16 @@ workloads; its evidence is summarized in
 files under `build/parity/`. These bounded results do not establish full
 compatibility.
 
-The current contract has 313 input-only cases across 37 files, covering 55
-operations and 390 requirements. Integrated run
-`2a46e263-b1d2-4b80-bde4-262075bd998c` selected 448 comparisons: 444 passed,
+The current contract has 315 input-only cases across 38 files, covering 56
+operations and 393 requirements. Integrated run
+`d2f5ae29-d00b-4cd5-8fcb-89fd74c1fc90` selected 450 comparisons: 446 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 311 applicable cases; Rust-native passed 133 of 137 selected
+package passed all 313 applicable cases; Rust-native passed 133 of 137 selected
 cases. The four Rust-native rows require arbitrary Python callables. All 27
 FileResponse cases passed on both profiles; all eight SessionMiddleware cases
-passed on the Python package profile. Both targets are content-addressed dirty
-trees. Manifest SHA-256:
-`287280853528a55a455e26e2ecb9c2f6c0600e7d7a853c0f41b04c82af99cfb6`. See
+and both BaseHTTPMiddleware cases passed on the Python package profile. Both
+targets are content-addressed dirty trees. Manifest SHA-256:
+`db9fea9f87e72494aebf8edc59d4cec67906d9b2a858ea7ce73a0be65bd4c5bb`. See
 [Migration parity contract and evidence](../PARITY.md) for current scope and
 the case breakdown; Rust-native parity remains incomplete.
 

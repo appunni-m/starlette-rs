@@ -1091,7 +1091,7 @@ fn is_anyio_cancellation(py: Python<'_>, error: &PyErr) -> PyResult<bool> {
     error.value(py).is_instance(&cancellation_class)
 }
 
-fn collapse_single_task_group_error(py: Python<'_>, error: PyErr) -> PyResult<PyErr> {
+pub(crate) fn collapse_single_task_group_error(py: Python<'_>, error: PyErr) -> PyResult<PyErr> {
     let base_exception_group = match py.import("builtins")?.getattr("BaseExceptionGroup") {
         Ok(base_exception_group) => base_exception_group,
         Err(attribute_error) if attribute_error.is_instance_of::<PyAttributeError>(py) => {

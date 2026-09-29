@@ -32,23 +32,24 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 313 input-only cases, 55 operations, and 390
-parity requirements across 37 indexed files, including a bounded SessionMiddleware
-workflow slice. Latest integrated run
-`2a46e263-b1d2-4b80-bde4-262075bd998c`, from `2026-09-29T12:09:32.851Z` to
-`2026-09-29T12:10:30.993Z`, selected 448 profile comparisons: 444 passed,
-zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 311 selected comparisons; Rust-native passed 133 of 137,
-with four Python-callable rows `not_run`. All 27 FileResponse cases passed on
-both profiles, and all eight SessionMiddleware cases passed on the Python
-package profile. The Rust-native target was dirty at revision
-`268ccde19b0eef1d0c7401303daca50ff940abf9+source-fnv1a64-6d02a046883b0cf5`;
-the installed Python package was content-addressed as
-`dirty-tree:8285e8f4e2f6b18e01e8d5f2766d7aabc960413e18b00b26b8f5b1a14bfad646`.
+The current parity contract has 315 input-only cases, 56 operations, and 393
+parity requirements across 38 indexed files, including bounded
+SessionMiddleware and BaseHTTPMiddleware workflow slices. Latest integrated
+run `d2f5ae29-d00b-4cd5-8fcb-89fd74c1fc90`, from
+`2026-09-29T12:52:56.339Z` to `2026-09-29T12:54:01.764Z`, selected 450 profile
+comparisons: 446 passed, zero failed, zero infrastructure errors, and four
+were `not_run`. The Python package passed all 313 applicable comparisons;
+Rust-native passed 133 of 137, with four Python-callable rows `not_run`. All 27
+FileResponse cases passed on both profiles, all eight SessionMiddleware cases
+passed on the Python package profile, and both BaseHTTPMiddleware cases passed
+on that profile. The Rust-native target was dirty at revision
+`7ca977e9c9a82883e4724633027465447024bf8d+source-fnv1a64-e5a0df1c1dca21b4`;
+the installed Python package target tree SHA-256 is
+`b039386aa8279818572b0c466f4784a4827d4e180067a934a2c8a133632d319f`.
 Manifest SHA-256:
-`287280853528a55a455e26e2ecb9c2f6c0600e7d7a853c0f41b04c82af99cfb6`.
+`db9fea9f87e72494aebf8edc59d4cec67906d9b2a858ea7ce73a0be65bd4c5bb`.
 Package wheel artifact SHA-256:
-`5fc234604060873cb4f1c6b5933743790007443feae652d74e6182574c8c5f22`.
+`1f1f592034af80c6dff0309284dfbbd6566ad857943d94e8eb727bdb82cd6506`.
 `make parity-run` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 
@@ -288,8 +289,11 @@ observes integer `item_id == 7`, the caller's `ContextVar` value after dispatch
 through AnyIO's worker thread, execution on a thread distinct from the ASGI
 caller, and exactly one invocation. Its complete ASGI events match exactly
 between pinned Starlette 1.6.0 and the installed `starlette-rs-py` package.
-Python owns calling the user function and the AnyIO threadpool boundary; Rust
-does not invoke a Python callable.
+Rust selects the endpoint path and invokes the Python function through PyO3.
+The synchronous endpoint is passed to the Rust-backed
+`starlette.concurrency.run_in_threadpool` awaitable, which delegates execution
+to AnyIO's worker-thread API. Python's active task drives each returned
+awaitable; the user function body remains Python code.
 
 The earlier 51-case checkpoint was run `480437e5-e1f4-4e25-91a5-1453ba82ea69`.
 It predates the Router and Mount cases; the latest integrated run is recorded
@@ -308,7 +312,12 @@ awaited on the caller event loop; synchronous forms run through AnyIO's worker
 thread facility. Other callable instances are treated as ASGI applications and
 are called with `(scope, receive, send)`; they do not receive a `Request` or use
 the AnyIO request-endpoint worker boundary. Python owns these call boundaries;
-Rust does not invoke Python callables.
+Rust selects the callable path, invokes Python callables through PyO3, and
+awaits their results through its `PythonAwaitable` continuation. The active
+Python task remains the event-loop driver; synchronous Request endpoints use
+the Rust-backed AnyIO threadpool bridge described above. This keeps callable
+execution and Python exception objects at the boundary while Rust owns route
+selection, ASGI ordering, and response policy.
 
 The active input contract adds two Request-style sync cases alongside the
 original function case: `starlette.applications.Starlette.request-dispatch.sync-bound-method-get-items-0007`
