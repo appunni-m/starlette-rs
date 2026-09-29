@@ -97,6 +97,12 @@ QUERY_PARAMS_OPERATION = (
     "starlette.datastructures.QueryParams",
     "construction-and-mapping-sequence",
 )
+AUTHENTICATION_OPERATIONS = {
+    ("starlette.authentication", "value-operations"),
+    ("starlette.authentication", "scope-check"),
+    ("starlette.authentication", "decorator-dispatch"),
+    ("starlette.middleware.authentication.AuthenticationMiddleware", "dispatch"),
+}
 RUST_OWNED_PYTHON_OPERATIONS = (
     CONFIG_OPERATIONS
     | SCHEMA_OPERATIONS
@@ -926,6 +932,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
+                or key in AUTHENTICATION_OPERATIONS
                 else {
                     "class",
                     "kind",
@@ -1089,6 +1096,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         }
                         or (surface["id"], operation["id"]) in VALUE_FORMATTING_OPERATIONS
                         or (surface["id"], operation["id"]) in RUST_OWNED_PYTHON_OPERATIONS
+                        or (surface["id"], operation["id"]) in AUTHENTICATION_OPERATIONS
                         or (surface["id"], operation["id"]) == REQUEST_DEFAULT_RECEIVE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_SEND_PUSH_PROMISE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_IS_DISCONNECTED_OPERATION
@@ -3561,6 +3569,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == QUERY_PARAMS_OPERATION
     )
+    is_authentication = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) in AUTHENTICATION_OPERATIONS
+    )
     is_default_receive = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_DEFAULT_RECEIVE_OPERATION
@@ -3633,6 +3645,17 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             "probe_keys",
             "comparison",
         }
+    elif is_authentication:
+        input_key = {
+            ("starlette.authentication", "value-operations"): "actions",
+            ("starlette.authentication", "scope-check"): "checks",
+            ("starlette.authentication", "decorator-dispatch"): "scenarios",
+            (
+                "starlette.middleware.authentication.AuthenticationMiddleware",
+                "dispatch",
+            ): "scenarios",
+        }[(case["surface"], case["operation"])]
+        expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {input_key}
     elif is_default_receive:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
     elif is_send_push_promise:
@@ -3710,6 +3733,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_query_params:
         if (case["surface"], case["operation"]) != QUERY_PARAMS_OPERATION:
             raise ContractError("QueryParams cases must use the declared constructor operation")
+    elif is_authentication:
+        if (case["surface"], case["operation"]) not in AUTHENTICATION_OPERATIONS:
+            raise ContractError("authentication cases must use a declared public operation")
     elif is_default_receive:
         if case["observations"] != ["receive"]:
             raise ContractError("default receive cases must select the receive observation")
@@ -3806,6 +3832,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_query_params:
         _validate_query_params_case(case)
+        return case
+    if is_authentication:
+        _validate_authentication_case(case)
         return case
 
     if is_body_limit:
@@ -5732,6 +5761,246 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
     probe_keys = case["probe_keys"]
     if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
         raise ContractError("QueryParams probe_keys must contain strings")
+
+
+def _validate_authentication_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("authentication parity currently targets the Python package profile")
+    if case["assets"] != []:
+        raise ContractError("authentication cases do not use external assets")
+
+    operation = (case["surface"], case["operation"])
+    exercised: set[str] = set()
+    if operation == ("starlette.authentication", "value-operations"):
+        if case["observations"] != ["actions"]:
+            raise ContractError("authentication value operations must select actions")
+        actions = case["actions"]
+        if not isinstance(actions, list) or not actions:
+            raise ContractError("authentication value operations require actions")
+        for index, raw_action in enumerate(actions):
+            context = f"authentication actions[{index}]"
+            if (
+                not isinstance(raw_action, dict)
+                or not isinstance(raw_action.get("action"), str)
+                or raw_action["action"] not in {"credentials", "user-properties"}
+            ):
+                raise ContractError(f"{context} must select a declared value action")
+            action = raw_action["action"]
+            if action == "credentials":
+                item = _exact(
+                    raw_action,
+                    {"action", "scopes"}
+                    | ({"mutate_source_scopes"} if "mutate_source_scopes" in raw_action else set()),
+                    context,
+                )
+                scopes = item["scopes"]
+                if scopes is None:
+                    if "mutate_source_scopes" in item:
+                        raise ContractError(f"{context} cannot mutate a null source scope sequence")
+                    exercised.add("starlette.authentication.AuthCredentials.default-empty-scopes")
+                elif isinstance(scopes, list) and all(isinstance(scope, str) for scope in scopes):
+                    if "mutate_source_scopes" in item and (
+                        not isinstance(item["mutate_source_scopes"], list)
+                        or any(not isinstance(scope, str) for scope in item["mutate_source_scopes"])
+                    ):
+                        raise ContractError(
+                            f"{context}.mutate_source_scopes must be a string array"
+                        )
+                    exercised.add(
+                        "starlette.authentication.AuthCredentials.scope-sequence-construction"
+                    )
+                else:
+                    raise ContractError(f"{context}.scopes must be null or a string array")
+                continue
+            if raw_action.get("user") == "simple":
+                item = _exact(raw_action, {"action", "user", "username"}, context)
+                _string(item["username"], f"{context}.username")
+                exercised.add("starlette.authentication.SimpleUser.properties")
+            elif raw_action.get("user") == "unauthenticated":
+                _exact(raw_action, {"action", "user"}, context)
+                exercised.add("starlette.authentication.UnauthenticatedUser.properties")
+            elif raw_action.get("user") == "base":
+                _exact(raw_action, {"action", "user"}, context)
+                exercised.add("starlette.authentication.BaseUser.abstract-properties")
+            else:
+                raise ContractError(f"{context}.user is unsupported")
+    elif operation == ("starlette.authentication", "scope-check"):
+        if case["observations"] != ["checks"]:
+            raise ContractError("authentication scope checks must select checks")
+        checks = case["checks"]
+        if not isinstance(checks, list) or not checks:
+            raise ContractError("authentication scope checks require at least one check")
+        for index, raw_check in enumerate(checks):
+            check = _exact(
+                raw_check,
+                {"granted_scopes", "required_scopes"},
+                f"authentication checks[{index}]",
+            )
+            for name, scopes in check.items():
+                if not isinstance(scopes, list) or any(
+                    not isinstance(scope, str) for scope in scopes
+                ):
+                    raise ContractError(f"authentication check {name} must be a string array")
+            if not check["required_scopes"]:
+                exercised.add("starlette.authentication.has_required_scope.empty-requirements")
+            elif set(check["required_scopes"]) <= set(check["granted_scopes"]):
+                exercised.add("starlette.authentication.has_required_scope.all-scopes-present")
+            else:
+                exercised.add("starlette.authentication.has_required_scope.missing-scope")
+    elif operation == ("starlette.authentication", "decorator-dispatch"):
+        if case["observations"] != ["scenarios"]:
+            raise ContractError("requires decorator cases must select scenarios")
+        scenarios = case["scenarios"]
+        if not isinstance(scenarios, list) or not scenarios:
+            raise ContractError("requires decorator cases need at least one scenario")
+        for index, raw_scenario in enumerate(scenarios):
+            context = f"requires scenarios[{index}]"
+            if not isinstance(raw_scenario, dict):
+                raise ContractError(f"{context} must be an object")
+            scenario = _exact(
+                raw_scenario,
+                {"callable", "required_scopes", "connection"}
+                | ({"status_code"} if "status_code" in raw_scenario else set())
+                | ({"redirect"} if "redirect" in raw_scenario else set()),
+                context,
+            )
+            callable_spec = _exact(
+                scenario["callable"],
+                {"kind", "mode", "parameter", "result"},
+                f"{context}.callable",
+            )
+            if (
+                callable_spec["kind"] != "endpoint"
+                or not isinstance(callable_spec["mode"], str)
+                or callable_spec["mode"] not in {"sync", "async"}
+                or not isinstance(callable_spec["parameter"], str)
+                or callable_spec["parameter"] not in {"request", "websocket"}
+                or not isinstance(callable_spec["result"], (str, int, float, bool, type(None)))
+            ):
+                raise ContractError(f"{context}.callable is outside the declared endpoint forms")
+            raw_connection = scenario["connection"]
+            if not isinstance(raw_connection, dict):
+                raise ContractError(f"{context}.connection must be an object")
+            connection = _exact(
+                raw_connection,
+                {"kind", "auth_scopes"}
+                | ({"url"} if "url" in scenario["connection"] else set())
+                | ({"routes"} if "routes" in scenario["connection"] else set()),
+                f"{context}.connection",
+            )
+            if not isinstance(connection["kind"], str) or connection["kind"] not in {
+                "request",
+                "websocket",
+            }:
+                raise ContractError(f"{context}.connection.kind is unsupported")
+            if (callable_spec["parameter"] == "websocket") != (connection["kind"] == "websocket"):
+                raise ContractError(f"{context} callable and connection kinds must agree")
+            if callable_spec["parameter"] == "websocket" and callable_spec["mode"] != "async":
+                raise ContractError(f"{context} WebSocket endpoints must be async")
+            if not isinstance(connection["auth_scopes"], list) or any(
+                not isinstance(scope, str) for scope in connection["auth_scopes"]
+            ):
+                raise ContractError(f"{context}.connection.auth_scopes must be a string array")
+            required_scopes = scenario["required_scopes"]
+            if not isinstance(required_scopes, list) or any(
+                not isinstance(scope, str) for scope in required_scopes
+            ):
+                raise ContractError(f"{context}.required_scopes must be a string array")
+            if "status_code" in scenario:
+                _validate_nonnegative_integer(scenario["status_code"], f"{context}.status_code")
+            if "redirect" in scenario:
+                _string(scenario["redirect"], f"{context}.redirect")
+                routes = connection.get("routes")
+                if not isinstance(routes, list) or not routes:
+                    raise ContractError(f"{context} redirects require route inputs")
+                route_names = set()
+                for route_index, raw_route in enumerate(routes):
+                    route = _exact(
+                        raw_route,
+                        {"name", "path"},
+                        f"{context}.connection.routes[{route_index}]",
+                    )
+                    _string(route["name"], f"{context}.connection.routes[{route_index}].name")
+                    if not isinstance(route["path"], str) or not route["path"].startswith("/"):
+                        raise ContractError(f"{context}.connection route paths must be absolute")
+                    route_names.add(route["name"])
+                if scenario["redirect"] not in route_names:
+                    raise ContractError(f"{context}.redirect must name an input route")
+            authorized = set(required_scopes) <= set(connection["auth_scopes"])
+            if connection["kind"] == "websocket":
+                if not authorized:
+                    exercised.add("starlette.authentication.requires.websocket-denied-close")
+            elif "redirect" in scenario:
+                exercised.add("starlette.authentication.requires.redirect-response")
+            elif authorized and callable_spec["mode"] == "sync":
+                exercised.add("starlette.authentication.requires.sync-authorized-call")
+            elif authorized and callable_spec["mode"] == "async":
+                exercised.add("starlette.authentication.requires.async-authorized-call")
+            elif callable_spec["mode"] == "sync":
+                exercised.add("starlette.authentication.requires.sync-denied-error")
+            else:
+                exercised.add("starlette.authentication.requires.async-denied-error")
+    else:
+        if case["observations"] != ["scenarios"]:
+            raise ContractError("AuthenticationMiddleware cases must select scenarios")
+        scenarios = case["scenarios"]
+        if not isinstance(scenarios, list) or not scenarios:
+            raise ContractError("AuthenticationMiddleware cases need at least one scenario")
+        for index, raw_scenario in enumerate(scenarios):
+            context = f"AuthenticationMiddleware scenarios[{index}]"
+            scenario = _exact(raw_scenario, {"scope_type", "backend", "error_handler"}, context)
+            if not isinstance(scenario["scope_type"], str) or scenario["scope_type"] not in {
+                "http",
+                "websocket",
+                "lifespan",
+            }:
+                raise ContractError(f"{context}.scope_type is unsupported")
+            if not isinstance(scenario["error_handler"], str) or scenario["error_handler"] not in {
+                "default",
+                "custom-response",
+            }:
+                raise ContractError(f"{context}.error_handler is unsupported")
+            backend = scenario["backend"]
+            if isinstance(backend, dict) and set(backend) == {"error"}:
+                error = _exact(backend["error"], {"type", "message"}, f"{context}.backend.error")
+                if error["type"] != "AuthenticationError":
+                    raise ContractError(f"{context}.backend.error.type is unsupported")
+                _string(error["message"], f"{context}.backend.error.message")
+                exercised.add(
+                    "starlette.middleware.authentication.AuthenticationMiddleware.http-error-handler"
+                    if scenario["scope_type"] == "http"
+                    else "starlette.middleware.authentication.AuthenticationMiddleware.websocket-error-close"
+                )
+            elif isinstance(backend, dict) and set(backend) == {"outcome"}:
+                outcome = backend["outcome"]
+                if isinstance(outcome, dict):
+                    result = _exact(outcome, {"credentials", "user"}, f"{context}.backend.outcome")
+                    if not isinstance(result["credentials"], list) or any(
+                        not isinstance(scope, str) for scope in result["credentials"]
+                    ):
+                        raise ContractError(f"{context}.backend credentials must be a string array")
+                    _string(result["user"], f"{context}.backend user")
+                    exercised.add(
+                        "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
+                    )
+                elif isinstance(outcome, str) and outcome in {"none", "must-not-run"}:
+                    if outcome == "none":
+                        exercised.add(
+                            "starlette.middleware.authentication.AuthenticationMiddleware.unauthenticated-default"
+                        )
+                else:
+                    raise ContractError(f"{context}.backend.outcome is unsupported")
+            else:
+                raise ContractError(f"{context}.backend is outside the declared outcomes")
+            if scenario["scope_type"] == "lifespan":
+                exercised.add(
+                    "starlette.middleware.authentication.AuthenticationMiddleware.non-http-bypass"
+                )
+
+    if set(case["covers"]) != exercised:
+        raise ContractError(
+            "authentication case coverage must match the behaviors selected by its inputs"
+        )
 
 
 def _validate_value_formatting_case(case: dict[str, Any]) -> None:

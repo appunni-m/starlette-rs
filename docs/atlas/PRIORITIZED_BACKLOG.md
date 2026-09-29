@@ -8,15 +8,12 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 236 input-only cases across 32 files, covering 47
-operations and 285 requirements. Run
-`95dc7ad2-020a-48db-a5bd-69ebc4751a5c` selected 319 comparisons: 315 passed,
-zero failed, zero infrastructure errors, and four `not_run`. The Python package
-passed all 236 cases; Rust-native passed 79 of 83 selected cases. The four
-unsupported Rust-native rows require arbitrary Python callables and keep the
-all-target gate incomplete. See
-[Migration parity contract and evidence](../PARITY.md) for the latest detailed
-scope and evidence.
+The active contract has 240 input-only cases across 33 files, covering 51
+operations and 304 requirements. Run `965ead8d-0c34-42d3-a600-87da5ba3eb6e` selected 323 comparisons: 319
+passed, zero failed, zero infrastructure errors, and four `not_run`. The Python
+package passed all 240 cases; Rust-native passed 79 of 83 selected cases. The
+four unsupported Rust-native rows require arbitrary Python callables. See
+[Migration parity contract and evidence](../PARITY.md) for current scope.
 
 ## P0 — Close the source-backed atlas (complete)
 
@@ -24,8 +21,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The matrix has 789 mappings: 695 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 44 existing input mappings. It maps selected
+The matrix has 789 mappings: 693 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 46 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

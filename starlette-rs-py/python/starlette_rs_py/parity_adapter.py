@@ -3798,6 +3798,341 @@ def _error_snapshot(exc: Exception) -> dict[str, str]:
     return {"class": f"{type(exc).__module__}.{type(exc).__qualname__}", "message": str(exc)}
 
 
+AUTHENTICATION_OPERATIONS = {
+    ("starlette.authentication", "value-operations"),
+    ("starlette.authentication", "scope-check"),
+    ("starlette.authentication", "decorator-dispatch"),
+    ("starlette.middleware.authentication.AuthenticationMiddleware", "dispatch"),
+}
+
+
+def _make_auth_endpoint(mode: str, parameter_name: str, calls: list[Any], result: Any) -> Any:
+    if mode == "sync" and parameter_name == "request":
+
+        def endpoint(request: Any, _calls: list[Any] = calls, _result: Any = result) -> Any:
+            _calls.append(_result)
+            return _result
+    elif mode == "sync":
+
+        def endpoint(websocket: Any, _calls: list[Any] = calls, _result: Any = result) -> Any:
+            _calls.append(_result)
+            return _result
+    elif parameter_name == "request":
+
+        async def endpoint(request: Any, _calls: list[Any] = calls, _result: Any = result) -> Any:
+            _calls.append(_result)
+            return _result
+    else:
+
+        async def endpoint(websocket: Any, _calls: list[Any] = calls, _result: Any = result) -> Any:
+            _calls.append(_result)
+            return _result
+
+    return endpoint
+
+
+def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "observations",
+            "actions",
+        }
+        if case["operation"] == "value-operations"
+        else {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "observations",
+            "checks",
+        }
+        if case["operation"] == "scope-check"
+        else {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "observations",
+            "scenarios",
+        },
+        "authentication parity case",
+    )
+    from starlette.authentication import (
+        AuthCredentials,
+        AuthenticationError,
+        BaseUser,
+        SimpleUser,
+        UnauthenticatedUser,
+        has_required_scope,
+        requires,
+    )
+
+    def value_outcome(callback: Any) -> dict[str, Any]:
+        try:
+            value = callback()
+        except Exception as exc:
+            return {"outcome": "error", "error": _error_snapshot(exc)}
+        return {"outcome": "value", "value": _json_safe(value)}
+
+    operation = (case["surface"], case["operation"])
+    if operation == ("starlette.authentication", "value-operations"):
+        users = {
+            "base": lambda action: BaseUser(),
+            "simple": lambda action: SimpleUser(action["username"]),
+            "unauthenticated": lambda action: UnauthenticatedUser(),
+        }
+        results = []
+        for action in case["actions"]:
+            if action["action"] == "credentials":
+                source_scopes = action["scopes"]
+                credentials = AuthCredentials(source_scopes)
+                if "mutate_source_scopes" in action:
+                    source_scopes[:] = action["mutate_source_scopes"]
+                result = {"action": action["action"], "scopes": list(credentials.scopes)}
+                if "mutate_source_scopes" in action:
+                    result["source_scopes"] = list(source_scopes)
+                results.append(result)
+            else:
+                user = users[action["user"]](action)
+                properties = {
+                    name: value_outcome(lambda user=user, name=name: getattr(user, name))
+                    for name in ("is_authenticated", "display_name", "identity")
+                }
+                results.append({"action": action["action"], "properties": properties})
+        observed = {"actions": results}
+    elif operation == ("starlette.authentication", "scope-check"):
+        from types import SimpleNamespace
+
+        results = [
+            {
+                "granted_scopes": list(check["granted_scopes"]),
+                "required_scopes": list(check["required_scopes"]),
+                "result": has_required_scope(
+                    SimpleNamespace(auth=AuthCredentials(check["granted_scopes"])),
+                    check["required_scopes"],
+                ),
+            }
+            for check in case["checks"]
+        ]
+        observed = {"checks": results}
+    elif operation == ("starlette.authentication", "decorator-dispatch"):
+        import asyncio
+        from urllib.parse import urlsplit
+
+        from starlette.requests import Request
+        from starlette.responses import RedirectResponse
+        from starlette.routing import Route, Router
+        from starlette.websockets import WebSocket
+
+        results = []
+        for scenario in case["scenarios"]:
+            connection_spec = scenario["connection"]
+            is_websocket = connection_spec["kind"] == "websocket"
+            path_url = connection_spec.get("url", "https://example.test/private")
+            parts = urlsplit(path_url)
+            scheme = parts.scheme or ("wss" if is_websocket else "https")
+            path = parts.path or "/private"
+            scope = {
+                "type": "websocket" if is_websocket else "http",
+                "asgi": {"version": "3.0", "spec_version": "2.3"},
+                "http_version": "1.1",
+                "scheme": scheme,
+                "path": path,
+                "raw_path": path.encode(),
+                "query_string": parts.query.encode(),
+                "root_path": "",
+                "headers": [(b"host", (parts.netloc or "example.test").encode())],
+                "client": ("127.0.0.1", 1234),
+                "server": (
+                    parts.hostname or "example.test",
+                    parts.port or (443 if scheme in {"https", "wss"} else 80),
+                ),
+                "auth": AuthCredentials(connection_spec["auth_scopes"]),
+            }
+            if is_websocket:
+                scope["subprotocols"] = []
+            else:
+                scope["method"] = "GET"
+                routes = [
+                    Route(
+                        route["path"],
+                        endpoint=lambda request: None,
+                        name=route["name"],
+                    )
+                    for route in connection_spec.get("routes", [])
+                ]
+                scope["router"] = Router(routes=routes)
+            sent = []
+
+            async def receive(_is_websocket: bool = is_websocket) -> dict[str, Any]:
+                return {
+                    "type": "websocket.connect" if _is_websocket else "http.request",
+                    "body": b"",
+                    "more_body": False,
+                }
+
+            async def send(message: dict[str, Any], _sent: list[Any] = sent) -> None:
+                _sent.append(_json_safe(message))
+
+            connection = WebSocket(scope, receive, send) if is_websocket else Request(scope)
+            callable_spec = scenario["callable"]
+            endpoint_calls = []
+            result_value = callable_spec["result"]
+
+            endpoint = _make_auth_endpoint(
+                callable_spec["mode"],
+                callable_spec["parameter"],
+                endpoint_calls,
+                result_value,
+            )
+            redirect = scenario.get("redirect")
+            wrapped = requires(
+                scenario["required_scopes"],
+                status_code=scenario.get("status_code", 403),
+                redirect=redirect,
+            )(endpoint)
+            try:
+                value = (
+                    wrapped(connection)
+                    if callable_spec["mode"] == "sync"
+                    else asyncio.run(wrapped(connection))
+                )
+            except Exception as exc:
+                outcome = {"outcome": "error", "error": _error_snapshot(exc)}
+                if hasattr(exc, "status_code"):
+                    outcome["status_code"] = exc.status_code
+                    outcome["detail"] = _json_safe(exc.detail)
+            else:
+                if isinstance(value, RedirectResponse):
+                    asyncio.run(value(scope, receive, send))
+                    outcome = {
+                        "outcome": "response",
+                        "sent": sent,
+                    }
+                else:
+                    outcome = {"outcome": "value", "value": _json_safe(value)}
+            results.append({"outcome": outcome, "endpoint_calls": endpoint_calls, "sent": sent})
+        observed = {"scenarios": results}
+    else:
+        import asyncio
+
+        from starlette.middleware.authentication import AuthenticationMiddleware
+        from starlette.responses import PlainTextResponse
+
+        results = []
+        for scenario in case["scenarios"]:
+            calls = []
+            app_calls = []
+            sent = []
+            backend_spec = scenario["backend"]
+
+            class Backend:
+                async def authenticate(
+                    self,
+                    conn: Any,
+                    _calls: list[Any] = calls,
+                    _backend_spec: dict[str, Any] = backend_spec,
+                ) -> Any:
+                    _calls.append({"scope_type": conn.scope["type"]})
+                    if "error" in _backend_spec:
+                        raise AuthenticationError(_backend_spec["error"]["message"])
+                    result = _backend_spec["outcome"]
+                    if not isinstance(result, dict):
+                        return None
+                    return AuthCredentials(result["credentials"]), SimpleUser(result["user"])
+
+            async def app(
+                scope: dict[str, Any],
+                receive: Any,
+                send: Any,
+                _app_calls: list[Any] = app_calls,
+            ) -> None:
+                observed_scope = {"type": scope["type"]}
+                if "auth" in scope:
+                    observed_scope["auth_scopes"] = list(scope["auth"].scopes)
+                    observed_scope["user"] = {
+                        "is_authenticated": scope["user"].is_authenticated,
+                        "display_name": scope["user"].display_name,
+                    }
+                _app_calls.append(observed_scope)
+
+            def on_error(conn: Any, exc: Exception) -> Any:
+                return PlainTextResponse(f"handled:{exc}", status_code=401)
+
+            scope_type = scenario["scope_type"]
+            scope = {
+                "type": scope_type,
+                "asgi": {"version": "3.0", "spec_version": "2.3"},
+                "path": "/",
+                "raw_path": b"/",
+                "query_string": b"",
+                "root_path": "",
+                "scheme": "http",
+                "headers": [],
+                "client": ("127.0.0.1", 1234),
+                "server": ("example.test", 80),
+            }
+            if scope_type == "http":
+                scope["http_version"] = "1.1"
+                scope["method"] = "GET"
+            elif scope_type == "websocket":
+                scope["http_version"] = "1.1"
+                scope["scheme"] = "ws"
+                scope["subprotocols"] = []
+            else:
+                scope["state"] = {}
+
+            async def receive() -> dict[str, Any]:
+                return {"type": "http.request", "body": b"", "more_body": False}
+
+            async def send(message: dict[str, Any], _sent: list[Any] = sent) -> None:
+                _sent.append(_json_safe(message))
+
+            middleware = AuthenticationMiddleware(
+                app,
+                Backend(),
+                on_error if scenario["error_handler"] == "custom-response" else None,
+            )
+            asyncio.run(middleware(scope, receive, send))
+            results.append(
+                {
+                    "backend_calls": calls,
+                    "app_calls": app_calls,
+                    "scope_auth_scopes": list(scope["auth"].scopes) if "auth" in scope else None,
+                    "scope_user": (
+                        {
+                            "is_authenticated": scope["user"].is_authenticated,
+                            "display_name": scope["user"].display_name,
+                        }
+                        if "user" in scope
+                        else None
+                    ),
+                    "sent": sent,
+                }
+            )
+        observed = {"scenarios": results}
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": step_id, "status": "ok", "value": observed}
+            for step_id in case["observations"]
+        ],
+    }
+
+
 def _run_url_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
     _exact_object(
         case,
@@ -4111,6 +4446,11 @@ def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) in AUTHENTICATION_OPERATIONS
+    ):
+        return _run_authentication_case(case)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_DEFAULT_RECEIVE_OPERATION

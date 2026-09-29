@@ -266,7 +266,8 @@
       "build/parity/inputs/parity/url-query-operations.json",
       "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/file-response.json",
-      "build/parity/inputs/parity/lifespan-generators.json"
+      "build/parity/inputs/parity/lifespan-generators.json",
+      "build/parity/inputs/parity/authentication-runtime.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -1664,7 +1665,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -1675,7 +1676,7 @@
             {
               "id": "starlette.request.receive-worker-access",
               "dimension": "boundary",
-              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO’s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
               "lanes": [
                 "parity"
               ],
@@ -1686,7 +1687,7 @@
             {
               "id": "starlette.request.stream-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO’s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
               "lanes": [
                 "parity"
               ],
@@ -1697,7 +1698,7 @@
             {
               "id": "starlette.request.body-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
               "lanes": [
                 "parity"
               ],
@@ -1708,7 +1709,7 @@
             {
               "id": "starlette.request.json-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity"
               ],
@@ -9871,6 +9872,563 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.authentication",
+      "kind": "module",
+      "source_path": "starlette/authentication.py:18",
+      "storage_slug": "starlette-authentication-module",
+      "operations": [
+        {
+          "id": "value-operations",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.authentication.AuthCredentials.__init__, BaseUser properties, SimpleUser properties, and UnauthenticatedUser properties",
+            "signature": "AuthCredentials(scopes=None); observe public user properties",
+            "parameters": [
+              {
+                "id": "actions",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "actions",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not expose this Python compatibility operation.",
+                "blocker": "No Rust-native public operation is declared for this module slice."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.authentication",
+              "signature": "Rust-backed AuthCredentials and user compatibility types",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.authentication.AuthCredentials.default-empty-scopes",
+              "dimension": "protocol_variant",
+              "description": "Use an omitted scope sequence and observe an empty credentials scope list. Upstream: starlette/authentication.py:110-112.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.AuthCredentials.scope-sequence-construction",
+              "dimension": "parameter_combination",
+              "description": "Mutate the input scope sequence after construction and observe that AuthCredentials retains the sequence copied at construction. Upstream: starlette/authentication.py:110-112.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.BaseUser.abstract-properties",
+              "dimension": "error_path",
+              "description": "Observe NotImplementedError from all three BaseUser properties through the public package. Upstream: starlette/authentication.py:115-126.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.SimpleUser.properties",
+              "dimension": "success_path",
+              "description": "Observe authenticated, display name, and inherited identity behavior for SimpleUser. Upstream: starlette/authentication.py:129-139.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.UnauthenticatedUser.properties",
+              "dimension": "success_path",
+              "description": "Observe authenticated state, display name, and inherited identity behavior for UnauthenticatedUser. Upstream: starlette/authentication.py:142-149.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Authentication is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "scope-check",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.authentication.has_required_scope",
+            "signature": "has_required_scope(conn, scopes) -> bool",
+            "parameters": [
+              {
+                "id": "checks",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "checks",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not expose this Python compatibility operation.",
+                "blocker": "No Rust-native public operation is declared for this module slice."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.authentication.has_required_scope",
+              "signature": "Rust-backed credential scope membership",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.authentication.has_required_scope.empty-requirements",
+              "dimension": "parameter_combination",
+              "description": "An empty required scope sequence succeeds. Upstream: starlette/authentication.py:18-22.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.has_required_scope.all-scopes-present",
+              "dimension": "success_path",
+              "description": "All required scopes present in credentials produce True. Upstream: starlette/authentication.py:18-22.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.has_required_scope.missing-scope",
+              "dimension": "error_path",
+              "description": "A missing required scope produces False regardless of required-scope order. Upstream: starlette/authentication.py:18-22.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Authentication is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "decorator-dispatch",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.authentication.requires",
+            "signature": "requires(scopes, status_code=403, redirect=None); sync, async, and WebSocket endpoint dispatch",
+            "parameters": [
+              {
+                "id": "scenarios",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "scenarios",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not expose this Python compatibility operation.",
+                "blocker": "No Rust-native public operation is declared for this module slice."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.authentication.requires",
+              "signature": "Rust-owned scope policy with Python endpoint invocation at the event-loop boundary",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.authentication.requires.sync-authorized-call",
+              "dimension": "success_path",
+              "description": "A sync request endpoint is invoked when all required scopes are present. Upstream: starlette/authentication.py:25-98.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.requires.async-authorized-call",
+              "dimension": "success_path",
+              "description": "An async request endpoint is invoked when all required scopes are present. Upstream: starlette/authentication.py:25-98.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.requires.async-denied-error",
+              "dimension": "error_path",
+              "description": "An unauthorized async request endpoint raises HTTPException with the configured status. Upstream: starlette/authentication.py:60-77.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.requires.sync-denied-error",
+              "dimension": "error_path",
+              "description": "An unauthorized sync request endpoint raises HTTPException with the configured status. Upstream: starlette/authentication.py:79-96.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.requires.redirect-response",
+              "dimension": "parameter_combination",
+              "description": "An unauthorized request with a named redirect returns a 303 response with the original URL encoded in next. Upstream: starlette/authentication.py:69-73, 88-92.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.requires.websocket-denied-close",
+              "dimension": "protocol_variant",
+              "description": "An unauthorized WebSocket endpoint closes the connection without invoking the endpoint. Upstream: starlette/authentication.py:43-58.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Authentication is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "kind": "type",
+      "source_path": "starlette/middleware/authentication.py:16",
+      "storage_slug": "starlette-middleware-authentication-AuthenticationMiddleware",
+      "operations": [
+        {
+          "id": "dispatch",
+          "kind": "method",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.authentication.AuthenticationMiddleware.__call__",
+            "signature": "AuthenticationMiddleware(app, backend, on_error=None); ASGI dispatch",
+            "parameters": [
+              {
+                "id": "scenarios",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "scenarios",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not expose this Python compatibility operation.",
+                "blocker": "No Rust-native public operation is declared for this module slice."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.authentication.AuthenticationMiddleware.__call__",
+              "signature": "Rust-owned scope dispatch, backend outcome handling, and ASGI response events",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.unauthenticated-default",
+              "dimension": "success_path",
+              "description": "A backend returning None installs empty credentials and an unauthenticated user before calling the app. Upstream: starlette/middleware/authentication.py:29-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install",
+              "dimension": "success_path",
+              "description": "Install backend-provided credentials and user in the ASGI scope before app dispatch. Upstream: starlette/middleware/authentication.py:45-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.http-error-handler",
+              "dimension": "error_path",
+              "description": "An AuthenticationError from an HTTP backend is passed to the configured error handler and response. Upstream: starlette/middleware/authentication.py:34-43, 50-52.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.websocket-error-close",
+              "dimension": "error_path",
+              "description": "An AuthenticationError from a WebSocket backend triggers a normal close event. Upstream: starlette/middleware/authentication.py:34-43.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.non-http-bypass",
+              "dimension": "protocol_variant",
+              "description": "Non-HTTP and non-WebSocket scopes reach the app without invoking the authentication backend. Upstream: starlette/middleware/authentication.py:29-32.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Authentication is outside the declared benchmark workloads."
           }
         }
       ]

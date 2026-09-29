@@ -368,6 +368,34 @@
           "source_path": "starlette.schemas.OpenAPIResponse.render and BaseSchemaGenerator.OpenAPIResponse"
         }
       ]
+    },
+    {
+      "surface_id": "starlette.authentication",
+      "source_path": "starlette/authentication.py:18",
+      "operations": [
+        {
+          "operation_id": "value-operations",
+          "source_path": "starlette.authentication.AuthCredentials.__init__, BaseUser properties, SimpleUser properties, and UnauthenticatedUser properties"
+        },
+        {
+          "operation_id": "scope-check",
+          "source_path": "starlette.authentication.has_required_scope"
+        },
+        {
+          "operation_id": "decorator-dispatch",
+          "source_path": "starlette.authentication.requires"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "source_path": "starlette/middleware/authentication.py:16",
+      "operations": [
+        {
+          "operation_id": "dispatch",
+          "source_path": "starlette.middleware.authentication.AuthenticationMiddleware.__call__"
+        }
+      ]
     }
   ],
   "api_inventory": {

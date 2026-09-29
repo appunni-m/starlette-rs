@@ -17,27 +17,27 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 236 input-only cases across 32 files,
-covering 47 operations and 285 parity requirements. The authored cases span
+The active parity manifest indexes 240 input-only cases across 33 files,
+covering 51 operations and 304 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 WebSockets, exceptions, status constants, endpoints, authentication,
 middleware, configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-The latest integrated run `95dc7ad2-020a-48db-a5bd-69ebc4751a5c` finished at
-`2026-09-29T03:03:32.095Z` after starting at `2026-09-29T03:02:49.417Z`. It
-selected 319 profile comparisons: 315 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 236 cases;
-Rust-native passed 79 of 83 selected cases. Four arbitrary Python-callable
-boundaries are unsupported for Rust-native. The CLI exits with status 2 because
-of those `not_run` rows, so this is not an all-target pass. The Python package
-tree was dirty when captured, so this is not release proof. The manifest
-SHA-256 is
-`54825068abcb75b47639ac78a9fef896c926989e61693bba5d80193a6b92e363`; the
-target wheel SHA-256 is
-`39d14953294c92512a7d897364db72292f83e5bd810e431a7be0f21ce285f69b`. The two
-registered-handler inputs in
+The latest integrated run `965ead8d-0c34-42d3-a600-87da5ba3eb6e` started at
+`2026-09-29T03:33:48.512Z` and finished at `2026-09-29T03:34:25.523Z`. It
+selected 323 profile comparisons: 319 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed
+all 240 cases; Rust-native passed 79 of 83 selected cases. The four Rust-native
+rows require arbitrary Python endpoint callables. All four new authentication
+cases ran against the pinned source and installed package. The Python target
+tree was dirty when captured. Manifest SHA-256:
+`10788960501e0086d01f36364f50aed95ce3d53de16ffa1e37e2799507fd60f9`.
+`make parity-run` exits with status 2 for the four explicitly unsupported native
+callable rows; this is not release proof.
+
+The two registered-handler inputs in
 [`asgi-exception-handlers.yaml`](../tests/fixtures/sources/parity/asgi-exception-handlers.yaml)
 exercise status-code precedence over an `HTTPException` class handler and an
 async class handler that reads the request body already cached by the endpoint.
@@ -120,18 +120,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 789 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 789 |
-| Existing input mappings in the atlas matrix | 44 |
+| Existing input mappings in the atlas matrix | 46 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 695 |
+| New input-only fixture backlog | 693 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 37 `existing` mappings point to authored YAML input
+crosswalk snapshot, 46 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest has since grown to 30 files
-and 211 cases, including three configuration cases, four schema cases, and
+input files with 136 cases. The active manifest now contains 33 indexed files and 240 cases, including
+four authentication cases, three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
 and [`schemas-runtime.yaml`](../tests/fixtures/sources/parity/schemas-runtime.yaml).
@@ -166,7 +166,7 @@ The five upstream HTTPException tests and
 the HTTPException documentation contract map to the two exception input files;
 `test_handled_exc_after_response` has a declared partial observation of its
 after-start behavior, while its `TestClient(raise_server_exceptions=False)`
-branch remains outside this slice. The remaining 695 backlog rows are atlas
+branch remains outside this slice. The remaining 693 backlog rows are atlas
 mapping status, not proof that those behaviors are absent from active inputs or
 untested.
 The merger validates the pinned upstream commit, all 999 API rows, evidence
@@ -245,8 +245,8 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 228 currently indexed cases and
-the 695-row atlas backlog snapshot
+The backlog distinguishes that work from the 240 currently indexed cases and
+the 693-row atlas backlog snapshot
 in [`PRIORITIZED_BACKLOG.md`](atlas/PRIORITIZED_BACKLOG.md).
 
 ## Generate the source candidate catalog
