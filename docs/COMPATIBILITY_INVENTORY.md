@@ -17,30 +17,33 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 315 input-only cases across 38 files,
-covering 56 operations and 393 parity requirements. The authored cases span
+The active parity manifest indexes 318 input-only cases across 38 files,
+covering 56 operations and 396 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `d2f5ae29-d00b-4cd5-8fcb-89fd74c1fc90` started at
-`2026-09-29T12:52:56.339Z` and finished at `2026-09-29T12:54:01.764Z`. It
-selected 450 profile comparisons: 446 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 313 applicable
+Integrated run `01119ec1-55bf-4382-83fd-7d68e587cd82` started at
+`2026-09-29T13:37:18.090Z` and finished at `2026-09-29T13:38:32.105Z`. It
+selected 453 profile comparisons: 449 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 316 applicable
 comparisons; Rust-native passed 133 of 137, with four rows requiring Python
 callables marked `not_run`. All 27 FileResponse cases passed on both profiles,
-all eight SessionMiddleware cases passed on the Python package profile, and
-both new BaseHTTPMiddleware cases passed on that profile. The Rust-native
-target was dirty at revision
-`7ca977e9c9a82883e4724633027465447024bf8d+source-fnv1a64-e5a0df1c1dca21b4`;
-the installed Python package target tree SHA-256 is
-`b039386aa8279818572b0c466f4784a4827d4e180067a934a2c8a133632d319f`.
+all eight SessionMiddleware cases passed on the Python package profile, and all
+five BaseHTTPMiddleware cases passed on that profile. Those BaseHTTP cases cover
+header mutation, replacement responses, body-cache replay, response-completion
+receive racing, and exception propagation with cause, TaskGroup `ExceptionGroup` context,
+and suppression-state observations. The Rust-native
+target reported clean at revision
+`d5d6b621a37a1cf72f07e9f88f6c2cd0609a7719+source-fnv1a64-e5a0df1c1dca21b4`;
+the installed Python-package target was dirty with tree SHA-256
+`e4150a05156c7e9b80c848ce3c4ff096fb55cb553fea77475274bd5871edde94`.
 Manifest SHA-256:
-`db9fea9f87e72494aebf8edc59d4cec67906d9b2a858ea7ce73a0be65bd4c5bb`.
+`9ec850bfdfe09c5583b42fb4e20999d1acc3c370d802fc045af39a01691eab2c`.
 Package wheel artifact SHA-256:
-`1f1f592034af80c6dff0309284dfbbd6566ad857943d94e8eb727bdb82cd6506`.
+`941999702388f45a1b33dec873ca860999a59412e0b87afd65a5a06140fe6080`.
 The four unsupported Rust-native Python-callable rows keep the overall gate
 incomplete; this run is not full parity or release proof.
 Thirty-seven StaticFiles cases are authored across
@@ -204,18 +207,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 791 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 791 |
-| Existing input mappings in the atlas matrix | 111 |
+| Existing input mappings in the atlas matrix | 115 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 630 |
+| New input-only fixture backlog | 626 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 111 `existing` mappings point to authored YAML input
+crosswalk snapshot, 115 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest now contains 37 indexed files
-and 313 cases, including 37 authored StaticFiles cases, four authentication cases,
+input files with 136 cases. The active manifest now contains 38 indexed files
+and 318 cases, including five BaseHTTPMiddleware cases, 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
@@ -330,7 +333,7 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 313 currently indexed cases and
+The backlog distinguishes that work from the 318 currently indexed cases and
 the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
 
 ## Generate the source candidate catalog

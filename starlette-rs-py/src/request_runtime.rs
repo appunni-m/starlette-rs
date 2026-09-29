@@ -19,11 +19,14 @@ use crate::awaitable::{
 };
 
 type SharedRequestBody = Arc<Mutex<RequestBodyRuntime>>;
+type BaseHTTPWrappedReceiveState = (Option<Py<PyAny>>, bool, bool, bool, bool);
 
 struct RequestBodyRuntime {
     accumulator: NativeRequestBodyAccumulator,
     receive: Option<Py<PyAny>>,
     request_disconnected: bool,
+    base_http_receive_disconnected: bool,
+    base_http_receive_consumed: bool,
     body_object: Option<Py<PyBytes>>,
     json_object: Option<Py<PyAny>>,
 }
@@ -589,6 +592,8 @@ impl PyRequestBody {
                 accumulator: NativeRequestBodyAccumulator::default(),
                 receive: Some(receive),
                 request_disconnected: false,
+                base_http_receive_disconnected: false,
+                base_http_receive_consumed: false,
                 body_object: None,
                 json_object: None,
             })),
@@ -602,6 +607,39 @@ impl PyRequestBody {
             .as_ref()
             .map(|receive| receive.clone_ref(py))
             .ok_or_else(|| PyRuntimeError::new_err("Receive channel has not been made available"))
+    }
+
+    /// Expose the shared body state needed by Rust-owned BaseHTTPMiddleware.
+    /// The cache, stream completion, and disconnect flags must come from the same
+    /// accumulator used by `Request.body()` and `Request.stream()`.
+    fn _base_http_wrapped_receive_state(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<BaseHTTPWrappedReceiveState> {
+        let cached_body = cached_body_object(py, &self.shared)?;
+        let runtime = borrow_runtime(&self.shared)?;
+        Ok((
+            cached_body,
+            runtime.accumulator.is_consumed(),
+            runtime.request_disconnected || runtime.accumulator.is_disconnected(),
+            runtime.base_http_receive_disconnected,
+            runtime.base_http_receive_consumed,
+        ))
+    }
+
+    fn _base_http_set_wrapped_receive_flags(
+        &self,
+        disconnected: Option<bool>,
+        consumed: Option<bool>,
+    ) -> PyResult<()> {
+        let mut runtime = borrow_runtime_mut(&self.shared)?;
+        if let Some(disconnected) = disconnected {
+            runtime.base_http_receive_disconnected = disconnected;
+        }
+        if let Some(consumed) = consumed {
+            runtime.base_http_receive_consumed = consumed;
+        }
+        Ok(())
     }
 
     fn stream(&self, py: Python<'_>) -> PyResult<Py<PyRequestStream>> {

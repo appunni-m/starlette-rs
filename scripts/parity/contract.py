@@ -75,6 +75,9 @@ BASE_HTTP_REQUIREMENTS = {
     "construct": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware",
     "header_mutation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.await-call-next-header-mutation",
     "replacement_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response",
+    "body_cache_replay": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-cache-replay",
+    "response_completion_unblocks_receive": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive",
+    "exception_context_propagation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -4994,37 +4997,72 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
 
 
 def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
-    application = _exact(
-        case["application"],
+    application_value = case["application"]
+    if not isinstance(application_value, dict) or set(application_value) not in (
         {"debug", "routes", "middleware"},
-        "BaseHTTPMiddleware application input",
-    )
+        {"debug", "routes", "middleware", "downstream"},
+    ):
+        raise ContractError("BaseHTTPMiddleware application input has unknown or missing fields")
+    application = application_value
     if type(application["debug"]) is not bool:
         raise ContractError("BaseHTTPMiddleware application.debug must be boolean")
     routes = application["routes"]
     if not isinstance(routes, list) or len(routes) > 1:
         raise ContractError("BaseHTTPMiddleware workflow supports zero or one input route")
+    route_kind: str | None = None
+    route_methods: list[str] = []
     if routes:
         route = _exact(
             routes[0],
             {"kind", "path", "methods", "endpoint"},
             "BaseHTTPMiddleware route input",
         )
-        endpoint = _exact(
-            route["endpoint"],
-            {"kind", "content", "status_code"},
-            "BaseHTTPMiddleware route endpoint",
-        )
-        if (
-            route["kind"] != "http-route"
-            or route["path"] != "/"
-            or route["methods"] != ["GET"]
-            or endpoint["kind"] != "plain-text-response"
-            or not isinstance(endpoint["content"], str)
-            or type(endpoint["status_code"]) is not int
-            or not 100 <= endpoint["status_code"] <= 599
-        ):
+        if route["kind"] != "http-route" or route["path"] != "/":
             raise ContractError("BaseHTTPMiddleware configured route input is invalid")
+        route_methods = route["methods"]
+        if (
+            not isinstance(route_methods, list)
+            or not route_methods
+            or any(not isinstance(method, str) or not method for method in route_methods)
+            or len(route_methods) != len(set(route_methods))
+        ):
+            raise ContractError("BaseHTTPMiddleware route methods must be unique strings")
+        endpoint_value = route["endpoint"]
+        if not isinstance(endpoint_value, dict) or not isinstance(endpoint_value.get("kind"), str):
+            raise ContractError("BaseHTTPMiddleware route endpoint must be a tagged object")
+        route_kind = endpoint_value["kind"]
+        if route_kind == "plain-text-response":
+            endpoint = _exact(
+                endpoint_value,
+                {"kind", "content", "status_code"},
+                "BaseHTTPMiddleware route endpoint",
+            )
+            if (
+                not isinstance(endpoint["content"], str)
+                or type(endpoint["status_code"]) is not int
+                or not 100 <= endpoint["status_code"] <= 599
+            ):
+                raise ContractError("BaseHTTPMiddleware plain-text route input is invalid")
+        elif route_kind == "request-body-response":
+            _exact(endpoint_value, {"kind"}, "BaseHTTPMiddleware request-body endpoint")
+            if "POST" not in route_methods:
+                raise ContractError("request-body-response routes must accept POST")
+        elif route_kind == "raise-exception":
+            _exact(
+                endpoint_value,
+                {"kind", "exception"},
+                "BaseHTTPMiddleware raising endpoint",
+            )
+            exception = _exact(
+                endpoint_value["exception"],
+                {"class", "message"},
+                "BaseHTTPMiddleware endpoint exception",
+            )
+            if exception["class"] != "Exception":
+                raise ContractError("BaseHTTPMiddleware endpoint exception class must be Exception")
+            _string(exception["message"], "BaseHTTPMiddleware endpoint exception.message")
+        else:
+            raise ContractError("BaseHTTPMiddleware route endpoint kind is unsupported")
 
     middleware = application["middleware"]
     if not isinstance(middleware, list) or len(middleware) != 1:
@@ -5041,6 +5079,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError("BaseHTTPMiddleware dispatch_actions must be a non-empty array")
 
     awaited = False
+    await_index: int | None = None
     returned: str | None = None
     saw_header_mutation = False
     for index, raw_action in enumerate(actions):
@@ -5048,11 +5087,16 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
             raise ContractError(f"{context} must be a tagged object")
         kind = raw_action["kind"]
-        if kind == "await-call-next":
+        if kind == "read-request-body":
             _exact(raw_action, {"kind"}, context)
-            if awaited or index != 0:
-                raise ContractError("BaseHTTPMiddleware dispatch must await call_next first")
+            if returned is not None:
+                raise ContractError("request.body() reads must precede the dispatch return")
+        elif kind == "await-call-next":
+            _exact(raw_action, {"kind"}, context)
+            if awaited or returned is not None:
+                raise ContractError("BaseHTTPMiddleware dispatch must await call_next once")
             awaited = True
+            await_index = index
         elif kind == "set-call-next-response-header":
             action = _exact(raw_action, {"kind", "name", "value"}, context)
             if not awaited or returned is not None or saw_header_mutation:
@@ -5090,16 +5134,62 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "BaseHTTPMiddleware dispatch must await call_next and return a response"
         )
-    if saw_header_mutation != (returned == "call-next"):
-        raise ContractError("BaseHTTPMiddleware call_next response actions are incomplete")
-    if (returned == "call-next") != bool(routes):
-        raise ContractError(
-            "BaseHTTPMiddleware route input differs from the dispatch response action"
+    if saw_header_mutation and returned != "call-next":
+        raise ContractError("only the call_next response can be mutated")
+
+    downstream: dict[str, Any] | None = None
+    if "downstream" in application:
+        downstream = _exact(
+            application["downstream"],
+            {"kind", "steps"},
+            "BaseHTTPMiddleware downstream ASGI input",
         )
+        if downstream["kind"] != "asgi-sequence" or routes:
+            raise ContractError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
+        steps = downstream["steps"]
+        if not isinstance(steps, list) or len(steps) != 3:
+            raise ContractError("downstream ASGI input requires receive, send, receive steps")
+        if steps[0] != {"kind": "receive"} or steps[2] != {"kind": "receive"}:
+            raise ContractError(
+                "downstream ASGI input must receive before and after response start"
+            )
+        send_step = _exact(steps[1], {"kind", "message"}, "downstream ASGI send step")
+        if send_step["kind"] != "send":
+            raise ContractError("downstream ASGI middle step must send response.start")
+        message = _exact(
+            send_step["message"],
+            {"type", "status", "headers_base64_pairs"},
+            "downstream ASGI response.start input",
+        )
+        if (
+            message["type"] != "http.response.start"
+            or type(message["status"]) is not int
+            or not 100 <= message["status"] <= 599
+            or not isinstance(message["headers_base64_pairs"], list)
+        ):
+            raise ContractError("downstream ASGI send step must declare a valid response.start")
+        for header_index, pair in enumerate(message["headers_base64_pairs"]):
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or any(not isinstance(value, str) for value in pair)
+            ):
+                raise ContractError(
+                    f"downstream response header[{header_index}] must be a base64 pair"
+                )
+            try:
+                for value in pair:
+                    base64.b64decode(value, validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError(
+                    f"downstream response header[{header_index}] is not base64"
+                ) from exc
+    if returned == "call-next" and not routes and downstream is None:
+        raise ContractError("call_next response requires a configured route or downstream ASGI app")
 
     request = _exact(
         case["request"],
-        {"scope", "receive"},
+        {"scope", "receive", "receive_after_events", "send_checkpoints"},
         "BaseHTTPMiddleware request input",
     )
     scope = _exact(
@@ -5125,12 +5215,14 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     if (
         scope["type"] != "http"
         or asgi != {"version": "3.0", "spec_version": "2.4"}
-        or scope["method"] != "GET"
+        or not isinstance(scope["method"], str)
+        or scope["method"] not in {"GET", "POST"}
         or scope["scheme"] != "http"
         or not isinstance(scope["http_version"], str)
         or not isinstance(scope["root_path"], str)
         or (bool(routes) and path != routes[0]["path"])
-        or (not routes and path == "/")
+        or (not routes and downstream is None and path == "/")
+        or (bool(routes) and scope["method"] not in route_methods)
     ):
         raise ContractError(
             "BaseHTTPMiddleware request scope does not select its declared route case"
@@ -5165,29 +5257,71 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             or type(address[1]) is not int
         ):
             raise ContractError(f"BaseHTTPMiddleware scope.{name} must be a host/port pair")
+
     receive = request["receive"]
-    if not isinstance(receive, list) or len(receive) != 1:
-        raise ContractError("BaseHTTPMiddleware request requires one empty HTTP body event")
-    event = _exact(
-        receive[0],
-        {"type", "body_base64", "more_body"},
-        "BaseHTTPMiddleware HTTP request event",
-    )
+    if not isinstance(receive, list) or not receive:
+        raise ContractError("BaseHTTPMiddleware request requires HTTP body event inputs")
+    for index, raw_event in enumerate(receive):
+        event = _exact(
+            raw_event,
+            {"type", "body_base64", "more_body"},
+            f"BaseHTTPMiddleware HTTP request event[{index}]",
+        )
+        if (
+            event["type"] != "http.request"
+            or type(event["more_body"]) is not bool
+            or event["more_body"] is not (index < len(receive) - 1)
+        ):
+            raise ContractError(
+                "BaseHTTPMiddleware request events must end with exactly one final body event"
+            )
+        try:
+            base64.b64decode(event["body_base64"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(
+                f"BaseHTTPMiddleware request body event[{index}] must contain base64"
+            ) from exc
+    if not isinstance(request["receive_after_events"], str) or request[
+        "receive_after_events"
+    ] not in {"disconnect", "block"}:
+        raise ContractError("receive_after_events must be disconnect or block")
+    send_checkpoints = request["send_checkpoints"]
     if (
-        event["type"] != "http.request"
-        or event["body_base64"] != ""
-        or event["more_body"] is not False
+        not isinstance(send_checkpoints, list)
+        or any(type(index) is not int or not 0 <= index <= 2 for index in send_checkpoints)
+        or len(set(send_checkpoints)) != len(send_checkpoints)
     ):
-        raise ContractError("BaseHTTPMiddleware request must contain one empty final body event")
+        raise ContractError("send_checkpoints must contain unique output-send indices from 0 to 2")
 
     requirements = {BASE_HTTP_REQUIREMENTS["construct"]}
     if saw_header_mutation:
         requirements.add(BASE_HTTP_REQUIREMENTS["header_mutation"])
     if returned == "replacement":
         requirements.add(BASE_HTTP_REQUIREMENTS["replacement_response"])
+    body = b"".join(base64.b64decode(event["body_base64"]) for event in receive)
+    if (
+        route_kind == "request-body-response"
+        and body
+        and await_index is not None
+        and any(action["kind"] == "read-request-body" for action in actions[:await_index])
+        and any(action["kind"] == "read-request-body" for action in actions[await_index + 1 :])
+    ):
+        requirements.add(BASE_HTTP_REQUIREMENTS["body_cache_replay"])
+    if route_kind == "raise-exception" and returned == "call-next":
+        requirements.add(BASE_HTTP_REQUIREMENTS["exception_context_propagation"])
+    if downstream is not None:
+        if (
+            request["receive_after_events"] != "block"
+            or returned != "replacement"
+            or send_checkpoints != [0, 1]
+        ):
+            raise ContractError(
+                "downstream receive race requires a blocking receive, replacement response, and checkpoints after both outer sends"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["response_completion_unblocks_receive"])
     if set(case["covers"]) != requirements:
         raise ContractError(
-            "BaseHTTPMiddleware covers must match the configured middleware and dispatch actions: "
+            "BaseHTTPMiddleware covers must match the input middleware, request, and dispatch actions: "
             f"expected={sorted(requirements)}, actual={sorted(case['covers'])}"
         )
 

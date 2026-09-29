@@ -32,24 +32,26 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 315 input-only cases, 56 operations, and 393
+The current parity contract has 318 input-only cases, 56 operations, and 396
 parity requirements across 38 indexed files, including bounded
 SessionMiddleware and BaseHTTPMiddleware workflow slices. Latest integrated
-run `d2f5ae29-d00b-4cd5-8fcb-89fd74c1fc90`, from
-`2026-09-29T12:52:56.339Z` to `2026-09-29T12:54:01.764Z`, selected 450 profile
-comparisons: 446 passed, zero failed, zero infrastructure errors, and four
-were `not_run`. The Python package passed all 313 applicable comparisons;
+run `01119ec1-55bf-4382-83fd-7d68e587cd82`, from
+`2026-09-29T13:37:18.090Z` to `2026-09-29T13:38:32.105Z`, selected 453 profile
+comparisons: 449 passed, zero failed, zero infrastructure errors, and four
+were `not_run`. The Python package passed all 316 applicable comparisons;
 Rust-native passed 133 of 137, with four Python-callable rows `not_run`. All 27
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
-passed on the Python package profile, and both BaseHTTPMiddleware cases passed
-on that profile. The Rust-native target was dirty at revision
-`7ca977e9c9a82883e4724633027465447024bf8d+source-fnv1a64-e5a0df1c1dca21b4`;
-the installed Python package target tree SHA-256 is
-`b039386aa8279818572b0c466f4784a4827d4e180067a934a2c8a133632d319f`.
+passed on the Python package profile, and all five BaseHTTPMiddleware cases
+passed there: header mutation, replacement response, body-cache replay,
+response-completion receive racing, and exception-context propagation. The
+Rust-native target reported clean at revision
+`d5d6b621a37a1cf72f07e9f88f6c2cd0609a7719+source-fnv1a64-e5a0df1c1dca21b4`;
+the installed Python-package target was dirty with tree SHA-256
+`e4150a05156c7e9b80c848ce3c4ff096fb55cb553fea77475274bd5871edde94`.
 Manifest SHA-256:
-`db9fea9f87e72494aebf8edc59d4cec67906d9b2a858ea7ce73a0be65bd4c5bb`.
+`9ec850bfdfe09c5583b42fb4e20999d1acc3c370d802fc045af39a01691eab2c`.
 Package wheel artifact SHA-256:
-`1f1f592034af80c6dff0309284dfbbd6566ad857943d94e8eb727bdb82cd6506`.
+`941999702388f45a1b33dec873ca860999a59412e0b87afd65a5a06140fe6080`.
 `make parity-run` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 

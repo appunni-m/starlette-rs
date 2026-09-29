@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers two BaseHTTPMiddleware workflows through Starlette configured Middleware: dispatch awaits call_next and mutates the returned response header, and dispatch awaits call_next before returning a replacement response.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers four BaseHTTPMiddleware behaviors through configured Middleware or a direct ASGI wrapper: response-header mutation, replacement responses, request-body cache/replay, and response completion waking a blocked downstream receive.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -1313,7 +1313,8 @@
                 {
                   "path": "response_status",
                   "value_types": [
-                    "integer"
+                    "integer",
+                    "null"
                   ],
                   "comparison": {
                     "kind": "exact"
@@ -3524,7 +3525,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.middleware.base.BaseHTTPMiddleware.__call__",
-            "signature": "Starlette configured Middleware stack invokes async BaseHTTPMiddleware.__call__(scope, receive, send) -> None",
+            "signature": "Starlette configured Middleware stack or a direct BaseHTTPMiddleware ASGI wrapper invokes async BaseHTTPMiddleware.__call__(scope, receive, send) -> None",
             "parameters": [
               {
                 "id": "self",
@@ -3616,6 +3617,34 @@
                   "comparison": {
                     "kind": "ordered"
                   }
+                },
+                {
+                  "path": "dispatch_body_reads",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "execution_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "propagated_exception",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 }
               ],
               "error": {
@@ -3642,7 +3671,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.middleware.base.BaseHTTPMiddleware.__call__",
-              "signature": "async __call__(scope, receive, send) -> None through Starlette configured Middleware",
+              "signature": "async __call__(scope, receive, send) -> None through configured or direct BaseHTTPMiddleware ASGI consumer",
               "support": {
                 "status": "supported"
               }
@@ -3652,7 +3681,7 @@
             {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
               "dimension": "success_path",
-              "description": "Construct a Starlette app with Middleware(CustomMiddleware) in its configured middleware list and invoke the app ASGI interface. Upstream: tests/middleware/test_base.py:179-187; starlette/applications.py:73-78.",
+              "description": "Construct a Starlette app with Middleware(CustomMiddleware) or wrap a direct ASGI app with BaseHTTPMiddleware, then invoke the public ASGI interface. Upstream: tests/middleware/test_base.py:179-187,549-596; starlette/middleware/base.py:96-203.",
               "lanes": [
                 "parity"
               ],
@@ -3675,6 +3704,39 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-replacement-response",
               "dimension": "protocol_variant",
               "description": "Await call_next(request) for a route miss, then return a replacement PlainTextResponse from dispatch. Upstream: tests/middleware/test_base.py:190-205.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.body-cache-replay",
+              "dimension": "input_family",
+              "description": "Dispatch reads a non-empty multi-event request body before call_next, the endpoint reads and returns the replayed body, and dispatch reads its cached body again after call_next. Upstream: tests/middleware/test_base.py:865-890; starlette/middleware/base.py:20-93.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.response-completion-unblocks-downstream-receive",
+              "dimension": "boundary",
+              "description": "After consuming the request, a direct downstream ASGI app sends response.start and blocks in receive while dispatch returns a replacement response; scheduled outer-send checkpoints expose response completion waking that pending receive as http.disconnect. Upstream: tests/middleware/test_base.py:473-596; starlette/middleware/base.py:108-139,190-197.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.exception-context-propagation",
+              "dimension": "error_path",
+              "description": "Propagate a context-free exception raised by a route while dispatch awaits call_next, and observe its exception relationships. Upstream: tests/middleware/test_base.py:1296-1319; starlette/middleware/base.py:150-168.",
               "lanes": [
                 "parity"
               ],

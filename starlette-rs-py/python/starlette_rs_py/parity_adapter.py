@@ -5397,37 +5397,74 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["observations"] != [BASE_HTTP_WORKFLOW_OPERATION]:
         raise ValueError("BaseHTTPMiddleware observations must select base-http-workflow")
 
-    application = _exact_object(
-        case["application"],
-        {"debug", "routes", "middleware"},
-        "BaseHTTPMiddleware application",
-    )
+    application = case["application"]
+    allowed_application_keys = {
+        frozenset({"debug", "routes", "middleware"}),
+        frozenset({"debug", "routes", "middleware", "downstream"}),
+    }
+    if not isinstance(application, dict) or frozenset(application) not in allowed_application_keys:
+        raise ValueError("BaseHTTPMiddleware application input has unknown or missing fields")
     if type(application["debug"]) is not bool:
         raise ValueError("BaseHTTPMiddleware application.debug must be boolean")
-    if not isinstance(application["routes"], list) or len(application["routes"]) > 1:
+    route_specs = application["routes"]
+    if not isinstance(route_specs, list) or len(route_specs) > 1:
         raise ValueError("BaseHTTPMiddleware workflow supports zero or one route")
     route_spec = None
-    if application["routes"]:
+    endpoint_spec = None
+    route_kind = None
+    exception_spec = None
+    if route_specs:
         route_spec = _exact_object(
-            application["routes"][0],
+            route_specs[0],
             {"kind", "path", "methods", "endpoint"},
             "BaseHTTPMiddleware route",
         )
-        endpoint_spec = _exact_object(
-            route_spec["endpoint"],
-            {"kind", "content", "status_code"},
-            "BaseHTTPMiddleware route endpoint",
-        )
-        if (
-            route_spec["kind"] != "http-route"
-            or route_spec["path"] != "/"
-            or route_spec["methods"] != ["GET"]
-            or endpoint_spec["kind"] != "plain-text-response"
-            or not isinstance(endpoint_spec["content"], str)
-            or type(endpoint_spec["status_code"]) is not int
-            or not 100 <= endpoint_spec["status_code"] <= 599
-        ):
+        if route_spec["kind"] != "http-route" or route_spec["path"] != "/":
             raise ValueError("BaseHTTPMiddleware route input is invalid")
+        if (
+            not isinstance(route_spec["methods"], list)
+            or not route_spec["methods"]
+            or any(not isinstance(method, str) or not method for method in route_spec["methods"])
+        ):
+            raise ValueError("BaseHTTPMiddleware route methods must be non-empty strings")
+        endpoint_spec = route_spec["endpoint"]
+        if not isinstance(endpoint_spec, dict) or not isinstance(endpoint_spec.get("kind"), str):
+            raise ValueError("BaseHTTPMiddleware route endpoint must be tagged")
+        route_kind = endpoint_spec["kind"]
+        if route_kind == "plain-text-response":
+            endpoint_spec = _exact_object(
+                endpoint_spec,
+                {"kind", "content", "status_code"},
+                "BaseHTTPMiddleware route endpoint",
+            )
+            if (
+                not isinstance(endpoint_spec["content"], str)
+                or type(endpoint_spec["status_code"]) is not int
+                or not 100 <= endpoint_spec["status_code"] <= 599
+            ):
+                raise ValueError("BaseHTTPMiddleware route input is invalid")
+        elif route_kind == "request-body-response":
+            _exact_object(endpoint_spec, {"kind"}, "BaseHTTPMiddleware request-body endpoint")
+            if "POST" not in route_spec["methods"]:
+                raise ValueError("request-body-response routes must accept POST")
+        elif route_kind == "raise-exception":
+            _exact_object(
+                endpoint_spec,
+                {"kind", "exception"},
+                "BaseHTTPMiddleware raising endpoint",
+            )
+            exception_spec = _exact_object(
+                endpoint_spec["exception"],
+                {"class", "message"},
+                "BaseHTTPMiddleware endpoint exception",
+            )
+            if exception_spec["class"] != "Exception" or not isinstance(
+                exception_spec["message"], str
+            ):
+                raise ValueError("BaseHTTPMiddleware endpoint exception input is invalid")
+        else:
+            raise ValueError("BaseHTTPMiddleware route endpoint kind is unsupported")
+
     middleware_specs = application["middleware"]
     if not isinstance(middleware_specs, list) or len(middleware_specs) != 1:
         raise ValueError("BaseHTTPMiddleware workflow requires one configured Middleware")
@@ -5442,6 +5479,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(dispatch_actions, list) or not dispatch_actions:
         raise ValueError("BaseHTTPMiddleware dispatch_actions must be non-empty")
     awaited = False
+    await_index = None
     returned = None
     saw_header_mutation = False
     for index, raw_action in enumerate(dispatch_actions):
@@ -5449,11 +5487,14 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
             raise ValueError(f"{context} must be tagged")
         kind = raw_action["kind"]
-        if kind == "await-call-next":
+        if kind == "read-request-body":
             _exact_object(raw_action, {"kind"}, context)
-            if awaited or index != 0:
-                raise ValueError("BaseHTTPMiddleware dispatch must await call_next first")
+        elif kind == "await-call-next":
+            _exact_object(raw_action, {"kind"}, context)
+            if awaited or returned is not None:
+                raise ValueError("BaseHTTPMiddleware dispatch must await call_next once")
             awaited = True
+            await_index = index
         elif kind == "set-call-next-response-header":
             action = _exact_object(raw_action, {"kind", "name", "value"}, context)
             if not awaited or returned is not None or saw_header_mutation:
@@ -5487,10 +5528,45 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             returned = "replacement"
         else:
             raise ValueError(f"{context} has an unsupported action kind")
-    if not awaited or returned is None or saw_header_mutation != (returned == "call-next"):
+    if not awaited or returned is None:
         raise ValueError("BaseHTTPMiddleware dispatch action sequence is incomplete")
-    if (returned == "call-next") != bool(route_spec):
-        raise ValueError("BaseHTTPMiddleware route input differs from dispatch response action")
+    if saw_header_mutation and returned != "call-next":
+        raise ValueError("only the call_next response can be mutated")
+    if returned == "call-next" and route_spec is None and "downstream" not in application:
+        raise ValueError("call_next response requires a configured route or downstream ASGI app")
+
+    downstream_spec = None
+    if "downstream" in application:
+        downstream_spec = _exact_object(
+            application["downstream"],
+            {"kind", "steps"},
+            "BaseHTTPMiddleware downstream ASGI input",
+        )
+        if downstream_spec["kind"] != "asgi-sequence" or route_spec is not None:
+            raise ValueError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
+        steps = downstream_spec["steps"]
+        if (
+            not isinstance(steps, list)
+            or len(steps) != 3
+            or steps[0] != {"kind": "receive"}
+            or steps[2] != {"kind": "receive"}
+        ):
+            raise ValueError("downstream ASGI input must receive, send response.start, receive")
+        send_step = _exact_object(steps[1], {"kind", "message"}, "downstream ASGI send step")
+        if send_step["kind"] != "send":
+            raise ValueError("downstream ASGI middle step must send response.start")
+        message = _exact_object(
+            send_step["message"],
+            {"type", "status", "headers_base64_pairs"},
+            "downstream ASGI response.start input",
+        )
+        if (
+            message["type"] != "http.response.start"
+            or type(message["status"]) is not int
+            or not 100 <= message["status"] <= 599
+            or not isinstance(message["headers_base64_pairs"], list)
+        ):
+            raise ValueError("downstream ASGI send step must declare a valid response.start")
 
     required_covers = {
         f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware"
@@ -5503,10 +5579,12 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response"
         )
-    if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
-        raise ValueError("BaseHTTPMiddleware covers differ from its configured actions")
 
-    request = _exact_object(case["request"], {"scope", "receive"}, "BaseHTTPMiddleware request")
+    request = _exact_object(
+        case["request"],
+        {"scope", "receive", "receive_after_events", "send_checkpoints"},
+        "BaseHTTPMiddleware request",
+    )
     scope_spec = _exact_object(
         request["scope"],
         {
@@ -5532,12 +5610,15 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     if (
         scope_spec["type"] != "http"
         or scope_spec["asgi"] != {"version": "3.0", "spec_version": "2.4"}
-        or scope_spec["method"] != "GET"
+        or not isinstance(scope_spec["method"], str)
+        or scope_spec["method"] not in {"GET", "POST"}
         or scope_spec["scheme"] != "http"
         or not isinstance(scope_spec["http_version"], str)
         or not isinstance(path, str)
         or (route_spec is not None and path != route_spec["path"])
-        or (route_spec is None and path == "/")
+        or (route_spec is None and downstream_spec is None and path == "/")
+        or (route_spec is not None and scope_spec["method"] not in route_spec["methods"])
+        or (returned == "call-next" and route_spec is None and downstream_spec is None)
         or not isinstance(scope_spec["root_path"], str)
     ):
         raise ValueError("BaseHTTPMiddleware request scope does not select its declared route case")
@@ -5565,19 +5646,65 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         ):
             raise ValueError(f"BaseHTTPMiddleware scope.{name} must be a host/port pair")
     receive_specs = request["receive"]
-    if not isinstance(receive_specs, list) or len(receive_specs) != 1:
-        raise ValueError("BaseHTTPMiddleware request requires one empty HTTP body event")
-    receive_spec = _exact_object(
-        receive_specs[0],
-        {"type", "body_base64", "more_body"},
-        "BaseHTTPMiddleware HTTP request event",
+    if not isinstance(receive_specs, list) or not receive_specs:
+        raise ValueError("BaseHTTPMiddleware request requires HTTP body events")
+    for index, receive_spec in enumerate(receive_specs):
+        receive_spec = _exact_object(
+            receive_spec,
+            {"type", "body_base64", "more_body"},
+            f"BaseHTTPMiddleware HTTP request event[{index}]",
+        )
+        if (
+            receive_spec["type"] != "http.request"
+            or type(receive_spec["more_body"]) is not bool
+            or receive_spec["more_body"] is not (index < len(receive_specs) - 1)
+        ):
+            raise ValueError("BaseHTTPMiddleware request events must end with one final body event")
+        _decode_base64(receive_spec["body_base64"], f"BaseHTTPMiddleware request body[{index}]")
+    if not isinstance(request["receive_after_events"], str) or request[
+        "receive_after_events"
+    ] not in {"disconnect", "block"}:
+        raise ValueError("receive_after_events must be disconnect or block")
+    send_checkpoints = request["send_checkpoints"]
+    if (
+        not isinstance(send_checkpoints, list)
+        or any(type(index) is not int or not 0 <= index <= 2 for index in send_checkpoints)
+        or len(set(send_checkpoints)) != len(send_checkpoints)
+    ):
+        raise ValueError("send_checkpoints must contain unique output-send indices from 0 to 2")
+
+    request_body = b"".join(
+        _decode_base64(item["body_base64"], "BaseHTTPMiddleware request body")
+        for item in receive_specs
     )
     if (
-        receive_spec["type"] != "http.request"
-        or receive_spec["body_base64"] != ""
-        or receive_spec["more_body"] is not False
+        route_kind == "request-body-response"
+        and request_body
+        and await_index is not None
+        and any(action["kind"] == "read-request-body" for action in dispatch_actions[:await_index])
+        and any(
+            action["kind"] == "read-request-body" for action in dispatch_actions[await_index + 1 :]
+        )
     ):
-        raise ValueError("BaseHTTPMiddleware request must contain one empty final body event")
+        required_covers.add(f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-cache-replay")
+    if route_kind == "raise-exception" and returned == "call-next":
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation"
+        )
+    if downstream_spec is not None:
+        if (
+            request["receive_after_events"] != "block"
+            or returned != "replacement"
+            or send_checkpoints != [0, 1]
+        ):
+            raise ValueError(
+                "downstream receive race requires a blocking receive, replacement response, and checkpoints after both outer sends"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive"
+        )
+    if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
+        raise ValueError("BaseHTTPMiddleware covers differ from its input actions")
 
     from starlette.applications import Starlette
     from starlette.middleware import Middleware
@@ -5585,12 +5712,23 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.responses import PlainTextResponse
     from starlette.routing import Route
 
+    execution_trace: list[dict[str, Any]] = []
+    dispatch_body_reads: list[dict[str, Any]] = []
+
     class InputDefinedBaseHTTPMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Any, call_next: Any) -> Any:
             response = None
-            for action in dispatch_actions:
+            for action_index, action in enumerate(dispatch_actions):
                 kind = action["kind"]
-                if kind == "await-call-next":
+                if kind == "read-request-body":
+                    body = await request.body()
+                    dispatch_body_reads.append(
+                        {
+                            "action_index": action_index,
+                            "body_base64": base64.b64encode(body).decode("ascii"),
+                        }
+                    )
+                elif kind == "await-call-next":
                     response = await call_next(request)
                 elif kind == "set-call-next-response-header":
                     response.headers[action["name"]] = action["value"]
@@ -5605,24 +5743,86 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
 
     routes = []
     if route_spec is not None:
-        endpoint_spec = route_spec["endpoint"]
+        if route_kind == "request-body-response":
 
-        def endpoint(_request: Any) -> Any:
-            return PlainTextResponse(
-                endpoint_spec["content"],
-                status_code=endpoint_spec["status_code"],
-            )
+            async def endpoint(request: Any) -> Any:
+                return PlainTextResponse(await request.body())
+        elif route_kind == "raise-exception":
+            exception_type = getattr(builtins, exception_spec["class"])
+            exception_message = exception_spec["message"]
+
+            def endpoint(_request: Any) -> None:
+                raise exception_type(exception_message)
+        else:
+
+            def endpoint(_request: Any) -> Any:
+                return PlainTextResponse(
+                    endpoint_spec["content"],
+                    status_code=endpoint_spec["status_code"],
+                )
 
         routes.append(Route(route_spec["path"], endpoint, methods=route_spec["methods"]))
-    app = Starlette(
-        debug=application["debug"],
-        routes=routes,
-        middleware=[Middleware(InputDefinedBaseHTTPMiddleware)],
-    )
+        app = Starlette(
+            debug=application["debug"],
+            routes=routes,
+            middleware=[Middleware(InputDefinedBaseHTTPMiddleware)],
+        )
+    elif downstream_spec is not None:
+
+        async def downstream(scope: Any, receive: Any, send: Any) -> None:
+            receive_index = 0
+            downstream_send_index = 0
+            for step in downstream_spec["steps"]:
+                if step["kind"] == "receive":
+                    execution_trace.append(
+                        {"event": "downstream-receive-enter", "index": receive_index}
+                    )
+                    message = await receive()
+                    execution_trace.append(
+                        {
+                            "event": "downstream-receive-return",
+                            "index": receive_index,
+                            "message": _canonical_http_message(message),
+                        }
+                    )
+                    receive_index += 1
+                else:
+                    message_spec = step["message"]
+                    message = {
+                        "type": message_spec["type"],
+                        "status": message_spec["status"],
+                        "headers": [
+                            (
+                                _decode_base64(pair[0], "downstream response header name"),
+                                _decode_base64(pair[1], "downstream response header value"),
+                            )
+                            for pair in message_spec["headers_base64_pairs"]
+                        ],
+                    }
+                    execution_trace.append(
+                        {
+                            "event": "downstream-send",
+                            "index": downstream_send_index,
+                            "message": _canonical_message(message),
+                        }
+                    )
+                    await send(message)
+                    downstream_send_index += 1
+
+        app = InputDefinedBaseHTTPMiddleware(downstream)
+    else:
+        app = Starlette(
+            debug=application["debug"],
+            routes=[],
+            middleware=[Middleware(InputDefinedBaseHTTPMiddleware)],
+        )
+
     scope = _make_scope(scope_spec)
-    incoming = [_make_message(receive_specs[0])]
+    incoming = [_make_message(spec) for spec in receive_specs]
     sent: list[dict[str, Any]] = []
     receive_index = 0
+    send_index = 0
+    send_checkpoint_indices = set(send_checkpoints)
 
     async def receive() -> dict[str, Any]:
         nonlocal receive_index
@@ -5630,28 +5830,44 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             message = incoming[receive_index]
             receive_index += 1
             return message
+        if request["receive_after_events"] == "block":
+            await asyncio.Event().wait()
         return {"type": "http.disconnect"}
 
     async def send(message: dict[str, Any]) -> None:
+        nonlocal send_index
         sent.append(message)
+        execution_trace.append(
+            {"event": "outer-send", "index": send_index, "message": _canonical_message(message)}
+        )
+        if send_index in send_checkpoint_indices:
+            await asyncio.sleep(0)
+        send_index += 1
 
-    asyncio.run(app(scope, receive, send))
+    try:
+        asyncio.run(app(scope, receive, send))
+        propagated_exception = None
+    except Exception as exc:
+        propagated_exception = _base_http_exception_value(exc)
     events = [_canonical_message(message) for message in sent]
     start = next((event for event in events if event["type"] == "http.response.start"), None)
-    if start is None:
+    if start is None and propagated_exception is None:
         raise RuntimeError("Starlette completed without an http.response.start event")
     body = b"".join(
         message.get("body", b"") for message in sent if message["type"] == "http.response.body"
     )
     value = {
-        "response_status": start["status"],
-        "ordered_repeated_headers": start["headers"],
+        "response_status": start["status"] if start is not None else None,
+        "ordered_repeated_headers": start["headers"] if start is not None else [],
         "response_bytes": {
             "encoding": "base64",
             "data": base64.b64encode(body).decode("ascii"),
         },
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
+        "dispatch_body_reads": dispatch_body_reads,
+        "execution_trace": execution_trace,
+        "propagated_exception": propagated_exception,
     }
     return {
         "case_id": case["case_id"],
@@ -5663,6 +5879,37 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 "value": value,
             }
         ],
+    }
+
+
+def _canonical_http_message(message: dict[str, Any]) -> dict[str, Any]:
+    kind = message["type"]
+    if kind == "http.request":
+        return {
+            "type": kind,
+            "body_base64": base64.b64encode(message.get("body", b"")).decode("ascii"),
+            "more_body": message.get("more_body", False),
+        }
+    if kind == "http.disconnect":
+        return {"type": kind}
+    return _canonical_message(message)
+
+
+def _base_http_exception_value(exc: BaseException) -> dict[str, Any]:
+    def relationship_value(value: BaseException | None) -> dict[str, str] | None:
+        if value is None:
+            return None
+        return {
+            "class": f"{type(value).__module__}.{type(value).__qualname__}",
+            "message": str(value),
+        }
+
+    return {
+        "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+        "message": str(exc),
+        "cause": relationship_value(exc.__cause__),
+        "context": relationship_value(exc.__context__),
+        "suppress_context": bool(exc.__suppress_context__),
     }
 
 

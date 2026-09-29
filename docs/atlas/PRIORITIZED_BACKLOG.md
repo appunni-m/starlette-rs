@@ -8,15 +8,28 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 315 input-only cases across 38 files, covering 56
-operations and 393 requirements. Run `d2f5ae29-d00b-4cd5-8fcb-89fd74c1fc90`
-selected 450 comparisons: 446 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 313 applicable cases;
+The active contract has 318 input-only cases across 38 files, covering 56
+operations and 396 requirements. Run `01119ec1-55bf-4382-83fd-7d68e587cd82` from
+`2026-09-29T13:37:18.090Z` to `2026-09-29T13:38:32.105Z`; it selected 453
+comparisons: 449 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 316 applicable cases;
 Rust-native passed 133 of 137 selected cases. The four unsupported Rust-native
 rows require arbitrary Python callables. All 27 FileResponse cases passed on
-both profiles; all eight SessionMiddleware cases and both BaseHTTPMiddleware
-cases passed on the Python package profile. The target identities are
-content-addressed dirty-tree snapshots.
+both profiles; all eight SessionMiddleware cases and all five BaseHTTPMiddleware
+cases passed on the Python package profile. The five BaseHTTPMiddleware cases
+cover configured-header mutation, awaited `call_next` response replacement,
+body-cache replay, response-completion unblocking downstream receive, and
+exception-context propagation. This bounded slice leaves partial-body replay,
+repeated disconnects, broader exception-group shapes beyond the observed
+TaskGroup context, varied or malformed `http.response.debug` frames, broader
+cancellation and cleanup ordering, path-send responses, and additional
+streaming behaviors unproven. The Rust-native target was clean at
+revision `d5d6b621a37a1cf72f07e9f88f6c2cd0609a7719+source-fnv1a64-e5a0df1c1dca21b4`;
+the Python-package target was dirty with tree SHA-256
+`e4150a05156c7e9b80c848ce3c4ff096fb55cb553fea77475274bd5871edde94`. Manifest
+SHA-256: `9ec850bfdfe09c5583b42fb4e20999d1acc3c370d802fc045af39a01691eab2c`;
+package wheel SHA-256:
+`941999702388f45a1b33dec873ca860999a59412e0b87afd65a5a06140fe6080`.
 See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
 
@@ -26,8 +39,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The matrix has 791 mappings: 630 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 111 existing input mappings. It maps selected
+The matrix has 791 mappings: 626 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 115 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

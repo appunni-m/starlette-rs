@@ -9,6 +9,7 @@ use std::rc::Rc;
 
 use pyo3::exceptions::{PyAssertionError, PyKeyError, PyRuntimeError, PyStopAsyncIteration};
 use pyo3::prelude::*;
+use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
 
 use crate::awaitable::{
@@ -17,12 +18,15 @@ use crate::awaitable::{
 
 type SharedHeaders = Rc<RefCell<Vec<(Vec<u8>, Vec<u8>)>>>;
 type SharedCall = Rc<RefCell<BaseHTTPCallState>>;
+type SharedCachedRequest = Rc<RefCell<CachedRequestState>>;
+type BaseHTTPWrappedReceiveState = (Option<Py<PyAny>>, bool, bool, bool, bool);
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyBaseHTTPMiddlewareRuntime>()?;
     module.add_class::<PyBaseHTTPResponse>()?;
     module.add_class::<PyBaseHTTPHeaders>()?;
     module.add_class::<PyBaseHTTPBodyIterator>()?;
+    module.add_class::<PyBaseHTTPCachedReceiveDescriptor>()?;
     module.add_function(wrap_pyfunction!(select_dispatch, module)?)?;
     module.add_function(wrap_pyfunction!(default_dispatch, module)?)?;
     Ok(())
@@ -90,10 +94,261 @@ impl AwaitableStateMachine for DefaultDispatchMachine {
     }
 }
 
+/// Per-request state used by Starlette's `_CachedRequest.wrapped_receive` contract.
+/// The Python `Request` remains the public request object so its existing body and
+/// stream API can be called and awaited at the boundary; Rust owns the replay state
+/// and selects each ASGI message.
+struct CachedRequestState {
+    request: Py<PyAny>,
+    receive: Py<PyAny>,
+}
+
+fn cached_request_and_receive(
+    py: Python<'_>,
+    scope: &Bound<'_, PyDict>,
+    receive: Py<PyAny>,
+) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
+    let request_type = cached_request_type(py)?;
+    // Inherited `Request.__init__` creates the one RequestBody used by its
+    // public body()/stream() methods; the Rust callback reads this exact state.
+    let request = request_type
+        .bind(py)
+        .call1((scope, receive.clone_ref(py)))?;
+
+    request.setattr("_wrapped_rcv_disconnected", false)?;
+    request.setattr("_wrapped_rcv_consumed", false)?;
+    let callback = request.getattr("wrapped_receive")?.unbind();
+    Ok((request.unbind(), callback))
+}
+
+fn cached_request_type(py: Python<'_>) -> PyResult<Py<PyAny>> {
+    static CACHED_REQUEST_TYPE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+    CACHED_REQUEST_TYPE
+        .get_or_try_init(py, || {
+            // The compatibility Request uses slots and cannot hold a bound receive
+            // callback. Upstream's private `_CachedRequest` subclass supplies that
+            // attribute; this descriptor creates a Rust callback that retains the
+            // request while keeping replay flags in the request's shared body state.
+            let request_type = py.import("starlette.requests")?.getattr("Request")?;
+            let bases = PyTuple::new(py, [request_type])?;
+            let namespace = PyDict::new(py);
+            namespace.set_item("__module__", "starlette.middleware.base")?;
+            let descriptor = Py::new(py, PyBaseHTTPCachedReceiveDescriptor)?.into_any();
+            namespace.set_item("wrapped_receive", descriptor)?;
+            let request_type = py.import("builtins")?.getattr("type")?.call1((
+                "_CachedRequest",
+                bases,
+                namespace,
+            ))?;
+            Ok(request_type.unbind())
+        })
+        .map(|request_type| request_type.clone_ref(py))
+}
+
+fn cached_request_object(py: Python<'_>, state: &SharedCachedRequest) -> PyResult<Py<PyAny>> {
+    Ok(state.borrow().request.clone_ref(py))
+}
+
+fn set_cached_receive_flags(
+    py: Python<'_>,
+    state: &SharedCachedRequest,
+    disconnected: Option<bool>,
+    consumed: Option<bool>,
+) -> PyResult<()> {
+    let request = cached_request_object(py, state)?;
+    if let Some(disconnected) = disconnected {
+        request
+            .bind(py)
+            .setattr("_wrapped_rcv_disconnected", disconnected)?;
+    }
+    if let Some(consumed) = consumed {
+        request
+            .bind(py)
+            .setattr("_wrapped_rcv_consumed", consumed)?;
+    }
+    request.bind(py).getattr("_body_state")?.call_method1(
+        "_base_http_set_wrapped_receive_flags",
+        (disconnected, consumed),
+    )?;
+    Ok(())
+}
+
+fn request_body_receive_state(request: &Bound<'_, PyAny>) -> PyResult<BaseHTTPWrappedReceiveState> {
+    request
+        .getattr("_body_state")?
+        .call_method0("_base_http_wrapped_receive_state")?
+        .extract()
+}
+
+#[pyclass(name = "_BaseHTTPCachedReceiveDescriptor", unsendable)]
+struct PyBaseHTTPCachedReceiveDescriptor;
+
+#[pymethods]
+impl PyBaseHTTPCachedReceiveDescriptor {
+    fn __get__(
+        slf: Py<Self>,
+        py: Python<'_>,
+        request: Py<PyAny>,
+        _owner: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        if request.bind(py).is_none() {
+            return Ok(slf.into_any());
+        }
+        let receive = request
+            .bind(py)
+            .getattr("_body_state")?
+            .getattr("receive")?
+            .unbind();
+        Py::new(
+            py,
+            PyBaseHTTPCachedReceive {
+                state: Rc::new(RefCell::new(CachedRequestState { request, receive })),
+            },
+        )
+        .map(Into::into)
+    }
+}
+
+#[pyclass(unsendable)]
+struct PyBaseHTTPCachedReceive {
+    state: SharedCachedRequest,
+}
+
+#[pymethods]
+impl PyBaseHTTPCachedReceive {
+    fn __call__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            CachedRequestReceiveMachine {
+                state: self.state.clone(),
+                pending: None,
+            },
+        )
+    }
+}
+
+enum CachedReceivePending {
+    StreamChunk,
+    ConsumedReceive,
+}
+
+struct CachedRequestReceiveMachine {
+    state: SharedCachedRequest,
+    pending: Option<CachedReceivePending>,
+}
+
+impl AwaitableStateMachine for CachedRequestReceiveMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => self.start(py),
+            MachineResume::Value(value) => match self.pending.take() {
+                Some(CachedReceivePending::StreamChunk) => self.stream_chunk(py, value),
+                Some(CachedReceivePending::ConsumedReceive) => self.consumed_receive(py, value),
+                None => Err(PyRuntimeError::new_err(
+                    "cached request resumed without a pending receive",
+                )),
+            },
+            MachineResume::Error(error) => self.receive_error(py, error),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
+        }
+    }
+}
+
+impl CachedRequestReceiveMachine {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let request = cached_request_object(py, &self.state)?;
+        let (body, stream_consumed, request_disconnected, disconnected, consumed) =
+            request_body_receive_state(request.bind(py))?;
+        if disconnected {
+            return Ok(MachineAction::Complete(disconnect_message(py)?));
+        }
+        if consumed {
+            if request_disconnected {
+                set_cached_receive_flags(py, &self.state, Some(true), None)?;
+                return Ok(MachineAction::Complete(disconnect_message(py)?));
+            }
+            return self.await_original_receive(py);
+        }
+
+        if let Some(body) = body {
+            set_cached_receive_flags(py, &self.state, None, Some(true))?;
+            return cached_request_message(py, body, false);
+        }
+
+        if stream_consumed {
+            set_cached_receive_flags(py, &self.state, None, Some(true))?;
+            return cached_request_message(py, PyBytes::new(py, b"").into_any().unbind(), false);
+        }
+
+        let stream = request.bind(py).call_method0("stream")?;
+        let awaitable = stream.call_method0("__anext__")?;
+        self.pending = Some(CachedReceivePending::StreamChunk);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn await_original_receive(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let receive = self.state.borrow().receive.clone_ref(py);
+        let awaitable = receive.bind(py).call0()?;
+        self.pending = Some(CachedReceivePending::ConsumedReceive);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn stream_chunk(&mut self, py: Python<'_>, chunk: Py<PyAny>) -> PyResult<MachineAction> {
+        let request = cached_request_object(py, &self.state)?;
+        let (_, stream_consumed, _, _, _) = request_body_receive_state(request.bind(py))?;
+        set_cached_receive_flags(py, &self.state, None, Some(stream_consumed))?;
+        cached_request_message(py, chunk, !stream_consumed)
+    }
+
+    fn consumed_receive(&mut self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
+        let message_bound = message.bind(py).cast::<PyDict>()?;
+        let message_type = message_bound
+            .get_item("type")?
+            .ok_or_else(|| PyKeyError::new_err("type"))?
+            .extract::<String>()?;
+        if message_type != "http.disconnect" {
+            return Err(PyRuntimeError::new_err(format!(
+                "Unexpected message received: {message_type}"
+            )));
+        }
+        set_cached_receive_flags(py, &self.state, Some(true), None)?;
+        Ok(MachineAction::Complete(message))
+    }
+
+    fn receive_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        match self.pending.take() {
+            Some(CachedReceivePending::StreamChunk) => {
+                let client_disconnect = py
+                    .import("starlette.requests")?
+                    .getattr("ClientDisconnect")?;
+                if error.value(py).is_instance(&client_disconnect)? {
+                    set_cached_receive_flags(py, &self.state, Some(true), None)?;
+                    return Ok(MachineAction::Complete(disconnect_message(py)?));
+                }
+                Err(error)
+            }
+            Some(CachedReceivePending::ConsumedReceive) | None => Err(error),
+        }
+    }
+}
+
+fn cached_request_message(
+    py: Python<'_>,
+    body: Py<PyAny>,
+    more_body: bool,
+) -> PyResult<MachineAction> {
+    let message = PyDict::new(py);
+    message.set_item("type", "http.request")?;
+    message.set_item("body", body)?;
+    message.set_item("more_body", more_body)?;
+    Ok(MachineAction::Complete(message.into_any().unbind()))
+}
+
 struct BaseHTTPCallState {
     app: Py<PyAny>,
     scope: Py<PyAny>,
-    receive: Py<PyAny>,
+    request: Py<PyAny>,
+    wrapped_receive: Py<PyAny>,
     send: Py<PyAny>,
     send_stream: Py<PyAny>,
     receive_stream: Py<PyAny>,
@@ -112,8 +367,12 @@ impl BaseHTTPCallState {
         self.scope.clone_ref(py)
     }
 
-    fn clone_receive(&self, py: Python<'_>) -> Py<PyAny> {
-        self.receive.clone_ref(py)
+    fn clone_request(&self, py: Python<'_>) -> Py<PyAny> {
+        self.request.clone_ref(py)
+    }
+
+    fn clone_wrapped_receive(&self, py: Python<'_>) -> Py<PyAny> {
+        self.wrapped_receive.clone_ref(py)
     }
 
     fn clone_send(&self, py: Python<'_>) -> Py<PyAny> {
@@ -198,6 +457,9 @@ impl BaseHTTPCallMachine {
             return Ok(MachineAction::Await(call.unbind()));
         }
 
+        let (request, wrapped_receive) =
+            cached_request_and_receive(py, scope, self.receive.clone_ref(py))?;
+
         let streams = py.import("anyio")?.getattr("create_memory_object_stream")?;
         let (send_stream, receive_stream) = streams.call0()?.extract::<(Py<PyAny>, Py<PyAny>)>()?;
         let response_sent = py.import("anyio")?.getattr("Event")?.call0()?.unbind();
@@ -206,7 +468,8 @@ impl BaseHTTPCallMachine {
         let shared = Rc::new(RefCell::new(BaseHTTPCallState {
             app: self.app.clone_ref(py),
             scope: self.scope.clone_ref(py),
-            receive: self.receive.clone_ref(py),
+            request,
+            wrapped_receive,
             send: self.send.clone_ref(py),
             send_stream,
             receive_stream,
@@ -222,12 +485,10 @@ impl BaseHTTPCallMachine {
 
     fn start_dispatch(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let shared = self.shared_ref()?.clone();
-        let (scope, receive) = {
+        let request = {
             let state = shared.borrow();
-            (state.clone_scope(py), state.clone_receive(py))
+            state.clone_request(py)
         };
-        let request_type = py.import("starlette.requests")?.getattr("Request")?;
-        let request = request_type.call1((scope, receive))?;
         let call_next = Py::new(py, PyBaseHTTPCallNext { shared })?.into_any();
         let dispatch = self.dispatch.bind(py).call1((request, call_next))?;
         self.pending = Some(BaseHTTPPending::Dispatch);
@@ -240,7 +501,7 @@ impl BaseHTTPCallMachine {
             let state = shared.borrow();
             (
                 state.clone_scope(py),
-                state.clone_receive(py),
+                state.clone_wrapped_receive(py),
                 state.clone_send(py),
             )
         };
@@ -374,6 +635,7 @@ impl PyBaseHTTPCallNext {
                 shared: self.shared.clone(),
                 pending_receive: false,
                 info: None,
+                debug_skipped: false,
             },
         )
     }
@@ -383,6 +645,7 @@ struct CallNextMachine {
     shared: SharedCall,
     pending_receive: bool,
     info: Option<Py<PyAny>>,
+    debug_skipped: bool,
 }
 
 impl AwaitableStateMachine for CallNextMachine {
@@ -427,7 +690,7 @@ impl CallNextMachine {
 
     fn make_response(&mut self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
         let message_bound = message.bind(py).cast::<PyDict>()?;
-        let mut info = match message_bound.get_item("info")? {
+        let info = match message_bound.get_item("info")? {
             Some(info) if !info.is_none() => Some(info.unbind()),
             _ => None,
         };
@@ -435,8 +698,9 @@ impl CallNextMachine {
             .get_item("type")?
             .ok_or_else(|| PyKeyError::new_err("type"))?
             .extract::<String>()?;
-        if message_type == "http.response.debug" && info.is_some() {
+        if message_type == "http.response.debug" && info.is_some() && !self.debug_skipped {
             self.info = info;
+            self.debug_skipped = true;
             return self.receive_after_debug(py);
         }
         if message_type != "http.response.start" {
@@ -454,14 +718,10 @@ impl CallNextMachine {
             .ok_or_else(|| PyKeyError::new_err("headers"))?
             .extract::<Vec<(Vec<u8>, Vec<u8>)>>()?;
         let stream = self.shared.borrow().clone_receive_stream(py);
+        let response_info = self.info.take().or(info);
         let response = Py::new(
             py,
-            PyBaseHTTPResponse::new(
-                status_code,
-                raw_headers,
-                info.take().or_else(|| self.info.take()),
-                stream,
-            ),
+            PyBaseHTTPResponse::new(status_code, raw_headers, response_info, stream),
         )?;
         let wrapper = py
             .import("starlette.middleware.base")?
@@ -487,7 +747,7 @@ impl CallNextMachine {
         };
         if let Some(app_error) = app_error {
             self.shared.borrow_mut().exception_already_raised = true;
-            Err(preserve_application_exception(py, app_error)?)
+            Err(preserve_application_exception(py, app_error, &error)?)
         } else {
             let _ = receive_stream;
             Err(PyRuntimeError::new_err("No response returned."))
@@ -591,7 +851,8 @@ impl PyBaseHTTPReceiveOrDisconnect {
             py,
             ReceiveOrDisconnectMachine {
                 shared: self.shared.clone(),
-                pending: false,
+                task_group: None,
+                pending: None,
             },
         )
     }
@@ -599,31 +860,202 @@ impl PyBaseHTTPReceiveOrDisconnect {
 
 struct ReceiveOrDisconnectMachine {
     shared: SharedCall,
-    pending: bool,
+    task_group: Option<Py<PyAny>>,
+    pending: Option<ReceiveOrDisconnectPending>,
+}
+
+enum ReceiveOrDisconnectPending {
+    TaskGroupEnter,
+    Receive,
+    TaskGroupExit {
+        received: Option<Py<PyAny>>,
+        body_error: Option<PyErr>,
+    },
 }
 
 impl AwaitableStateMachine for ReceiveOrDisconnectMachine {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
-            MachineResume::Start => {
-                let (event, receive) = {
-                    let state = self.shared.borrow();
-                    (state.clone_response_sent(py), state.clone_receive(py))
-                };
-                if event.bind(py).call_method0("is_set")?.extract::<bool>()? {
-                    return Ok(MachineAction::Complete(disconnect_message(py)?));
+            MachineResume::Start => self.start(py),
+            MachineResume::Value(value) => match self.pending.take() {
+                Some(ReceiveOrDisconnectPending::TaskGroupEnter) => self.start_race(py),
+                Some(ReceiveOrDisconnectPending::Receive) => self.finish_receive(py, Ok(value)),
+                Some(ReceiveOrDisconnectPending::TaskGroupExit {
+                    received,
+                    body_error,
+                }) => self.finish_task_group(py, received, body_error, value),
+                None => Err(PyRuntimeError::new_err(
+                    "receive callback completed without a pending operation",
+                )),
+            },
+            MachineResume::Error(error) => match self.pending.take() {
+                Some(ReceiveOrDisconnectPending::TaskGroupEnter) => Err(error),
+                Some(ReceiveOrDisconnectPending::Receive) => self.finish_receive(py, Err(error)),
+                Some(ReceiveOrDisconnectPending::TaskGroupExit {
+                    body_error: Some(_),
+                    ..
+                }) => Err(crate::runtime_calls::collapse_single_task_group_error(
+                    py, error,
+                )?),
+                Some(ReceiveOrDisconnectPending::TaskGroupExit { .. }) | None => Err(error),
+            },
+            MachineResume::AsyncIterationComplete(error) => match self.pending.take() {
+                Some(ReceiveOrDisconnectPending::Receive) => self.finish_receive(py, Err(error)),
+                _ => Err(error),
+            },
+        }
+    }
+}
+
+impl ReceiveOrDisconnectMachine {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let event = self.shared.borrow().clone_response_sent(py);
+        if event.bind(py).call_method0("is_set")?.extract::<bool>()? {
+            return Ok(MachineAction::Complete(disconnect_message(py)?));
+        }
+
+        let task_group = py.import("anyio")?.getattr("create_task_group")?.call0()?;
+        let enter = task_group.call_method0("__aenter__")?;
+        self.task_group = Some(task_group.unbind());
+        self.pending = Some(ReceiveOrDisconnectPending::TaskGroupEnter);
+        Ok(MachineAction::Await(enter.unbind()))
+    }
+
+    fn start_race(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let event = self.shared.borrow().clone_response_sent(py);
+        let cancel_scope = self.task_group_ref(py)?.getattr("cancel_scope")?.unbind();
+        let child = into_python_awaitable(
+            py,
+            ResponseSentWaiterMachine {
+                event,
+                cancel_scope,
+                pending: false,
+            },
+        )?;
+        let factory = Py::new(py, AwaitableFactory { awaitable: child })?;
+        if let Err(error) = self
+            .task_group_ref(py)?
+            .call_method1("start_soon", (factory,))
+        {
+            return self.leave_task_group(py, None, Some(error));
+        }
+
+        let receive = self.shared.borrow().clone_wrapped_receive(py);
+        let awaitable = match receive.bind(py).call0() {
+            Ok(awaitable) => awaitable,
+            Err(error) => return self.leave_task_group(py, None, Some(error)),
+        };
+        self.pending = Some(ReceiveOrDisconnectPending::Receive);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn finish_receive(
+        &mut self,
+        py: Python<'_>,
+        result: Result<Py<PyAny>, PyErr>,
+    ) -> PyResult<MachineAction> {
+        match result {
+            Ok(received) => {
+                if let Err(error) = self.cancel_task_group(py) {
+                    return self.leave_task_group(py, None, Some(error));
                 }
-                let awaitable = receive.bind(py).call0()?;
-                self.pending = true;
-                Ok(MachineAction::Await(awaitable.unbind()))
+                self.leave_task_group(py, Some(received), None)
             }
-            MachineResume::Value(value) if self.pending => Ok(MachineAction::Complete(value)),
-            MachineResume::Value(_) => Err(PyRuntimeError::new_err(
-                "receive callback completed without a pending receive",
-            )),
-            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+            Err(error) => self.leave_task_group(py, None, Some(error)),
+        }
+    }
+
+    fn leave_task_group(
+        &mut self,
+        py: Python<'_>,
+        received: Option<Py<PyAny>>,
+        body_error: Option<PyErr>,
+    ) -> PyResult<MachineAction> {
+        let task_group = self.task_group_ref(py)?;
+        let awaitable = match body_error.as_ref() {
+            Some(error) => {
+                let traceback = error
+                    .traceback(py)
+                    .map_or_else(|| py.None().into_bound(py), Bound::into_any);
+                task_group.call_method1(
+                    "__aexit__",
+                    (error.get_type(py), error.value(py), traceback),
+                )?
+            }
+            None => task_group.call_method1("__aexit__", (py.None(), py.None(), py.None()))?,
+        };
+        self.pending = Some(ReceiveOrDisconnectPending::TaskGroupExit {
+            received,
+            body_error,
+        });
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn finish_task_group(
+        &mut self,
+        py: Python<'_>,
+        received: Option<Py<PyAny>>,
+        body_error: Option<PyErr>,
+        suppressed: Py<PyAny>,
+    ) -> PyResult<MachineAction> {
+        if let Some(error) = body_error {
+            let suppressed = suppressed.bind(py).is_truthy()?;
+            let event = self.shared.borrow().clone_response_sent(py);
+            if suppressed && event.bind(py).call_method0("is_set")?.extract::<bool>()? {
+                return Ok(MachineAction::Complete(disconnect_message(py)?));
+            }
+            return Err(error);
+        }
+
+        let event = self.shared.borrow().clone_response_sent(py);
+        if event.bind(py).call_method0("is_set")?.extract::<bool>()? {
+            return Ok(MachineAction::Complete(disconnect_message(py)?));
+        }
+        received
+            .map(MachineAction::Complete)
+            .ok_or_else(|| PyRuntimeError::new_err("receive race completed without a message"))
+    }
+
+    fn cancel_task_group(&self, py: Python<'_>) -> PyResult<()> {
+        self.task_group_ref(py)?
+            .getattr("cancel_scope")?
+            .call_method0("cancel")?;
+        Ok(())
+    }
+
+    fn task_group_ref<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        self.task_group
+            .as_ref()
+            .map(|task_group| task_group.bind(py).clone())
+            .ok_or_else(|| PyRuntimeError::new_err("receive race task group was not initialized"))
+    }
+}
+
+struct ResponseSentWaiterMachine {
+    event: Py<PyAny>,
+    cancel_scope: Py<PyAny>,
+    pending: bool,
+}
+
+impl AwaitableStateMachine for ResponseSentWaiterMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start if !self.pending => {
+                let wait = self.event.bind(py).call_method0("wait")?;
+                self.pending = true;
+                Ok(MachineAction::Await(wait.unbind()))
+            }
+            MachineResume::Value(value) if self.pending => {
+                self.pending = false;
+                self.cancel_scope.bind(py).call_method0("cancel")?;
+                Ok(MachineAction::Complete(value))
+            }
+            MachineResume::Error(error) | MachineResume::AsyncIterationComplete(error) => {
                 Err(error)
             }
+            _ => Err(PyRuntimeError::new_err(
+                "response completion waiter resumed without a pending wait",
+            )),
         }
     }
 }
@@ -1213,21 +1645,29 @@ fn is_broken_resource(py: Python<'_>, error: &PyErr) -> PyResult<bool> {
     error.value(py).is_instance(&broken_resource)
 }
 
-fn preserve_application_exception(py: Python<'_>, error: PyErr) -> PyResult<PyErr> {
+fn preserve_application_exception(
+    py: Python<'_>,
+    error: PyErr,
+    end_of_stream: &PyErr,
+) -> PyResult<PyErr> {
     let value = error.value(py);
     let cause = value.getattr("__cause__")?;
     let cause = if cause.is_truthy()? {
-        Some(PyErr::from_value(cause))
+        cause
     } else {
-        let suppress_context = value.getattr("__suppress_context__")?.extract::<bool>()?;
-        let context = value.getattr("__context__")?;
-        if suppress_context || context.is_none() {
-            None
-        } else {
-            Some(PyErr::from_value(context))
-        }
+        value.getattr("__context__")?
+    };
+    let cause = if cause.is_none() {
+        None
+    } else {
+        Some(PyErr::from_value(cause))
     };
     error.set_cause(py, cause);
+    // This is the context Python attaches when Starlette re-raises app_exc from
+    // inside its `except EndOfStream` block.
+    error
+        .value(py)
+        .setattr("__context__", end_of_stream.value(py))?;
     Ok(error)
 }
 

@@ -63,10 +63,19 @@
           "query_string_base64": "",
           "root_path": "",
           "headers_base64_pairs": [
-            ["aG9zdA==", "dGVzdHNlcnZlcg=="]
+            [
+              "aG9zdA==",
+              "dGVzdHNlcnZlcg=="
+            ]
           ],
-          "client": ["127.0.0.1", 12345],
-          "server": ["testserver", 80]
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
         },
         "receive": [
           {
@@ -74,7 +83,9 @@
             "body_base64": "",
             "more_body": false
           }
-        ]
+        ],
+        "receive_after_events": "disconnect",
+        "send_checkpoints": []
       },
       "observations": [
         "base-http-workflow"
@@ -126,10 +137,19 @@
           "query_string_base64": "",
           "root_path": "",
           "headers_base64_pairs": [
-            ["aG9zdA==", "dGVzdHNlcnZlcg=="]
+            [
+              "aG9zdA==",
+              "dGVzdHNlcnZlcg=="
+            ]
           ],
-          "client": ["127.0.0.1", 12345],
-          "server": ["testserver", 80]
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
         },
         "receive": [
           {
@@ -137,7 +157,292 @@
             "body_base64": "",
             "more_body": false
           }
+        ],
+        "receive_after_events": "disconnect",
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.body-cache-replay",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.body-cache-replay"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "methods": [
+              "POST"
+            ],
+            "endpoint": {
+              "kind": "request-body-response"
+            }
+          }
+        ],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "read-request-body"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "read-request-body"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          }
         ]
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "POST",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [
+            [
+              "aG9zdA==",
+              "dGVzdHNlcnZlcg=="
+            ]
+          ],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "Y2FjaGUt",
+            "more_body": true
+          },
+          {
+            "type": "http.request",
+            "body_base64": "cmVwbGF5",
+            "more_body": false
+          }
+        ],
+        "receive_after_events": "disconnect",
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.response-completion-unblocks-downstream-receive",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-replacement-response",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.response-completion-unblocks-downstream-receive"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "return-plain-text-response",
+                "content": "Custom",
+                "status_code": 200
+              }
+            ]
+          }
+        ],
+        "downstream": {
+          "kind": "asgi-sequence",
+          "steps": [
+            {
+              "kind": "receive"
+            },
+            {
+              "kind": "send",
+              "message": {
+                "type": "http.response.start",
+                "status": 200,
+                "headers_base64_pairs": [
+                  [
+                    "Y29udGVudC10eXBl",
+                    "dGV4dC9wbGFpbg=="
+                  ]
+                ]
+              }
+            },
+            {
+              "kind": "receive"
+            }
+          ]
+        }
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [
+            [
+              "aG9zdA==",
+              "dGVzdHNlcnZlcg=="
+            ]
+          ],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "receive_after_events": "block",
+        "send_checkpoints": [
+          0,
+          1
+        ]
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.exception-context-propagation",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.exception-context-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "raise-exception",
+              "exception": {
+                "class": "Exception",
+                "message": "Exception"
+              }
+            }
+          }
+        ],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [
+            [
+              "aG9zdA==",
+              "dGVzdHNlcnZlcg=="
+            ]
+          ],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "receive_after_events": "disconnect",
+        "send_checkpoints": []
       },
       "observations": [
         "base-http-workflow"
