@@ -76,13 +76,32 @@ struct RouterRoutes {
     custom_websocket_indexes: Vec<usize>,
 }
 
-#[derive(Clone, PartialEq, Eq)]
 struct RouteSignature {
     identity: usize,
     kind: RouteKind,
     path: String,
+    path_value: Py<PyAny>,
     custom: bool,
     methods: Vec<String>,
+    method_values: Vec<Py<PyAny>>,
+}
+
+impl RouteSignature {
+    fn clone_ref(&self, py: Python<'_>) -> Self {
+        Self {
+            identity: self.identity,
+            kind: self.kind,
+            path: self.path.clone(),
+            path_value: self.path_value.clone_ref(py),
+            custom: self.custom,
+            methods: self.methods.clone(),
+            method_values: self
+                .method_values
+                .iter()
+                .map(|value| value.clone_ref(py))
+                .collect(),
+        }
+    }
 }
 
 struct CachedRouterRoutes {
@@ -216,7 +235,10 @@ impl RouteTypes {
             let mut state = RouterRoutes::new();
             let mut signatures = Vec::new();
             for route in source.try_iter()? {
-                let (signature, route) = self.inspect_route(py, route?)?;
+                let (signature, route) = self.inspect_route(py, route?, None)?;
+                let signature = signature.ok_or_else(|| {
+                    PyRuntimeError::new_err("initial route inspection did not produce metadata")
+                })?;
                 Self::register_route(&mut state, &signature, route)?;
                 signatures.push(signature);
             }
@@ -226,18 +248,28 @@ impl RouteTypes {
         let mut prefix_len = 0;
         let mut route_iterator = source.try_iter()?;
         while let Some(route) = route_iterator.next() {
-            let (signature, route) = self.inspect_route(py, route?)?;
-            if cached.signatures.get(prefix_len) == Some(&signature) {
+            let cached_signature = cached.signatures.get(prefix_len);
+            let (signature, route) = self.inspect_route(py, route?, cached_signature)?;
+            if signature.is_none() {
                 prefix_len += 1;
                 continue;
             }
 
             let mut state = Self::routes_from_prefix(py, &cached, prefix_len)?;
-            let mut signatures = cached.signatures[..prefix_len].to_vec();
+            let mut signatures: Vec<RouteSignature> = cached.signatures[..prefix_len]
+                .iter()
+                .map(|entry| entry.clone_ref(py))
+                .collect();
+            let signature = signature.ok_or_else(|| {
+                PyRuntimeError::new_err("changed route inspection did not produce metadata")
+            })?;
             Self::register_route(&mut state, &signature, route)?;
             signatures.push(signature);
             for route in route_iterator {
-                let (signature, route) = self.inspect_route(py, route?)?;
+                let (signature, route) = self.inspect_route(py, route?, None)?;
+                let signature = signature.ok_or_else(|| {
+                    PyRuntimeError::new_err("initial route inspection did not produce metadata")
+                })?;
                 Self::register_route(&mut state, &signature, route)?;
                 signatures.push(signature);
             }
@@ -252,7 +284,10 @@ impl RouteTypes {
         Ok(Self::cache_routes(
             cache,
             state,
-            cached.signatures[..prefix_len].to_vec(),
+            cached.signatures[..prefix_len]
+                .iter()
+                .map(|entry| entry.clone_ref(py))
+                .collect(),
         ))
     }
 
@@ -260,7 +295,8 @@ impl RouteTypes {
         &self,
         py: Python<'_>,
         route: Bound<'_, PyAny>,
-    ) -> PyResult<(RouteSignature, Py<PyAny>)> {
+        cached: Option<&RouteSignature>,
+    ) -> PyResult<(Option<RouteSignature>, Py<PyAny>)> {
         let kind = if route.is_instance(self.mount.bind(py))? {
             RouteKind::Mount
         } else if route.is_instance(self.host.bind(py))? {
@@ -280,23 +316,92 @@ impl RouteTypes {
         } else {
             "path"
         };
-        let path = route.getattr(path_attribute)?.extract::<String>()?;
+        let path_value = route.getattr(path_attribute)?;
         let custom = route
             .getattr("_uses_custom_convertors")?
             .extract::<bool>()?;
-        let methods = if matches!(kind, RouteKind::Http) && !custom {
-            route_methods(&route)?
+        let identity = route.as_ptr() as usize;
+        let cached =
+            cached.filter(|signature| signature.identity == identity && signature.kind == kind);
+        let path_matches =
+            cached.is_some_and(|signature| signature.path_value.bind(py).is(&path_value));
+        let mut changed = cached.is_none()
+            || !path_matches
+            || cached.is_some_and(|signature| signature.custom != custom);
+        let path = if path_matches {
+            None
         } else {
-            Vec::new()
+            Some(path_value.extract::<String>()?)
+        };
+        let mut methods = Vec::new();
+        let mut method_values = Vec::new();
+
+        if matches!(kind, RouteKind::Http) && !custom {
+            let methods_value = route.getattr("methods")?;
+            let mut method_count = 0;
+            if !methods_value.is_none() {
+                for method in methods_value.try_iter()? {
+                    let method = method?;
+                    let matches_cached = cached
+                        .and_then(|signature| signature.method_values.get(method_count))
+                        .is_some_and(|cached_method| cached_method.bind(py).is(&method));
+                    if !matches_cached && !changed {
+                        if let Some(signature) = cached {
+                            methods.extend(signature.methods[..method_count].iter().cloned());
+                            method_values.extend(
+                                signature.method_values[..method_count]
+                                    .iter()
+                                    .map(|value| value.clone_ref(py)),
+                            );
+                        }
+                        changed = true;
+                    }
+                    if changed {
+                        methods.push(method.extract::<String>()?);
+                        method_values.push(method.unbind());
+                    }
+                    method_count += 1;
+                }
+            }
+
+            if !changed
+                && cached.is_some_and(|signature| signature.method_values.len() != method_count)
+            {
+                if let Some(signature) = cached {
+                    methods.extend(signature.methods[..method_count].iter().cloned());
+                    method_values.extend(
+                        signature.method_values[..method_count]
+                            .iter()
+                            .map(|value| value.clone_ref(py)),
+                    );
+                }
+                changed = true;
+            }
+        } else if cached.is_some_and(|signature| !signature.method_values.is_empty()) {
+            changed = true;
+        }
+
+        if !changed {
+            return Ok((None, route.unbind()));
+        }
+
+        let path = match path {
+            Some(path) => path,
+            None => cached
+                .ok_or_else(|| PyRuntimeError::new_err("changed route is missing its cached path"))?
+                .path
+                .clone(),
         };
         let signature = RouteSignature {
-            identity: route.as_ptr() as usize,
+            identity,
             kind,
             path,
+            path_value: path_value.unbind(),
             custom,
             methods,
+            method_values,
         };
-        Ok((signature, route.unbind()))
+        Ok((Some(signature), route.unbind()))
     }
 
     fn register_route(

@@ -15,17 +15,17 @@ run with `python3.12 -m scripts.parity.cli benchmark-upstream`. The result is
 written to `build/parity/upstream-benchmark-result.json`; it records source
 revision `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, pinned benchmark-file
 hashes, and active input-catalog and manifest hashes. The latest run,
-`a58d7ed9-6bc8-4ceb-a410-559f830f93b1`, ran from
-`2026-09-29T21:50:28.617Z` to `2026-09-29T21:53:14.389Z` and measured all 74
+`7c05f648-8d59-4b0a-a1f0-5001e37c491d`, ran from
+`2026-09-29T22:06:37.031Z` to `2026-09-29T22:09:26.394Z` and measured all 74
 source/package workloads with zero failures or not-run rows. Its separate
 Rust-native lane remains unsupported for all 74 workloads. The correctness
-preflight, `0222f6cd-f1d3-465b-8400-76d5250a3f45`, selected 537 comparisons:
+preflight, `96a4315c-6641-42b9-9e4d-8dc0df9d15fb`, selected 537 comparisons:
 533 passed, zero failed or hit infrastructure errors, and four Rust-native
 Python-callable cases were explicitly `not_run` (Python package 387/387;
 Rust-native 146 passed, 4 not_run). Its manifest SHA-256 is
 `44e45ddbf67daa09a23ce54a3f0d43e83b8b77e00fa704ceac904374c2661766`. The
 benchmark wheel artifact SHA-256 is
-`6b0a8967646e637d527d2405947d6763ea2ce21a567e89506cbaec7393a3d6c7`. This is
+`3d4a006c5478e5708a2774b73837f13a4ff9f942689e60c97975a69e8fdadbca`. This is
 local workload-specific evidence, not full compatibility or release proof.
 
 Earlier full parity runs `a217b1d7-5baa-45e2-a3c1-7f373b8a5d5d` and
@@ -52,7 +52,7 @@ are ignored local outputs and are not committed.
 
 | Evidence | Artifact | Result |
 | --- | --- | --- |
-| Router/GZip upstream runner, latest run | `build/parity/upstream-benchmark-result.json` | `completed`; run `a58d7ed9-6bc8-4ceb-a410-559f830f93b1`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 separate Rust-native workloads unsupported; preflight `0222f6cd-f1d3-465b-8400-76d5250a3f45`: 533 pass, 4 unsupported native rows `not_run` |
+| Router/GZip upstream runner, latest run | `build/parity/upstream-benchmark-result.json` | `completed`; run `7c05f648-8d59-4b0a-a1f0-5001e37c491d`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 separate Rust-native workloads unsupported; preflight `96a4315c-6641-42b9-9e4d-8dc0df9d15fb`: 533 pass, 4 unsupported native rows `not_run` |
 | Router/GZip upstream runner, preceding failed attempt | `build/parity/upstream-benchmark-result.json` | Historical `not_proven`; run `2311eb92-753a-4d59-a882-a0d06ef1970e`; 0/74 measured because two debug traceback comparisons failed preflight |
 | Direct-ASGI smoke correctness | `build/parity/benchmark-correctness-result.json` | Historical smoke gate; separate from the 74-workload runner |
 | Direct-ASGI smoke measurement | `build/parity/benchmark-result.json` | Historical smoke result `not_proven`; does not describe the completed upstream runner |
@@ -114,20 +114,22 @@ boundary is not equivalent. The strict aggregator accepts the artifact, while
 the overall project status remains `not_proven` because the full compatibility
 denominator is incomplete.
 
-The median per-workload source/package ratio was 0.524 for Router and 0.964
+The median per-workload source/package ratio was 0.715 for Router and 0.979
 for GZip. Values below 1 mean the pinned source median was lower for the
 typical workload in that group; individual workloads vary. The package was
-slower on all six Router workloads and faster on 15 of 68 GZip workloads. The
-preceding Router ratio was 0.377 under the same manifest and measurement
-policy; the increase is a favorable local observation, but the package remains
-slower on every Router workload. These are matched local timer measurements
-and workload-specific observations, not a general performance claim.
+slower on five of six Router workloads and faster on 21 of 68 GZip workloads.
+The preceding Router ratios were 0.524 and 0.377 under the same manifest and
+measurement policy; the increase is a favorable local observation, but the
+package remains slower on most Router workloads. These are matched local timer
+measurements and workload-specific observations, not a general performance
+claim.
 
 The public Python `Router.__call__` path used by the six upstream Router
 benchmarks runs through the Rust matcher, including default string parameters.
 The Rust wrapper now reuses compiled route tables while the live route order,
 object identities, paths, converter modes, and table-backed HTTP methods stay
-unchanged; changes to those inputs trigger a rebuild.
+unchanged; it validates unchanged Python string identities without re-extracting
+their contents, and changes to those inputs trigger a rebuild.
 The 68 GZip measurements follow the pinned payload and configuration
 workloads. This lane does not prove Python request-handler parity or make a
 Rust-native performance claim.

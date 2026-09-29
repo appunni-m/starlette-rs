@@ -27,17 +27,18 @@ with no conventional Python or Rust unit-test suite.
 The source atlas is complete, while the full Starlette replacement remains
 active and incomplete. The latest contract has 389 input-only cases across 42
 files, 61 operations, and 446 requirements. Run
-`5d896a88-f69c-43f2-899b-68e1d864ca74` selected 537 comparisons: 533 passed,
+`cc91fa22-48c0-4a76-91a9-5ed61236ead5` selected 537 comparisons: 533 passed,
 zero failed, zero infrastructure errors, and four Rust-native callable
 boundaries were `not_run`. The Python package passed all 387 selected cases;
 Rust-native passed 146 of 150. One Jinja2 template workflow now passes on the
 Python package. The 20 URL-scope, 14 URL-component, and seven
 Headers/MutableHeaders cases all passed on the Python package. The latest
-Router/GZip run `a58d7ed9-6bc8-4ceb-a410-559f830f93b1` measured all 74
+Router/GZip run `7c05f648-8d59-4b0a-a1f0-5001e37c491d` measured all 74
 source/package workloads after current-manifest parity preflight
-`0222f6cd-f1d3-465b-8400-76d5250a3f45`. Router's median source/package ratio
-improved from 0.377 to 0.524 under the same manifest, though the package stays
-slower on all six Router workloads. See [Benchmark mapping](../BENCHMARKS.md)
+`96a4315c-6641-42b9-9e4d-8dc0df9d15fb`. Router's median source/package ratio
+improved from 0.377 through 0.524 to 0.715 under the same manifest, though the
+package stays slower on five of six Router workloads. See
+[Benchmark mapping](../BENCHMARKS.md)
 for the timing summary and limits. These
 bounded results do not establish full compatibility.
 
@@ -148,12 +149,12 @@ exception-group shapes beyond the observed TaskGroup context, varied or
 malformed `http.response.debug` frames, cancellation and cleanup ordering,
 path-send combinations beyond the covered FileResponse forwarding case, and additional streaming behaviors remain unproven. The
 Rust-native target was clean at revision
-`b86fe0caabda98894d6e3c62b516e9f967ecbe23+source-fnv1a64-3f737351c1674203`;
+`7ab9f0cee22b03035b96c2c2df5c66cc6a1d28c8+source-fnv1a64-3f737351c1674203`;
 the Python-package target tree SHA-256 is
-`267843317e5c7260f3d8fd30235e3924629de13a05c2b7c5717c479a8851612a`. Manifest
+`99fd7a11cb20c8a9bda279f5807b621c4dd3a08f86dca79503bb135319edc492`. Manifest
 SHA-256: `44e45ddbf67daa09a23ce54a3f0d43e83b8b77e00fa704ceac904374c2661766`;
 package wheel SHA-256:
-`f47562b00db54273400363faf3880ba98362ae635bc97a9f4e2edff345e714ba`. See
+`4a1736486aed60dc5a4e1894c076f919617080548874f4f79d385f72d9e88a00`. See
 [Migration parity contract and evidence](../PARITY.md) for current scope and
 the case breakdown; Rust-native parity remains incomplete.
 

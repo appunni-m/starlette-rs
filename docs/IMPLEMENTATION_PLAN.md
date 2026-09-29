@@ -36,8 +36,8 @@ The current parity contract has 389 input-only cases, 61 operations, and 446
 parity requirements across 42 indexed files, including URL scope and component
 construction, Headers and MutableHeaders, bounded SessionMiddleware and
 BaseHTTPMiddleware workflow slices, and one Jinja2 template workflow. Latest
-integrated run `5d896a88-f69c-43f2-899b-68e1d864ca74`, from
-`2026-09-29T21:48:54.714Z` to `2026-09-29T21:50:09.118Z`, selected 537 profile
+integrated run `cc91fa22-48c0-4a76-91a9-5ed61236ead5`, from
+`2026-09-29T22:05:02.321Z` to `2026-09-29T22:06:19.765Z`, selected 537 profile
 comparisons: 533 passed, zero failed, zero infrastructure errors, and four
 were `not_run`. The Python package passed all 387 selected comparisons;
 Rust-native passed 146 of 150, with four Python-callable rows `not_run`. All 20 URL scope, 14 URL component,
@@ -86,9 +86,9 @@ downstream cancellation, replacement response events, and disconnect
 observations. The pathsend case maps to
 `tests/middleware/test_base.py:1219-1259` and forwards FileResponse events
 through BaseHTTPMiddleware while its receive callback remains unused. The installed package artifact SHA-256 is
-`f47562b00db54273400363faf3880ba98362ae635bc97a9f4e2edff345e714ba`; its
+`4a1736486aed60dc5a4e1894c076f919617080548874f4f79d385f72d9e88a00`; its
 content tree SHA-256 is
-`267843317e5c7260f3d8fd30235e3924629de13a05c2b7c5717c479a8851612a`.
+`99fd7a11cb20c8a9bda279f5807b621c4dd3a08f86dca79503bb135319edc492`.
 Manifest SHA-256:
 `44e45ddbf67daa09a23ce54a3f0d43e83b8b77e00fa704ceac904374c2661766`.
 `make parity-run` exits with status 2 for the four explicitly unsupported
@@ -302,20 +302,20 @@ dependencies feature-gated and preserve unsupported coverage visibly.
 The pinned Starlette 1.6.0 Router/GZip workload catalog contains six Router
 and 68 GZip benchmark IDs. All 74 have input-only descriptors and exact
 source-versus-installed-package correctness gates. Latest run
-`a58d7ed9-6bc8-4ceb-a410-559f830f93b1` ran from
-`2026-09-29T21:50:28.617Z` to `2026-09-29T21:53:14.389Z` and measured all 74
+`7c05f648-8d59-4b0a-a1f0-5001e37c491d` ran from
+`2026-09-29T22:06:37.031Z` to `2026-09-29T22:09:26.394Z` and measured all 74
 source/package workloads with zero failures and zero not-run rows. Its
-correctness preflight, `0222f6cd-f1d3-465b-8400-76d5250a3f45`, used the current
+correctness preflight, `96a4315c-6641-42b9-9e4d-8dc0df9d15fb`, used the current
 manifest and selected 537 comparisons: 533 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
 `not_run` (package 387/387; Rust-native 146 passed, 4 not_run). Current
 manifest SHA-256 is
 `44e45ddbf67daa09a23ce54a3f0d43e83b8b77e00fa704ceac904374c2661766`.
 Benchmark wheel SHA-256:
-`6b0a8967646e637d527d2405947d6763ea2ce21a567e89506cbaec7393a3d6c7`.
-The median per-workload source/package ratios are 0.524 for Router and 0.964
-for GZip; the previous Router ratio was 0.377, while all six Router workloads
-remain slower than the source package.
+`3d4a006c5478e5708a2774b73837f13a4ff9f942689e60c97975a69e8fdadbca`.
+The median per-workload source/package ratios are 0.715 for Router and 0.979
+for GZip. The previous Router ratios were 0.524 and 0.377; the package remains
+slower on five of six Router workloads.
 
 Rust-native remains `not_run` for all 74 because its public API does not expose
 the same Starlette Router/GZip dispatch boundary. The result is accepted by the

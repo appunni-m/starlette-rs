@@ -26,8 +26,8 @@ bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration,
 schemas, and one bounded Python-package Jinja2 template workflow. The exact operation and profile denominator is in the parity
 manifest; generated JSON and run results remain ignored local build outputs.
 
-Integrated run `5d896a88-f69c-43f2-899b-68e1d864ca74` started at
-`2026-09-29T21:48:54.714Z` and finished at `2026-09-29T21:50:09.118Z`. It
+Integrated run `cc91fa22-48c0-4a76-91a9-5ed61236ead5` started at
+`2026-09-29T22:05:02.321Z` and finished at `2026-09-29T22:06:19.765Z`. It
 selected 537 profile comparisons: 533 passed, zero failed, zero infrastructure
 errors, and four Rust-native comparisons were `not_run`. The Python package
 passed all 387 selected comparisons; Rust-native passed 146 of 150, with four
@@ -102,13 +102,13 @@ through BaseHTTPMiddleware without calling the receive callback. The catch case 
 `tests/middleware/test_base.py:338-356`: dispatch catches `ValueError("TEST")`
 from `call_next` and returns status 400 with body `TEST`. The Rust-native target
 was clean at revision
-`b86fe0caabda98894d6e3c62b516e9f967ecbe23+source-fnv1a64-3f737351c1674203`;
+`7ab9f0cee22b03035b96c2c2df5c66cc6a1d28c8+source-fnv1a64-3f737351c1674203`;
 the installed Python-package target was dirty with tree SHA-256
-`267843317e5c7260f3d8fd30235e3924629de13a05c2b7c5717c479a8851612a`.
+`99fd7a11cb20c8a9bda279f5807b621c4dd3a08f86dca79503bb135319edc492`.
 Manifest SHA-256:
 `44e45ddbf67daa09a23ce54a3f0d43e83b8b77e00fa704ceac904374c2661766`.
 Parity wheel artifact SHA-256:
-`f47562b00db54273400363faf3880ba98362ae635bc97a9f4e2edff345e714ba`.
+`4a1736486aed60dc5a4e1894c076f919617080548874f4f79d385f72d9e88a00`.
 The four unsupported Rust-native Python-callable rows keep the overall gate
 incomplete; this run is not full parity or release proof.
 Thirty-eight StaticFiles cases are authored across
