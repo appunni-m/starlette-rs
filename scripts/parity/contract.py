@@ -16,7 +16,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@4"
+INPUT_SCHEMA = "migration-parity/parity-input@5"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -3263,7 +3263,10 @@ def _validate_static_asset_file(value: Any, context: str) -> tuple[str, float]:
 
 
 def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
-    case_keys = STREAMING_RESPONSE_CASE_KEYS | ({"background"} if "background" in case else set())
+    optional_keys = {
+        key for key in ("background", "receive_behavior", "stream_lifecycle") if key in case
+    }
+    case_keys = STREAMING_RESPONSE_CASE_KEYS | optional_keys
     _exact(case, case_keys, "StreamingResponse asgi-call case")
     if case["surface"] != STREAMING_RESPONSE_SURFACE or case["operation"] not in {
         STREAMING_RESPONSE_OPERATION,
@@ -3277,9 +3280,22 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     if case["streaming"] not in {"sync", "async-iterator", "async-generator"}:
         raise ContractError("StreamingResponse streaming must select a declared iterator mode")
 
-    content = _exact(case["content"], {"kind", "value"}, "StreamingResponse content")
-    if content["kind"] != "chunks" or not isinstance(content["value"], list):
-        raise ContractError("StreamingResponse content must contain an array of chunks")
+    content_value = case["content"]
+    content_keys = {"kind", "value"}
+    if isinstance(content_value, dict) and content_value.get("kind") == "repeating-chunks":
+        content_keys.add("checkpoint")
+    content = _exact(content_value, content_keys, "StreamingResponse content")
+    if content["kind"] not in {"chunks", "repeating-chunks"} or not isinstance(
+        content["value"], list
+    ):
+        raise ContractError("StreamingResponse content must contain a declared chunk array")
+    repeating_chunks = content["kind"] == "repeating-chunks"
+    if repeating_chunks and not content["value"]:
+        raise ContractError("StreamingResponse repeating content must contain at least one chunk")
+    if repeating_chunks and content["checkpoint"] != "yield-to-event-loop":
+        raise ContractError(
+            "repeating StreamingResponse content must declare its event-loop checkpoint"
+        )
     chunks: list[tuple[str, str]] = []
     for index, chunk in enumerate(content["value"]):
         chunk = _exact(chunk, {"kind", "value"}, f"StreamingResponse content[{index}]")
@@ -3289,6 +3305,13 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         }:
             raise ContractError("StreamingResponse chunks must be text or base64 bytes")
         value = _string(chunk["value"], f"StreamingResponse content[{index}].value")
+        if chunk["kind"] == "base64-bytes":
+            try:
+                base64.b64decode(value, validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError(
+                    f"StreamingResponse content[{index}].value must be valid base64"
+                ) from exc
         chunks.append((chunk["kind"], value))
 
     headers = case["header_pairs"]
@@ -3318,6 +3341,35 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or any(not isinstance(value, str) for value in background["values"])
         ):
             raise ContractError("StreamingResponse background values must be non-empty strings")
+
+    stream_lifecycle = case.get("stream_lifecycle")
+    if stream_lifecycle is not None:
+        stream_lifecycle = _exact(
+            stream_lifecycle,
+            {"kind", "cancellation_marker", "finally_marker"},
+            "StreamingResponse stream lifecycle recorder",
+        )
+        if stream_lifecycle["kind"] != "cancellation-and-finally-recorder":
+            raise ContractError("StreamingResponse stream lifecycle recorder kind is unsupported")
+        for key in ("cancellation_marker", "finally_marker"):
+            if not _string(stream_lifecycle[key], f"StreamingResponse stream_lifecycle.{key}"):
+                raise ContractError(f"StreamingResponse stream_lifecycle.{key} must not be empty")
+
+    receive_behavior = case.get("receive_behavior")
+    if receive_behavior is not None:
+        receive_behavior = _exact(
+            receive_behavior,
+            {"kind", "minimum_body_bytes"},
+            "StreamingResponse receive behavior",
+        )
+        if (
+            receive_behavior["kind"] != "disconnect-after-body-bytes"
+            or type(receive_behavior["minimum_body_bytes"]) is not int
+            or receive_behavior["minimum_body_bytes"] < 1
+        ):
+            raise ContractError(
+                "StreamingResponse receive behavior must declare a positive body-byte threshold"
+            )
 
     stimulus = (tuple(chunks), tuple(tuple(pair) for pair in headers), media_type)
     allowed_sync = {
@@ -3367,20 +3419,57 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         "text/plain",
     )
     if case["streaming"] == "sync":
-        if stimulus not in allowed_sync or background is not None:
+        if (
+            repeating_chunks
+            or stimulus not in allowed_sync
+            or background is not None
+            or stream_lifecycle is not None
+            or receive_behavior is not None
+        ):
             raise ContractError("StreamingResponse chunks and headers are outside this input slice")
     elif case["streaming"] == "async-iterator":
         if (
-            stimulus != async_iterator_stimulus
+            repeating_chunks
+            or stimulus != async_iterator_stimulus
             or background is not None
+            or stream_lifecycle is not None
+            or receive_behavior is not None
             or case["target_profiles"] != ["python-package-cpython312"]
         ):
             raise ContractError(
                 "StreamingResponse async-iterator input is limited to its declared Python-package case"
             )
+    elif repeating_chunks:
+        if (
+            case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
+            or stream_lifecycle is None
+            or receive_behavior is None
+            or case["target_profiles"] != ["python-package-cpython312"]
+        ):
+            raise ContractError(
+                "repeating StreamingResponse generators require lifecycle and gated-disconnect inputs"
+            )
+        try:
+            spec_version = tuple(
+                int(part) for part in case["scope"]["asgi"].get("spec_version", "2.0").split(".")
+            )
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
+        if spec_version >= (2, 4):
+            raise ContractError("gated disconnect behavior requires a pre-ASGI-2.4 response scope")
+        repeated_chunk_bytes = sum(
+            len(value.encode("utf-8"))
+            if kind == "text"
+            else len(base64.b64decode(value, validate=True))
+            for kind, value in chunks
+        )
+        if repeated_chunk_bytes == 0:
+            raise ContractError("repeating StreamingResponse content must send non-empty bytes")
     elif (
         stimulus != async_generator_stimulus
         or background is None
+        or stream_lifecycle is not None
+        or receive_behavior is not None
         or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
         or case["target_profiles"] != ["python-package-cpython312"]
     ):
@@ -3426,6 +3515,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         },
         request_dispatch=True,
         allow_oserror_send=send_raises_oserror,
+        allow_pre_asgi24_disconnect=receive_behavior is not None,
     )
     if case["scope"]["query_string_base64"] != "" or case["scope"]["headers_base64_pairs"] != []:
         raise ContractError("Response asgi-call scope uses the direct HTTP baseline")
@@ -4450,8 +4540,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = REQUEST_IS_DISCONNECTED_CASE_KEYS
     elif is_status_symbols:
         expected_case_keys = STATUS_CASE_KEYS
-    if is_streaming_response and "background" in case:
-        expected_case_keys = expected_case_keys | {"background"}
+    if is_streaming_response:
+        expected_case_keys = expected_case_keys | {
+            key for key in ("background", "receive_behavior", "stream_lifecycle") if key in case
+        }
     _exact(case, expected_case_keys, "case")
     case_id = _string(case["case_id"], "case.case_id")
     is_gzip = case["surface"] == GZIP_SURFACE
@@ -4789,7 +4881,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 and not record_matches
                 and "any_json" not in allowed_types
                 # JSON cannot encode Python exception-class keys or callback
-                # values. parity-input@4 therefore encodes this declared
+                # values. parity-input@5 therefore encodes this declared
                 # mapping parameter as an ordered array of tagged entries;
                 # `_validate_application_stimulus` validates and materializes
                 # that representation before either live adapter calls Starlette.
@@ -5806,6 +5898,7 @@ def _validate_dispatch_stimulus(
     allow_lifespan_callback_failures: bool = False,
     allow_inherited_mount_scope: bool = False,
     allow_http_disconnect: bool = False,
+    allow_pre_asgi24_disconnect: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -5877,10 +5970,18 @@ def _validate_dispatch_stimulus(
             raw_path_matches = unquote_to_bytes(raw_path.decode("ascii")) == path_bytes
         if not raw_path_matches:
             raise ContractError("raw_path bytes must match the declared path")
-        if (
-            scope["asgi"] != {"version": "3.0", "spec_version": "2.4"}
-            or scope["http_version"] != "1.1"
-        ):
+        asgi_versions_match = scope["asgi"] == {"version": "3.0", "spec_version": "2.4"}
+        if allow_pre_asgi24_disconnect:
+            asgi = scope["asgi"]
+            if isinstance(asgi, dict) and asgi.get("version") == "3.0":
+                try:
+                    spec_version = tuple(int(part) for part in asgi["spec_version"].split("."))
+                except (AttributeError, KeyError, TypeError, ValueError):
+                    spec_version = ()
+                asgi_versions_match = (2, 0) <= spec_version < (2, 4)
+            else:
+                asgi_versions_match = False
+        if not asgi_versions_match or scope["http_version"] != "1.1":
             raise ContractError("HTTP scope must use the declared ASGI and HTTP versions")
         if (
             scope["scheme"] not in ({"http", "https"} if allow_host else {"http"})

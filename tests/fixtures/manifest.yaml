@@ -203,7 +203,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@4",
+      "input_schema": "migration-parity/parity-input@5",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -7347,7 +7347,8 @@
                 "status": "partial",
                 "reason": "Rust-native framing has no producer/background lifecycle trace at this boundary.",
                 "missing_requirements": [
-                  "starlette.responses.StreamingResponse.asgi-call.async-generator-background"
+                  "starlette.responses.StreamingResponse.asgi-call.async-generator-background",
+                  "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation"
                 ]
               }
             },
@@ -7365,6 +7366,17 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.async-generator-background",
               "dimension": "input_family",
               "description": "Construct StreamingResponse from a finite async generator yielding nine ordered text chunks for 1, 2, 3, 4, 5, with media_type=text/plain, and an async background values recorder consuming 6, 7, 8, 9. Capture the live ordered trace of generator yields, ASGI send callbacks, and background-recorder execution through the public ASGI call. Select the Python package profile. Pinned sources: tests/test_responses.py:101-126; starlette/responses.py:222-255,282-283; starlette/background.py:12-23.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation",
+              "dimension": "protocol_variant",
+              "description": "Run an async generator that yields its input chunks after the declared event-loop checkpoint, under an ASGI 2.3 scope. Block receive until the input-defined body-byte threshold has been sent, then return http.disconnect. Observe partial ASGI events, the generator's cancellation and finally recorder, and the supplied background recorder through StreamingResponse.__call__. Pinned sources: tests/test_responses.py::test_streaming_response_stops_if_receiving_http_disconnect; starlette/responses.py::StreamingResponse.__call__, listen_for_disconnect, stream_response; starlette/background.py::BackgroundTask.",
               "lanes": [
                 "parity"
               ],

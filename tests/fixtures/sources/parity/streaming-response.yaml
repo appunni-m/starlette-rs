@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@4",
+  "schema": "migration-parity/parity-input@5",
   "cases": [
     {
       "case_id": "starlette.responses.StreamingResponse.asgi-call.unknown-size-content",
@@ -439,6 +439,77 @@
         "asgi-call"
       ],
       "streaming": "async-generator"
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "asgi-call-with-execution-trace",
+      "covers": [
+        "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "content": {
+        "kind": "repeating-chunks",
+        "checkpoint": "yield-to-event-loop",
+        "value": [
+          {
+            "kind": "base64-bytes",
+            "value": "Y2h1bmsg"
+          }
+        ]
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.3"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "receive_behavior": {
+        "kind": "disconnect-after-body-bytes",
+        "minimum_body_bytes": 16
+      },
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "streaming": "async-generator",
+      "stream_lifecycle": {
+        "kind": "cancellation-and-finally-recorder",
+        "cancellation_marker": "cancelled",
+        "finally_marker": "closed"
+      },
+      "background": {
+        "kind": "async-values-recorder",
+        "values": [
+          "disconnect-complete"
+        ]
+      }
     },
     {
       "case_id": "starlette.responses.StreamingResponse.asgi-call.client-disconnect-oserror",

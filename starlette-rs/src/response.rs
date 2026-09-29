@@ -183,6 +183,161 @@ enum StreamingResponseCallPhase {
     Failed,
 }
 
+/// A message received by the pre-ASGI-2.4 streaming disconnect listener.
+///
+/// The listener only needs to distinguish `http.disconnect` from every other
+/// ASGI message. Converting the Python message type into this value is the
+/// runtime adapter's responsibility.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StreamingResponseDisconnectMessage {
+    /// A message that does not terminate the listener, such as
+    /// `http.request`.
+    Other,
+    /// The `http.disconnect` message that ends the listener.
+    Disconnect,
+}
+
+/// The next operation for a runtime driving a
+/// [`StreamingResponseDisconnectListener`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StreamingResponseDisconnectListenerStep {
+    /// Await one message from the ASGI `receive` callable.
+    Receive,
+    /// The listener observed `http.disconnect` and completed successfully.
+    Complete,
+    /// A receive operation failed; no further receive is due.
+    Failed,
+}
+
+/// An operation result supplied to
+/// [`StreamingResponseDisconnectListener::advance`].
+#[derive(Debug, PartialEq, Eq)]
+pub enum StreamingResponseDisconnectListenerInput<E> {
+    /// Result of awaiting one ASGI `receive` call after converting its type.
+    Received(StreamingResponseDisconnectMessage),
+    /// The receive callable or message conversion failed.
+    ReceiveFailed(E),
+}
+
+/// A failed operation or invalid input to the disconnect listener.
+#[derive(Debug, PartialEq, Eq)]
+pub enum StreamingResponseDisconnectListenerError<E> {
+    /// The supplied receive operation failed.
+    Operation(E),
+    /// The input does not match the operation requested by the current step.
+    UnexpectedInput,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StreamingResponseDisconnectListenerPhase {
+    Receive,
+    Complete,
+    Failed,
+}
+
+/// Runtime-agnostic control flow for the receive side of a streaming response
+/// disconnect race.
+///
+/// The driver awaits exactly one `receive` operation for each `Receive` step.
+/// Other messages keep the listener active; `http.disconnect` completes it.
+/// This models Starlette's pre-ASGI-2.4 receive loop without assigning Python
+/// message inspection or loop decisions to a runtime wrapper.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StreamingResponseDisconnectListener {
+    phase: StreamingResponseDisconnectListenerPhase,
+}
+
+/// The next operation for a runtime driving a pre-ASGI-2.4 streaming response
+/// race.
+///
+/// The caller starts the streaming sender and disconnect listener concurrently
+/// after `StartConcurrent`. `AwaitFirstCompletion` waits until one branch
+/// returns or fails. The cancel steps cancel the still-running peer and wait
+/// for the task group to exit before reporting `ConcurrentFinished`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StreamingResponseDisconnectCallStep {
+    /// Start the stream sender and disconnect listener in one concurrent scope.
+    StartConcurrent,
+    /// Await whichever branch completes first.
+    AwaitFirstCompletion,
+    /// Cancel the stream sender and wait for the concurrent scope to exit.
+    CancelStream,
+    /// Cancel the disconnect listener and wait for the concurrent scope to exit.
+    CancelListener,
+    /// Cancel both branches after cancellation of the enclosing response call.
+    CancelBoth,
+    /// Invoke and await the caller-owned background callback.
+    RunBackground,
+    /// The response and optional background callback completed successfully.
+    Complete,
+    /// A task or callback failed; no further steps are due.
+    Failed,
+}
+
+/// An operation result supplied to
+/// [`StreamingResponseDisconnectCall::advance`].
+#[derive(Debug, PartialEq, Eq)]
+pub enum StreamingResponseDisconnectCallInput<E> {
+    /// Both concurrent branches were started.
+    ConcurrentStarted,
+    /// The stream sender returned or failed.
+    StreamFinished(Result<(), E>),
+    /// The disconnect listener observed `http.disconnect` or failed.
+    ListenerFinished(Result<(), E>),
+    /// The concurrent scope exited after the requested peer cancellation.
+    ///
+    /// AnyIO suppresses its own expected cancellation when a branch returns
+    /// normally. Genuine child errors and task-group failures are returned as
+    /// `Err` and take precedence over the initiating completion.
+    ConcurrentFinished(Result<(), E>),
+    /// The enclosing response call was cancelled and both children need cleanup.
+    Cancelled(E),
+    /// The caller-owned background callback completed or failed.
+    BackgroundFinished(Result<(), E>),
+}
+
+/// A failed operation or invalid input to the disconnect-race state machine.
+#[derive(Debug, PartialEq, Eq)]
+pub enum StreamingResponseDisconnectCallError<E> {
+    /// A child, task-group, cancellation-cleanup, or background operation failed.
+    Operation(E),
+    /// The input does not match the operation requested by the current step.
+    UnexpectedInput,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StreamingResponseDisconnectCallPhase {
+    StartConcurrent,
+    AwaitFirstCompletion,
+    CancelStream,
+    CancelListener,
+    CancelBoth,
+    RunBackground,
+    Complete,
+    Failed,
+}
+
+/// Runtime-agnostic control flow for Starlette's pre-ASGI-2.4 streaming race.
+///
+/// This coordinator chooses which child to cancel after the stream sender or
+/// receive listener finishes. A normal stream completion or an observed
+/// disconnect runs the optional background callback after the concurrent
+/// scope has fully exited. A child or task-group error skips the background
+/// callback and is returned unchanged. External cancellation requests cleanup
+/// of both children and is propagated after the concurrent scope exits.
+///
+/// The stream branch should be driven by a [`StreamingResponseCall`] without a
+/// background callback; the coordinator owns the post-race background step.
+/// The receive branch should be driven by a
+/// [`StreamingResponseDisconnectListener`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StreamingResponseDisconnectCall<E> {
+    has_background_callback: bool,
+    phase: StreamingResponseDisconnectCallPhase,
+    child_error: Option<E>,
+    cancellation: Option<E>,
+}
+
 /// Runtime-agnostic control flow for one streaming ASGI response call.
 ///
 /// The caller performs the operation returned by [`Self::step`] and passes
@@ -875,6 +1030,271 @@ impl StreamingResponseCall {
                     self.phase = phase;
                 }
                 return Err(StreamingResponseCallError::UnexpectedInput);
+            }
+        };
+
+        Ok(self.step())
+    }
+}
+
+impl StreamingResponseDisconnectListener {
+    /// Creates a listener that is ready to receive its first ASGI message.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            phase: StreamingResponseDisconnectListenerPhase::Receive,
+        }
+    }
+
+    /// Returns the operation required to advance this listener.
+    #[must_use]
+    pub const fn step(&self) -> StreamingResponseDisconnectListenerStep {
+        match self.phase {
+            StreamingResponseDisconnectListenerPhase::Receive => {
+                StreamingResponseDisconnectListenerStep::Receive
+            }
+            StreamingResponseDisconnectListenerPhase::Complete => {
+                StreamingResponseDisconnectListenerStep::Complete
+            }
+            StreamingResponseDisconnectListenerPhase::Failed => {
+                StreamingResponseDisconnectListenerStep::Failed
+            }
+        }
+    }
+
+    /// Applies one receive result and returns the next required step.
+    ///
+    /// Any message other than `http.disconnect` starts another receive
+    /// iteration. Receive and conversion errors are returned unchanged and
+    /// move the listener to a terminal failed state.
+    pub fn advance<E>(
+        &mut self,
+        input: StreamingResponseDisconnectListenerInput<E>,
+    ) -> Result<StreamingResponseDisconnectListenerStep, StreamingResponseDisconnectListenerError<E>>
+    {
+        let phase = std::mem::replace(
+            &mut self.phase,
+            StreamingResponseDisconnectListenerPhase::Failed,
+        );
+        self.phase = match (phase, input) {
+            (
+                StreamingResponseDisconnectListenerPhase::Receive,
+                StreamingResponseDisconnectListenerInput::Received(
+                    StreamingResponseDisconnectMessage::Other,
+                ),
+            ) => StreamingResponseDisconnectListenerPhase::Receive,
+            (
+                StreamingResponseDisconnectListenerPhase::Receive,
+                StreamingResponseDisconnectListenerInput::Received(
+                    StreamingResponseDisconnectMessage::Disconnect,
+                ),
+            ) => StreamingResponseDisconnectListenerPhase::Complete,
+            (
+                StreamingResponseDisconnectListenerPhase::Receive,
+                StreamingResponseDisconnectListenerInput::ReceiveFailed(error),
+            ) => return Err(StreamingResponseDisconnectListenerError::Operation(error)),
+            (phase, _) => {
+                if matches!(
+                    phase,
+                    StreamingResponseDisconnectListenerPhase::Complete
+                        | StreamingResponseDisconnectListenerPhase::Failed
+                ) {
+                    self.phase = phase;
+                }
+                return Err(StreamingResponseDisconnectListenerError::UnexpectedInput);
+            }
+        };
+
+        Ok(self.step())
+    }
+}
+
+impl Default for StreamingResponseDisconnectListener {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<E> StreamingResponseDisconnectCall<E> {
+    /// Starts a pre-ASGI-2.4 stream-versus-disconnect race.
+    ///
+    /// Drive the stream branch with a [`StreamingResponseCall`] configured
+    /// without a background callback, and the receive branch with a
+    /// [`StreamingResponseDisconnectListener`]. This coordinator schedules the
+    /// concurrent scope and the callback that follows a clean race outcome.
+    #[must_use]
+    pub const fn new(has_background_callback: bool) -> Self {
+        Self {
+            has_background_callback,
+            phase: StreamingResponseDisconnectCallPhase::StartConcurrent,
+            child_error: None,
+            cancellation: None,
+        }
+    }
+
+    /// Returns the operation required to advance the race.
+    #[must_use]
+    pub const fn step(&self) -> StreamingResponseDisconnectCallStep {
+        match self.phase {
+            StreamingResponseDisconnectCallPhase::StartConcurrent => {
+                StreamingResponseDisconnectCallStep::StartConcurrent
+            }
+            StreamingResponseDisconnectCallPhase::AwaitFirstCompletion => {
+                StreamingResponseDisconnectCallStep::AwaitFirstCompletion
+            }
+            StreamingResponseDisconnectCallPhase::CancelStream => {
+                StreamingResponseDisconnectCallStep::CancelStream
+            }
+            StreamingResponseDisconnectCallPhase::CancelListener => {
+                StreamingResponseDisconnectCallStep::CancelListener
+            }
+            StreamingResponseDisconnectCallPhase::CancelBoth => {
+                StreamingResponseDisconnectCallStep::CancelBoth
+            }
+            StreamingResponseDisconnectCallPhase::RunBackground => {
+                StreamingResponseDisconnectCallStep::RunBackground
+            }
+            StreamingResponseDisconnectCallPhase::Complete => {
+                StreamingResponseDisconnectCallStep::Complete
+            }
+            StreamingResponseDisconnectCallPhase::Failed => {
+                StreamingResponseDisconnectCallStep::Failed
+            }
+        }
+    }
+
+    /// Applies a branch, task-group, cancellation, or background result.
+    ///
+    /// The first stream completion cancels the listener; a listener completion
+    /// means it observed `http.disconnect` and cancels the stream. A branch
+    /// error still cancels its peer, but is returned after the task group exits.
+    /// `Cancelled` requests cleanup of both branches and retains the original
+    /// cancellation for propagation after the task group exits. The background
+    /// callback runs only after a clean race and task-group exit.
+    pub fn advance(
+        &mut self,
+        input: StreamingResponseDisconnectCallInput<E>,
+    ) -> Result<StreamingResponseDisconnectCallStep, StreamingResponseDisconnectCallError<E>> {
+        let phase = std::mem::replace(
+            &mut self.phase,
+            StreamingResponseDisconnectCallPhase::Failed,
+        );
+        self.phase = match (phase, input) {
+            (
+                StreamingResponseDisconnectCallPhase::StartConcurrent,
+                StreamingResponseDisconnectCallInput::ConcurrentStarted,
+            ) => StreamingResponseDisconnectCallPhase::AwaitFirstCompletion,
+            (
+                StreamingResponseDisconnectCallPhase::AwaitFirstCompletion,
+                StreamingResponseDisconnectCallInput::StreamFinished(result),
+            ) => {
+                if let Err(error) = result {
+                    self.child_error = Some(error);
+                }
+                StreamingResponseDisconnectCallPhase::CancelListener
+            }
+            (
+                StreamingResponseDisconnectCallPhase::AwaitFirstCompletion,
+                StreamingResponseDisconnectCallInput::ListenerFinished(result),
+            ) => {
+                if let Err(error) = result {
+                    self.child_error = Some(error);
+                }
+                StreamingResponseDisconnectCallPhase::CancelStream
+            }
+            (
+                StreamingResponseDisconnectCallPhase::CancelListener,
+                StreamingResponseDisconnectCallInput::ListenerFinished(result),
+            )
+            | (
+                StreamingResponseDisconnectCallPhase::CancelBoth,
+                StreamingResponseDisconnectCallInput::ListenerFinished(result),
+            ) => {
+                if let Err(error) = result {
+                    self.child_error.get_or_insert(error);
+                }
+                phase
+            }
+            (
+                StreamingResponseDisconnectCallPhase::CancelStream,
+                StreamingResponseDisconnectCallInput::StreamFinished(result),
+            )
+            | (
+                StreamingResponseDisconnectCallPhase::CancelBoth,
+                StreamingResponseDisconnectCallInput::StreamFinished(result),
+            ) => {
+                if let Err(error) = result {
+                    self.child_error.get_or_insert(error);
+                }
+                phase
+            }
+            (
+                StreamingResponseDisconnectCallPhase::AwaitFirstCompletion,
+                StreamingResponseDisconnectCallInput::Cancelled(error),
+            ) => {
+                self.cancellation = Some(error);
+                StreamingResponseDisconnectCallPhase::CancelBoth
+            }
+            (
+                StreamingResponseDisconnectCallPhase::CancelStream
+                | StreamingResponseDisconnectCallPhase::CancelListener
+                | StreamingResponseDisconnectCallPhase::CancelBoth,
+                StreamingResponseDisconnectCallInput::ConcurrentFinished(Err(error)),
+            ) => return Err(StreamingResponseDisconnectCallError::Operation(error)),
+            (
+                StreamingResponseDisconnectCallPhase::CancelStream
+                | StreamingResponseDisconnectCallPhase::CancelListener
+                | StreamingResponseDisconnectCallPhase::CancelBoth,
+                StreamingResponseDisconnectCallInput::ConcurrentFinished(Ok(())),
+            ) => {
+                if let Some(error) = self.child_error.take() {
+                    return Err(StreamingResponseDisconnectCallError::Operation(error));
+                }
+                if let Some(error) = self.cancellation.take() {
+                    return Err(StreamingResponseDisconnectCallError::Operation(error));
+                }
+                if self.has_background_callback {
+                    StreamingResponseDisconnectCallPhase::RunBackground
+                } else {
+                    StreamingResponseDisconnectCallPhase::Complete
+                }
+            }
+            (
+                StreamingResponseDisconnectCallPhase::CancelStream
+                | StreamingResponseDisconnectCallPhase::CancelListener,
+                StreamingResponseDisconnectCallInput::Cancelled(error),
+            ) => {
+                self.cancellation = Some(error);
+                StreamingResponseDisconnectCallPhase::CancelBoth
+            }
+            (
+                StreamingResponseDisconnectCallPhase::CancelBoth,
+                StreamingResponseDisconnectCallInput::Cancelled(error),
+            ) => {
+                self.cancellation = Some(error);
+                StreamingResponseDisconnectCallPhase::CancelBoth
+            }
+            (
+                StreamingResponseDisconnectCallPhase::RunBackground,
+                StreamingResponseDisconnectCallInput::BackgroundFinished(Ok(())),
+            ) => StreamingResponseDisconnectCallPhase::Complete,
+            (
+                StreamingResponseDisconnectCallPhase::RunBackground,
+                StreamingResponseDisconnectCallInput::BackgroundFinished(Err(error)),
+            ) => return Err(StreamingResponseDisconnectCallError::Operation(error)),
+            (
+                StreamingResponseDisconnectCallPhase::RunBackground,
+                StreamingResponseDisconnectCallInput::Cancelled(error),
+            ) => return Err(StreamingResponseDisconnectCallError::Operation(error)),
+            (phase, _) => {
+                if matches!(
+                    phase,
+                    StreamingResponseDisconnectCallPhase::Complete
+                        | StreamingResponseDisconnectCallPhase::Failed
+                ) {
+                    self.phase = phase;
+                }
+                return Err(StreamingResponseDisconnectCallError::UnexpectedInput);
             }
         };
 

@@ -3,14 +3,20 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use pyo3::exceptions::{PyAttributeError, PyOSError, PyRuntimeError, PyStopAsyncIteration};
+use pyo3::exceptions::{
+    PyAttributeError, PyImportError, PyOSError, PyRuntimeError, PyStopAsyncIteration,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyTuple};
 use starlette_rs::{
     Response, ResponseCall, ResponseCallError, ResponseCallInput, ResponseCallStep, ResponseError,
     ResponseEvent, StreamingResponse as NativeStreamingResponse, StreamingResponseCall,
     StreamingResponseCallError, StreamingResponseCallInput, StreamingResponseCallStep,
-    StreamingResponseEvent,
+    StreamingResponseDisconnectCall, StreamingResponseDisconnectCallError,
+    StreamingResponseDisconnectCallInput, StreamingResponseDisconnectCallStep,
+    StreamingResponseDisconnectListener, StreamingResponseDisconnectListenerError,
+    StreamingResponseDisconnectListenerInput, StreamingResponseDisconnectListenerStep,
+    StreamingResponseDisconnectMessage, StreamingResponseEvent,
 };
 
 use crate::awaitable::{
@@ -205,7 +211,34 @@ impl PyStreamingResponse {
         background: Option<Py<PyAny>>,
     ) -> PyResult<Py<PyAny>> {
         let websocket = is_websocket_scope(scope)?;
-        let catches_client_disconnect = !websocket && asgi_spec_at_least_24(py, scope)?;
+        let spec_at_least_24 = if websocket {
+            false
+        } else {
+            asgi_spec_at_least_24(py, scope)?
+        };
+        if !websocket && !spec_at_least_24 {
+            let has_background_callback = background.is_some();
+            return into_python_awaitable(
+                py,
+                StreamingDisconnectCallMachine {
+                    response: self.inner.clone(),
+                    content: self.content.clone_ref(py),
+                    async_iterable: self.async_iterable,
+                    charset: self.charset.clone(),
+                    sync_iterator: self.sync_iterator.clone(),
+                    send,
+                    receive,
+                    background,
+                    call: Rc::new(RefCell::new(StreamingResponseDisconnectCall::new(
+                        has_background_callback,
+                    ))),
+                    listener: StreamingResponseDisconnectListener::new(),
+                    task_group: None,
+                    pending: None,
+                },
+            );
+        }
+        let catches_client_disconnect = !websocket && spec_at_least_24;
         into_python_awaitable(
             py,
             StreamingCallMachine {
@@ -444,6 +477,404 @@ impl StreamingCallMachine {
     }
 }
 
+enum StreamingDisconnectPending {
+    TaskGroupEnter,
+    ListenerReceive,
+    TaskGroupExit,
+    Background,
+}
+
+struct StreamingDisconnectCallMachine {
+    response: NativeStreamingResponse,
+    content: Py<PyAny>,
+    async_iterable: bool,
+    charset: String,
+    sync_iterator: Rc<RefCell<Option<Py<PyAny>>>>,
+    send: Py<PyAny>,
+    receive: Py<PyAny>,
+    background: Option<Py<PyAny>>,
+    call: Rc<RefCell<StreamingResponseDisconnectCall<PyErr>>>,
+    listener: StreamingResponseDisconnectListener,
+    task_group: Option<Py<PyAny>>,
+    pending: Option<StreamingDisconnectPending>,
+}
+
+impl AwaitableStateMachine for StreamingDisconnectCallMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => self.next_action(py),
+            MachineResume::Value(value) => match self.pending.take() {
+                Some(StreamingDisconnectPending::TaskGroupEnter) => {
+                    self.task_group = Some(value);
+                    match self.start_stream_child(py) {
+                        Ok(()) => self.next_action(py),
+                        Err(error) => self.leave_task_group(py, Some(&error)),
+                    }
+                }
+                Some(StreamingDisconnectPending::ListenerReceive) => self.finish_receive(py, value),
+                Some(StreamingDisconnectPending::TaskGroupExit) => {
+                    self.advance(StreamingResponseDisconnectCallInput::ConcurrentFinished(
+                        Ok(()),
+                    ))?;
+                    self.next_action(py)
+                }
+                Some(StreamingDisconnectPending::Background) => {
+                    self.advance(StreamingResponseDisconnectCallInput::BackgroundFinished(
+                        Ok(()),
+                    ))?;
+                    self.next_action(py)
+                }
+                None => Err(PyRuntimeError::new_err(
+                    "no streaming disconnect operation is pending",
+                )),
+            },
+            MachineResume::AsyncIterationComplete(error) => match self.pending.take() {
+                Some(StreamingDisconnectPending::ListenerReceive) => {
+                    self.finish_listener_error(py, error)
+                }
+                Some(StreamingDisconnectPending::TaskGroupExit) => {
+                    self.finish_task_group_error(py, error)
+                }
+                Some(StreamingDisconnectPending::Background) => {
+                    self.advance(StreamingResponseDisconnectCallInput::BackgroundFinished(
+                        Err(error.clone_ref(py)),
+                    ))?;
+                    Err(error)
+                }
+                Some(StreamingDisconnectPending::TaskGroupEnter) => {
+                    Err(collapse_single_task_group_error(py, error)?)
+                }
+                None => Err(error),
+            },
+            MachineResume::Error(error) => match self.pending.take() {
+                Some(StreamingDisconnectPending::ListenerReceive) => {
+                    self.finish_listener_error(py, error)
+                }
+                Some(StreamingDisconnectPending::TaskGroupExit) => {
+                    self.finish_task_group_error(py, error)
+                }
+                Some(StreamingDisconnectPending::Background) => {
+                    self.advance(StreamingResponseDisconnectCallInput::BackgroundFinished(
+                        Err(error.clone_ref(py)),
+                    ))?;
+                    Err(error)
+                }
+                Some(StreamingDisconnectPending::TaskGroupEnter) => {
+                    Err(collapse_single_task_group_error(py, error)?)
+                }
+                None => Err(error),
+            },
+        }
+    }
+}
+
+impl StreamingDisconnectCallMachine {
+    fn next_action(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let step = self.call.borrow().step();
+        match step {
+            StreamingResponseDisconnectCallStep::StartConcurrent => self.enter_task_group(py),
+            StreamingResponseDisconnectCallStep::AwaitFirstCompletion => self.receive_next(py),
+            StreamingResponseDisconnectCallStep::CancelStream
+            | StreamingResponseDisconnectCallStep::CancelListener
+            | StreamingResponseDisconnectCallStep::CancelBoth => self.leave_task_group(py, None),
+            StreamingResponseDisconnectCallStep::RunBackground => self.run_background(py),
+            StreamingResponseDisconnectCallStep::Complete => Ok(MachineAction::Complete(py.None())),
+            StreamingResponseDisconnectCallStep::Failed => Err(PyRuntimeError::new_err(
+                "streaming disconnect call is already failed",
+            )),
+        }
+    }
+
+    fn enter_task_group(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let group = py.import("anyio")?.getattr("create_task_group")?.call0()?;
+        let awaitable = group.call_method0("__aenter__")?;
+        self.task_group = Some(group.unbind());
+        self.pending = Some(StreamingDisconnectPending::TaskGroupEnter);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn start_stream_child(&mut self, py: Python<'_>) -> PyResult<()> {
+        self.advance(StreamingResponseDisconnectCallInput::ConcurrentStarted)?;
+
+        let result = self.make_and_start_stream_child(py);
+        if let Err(error) = result {
+            if self.call.borrow().step()
+                == StreamingResponseDisconnectCallStep::AwaitFirstCompletion
+            {
+                let _ = self.advance(StreamingResponseDisconnectCallInput::StreamFinished(Err(
+                    error.clone_ref(py),
+                )))?;
+            }
+            return Err(error);
+        }
+
+        Ok(())
+    }
+
+    fn make_and_start_stream_child(&self, py: Python<'_>) -> PyResult<()> {
+        let task_group = self.task_group_ref(py)?;
+        let cancel_scope = task_group.getattr("cancel_scope")?.unbind();
+        let stream = StreamingCallMachine {
+            call: self.response.call_state(false),
+            content: self.content.clone_ref(py),
+            iterator: None,
+            sentinel: None,
+            async_iterable: self.async_iterable,
+            charset: self.charset.clone(),
+            sync_iterator: self.sync_iterator.clone(),
+            send: self.send.clone_ref(py),
+            _receive: self.receive.clone_ref(py),
+            background: None,
+            websocket: false,
+            catches_client_disconnect: false,
+            pending: None,
+            body_override: None,
+        };
+        let child = into_python_awaitable(
+            py,
+            StreamingResponseChildMachine {
+                stream,
+                call: self.call.clone(),
+                cancel_scope,
+            },
+        )?;
+        let factory = Py::new(py, AwaitableFactory { awaitable: child })?;
+        task_group.call_method1("start_soon", (factory,))?;
+        Ok(())
+    }
+
+    fn receive_next(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        match self.listener.step() {
+            StreamingResponseDisconnectListenerStep::Receive => {
+                let awaitable = match self.receive.bind(py).call0() {
+                    Ok(awaitable) => awaitable,
+                    Err(error) => return self.finish_listener_error(py, error),
+                };
+                self.pending = Some(StreamingDisconnectPending::ListenerReceive);
+                Ok(MachineAction::Await(awaitable.unbind()))
+            }
+            StreamingResponseDisconnectListenerStep::Complete => {
+                self.advance(StreamingResponseDisconnectCallInput::ListenerFinished(Ok(
+                    (),
+                )))?;
+                match self.cancel_task_group(py) {
+                    Ok(()) => self.leave_task_group(py, None),
+                    Err(error) => self.leave_task_group(py, Some(&error)),
+                }
+            }
+            StreamingResponseDisconnectListenerStep::Failed => Err(PyRuntimeError::new_err(
+                "streaming disconnect listener is already failed",
+            )),
+        }
+    }
+
+    fn finish_receive(&mut self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
+        let message_type = match message.bind(py).get_item("type") {
+            Ok(message_type) => message_type,
+            Err(error) => return self.finish_listener_error(py, error),
+        };
+        let is_disconnect = match message_type.eq("http.disconnect") {
+            Ok(is_disconnect) => is_disconnect,
+            Err(error) => return self.finish_listener_error(py, error),
+        };
+        let message = if is_disconnect {
+            StreamingResponseDisconnectMessage::Disconnect
+        } else {
+            StreamingResponseDisconnectMessage::Other
+        };
+        self.listener
+            .advance(StreamingResponseDisconnectListenerInput::Received(message))
+            .map_err(streaming_disconnect_listener_error)?;
+        self.next_action(py)
+    }
+
+    fn finish_listener_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        let step = self.call.borrow().step();
+        let cancelled = is_anyio_cancellation(py, &error)?;
+        match step {
+            StreamingResponseDisconnectCallStep::AwaitFirstCompletion if cancelled => {
+                self.advance(StreamingResponseDisconnectCallInput::Cancelled(
+                    error.clone_ref(py),
+                ))?;
+            }
+            StreamingResponseDisconnectCallStep::AwaitFirstCompletion => {
+                self.listener
+                    .advance(StreamingResponseDisconnectListenerInput::ReceiveFailed(
+                        error.clone_ref(py),
+                    ))
+                    .map_err(streaming_disconnect_listener_error)?;
+                self.advance(StreamingResponseDisconnectCallInput::ListenerFinished(Err(
+                    error.clone_ref(py),
+                )))?;
+            }
+            StreamingResponseDisconnectCallStep::CancelListener if cancelled => {
+                // The stream child completed first and cancelled this task
+                // through the task group's own scope. Passing the cancellation
+                // to __aexit__ lets AnyIO suppress its own cancellation while
+                // still reporting any error raised by stream cleanup.
+            }
+            StreamingResponseDisconnectCallStep::CancelStream
+            | StreamingResponseDisconnectCallStep::CancelListener
+            | StreamingResponseDisconnectCallStep::CancelBoth => {}
+            _ => return Err(error),
+        }
+
+        self.leave_task_group(py, Some(&error))
+    }
+
+    fn leave_task_group(
+        &mut self,
+        py: Python<'_>,
+        body_error: Option<&PyErr>,
+    ) -> PyResult<MachineAction> {
+        let task_group = self.task_group_ref(py)?;
+        let awaitable = match body_error {
+            Some(error) => {
+                let traceback = error
+                    .traceback(py)
+                    .map_or_else(|| py.None().into_bound(py), Bound::into_any);
+                task_group.call_method1(
+                    "__aexit__",
+                    (error.get_type(py), error.value(py), traceback),
+                )?
+            }
+            None => task_group.call_method1("__aexit__", (py.None(), py.None(), py.None()))?,
+        };
+        self.pending = Some(StreamingDisconnectPending::TaskGroupExit);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn finish_task_group_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        let error = collapse_single_task_group_error(py, error)?;
+        let step = self.call.borrow().step();
+        if is_anyio_cancellation(py, &error)?
+            && step == StreamingResponseDisconnectCallStep::AwaitFirstCompletion
+        {
+            self.advance(StreamingResponseDisconnectCallInput::Cancelled(
+                error.clone_ref(py),
+            ))?;
+        }
+        if !matches!(
+            self.call.borrow().step(),
+            StreamingResponseDisconnectCallStep::CancelStream
+                | StreamingResponseDisconnectCallStep::CancelListener
+                | StreamingResponseDisconnectCallStep::CancelBoth
+        ) {
+            // Task-group startup can fail before the Rust coordinator records
+            // that both concurrent branches started. The group has still been
+            // exited above; preserve that original setup error unchanged.
+            return Err(error);
+        }
+        self.advance(StreamingResponseDisconnectCallInput::ConcurrentFinished(
+            Err(error.clone_ref(py)),
+        ))?;
+        self.next_action(py)
+    }
+
+    fn run_background(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let Some(background) = self.background.as_ref() else {
+            return Err(PyRuntimeError::new_err(
+                "stream requested a missing background callback",
+            ));
+        };
+        let awaitable = match background.bind(py).call0() {
+            Ok(awaitable) => awaitable,
+            Err(error) => {
+                self.advance(StreamingResponseDisconnectCallInput::BackgroundFinished(
+                    Err(error.clone_ref(py)),
+                ))?;
+                return Err(error);
+            }
+        };
+        self.pending = Some(StreamingDisconnectPending::Background);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn cancel_task_group(&self, py: Python<'_>) -> PyResult<()> {
+        self.task_group_ref(py)?
+            .getattr("cancel_scope")?
+            .call_method0("cancel")?;
+        Ok(())
+    }
+
+    fn task_group_ref<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        self.task_group
+            .as_ref()
+            .map(|task_group| task_group.bind(py).clone())
+            .ok_or_else(|| PyRuntimeError::new_err("streaming task group was not initialized"))
+    }
+
+    fn advance(
+        &self,
+        input: StreamingResponseDisconnectCallInput<PyErr>,
+    ) -> PyResult<StreamingResponseDisconnectCallStep> {
+        self.call
+            .borrow_mut()
+            .advance(input)
+            .map_err(streaming_disconnect_call_error)
+    }
+}
+
+struct StreamingResponseChildMachine {
+    stream: StreamingCallMachine,
+    call: Rc<RefCell<StreamingResponseDisconnectCall<PyErr>>>,
+    cancel_scope: Py<PyAny>,
+}
+
+impl AwaitableStateMachine for StreamingResponseChildMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match self.stream.resume(py, input) {
+            Ok(MachineAction::Complete(result)) => {
+                if self.call.borrow().step()
+                    == StreamingResponseDisconnectCallStep::AwaitFirstCompletion
+                {
+                    self.record_stream_completion(py, Ok(()))?;
+                }
+                self.cancel_scope.bind(py).call_method0("cancel")?;
+                Ok(MachineAction::Complete(result))
+            }
+            Ok(action) => Ok(action),
+            Err(error) => {
+                if !is_anyio_cancellation(py, &error)? {
+                    let mut call = self.call.borrow_mut();
+                    if call.step() == StreamingResponseDisconnectCallStep::AwaitFirstCompletion {
+                        call.advance(StreamingResponseDisconnectCallInput::StreamFinished(Err(
+                            error.clone_ref(py),
+                        )))
+                        .map_err(streaming_disconnect_call_error)?;
+                    }
+                }
+                Err(error)
+            }
+        }
+    }
+}
+
+impl StreamingResponseChildMachine {
+    fn record_stream_completion(
+        &self,
+        _py: Python<'_>,
+        result: Result<(), PyErr>,
+    ) -> PyResult<StreamingResponseDisconnectCallStep> {
+        self.call
+            .borrow_mut()
+            .advance(StreamingResponseDisconnectCallInput::StreamFinished(result))
+            .map_err(streaming_disconnect_call_error)
+    }
+}
+
+#[pyclass(unsendable)]
+struct AwaitableFactory {
+    awaitable: Py<PyAny>,
+}
+
+#[pymethods]
+impl AwaitableFactory {
+    fn __call__(&self, py: Python<'_>) -> Py<PyAny> {
+        self.awaitable.clone_ref(py)
+    }
+}
+
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyStreamingResponse>()
 }
@@ -576,6 +1007,86 @@ fn streaming_call_error(error: StreamingResponseCallError<PyErr>) -> PyErr {
             PyRuntimeError::new_err("unexpected result for current streaming call step")
         }
     }
+}
+
+fn streaming_disconnect_listener_error(
+    error: StreamingResponseDisconnectListenerError<PyErr>,
+) -> PyErr {
+    match error {
+        StreamingResponseDisconnectListenerError::Operation(error) => error,
+        StreamingResponseDisconnectListenerError::UnexpectedInput => PyRuntimeError::new_err(
+            "unexpected result for current streaming disconnect listener step",
+        ),
+    }
+}
+
+fn streaming_disconnect_call_error(error: StreamingResponseDisconnectCallError<PyErr>) -> PyErr {
+    match error {
+        StreamingResponseDisconnectCallError::Operation(error) => error,
+        StreamingResponseDisconnectCallError::UnexpectedInput => {
+            PyRuntimeError::new_err("unexpected result for current streaming disconnect call step")
+        }
+    }
+}
+
+fn is_anyio_cancellation(py: Python<'_>, error: &PyErr) -> PyResult<bool> {
+    let cancellation_class = py
+        .import("anyio")?
+        .getattr("get_cancelled_exc_class")?
+        .call0()?;
+    error.value(py).is_instance(&cancellation_class)
+}
+
+fn collapse_single_task_group_error(py: Python<'_>, error: PyErr) -> PyResult<PyErr> {
+    let base_exception_group = match py.import("builtins")?.getattr("BaseExceptionGroup") {
+        Ok(base_exception_group) => base_exception_group,
+        Err(attribute_error) if attribute_error.is_instance_of::<PyAttributeError>(py) => {
+            match py
+                .import("exceptiongroup")
+                .and_then(|module| module.getattr("BaseExceptionGroup"))
+            {
+                Ok(base_exception_group) => base_exception_group,
+                Err(import_error) if import_error.is_instance_of::<PyImportError>(py) => {
+                    return Ok(error);
+                }
+                Err(import_error) => return Err(import_error),
+            }
+        }
+        Err(error) => return Err(error),
+    };
+    let exception = error.value(py);
+    if !exception.is_instance(&base_exception_group)? {
+        return Ok(error);
+    }
+
+    let exception_items = exception.getattr("exceptions")?;
+    let exceptions = exception_items.cast::<PyTuple>()?;
+    if exceptions.len() != 1 {
+        return Ok(error);
+    }
+
+    let collapsed = exceptions.get_item(0)?;
+    let suppress_context = collapsed
+        .getattr("__suppress_context__")?
+        .extract::<bool>()?;
+    let original_cause = collapsed.getattr("__cause__")?;
+    let cause = if original_cause.is_truthy()? {
+        Some(PyErr::from_value(original_cause))
+    } else if suppress_context {
+        None
+    } else {
+        let original_context = collapsed.getattr("__context__")?;
+        if original_context.is_none() {
+            None
+        } else {
+            Some(PyErr::from_value(original_context))
+        }
+    };
+
+    let collapsed_error = PyErr::from_value(collapsed);
+    collapsed_error.set_context(py, Some(error));
+    collapsed_error.set_cause(py, cause);
+    Ok(collapsed_error)
 }
 
 fn response_error(error: ResponseError) -> PyErr {

@@ -120,6 +120,35 @@ async def _input_async_generator(
         yield value
 
 
+async def _input_repeating_async_generator(
+    values: list[Any],
+    execution_trace: list[dict[str, Any]],
+    stream_lifecycle: dict[str, str],
+    checkpoint: str,
+) -> AsyncIterator[Any]:
+    index = 0
+    try:
+        while True:
+            if checkpoint == "yield-to-event-loop":
+                await asyncio.sleep(0)
+            value = values[index]
+            index = (index + 1) % len(values)
+            execution_trace.append({"event": "iterator-yield", "value": _json_safe(value)})
+            yield value
+    except asyncio.CancelledError:
+        execution_trace.append(
+            {
+                "event": "iterator-cancelled",
+                "marker": stream_lifecycle["cancellation_marker"],
+            }
+        )
+        raise
+    finally:
+        execution_trace.append(
+            {"event": "iterator-finally", "marker": stream_lifecycle["finally_marker"]}
+        )
+
+
 async def _record_background_values(
     values: list[str], execution_trace: list[dict[str, Any]]
 ) -> None:
@@ -3620,8 +3649,9 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         required_fields.add("render_override")
     if surface == STREAMING_RESPONSE_SURFACE:
         required_fields.add("streaming")
-        if "background" in case:
-            required_fields.add("background")
+        required_fields.update(
+            key for key in ("background", "receive_behavior", "stream_lifecycle") if key in case
+        )
     _exact_object(
         case,
         required_fields,
@@ -3648,12 +3678,22 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ValueError("Response observations must select asgi-call")
 
-    content_spec = _exact_object(case["content"], {"kind", "value"}, "Response content")
+    content_value = case["content"]
+    content_keys = {"kind", "value"}
+    if isinstance(content_value, dict) and content_value.get("kind") == "repeating-chunks":
+        content_keys.add("checkpoint")
+    content_spec = _exact_object(content_value, content_keys, "Response content")
     content_kind = content_spec["kind"]
     streaming: str | None = None
+    repeating_stream = False
     if surface == STREAMING_RESPONSE_SURFACE:
-        if content_kind != "chunks" or not isinstance(content_spec["value"], list):
+        if content_kind not in {"chunks", "repeating-chunks"} or not isinstance(
+            content_spec["value"], list
+        ):
             raise ValueError("StreamingResponse content must select an array of chunks")
+        repeating_stream = content_kind == "repeating-chunks"
+        if repeating_stream and not content_spec["value"]:
+            raise ValueError("StreamingResponse repeating content must contain at least one chunk")
         content = []
         for index, chunk_spec in enumerate(content_spec["value"]):
             chunk_spec = _exact_object(
@@ -3786,6 +3826,34 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("Response background values must be an array of strings")
         background_values = values
 
+    stream_lifecycle: dict[str, str] | None = None
+    if "stream_lifecycle" in case:
+        stream_lifecycle_spec = _exact_object(
+            case["stream_lifecycle"],
+            {"kind", "cancellation_marker", "finally_marker"},
+            "Response stream lifecycle recorder",
+        )
+        if stream_lifecycle_spec["kind"] != "cancellation-and-finally-recorder":
+            raise ValueError("Response stream lifecycle recorder kind is unsupported")
+        for key in ("cancellation_marker", "finally_marker"):
+            if not isinstance(stream_lifecycle_spec[key], str) or not stream_lifecycle_spec[key]:
+                raise ValueError(f"Response stream lifecycle {key} must be a non-empty string")
+        stream_lifecycle = stream_lifecycle_spec
+
+    receive_behavior: dict[str, Any] | None = None
+    if "receive_behavior" in case:
+        receive_behavior = _exact_object(
+            case["receive_behavior"],
+            {"kind", "minimum_body_bytes"},
+            "Response receive behavior",
+        )
+        if (
+            receive_behavior["kind"] != "disconnect-after-body-bytes"
+            or type(receive_behavior["minimum_body_bytes"]) is not int
+            or receive_behavior["minimum_body_bytes"] < 1
+        ):
+            raise ValueError("Response receive behavior input is invalid")
+
     execution_trace = (
         [] if streaming == "async-generator" or background_values is not None else None
     )
@@ -3822,7 +3890,14 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     elif streaming == "async-iterator":
         content = _InputAsyncIterator(content, execution_trace)
     elif streaming == "async-generator":
-        content = _input_async_generator(content, execution_trace)
+        if repeating_stream:
+            if execution_trace is None or stream_lifecycle is None:
+                raise ValueError("repeating async generator requires its lifecycle trace")
+            content = _input_repeating_async_generator(
+                content, execution_trace, stream_lifecycle, content_spec["checkpoint"]
+            )
+        else:
+            content = _input_async_generator(content, execution_trace)
     response_arguments: dict[str, Any] = {
         "content": content,
         "status_code": case["status_code"],
@@ -3841,20 +3916,33 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     response = response_type(**response_arguments)
     scope = _make_scope(scope_spec)
     sent: list[dict[str, Any]] = []
+    receive_gate = asyncio.Event() if receive_behavior is not None else None
+    sent_body_bytes = 0
 
     async def receive() -> dict[str, Any]:
-        return {"type": "http.disconnect"}
+        if receive_gate is not None:
+            await receive_gate.wait()
+        message = {"type": "http.disconnect"}
+        if execution_trace is not None and receive_gate is not None:
+            execution_trace.append({"event": "asgi-receive", "message": _json_safe(message)})
+        return message
 
     send_index = 0
 
     async def send(message: dict[str, Any]) -> None:
-        nonlocal send_index
+        nonlocal send_index, sent_body_bytes
         if send_error_spec is not None and send_index == send_error_spec["event_index"]:
             send_index += 1
             raise OSError(send_error_spec["message"])
         sent.append(message)
         if execution_trace is not None:
             execution_trace.append({"event": "asgi-send", "message": _canonical_message(message)})
+        if receive_behavior is not None and message["type"] == "http.response.body":
+            sent_body_bytes += len(message.get("body", b""))
+            if sent_body_bytes >= receive_behavior["minimum_body_bytes"]:
+                if receive_gate is None:
+                    raise RuntimeError("disconnect receive behavior has no receive gate")
+                receive_gate.set()
         send_index += 1
 
     captured_error: Exception | None = None

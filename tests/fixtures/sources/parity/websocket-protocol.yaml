@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@4",
+  "schema": "migration-parity/parity-input@5",
   "cases": [
     {
       "case_id": "starlette.websockets.WebSocket.protocol-sequence.handshake-text-close",
