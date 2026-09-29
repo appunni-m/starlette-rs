@@ -60,6 +60,7 @@ EXCEPTION_VALUES_SURFACE = "starlette.exceptions"
 MIDDLEWARE_CONFIG_SURFACE = "starlette.middleware.Middleware"
 VALUE_FORMATTING_OPERATION = "value-formatting"
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
+REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 STATUS_SURFACE = "starlette.status"
 STATUS_OPERATION = "module-symbol-sequence"
 CONFIG_OPERATIONS = {
@@ -2885,6 +2886,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         "send",
         "observations",
     }
+    if "render_override" in case:
+        required_fields.add("render_override")
     if surface == STREAMING_RESPONSE_SURFACE:
         required_fields.add("streaming")
         if "background" in case:
@@ -2951,6 +2954,11 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(encoded_content, str):
                 raise ValueError("Response base64-bytes content value must be a string")
             content = _decode_b64(encoded_content, "content.value")
+        elif content_kind == "memoryview-base64":
+            encoded_content = content_spec["value"]
+            if not isinstance(encoded_content, str):
+                raise ValueError("Response memoryview content value must be a string")
+            content = memoryview(_decode_b64(encoded_content, "content.value"))
         elif content_kind == "none" and content_spec["value"] is None:
             content = None
         else:
@@ -3059,6 +3067,22 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         JSON_RESPONSE_SURFACE: JSONResponse,
         STREAMING_RESPONSE_SURFACE: StreamingResponse,
     }[surface]
+    render_override = case.get("render_override")
+    if render_override is not None:
+        render_override = _strict_object(
+            render_override, {"kind", "prefix"}, "Response render override"
+        )
+        if render_override["kind"] != "prefix-text":
+            raise ValueError("Response render override must select prefix-text")
+        prefix = render_override["prefix"]
+        if not isinstance(prefix, str):
+            raise ValueError("Response render prefix must be a string")
+
+        class InputRenderResponse(Response):
+            def render(self, value: Any) -> bytes:
+                return (prefix + value).encode(self.charset)
+
+        response_type = InputRenderResponse
     if streaming == "sync":
         content = (
             _input_sync_iterator(content, execution_trace)
@@ -3570,6 +3594,63 @@ def _run_default_receive_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_send_push_promise_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "scope",
+            "path",
+            "send_callback",
+            "observations",
+        },
+        "Request send-push-promise case",
+    )
+    from starlette.requests import Request
+
+    sent_messages: list[dict[str, Any]] = []
+
+    async def capture_send(message: dict[str, Any]) -> None:
+        sent_messages.append(message)
+
+    scope = _make_scope(case["scope"])
+    if case["send_callback"]["kind"] == "capture":
+        request = Request(scope, send=capture_send)
+    else:
+        request = Request(scope)
+
+    async def observe() -> dict[str, Any]:
+        try:
+            await request.send_push_promise(case["path"])
+        except Exception as exc:
+            return {
+                "outcome": "error",
+                "error": {
+                    "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                    "message": str(exc),
+                },
+                "sent": _json_safe(sent_messages),
+            }
+        return {"outcome": "value", "sent": _json_safe(sent_messages)}
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "send-push-promise",
+                "status": "ok",
+                "value": {"send": asyncio.run(observe())},
+            }
+        ],
+    }
+
+
 def _run_status_symbols_case(case: dict[str, Any]) -> dict[str, Any]:
     _strict_object(
         case,
@@ -4004,6 +4085,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) == REQUEST_DEFAULT_RECEIVE_OPERATION
     ):
         return _run_default_receive_case(case)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_SEND_PUSH_PROMISE_OPERATION
+    ):
+        return _run_send_push_promise_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         STATUS_SURFACE,
         STATUS_OPERATION,

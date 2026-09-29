@@ -69,6 +69,12 @@ VALUE_FORMATTING_OPERATIONS = {
     (MIDDLEWARE_CONFIG_SURFACE, VALUE_FORMATTING_OPERATION),
 }
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
+REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
+REQUEST_SEND_PUSH_PROMISE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "scope",
+    "path",
+    "send_callback",
+}
 STATUS_OPERATION = ("starlette.status", "module-symbol-sequence")
 CONFIG_OPERATIONS = {
     ("starlette.config.Config", "value-resolution"),
@@ -210,6 +216,7 @@ VALUE_TYPES = {
     "number",
     "string",
     "bytes",
+    "memoryview",
     "path",
     "enum",
     "sequence",
@@ -900,6 +907,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key in VALUE_FORMATTING_OPERATIONS
                 or key in RUST_OWNED_PYTHON_OPERATIONS
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
+                or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 else {
                     "class",
                     "kind",
@@ -1064,6 +1072,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) in VALUE_FORMATTING_OPERATIONS
                         or (surface["id"], operation["id"]) in RUST_OWNED_PYTHON_OPERATIONS
                         or (surface["id"], operation["id"]) == REQUEST_DEFAULT_RECEIVE_OPERATION
+                        or (surface["id"], operation["id"]) == REQUEST_SEND_PUSH_PROMISE_OPERATION
                         or (surface["id"], operation["id"]) == STATUS_OPERATION
                         else profile_ids
                     )
@@ -2278,7 +2287,8 @@ def _validate_redirect_response_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
-    _exact(case, RESPONSE_CASE_KEYS, "Response asgi-call case")
+    case_keys = RESPONSE_CASE_KEYS | ({"render_override"} if "render_override" in case else set())
+    _exact(case, case_keys, "Response asgi-call case")
     if case["surface"] not in RESPONSE_SURFACES or case["operation"] != RESPONSE_OPERATION:
         raise ContractError("case is outside the declared Response asgi-call operations")
     if case["observations"] != [RESPONSE_OPERATION]:
@@ -2299,12 +2309,13 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 ("hi", 200, None),
                 ("hi", 200, "text/html"),
                 ("hello, world", 200, "text/plain"),
+                ("input", 200, "text/plain"),
             }
             if (value, case["status_code"], case["media_type"]) not in allowed:
                 raise ContractError(
                     "Response text, status_code, and media_type combination is unsupported"
                 )
-        elif content_kind == "base64-bytes":
+        elif content_kind in {"base64-bytes", "memoryview-base64"}:
             encoded = _string(content["value"], "Response bytes content.value")
             try:
                 decoded = base64.b64decode(encoded, validate=True)
@@ -2318,6 +2329,10 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "Response bytes, status_code, and media_type combination is unsupported"
                 )
+            if content_kind == "memoryview-base64" and case["target_profiles"] != [
+                "python-package-cpython312"
+            ]:
+                raise ContractError("Response memoryview input is Python-package-only")
         elif content_kind == "none":
             if content["value"] is not None:
                 raise ContractError("Response none content.value must be null")
@@ -2330,8 +2345,22 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     "Response none, status_code, and media_type combination is unsupported"
                 )
         else:
-            raise ContractError("Response content.kind must be none, text, or base64-bytes")
+            raise ContractError(
+                "Response content.kind must be none, text, base64-bytes, or memoryview-base64"
+            )
+
+        if "render_override" in case:
+            if case["target_profiles"] != ["python-package-cpython312"]:
+                raise ContractError("Response.render override is Python-package-only")
+            override = _exact(
+                case["render_override"], {"kind", "prefix"}, "Response.render override"
+            )
+            if override["kind"] != "prefix-text":
+                raise ContractError("Response.render override kind must be prefix-text")
+            _string(override["prefix"], "Response.render override prefix")
     else:
+        if "render_override" in case:
+            raise ContractError("JSONResponse does not accept a Response.render override")
         if content_kind != "json" or content["value"] is not None:
             raise ContractError("JSONResponse content must be json null for this input slice")
         if case["status_code"] != 200 or case["media_type"] is not None:
@@ -3513,6 +3542,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_DEFAULT_RECEIVE_OPERATION
     )
+    is_send_push_promise = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_SEND_PUSH_PROMISE_OPERATION
+    )
     is_status_symbols = (
         isinstance(case, dict) and (case.get("surface"), case.get("operation")) == STATUS_OPERATION
     )
@@ -3541,6 +3574,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_status_symbols
         else CASE_KEYS
     )
+    if is_response and isinstance(case, dict) and "render_override" in case:
+        expected_case_keys = expected_case_keys | {"render_override"}
     if is_value_formatting:
         value_keys = (
             {"instances"} if case["surface"] == EXCEPTION_VALUES_SURFACE else {"middleware"}
@@ -3567,6 +3602,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
     elif is_default_receive:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
+    elif is_send_push_promise:
+        expected_case_keys = REQUEST_SEND_PUSH_PROMISE_CASE_KEYS
     elif is_status_symbols:
         expected_case_keys = STATUS_CASE_KEYS
     if is_streaming_response and "background" in case:
@@ -3638,6 +3675,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_default_receive:
         if case["observations"] != ["receive"]:
             raise ContractError("default receive cases must select the receive observation")
+    elif is_send_push_promise:
+        if case["observations"] != ["send-push-promise"]:
+            raise ContractError("push-promise cases must select the send-push-promise observation")
     elif is_status_symbols:
         if (case["surface"], case["operation"]) != STATUS_OPERATION:
             raise ContractError(
@@ -3703,6 +3743,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_default_receive:
         _validate_default_receive_case(case)
+        return case
+    if is_send_push_promise:
+        _validate_send_push_promise_case(case)
         return case
     if is_status_symbols:
         _validate_status_symbols_case(case)
@@ -5057,6 +5100,47 @@ def _validate_default_receive_case(case: dict[str, Any]) -> None:
         raise ContractError("Request default-receive input must use an HTTP scope")
     if case["covers"] != ["starlette.request.default-empty-receive-runtime-error"]:
         raise ContractError("default receive case must cover its declared runtime-error behavior")
+
+
+def _validate_send_push_promise_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("push-promise parity currently targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["send-push-promise"]:
+        raise ContractError("push-promise cases must select one observation without assets")
+    _string(case["path"], "Request.send_push_promise path")
+    callback = _exact(
+        case["send_callback"], {"kind"}, "Request.send_push_promise callback selector"
+    )
+    if callback["kind"] not in {"capture", "default"}:
+        raise ContractError("push-promise callback must select capture or default")
+    scope = case["scope"]
+    if not isinstance(scope, dict) or "extensions" not in scope:
+        raise ContractError("push-promise scope must explicitly declare its extensions")
+    scope_without_extensions = {key: value for key, value in scope.items() if key != "extensions"}
+    _validate_dispatch_stimulus(
+        {
+            "scope": scope_without_extensions,
+            "receive": [],
+            "send": {"kind": "capture-asgi-send"},
+        },
+        request_dispatch=True,
+        allow_headers=True,
+    )
+    if scope["type"] != "http":
+        raise ContractError("Request.send_push_promise requires an HTTP scope")
+    extensions = scope["extensions"]
+    if not isinstance(extensions, dict) or set(extensions) - {"http.response.push"}:
+        raise ContractError("push-promise scope may declare only the HTTP response push extension")
+    if "http.response.push" in extensions and extensions["http.response.push"] != {}:
+        raise ContractError("HTTP response push extension configuration must be empty")
+    if "http.response.push" not in extensions:
+        expected = "starlette.request.send-push-promise.without-extension"
+    elif callback["kind"] == "default":
+        expected = "starlette.request.send-push-promise.missing-send"
+    else:
+        expected = "starlette.request.send-push-promise.extension-event"
+    if case["covers"] != [expected]:
+        raise ContractError("push-promise case must cover the behavior selected by its inputs")
 
 
 def _validate_status_symbols_case(case: dict[str, Any]) -> None:

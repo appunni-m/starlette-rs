@@ -17,18 +17,23 @@ _ContentStream = Iterable[_ContentChunk] | AsyncIterable[_ContentChunk]
 class Response:
     """Wrap a Rust response and await ASGI ``send`` on the caller's loop."""
 
-    __slots__ = ("_inner", "background")
+    __slots__ = ("__dict__", "_inner", "background", "body", "status_code")
+    media_type = None
+    charset = "utf-8"
 
     def __init__(
         self,
-        content: str | bytes = "",
+        content: Any = None,
         status_code: int = 200,
         headers: Mapping[str, str] | None = None,
         media_type: str | None = None,
         background: Any = None,
     ) -> None:
-        self._inner = _core.Response(content, status_code, headers, media_type)
+        self.status_code = status_code
+        self.media_type = _core.Response.media_type_or(media_type, self.media_type)
         self.background = background
+        self.body = self.render(content)
+        self._inner = _core.Response(self.body, status_code, headers, self.media_type)
 
     @classmethod
     def _from_native(cls, inner: Any) -> Response:
@@ -36,7 +41,17 @@ class Response:
         response = cls.__new__(cls)
         response._inner = inner
         response.background = None
+        response.body = inner.body
+        response.status_code = inner.status_code
         return response
+
+    def render(self, content: Any) -> bytes | memoryview:
+        """Render content using Rust's default policy.
+
+        Subclasses may override this method with Python code; construction
+        invokes that override before handing the result to the Rust response.
+        """
+        return _core.Response.render_content(content, self.charset)
 
     def set_cookie(self, key: str, value: str) -> None:
         """Append a cookie header through the Rust response implementation."""
@@ -45,7 +60,7 @@ class Response:
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
-        await self._inner.asgi_call(scope, receive, send, self.background)
+        await self._inner.asgi_call(scope, receive, send, self.background, self.body)
 
 
 class PlainTextResponse(Response):
@@ -162,6 +177,8 @@ class RedirectResponse(Response):
     ) -> None:
         self._inner = _core.Response.redirect(str(url), status_code, headers)
         self.background = background
+        self.body = b""
+        self.status_code = status_code
 
 
 class JSONResponse(Response):
@@ -178,9 +195,11 @@ class JSONResponse(Response):
         media_type: str | None = None,
         background: Any = None,
     ) -> None:
-        body = self.render(content)
-        self._inner = _core.Response.json(body, status_code, headers, media_type)
+        self.status_code = status_code
+        self.media_type = _core.Response.media_type_or(media_type, self.media_type)
         self.background = background
+        self.body = self.render(content)
+        self._inner = _core.Response.json(self.body, status_code, headers, self.media_type)
 
     def render(self, content: Any) -> bytes:
         """Serialize JSON with Starlette's Python-value compatibility rules."""

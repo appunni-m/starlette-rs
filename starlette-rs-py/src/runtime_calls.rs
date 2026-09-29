@@ -47,6 +47,7 @@ pub(crate) fn response_call(
     receive: Py<PyAny>,
     send: Py<PyAny>,
     background: Option<Py<PyAny>>,
+    body_override: Option<Py<PyAny>>,
 ) -> PyResult<Py<PyAny>> {
     let websocket = is_websocket_scope(scope)?;
     into_python_awaitable(
@@ -56,6 +57,7 @@ pub(crate) fn response_call(
             send,
             _receive: receive,
             background,
+            body_override,
             websocket,
             pending: None,
         },
@@ -72,6 +74,7 @@ struct ResponseCallMachine {
     send: Py<PyAny>,
     _receive: Py<PyAny>,
     background: Option<Py<PyAny>>,
+    body_override: Option<Py<PyAny>>,
     websocket: bool,
     pending: Option<ResponsePending>,
 }
@@ -118,7 +121,8 @@ impl ResponseCallMachine {
         match self.call.step() {
             ResponseCallStep::Send(event) => {
                 self.pending = Some(ResponsePending::Send);
-                let message = response_event_to_py(py, event, self.websocket)?;
+                let body_override = self.body_override.as_ref().map(|body| body.bind(py));
+                let message = response_event_to_py(py, event, self.websocket, body_override)?;
                 let awaitable = self.send.bind(py).call1((message,))?;
                 Ok(MachineAction::Await(awaitable.unbind()))
             }
@@ -470,11 +474,12 @@ fn asgi_spec_at_least_24(py: Python<'_>, scope: &Bound<'_, PyDict>) -> PyResult<
         .is_truthy()
 }
 
-fn response_event_to_py(
-    py: Python<'_>,
+fn response_event_to_py<'py>(
+    py: Python<'py>,
     event: ResponseEvent,
     websocket: bool,
-) -> PyResult<Bound<'_, PyDict>> {
+    body_override: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyDict>> {
     let message = PyDict::new(py);
     match event {
         ResponseEvent::Start {
@@ -487,7 +492,10 @@ fn response_event_to_py(
         }
         ResponseEvent::Body { body } => {
             message.set_item("type", event_type("http.response.body", websocket))?;
-            message.set_item("body", PyBytes::new(py, &body))?;
+            match body_override {
+                Some(body) => message.set_item("body", body)?,
+                None => message.set_item("body", PyBytes::new(py, &body))?,
+            }
         }
     }
     Ok(message)

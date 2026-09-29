@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 221 input-only cases in 30 indexed files, covering 43 operations and 267 parity requirements. The cases cover bounded Starlette application, routing, request, response, WebSocket, exception, status, endpoint, authentication, middleware, configuration, and schema behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 228 input-only cases in 31 indexed files, covering 45 operations and 276 parity requirements. The cases cover bounded Starlette application, routing, request, response, WebSocket, exception, status, endpoint, authentication, middleware, configuration, and schema behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -19,6 +19,15 @@ The `/missing` case requests GET for an absent path. The wrong-method case reque
 [`asgi-request-items.yaml`](../tests/fixtures/sources/parity/asgi-request-items.yaml) adds three cases with a separate `request-dispatch` observation profile. Each case constructs one GET `/items/{item_id:int}` route whose declarative `request-observer` endpoint reads a Request and returns the input's fixed plain-text response marker. The successful input requests `/items/0007?tag=red&tag=blue`, supplies a lowercase ASGI header that the endpoint looks up using mixed-case names, a cookie, and JSON split across two `http.request` messages. The two other inputs exercise a route miss at `/items/nope` and POST `/items/7` against the GET-only route. All response observations come from the live source and targets; the input file contains only route/request stimulus and observation selectors.
 
 The request observation record selects the converted path parameter and runtime type, `QueryParams.getlist` plus scalar lookup, two differently cased `Headers` lookups, the parsed cookie, and `await Request.json()`. A separate scope observation records identity checks for `app`, `router`, and `endpoint`, path-parameter presence, and the resulting `path_params` mapping. The installed Python target checks live object identity; the Rust-native request adapter builds a routed-scope model and checks identity-token references. This model applies to the three `request-dispatch` cases only; their evidence does not exercise a public Rust `Request` or the new native `Starlette::call` API. The full ASGI response events remain exact, with only the declared `Allow` token-set normalization.
+
+[`request-runtime.yaml`](../tests/fixtures/sources/parity/request-runtime.yaml)
+adds three source/package cases for `Request.send_push_promise`: extension-
+enabled event construction with one allowed and one ignored request header,
+the no-op when the extension is absent, and the exact default missing-send
+error. Rust owns the extension check, header filtering, event construction, and
+callback await; the Python method forwards the call through PyO3. These cases
+exercise the Python callback boundary and do not claim a Rust-native
+`Request` API.
 
 The upstream basis is `starlette/requests.py` (`HTTPConnection.headers`, `query_params`, `path_params`, `cookies`, and `Request.stream`/`body`/`json`), `starlette/datastructures.py` (`ImmutableMultiDict` and `Headers`), and `starlette/routing.py` (`Route.matches` and `Router.app`). Related pinned tests include `tests/test_requests.py::test_request_query_params`, `test_request_headers`, `test_request_cookies`, `test_request_json`, `tests/test_routing.py::test_route_converters`, and `test_router`.
 
@@ -46,10 +55,15 @@ the caller's header order and `Content-Length`. All four cases passed against
 the source on both target profiles.
 
 [`responses-basic.yaml`](../tests/fixtures/sources/parity/responses-basic.yaml)
-adds three direct ASGI-call cases for text and byte `Response` bodies plus
-`JSONResponse(None)`. They preserve the upstream `text/plain` and `image/png`
-media types and exercise JSON null serialization to the bytes `null`. All
-three cases passed against the source on both target profiles.
+adds five direct ASGI-call cases for text, byte, and memoryview `Response`
+bodies, `JSONResponse(None)`, and an input-defined `Response.render` subclass
+override. They preserve the upstream `text/plain` and `image/png` media types,
+exercise JSON null serialization to the bytes `null`, and verify that
+construction dispatches to the Python subclass override before Rust frames
+the response. The default renderer and media-type selection are Rust-backed;
+subclass rendering remains a user-Python callback. All five cases passed
+against the source and installed package. The memoryview and override cases
+select the Python-package profile.
 
 [`streaming-response.yaml`](../tests/fixtures/sources/parity/streaming-response.yaml)
 adds four direct `StreamingResponse` ASGI-call cases for finite synchronous
@@ -111,27 +125,28 @@ docstring YAML parsing and parser errors, and OpenAPI response rendering. Their
 Python `starlette.*` modules forward to Rust; the adapters run the same
 input-only cases against pinned Starlette 1.6.0.
 
-The latest integrated run `bc5e9566-863d-4815-851f-d980de38504c` finished at
-`2026-09-29T00:52:00.077Z`. It selected 300 profile comparisons: 296 passed,
+The latest integrated run `a3314acd-18ae-4245-8c0c-55076f1ad7ef` finished at
+`2026-09-29T01:34:30.111Z`. It selected 305 profile comparisons: 301 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 223 cases; Rust-native passed 73 of 77 selected
+package passed all 228 cases; Rust-native passed 73 of 77 selected
 comparisons. The four remaining Rust-native rows require arbitrary Python
 endpoint callables. `make parity-run` exits with status 2 because those rows
 are explicitly unsupported by the Rust-native target. This run includes the
-Unicode and regex-special route-template case on both targets and URL query
-parameter operations on the Python package. Manifest SHA-256 is
-`98232b3e41be3307d30396c5d1dac667b1210a071cd1f59e0c86e1fd883cb283`; the
+Unicode and regex-special route-template case, URL query operations, the new
+Response override/memoryview cases, and the three push-promise cases. The
+manifest SHA-256 is
+`e4c311ef937ce41c10baf0a26b8592b265079322dc30bcc54a86a5abf449e315`; the
 installed wheel SHA-256 is
-`a8c33ec2f2ab9d95224729da440c5e168463ad4bba54d553dadc95d474d9f46d`. Both
-target trees were dirty during this local run, so it is not clean aggregate or
-release proof.
+`e1fbc79fd18cde5eec63b5cb3ac73f43988c408a9fd496378867510d39566cd7`. The
+Python package tree was dirty during this local run; this is not release proof.
 
 The package policy check confirms there is no upstream Starlette runtime
 dependency and no Python control flow in its runtime facades. Routing template
-tokenization, URL query operations, middleware defaults, and middleware error
-policy in this change are implemented in Rust; Python methods forward values
-through the PyO3 boundary. Python remains the public import and callable/event
-loop boundary. The overall Starlette replacement remains incomplete.
+tokenization, URL query operations, response defaults and rendering, push-
+promise policy, middleware defaults, and middleware error policy are
+implemented in Rust; Python methods forward values through the PyO3 boundary.
+Python remains the public import and user-callable/event-loop boundary. The
+overall Starlette replacement remains incomplete.
 
 The synchronous function case, `starlette.applications.Starlette.request-dispatch.sync-get-items-0007-contextvar-worker`, sends `GET /items/0007` through a route declared as `/items/{item_id:int}`. It selects the converted integer path parameter, caller `ContextVar` propagation, execution on a worker thread distinct from the ASGI caller, one endpoint invocation, route-scope observations, and complete ASGI events. The latest integrated run above compares this case exactly between pinned Starlette 1.6.0 and the installed Python package. Its Rust-native row is `not_run` because that profile cannot invoke a Python callable through this boundary; the manifest declares the sync-endpoint observations unsupported for Rust-native.
 
@@ -254,7 +269,7 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@4` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 223 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. See `build/parity/results/config-schemas-run-2.json`; generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 228 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. Generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 

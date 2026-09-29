@@ -1663,7 +1663,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -1674,7 +1674,7 @@
             {
               "id": "starlette.request.receive-worker-access",
               "dimension": "boundary",
-              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO’s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
               "lanes": [
                 "parity"
               ],
@@ -1685,7 +1685,7 @@
             {
               "id": "starlette.request.stream-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO’s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
               "lanes": [
                 "parity"
               ],
@@ -1696,7 +1696,7 @@
             {
               "id": "starlette.request.body-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
               "lanes": [
                 "parity"
               ],
@@ -1707,7 +1707,7 @@
             {
               "id": "starlette.request.json-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity"
               ],
@@ -5029,6 +5029,100 @@
             "applicability": "not_applicable",
             "reason": "The missing-receive failure is outside the active benchmark workloads."
           }
+        },
+        {
+          "id": "send-push-promise",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.Request.send_push_promise",
+            "signature": "async send_push_promise(self, path: str) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": ["handle"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "path",
+                "style": "positional",
+                "value_types": ["string"],
+                "omission": {"kind": "required"}
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "send",
+                  "value_types": ["sequence", "null"],
+                  "comparison": {"kind": "exact"}
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {"mode": "exact", "transforms": [], "reason": null}
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not expose the Python ASGI send callback boundary.",
+                "blocker": "Request push events are currently exposed through the Python compatibility interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.send_push_promise",
+              "signature": "async send_push_promise(self, path: str) -> None",
+              "support": {"status": "supported"}
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.request.send-push-promise.extension-event",
+              "dimension": "success_path",
+              "description": "With http.response.push enabled, emit the push event and copy only the designated request headers. Upstream: starlette/requests.py::Request.send_push_promise and SERVER_PUSH_HEADERS_TO_COPY.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.request.send-push-promise.without-extension",
+              "dimension": "success_path",
+              "description": "With no http.response.push extension, return without invoking the send callback. Upstream: starlette/requests.py::Request.send_push_promise.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.request.send-push-promise.missing-send",
+              "dimension": "error_path",
+              "description": "With push enabled and the default send callback, preserve the exact missing-send RuntimeError. Upstream: starlette/requests.py::empty_send and Request.send_push_promise.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": ["python-package-cpython312"]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only callback comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Push-promise callback behavior is outside the active benchmark workloads."
+          }
         }
       ]
     },
@@ -5056,7 +5150,8 @@
                 "value_types": [
                   "null",
                   "string",
-                  "bytes"
+                  "bytes",
+                  "memoryview"
                 ],
                 "omission": {
                   "kind": "literal",
@@ -5308,6 +5403,28 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.render-override",
+              "dimension": "parameter_combination",
+              "description": "Construct an input-defined Response subclass whose render(content) prefixes the supplied text, then invoke the instance through HTTP ASGI. This checks Python override dispatch with the default render policy owned by Rust. Upstream: starlette/responses.py::Response.__init__ and Response.render.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.memoryview-content",
+              "dimension": "input_family",
+              "description": "Construct Response from a memoryview over the input bytes and invoke it through HTTP ASGI, preserving memoryview as the outgoing body while comparing its bytes. Upstream: starlette/responses.py::Response.render and Response.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             }

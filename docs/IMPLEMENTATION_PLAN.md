@@ -32,20 +32,20 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 221 input-only cases, 43 operations, and 267
-parity requirements across 30 indexed files. Latest integrated run
-`caaade1c-050a-4054-9f59-0b031e481bec`, finished at
-`2026-09-29T00:09:58.843Z`, selected 297 profile comparisons: 293 passed, zero
+The current parity contract has 228 input-only cases, 45 operations, and 276
+parity requirements across 31 indexed files. Latest integrated run
+`a3314acd-18ae-4245-8c0c-55076f1ad7ef`, finished at
+`2026-09-29T01:34:30.111Z`, selected 305 profile comparisons: 301 passed, zero
 failed, zero infrastructure errors, and four were `not_run`. The Python package
-passed all 221 selected comparisons; Rust-native passed 72 of 76. The four
-remaining Rust-native rows require Python endpoint callables. The manifest
+passed all 228 cases; Rust-native passed 73 of 77 selected comparisons. The
+four remaining Rust-native rows require Python endpoint callables. The manifest
 SHA-256 is
-`2608a3cd738886fc5302a6428721a60a08eaa868261aad95d47891f5d2b8b732`; the
+`e4c311ef937ce41c10baf0a26b8592b265079322dc30bcc54a86a5abf449e315`; the
 target wheel SHA-256 is
-`c2ad97efc70f9092a50497fb079fb93442a07597d8228f17379d4fd70347e229`. Both
-target environments were built from dirty working trees. `make parity-run`
-builds the current Rust-native adapter before running; its nonzero status
-reflects the four explicitly unsupported callback rows.
+`e1fbc79fd18cde5eec63b5cb3ac73f43988c408a9fd496378867510d39566cd7`. The
+Python package tree was dirty during this local run. `make parity-run` builds
+the current Rust-native adapter before running; its nonzero status reflects
+the four explicitly unsupported callable rows.
 
 ## 1. Completed bounded goal: lifespan state and cancellation
 

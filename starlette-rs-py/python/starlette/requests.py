@@ -19,6 +19,11 @@ async def empty_receive() -> Any:
     return await _core._empty_receive()
 
 
+async def empty_send(message: Any) -> Any:
+    """Return the same missing-send failure as the upstream callback."""
+    return await _core._empty_send()
+
+
 class Headers(Mapping[str, str]):
     """Thin Python view over Rust-owned ordered request headers."""
 
@@ -148,7 +153,7 @@ class Request(HTTPConnection):
         self,
         scope: dict[str, Any],
         receive: Callable[..., Any] = empty_receive,
-        send: Callable[..., Any] | None = None,
+        send: Callable[..., Any] = empty_send,
     ) -> None:
         self._inner = _core.HTTPConnection(scope, "http")
         self._body_state = _core.RequestBody(receive)
@@ -181,3 +186,6 @@ class Request(HTTPConnection):
     async def json(self) -> Any:
         """Decode and cache JSON using Rust-owned request state."""
         return await self._body_state.json()
+
+    async def send_push_promise(self, path: str) -> None:
+        await self._inner._send_push_promise(self._send, path)

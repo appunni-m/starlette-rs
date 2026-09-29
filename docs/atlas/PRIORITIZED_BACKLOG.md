@@ -8,14 +8,13 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract now has 211 input-only cases across 30 files, covering 43
-operations and 257 requirements. Run
-`efd76095-d4d6-48a2-951f-030dde4bb49a` selected 282 comparisons: 274 passed,
-two failed, zero infrastructure errors, and six `not_run`. The Python package
-passed 209 of 211 cases; Rust-native passed 65 of 71 selected cases. All 15
-generator-lifespan cases passed on the Python package, including no-yield
-errors, extra yields, and shutdown-error suppression. The two debug traceback differences and six
-unsupported Rust-native rows keep the full gate incomplete. See
+The active contract has 228 input-only cases across 31 files, covering 45
+operations and 276 requirements. Run
+`a3314acd-18ae-4245-8c0c-55076f1ad7ef` selected 305 comparisons: 301 passed,
+zero failed, zero infrastructure errors, and four `not_run`. The Python package
+passed all 228 cases; Rust-native passed 73 of 77 selected cases. The four
+unsupported Rust-native rows require arbitrary Python callables and keep the
+all-target gate incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for the latest detailed
 scope and evidence.
 
@@ -25,8 +24,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The matrix has 789 mappings: 702 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 37 existing input mappings. It maps selected
+The matrix has 789 mappings: 695 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 44 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

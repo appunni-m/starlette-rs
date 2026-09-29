@@ -32,7 +32,7 @@ mod websocket_calls;
 use pyo3::exceptions::PyKeyError;
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
 use starlette_rs::{
     AsgiScopeKind, BodyProgress, ConnectionUrlError, Cookies as NativeCookies,
     DEFAULT_EXCLUDED_CONTENT_TYPES, DebugTracebackFrame, DetailedRouteMatch, GzipBodyOutput,
@@ -581,7 +581,7 @@ impl PyResponse {
         headers: Option<Py<PyAny>>,
         media_type: Option<String>,
     ) -> PyResult<Self> {
-        let body = render_content(content.as_ref())?;
+        let body = response_body_bytes(py, content.as_ref())?;
         let inner = Response::from_content(
             status_code,
             body,
@@ -590,6 +590,34 @@ impl PyResponse {
         )
         .map_err(response_error)?;
         Ok(Self { inner })
+    }
+
+    /// Applies Starlette's default Response.render behavior to a Python value.
+    ///
+    /// The public Python facade calls this only when a subclass has not
+    /// provided its own `render` override. Python bytes and memoryview values
+    /// are returned unchanged; other values use their Python `encode` method.
+    #[staticmethod]
+    fn render_content(py: Python<'_>, content: Py<PyAny>, charset: &str) -> PyResult<Py<PyAny>> {
+        let content = content.bind(py);
+        if content.is_none() {
+            return Ok(PyBytes::new(py, &[]).into_any().unbind());
+        }
+        let memoryview_type = py.import("builtins")?.getattr("memoryview")?;
+        if content.is_instance_of::<PyBytes>() || content.is_instance(&memoryview_type)? {
+            return Ok(content.clone().unbind());
+        }
+        content
+            .call_method1("encode", (charset,))
+            .map(Bound::unbind)
+    }
+
+    /// Selects the explicit media type or the response subclass default.
+    #[staticmethod]
+    fn media_type_or(py: Python<'_>, media_type: Option<String>, fallback: Py<PyAny>) -> Py<PyAny> {
+        media_type.map_or(fallback, |media_type| {
+            PyString::new(py, &media_type).into_any().unbind()
+        })
     }
 
     /// Creates a Starlette-compatible redirect response from a URL string.
@@ -642,6 +670,7 @@ impl PyResponse {
             .extract::<Vec<u8>>()
     }
 
+    #[pyo3(signature = (scope, receive, send, background=None, body_override=None))]
     fn asgi_call(
         &self,
         py: Python<'_>,
@@ -649,8 +678,27 @@ impl PyResponse {
         receive: Py<PyAny>,
         send: Py<PyAny>,
         background: Option<Py<PyAny>>,
+        body_override: Option<Py<PyAny>>,
     ) -> PyResult<Py<PyAny>> {
-        runtime_calls::response_call(py, &self.inner, scope, receive, send, background)
+        runtime_calls::response_call(
+            py,
+            &self.inner,
+            scope,
+            receive,
+            send,
+            background,
+            body_override,
+        )
+    }
+
+    #[getter]
+    fn body(&self) -> Vec<u8> {
+        self.inner.body().to_vec()
+    }
+
+    #[getter]
+    fn status_code(&self) -> u16 {
+        self.inner.status_code()
     }
 
     fn set_cookie(&mut self, key: &str, value: &str) -> PyResult<()> {
@@ -956,10 +1004,17 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-fn render_content(content: Option<&Bound<'_, PyAny>>) -> PyResult<Vec<u8>> {
+fn response_body_bytes(py: Python<'_>, content: Option<&Bound<'_, PyAny>>) -> PyResult<Vec<u8>> {
     let Some(content) = content else {
         return Ok(Vec::new());
     };
+    if content.is_none() {
+        return Ok(Vec::new());
+    }
+    let memoryview_type = py.import("builtins")?.getattr("memoryview")?;
+    if content.is_instance(&memoryview_type)? {
+        return content.call_method0("tobytes")?.extract::<Vec<u8>>();
+    }
     if let Ok(text) = content.extract::<String>() {
         return Ok(text.into_bytes());
     }

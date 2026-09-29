@@ -138,6 +138,10 @@
         {
           "operation_id": "default-receive",
           "source_path": "starlette.requests.Request.__init__ and Request.receive"
+        },
+        {
+          "operation_id": "send-push-promise",
+          "source_path": "starlette.requests.Request.send_push_promise"
         }
       ]
     },

@@ -315,6 +315,103 @@ impl PyHTTPConnection {
             .call_method("make_absolute_url", (), Some(&kwargs))
             .map(Bound::unbind)
     }
+
+    fn _send_push_promise(
+        slf: Py<Self>,
+        py: Python<'_>,
+        send_callback: Py<PyAny>,
+        path: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            SendPushPromiseMachine {
+                connection: slf,
+                send_callback,
+                path,
+                pending_send: false,
+            },
+        )
+    }
+}
+
+struct SendPushPromiseMachine {
+    connection: Py<PyHTTPConnection>,
+    send_callback: Py<PyAny>,
+    path: Py<PyAny>,
+    pending_send: bool,
+}
+
+impl AwaitableStateMachine for SendPushPromiseMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start if !self.pending_send => self.start(py),
+            MachineResume::Start => Err(PyRuntimeError::new_err(
+                "request push-promise send already has an operation pending",
+            )),
+            MachineResume::Value(_) if self.pending_send => {
+                self.pending_send = false;
+                Ok(MachineAction::Complete(py.None()))
+            }
+            MachineResume::Value(_) => Err(PyRuntimeError::new_err(
+                "request push-promise send resumed without a pending send",
+            )),
+            MachineResume::Error(error) => {
+                self.pending_send = false;
+                Err(error)
+            }
+            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+        }
+    }
+}
+
+impl SendPushPromiseMachine {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let scope = self.connection.borrow(py).scope.clone_ref(py);
+        let scope = scope.bind(py);
+        let default_extensions = PyDict::new(py);
+        let extensions = scope.call_method1("get", ("extensions", &default_extensions))?;
+        if !extensions.contains("http.response.push")? {
+            return Ok(MachineAction::Complete(py.None()));
+        }
+
+        let mut connection = self.connection.borrow_mut(py);
+        let request_headers = connection.native_headers(py)?;
+        let raw_headers = request_headers
+            .bind(py)
+            .call_method0("raw")?
+            .extract::<Vec<(Vec<u8>, Vec<u8>)>>()?;
+        drop(connection);
+
+        // Upstream stores these names in a set, so their cross-process order
+        // is not a public guarantee. Use a stable order for Rust observations.
+        const COPIED_HEADER_NAMES: [&str; 5] = [
+            "accept",
+            "accept-encoding",
+            "accept-language",
+            "cache-control",
+            "user-agent",
+        ];
+        let copied_headers = PyList::empty(py);
+        for name in COPIED_HEADER_NAMES {
+            for (header_name, value) in &raw_headers {
+                if header_name.eq_ignore_ascii_case(name.as_bytes()) {
+                    let pair = PyTuple::new(
+                        py,
+                        [PyBytes::new(py, name.as_bytes()), PyBytes::new(py, value)],
+                    )?;
+                    copied_headers.append(pair)?;
+                }
+            }
+        }
+
+        let message = PyDict::new(py);
+        message.set_item("type", "http.response.push")?;
+        message.set_item("path", self.path.bind(py))?;
+        message.set_item("headers", copied_headers)?;
+        let awaitable = self.send_callback.bind(py).call1((message,))?;
+        self.pending_send = true;
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
 }
 
 #[pyclass(name = "_HeadersView")]
@@ -651,6 +748,7 @@ fn normalize_stream_throw(
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(empty_receive, module)?)?;
+    module.add_function(wrap_pyfunction!(empty_send, module)?)?;
     module.add_class::<PyRequestBody>()?;
     module.add_class::<PyRequestStream>()?;
     module.add_class::<PyHTTPConnection>()?;
@@ -669,6 +767,21 @@ impl AwaitableStateMachine for EmptyReceive {
     fn resume(&mut self, _py: Python<'_>, _input: MachineResume) -> PyResult<MachineAction> {
         Err(PyRuntimeError::new_err(
             "Receive channel has not been made available",
+        ))
+    }
+}
+
+#[pyfunction(name = "_empty_send")]
+fn empty_send(py: Python<'_>) -> PyResult<Py<PyAny>> {
+    into_python_awaitable(py, EmptySend)
+}
+
+struct EmptySend;
+
+impl AwaitableStateMachine for EmptySend {
+    fn resume(&mut self, _py: Python<'_>, _input: MachineResume) -> PyResult<MachineAction> {
+        Err(PyRuntimeError::new_err(
+            "Send channel has not been made available",
         ))
     }
 }
