@@ -60,27 +60,31 @@ workloads; its evidence is summarized in
 files under `build/parity/`. These bounded results do not establish full
 compatibility.
 
-The current contract has 318 input-only cases across 38 files, covering 56
-operations and 396 requirements. Integrated run
-`01119ec1-55bf-4382-83fd-7d68e587cd82` selected 453 comparisons: 449 passed,
+The current contract has 319 input-only cases across 38 files, covering 56
+operations and 397 requirements. Integrated run
+`9feeec07-93e6-45e5-9416-d42abf209a88` selected 454 comparisons: 450 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 316 applicable cases; Rust-native passed 133 of 137 selected
+package passed all 317 applicable cases; Rust-native passed 133 of 137 selected
 cases. The four Rust-native rows require arbitrary Python callables. All 27
 FileResponse cases passed on both profiles; all eight SessionMiddleware cases
-and all five BaseHTTPMiddleware cases passed on the Python package profile.
+and all six BaseHTTPMiddleware cases passed on the Python package profile.
 The BaseHTTP cases cover configured-header mutation, awaited `call_next`
 response replacement, request-body cache replay, response-completion
-unblocking downstream receive, and exception-context propagation. Partial-body
-replay, repeated disconnects, broader exception-group shapes beyond the
-observed TaskGroup context, varied or malformed `http.response.debug` frames,
-cancellation and cleanup ordering, path-send responses, and additional
-streaming behaviors remain unproven. The Rust-native target was clean at
-revision `d5d6b621a37a1cf72f07e9f88f6c2cd0609a7719+source-fnv1a64-e5a0df1c1dca21b4`;
+unblocking downstream receive, exception-context propagation, and partial
+stream forwarding. In the partial-stream case, dispatch consumes `b"1"`, the
+endpoint reads the next chunk `b"2"`, then dispatch resumes and consumes
+`b"3"` after `call_next`; see `tests/middleware/test_base.py:777-832`. Further
+partial-stream/replay interleavings, repeated disconnects, broader
+exception-group shapes beyond the observed TaskGroup context, varied or
+malformed `http.response.debug` frames, cancellation and cleanup ordering,
+path-send responses, and additional streaming behaviors remain unproven. The
+Rust-native target was clean at
+revision `e64e82fec615724ff375c54b835b1ecca6ddb5a8+source-fnv1a64-e5a0df1c1dca21b4`;
 the Python-package target was dirty with tree SHA-256
-`e4150a05156c7e9b80c848ce3c4ff096fb55cb553fea77475274bd5871edde94`. Manifest
-SHA-256: `9ec850bfdfe09c5583b42fb4e20999d1acc3c370d802fc045af39a01691eab2c`;
+`53cc0a4ea8c34f2138f0d64ebb01fceb99749dc1bb1a188f33e081b6c3d8e97e`. Manifest
+SHA-256: `13ca65b30c8c90fe442df141d9cd69591cd2a8587f8687314af2e1dbf6c7f36f`;
 package wheel SHA-256:
-`941999702388f45a1b33dec873ca860999a59412e0b87afd65a5a06140fe6080`. See
+`f2ca476c1c20a6ce433a5ef02023e421f7621354b44bdf60e3fd090bc5e7eeb3`. See
 [Migration parity contract and evidence](../PARITY.md) for current scope and
 the case breakdown; Rust-native parity remains incomplete.
 

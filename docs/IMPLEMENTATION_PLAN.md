@@ -32,26 +32,29 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 318 input-only cases, 56 operations, and 396
+The current parity contract has 319 input-only cases, 56 operations, and 397
 parity requirements across 38 indexed files, including bounded
 SessionMiddleware and BaseHTTPMiddleware workflow slices. Latest integrated
-run `01119ec1-55bf-4382-83fd-7d68e587cd82`, from
-`2026-09-29T13:37:18.090Z` to `2026-09-29T13:38:32.105Z`, selected 453 profile
-comparisons: 449 passed, zero failed, zero infrastructure errors, and four
-were `not_run`. The Python package passed all 316 applicable comparisons;
+run `9feeec07-93e6-45e5-9416-d42abf209a88`, from
+`2026-09-29T13:54:45.920Z` to `2026-09-29T13:55:31.844Z`, selected 454 profile
+comparisons: 450 passed, zero failed, zero infrastructure errors, and four
+were `not_run`. The Python package passed all 317 applicable comparisons;
 Rust-native passed 133 of 137, with four Python-callable rows `not_run`. All 27
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
-passed on the Python package profile, and all five BaseHTTPMiddleware cases
+passed on the Python package profile, and all six BaseHTTPMiddleware cases
 passed there: header mutation, replacement response, body-cache replay,
-response-completion receive racing, and exception-context propagation. The
+response-completion receive racing, exception-context propagation, and the
+partial-stream flow where dispatch reads `b"1"`, the endpoint receives `b"2"`,
+and dispatch resumes with `b"3"` after `call_next`. That final case maps to
+`tests/middleware/test_base.py:777-832`. The
 Rust-native target reported clean at revision
-`d5d6b621a37a1cf72f07e9f88f6c2cd0609a7719+source-fnv1a64-e5a0df1c1dca21b4`;
+`e64e82fec615724ff375c54b835b1ecca6ddb5a8+source-fnv1a64-e5a0df1c1dca21b4`;
 the installed Python-package target was dirty with tree SHA-256
-`e4150a05156c7e9b80c848ce3c4ff096fb55cb553fea77475274bd5871edde94`.
+`53cc0a4ea8c34f2138f0d64ebb01fceb99749dc1bb1a188f33e081b6c3d8e97e`.
 Manifest SHA-256:
-`9ec850bfdfe09c5583b42fb4e20999d1acc3c370d802fc045af39a01691eab2c`.
+`13ca65b30c8c90fe442df141d9cd69591cd2a8587f8687314af2e1dbf6c7f36f`.
 Package wheel artifact SHA-256:
-`941999702388f45a1b33dec873ca860999a59412e0b87afd65a5a06140fe6080`.
+`f2ca476c1c20a6ce433a5ef02023e421f7621354b44bdf60e3fd090bc5e7eeb3`.
 `make parity-run` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 

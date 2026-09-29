@@ -78,6 +78,7 @@ BASE_HTTP_REQUIREMENTS = {
     "body_cache_replay": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-cache-replay",
     "response_completion_unblocks_receive": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive",
     "exception_context_propagation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation",
+    "partial_stream_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -5061,6 +5062,18 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             if exception["class"] != "Exception":
                 raise ContractError("BaseHTTPMiddleware endpoint exception class must be Exception")
             _string(exception["message"], "BaseHTTPMiddleware endpoint exception.message")
+        elif route_kind == "request-stream-response":
+            endpoint = _exact(
+                endpoint_value,
+                {"kind", "stop_after_chunks"},
+                "BaseHTTPMiddleware request-stream endpoint",
+            )
+            if (
+                "POST" not in route_methods
+                or type(endpoint["stop_after_chunks"]) is not int
+                or endpoint["stop_after_chunks"] < 1
+            ):
+                raise ContractError("BaseHTTPMiddleware request-stream endpoint input is invalid")
         else:
             raise ContractError("BaseHTTPMiddleware route endpoint kind is unsupported")
 
@@ -5091,6 +5104,10 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             _exact(raw_action, {"kind"}, context)
             if returned is not None:
                 raise ContractError("request.body() reads must precede the dispatch return")
+        elif kind == "read-request-stream-next":
+            _exact(raw_action, {"kind"}, context)
+            if returned is not None:
+                raise ContractError("request.stream() reads must precede the dispatch return")
         elif kind == "await-call-next":
             _exact(raw_action, {"kind"}, context)
             if awaited or returned is not None:
@@ -5309,6 +5326,34 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         requirements.add(BASE_HTTP_REQUIREMENTS["body_cache_replay"])
     if route_kind == "raise-exception" and returned == "call-next":
         requirements.add(BASE_HTTP_REQUIREMENTS["exception_context_propagation"])
+    stream_reads_before_call_next = [
+        index
+        for index, action in enumerate(actions)
+        if action["kind"] == "read-request-stream-next"
+        and await_index is not None
+        and index < await_index
+    ]
+    stream_reads_after_call_next = [
+        index
+        for index, action in enumerate(actions)
+        if action["kind"] == "read-request-stream-next"
+        and await_index is not None
+        and index > await_index
+    ]
+    if route_kind == "request-stream-response":
+        chunks = [base64.b64decode(event["body_base64"]) for event in receive]
+        if (
+            returned != "call-next"
+            or not stream_reads_before_call_next
+            or not stream_reads_after_call_next
+            or len(chunks) < 3
+            or any(not chunk for chunk in chunks)
+            or request["receive_after_events"] != "block"
+        ):
+            raise ContractError(
+                "partial request-stream forwarding requires dispatch reads on both sides of call_next, at least three non-empty chunks, and a blocking exhausted receive"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["partial_stream_forwarding"])
     if downstream is not None:
         if (
             request["receive_after_events"] != "block"

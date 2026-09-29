@@ -17,33 +17,34 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 318 input-only cases across 38 files,
-covering 56 operations and 396 parity requirements. The authored cases span
+The active parity manifest indexes 319 input-only cases across 38 files,
+covering 56 operations and 397 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `01119ec1-55bf-4382-83fd-7d68e587cd82` started at
-`2026-09-29T13:37:18.090Z` and finished at `2026-09-29T13:38:32.105Z`. It
-selected 453 profile comparisons: 449 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 316 applicable
+Integrated run `9feeec07-93e6-45e5-9416-d42abf209a88` started at
+`2026-09-29T13:54:45.920Z` and finished at `2026-09-29T13:55:31.844Z`. It
+selected 454 profile comparisons: 450 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 317 applicable
 comparisons; Rust-native passed 133 of 137, with four rows requiring Python
 callables marked `not_run`. All 27 FileResponse cases passed on both profiles,
 all eight SessionMiddleware cases passed on the Python package profile, and all
-five BaseHTTPMiddleware cases passed on that profile. Those BaseHTTP cases cover
+six BaseHTTPMiddleware cases passed on that profile. Those BaseHTTP cases cover
 header mutation, replacement responses, body-cache replay, response-completion
-receive racing, and exception propagation with cause, TaskGroup `ExceptionGroup` context,
-and suppression-state observations. The Rust-native
+receive racing, exception propagation with cause, TaskGroup `ExceptionGroup`
+context and suppression-state observations, and partial-stream forwarding
+from dispatch to the downstream endpoint. The Rust-native
 target reported clean at revision
-`d5d6b621a37a1cf72f07e9f88f6c2cd0609a7719+source-fnv1a64-e5a0df1c1dca21b4`;
+`e64e82fec615724ff375c54b835b1ecca6ddb5a8+source-fnv1a64-e5a0df1c1dca21b4`;
 the installed Python-package target was dirty with tree SHA-256
-`e4150a05156c7e9b80c848ce3c4ff096fb55cb553fea77475274bd5871edde94`.
+`53cc0a4ea8c34f2138f0d64ebb01fceb99749dc1bb1a188f33e081b6c3d8e97e`.
 Manifest SHA-256:
-`9ec850bfdfe09c5583b42fb4e20999d1acc3c370d802fc045af39a01691eab2c`.
+`13ca65b30c8c90fe442df141d9cd69591cd2a8587f8687314af2e1dbf6c7f36f`.
 Package wheel artifact SHA-256:
-`941999702388f45a1b33dec873ca860999a59412e0b87afd65a5a06140fe6080`.
+`f2ca476c1c20a6ce433a5ef02023e421f7621354b44bdf60e3fd090bc5e7eeb3`.
 The four unsupported Rust-native Python-callable rows keep the overall gate
 incomplete; this run is not full parity or release proof.
 Thirty-seven StaticFiles cases are authored across
@@ -218,7 +219,7 @@ crosswalk snapshot, 115 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 38 indexed files
-and 318 cases, including five BaseHTTPMiddleware cases, 37 authored StaticFiles cases, four authentication cases,
+and 319 cases, including six BaseHTTPMiddleware cases, 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
@@ -333,7 +334,7 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 318 currently indexed cases and
+The backlog distinguishes that work from the 319 currently indexed cases and
 the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
 
 ## Generate the source candidate catalog

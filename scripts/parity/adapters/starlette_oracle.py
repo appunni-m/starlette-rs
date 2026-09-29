@@ -1752,6 +1752,18 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             _strict_object(endpoint_spec, {"kind"}, "BaseHTTPMiddleware request-body endpoint")
             if "POST" not in route_spec["methods"]:
                 raise ValueError("request-body-response routes must accept POST")
+        elif route_kind == "request-stream-response":
+            endpoint_spec = _strict_object(
+                endpoint_spec,
+                {"kind", "stop_after_chunks"},
+                "BaseHTTPMiddleware request-stream endpoint",
+            )
+            if (
+                "POST" not in route_spec["methods"]
+                or type(endpoint_spec["stop_after_chunks"]) is not int
+                or endpoint_spec["stop_after_chunks"] < 1
+            ):
+                raise ValueError("BaseHTTPMiddleware request-stream endpoint input is invalid")
         elif route_kind == "raise-exception":
             _strict_object(
                 endpoint_spec,
@@ -1793,6 +1805,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"{context} must be tagged")
         kind = raw_action["kind"]
         if kind == "read-request-body":
+            _strict_object(raw_action, {"kind"}, context)
+        elif kind == "read-request-stream-next":
             _strict_object(raw_action, {"kind"}, context)
         elif kind == "await-call-next":
             _strict_object(raw_action, {"kind"}, context)
@@ -1996,6 +2010,39 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation"
         )
+    stream_reads_before_call_next = [
+        index
+        for index, action in enumerate(dispatch_actions)
+        if action["kind"] == "read-request-stream-next"
+        and await_index is not None
+        and index < await_index
+    ]
+    stream_reads_after_call_next = [
+        index
+        for index, action in enumerate(dispatch_actions)
+        if action["kind"] == "read-request-stream-next"
+        and await_index is not None
+        and index > await_index
+    ]
+    if route_kind == "request-stream-response":
+        chunks = [
+            _decode_b64(item["body_base64"], "BaseHTTPMiddleware request body")
+            for item in receive_specs
+        ]
+        if (
+            returned != "call-next"
+            or not stream_reads_before_call_next
+            or not stream_reads_after_call_next
+            or len(chunks) != 3
+            or any(not chunk for chunk in chunks)
+            or request["receive_after_events"] != "block"
+        ):
+            raise ValueError(
+                "partial request-stream forwarding requires dispatch reads on both sides of call_next, three non-empty chunks, and a blocking exhausted receive"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding"
+        )
     if downstream_spec is not None:
         if (
             request["receive_after_events"] != "block"
@@ -2014,15 +2061,18 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.applications import Starlette
     from starlette.middleware import Middleware
     from starlette.middleware.base import BaseHTTPMiddleware
-    from starlette.responses import PlainTextResponse
+    from starlette.responses import PlainTextResponse, Response
     from starlette.routing import Route
 
     execution_trace: list[dict[str, Any]] = []
     dispatch_body_reads: list[dict[str, Any]] = []
+    dispatch_stream_reads: list[dict[str, Any]] = []
+    downstream_stream_reads: list[dict[str, Any]] = []
 
     class InputDefinedBaseHTTPMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Any, call_next: Any) -> Any:
             response = None
+            stream_iterator = None
             for action_index, action in enumerate(dispatch_actions):
                 kind = action["kind"]
                 if kind == "read-request-body":
@@ -2031,6 +2081,28 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         {
                             "action_index": action_index,
                             "body_base64": base64.b64encode(body).decode("ascii"),
+                        }
+                    )
+                elif kind == "read-request-stream-next":
+                    if stream_iterator is None:
+                        stream_iterator = request.stream()
+                    try:
+                        chunk = await stream_iterator.__anext__()
+                    except StopAsyncIteration:
+                        chunk = None
+                    dispatch_stream_reads.append(
+                        {
+                            "action_index": action_index,
+                            "phase": (
+                                "before-call-next"
+                                if action_index < await_index
+                                else "after-call-next"
+                            ),
+                            "body_base64": (
+                                base64.b64encode(chunk).decode("ascii")
+                                if chunk is not None
+                                else None
+                            ),
                         }
                     )
                 elif kind == "await-call-next":
@@ -2058,6 +2130,20 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
 
             def endpoint(_request: Any) -> None:
                 raise exception_type(exception_message)
+        elif route_kind == "request-stream-response":
+            stop_after_chunks = endpoint_spec["stop_after_chunks"]
+
+            async def endpoint(request: Any) -> Response:
+                async for chunk in request.stream():
+                    downstream_stream_reads.append(
+                        {
+                            "index": len(downstream_stream_reads),
+                            "body_base64": base64.b64encode(chunk).decode("ascii"),
+                        }
+                    )
+                    if len(downstream_stream_reads) >= stop_after_chunks:
+                        break
+                return Response()
         else:
 
             def endpoint(_request: Any) -> Any:
@@ -2125,6 +2211,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     scope = _make_scope(scope_spec)
     incoming = [_message(spec) for spec in receive_specs]
     sent: list[dict[str, Any]] = []
+    request_receive_events: list[dict[str, Any]] = []
     receive_index = 0
     send_index = 0
     send_checkpoint_indices = set(send_checkpoints)
@@ -2134,10 +2221,12 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         if receive_index < len(incoming):
             message = incoming[receive_index]
             receive_index += 1
-            return message
-        if request["receive_after_events"] == "block":
+        elif request["receive_after_events"] == "block":
             await asyncio.Event().wait()
-        return {"type": "http.disconnect"}
+        else:
+            message = {"type": "http.disconnect"}
+        request_receive_events.append(_canonical_http_message(message))
+        return message
 
     async def send(message: dict[str, Any]) -> None:
         nonlocal send_index
@@ -2171,6 +2260,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
         "dispatch_body_reads": dispatch_body_reads,
+        "dispatch_stream_reads": dispatch_stream_reads,
+        "downstream_stream_reads": downstream_stream_reads,
+        "request_receive_events": request_receive_events,
         "execution_trace": execution_trace,
         "propagated_exception": propagated_exception,
     }

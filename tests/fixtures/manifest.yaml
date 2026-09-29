@@ -3645,6 +3645,33 @@
                   "comparison": {
                     "kind": "exact"
                   }
+                },
+                {
+                  "path": "dispatch_stream_reads",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "downstream_stream_reads",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "request_receive_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 }
               ],
               "error": {
@@ -3737,6 +3764,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.exception-context-propagation",
               "dimension": "error_path",
               "description": "Propagate a context-free exception raised by a route while dispatch awaits call_next, and observe its exception relationships. Upstream: tests/middleware/test_base.py:1296-1319; starlette/middleware/base.py:150-168.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.partial-request-stream-forwarding",
+              "dimension": "boundary",
+              "description": "Read part of one request.stream() iterator in dispatch before call_next, consume a later chunk in the downstream endpoint, then resume dispatch's suspended iterator. Upstream: tests/middleware/test_base.py:777-832; starlette/middleware/base.py:80-90; starlette/requests.py:234-252.",
               "lanes": [
                 "parity"
               ],

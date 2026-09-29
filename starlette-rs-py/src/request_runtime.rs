@@ -43,6 +43,7 @@ struct StreamProtocol {
     started: bool,
     running: bool,
     closed: bool,
+    yielded_chunk: bool,
 }
 
 // Starlette may execute synchronous endpoints on AnyIO worker threads. The
@@ -1167,6 +1168,7 @@ impl StreamMachine {
                 }
             )));
         }
+        let yielded_chunk = protocol.yielded_chunk;
         match &self.command {
             StreamCommand::Close if protocol.closed || !protocol.started => {
                 protocol.closed = true;
@@ -1203,6 +1205,18 @@ impl StreamMachine {
             }
         }
         drop(protocol);
+
+        // Another iterator on this Request may have consumed the final ASGI
+        // message while this stream was suspended after yielding a chunk. The
+        // upstream generator shares `_stream_consumed`, so it yields its final
+        // empty chunk instead of issuing one more receive call.
+        if yielded_chunk && borrow_runtime(&self.shared)?.accumulator.is_consumed() {
+            self.finish(false);
+            return Ok(MachineAction::Complete(
+                PyBytes::new(py, b"").unbind().into_any(),
+            ));
+        }
+
         self.next_action(py)
     }
 
@@ -1230,8 +1244,10 @@ impl StreamMachine {
         match progress {
             RequestStreamProgress::Receive => self.await_receive(py),
             RequestStreamProgress::Chunk(body) => {
+                let is_terminal_chunk =
+                    body.is_empty() && borrow_runtime(&self.shared)?.accumulator.is_consumed();
                 let body = PyBytes::new(py, &body).unbind().into_any();
-                self.finish(true);
+                self.finish(!is_terminal_chunk);
                 Ok(MachineAction::Complete(body))
             }
             RequestStreamProgress::CachedBody(body) => {
@@ -1278,6 +1294,9 @@ impl StreamMachine {
     fn finish(&self, yielded: bool) {
         if let Ok(mut protocol) = self.protocol.try_lock() {
             protocol.running = false;
+            if yielded {
+                protocol.yielded_chunk = true;
+            }
             if !yielded {
                 protocol.closed = true;
             }
