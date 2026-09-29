@@ -135,15 +135,6 @@ class StreamingResponse(Response):
 class FileResponse(Response):
     """Stream a file using the Rust-owned response and range implementation."""
 
-    __slots__ = (
-        "_inner",
-        "background",
-        "filename",
-        "media_type",
-        "path",
-        "stat_result",
-        "status_code",
-    )
     chunk_size = 64 * 1024
     max_ranges = 100
 
@@ -179,6 +170,7 @@ class FileResponse(Response):
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
+        self._inner.set_streaming_options(self.chunk_size, self.max_ranges)
         await self._inner.asgi_call(scope, receive, send, self.background)
 
 

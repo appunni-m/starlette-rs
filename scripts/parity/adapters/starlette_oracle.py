@@ -2862,6 +2862,10 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if "cookie_actions" in case:
         case_keys.add("cookie_actions")
+    if "chunk_size" in case:
+        case_keys.add("chunk_size")
+    if "max_ranges" in case:
+        case_keys.add("max_ranges")
     _strict_object(
         case,
         case_keys,
@@ -2960,7 +2964,12 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 mtime_seconds,
             )
         )
-        response = FileResponse(
+        response_class = (
+            type("ConfiguredFileResponse", (FileResponse,), {"max_ranges": case["max_ranges"]})
+            if "max_ranges" in case
+            else FileResponse
+        )
+        response = response_class(
             path,
             status_code=case["status_code"],
             headers=dict(header_pairs),
@@ -2968,6 +2977,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             filename=filename,
             stat_result=stat_result,
         )
+        if "chunk_size" in case:
+            response.chunk_size = case["chunk_size"]
         for index, raw_action in enumerate(case.get("cookie_actions", [])):
             _apply_response_cookie_action(response, raw_action, index)
         scope = _make_scope(scope_spec)

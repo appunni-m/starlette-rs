@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@7",
+  "schema": "migration-parity/parity-input@8",
   "cases": [
     {
       "case_id": "starlette.schemas.SchemaGenerator.schema-generation.route-selection-prefixes-and-converters",

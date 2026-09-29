@@ -17,7 +17,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@7"
+INPUT_SCHEMA = "migration-parity/parity-input@8"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -925,6 +925,20 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         raise ContractError(
                             f"{octx} permits traceback normalization only for response bytes, headers, or events"
                         )
+                    elif normalization_kind == "multipart-range-boundary":
+                        _exact(normalization_spec, {"kind"}, f"{octx}.normalization")
+                        expected_comparison = {
+                            "ordered_repeated_headers": "ordered",
+                            "response_bytes": "bytes",
+                            "asgi_events": "ordered",
+                        }.get(observation["path"])
+                        if (
+                            key != (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
+                            or comparison["kind"] != expected_comparison
+                        ):
+                            raise ContractError(
+                                f"{octx} permits multipart boundary normalization only for FileResponse headers, bytes, or events"
+                            )
                     elif normalization_kind == "sequence":
                         _exact(
                             normalization_spec,
@@ -2552,9 +2566,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
-    case_keys = FILE_RESPONSE_CASE_KEYS | (
-        {"cookie_actions"} if "cookie_actions" in case else set()
-    )
+    optional_keys = {key for key in ("cookie_actions", "chunk_size", "max_ranges") if key in case}
+    case_keys = FILE_RESPONSE_CASE_KEYS | optional_keys
     _exact(case, case_keys, "FileResponse asgi-call case")
     if case["surface"] != FILE_RESPONSE_SURFACE or case["operation"] != RESPONSE_OPERATION:
         raise ContractError("case is outside the declared FileResponse asgi-call operation")
@@ -2610,6 +2623,14 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         _string(case["media_type"], "FileResponse.media_type")
     if case["filename"] is not None:
         _string(case["filename"], "FileResponse.filename")
+    if "chunk_size" in case and (
+        type(case["chunk_size"]) is not int or not 1 <= case["chunk_size"] <= 1_048_576
+    ):
+        raise ContractError("FileResponse.chunk_size must be an integer from 1 to 1048576")
+    if "max_ranges" in case and (
+        type(case["max_ranges"]) is not int or not 0 <= case["max_ranges"] <= 1_000
+    ):
+        raise ContractError("FileResponse.max_ranges must be an integer from 0 to 1000")
 
     scope_spec = case["scope"]
     scope_keys = {
@@ -4614,6 +4635,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and (is_response or is_streaming_response or is_file_response or is_redirect_response)
     ):
         expected_case_keys = expected_case_keys | {"cookie_actions"}
+    if is_file_response and isinstance(case, dict):
+        expected_case_keys = expected_case_keys | (
+            {key for key in ("chunk_size", "max_ranges") if key in case}
+        )
     if is_value_formatting:
         value_keys = (
             {"instances"} if case["surface"] == EXCEPTION_VALUES_SURFACE else {"middleware"}
@@ -5004,7 +5029,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 and not record_matches
                 and "any_json" not in allowed_types
                 # JSON cannot encode Python exception-class keys or callback
-                # values. parity-input@7 therefore encodes this declared
+                # values. parity-input@8 therefore encodes this declared
                 # mapping parameter as an ordered array of tagged entries;
                 # `_validate_application_stimulus` validates and materializes
                 # that representation before either live adapter calls Starlette.

@@ -203,7 +203,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@7",
+      "input_schema": "migration-parity/parity-input@8",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -5922,6 +5922,9 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "normalization": {
+                    "kind": "multipart-range-boundary"
                   }
                 },
                 {
@@ -5931,6 +5934,9 @@
                   ],
                   "comparison": {
                     "kind": "bytes"
+                  },
+                  "normalization": {
+                    "kind": "multipart-range-boundary"
                   }
                 },
                 {
@@ -5949,6 +5955,9 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "normalization": {
+                    "kind": "multipart-range-boundary"
                   }
                 }
               ],
@@ -6089,6 +6098,186 @@
               "id": "starlette.responses.FileResponse.asgi-call.cookie-mutations",
               "dimension": "parameter_combination",
               "description": "Apply input-defined set_cookie and delete_cookie calls to FileResponse with a fixed deletion clock, then compare all repeated headers through HTTP ASGI. Upstream: starlette/responses.py::Response.set_cookie and Response.delete_cookie; tests/test_responses.py::test_set_cookie and test_delete_cookie.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-suffix",
+              "dimension": "parameter_combination",
+              "description": "Submit the upstream suffix form `bytes=-100` against a deterministic file and compare the selected final bytes. Upstream: starlette/responses.py::FileResponse._parse_ranges; tests/test_responses.py::test_file_response_suffix_range.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-suffix-larger-than-file",
+              "dimension": "parameter_combination",
+              "description": "Submit `bytes=-1000` for a shorter file and compare the whole-file 206 response. Upstream: starlette/responses.py::FileResponse._parse_ranges; tests/test_responses.py::test_file_response_suffix_range_larger_than_file.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-single-byte",
+              "dimension": "parameter_combination",
+              "description": "Select exactly one byte with `bytes=5-5` and compare Content-Range, length, body, and events. Upstream: starlette/responses.py::FileResponse._parse_ranges; tests/test_responses.py::test_file_response_single_byte_range.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-inverted-single-byte",
+              "dimension": "error_path",
+              "description": "Submit `bytes=5-4` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-start-after-end",
+              "dimension": "error_path",
+              "description": "Submit `bytes=100-0` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-empty-header",
+              "dimension": "error_path",
+              "description": "Submit an empty byte-range set and compare the live malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_must_be_requested.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-empty-parts",
+              "dimension": "parameter_combination",
+              "description": "Ignore empty range elements while preserving the valid requested interval. Upstream: starlette/responses.py::FileResponse._parse_ranges; tests/test_responses.py::test_file_response_range_empty_start_and_end.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-non-numeric-ignored",
+              "dimension": "parameter_combination",
+              "description": "Ignore a non-numeric element and serve the remaining valid interval. Upstream: starlette/responses.py::FileResponse._parse_ranges; tests/test_responses.py::test_file_response_range_ignore_non_numeric.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-without-dash",
+              "dimension": "parameter_combination",
+              "description": "Ignore an element without a range separator and serve the remaining valid interval. Upstream: starlette/responses.py::FileResponse._parse_ranges; tests/test_responses.py::test_file_response_range_without_dash.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-overlap-merge",
+              "dimension": "parameter_combination",
+              "description": "Submit overlapping intervals and compare the merged single-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_merge_ranges.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-count-limit",
+              "dimension": "parameter_combination",
+              "description": "Submit exactly 100 valid ranges and compare multipart status, metadata, framing, and all body events. The random MIME boundary is normalized only in its header and framing occurrences. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-count-limit-exceeded",
+              "dimension": "parameter_combination",
+              "description": "Submit 101 valid ranges and compare Starlette’s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-max-ranges-override",
+              "dimension": "parameter_combination",
+              "description": "Change the response instance’s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-multipart-small-chunks",
+              "dimension": "parameter_combination",
+              "description": "Set `chunk_size=10`, request multiple disjoint and overlapping ranges, and compare MIME framing, merged intervals, per-chunk bytes, and event order. The random MIME boundary is normalized only in its header and framing occurrences. Upstream: starlette/responses.py::FileResponse.__call__; tests/test_responses.py::test_file_response_range_multi and test_file_response_multi_small_chunk_size.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-missing-equals",
+              "dimension": "error_path",
+              "description": "Submit a byte-range header missing the equals separator and compare the live malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_invalid.",
               "lanes": [
                 "parity"
               ],
@@ -9508,7 +9697,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-          "path": "starlette.staticfiles.StaticFiles.__call__",
+            "path": "starlette.staticfiles.StaticFiles.__call__",
             "signature": "StaticFiles(*, directory=None, packages=None, html=False, check_dir=True, follow_symlink=False); async __call__(scope, receive, send) -> None",
             "parameters": [
               {
@@ -9932,54 +10121,154 @@
               {
                 "id": "directory",
                 "style": "input_asset",
-                "value_types": ["path"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "path"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "files",
                 "style": "input_asset",
-                "value_types": ["sequence"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "filesystem",
                 "style": "input_asset",
-                "value_types": ["record"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "lookup_path",
                 "style": "positional",
-                "value_types": ["string"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "check_dir",
                 "style": "option",
-                "value_types": ["boolean"],
-                "omission": {"kind": "literal", "value": true}
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": true
+                }
               },
               {
                 "id": "follow_symlink",
                 "style": "option",
-                "value_types": ["boolean"],
-                "omission": {"kind": "literal", "value": false}
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": false
+                }
               }
             ],
             "result": {
               "shape": "record",
               "observations": [
-                {"path": "resolved_path", "value_types": ["string", "null"], "comparison": {"kind": "exact"}},
-                {"path": "stat_result_present", "value_types": ["boolean"], "comparison": {"kind": "exact"}},
-                {"path": "mode_type_bits", "value_types": ["integer", "null"], "comparison": {"kind": "exact"}},
-                {"path": "is_file", "value_types": ["boolean", "null"], "comparison": {"kind": "exact"}},
-                {"path": "is_directory", "value_types": ["boolean", "null"], "comparison": {"kind": "exact"}},
-                {"path": "size", "value_types": ["integer", "null"], "comparison": {"kind": "exact"}},
-                {"path": "mtime_seconds", "value_types": ["number", "null"], "comparison": {"kind": "exact"}}
+                {
+                  "path": "resolved_path",
+                  "value_types": [
+                    "string",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "stat_result_present",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "mode_type_bits",
+                  "value_types": [
+                    "integer",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "is_file",
+                  "value_types": [
+                    "boolean",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "is_directory",
+                  "value_types": [
+                    "boolean",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "size",
+                  "value_types": [
+                    "integer",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "mtime_seconds",
+                  "value_types": [
+                    "number",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
               ],
               "error": {
-                "fields": ["class", "kind", "message", "stage", "code", "cause", "suppress_context"],
-                "message": {"mode": "exact", "transforms": [], "reason": null}
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
               }
             }
           },
@@ -9988,13 +10277,17 @@
               "target_id": "rust-native",
               "path": "starlette_rs::StaticFiles::lookup_path",
               "signature": "StaticFiles::lookup_path(path) -> Option<StaticFile>",
-              "support": {"status": "supported"}
+              "support": {
+                "status": "supported"
+              }
             },
             {
               "target_id": "python-package",
               "path": "starlette.staticfiles.StaticFiles.lookup_path",
               "signature": "lookup_path(path: str) -> tuple[str, os.stat_result | None]",
-              "support": {"status": "supported"}
+              "support": {
+                "status": "supported"
+              }
             }
           ],
           "requirements": [
@@ -10002,104 +10295,177 @@
               "id": "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
               "dimension": "success_path",
               "description": "Look up an input-defined regular file and compare its root-relative path, file type, size, and modification time. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.directory-metadata",
               "dimension": "success_path",
               "description": "Look up an input-defined directory and compare its root-relative path and directory stat classification. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.absolute-path-rejected",
               "dimension": "error_path",
               "description": "Reject an absolute path with an empty path and no stat result. Upstream: tests/test_staticfiles.py::test_staticfiles_rejects_absolute_paths.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal.follow-symlink-disabled",
               "dimension": "input_family",
               "description": "Look up a parent-traversal path selecting an input-defined file outside the configured root with follow_symlink disabled. Upstream: tests/test_staticfiles.py::test_staticfiles_avoids_path_traversal.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal.follow-symlink-enabled",
               "dimension": "input_family",
               "description": "Look up a parent-traversal path selecting an input-defined file outside a real configured root with follow_symlink enabled. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.configured-root-symlink-traversal",
               "dimension": "input_family",
               "description": "Reject a parent-traversal path from a symlinked configured root with follow_symlink enabled. Upstream: tests/test_staticfiles.py::test_staticfiles_disallows_path_traversal_with_symlinks.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.external-file-link.follow-symlink-disabled",
               "dimension": "asset_family",
               "description": "Look up an input-defined symlink to an outside file with follow_symlink disabled. Upstream: tests/test_staticfiles.py::test_staticfiles_follows_symlinks.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.external-file-link.follow-symlink-enabled",
               "dimension": "asset_family",
               "description": "Look up an input-defined symlink to an outside file with follow_symlink enabled. Upstream: tests/test_staticfiles.py::test_staticfiles_follows_symlinks.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link.follow-symlink-disabled",
               "dimension": "asset_family",
               "description": "Look up an input-defined file through an outside directory symlink with follow_symlink disabled. Upstream: tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link.follow-symlink-enabled",
               "dimension": "asset_family",
               "description": "Look up an input-defined file through an outside directory symlink with follow_symlink enabled. Upstream: tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link.follow-symlink-disabled",
               "dimension": "asset_family",
               "description": "Look up a root-local file through an input-defined symlink with follow_symlink disabled, observing the returned canonical path. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link.follow-symlink-enabled",
               "dimension": "asset_family",
               "description": "Look up a root-local file through an input-defined symlink with follow_symlink enabled, observing the returned lexical path. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link.follow-symlink-disabled",
               "dimension": "asset_family",
               "description": "Look up an input-defined root-local file through a root-local directory symlink with follow_symlink disabled, observing the returned canonical path. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link.follow-symlink-enabled",
               "dimension": "asset_family",
               "description": "Look up an input-defined root-local file through a root-local directory symlink with follow_symlink enabled, observing the returned lexical path. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
-            "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
           },
           "coverage": {
             "applicability": "not_applicable",
@@ -10125,68 +10491,119 @@
               {
                 "id": "directory",
                 "style": "keyword",
-                "value_types": ["path", "null"],
-                "omission": {"kind": "literal", "value": null}
+                "value_types": [
+                  "path",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               },
               {
                 "id": "packages",
                 "style": "keyword",
-                "value_types": ["sequence", "null"],
-                "omission": {"kind": "literal", "value": null}
+                "value_types": [
+                  "sequence",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               },
               {
                 "id": "html",
                 "style": "keyword",
-                "value_types": ["boolean"],
-                "omission": {"kind": "literal", "value": false}
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": false
+                }
               },
               {
                 "id": "check_dir",
                 "style": "keyword",
-                "value_types": ["boolean"],
-                "omission": {"kind": "literal", "value": true}
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": true
+                }
               },
               {
                 "id": "follow_symlink",
                 "style": "keyword",
-                "value_types": ["boolean"],
-                "omission": {"kind": "literal", "value": false}
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": false
+                }
               },
               {
                 "id": "files",
                 "style": "input_asset",
-                "value_types": ["sequence"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "lookup_path_override",
                 "style": "option",
-                "value_types": ["mapping"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "event_loop_probe",
                 "style": "option",
-                "value_types": ["mapping"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "scope",
                 "style": "positional_or_keyword",
-                "value_types": ["mapping"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "receive",
                 "style": "positional_or_keyword",
-                "value_types": ["handle"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "send",
                 "style": "positional_or_keyword",
-                "value_types": ["handle"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               }
             ],
             "result": {
@@ -10194,53 +10611,94 @@
               "observations": [
                 {
                   "path": "lookup_callback_paths",
-                  "value_types": ["sequence"],
-                  "comparison": {"kind": "ordered"}
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 },
                 {
                   "path": "lookup_callback_bound_to_application",
-                  "value_types": ["boolean"],
-                  "comparison": {"kind": "exact"}
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 },
                 {
                   "path": "lookup_callback_ran_on_worker_thread",
-                  "value_types": ["boolean"],
-                  "comparison": {"kind": "exact"}
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 },
                 {
                   "path": "lookup_gate_started",
-                  "value_types": ["boolean"],
-                  "comparison": {"kind": "exact"}
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 },
                 {
                   "path": "event_loop_progress_while_lookup_blocked",
-                  "value_types": ["boolean"],
-                  "comparison": {"kind": "exact"}
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 },
                 {
                   "path": "response_status",
-                  "value_types": ["integer", "null"],
-                  "comparison": {"kind": "exact"}
+                  "value_types": [
+                    "integer",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 },
                 {
                   "path": "ordered_repeated_headers",
-                  "value_types": ["sequence"],
-                  "comparison": {"kind": "ordered"}
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 },
                 {
                   "path": "response_bytes",
-                  "value_types": ["record"],
-                  "comparison": {"kind": "bytes"}
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
                 },
                 {
                   "path": "asgi_event_order",
-                  "value_types": ["sequence"],
-                  "comparison": {"kind": "ordered"}
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 },
                 {
                   "path": "asgi_events",
-                  "value_types": ["sequence"],
-                  "comparison": {"kind": "ordered"}
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 }
               ],
               "error": {
@@ -10276,7 +10734,9 @@
               "target_id": "python-package",
               "path": "starlette.staticfiles.StaticFiles.__call__",
               "signature": "StaticFiles(*, directory=None, packages=None, html=False, check_dir=True, follow_symlink=False); async __call__(scope, receive, send)",
-              "support": {"status": "supported"}
+              "support": {
+                "status": "supported"
+              }
             }
           ],
           "requirements": [
@@ -10284,34 +10744,52 @@
               "id": "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.lookup-path-thread-relation",
               "dimension": "boundary",
               "description": "Observe the path argument and bound-instance/thread relation for StaticFiles.lookup_path invoked by __call__. Upstream: starlette/staticfiles.py:87-99,109-118.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.lookup-gate-start",
               "dimension": "boundary",
               "description": "Observe entry into an input-described gate in the bound lookup_path override. Upstream delegation: starlette/staticfiles.py:117-118.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.event-loop-progress",
               "dimension": "boundary",
               "description": "Observe whether the event loop advances while the input-described lookup_path gate remains blocked. Upstream scheduling: starlette/staticfiles.py:117-118 and AnyIO's run_sync contract.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.asgi-response",
               "dimension": "success_path",
               "description": "Compare the live HTTP status, headers, response bytes, and ASGI event sequence after the gated lookup delegates to the parent implementation. Upstream: starlette/staticfiles.py:87-99,109-132.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
-            "target_profiles": ["python-package-cpython312"]
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
           },
           "coverage": {
             "applicability": "not_applicable",

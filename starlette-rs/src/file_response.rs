@@ -495,6 +495,13 @@ impl FileResponse {
         Ok(())
     }
 
+    /// Applies the values exposed by Starlette's mutable `FileResponse`
+    /// streaming and range attributes to later response calls.
+    pub fn set_streaming_options(&mut self, chunk_size: usize, max_ranges: usize) {
+        self.chunk_size = chunk_size.max(1);
+        self.max_ranges = max_ranges;
+    }
+
     /// Returns the explicit or extension-guessed content type.
     #[must_use]
     pub fn media_type(&self) -> &str {

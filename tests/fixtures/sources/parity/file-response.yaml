@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@7",
+  "schema": "migration-parity/parity-input@8",
   "cases": [
     {
       "case_id": "starlette.responses.FileResponse.asgi-call.get",
@@ -459,6 +459,863 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-suffix",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-suffix"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9LTEwMA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-suffix-larger-than-file",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-suffix-larger-than-file"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9LTEwMDA="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-single-byte",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-single-byte"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9NS01"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-inverted-single-byte",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-inverted-single-byte"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9NS00"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-start-after-end",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-start-after-end"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9MTAwLTA="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-empty-header",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-empty-header"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-empty-parts",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-empty-parts"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9IC0gLCAwLTUw"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-non-numeric-ignored",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-non-numeric-ignored"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9YWJjLWRlZiwgMC01MA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-without-dash",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-without-dash"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9MTAwLCAwLTUw"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-overlap-merge",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-overlap-merge"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9MC0xMDAsIDUwLTIwMA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-count-limit",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-count-limit"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9MC0wLDItMiw0LTQsNi02LDgtOCwxMC0xMCwxMi0xMiwxNC0xNCwxNi0xNiwxOC0xOCwyMC0yMCwyMi0yMiwyNC0yNCwyNi0yNiwyOC0yOCwzMC0zMCwzMi0zMiwzNC0zNCwzNi0zNiwzOC0zOCw0MC00MCw0Mi00Miw0NC00NCw0Ni00Niw0OC00OCw1MC01MCw1Mi01Miw1NC01NCw1Ni01Niw1OC01OCw2MC02MCw2Mi02Miw2NC02NCw2Ni02Niw2OC02OCw3MC03MCw3Mi03Miw3NC03NCw3Ni03Niw3OC03OCw4MC04MCw4Mi04Miw4NC04NCw4Ni04Niw4OC04OCw5MC05MCw5Mi05Miw5NC05NCw5Ni05Niw5OC05OCwxMDAtMTAwLDEwMi0xMDIsMTA0LTEwNCwxMDYtMTA2LDEwOC0xMDgsMTEwLTExMCwxMTItMTEyLDExNC0xMTQsMTE2LTExNiwxMTgtMTE4LDEyMC0xMjAsMTIyLTEyMiwxMjQtMTI0LDEyNi0xMjYsMTI4LTEyOCwxMzAtMTMwLDEzMi0xMzIsMTM0LTEzNCwxMzYtMTM2LDEzOC0xMzgsMTQwLTE0MCwxNDItMTQyLDE0NC0xNDQsMTQ2LTE0NiwxNDgtMTQ4LDE1MC0xNTAsMTUyLTE1MiwxNTQtMTU0LDE1Ni0xNTYsMTU4LTE1OCwxNjAtMTYwLDE2Mi0xNjIsMTY0LTE2NCwxNjYtMTY2LDE2OC0xNjgsMTcwLTE3MCwxNzItMTcyLDE3NC0xNzQsMTc2LTE3NiwxNzgtMTc4LDE4MC0xODAsMTgyLTE4MiwxODQtMTg0LDE4Ni0xODYsMTg4LTE4OCwxOTAtMTkwLDE5Mi0xOTIsMTk0LTE5NCwxOTYtMTk2LDE5OC0xOTg="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-count-limit-exceeded",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-count-limit-exceeded"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9MC0wLDItMiw0LTQsNi02LDgtOCwxMC0xMCwxMi0xMiwxNC0xNCwxNi0xNiwxOC0xOCwyMC0yMCwyMi0yMiwyNC0yNCwyNi0yNiwyOC0yOCwzMC0zMCwzMi0zMiwzNC0zNCwzNi0zNiwzOC0zOCw0MC00MCw0Mi00Miw0NC00NCw0Ni00Niw0OC00OCw1MC01MCw1Mi01Miw1NC01NCw1Ni01Niw1OC01OCw2MC02MCw2Mi02Miw2NC02NCw2Ni02Niw2OC02OCw3MC03MCw3Mi03Miw3NC03NCw3Ni03Niw3OC03OCw4MC04MCw4Mi04Miw4NC04NCw4Ni04Niw4OC04OCw5MC05MCw5Mi05Miw5NC05NCw5Ni05Niw5OC05OCwxMDAtMTAwLDEwMi0xMDIsMTA0LTEwNCwxMDYtMTA2LDEwOC0xMDgsMTEwLTExMCwxMTItMTEyLDExNC0xMTQsMTE2LTExNiwxMTgtMTE4LDEyMC0xMjAsMTIyLTEyMiwxMjQtMTI0LDEyNi0xMjYsMTI4LTEyOCwxMzAtMTMwLDEzMi0xMzIsMTM0LTEzNCwxMzYtMTM2LDEzOC0xMzgsMTQwLTE0MCwxNDItMTQyLDE0NC0xNDQsMTQ2LTE0NiwxNDgtMTQ4LDE1MC0xNTAsMTUyLTE1MiwxNTQtMTU0LDE1Ni0xNTYsMTU4LTE1OCwxNjAtMTYwLDE2Mi0xNjIsMTY0LTE2NCwxNjYtMTY2LDE2OC0xNjgsMTcwLTE3MCwxNzItMTcyLDE3NC0xNzQsMTc2LTE3NiwxNzgtMTc4LDE4MC0xODAsMTgyLTE4MiwxODQtMTg0LDE4Ni0xODYsMTg4LTE4OCwxOTAtMTkwLDE5Mi0xOTIsMTk0LTE5NCwxOTYtMTk2LDE5OC0xOTgsMjAwLTIwMA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-max-ranges-override",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-max-ranges-override"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9MC0wLDItMg=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "max_ranges": 1
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-multipart-small-chunks",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-multipart-small-chunks"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+Pw==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9MC0xNSwyMC0zNSwzNS01MA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "chunk_size": 10
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.range-missing-equals",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.range-missing-equals"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM6IDAtMTAwMA=="
+          ]
+        ],
         "client": [
           "127.0.0.1",
           12345

@@ -1907,6 +1907,12 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     if case.get("cookie_actions").is_some() {
         expected_fields.push("cookie_actions");
     }
+    if case.get("chunk_size").is_some() {
+        expected_fields.push("chunk_size");
+    }
+    if case.get("max_ranges").is_some() {
+        expected_fields.push("max_ranges");
+    }
     let case = exact_object(case, &expected_fields, "FileResponse asgi-call case")?;
     let case_id = string_field(case, "case_id", "FileResponse asgi-call case")?;
     if !case_id.starts_with(&format!("{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}."))
@@ -2025,17 +2031,30 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         mtime_text,
     )
     .map_err(|error| error.to_string())?;
+    let mut options = FileResponseOptions {
+        media_type,
+        filename,
+        stat_override: Some(metadata),
+        ..FileResponseOptions::default()
+    };
+    if let Some(value) = case.get("chunk_size") {
+        options.chunk_size = value
+            .as_u64()
+            .and_then(|value| usize::try_from(value).ok())
+            .ok_or_else(|| String::from("FileResponse chunk_size must fit an unsigned integer"))?;
+    }
+    if let Some(value) = case.get("max_ranges") {
+        options.max_ranges = value
+            .as_u64()
+            .and_then(|value| usize::try_from(value).ok())
+            .ok_or_else(|| String::from("FileResponse max_ranges must fit an unsigned integer"))?;
+    }
     let mut response = NativeFileResponse::new(
         path.clone(),
         path.to_string_lossy().into_owned(),
         status_code,
         &header_pairs,
-        FileResponseOptions {
-            media_type,
-            filename,
-            stat_override: Some(metadata),
-            ..FileResponseOptions::default()
-        },
+        options,
     )
     .map_err(|error| error.to_string())?;
     if let Some(actions) = case.get("cookie_actions") {

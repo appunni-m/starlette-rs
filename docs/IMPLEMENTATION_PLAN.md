@@ -32,17 +32,18 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 284 input-only cases, 54 operations, and 351
-parity requirements across 36 indexed files. Integrated run
-`c880ff73-6d4d-488a-bc94-3dfa9853b241`, from `2026-09-29T09:54:01.890Z` to
-`2026-09-29T09:55:05.712Z`, selected 400 profile comparisons: 396 passed,
+The current parity contract has 299 input-only cases, 54 operations, and 366
+parity requirements across 36 indexed files. Latest integrated run
+`0969d54c-3e21-4348-92d7-11567d07e5ca`, from `2026-09-29T10:24:38.499Z` to
+`2026-09-29T10:25:32.575Z`, selected 430 profile comparisons: 426 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 282 selected comparisons; Rust-native passed 114 of 118,
-with four Python-callable rows `not_run`. Both targets were dirty. The installed
-Python package is fingerprinted by package contents and reports the content
-digest `b6c3e6a158fb96f461d48fc9c7042fa7341b62a001d2d7ada140ced1d680eefe` as a
-`dirty-tree` revision. Manifest SHA-256:
-`a6e0cb866dca5a1036805541eb35cfd3d089034c806fa9fe85f89b7bc1ae9f8f`.
+package passed all 297 selected comparisons; Rust-native passed 129 of 133,
+with four Python-callable rows `not_run`. All 23 FileResponse cases passed on
+both profiles, including 15 new range and streaming cases. Both targets were
+dirty. Manifest SHA-256:
+`2c75acf26a1610c85f558199d78063a0609e573fd16f7adcc35fe4e52caeffe4`.
+Target wheel SHA-256:
+`fe55c434f0295b3bf30d2cd1fed577b34fc4e7c4c722abca456e727b15a504f5`.
 `make parity-run` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 
@@ -241,12 +242,12 @@ composition, authentication, background tasks, and concurrency.
 
 Configuration and schema generation now have seven package-only live parity
 cases across six Rust-backed public operations. The minimal package keeps
-PyYAML optional behind its `schemas` extra. Continue FileResponse range and
-conditional-request behavior, then extend StaticFiles edge-case parity;
-forms/uploads, templates, WSGI, and TestClient remain open. Continue with broader streaming
-lifecycle, duplicate headers/cookies, failure propagation, cancellation, and
-platform-specific paths. Keep optional dependencies feature-gated and
-preserve unsupported coverage visibly.
+PyYAML optional behind its `schemas` extra. FileResponse range, multipart, and
+chunk-size parity now pass the selected inputs. Next extend StaticFiles
+edge-case parity; forms/uploads, templates, WSGI, and TestClient remain open.
+Continue with broader streaming lifecycle, duplicate headers/cookies, failure
+propagation, cancellation, and platform-specific paths. Keep optional
+dependencies feature-gated and preserve unsupported coverage visibly.
 
 ## 5. Completed bounded goal: Router/GZip benchmark parity
 

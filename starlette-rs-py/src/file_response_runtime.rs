@@ -75,6 +75,10 @@ impl PyFileResponse {
         self.inner.media_type().to_owned()
     }
 
+    fn set_streaming_options(&mut self, chunk_size: usize, max_ranges: usize) {
+        self.inner.set_streaming_options(chunk_size, max_ranges);
+    }
+
     #[pyo3(signature = (key, value="", max_age=None, expires=None, path="/", domain=None, secure=false, httponly=false, samesite="lax", partitioned=false))]
     #[allow(clippy::too_many_arguments)]
     fn set_cookie(

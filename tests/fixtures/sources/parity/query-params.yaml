@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@7",
+  "schema": "migration-parity/parity-input@8",
   "cases": [
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.unicode-query-string",

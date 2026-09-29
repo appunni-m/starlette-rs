@@ -373,6 +373,173 @@ def _normalization_steps(normalization: dict[str, Any]) -> list[dict[str, Any]]:
     return [normalization]
 
 
+_MULTIPART_RANGE_CONTENT_TYPE = re.compile(
+    rb"multipart/byteranges;\s*boundary=([0-9a-f]{26})", re.IGNORECASE
+)
+_MULTIPART_RANGE_PART_CONTENT_RANGE = re.compile(
+    rb"(?:^|\r\n)Content-Range: bytes ([0-9]+)-([0-9]+)/([0-9]+)(?:\r\n|$)"
+)
+
+
+def _multipart_boundary_from_headers(headers: Any) -> bytes | None:
+    if not isinstance(headers, list):
+        return None
+    for pair in headers:
+        if not isinstance(pair, list) or len(pair) != 2:
+            continue
+        try:
+            name = base64.b64decode(pair[0], validate=True).lower()
+            value = base64.b64decode(pair[1], validate=True)
+        except (ValueError, TypeError):
+            continue
+        if name != b"content-type":
+            continue
+        match = _MULTIPART_RANGE_CONTENT_TYPE.fullmatch(value)
+        if match is not None:
+            return match.group(1)
+    return None
+
+
+def _multipart_boundary_from_observation(observation: dict[str, Any]) -> bytes | None:
+    boundary = _multipart_boundary_from_headers(observation.get("ordered_repeated_headers"))
+    if boundary is not None:
+        return boundary
+    events = observation.get("asgi_events")
+    if not isinstance(events, list):
+        return None
+    for event in events:
+        if isinstance(event, dict) and event.get("type") == "http.response.start":
+            boundary = _multipart_boundary_from_headers(event.get("headers"))
+            if boundary is not None:
+                return boundary
+    return None
+
+
+def _normalize_multipart_body(body: bytes, boundary: bytes) -> bytes:
+    delimiter = b"--" + boundary
+    normalized_delimiter = b"--" + (b"0" * len(boundary))
+    normalized = bytearray()
+    offset = 0
+    while body.startswith(delimiter, offset):
+        normalized.extend(normalized_delimiter)
+        offset += len(delimiter)
+        if body.startswith(b"--", offset):
+            normalized.extend(b"--")
+            offset += 2
+            trailer = body[offset:]
+            if trailer in {b"", b"\r\n"}:
+                normalized.extend(trailer)
+                return bytes(normalized)
+            return body
+        if not body.startswith(b"\r\n", offset):
+            return body
+        normalized.extend(b"\r\n")
+        offset += 2
+        headers_end = body.find(b"\r\n\r\n", offset)
+        if headers_end < 0:
+            return body
+        headers = body[offset:headers_end]
+        content_range = _MULTIPART_RANGE_PART_CONTENT_RANGE.search(headers)
+        if content_range is None:
+            return body
+        start, end = (int(content_range.group(index)) for index in (1, 2))
+        if end < start:
+            return body
+        part_body_start = headers_end + 4
+        part_body_end = part_body_start + end - start + 1
+        if part_body_end + 2 > len(body) or body[part_body_end : part_body_end + 2] != b"\r\n":
+            return body
+        normalized.extend(body[offset : part_body_end + 2])
+        offset = part_body_end + 2
+    return body
+
+
+def _normalize_multipart_boundary_headers(headers: Any, boundary: bytes) -> Any:
+    if not isinstance(headers, list):
+        return headers
+    normalized = []
+    for pair in headers:
+        if not isinstance(pair, list) or len(pair) != 2:
+            return headers
+        try:
+            name = base64.b64decode(pair[0], validate=True).lower()
+            raw_value = base64.b64decode(pair[1], validate=True)
+        except (ValueError, TypeError):
+            return headers
+        if name == b"content-type":
+            raw_value = raw_value.replace(
+                b"boundary=" + boundary,
+                b"boundary=" + (b"0" * len(boundary)),
+                1,
+            )
+            normalized.append([pair[0], base64.b64encode(raw_value).decode("ascii")])
+        else:
+            normalized.append(pair)
+    return normalized
+
+
+def _normalize_multipart_boundary_events(value: Any, boundary: bytes) -> Any:
+    if not isinstance(value, list):
+        return value
+    body_slots: list[tuple[int, int]] = []
+    body_parts: list[bytes] = []
+    normalized_events = list(value)
+    for index, event in enumerate(value):
+        if not isinstance(event, dict) or event.get("type") != "http.response.body":
+            continue
+        body = _body_bytes(event.get("body"))
+        if body is None:
+            return value
+        body_slots.append((index, len(body)))
+        body_parts.append(body)
+    if body_parts:
+        combined = b"".join(body_parts)
+        normalized_combined = _normalize_multipart_body(combined, boundary)
+        if normalized_combined != combined:
+            offset = 0
+            for index, length in body_slots:
+                event = dict(normalized_events[index])
+                updated_body = normalized_combined[offset : offset + length]
+                event["body"] = {
+                    "encoding": "base64",
+                    "data": base64.b64encode(updated_body).decode("ascii"),
+                }
+                normalized_events[index] = event
+                offset += length
+    for index, event in enumerate(value):
+        if not isinstance(event, dict) or event.get("type") != "http.response.start":
+            continue
+        updated = dict(normalized_events[index])
+        updated["headers"] = _normalize_multipart_boundary_headers(event.get("headers"), boundary)
+        normalized_events[index] = updated
+    return normalized_events
+
+
+def _normalize_multipart_range_boundary(
+    path: str, value: Any, *, observation: dict[str, Any]
+) -> Any:
+    """Normalize only the random MIME boundary in an observed multipart FileResponse."""
+    boundary = _multipart_boundary_from_observation(observation)
+    if boundary is None:
+        return value
+    if path == "ordered_repeated_headers":
+        return _normalize_multipart_boundary_headers(value, boundary)
+    if path == "response_bytes":
+        body = _body_bytes(value)
+        if body is None:
+            return value
+        normalized_body = _normalize_multipart_body(body, boundary)
+        if normalized_body == body:
+            return value
+        return {
+            "encoding": "base64",
+            "data": base64.b64encode(normalized_body).decode("ascii"),
+        }
+    if path == "asgi_events":
+        return _normalize_multipart_boundary_events(value, boundary)
+    raise ContractError(f"multipart-range-boundary normalization is not allowed for {path!r}")
+
+
 def compare_workflows(
     case: dict[str, Any], operation: dict[str, Any], source: Any, target: Any
 ) -> tuple[str, list[dict[str, Any]]]:
@@ -504,6 +671,13 @@ def compare_workflows(
                             path,
                             right_field,
                             observation_has_debug_traceback=right_has_debug_traceback,
+                        )
+                    elif kind == "multipart-range-boundary":
+                        left_field = _normalize_multipart_range_boundary(
+                            path, left_field, observation=left_value
+                        )
+                        right_field = _normalize_multipart_range_boundary(
+                            path, right_field, observation=right_value
                         )
                     else:
                         raise ContractError(
