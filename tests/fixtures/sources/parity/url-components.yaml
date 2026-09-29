@@ -1,0 +1,237 @@
+{
+  "schema": "migration-parity/parity-input@9",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.absolute-components-scheme",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "https://example.org:123/path/to/somewhere?abc=123#anchor",
+      "actions": [
+        {"method": "replace", "kwargs": {"scheme": "http"}}
+      ],
+      "observations": ["url-record", "action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.absolute-components-remove-port",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "https://example.org:123/path/to/somewhere?abc=123#anchor",
+      "actions": [
+        {"method": "replace", "kwargs": {"port": null}}
+      ],
+      "observations": ["url-record", "action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.absolute-components-hostname",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "https://example.org:123/path/to/somewhere?abc=123#anchor",
+      "actions": [
+        {"method": "replace", "kwargs": {"hostname": "example.com"}}
+      ],
+      "observations": ["url-record", "action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.ipv6-port-replacement",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "https://[fe::2]:12345",
+      "actions": [
+        {"method": "replace", "kwargs": {"port": 8080}}
+      ],
+      "observations": ["url-record", "action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.ipv6-add-credentials",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "https://[fe::2]:12345",
+      "actions": [
+        {
+          "method": "replace",
+          "kwargs": {"username": "username", "password": "password"}
+        }
+      ],
+      "observations": ["url-record", "action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.ipv6-add-port",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "https://[fe::2]",
+      "actions": [
+        {"method": "replace", "kwargs": {"port": 123}}
+      ],
+      "observations": ["url-record", "action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.preserve-credentials-when-changing-hostname",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "http://u:p@host/",
+      "actions": [
+        {"method": "replace", "kwargs": {"hostname": "bar"}}
+      ],
+      "observations": ["url-record", "action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.preserve-credentials-when-changing-port",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "http://u:p@host:80",
+      "actions": [
+        {"method": "replace", "kwargs": {"port": 88}}
+      ],
+      "observations": ["url-record", "action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.add-username-preserving-port",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "http://host:80",
+      "actions": [
+        {"method": "replace", "kwargs": {"username": "u"}}
+      ],
+      "observations": ["url-record", "action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.relative-add-port",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "/path?a=1",
+      "actions": [
+        {"method": "replace", "kwargs": {"port": 8080}}
+      ],
+      "observations": ["url-record", "action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.relative-add-username",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "/path?a=1",
+      "actions": [
+        {"method": "replace", "kwargs": {"username": "u"}}
+      ],
+      "observations": ["url-record", "action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.password-redaction-no-credentials",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.password-redaction"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "https://example.org/path/to/somewhere",
+      "actions": [],
+      "observations": ["url-record"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.password-redaction-username-only",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.password-redaction"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "https://username@example.org/path/to/somewhere",
+      "actions": [],
+      "observations": ["url-record"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.password-redaction-with-password",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.password-redaction"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "https://username:password@example.org/path/to/somewhere",
+      "actions": [],
+      "observations": ["url-record"]
+    }
+  ]
+}

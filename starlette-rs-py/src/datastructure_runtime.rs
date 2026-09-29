@@ -350,9 +350,7 @@ fn url_repr(
     let value = if password.is_truthy()? {
         let replacement = PyDict::new(py);
         replacement.set_item("password", "********")?;
-        let redacted = components
-            .call_method("_replace", (), Some(&replacement))?
-            .call_method0("geturl")?;
+        let redacted = replace_split(py, &components, &replacement)?.call_method0("geturl")?;
         py.import("builtins")?.getattr("str")?.call1((redacted,))?
     } else {
         py.import("builtins")?.getattr("str")?.call1((url,))?

@@ -7,7 +7,7 @@ from typing import Any
 
 from starlette_rs_py import _core
 
-from starlette.datastructures import URL, Address, QueryParams
+from starlette.datastructures import URL, Address, Headers, QueryParams
 
 
 class ClientDisconnect(Exception):
@@ -22,46 +22,6 @@ async def empty_receive() -> Any:
 async def empty_send(message: Any) -> Any:
     """Return the same missing-send failure as the upstream callback."""
     return await _core._empty_send()
-
-
-class Headers(Mapping[str, str]):
-    """Thin Python view over Rust-owned ordered request headers."""
-
-    __slots__ = ("_inner",)
-
-    def __init__(self, inner: Any) -> None:
-        self._inner = inner
-
-    @property
-    def raw(self) -> list[tuple[bytes, bytes]]:
-        return self._inner.raw()
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return self._inner.get(key, default)
-
-    def getlist(self, key: str) -> list[str]:
-        return self._inner.getlist(key)
-
-    def items(self) -> list[tuple[str, str]]:
-        return self._inner.items()
-
-    def keys(self) -> list[str]:
-        return self._inner.keys()
-
-    def values(self) -> list[str]:
-        return self._inner.values()
-
-    def __getitem__(self, key: str) -> str:
-        return self._inner[key]
-
-    def __contains__(self, key: Any) -> bool:
-        return key in self._inner
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self._inner)
-
-    def __len__(self) -> int:
-        return len(self._inner)
 
 
 class HTTPConnection(Mapping[str, Any]):

@@ -705,6 +705,15 @@ impl Response {
         &self.headers
     }
 
+    /// Replaces the response headers with the supplied raw byte pairs.
+    ///
+    /// This preserves the caller's pair order, duplicate names, and bytes.
+    /// It is intended for compatibility boundaries that expose a mutable raw
+    /// header list.
+    pub fn replace_headers_raw(&mut self, headers: Vec<(Vec<u8>, Vec<u8>)>) {
+        self.headers = headers;
+    }
+
     /// Returns the first value for a response header using a case-insensitive name.
     pub fn get_header(&self, name: &str) -> Result<Option<String>, ResponseError> {
         get_response_header(&self.headers, name)
@@ -1022,6 +1031,15 @@ impl StreamingResponse {
     #[must_use]
     pub fn headers(&self) -> &[(Vec<u8>, Vec<u8>)] {
         &self.headers
+    }
+
+    /// Replaces the response headers with the supplied raw byte pairs.
+    ///
+    /// This preserves the caller's pair order, duplicate names, and bytes.
+    /// It is intended for compatibility boundaries that expose a mutable raw
+    /// header list.
+    pub fn replace_headers_raw(&mut self, headers: Vec<(Vec<u8>, Vec<u8>)>) {
+        self.headers = headers;
     }
 
     /// Returns the first value for a response header using a case-insensitive name.

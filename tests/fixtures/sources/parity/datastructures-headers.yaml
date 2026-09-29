@@ -1,0 +1,240 @@
+{
+  "schema": "migration-parity/parity-input@9",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.Headers.consumer-sequence.mapping-duplicates-and-representation",
+      "surface": "starlette.datastructures.Headers",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.Headers.constructor.raw",
+        "starlette.datastructures.Headers.constructor.mapping",
+        "starlette.datastructures.Headers.case-insensitive-lookup",
+        "starlette.datastructures.Headers.duplicate-order-getlist-and-mapping-views",
+        "starlette.datastructures.Headers.equality-order-and-type",
+        "starlette.datastructures.Headers.representation"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "raw-duplicates",
+          "constructor": {
+            "kind": "raw",
+            "headers_base64_pairs": [
+              ["YQ==", "MTIz"],
+              ["YQ==", "NDU2"],
+              ["Yg==", "Nzg5"]
+            ]
+          }
+        },
+        {
+          "instance_id": "raw-reordered",
+          "constructor": {
+            "kind": "raw",
+            "headers_base64_pairs": [
+              ["YQ==", "MTIz"],
+              ["Yg==", "Nzg5"],
+              ["YQ==", "NDU2"]
+            ]
+          }
+        },
+        {
+          "instance_id": "mapping",
+          "constructor": {
+            "kind": "mapping",
+            "items": [["a", "123"], ["b", "789"]]
+          }
+        }
+      ],
+      "actions": [
+        {"action_id": "contains-lowercase", "receiver": "raw-duplicates", "call": "__contains__", "arguments": ["a"]},
+        {"action_id": "contains-uppercase", "receiver": "raw-duplicates", "call": "__contains__", "arguments": ["A"]},
+        {"action_id": "contains-absent", "receiver": "raw-duplicates", "call": "__contains__", "arguments": ["c"]},
+        {"action_id": "first-value-subscript", "receiver": "raw-duplicates", "call": "__getitem__", "arguments": ["a"]},
+        {"action_id": "first-value-get", "receiver": "raw-duplicates", "call": "get", "arguments": ["A"]},
+        {"action_id": "missing-get-default", "receiver": "raw-duplicates", "call": "get", "arguments": ["nope", null]},
+        {"action_id": "missing-subscript", "receiver": "raw-duplicates", "call": "__getitem__", "arguments": ["nope"]},
+        {"action_id": "all-values-for-duplicate", "receiver": "raw-duplicates", "call": "getlist", "arguments": ["A"]},
+        {"action_id": "keys", "receiver": "raw-duplicates", "call": "keys", "arguments": []},
+        {"action_id": "values", "receiver": "raw-duplicates", "call": "values", "arguments": []},
+        {"action_id": "items", "receiver": "raw-duplicates", "call": "items", "arguments": []},
+        {"action_id": "iteration", "receiver": "raw-duplicates", "call": "iterate", "arguments": []},
+        {"action_id": "length", "receiver": "raw-duplicates", "call": "len", "arguments": []},
+        {"action_id": "dict-conversion", "receiver": "raw-duplicates", "call": "dict", "arguments": []},
+        {"action_id": "raw-view", "receiver": "raw-duplicates", "call": "raw", "arguments": []},
+        {"action_id": "duplicate-representation", "receiver": "raw-duplicates", "call": "repr", "arguments": []},
+        {"action_id": "mapping-representation", "receiver": "mapping", "call": "repr", "arguments": []},
+        {"action_id": "equality-reordered-pairs", "receiver": "raw-duplicates", "call": "__eq__", "arguments": [{"instance_id": "raw-reordered"}]},
+        {"action_id": "equality-non-header-pairs", "receiver": "raw-duplicates", "call": "__eq__", "arguments": [[["a", "123"], ["a", "456"], ["b", "789"]]]}
+      ],
+      "observations": ["action-trace", "instance-snapshots"]
+    },
+    {
+      "case_id": "starlette.datastructures.Headers.consumer-sequence.scope-construction",
+      "surface": "starlette.datastructures.Headers",
+      "operation": "consumer-sequence",
+      "covers": ["starlette.datastructures.Headers.constructor.scope-container-conversion"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "scope-headers",
+          "constructor": {
+            "kind": "scope",
+            "scope_headers_container": "tuple",
+            "headers_base64_pairs": [["YQ==", "MQ=="]]
+          }
+        }
+      ],
+      "observations": ["instance-snapshots", "scope-snapshots"]
+    },
+    {
+      "case_id": "starlette.datastructures.Headers.consumer-sequence.mutablecopy-independence",
+      "surface": "starlette.datastructures.Headers",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.Headers.constructor.raw",
+        "starlette.datastructures.Headers.mutablecopy-independent-duplicate-preserving-copy"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "source",
+          "constructor": {
+            "kind": "raw",
+            "headers_base64_pairs": [
+              ["YQ==", "MTIz"],
+              ["YQ==", "NDU2"],
+              ["Yg==", "Nzg5"]
+            ]
+          }
+        }
+      ],
+      "actions": [
+        {"action_id": "copy", "receiver": "source", "call": "mutablecopy", "arguments": [], "bind_instance_id": "copy"},
+        {"action_id": "replace-copy-value", "receiver": "copy", "call": "__setitem__", "arguments": ["a", "abc"]}
+      ],
+      "observations": ["action-trace", "instance-snapshots"]
+    },
+    {
+      "case_id": "starlette.datastructures.MutableHeaders.consumer-sequence.set-setdefault-delete-update-and-append",
+      "surface": "starlette.datastructures.MutableHeaders",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.MutableHeaders.constructor",
+        "starlette.datastructures.MutableHeaders.set-replaces-and-collapses-duplicates-in-place",
+        "starlette.datastructures.MutableHeaders.setdefault-preserves-existing-and-appends-new",
+        "starlette.datastructures.MutableHeaders.delete-removes-all-matches",
+        "starlette.datastructures.MutableHeaders.update-uses-set-semantics",
+        "starlette.datastructures.MutableHeaders.append-preserves-duplicates-and-order"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "headers",
+          "constructor": {
+            "kind": "raw",
+            "headers_base64_pairs": [
+              ["YQ==", "MTIz"],
+              ["YQ==", "NDU2"],
+              ["Yg==", "Nzg5"]
+            ]
+          }
+        }
+      ],
+      "actions": [
+        {"action_id": "setdefault-duplicate", "receiver": "headers", "call": "setdefault", "arguments": ["A", "ignored"]},
+        {"action_id": "set-collapse-duplicates", "receiver": "headers", "call": "__setitem__", "arguments": ["A", "replacement"], "identity_indices": [0, 2]},
+        {"action_id": "setdefault-new", "receiver": "headers", "call": "setdefault", "arguments": ["c", "3"]},
+        {"action_id": "update-mapping", "receiver": "headers", "call": "update", "arguments": [{"kind": "mapping", "items": [["b", "updated"], ["d", "4"]]}]},
+        {"action_id": "delete-existing", "receiver": "headers", "call": "__delitem__", "arguments": ["B"]},
+        {"action_id": "delete-absent", "receiver": "headers", "call": "__delitem__", "arguments": ["missing"]},
+        {"action_id": "append-duplicate", "receiver": "headers", "call": "append", "arguments": ["A", "appended"]}
+      ],
+      "observations": ["action-trace", "instance-snapshots"]
+    },
+    {
+      "case_id": "starlette.datastructures.MutableHeaders.consumer-sequence.union-and-inplace-union",
+      "surface": "starlette.datastructures.MutableHeaders",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.MutableHeaders.union.mapping-and-header-operands",
+        "starlette.datastructures.MutableHeaders.inplace-union.mapping-and-header-operands"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "base",
+          "constructor": {"kind": "mapping", "items": [["a", "1"], ["b", "2"]]}
+        },
+        {
+          "instance_id": "header-operand",
+          "constructor": {"kind": "mapping", "items": [["a", "3"], ["c", "4"]]}
+        },
+        {
+          "instance_id": "inplace-header-target",
+          "constructor": {"kind": "mapping", "items": [["a", "1"], ["b", "2"]]}
+        }
+      ],
+      "actions": [
+        {"action_id": "union-mapping", "receiver": "base", "call": "__or__", "arguments": [{"kind": "mapping", "items": [["a", "5"], ["d", "6"]]}], "bind_instance_id": "union-mapping-result"},
+        {"action_id": "union-header", "receiver": "base", "call": "__or__", "arguments": [{"instance_id": "header-operand"}], "bind_instance_id": "union-header-result"},
+        {"action_id": "inplace-union-mapping", "receiver": "base", "call": "__ior__", "arguments": [{"kind": "mapping", "items": [["a", "7"], ["e", "8"]]}]},
+        {"action_id": "inplace-union-header", "receiver": "inplace-header-target", "call": "__ior__", "arguments": [{"instance_id": "header-operand"}]}
+      ],
+      "observations": ["action-trace", "instance-snapshots"]
+    },
+    {
+      "case_id": "starlette.datastructures.MutableHeaders.consumer-sequence.union-rejects-nonmapping",
+      "surface": "starlette.datastructures.MutableHeaders",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.MutableHeaders.constructor",
+        "starlette.datastructures.MutableHeaders.union-and-inplace-union-nonmapping-error"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "headers",
+          "constructor": {"kind": "empty"}
+        }
+      ],
+      "actions": [
+        {"action_id": "union-set-operand", "receiver": "headers", "call": "__or__", "arguments": [{"kind": "set", "items": ["not_mapping"]}]},
+        {"action_id": "inplace-union-set-operand", "receiver": "headers", "call": "__ior__", "arguments": [{"kind": "set", "items": ["not_mapping"]}]}
+      ],
+      "observations": ["action-trace", "instance-snapshots"]
+    },
+    {
+      "case_id": "starlette.datastructures.MutableHeaders.consumer-sequence.scope-aliasing-and-append",
+      "surface": "starlette.datastructures.MutableHeaders",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.MutableHeaders.constructor.scope-list-coercion",
+        "starlette.datastructures.MutableHeaders.scope-aliasing",
+        "starlette.datastructures.MutableHeaders.append-preserves-duplicates-and-order"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "scope-backed",
+          "constructor": {
+            "kind": "scope",
+            "scope_headers_container": "tuple",
+            "headers_base64_pairs": [["YQ==", "MQ=="]]
+          }
+        }
+      ],
+      "actions": [
+        {"action_id": "append-case-varied-duplicate", "receiver": "scope-backed", "call": "append", "arguments": ["A", "2"]},
+        {"action_id": "update-scope-backed", "receiver": "scope-backed", "call": "update", "arguments": [{"kind": "mapping", "items": [["b", "3"]]}]}
+      ],
+      "observations": ["action-trace", "instance-snapshots", "scope-snapshots"]
+    }
+  ]
+}

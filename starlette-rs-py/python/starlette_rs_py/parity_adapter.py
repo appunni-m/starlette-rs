@@ -7594,6 +7594,20 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         return _run_url_scope_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.datastructures.URL",
+        "component-and-replacement-sequence",
+    ):
+        from scripts.parity.adapters.url_components import run_url_components_case
+
+        return run_url_components_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in {
+        ("starlette.datastructures.Headers", "consumer-sequence"),
+        ("starlette.datastructures.MutableHeaders", "consumer-sequence"),
+    }:
+        from scripts.parity.adapters.headers import run_headers_case
+
+        return run_headers_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         "starlette.datastructures.QueryParams",
         "construction-and-mapping-sequence",
     ):

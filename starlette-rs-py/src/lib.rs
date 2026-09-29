@@ -20,6 +20,7 @@ mod endpoint_runtime;
 mod exception_values;
 mod file_response_runtime;
 mod gzip_runtime;
+mod headers_runtime;
 mod host_middleware_runtime;
 mod middleware_config_runtime;
 mod path_convertors_runtime;
@@ -850,6 +851,12 @@ impl PyResponse {
         response_headers_runtime::raw_pairs(py, self.inner.headers())
     }
 
+    fn _header_replace_raw(&mut self, raw: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.inner
+            .replace_headers_raw(response_headers_runtime::parse_raw_pairs(raw)?);
+        Ok(())
+    }
+
     fn _header_len(&self) -> usize {
         self.inner.headers().len()
     }
@@ -1177,6 +1184,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRequestBodyAccumulator>()?;
     module.add_class::<PyResponse>()?;
     response_headers_runtime::register(module)?;
+    headers_runtime::register(module)?;
     runtime_calls::register(module)?;
     base_http_runtime::register(module)?;
     background::register(module)?;

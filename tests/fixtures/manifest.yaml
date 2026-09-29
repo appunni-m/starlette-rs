@@ -270,6 +270,8 @@
       "build/parity/inputs/parity/schemas-runtime.json",
       "build/parity/inputs/parity/url-query-operations.json",
       "build/parity/inputs/parity/url-scope.json",
+      "build/parity/inputs/parity/url-components.json",
+      "build/parity/inputs/parity/datastructures-headers.json",
       "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/lifespan-generators.json",
@@ -2780,6 +2782,466 @@
       ]
     },
     {
+      "id": "starlette.datastructures.Headers",
+      "kind": "type",
+      "source_path": "starlette/datastructures.py:500",
+      "storage_slug": "starlette-datastructures-Headers",
+      "operations": [
+        {
+          "id": "consumer-sequence",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.Headers.__init__, Headers.__contains__, Headers.__getitem__, Headers.getlist, Headers.keys, Headers.values, Headers.items, Headers.__iter__, Headers.__len__, Headers.__eq__, Headers.__repr__, and Headers.mutablecopy",
+            "signature": "Headers(headers=None, raw=None, scope=None); immutable mapping and mutablecopy consumer sequence",
+            "parameters": [
+              {
+                "id": "instances",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "action-trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "instance-snapshots",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "scope-snapshots",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::Headers",
+              "signature": "Headers::new, from_raw, raw_pairs, get, get_list, contains_key, keys, values, items, and mutablecopy",
+              "support": {
+                "status": "partial",
+                "reason": "The Rust-native type provides byte-oriented collection primitives, but does not implement the complete Python constructor and consumer semantics represented by this operation.",
+                "missing_requirements": [
+                  "starlette.datastructures.Headers.constructor.mapping",
+                  "starlette.datastructures.Headers.case-insensitive-lookup",
+                  "starlette.datastructures.Headers.representation",
+                  "starlette.datastructures.Headers.constructor.scope-container-conversion"
+                ]
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.Headers",
+              "signature": "Headers(headers=None, raw=None, scope=None); immutable mapping operations and mutablecopy",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.Headers.constructor.raw",
+              "dimension": "input_family",
+              "description": "Construct from ordered raw byte pairs while retaining duplicate order and byte values. Pinned source: starlette/datastructures.py:505-522; tests/test_datastructures.py::test_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.Headers.constructor.mapping",
+              "dimension": "input_family",
+              "description": "Construct from a text mapping by lowercasing names and encoding names and values as Latin-1. Pinned source: starlette/datastructures.py:505-515; tests/test_datastructures.py::test_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.Headers.case-insensitive-lookup",
+              "dimension": "protocol_variant",
+              "description": "Perform case-insensitive membership, indexing, and get lookup while preserving the first duplicate value. Pinned source: starlette/datastructures.py:544-555; tests/test_datastructures.py::test_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.Headers.duplicate-order-getlist-and-mapping-views",
+              "dimension": "protocol_variant",
+              "description": "Preserve raw duplicate order across getlist, keys, values, items, iteration, length, and dict conversion. Pinned source: starlette/datastructures.py:525-562; tests/test_datastructures.py::test_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.Headers.equality-order-and-type",
+              "dimension": "parameter_combination",
+              "description": "Compare duplicate header pairs independent of pair order and reject non-Headers operands. Pinned source: starlette/datastructures.py:564-567; tests/test_datastructures.py::test_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.Headers.representation",
+              "dimension": "format",
+              "description": "Use mapping-form repr when names are unique and raw-pair repr when duplicates exist. Pinned source: starlette/datastructures.py:569-574; tests/test_datastructures.py::test_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.Headers.constructor.scope-container-conversion",
+              "dimension": "input_family",
+              "description": "Convert an iterable scope header container to a list and write it back to the supplied scope. Pinned source: starlette/datastructures.py:519-523; inherited constructor path exercised by tests/test_datastructures.py::test_mutable_headers_from_scope.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.Headers.mutablecopy-independent-duplicate-preserving-copy",
+              "dimension": "boundary",
+              "description": "Copy all duplicate pairs into an independent MutableHeaders value, preserving order and leaving the original unchanged after mutation. Pinned source: starlette/datastructures.py:541-542; tests/test_datastructures.py::test_headers_mutablecopy.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Headers construction and mapping operations are outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.datastructures.MutableHeaders",
+      "kind": "type",
+      "source_path": "starlette/datastructures.py:577",
+      "storage_slug": "starlette-datastructures-MutableHeaders",
+      "operations": [
+        {
+          "id": "consumer-sequence",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.MutableHeaders.__setitem__, __delitem__, setdefault, update, append, __or__, and __ior__",
+            "signature": "MutableHeaders(headers=None, raw=None, scope=None); mutable mapping, union, and append consumer sequence",
+            "parameters": [
+              {
+                "id": "instances",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "action-trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "instance-snapshots",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "scope-snapshots",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::MutableHeaders",
+              "signature": "MutableHeaders::new, from_raw, set, delete, setdefault, append, and update",
+              "support": {
+                "status": "partial",
+                "reason": "The Rust-native type provides byte-oriented collection primitives, but does not implement the complete Python constructor and consumer semantics represented by this operation.",
+                "missing_requirements": [
+                  "starlette.datastructures.MutableHeaders.constructor",
+                  "starlette.datastructures.MutableHeaders.union.mapping-and-header-operands",
+                  "starlette.datastructures.MutableHeaders.inplace-union.mapping-and-header-operands",
+                  "starlette.datastructures.MutableHeaders.union-and-inplace-union-nonmapping-error",
+                  "starlette.datastructures.MutableHeaders.constructor.scope-list-coercion",
+                  "starlette.datastructures.MutableHeaders.scope-aliasing"
+                ]
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.MutableHeaders",
+              "signature": "MutableHeaders(headers=None, raw=None, scope=None); mutable mapping operations, union, and append",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.MutableHeaders.constructor",
+              "dimension": "input_family",
+              "description": "Construct mutable headers from the declared empty, raw, and mapping inputs. Pinned source: starlette/datastructures.py:505-522,577; tests/test_datastructures.py::test_mutable_headers and ::test_mutable_headers_merge.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.set-replaces-and-collapses-duplicates-in-place",
+              "dimension": "parameter_combination",
+              "description": "Replace the first matching header in place, remove later duplicates, or append when no match exists. Pinned source: starlette/datastructures.py:578-598; tests/test_datastructures.py::test_mutable_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.setdefault-preserves-existing-and-appends-new",
+              "dimension": "parameter_combination",
+              "description": "Return an existing value without changing duplicates, or append a new name/value pair. Pinned source: starlette/datastructures.py:631-643; tests/test_datastructures.py::test_mutable_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.delete-removes-all-matches",
+              "dimension": "parameter_combination",
+              "description": "Remove every case-insensitive match and leave the remaining pair order unchanged. Pinned source: starlette/datastructures.py:600-612; tests/test_datastructures.py::test_mutable_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.update-uses-set-semantics",
+              "dimension": "parameter_combination",
+              "description": "Apply mapping updates in order using set semantics for each supplied header. Pinned source: starlette/datastructures.py:645-647; tests/test_datastructures.py::test_mutable_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.append-preserves-duplicates-and-order",
+              "dimension": "parameter_combination",
+              "description": "Append case-insensitive duplicate headers without replacing existing values. Pinned source: starlette/datastructures.py:649-651; tests/test_datastructures.py::test_mutable_headers and ::test_mutable_headers_from_scope.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.union.mapping-and-header-operands",
+              "dimension": "parameter_combination",
+              "description": "Create a new mutable result for mapping and MutableHeaders operands while leaving the receiver unchanged. Pinned source: starlette/datastructures.py:620-625; tests/test_datastructures.py::test_mutable_headers_merge and ::test_mutable_headers_merge_dict.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.inplace-union.mapping-and-header-operands",
+              "dimension": "parameter_combination",
+              "description": "Update the receiver from mapping and MutableHeaders operands and return that receiver. Pinned source: starlette/datastructures.py:614-618; tests/test_datastructures.py::test_mutable_headers_update and ::test_mutable_headers_update_dict.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.union-and-inplace-union-nonmapping-error",
+              "dimension": "error_path",
+              "description": "Reject non-mapping operands for both union forms with the source TypeError class and message. Pinned source: starlette/datastructures.py:614-625; tests/test_datastructures.py::test_mutable_headers_merge_not_mapping.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.constructor.scope-list-coercion",
+              "dimension": "input_family",
+              "description": "Convert a tuple-backed scope header collection to a list and store that list back into scope. Pinned source: starlette/datastructures.py:519-522; tests/test_datastructures.py::test_mutable_headers_from_scope.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.scope-aliasing",
+              "dimension": "boundary",
+              "description": "Keep subsequent appends and updates visible through the scope headers collection. Pinned source: starlette/datastructures.py:519-522,627-629; tests/test_datastructures.py::test_mutable_headers_from_scope.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "MutableHeaders construction and mutations are outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
       "id": "starlette.datastructures.QueryParams",
       "kind": "type",
       "source_path": "starlette/datastructures.py:378",
@@ -3208,6 +3670,152 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "URL query-parameter operations are outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "component-and-replacement-sequence",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.URL.__init__, URL.components, URL.replace, and URL.__repr__",
+            "signature": "URL(url: str = \"\", **components: Any); access URL components; replace(**components) -> URL",
+            "parameters": [
+              {
+                "id": "url",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "url-record",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "action-results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python URL consumer contract declared for this operation.",
+                "blocker": "No Rust-native operation currently matches the Python starlette.datastructures.URL constructor, action, and observation interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.URL",
+              "signature": "URL(url); expose parsed components and apply ordered replace(**components) calls",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.URL.component-construction",
+              "dimension": "input_family",
+              "description": "Construct URL values from the supplied absolute, IPv6, credentialed, or relative URL strings. Pinned source: starlette/datastructures.py:28-73; tests/test_datastructures.py::test_url and ::test_hidden_password.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URL.component-access",
+              "dimension": "protocol_variant",
+              "description": "Expose parsed scheme, authority, path, query, fragment, credentials, host, port, and secure-scheme status through public properties. Pinned source: starlette/datastructures.py:69-113; tests/test_datastructures.py::test_url.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URL.component-replacement",
+              "dimension": "parameter_combination",
+              "description": "Replace scheme and authority components while preserving unaffected URL components, including IPv6 brackets, credentials, existing ports, and URLs with no authority. Pinned source: starlette/datastructures.py:115-141; tests/test_datastructures.py::test_url.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URL.password-redaction",
+              "dimension": "format",
+              "description": "Represent URLs without credentials, with username only, and with a password hidden while retaining visible username. Pinned source: starlette/datastructures.py:168-172; tests/test_datastructures.py::test_hidden_password.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "URL construction and replacement are outside the declared benchmark workloads."
           }
         }
       ]

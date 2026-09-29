@@ -30,6 +30,12 @@ pub(crate) fn raw_pairs(py: Python<'_>, headers: &[(Vec<u8>, Vec<u8>)]) -> PyRes
     Ok(output.into_any().unbind())
 }
 
+pub(crate) fn parse_raw_pairs(raw: &Bound<'_, PyAny>) -> PyResult<Vec<(Vec<u8>, Vec<u8>)>> {
+    raw.try_iter()?
+        .map(|pair| pair?.extract::<(Vec<u8>, Vec<u8>)>())
+        .collect()
+}
+
 fn decode_latin1(value: &[u8]) -> String {
     value.iter().copied().map(char::from).collect()
 }

@@ -72,6 +72,26 @@
       ]
     },
     {
+      "surface_id": "starlette.datastructures.Headers",
+      "source_path": "starlette/datastructures.py:500",
+      "operations": [
+        {
+          "operation_id": "consumer-sequence",
+          "source_path": "starlette.datastructures.Headers.__init__, Headers.__contains__, Headers.__getitem__, Headers.getlist, Headers.keys, Headers.values, Headers.items, Headers.__iter__, Headers.__len__, Headers.__eq__, Headers.__repr__, and Headers.mutablecopy"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.datastructures.MutableHeaders",
+      "source_path": "starlette/datastructures.py:577",
+      "operations": [
+        {
+          "operation_id": "consumer-sequence",
+          "source_path": "starlette.datastructures.MutableHeaders.__setitem__, __delitem__, setdefault, update, append, __or__, and __ior__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.datastructures.QueryParams",
       "source_path": "starlette/datastructures.py:378",
       "operations": [
@@ -92,6 +112,10 @@
         {
           "operation_id": "query-parameter-operations",
           "source_path": "starlette.datastructures.URL.include_query_params, URL.replace_query_params, and URL.remove_query_params"
+        },
+        {
+          "operation_id": "component-and-replacement-sequence",
+          "source_path": "starlette.datastructures.URL.__init__, URL.components, URL.replace, and URL.__repr__"
         }
       ]
     },

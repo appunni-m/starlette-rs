@@ -150,6 +150,41 @@ SCHEMA_OPERATIONS = {
 }
 URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
 URL_SCOPE_OPERATION = ("starlette.datastructures.URL", "scope-construction")
+URL_COMPONENTS_OPERATION = (
+    "starlette.datastructures.URL",
+    "component-and-replacement-sequence",
+)
+HEADERS_SURFACE = "starlette.datastructures.Headers"
+MUTABLE_HEADERS_SURFACE = "starlette.datastructures.MutableHeaders"
+HEADERS_CONSUMER_OPERATION = "consumer-sequence"
+HEADERS_OPERATIONS = {
+    (HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION),
+    (MUTABLE_HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION),
+}
+HEADERS_OBSERVATIONS = {"action-trace", "instance-snapshots", "scope-snapshots"}
+HEADERS_ACTIONS = {
+    "iterate",
+    "len",
+    "dict",
+    "repr",
+    "raw",
+    "__contains__",
+    "__getitem__",
+    "__setitem__",
+    "__delitem__",
+    "__eq__",
+    "get",
+    "getlist",
+    "keys",
+    "values",
+    "items",
+    "mutablecopy",
+    "setdefault",
+    "update",
+    "__or__",
+    "__ior__",
+    "append",
+}
 URL_SCOPE_REQUIREMENTS = {
     "from-scope": "starlette.datastructures.URL.scope-construction",
     "invalid-host-fallback": "starlette.datastructures.URL.invalid-host-fallback",
@@ -171,6 +206,8 @@ RUST_OWNED_PYTHON_OPERATIONS = (
     | {
         URL_QUERY_OPERATION,
         URL_SCOPE_OPERATION,
+        URL_COMPONENTS_OPERATION,
+        *HEADERS_OPERATIONS,
     }
 )
 WEBSOCKET_PROJECTED_ERROR_OPERATIONS = {
@@ -6195,6 +6232,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) in RUST_OWNED_PYTHON_OPERATIONS
     )
+    is_headers_consumer_sequence = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) in HEADERS_OPERATIONS
+    )
     is_query_params = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == QUERY_PARAMS_OPERATION
@@ -6302,8 +6343,13 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             ("starlette.schemas.OpenAPIResponse", "openapi-response-render"): {"content"},
             URL_QUERY_OPERATION: {"url", "actions"},
             URL_SCOPE_OPERATION: {"scope"},
+            URL_COMPONENTS_OPERATION: {"url", "actions"},
+            (HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION): {"instances"},
+            (MUTABLE_HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION): {"instances"},
         }[(case["surface"], case["operation"])]
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
+        if is_headers_consumer_sequence and "actions" in case:
+            expected_case_keys = expected_case_keys | {"actions"}
     elif is_query_params:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {
             "source",
@@ -6553,6 +6599,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             _validate_url_query_case(case)
         elif (case["surface"], case["operation"]) == URL_SCOPE_OPERATION:
             _validate_url_scope_case(case)
+        elif (case["surface"], case["operation"]) == URL_COMPONENTS_OPERATION:
+            _validate_url_components_case(case)
+        elif (case["surface"], case["operation"]) in HEADERS_OPERATIONS:
+            _validate_headers_case(case)
         else:
             _validate_url_query_case(case)
         return case
@@ -8590,6 +8640,431 @@ def _validate_url_query_case(case: dict[str, Any]) -> None:
     }
     if methods != expected_methods or set(case["covers"]) != expected_covers:
         raise ContractError("URL query actions and coverage must include all declared methods")
+
+
+def _validate_url_components_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("URL component parity currently targets the Python package profile")
+    if case["assets"] != []:
+        raise ContractError("URL component cases do not use external assets")
+    _string(case["url"], "URL component input URL")
+    actions = case["actions"]
+    if not isinstance(actions, list):
+        raise ContractError("URL component actions must be an array")
+    observations = case["observations"]
+    allowed_observations = {"url-record", "action-results"}
+    if (
+        not isinstance(observations, list)
+        or not observations
+        or any(
+            not isinstance(item, str) or item not in allowed_observations for item in observations
+        )
+        or len(observations) != len(set(observations))
+    ):
+        raise ContractError("URL component observations must select unique declared results")
+
+    replacements = False
+    allowed_components = {
+        "scheme",
+        "netloc",
+        "path",
+        "query",
+        "fragment",
+        "username",
+        "password",
+        "hostname",
+        "port",
+    }
+    for index, action in enumerate(actions):
+        context = f"URL component actions[{index}]"
+        action = _exact(action, {"method", "kwargs"}, context)
+        if action["method"] != "replace":
+            raise ContractError(f"{context}.method must be replace")
+        kwargs = action["kwargs"]
+        if (
+            not isinstance(kwargs, dict)
+            or not kwargs
+            or any(not isinstance(key, str) or key not in allowed_components for key in kwargs)
+        ):
+            raise ContractError(f"{context}.kwargs must name URL replacement components")
+        for key, value in kwargs.items():
+            if value is not None and not isinstance(value, (str, int)):
+                raise ContractError(f"{context}.kwargs[{key!r}] must be a string, integer, or null")
+            if isinstance(value, bool):
+                raise ContractError(f"{context}.kwargs[{key!r}] must not be boolean")
+        replacements = True
+
+    exercised = {"starlette.datastructures.URL.component-construction"}
+    if "url-record" in observations:
+        exercised.add("starlette.datastructures.URL.component-access")
+        exercised.add("starlette.datastructures.URL.password-redaction")
+    if replacements:
+        exercised.add("starlette.datastructures.URL.component-replacement")
+    unexercised = set(case["covers"]) - exercised
+    if unexercised:
+        raise ContractError(
+            "URL component case claims requirements not exercised by its input: "
+            f"{sorted(unexercised)}"
+        )
+
+
+def _validate_header_pairs(value: Any, context: str) -> list[tuple[bytes, bytes]]:
+    if not isinstance(value, list):
+        raise ContractError(f"{context} must be an array")
+    pairs: list[tuple[bytes, bytes]] = []
+    for index, pair in enumerate(value):
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise ContractError(f"{context}[{index}] must be a two-item array")
+        decoded: list[bytes] = []
+        for item in pair:
+            if not isinstance(item, str):
+                raise ContractError(f"{context}[{index}] entries must be base64 strings")
+            try:
+                decoded.append(base64.b64decode(item, validate=True))
+            except (ValueError, TypeError) as exc:
+                raise ContractError(f"{context}[{index}] contains invalid base64") from exc
+        pairs.append((decoded[0], decoded[1]))
+    return pairs
+
+
+def _validate_header_constructor(
+    constructor: Any,
+    context: str,
+    *,
+    mutable: bool,
+    exercised: set[str],
+) -> tuple[bool, list[tuple[bytes, bytes]]]:
+    if not isinstance(constructor, dict) or not isinstance(constructor.get("kind"), str):
+        raise ContractError(f"{context} must select a declared header constructor")
+    kind = constructor["kind"]
+    if kind == "raw":
+        source = _exact(constructor, {"kind", "headers_base64_pairs"}, context)
+        pairs = _validate_header_pairs(
+            source["headers_base64_pairs"], f"{context}.headers_base64_pairs"
+        )
+        exercised.add(
+            "starlette.datastructures.MutableHeaders.constructor"
+            if mutable
+            else "starlette.datastructures.Headers.constructor.raw"
+        )
+    elif kind == "mapping":
+        source = _exact(constructor, {"kind", "items"}, context)
+        items = source["items"]
+        if not isinstance(items, list):
+            raise ContractError(f"{context}.items must be an array")
+        keys: set[str] = set()
+        for index, pair in enumerate(items):
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or not isinstance(pair[0], str)
+                or not isinstance(pair[1], str)
+            ):
+                raise ContractError(f"{context}.items[{index}] must be a two-string pair")
+            if pair[0] in keys:
+                raise ContractError(f"{context}.items contains duplicate mapping key {pair[0]!r}")
+            keys.add(pair[0])
+        try:
+            pairs = [
+                (key.lower().encode("latin-1"), value.encode("latin-1")) for key, value in items
+            ]
+        except UnicodeEncodeError as exc:
+            raise ContractError(f"{context}.items must be Latin-1 encodable") from exc
+        exercised.add(
+            "starlette.datastructures.MutableHeaders.constructor"
+            if mutable
+            else "starlette.datastructures.Headers.constructor.mapping"
+        )
+    elif kind == "scope":
+        source = _exact(
+            constructor,
+            {"kind", "scope_headers_container", "headers_base64_pairs"},
+            context,
+        )
+        container = source["scope_headers_container"]
+        if not isinstance(container, str) or container not in {"list", "tuple"}:
+            raise ContractError(f"{context}.scope_headers_container must be list or tuple")
+        pairs = _validate_header_pairs(
+            source["headers_base64_pairs"], f"{context}.headers_base64_pairs"
+        )
+        if mutable:
+            if container == "tuple":
+                exercised.add(
+                    "starlette.datastructures.MutableHeaders.constructor.scope-list-coercion"
+                )
+        else:
+            exercised.add("starlette.datastructures.Headers.constructor.scope-container-conversion")
+    elif kind == "empty":
+        _exact(constructor, {"kind"}, context)
+        pairs = []
+        if mutable:
+            exercised.add("starlette.datastructures.MutableHeaders.constructor")
+    else:
+        raise ContractError(f"{context}.kind is outside the declared header constructors")
+    return kind == "scope", pairs
+
+
+def _validate_header_argument(value: Any, instance_ids: set[str], context: str) -> str | None:
+    if isinstance(value, dict):
+        if set(value) == {"instance_id"}:
+            instance_id = _string(value["instance_id"], f"{context}.instance_id")
+            if instance_id not in instance_ids:
+                raise ContractError(f"{context} references an unknown header instance")
+            return "headers"
+        if set(value) == {"kind", "items"}:
+            kind = value["kind"]
+            items = value["items"]
+            if kind == "mapping":
+                if not isinstance(items, list):
+                    raise ContractError(f"{context}.items must be an array")
+                seen: set[str] = set()
+                for index, pair in enumerate(items):
+                    if (
+                        not isinstance(pair, list)
+                        or len(pair) != 2
+                        or not isinstance(pair[0], str)
+                        or not isinstance(pair[1], str)
+                    ):
+                        raise ContractError(f"{context}.items[{index}] must be a two-string pair")
+                    if pair[0] in seen:
+                        raise ContractError(
+                            f"{context}.items has duplicate mapping key {pair[0]!r}"
+                        )
+                    seen.add(pair[0])
+                return "mapping"
+            if kind == "set":
+                if not isinstance(items, list) or any(not isinstance(item, str) for item in items):
+                    raise ContractError(f"{context}.items must be an array of strings")
+                if len(items) != len(set(items)):
+                    raise ContractError(f"{context}.items must not repeat set values")
+                return "nonmapping"
+        raise ContractError(f"{context} must use a declared header argument descriptor")
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            if isinstance(item, (list, str, int, float, bool)) or item is None:
+                _validate_header_argument(item, instance_ids, f"{context}[{index}]")
+            else:
+                raise ContractError(f"{context}[{index}] is not JSON-compatible")
+        return "sequence"
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return None
+    raise ContractError(f"{context} is not a declared header argument value")
+
+
+def _validate_headers_case(case: dict[str, Any]) -> None:
+    mutable = case["surface"] == MUTABLE_HEADERS_SURFACE
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Headers parity currently targets the Python package profile")
+    if case["assets"] != []:
+        raise ContractError("Headers cases do not use external assets")
+    observations = case["observations"]
+    if (
+        not isinstance(observations, list)
+        or not observations
+        or any(
+            not isinstance(item, str) or item not in HEADERS_OBSERVATIONS for item in observations
+        )
+        or len(observations) != len(set(observations))
+    ):
+        raise ContractError("Headers observations must select unique declared results")
+    instances = case["instances"]
+    if not isinstance(instances, list) or not instances:
+        raise ContractError("Headers instances must be a non-empty array")
+
+    exercised: set[str] = set()
+    instance_ids: set[str] = set()
+    instance_mutability: dict[str, bool] = {}
+    instance_pairs: dict[str, list[tuple[bytes, bytes]]] = {}
+    scope_ids: set[str] = set()
+    for index, instance in enumerate(instances):
+        context = f"Headers instances[{index}]"
+        instance = _exact(instance, {"instance_id", "constructor"}, context)
+        instance_id = _string(instance["instance_id"], f"{context}.instance_id")
+        if not instance_id or instance_id in instance_ids:
+            raise ContractError(f"{context}.instance_id must be non-empty and unique")
+        instance_ids.add(instance_id)
+        instance_mutability[instance_id] = mutable
+        is_scope, raw_pairs = _validate_header_constructor(
+            instance["constructor"],
+            f"{context}.constructor",
+            mutable=mutable,
+            exercised=exercised,
+        )
+        instance_pairs[instance_id] = raw_pairs
+        if is_scope:
+            scope_ids.add(instance_id)
+
+    actions = case.get("actions", [])
+    if not isinstance(actions, list):
+        raise ContractError("Headers actions must be an array")
+    action_ids: set[str] = set()
+    needs_case_insensitive_lookup = False
+    equality_header_operand = False
+    equality_non_header_operand = False
+    equality_reordered_operand = False
+    union_operand_kinds: dict[str, set[str]] = {"__or__": set(), "__ior__": set()}
+    nonmapping_union_methods: set[str] = set()
+    mutablecopy_bindings: set[str] = set()
+    mutated_mutablecopy_bindings: set[str] = set()
+    has_scope_mutation = False
+    for index, action in enumerate(actions):
+        context = f"Headers actions[{index}]"
+        if not isinstance(action, dict):
+            raise ContractError(f"{context} must be an object")
+        action_fields = {"action_id", "receiver", "call", "arguments"}
+        if "bind_instance_id" in action:
+            action_fields.add("bind_instance_id")
+        if "identity_indices" in action:
+            action_fields.add("identity_indices")
+        action = _exact(action, action_fields, context)
+        action_id = _string(action["action_id"], f"{context}.action_id")
+        receiver = _string(action["receiver"], f"{context}.receiver")
+        call = _string(action["call"], f"{context}.call")
+        arguments = action["arguments"]
+        if not action_id or action_id in action_ids:
+            raise ContractError(f"{context}.action_id must be non-empty and unique")
+        action_ids.add(action_id)
+        if receiver not in instance_ids:
+            raise ContractError(f"{context}.receiver must refer to a preceding instance")
+        if call not in HEADERS_ACTIONS or not isinstance(arguments, list):
+            raise ContractError(f"{context} must use a declared action and argument array")
+        if "identity_indices" in action:
+            identity_indices = action["identity_indices"]
+            if (
+                not isinstance(identity_indices, list)
+                or any(
+                    type(raw_index) is not int or raw_index < 0 for raw_index in identity_indices
+                )
+                or len(identity_indices) != len(set(identity_indices))
+            ):
+                raise ContractError(
+                    f"{context}.identity_indices must be unique non-negative integers"
+                )
+        if call in {
+            "iterate",
+            "len",
+            "dict",
+            "repr",
+            "raw",
+            "keys",
+            "values",
+            "items",
+            "mutablecopy",
+        }:
+            expected_arity = {0}
+        elif call == "get":
+            expected_arity = {1, 2}
+        elif call == "__setitem__" or call == "setdefault" or call == "append":
+            expected_arity = {2}
+        elif call == "update" or call in {"__or__", "__ior__", "__eq__"}:
+            expected_arity = {1}
+        else:
+            expected_arity = {1}
+        if len(arguments) not in expected_arity:
+            raise ContractError(f"{context}.arguments has invalid arity for {call}")
+        argument_kinds = [
+            _validate_header_argument(value, instance_ids, f"{context}.arguments[{arg_index}]")
+            for arg_index, value in enumerate(arguments)
+        ]
+        if call in {"__contains__", "__getitem__", "get", "getlist"} and arguments:
+            key = arguments[0]
+            if not isinstance(key, str):
+                raise ContractError(f"{context}.arguments[0] must be a string header name")
+            if key.lower() != key:
+                needs_case_insensitive_lookup = True
+        if call in {"getlist", "keys", "values", "items", "iterate", "len", "dict"}:
+            exercised.add(
+                "starlette.datastructures.Headers.duplicate-order-getlist-and-mapping-views"
+            )
+        if call == "__eq__":
+            if argument_kinds[0] == "headers":
+                equality_header_operand = True
+                other_id = arguments[0]["instance_id"]
+                left_pairs = instance_pairs.get(receiver, [])
+                right_pairs = instance_pairs.get(other_id, [])
+                equality_reordered_operand = left_pairs != right_pairs and sorted(
+                    left_pairs
+                ) == sorted(right_pairs)
+            else:
+                equality_non_header_operand = True
+        if call == "repr":
+            exercised.add("starlette.datastructures.Headers.representation")
+        if call == "__setitem__" and instance_mutability[receiver]:
+            exercised.add(
+                "starlette.datastructures.MutableHeaders.set-replaces-and-collapses-duplicates-in-place"
+            )
+        elif call == "setdefault" and instance_mutability[receiver]:
+            exercised.add(
+                "starlette.datastructures.MutableHeaders.setdefault-preserves-existing-and-appends-new"
+            )
+        elif call == "__delitem__" and instance_mutability[receiver]:
+            exercised.add("starlette.datastructures.MutableHeaders.delete-removes-all-matches")
+        elif call == "update" and instance_mutability[receiver]:
+            exercised.add("starlette.datastructures.MutableHeaders.update-uses-set-semantics")
+        elif call == "append" and instance_mutability[receiver]:
+            exercised.add(
+                "starlette.datastructures.MutableHeaders.append-preserves-duplicates-and-order"
+            )
+        elif call in {"__or__", "__ior__"} and instance_mutability[receiver]:
+            union_operand_kinds[call].add(argument_kinds[0] or "scalar")
+            if argument_kinds[0] == "nonmapping":
+                nonmapping_union_methods.add(call)
+
+        if receiver in scope_ids and call in {
+            "__setitem__",
+            "__delitem__",
+            "setdefault",
+            "update",
+            "append",
+            "__ior__",
+        }:
+            has_scope_mutation = True
+        if receiver in mutablecopy_bindings and call in {
+            "__setitem__",
+            "__delitem__",
+            "setdefault",
+            "update",
+            "append",
+        }:
+            mutated_mutablecopy_bindings.add(receiver)
+        if "bind_instance_id" in action:
+            binding = _string(action["bind_instance_id"], f"{context}.bind_instance_id")
+            if not binding or binding in instance_ids:
+                raise ContractError(f"{context}.bind_instance_id must be new and non-empty")
+            instance_ids.add(binding)
+            if call == "mutablecopy":
+                mutablecopy_bindings.add(binding)
+            instance_mutability[binding] = (
+                True if call in {"mutablecopy", "__or__"} else instance_mutability[receiver]
+            )
+            instance_pairs[binding] = list(instance_pairs.get(receiver, []))
+            if call == "mutablecopy":
+                instance_mutability[binding] = True
+    if needs_case_insensitive_lookup:
+        exercised.add("starlette.datastructures.Headers.case-insensitive-lookup")
+    if equality_header_operand and equality_non_header_operand and equality_reordered_operand:
+        exercised.add("starlette.datastructures.Headers.equality-order-and-type")
+    if union_operand_kinds["__or__"] >= {"mapping", "headers"}:
+        exercised.add("starlette.datastructures.MutableHeaders.union.mapping-and-header-operands")
+    if union_operand_kinds["__ior__"] >= {"mapping", "headers"}:
+        exercised.add(
+            "starlette.datastructures.MutableHeaders.inplace-union.mapping-and-header-operands"
+        )
+    if nonmapping_union_methods == {"__or__", "__ior__"}:
+        exercised.add(
+            "starlette.datastructures.MutableHeaders.union-and-inplace-union-nonmapping-error"
+        )
+    if mutablecopy_bindings & mutated_mutablecopy_bindings and "instance-snapshots" in observations:
+        exercised.add(
+            "starlette.datastructures.Headers.mutablecopy-independent-duplicate-preserving-copy"
+        )
+    if scope_ids and "scope-snapshots" in observations and has_scope_mutation:
+        exercised.add("starlette.datastructures.MutableHeaders.scope-aliasing")
+    unexercised = set(case["covers"]) - exercised
+    if unexercised:
+        raise ContractError(
+            f"Headers case claims requirements not exercised by its input: {sorted(unexercised)}"
+        )
 
 
 def _url_scope_value(value: Any) -> dict[str, Any]:

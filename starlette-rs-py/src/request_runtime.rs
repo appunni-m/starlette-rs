@@ -3,8 +3,7 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use pyo3::exceptions::{
-    PyAssertionError, PyBaseException, PyKeyError, PyRuntimeError, PyStopAsyncIteration,
-    PyTypeError,
+    PyAssertionError, PyBaseException, PyRuntimeError, PyStopAsyncIteration, PyTypeError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyBytes, PyDict, PyList, PyModule, PyTraceback, PyTuple, PyType};
@@ -160,15 +159,10 @@ impl PyHTTPConnection {
         if let Some(headers) = self.headers.as_ref() {
             return Ok(headers.clone_ref(py));
         }
-        let native_headers = self.native_headers(py)?;
-        let view = Py::new(
-            py,
-            PyHeadersView {
-                inner: native_headers,
-            },
-        )?;
-        let headers_type = py.import("starlette.requests")?.getattr("Headers")?;
-        let headers = headers_type.call1((view,))?.unbind();
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("scope", self.scope.bind(py))?;
+        let headers_type = py.import("starlette.datastructures")?.getattr("Headers")?;
+        let headers = headers_type.call((), Some(&kwargs))?.unbind();
         self.headers = Some(headers.clone_ref(py));
         Ok(headers)
     }
@@ -423,97 +417,6 @@ impl SendPushPromiseMachine {
     }
 }
 
-#[pyclass(name = "_HeadersView")]
-struct PyHeadersView {
-    inner: Py<PyAny>,
-}
-
-#[pymethods]
-impl PyHeadersView {
-    fn raw(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.inner.bind(py).call_method0("raw").map(Bound::unbind)
-    }
-
-    fn keys(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        Ok(self.pairs(py)?.into_iter().map(|(name, _)| name).collect())
-    }
-
-    fn values(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        Ok(self
-            .pairs(py)?
-            .into_iter()
-            .map(|(_, value)| value)
-            .collect())
-    }
-
-    fn items(&self, py: Python<'_>) -> PyResult<Vec<(String, String)>> {
-        self.pairs(py)
-    }
-
-    #[pyo3(signature = (key, default=None))]
-    fn get(
-        &self,
-        py: Python<'_>,
-        key: &Bound<'_, PyAny>,
-        default: Option<Py<PyAny>>,
-    ) -> PyResult<Py<PyAny>> {
-        let key = header_key(key)?;
-        let value = self
-            .inner
-            .bind(py)
-            .call_method1("get", (PyBytes::new(py, &key),))?;
-        if value.is_none() {
-            return Ok(default.unwrap_or_else(|| py.None()));
-        }
-        decode_latin1_py(value)
-    }
-
-    fn getlist(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
-        let key = header_key(key)?;
-        let values = self
-            .inner
-            .bind(py)
-            .call_method1("get_list", (PyBytes::new(py, &key),))?
-            .extract::<Vec<Vec<u8>>>()?;
-        values
-            .into_iter()
-            .map(|value| decode_latin1_string(py, &value))
-            .collect()
-    }
-
-    fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<String> {
-        let key_bytes = header_key(key)?;
-        let value = self
-            .inner
-            .bind(py)
-            .call_method1("get", (PyBytes::new(py, &key_bytes),))?;
-        if value.is_none() {
-            return Err(PyKeyError::new_err(key.extract::<String>()?));
-        }
-        decode_latin1_string(py, &value.extract::<Vec<u8>>()?)
-    }
-
-    fn __contains__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let key = header_key(key)?;
-        let value = self
-            .inner
-            .bind(py)
-            .call_method1("get", (PyBytes::new(py, &key),))?;
-        Ok(!value.is_none())
-    }
-
-    fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let keys = self.keys(py)?;
-        PyList::new(py, keys)?
-            .call_method0("__iter__")
-            .map(Bound::unbind)
-    }
-
-    fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
-        self.inner.bind(py).len()
-    }
-}
-
 impl PyHTTPConnection {
     fn native_headers(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         if let Some(headers) = self.request_headers.as_ref() {
@@ -530,41 +433,6 @@ impl PyHTTPConnection {
         self.request_headers = Some(headers.clone_ref(py));
         Ok(headers)
     }
-}
-
-impl PyHeadersView {
-    fn pairs(&self, py: Python<'_>) -> PyResult<Vec<(String, String)>> {
-        self.inner
-            .bind(py)
-            .call_method0("raw")?
-            .extract::<Vec<(Vec<u8>, Vec<u8>)>>()?
-            .into_iter()
-            .map(|(name, value)| {
-                Ok((
-                    decode_latin1_string(py, &name)?,
-                    decode_latin1_string(py, &value)?,
-                ))
-            })
-            .collect()
-    }
-}
-
-fn header_key(key: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
-    key.call_method0("lower")?
-        .call_method1("encode", ("latin-1",))?
-        .extract()
-}
-
-fn decode_latin1_py(value: Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-    value
-        .call_method1("decode", ("latin-1",))
-        .map(Bound::unbind)
-}
-
-fn decode_latin1_string(py: Python<'_>, value: &[u8]) -> PyResult<String> {
-    PyBytes::new(py, value)
-        .call_method1("decode", ("latin-1",))?
-        .extract()
 }
 
 fn url_from_scope(py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
@@ -816,7 +684,6 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRequestBody>()?;
     module.add_class::<PyRequestStream>()?;
     module.add_class::<PyHTTPConnection>()?;
-    module.add_class::<PyHeadersView>()?;
     Ok(())
 }
 

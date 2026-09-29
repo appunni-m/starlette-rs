@@ -5,11 +5,12 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterable, Callable, Iterable, Mapping
 from datetime import datetime
+from functools import cached_property
 from typing import Any, Literal
 
 from starlette_rs_py import _core
 
-from starlette.datastructures import URL
+from starlette.datastructures import URL, MutableHeaders
 
 _ContentChunk = str | bytes | memoryview
 _ContentStream = Iterable[_ContentChunk] | AsyncIterable[_ContentChunk]
@@ -54,10 +55,21 @@ class Response:
         """
         return _core.Response.render_content(content, self.charset)
 
-    @property
-    def headers(self) -> Any:
-        """Return the mutable header view owned by the Rust response."""
-        return self._inner.headers
+    @cached_property
+    def raw_headers(self) -> list[tuple[bytes, bytes]]:
+        """Return the response's mutable raw header list."""
+        return self._inner._header_raw()
+
+    @cached_property
+    def headers(self) -> MutableHeaders:
+        """Return the cached mutable header view backed by ``raw_headers``."""
+        return MutableHeaders(raw=self.raw_headers)
+
+    def _sync_raw_headers(self) -> None:
+        self._inner._header_replace_raw(self.raw_headers)
+
+    def _refresh_raw_headers(self) -> None:
+        self.raw_headers[:] = self._inner._header_raw()
 
     def set_cookie(
         self,
@@ -73,9 +85,11 @@ class Response:
         partitioned: bool = False,
     ) -> None:
         """Append a cookie header through the Rust response implementation."""
+        self._sync_raw_headers()
         self._inner.set_cookie(
             key, value, max_age, expires, path, domain, secure, httponly, samesite, partitioned
         )
+        self._refresh_raw_headers()
 
     def delete_cookie(
         self,
@@ -87,11 +101,14 @@ class Response:
         samesite: Literal["lax", "strict", "none"] | None = "lax",
     ) -> None:
         """Delete a cookie through the Rust response implementation."""
+        self._sync_raw_headers()
         self._inner.delete_cookie(key, path, domain, secure, httponly, samesite)
+        self._refresh_raw_headers()
 
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
+        self._sync_raw_headers()
         await self._inner.asgi_call(scope, receive, send, self.background, self.body)
 
 
@@ -134,6 +151,7 @@ class StreamingResponse(Response):
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
+        self._sync_raw_headers()
         await self._inner.asgi_call(scope, receive, send, self.background)
 
 
@@ -176,6 +194,7 @@ class FileResponse(Response):
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         self._inner.set_streaming_options(self.chunk_size, self.max_ranges)
+        self._sync_raw_headers()
         await self._inner.asgi_call(scope, receive, send, self.background)
 
 

@@ -232,6 +232,12 @@ impl PyStreamingResponse {
         crate::response_headers_runtime::raw_pairs(py, self.inner.headers())
     }
 
+    fn _header_replace_raw(&mut self, raw: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.inner
+            .replace_headers_raw(crate::response_headers_runtime::parse_raw_pairs(raw)?);
+        Ok(())
+    }
+
     fn _header_len(&self) -> usize {
         self.inner.headers().len()
     }

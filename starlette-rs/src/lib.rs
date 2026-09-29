@@ -20,6 +20,7 @@ mod connection;
 mod exception_handlers;
 mod file_response;
 mod gzip;
+mod headers;
 mod lifespan;
 mod mount;
 mod request;
@@ -46,6 +47,7 @@ pub use gzip::{
     DEFAULT_EXCLUDED_CONTENT_TYPES, GzipBodyOutput, GzipCompressionError, GzipCompressor,
     GzipConfig, GzipHeader, GzipResponder, GzipResponseStart,
 };
+pub use headers::{Headers, MutableHeaders};
 pub use lifespan::{
     LifespanAction, LifespanError, LifespanOperation, LifespanPhase, LifespanState,
 };

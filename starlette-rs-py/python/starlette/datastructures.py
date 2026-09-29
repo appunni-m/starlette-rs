@@ -2,13 +2,110 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping, MutableMapping, Sequence
 from typing import Any, Literal, NamedTuple
 from urllib.parse import SplitResult
 
 from starlette_rs_py import _core
 
 Secret = _core.Secret
+
+
+class Headers(Mapping[str, str]):
+    """Immutable ordered HTTP headers backed by Rust-owned semantics."""
+
+    __slots__ = ("_inner",)
+
+    def __init__(
+        self,
+        headers: Mapping[str, str] | None = None,
+        raw: list[tuple[bytes, bytes]] | None = None,
+        scope: MutableMapping[str, Any] | None = None,
+    ) -> None:
+        self._inner = _core._HeadersStore(headers, raw, scope, False)
+
+    @property
+    def raw(self) -> list[tuple[bytes, bytes]]:
+        return self._inner.raw
+
+    def keys(self) -> list[str]:
+        return self._inner.keys()
+
+    def values(self) -> list[str]:
+        return self._inner.values()
+
+    def items(self) -> list[tuple[str, str]]:
+        return self._inner.items()
+
+    def getlist(self, key: str) -> list[str]:
+        return self._inner.getlist(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._inner.get(key, default)
+
+    def mutablecopy(self) -> MutableHeaders:
+        return MutableHeaders._from_inner(self._inner.mutablecopy())
+
+    def __getitem__(self, key: str) -> str:
+        return self._inner[key]
+
+    def __contains__(self, key: Any) -> bool:
+        return key in self._inner
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._inner)
+
+    def __len__(self) -> int:
+        return len(self._inner)
+
+    def __eq__(self, other: Any) -> bool:
+        return _core._headers_equal(self._inner, other)
+
+    def __repr__(self) -> str:
+        return self._inner.repr(self.__class__.__name__)
+
+    @classmethod
+    def _from_inner(cls, inner: Any) -> Headers:
+        value = cls.__new__(cls)
+        value._inner = inner
+        return value
+
+
+class MutableHeaders(Headers):
+    """Mutable ordered HTTP headers backed by Rust-owned semantics."""
+
+    def __init__(
+        self,
+        headers: Mapping[str, str] | None = None,
+        raw: list[tuple[bytes, bytes]] | None = None,
+        scope: MutableMapping[str, Any] | None = None,
+    ) -> None:
+        self._inner = _core._HeadersStore(headers, raw, scope, True)
+
+    def __setitem__(self, key: str, value: str) -> None:
+        self._inner.set(key, value)
+
+    def __delitem__(self, key: str) -> None:
+        self._inner.delete(key)
+
+    def __ior__(self, other: Mapping[str, str]) -> MutableHeaders:
+        self._inner.inplace_union(other)
+        return self
+
+    def __or__(self, other: Mapping[str, str]) -> MutableHeaders:
+        return self._from_inner(self._inner.union(other))
+
+    def setdefault(self, key: str, value: str) -> str:
+        return self._inner.setdefault(key, value)
+
+    def update(self, other: Mapping[str, str]) -> None:
+        self._inner.update(other)
+
+    def append(self, key: str, value: str) -> None:
+        self._inner.append(key, value)
+
+    def add_vary_header(self, vary: str) -> None:
+        self._inner.add_vary_header(vary)
 
 
 class QueryParams(_core.QueryParams, Mapping[str, str]):
