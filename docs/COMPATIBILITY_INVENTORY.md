@@ -17,22 +17,23 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 259 input-only cases across 36 files,
-covering 54 operations and 324 parity requirements. The authored cases span
+The active parity manifest indexes 270 input-only cases across 36 files,
+covering 54 operations and 335 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware, configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-The latest integrated run `207e510e-651f-4bbf-910f-332ca07f7ddb` started at
-`2026-09-29T05:22:31.851Z` and finished at `2026-09-29T05:23:16.245Z`. It
-selected 356 profile comparisons: 352 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 257 applicable
-cases; Rust-native passed 95 of 99 selected cases. The four Rust-native rows
-require arbitrary Python endpoint callables. Nineteen StaticFiles inputs are
-authored; 16 cases per target profile plus one Python-package-only case
-produced 33 passing comparisons. The package-only case checks bound
+The latest integrated run `818ae9f4-801b-4748-a561-a5f2755d2f42` started at
+`2026-09-29T05:54:28.558Z` and finished at `2026-09-29T05:55:13.801Z`. It
+selected 378 profile comparisons: 374 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 268 of 268
+comparisons; Rust-native passed 106 of 110, with four rows requiring Python
+callables marked `not_run`. Thirty StaticFiles cases are authored across three
+inputs. Fourteen `lookup_path` cases run on both profiles and all 28 comparisons
+pass; all 55 StaticFiles profile comparisons pass (27 Rust-native and 28
+Python-package). The package-only async-boundary case checks bound
 `lookup_path` override dispatch on an AnyIO worker, event-loop progress while
 the callback blocks, and the resulting ASGI response. Other StaticFiles cases
 cover rooted GET and HEAD, HTML index redirects and fallback, 404/405 outcomes,
@@ -40,9 +41,9 @@ date and ETag validators, validator precedence, package assets, and direct
 `lookup_path` metadata/path checks. Python package discovery is tested on the
 Python profile; Rust-native package serving uses explicit roots. Both target
 trees were dirty when captured. Manifest SHA-256:
-`04dd974fd163d53091ebc0f586240e4108bbb74f7f9f662d23661e57f7b0db33`.
-`make parity-run` exits with status 2 for the four explicitly unsupported native
-callable rows; this is not release proof.
+`d6e4ae27125942739c8093d259b77939d8570bcd5bf8735dc1dcbc90a38dac28`.
+`make parity-run` exits with status 2 only for the four explicitly unsupported
+Rust-native Python-callable rows; this is not release proof.
 
 The two registered-handler inputs in
 [`asgi-exception-handlers.yaml`](../tests/fixtures/sources/parity/asgi-exception-handlers.yaml)
@@ -100,15 +101,16 @@ Rust-native cases exercise the corresponding trees through explicit roots; they
 do not claim Python package discovery. This boundary uses no upstream
 Starlette runtime import or added runtime dependency.
 
-The 19 authored StaticFiles inputs are a correctness slice, not complete
+The 30 authored StaticFiles cases are a correctness slice, not complete
 coverage of its 36 upstream test functions. A package-only async-boundary case
 checks that a bound `lookup_path` override runs on an AnyIO worker while the
-event loop advances, then compares the ASGI response. Constructor failures,
-path traversal and symlink edge cases, 401 behavior, package import errors,
-the full validator matrix, subclass hooks beyond `lookup_path`, a separate
-`check_config` scheduling assertion, and cross-platform `os.stat_result` field
-parity remain open. The direct `lookup_path` cases compare resolved paths, file
-types, size, and modification time against the source oracle; they do not
+event loop advances, then compares the ASGI response. Fourteen `lookup_path`
+cases run on both profiles; all 28 comparisons pass. The remaining gaps are
+ENAMETOOLONG behavior across multiple roots, Windows path normalization and
+path semantics, `check_config` scheduling, constructor and permission errors,
+401 behavior, the remaining validators and subclass hooks, and the rest of the
+upstream StaticFiles tests. Direct `lookup_path` cases compare resolved paths,
+file types, size, and modification time against the source oracle; they do not
 establish complete StaticFiles parity.
 
 ## Current denominators
@@ -168,7 +170,7 @@ crosswalk snapshot, 56 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 36 indexed files
-and 259 cases, including 19 authored StaticFiles cases, four authentication cases,
+and 270 cases, including 30 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)

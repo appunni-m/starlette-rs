@@ -1872,6 +1872,7 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
             "assets",
             "directory",
             "files",
+            "filesystem",
             "lookup_path",
             "check_dir",
             "follow_symlink",
@@ -1916,8 +1917,11 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
         ));
     }
     let lookup_path = string_field(case, "lookup_path", "StaticFiles lookup-path case")?;
-    let (temporary_directory, root, _) =
-        create_static_files_input(directory_name, file_inputs, &[])?;
+    let filesystem = case
+        .get("filesystem")
+        .ok_or_else(|| String::from("StaticFiles lookup-path filesystem is missing"))?;
+    let (temporary_directory, root) =
+        create_static_files_lookup_path_input(directory_name, file_inputs, filesystem)?;
     let static_files = NativeStaticFiles::new(
         Some(root.clone()),
         vec![root.clone()],
@@ -1931,9 +1935,12 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
         .map_err(|error| format!("StaticFiles lookup_path failed: {error:?}"))?;
     let observation = match lookup {
         Some(file) => {
-            let resolved_root = root
-                .canonicalize()
-                .map_err(|error| format!("cannot canonicalize StaticFiles root: {error}"))?;
+            let resolved_root = if follow_symlink {
+                root.clone()
+            } else {
+                root.canonicalize()
+                    .map_err(|error| format!("cannot canonicalize StaticFiles root: {error}"))?
+            };
             let relative_path = file
                 .path
                 .strip_prefix(&resolved_root)
@@ -2352,6 +2359,202 @@ fn create_static_files_input(
     Err(String::from(
         "cannot allocate an isolated StaticFiles input directory",
     ))
+}
+
+fn create_static_files_lookup_path_input(
+    directory_name: &str,
+    file_inputs: &[Value],
+    filesystem: &Value,
+) -> Result<(FileResponseTempDirectory, PathBuf), String> {
+    let filesystem = exact_object(
+        filesystem,
+        &[
+            "root_symlink_target",
+            "directories",
+            "outside_files",
+            "symlinks",
+        ],
+        "StaticFiles lookup-path filesystem",
+    )?;
+    let root_symlink_target = match filesystem.get("root_symlink_target") {
+        Some(Value::Null) => None,
+        Some(Value::String(target)) => Some(target.as_str()),
+        _ => {
+            return Err(String::from(
+                "StaticFiles lookup-path root_symlink_target must be a path or null",
+            ));
+        }
+    };
+    let directories = filesystem
+        .get("directories")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("StaticFiles lookup-path directories must be an array"))?;
+    let outside_files = filesystem
+        .get("outside_files")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("StaticFiles lookup-path outside_files must be an array"))?;
+    let symlinks = filesystem
+        .get("symlinks")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("StaticFiles lookup-path symlinks must be an array"))?;
+
+    if directory_name.is_empty()
+        || directory_name == "."
+        || directory_name == ".."
+        || directory_name.contains('/')
+        || directory_name.contains('\\')
+    {
+        return Err(String::from(
+            "StaticFiles lookup-path directory must be a relative basename",
+        ));
+    }
+
+    let temporary_root = env::temp_dir();
+    for _ in 0..128 {
+        let sequence = NEXT_FILE_RESPONSE_TEMP.fetch_add(1, Ordering::Relaxed);
+        let workspace = temporary_root.join(format!(
+            "starlette-rs-static-lookup-{}-{sequence}",
+            std::process::id()
+        ));
+        match fs::create_dir(&workspace) {
+            Ok(()) => {
+                let guard = FileResponseTempDirectory(workspace.clone());
+                let configured_root = Path::new(directory_name);
+                let mut deferred_directories = Vec::new();
+                for directory in directories {
+                    let directory = directory.as_str().ok_or_else(|| {
+                        String::from("StaticFiles lookup-path directory path must be a string")
+                    })?;
+                    let relative = Path::new(directory);
+                    if !is_static_workspace_relative(relative) {
+                        return Err(String::from(
+                            "StaticFiles lookup-path directory escaped its workspace",
+                        ));
+                    }
+                    if root_symlink_target.is_some() && relative.starts_with(configured_root) {
+                        deferred_directories.push(workspace.join(relative));
+                    } else {
+                        fs::create_dir_all(workspace.join(relative)).map_err(|error| {
+                            format!("cannot create StaticFiles lookup-path directory: {error}")
+                        })?;
+                    }
+                }
+
+                let root = workspace.join(configured_root);
+                if let Some(target) = root_symlink_target {
+                    let relative_target = Path::new(target);
+                    if !is_static_workspace_relative(relative_target) {
+                        return Err(String::from(
+                            "StaticFiles lookup-path root symlink target escaped its workspace",
+                        ));
+                    }
+                    fs::create_dir_all(workspace.join(relative_target)).map_err(|error| {
+                        format!("cannot create StaticFiles lookup-path root target: {error}")
+                    })?;
+                    create_path_symlink(relative_target, &root, true).map_err(|error| {
+                        format!("cannot create StaticFiles lookup-path root symlink: {error}")
+                    })?;
+                } else {
+                    fs::create_dir_all(&root).map_err(|error| {
+                        format!("cannot create StaticFiles lookup-path root: {error}")
+                    })?;
+                }
+
+                for directory in deferred_directories {
+                    fs::create_dir_all(directory).map_err(|error| {
+                        format!("cannot create StaticFiles lookup-path directory: {error}")
+                    })?;
+                }
+                for file_input in file_inputs {
+                    write_static_asset(&root, file_input, "StaticFiles lookup-path file")?;
+                }
+                for file_input in outside_files {
+                    write_static_asset(
+                        &workspace,
+                        file_input,
+                        "StaticFiles lookup-path outside file",
+                    )?;
+                }
+                for symlink in symlinks {
+                    let symlink = exact_object(
+                        symlink,
+                        &["path", "target"],
+                        "StaticFiles lookup-path symlink",
+                    )?;
+                    let relative_link =
+                        string_field(symlink, "path", "StaticFiles lookup-path symlink")?;
+                    let relative_link = Path::new(relative_link);
+                    if !is_static_workspace_relative(relative_link) {
+                        return Err(String::from(
+                            "StaticFiles lookup-path symlink path escaped its root",
+                        ));
+                    }
+                    let target =
+                        string_field(symlink, "target", "StaticFiles lookup-path symlink")?;
+                    let link = root.join(relative_link);
+                    if let Some(parent) = link.parent() {
+                        fs::create_dir_all(parent).map_err(|error| {
+                            format!("cannot create StaticFiles lookup-path symlink parent: {error}")
+                        })?;
+                    }
+                    let target_path = link.parent().unwrap_or(&root).join(Path::new(target));
+                    let target_is_directory = fs::metadata(&target_path)
+                        .map_err(|error| {
+                            format!(
+                                "cannot inspect StaticFiles lookup-path symlink target: {error}"
+                            )
+                        })?
+                        .is_dir();
+                    create_path_symlink(Path::new(target), &link, target_is_directory).map_err(
+                        |error| format!("cannot create StaticFiles lookup-path symlink: {error}"),
+                    )?;
+                }
+                return Ok((guard, root));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(format!(
+                    "cannot allocate isolated StaticFiles lookup-path inputs: {error}"
+                ));
+            }
+        }
+    }
+    Err(String::from(
+        "cannot allocate an isolated StaticFiles lookup-path input directory",
+    ))
+}
+
+fn is_static_workspace_relative(path: &Path) -> bool {
+    !path.as_os_str().is_empty()
+        && !path.is_absolute()
+        && !path.to_string_lossy().contains('\\')
+        && path
+            .components()
+            .all(|component| matches!(component, std::path::Component::Normal(_)))
+}
+
+fn create_path_symlink(target: &Path, link: &Path, is_directory: bool) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        let _ = is_directory;
+        std::os::unix::fs::symlink(target, link)
+    }
+    #[cfg(windows)]
+    {
+        if is_directory {
+            std::os::windows::fs::symlink_dir(target, link)
+        } else {
+            std::os::windows::fs::symlink_file(target, link)
+        }
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (target, link, is_directory);
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "symbolic links are not supported on this platform",
+        ))
+    }
 }
 
 fn write_static_asset(root: &Path, input: &Value, context: &str) -> Result<(), String> {

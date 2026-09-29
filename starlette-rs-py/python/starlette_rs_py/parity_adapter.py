@@ -3079,6 +3079,7 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
             "assets",
             "directory",
             "files",
+            "filesystem",
             "lookup_path",
             "check_dir",
             "follow_symlink",
@@ -3096,8 +3097,16 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.staticfiles import StaticFiles
 
     with tempfile.TemporaryDirectory(prefix="starlette-package-static-lookup-") as temporary_directory:
-        root = Path(temporary_directory) / case["directory"]
-        root.mkdir(parents=True)
+        workspace = Path(temporary_directory)
+        root = workspace / case["directory"]
+        root_symlink_target = case["filesystem"]["root_symlink_target"]
+        if root_symlink_target is None:
+            root.mkdir(parents=True)
+        else:
+            target_directory = workspace / root_symlink_target
+            target_directory.mkdir(parents=True, exist_ok=True)
+            root.parent.mkdir(parents=True, exist_ok=True)
+            os.symlink(os.path.relpath(target_directory, root.parent), root)
         for file_spec in case["files"]:
             path = root / file_spec["path"]
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -3105,13 +3114,27 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                 _decode_base64(file_spec["contents_base64"], "file.contents_base64")
             )
             os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
+        for directory in case["filesystem"]["directories"]:
+            (workspace / directory).mkdir(parents=True, exist_ok=True)
+        for file_spec in case["filesystem"]["outside_files"]:
+            path = workspace / file_spec["path"]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(
+                _decode_base64(file_spec["contents_base64"], "outside_file.contents_base64")
+            )
+            os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
+        for symlink_spec in case["filesystem"]["symlinks"]:
+            path = root / symlink_spec["path"]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            os.symlink(symlink_spec["target"], path)
         application = StaticFiles(
             directory=root,
             check_dir=case["check_dir"],
             follow_symlink=case["follow_symlink"],
         )
         full_path, stat_result = application.lookup_path(case["lookup_path"])
-        resolved_path = Path(full_path).relative_to(root.resolve()).as_posix() if full_path else None
+        relative_root = root.absolute() if case["follow_symlink"] else root.resolve()
+        resolved_path = Path(full_path).relative_to(relative_root).as_posix() if full_path else None
         mode_type_bits = stat.S_IFMT(stat_result.st_mode) if stat_result is not None else None
         is_file = stat.S_ISREG(stat_result.st_mode) if stat_result is not None else None
         is_directory = stat.S_ISDIR(stat_result.st_mode) if stat_result is not None else None

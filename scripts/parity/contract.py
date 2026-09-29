@@ -217,6 +217,7 @@ STATIC_FILES_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
 STATIC_FILES_LOOKUP_PATH_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "directory",
     "files",
+    "filesystem",
     "lookup_path",
     "check_dir",
     "follow_symlink",
@@ -2712,6 +2713,34 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
         )
 
 
+def _static_files_workspace_path(root: str, relative_path: str, context: str) -> str:
+    """Resolve a fixture-relative path lexically beneath the temporary workspace."""
+    parts = root.split("/")
+    for component in relative_path.split("/"):
+        if component == "..":
+            if not parts:
+                raise ContractError(f"{context} escapes the temporary fixture workspace")
+            parts.pop()
+        elif component in {"", "."}:
+            raise ContractError(f"{context} must use normalized path components")
+        else:
+            parts.append(component)
+    return "/".join(parts)
+
+
+def _static_files_relative_components(value: Any, context: str, *, allow_parent: bool) -> list[str]:
+    path = _string(value, context)
+    components = path.split("/")
+    if (
+        path.startswith(("/", "\\"))
+        or "\\" in path
+        or any(component in {"", "."} for component in components)
+        or (not allow_parent and ".." in components)
+    ):
+        raise ContractError(f"{context} must be a normalized relative path")
+    return components
+
+
 def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
     _exact(case, STATIC_FILES_LOOKUP_PATH_CASE_KEYS, "StaticFiles lookup-path case")
     if (
@@ -2723,7 +2752,13 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
         raise ContractError("StaticFiles lookup-path observations must select lookup-path")
 
     directory = _string(case["directory"], "StaticFiles lookup-path.directory")
-    if not directory or Path(directory).is_absolute() or Path(directory).name != directory:
+    if (
+        not directory
+        or directory in {".", ".."}
+        or "\\" in directory
+        or Path(directory).is_absolute()
+        or Path(directory).name != directory
+    ):
         raise ContractError("StaticFiles lookup-path.directory must be a relative basename")
     if type(case["check_dir"]) is not bool or type(case["follow_symlink"]) is not bool:
         raise ContractError("StaticFiles lookup-path options must be boolean")
@@ -2740,23 +2775,223 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
             raise ContractError("StaticFiles lookup-path file paths must be unique")
         file_paths.add(path)
 
+    filesystem = _exact(
+        case["filesystem"],
+        {"root_symlink_target", "directories", "outside_files", "symlinks"},
+        "StaticFiles lookup-path.filesystem",
+    )
+    directories = filesystem["directories"]
+    if not isinstance(directories, list):
+        raise ContractError("StaticFiles lookup-path filesystem.directories must be an array")
+    directory_paths: set[str] = set()
+    for index, directory_path in enumerate(directories):
+        components = _static_files_relative_components(
+            directory_path,
+            f"StaticFiles lookup-path filesystem.directories[{index}]",
+            allow_parent=False,
+        )
+        normalized_path = "/".join(components)
+        if normalized_path == directory or normalized_path in directory_paths:
+            raise ContractError(
+                "StaticFiles lookup-path filesystem directories must be unique and distinct from the configured root"
+            )
+        directory_paths.add(normalized_path)
+
+    root_symlink_target = filesystem["root_symlink_target"]
+    if root_symlink_target is not None:
+        root_target_components = _static_files_relative_components(
+            root_symlink_target,
+            "StaticFiles lookup-path filesystem.root_symlink_target",
+            allow_parent=False,
+        )
+        root_symlink_target = "/".join(root_target_components)
+        if (
+            root_symlink_target == directory
+            or root_symlink_target.startswith(f"{directory}/")
+            or directory.startswith(f"{root_symlink_target}/")
+        ):
+            raise ContractError(
+                "StaticFiles lookup-path filesystem.root_symlink_target must be distinct from the configured root"
+            )
+        if root_symlink_target not in directory_paths:
+            raise ContractError(
+                "StaticFiles lookup-path filesystem.root_symlink_target must name an input-defined directory"
+            )
+
+    outside_files = filesystem["outside_files"]
+    if not isinstance(outside_files, list):
+        raise ContractError("StaticFiles lookup-path filesystem.outside_files must be an array")
+    outside_file_paths: set[str] = set()
+    for index, file_input in enumerate(outside_files):
+        path, _ = _validate_static_asset_file(
+            file_input, f"StaticFiles lookup-path filesystem.outside_files[{index}]"
+        )
+        if path == directory or path.startswith(f"{directory}/"):
+            raise ContractError(
+                "StaticFiles lookup-path outside_files must be outside the configured root"
+            )
+        if root_symlink_target is not None and (
+            path == root_symlink_target or path.startswith(f"{root_symlink_target}/")
+        ):
+            raise ContractError(
+                "StaticFiles lookup-path outside_files must be outside the configured root target"
+            )
+        if path in outside_file_paths:
+            raise ContractError(
+                "StaticFiles lookup-path filesystem outside_files paths must be unique"
+            )
+        outside_file_paths.add(path)
+
+    # Infer parent directories created by asset inputs. The explicit directory
+    # list is also used for empty directory targets in symlink inputs.
+    workspace_directories = {directory, *directory_paths}
+    logical_root_file_paths = {f"{directory}/{path}" for path in file_paths}
+    physical_root = root_symlink_target or directory
+    physical_root_file_paths = {f"{physical_root}/{path}" for path in file_paths}
+    workspace_file_paths = (
+        logical_root_file_paths | physical_root_file_paths | outside_file_paths
+    )
+    for path in workspace_file_paths | directory_paths:
+        parts = path.split("/")
+        workspace_directories.update(
+            "/".join(parts[:index]) for index in range(1, len(parts))
+        )
+    for file_path in workspace_file_paths:
+        if file_path in workspace_directories:
+            raise ContractError("StaticFiles lookup-path filesystem contains a file/directory collision")
+        if any(other.startswith(f"{file_path}/") for other in workspace_file_paths):
+            raise ContractError("StaticFiles lookup-path filesystem contains nested file paths")
+
+    symlinks = filesystem["symlinks"]
+    if not isinstance(symlinks, list):
+        raise ContractError("StaticFiles lookup-path filesystem.symlinks must be an array")
+    internal_file_paths = logical_root_file_paths
+    internal_directory_paths = {
+        path
+        for path in workspace_directories
+        if path == directory or path.startswith(f"{directory}/")
+    }
+    physical_internal_directory_paths = {
+        path
+        for path in workspace_directories
+        if root_symlink_target is not None
+        and (
+            path == root_symlink_target
+            or path.startswith(f"{root_symlink_target}/")
+        )
+    }
+    external_directory_paths = {
+        path
+        for path in workspace_directories
+        if path not in internal_directory_paths
+        and path not in physical_internal_directory_paths
+    }
+    symlink_targets: dict[str, tuple[str, str, str]] = {}
+    for index, symlink in enumerate(symlinks):
+        context = f"StaticFiles lookup-path filesystem.symlinks[{index}]"
+        symlink = _exact(symlink, {"path", "target"}, context)
+        link_components = _static_files_relative_components(
+            symlink["path"], f"{context}.path", allow_parent=False
+        )
+        link_path = f"{directory}/{'/'.join(link_components)}"
+        target = _string(symlink["target"], f"{context}.target")
+        target_components = _static_files_relative_components(
+            target, f"{context}.target", allow_parent=True
+        )
+        target_path = _static_files_workspace_path(
+            directory,
+            "/".join(link_components[:-1] + target_components),
+            f"{context}.target",
+        )
+        if target_path in outside_file_paths:
+            target_kind, target_relation = "file", "external"
+        elif target_path in external_directory_paths:
+            target_kind, target_relation = "directory", "external"
+        elif target_path in internal_file_paths:
+            target_kind, target_relation = "file", "internal"
+        elif target_path in physical_root_file_paths:
+            target_kind, target_relation = "file", "internal"
+        elif target_path in internal_directory_paths:
+            target_kind, target_relation = "directory", "internal"
+        elif target_path in physical_internal_directory_paths:
+            target_kind, target_relation = "directory", "internal"
+        else:
+            raise ContractError(
+                f"{context}.target must resolve to an input-defined file or directory"
+            )
+        if link_path in symlink_targets or link_path in workspace_file_paths or link_path in workspace_directories:
+            raise ContractError("StaticFiles lookup-path filesystem contains a symlink path collision")
+        symlink_targets[link_path] = (target_path, target_kind, target_relation)
+
+    for link_path in symlink_targets:
+        if any(
+            node.startswith(f"{link_path}/") or link_path.startswith(f"{node}/")
+            for node in workspace_file_paths | set(symlink_targets)
+            if node != link_path
+        ):
+            raise ContractError("StaticFiles lookup-path filesystem has overlapping symlink paths")
+        if any(node.startswith(f"{link_path}/") for node in workspace_directories):
+            raise ContractError("StaticFiles lookup-path filesystem has a directory below a symlink")
+        if any(link_path.startswith(f"{file_path}/") for file_path in workspace_file_paths):
+            raise ContractError("StaticFiles lookup-path filesystem has a file above a symlink")
+
     lookup_path = _string(case["lookup_path"], "StaticFiles lookup_path")
     is_absolute = lookup_path.startswith(("/", "\\")) or Path(lookup_path).is_absolute()
     if is_absolute:
         requirement = "absolute-path-rejected"
     else:
-        if (
-            not lookup_path
-            or "\\" in lookup_path
-            or any(part in {"", ".", ".."} for part in lookup_path.split("/"))
-        ):
-            raise ContractError("StaticFiles lookup_path must be absolute or normalized relative")
-        if lookup_path in file_paths:
+        lookup_components = _static_files_relative_components(
+            lookup_path, "StaticFiles lookup_path", allow_parent=True
+        )
+        lookup_workspace_path = _static_files_workspace_path(
+            directory, "/".join(lookup_components), "StaticFiles lookup_path"
+        )
+        if ".." in lookup_components and lookup_workspace_path in outside_file_paths:
+            setting = "enabled" if case["follow_symlink"] else "disabled"
+            if root_symlink_target is not None and case["follow_symlink"]:
+                requirement = "configured-root-symlink-traversal"
+            else:
+                requirement = f"parent-traversal.follow-symlink-{setting}"
+        elif lookup_workspace_path in internal_file_paths:
             requirement = "file-metadata"
-        elif any(path.startswith(f"{lookup_path}/") for path in file_paths):
+        elif lookup_workspace_path in internal_directory_paths:
             requirement = "directory-metadata"
         else:
-            raise ContractError("StaticFiles lookup_path must select an input file or directory")
+            matched_symlink = next(
+                (
+                    (link_path, target_path, target_kind, target_relation)
+                    for link_path, (target_path, target_kind, target_relation) in symlink_targets.items()
+                    if lookup_workspace_path == link_path
+                    or lookup_workspace_path.startswith(f"{link_path}/")
+                ),
+                None,
+            )
+            if matched_symlink is None:
+                raise ContractError(
+                    "StaticFiles lookup_path must select an input file, directory, traversal target, or symlink target"
+                )
+            link_path, target_path, target_kind, target_relation = matched_symlink
+            suffix = lookup_workspace_path[len(link_path) :].lstrip("/")
+            target_lookup_path = f"{target_path}/{suffix}" if suffix else target_path
+            target_file_paths = (
+                outside_file_paths | internal_file_paths | physical_root_file_paths
+            )
+            target_directory_paths = (
+                external_directory_paths
+                | internal_directory_paths
+                | physical_internal_directory_paths
+            )
+            if target_kind == "file" and (suffix or target_lookup_path not in target_file_paths):
+                raise ContractError("StaticFiles lookup_path does not select the symlink file target")
+            if target_kind == "directory" and target_lookup_path not in target_file_paths | target_directory_paths:
+                raise ContractError(
+                    "StaticFiles lookup_path does not select an input-defined symlink directory entry"
+                )
+            setting = "enabled" if case["follow_symlink"] else "disabled"
+            if target_relation == "internal":
+                requirement = f"internal-{target_kind}-link.follow-symlink-{setting}"
+            else:
+                requirement = f"{target_relation}-{target_kind}-link.follow-symlink-{setting}"
 
     expected_covers = {
         f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.{requirement}"

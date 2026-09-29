@@ -9755,6 +9755,12 @@
                 "omission": {"kind": "required"}
               },
               {
+                "id": "filesystem",
+                "style": "input_asset",
+                "value_types": ["record"],
+                "omission": {"kind": "required"}
+              },
+              {
                 "id": "lookup_path",
                 "style": "positional",
                 "value_types": ["string"],
@@ -9823,6 +9829,83 @@
               "id": "starlette.staticfiles.StaticFiles.lookup-path.absolute-path-rejected",
               "dimension": "error_path",
               "description": "Reject an absolute path with an empty path and no stat result. Upstream: tests/test_staticfiles.py::test_staticfiles_rejects_absolute_paths.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal.follow-symlink-disabled",
+              "dimension": "input_family",
+              "description": "Look up a parent-traversal path selecting an input-defined file outside the configured root with follow_symlink disabled. Upstream: tests/test_staticfiles.py::test_staticfiles_avoids_path_traversal.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal.follow-symlink-enabled",
+              "dimension": "input_family",
+              "description": "Look up a parent-traversal path selecting an input-defined file outside a real configured root with follow_symlink enabled. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.configured-root-symlink-traversal",
+              "dimension": "input_family",
+              "description": "Reject a parent-traversal path from a symlinked configured root with follow_symlink enabled. Upstream: tests/test_staticfiles.py::test_staticfiles_disallows_path_traversal_with_symlinks.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.external-file-link.follow-symlink-disabled",
+              "dimension": "asset_family",
+              "description": "Look up an input-defined symlink to an outside file with follow_symlink disabled. Upstream: tests/test_staticfiles.py::test_staticfiles_follows_symlinks.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.external-file-link.follow-symlink-enabled",
+              "dimension": "asset_family",
+              "description": "Look up an input-defined symlink to an outside file with follow_symlink enabled. Upstream: tests/test_staticfiles.py::test_staticfiles_follows_symlinks.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link.follow-symlink-disabled",
+              "dimension": "asset_family",
+              "description": "Look up an input-defined file through an outside directory symlink with follow_symlink disabled. Upstream: tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link.follow-symlink-enabled",
+              "dimension": "asset_family",
+              "description": "Look up an input-defined file through an outside directory symlink with follow_symlink enabled. Upstream: tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link.follow-symlink-disabled",
+              "dimension": "asset_family",
+              "description": "Look up a root-local file through an input-defined symlink with follow_symlink disabled, observing the returned canonical path. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link.follow-symlink-enabled",
+              "dimension": "asset_family",
+              "description": "Look up a root-local file through an input-defined symlink with follow_symlink enabled, observing the returned lexical path. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link.follow-symlink-disabled",
+              "dimension": "asset_family",
+              "description": "Look up an input-defined root-local file through a root-local directory symlink with follow_symlink disabled, observing the returned canonical path. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link.follow-symlink-enabled",
+              "dimension": "asset_family",
+              "description": "Look up an input-defined root-local file through a root-local directory symlink with follow_symlink enabled, observing the returned lexical path. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
               "lanes": ["parity"],
               "target_profiles": ["rust-native-local", "python-package-cpython312"]
             }

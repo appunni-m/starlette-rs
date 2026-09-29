@@ -21,6 +21,12 @@
           "mtime_seconds": 1700000000.0
         }
       ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [],
+        "symlinks": []
+      },
       "lookup_path": "asset.txt",
       "check_dir": true,
       "follow_symlink": false,
@@ -46,6 +52,12 @@
           "mtime_seconds": 1700000000.0
         }
       ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [],
+        "symlinks": []
+      },
       "lookup_path": "nested",
       "check_dir": true,
       "follow_symlink": false,
@@ -71,9 +83,381 @@
           "mtime_seconds": 1700000000.0
         }
       ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [],
+        "symlinks": []
+      },
       "lookup_path": "/etc/passwd",
       "check_dir": true,
       "follow_symlink": false,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal-follow-symlink-disabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal.follow-symlink-disabled"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [
+          {
+            "path": "private.txt",
+            "contents_base64": "b3V0c2lkZSBmaWxl",
+            "mtime_seconds": 1700000001.0
+          }
+        ],
+        "symlinks": []
+      },
+      "lookup_path": "../private.txt",
+      "check_dir": true,
+      "follow_symlink": false,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal-follow-symlink-enabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal.follow-symlink-enabled"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [
+          {
+            "path": "private.txt",
+            "contents_base64": "b3V0c2lkZSBmaWxl",
+            "mtime_seconds": 1700000001.0
+          }
+        ],
+        "symlinks": []
+      },
+      "lookup_path": "../private.txt",
+      "check_dir": true,
+      "follow_symlink": true,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.external-file-link-follow-symlink-disabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.external-file-link.follow-symlink-disabled"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [
+          {
+            "path": "private.txt",
+            "contents_base64": "b3V0c2lkZSBmaWxl",
+            "mtime_seconds": 1700000001.0
+          }
+        ],
+        "symlinks": [
+          {"path": "external.txt", "target": "../private.txt"}
+        ]
+      },
+      "lookup_path": "external.txt",
+      "check_dir": true,
+      "follow_symlink": false,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.external-file-link-follow-symlink-enabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.external-file-link.follow-symlink-enabled"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [
+          {
+            "path": "private.txt",
+            "contents_base64": "b3V0c2lkZSBmaWxl",
+            "mtime_seconds": 1700000001.0
+          }
+        ],
+        "symlinks": [
+          {"path": "external.txt", "target": "../private.txt"}
+        ]
+      },
+      "lookup_path": "external.txt",
+      "check_dir": true,
+      "follow_symlink": true,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link-follow-symlink-disabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link.follow-symlink-disabled"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": ["outside-assets"],
+        "outside_files": [
+          {
+            "path": "outside-assets/page.txt",
+            "contents_base64": "dGhyb3VnaCBvdXRzaWRlIGRpciBsaW5r",
+            "mtime_seconds": 1700000002.0
+          }
+        ],
+        "symlinks": [
+          {"path": "external-assets", "target": "../outside-assets"}
+        ]
+      },
+      "lookup_path": "external-assets/page.txt",
+      "check_dir": true,
+      "follow_symlink": false,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link-follow-symlink-enabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link.follow-symlink-enabled"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": ["outside-assets"],
+        "outside_files": [
+          {
+            "path": "outside-assets/page.txt",
+            "contents_base64": "dGhyb3VnaCBvdXRzaWRlIGRpciBsaW5r",
+            "mtime_seconds": 1700000002.0
+          }
+        ],
+        "symlinks": [
+          {"path": "external-assets", "target": "../outside-assets"}
+        ]
+      },
+      "lookup_path": "external-assets/page.txt",
+      "check_dir": true,
+      "follow_symlink": true,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link-follow-symlink-disabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link.follow-symlink-disabled"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [],
+        "symlinks": [
+          {"path": "internal-link.txt", "target": "asset.txt"}
+        ]
+      },
+      "lookup_path": "internal-link.txt",
+      "check_dir": true,
+      "follow_symlink": false,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link-follow-symlink-enabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link.follow-symlink-enabled"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [],
+        "symlinks": [
+          {"path": "internal-link.txt", "target": "asset.txt"}
+        ]
+      },
+      "lookup_path": "internal-link.txt",
+      "check_dir": true,
+      "follow_symlink": true,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link-follow-symlink-disabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link.follow-symlink-disabled"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "assets/page.txt",
+          "contents_base64": "cm9vdC1sb2NhbCBkaXJlY3RvcnkgbGluaw==",
+          "mtime_seconds": 1700000003.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [],
+        "symlinks": [
+          {"path": "internal-assets", "target": "assets"}
+        ]
+      },
+      "lookup_path": "internal-assets/page.txt",
+      "check_dir": true,
+      "follow_symlink": false,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link-follow-symlink-enabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link.follow-symlink-enabled"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "assets/page.txt",
+          "contents_base64": "cm9vdC1sb2NhbCBkaXJlY3RvcnkgbGluaw==",
+          "mtime_seconds": 1700000003.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [],
+        "symlinks": [
+          {"path": "internal-assets", "target": "assets"}
+        ]
+      },
+      "lookup_path": "internal-assets/page.txt",
+      "check_dir": true,
+      "follow_symlink": true,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.configured-root-symlink-traversal",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.configured-root-symlink-traversal"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": "real-public",
+        "directories": ["real-public"],
+        "outside_files": [
+          {
+            "path": "private.txt",
+            "contents_base64": "b3V0c2lkZSBmaWxl",
+            "mtime_seconds": 1700000001.0
+          }
+        ],
+        "symlinks": []
+      },
+      "lookup_path": "../private.txt",
+      "check_dir": true,
+      "follow_symlink": true,
       "observations": ["lookup-path"]
     }
   ]

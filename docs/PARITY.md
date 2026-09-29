@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 259 input-only cases in 36 indexed files, covering 54 operations and 324 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 270 input-only cases in 36 indexed files, covering 54 operations and 335 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -144,31 +144,38 @@ API parity.
 [`static-files.yaml`](../tests/fixtures/sources/parity/static-files.yaml)
 contains 15 input-defined `StaticFiles` ASGI-call cases,
 [`static-files-lookup.yaml`](../tests/fixtures/sources/parity/static-files-lookup.yaml)
-compares three direct `lookup_path` calls. A package-only case in
+compares 14 direct `lookup_path` calls, including absolute-path rejection,
+parent traversal, a symlinked configured root, and internal and external file
+and directory symlinks with both `follow_symlink` settings. The observations
+include the resolved relative path and file metadata. A package-only case in
 [`static-files-async-boundary.yaml`](../tests/fixtures/sources/parity/static-files-async-boundary.yaml)
 gates the bound `lookup_path` override and observes the callback running on an
-AnyIO worker while the event loop progresses. Sixteen cases apply to each
-target profile, plus this package-only case. They cover rooted GET and HEAD,
+AnyIO worker while the event loop progresses. Eleven ASGI-call cases apply to
+both target profiles, with two package-only package-discovery cases and two
+Rust-native explicit-root cases. Together with the 14 lookup cases on each
+profile and the package-only async-boundary case, they produce 55 comparisons.
+They cover rooted GET and HEAD,
 HTML index redirects and 404 fallback, 404/405 outcomes, date and ETag
 validators, validator precedence, package assets, absolute-path rejection,
-file/directory metadata, bound override dispatch, and the resulting ASGI
-response. Python package discovery is exercised through `importlib` on the
-Python package profile; Rust-native package cases pass explicit roots. All 33
-selected StaticFiles comparisons passed in the latest run. These cases do not
+file/directory metadata, path traversal and symlink containment, bound override
+dispatch, and the resulting ASGI response. Python package discovery is
+exercised through `importlib` on the Python package profile; Rust-native package
+cases pass explicit roots. All 55 selected StaticFiles comparisons passed in
+the latest run, including all 28 direct lookup comparisons. These cases do not
 cover the full 36-function upstream StaticFiles suite. Known gaps include
 constructor and permission errors, subclass hooks beyond `lookup_path`, a
 separate scheduling assertion for `check_config`, cross-platform
-`os.stat_result` field parity, and remaining traversal, symlink, 401, and
-validator branches.
+`os.stat_result` fields and Windows path normalization, overlong-path behavior
+across multiple roots, 401 mapping, and remaining validator branches.
 
-The latest integrated run `207e510e-651f-4bbf-910f-332ca07f7ddb` started at
-`2026-09-29T05:22:31.851Z` and finished at `2026-09-29T05:23:16.245Z`. It
-selected 356 profile comparisons: 352 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 257 applicable
-cases; Rust-native passed 95 of 99 selected cases. The four Rust-native rows
+The latest integrated run `818ae9f4-801b-4748-a561-a5f2755d2f42` started at
+`2026-09-29T05:54:28.558Z` and finished at `2026-09-29T05:55:13.801Z`. It
+selected 378 profile comparisons: 374 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 268 applicable
+cases; Rust-native passed 106 of 110 selected cases. The four Rust-native rows
 require arbitrary Python endpoint callables. Both target trees were dirty when
 captured. Manifest SHA-256:
-`04dd974fd163d53091ebc0f586240e4108bbb74f7f9f662d23661e57f7b0db33`.
+`d6e4ae27125942739c8093d259b77939d8570bcd5bf8735dc1dcbc90a38dac28`.
 `make parity-run` exits with status 2 for the four explicitly unsupported native
 callable rows; this is not release proof.
 
