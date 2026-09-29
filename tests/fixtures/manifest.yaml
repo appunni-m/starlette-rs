@@ -268,7 +268,8 @@
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/lifespan-generators.json",
       "build/parity/inputs/parity/authentication-runtime.json",
-      "build/parity/inputs/parity/static-files.json"
+      "build/parity/inputs/parity/static-files.json",
+      "build/parity/inputs/parity/static-files-lookup.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -9476,7 +9477,8 @@
                 {
                   "path": "response_status",
                   "value_types": [
-                    "integer"
+                    "integer",
+                    "null"
                   ],
                   "comparison": {
                     "kind": "exact"
@@ -9569,6 +9571,30 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.not-found-get",
+              "dimension": "error_path",
+              "description": "Request a path absent from the input-defined static root with GET and compare the live 404 HTTPException outcome and empty ASGI event trace. Upstream: tests/test_staticfiles.py::test_staticfiles_with_missing_file_returns_404.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.method-not-allowed-post",
+              "dimension": "error_path",
+              "description": "Request an input-defined static asset with POST and compare the live 405 HTTPException outcome and empty ASGI event trace. Upstream: tests/test_staticfiles.py::test_staticfiles_post.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.head-file",
               "dimension": "parameter_combination",
               "description": "Serve an input-defined file with HEAD and compare headers and the empty body event. Upstream: tests/test_staticfiles.py::test_staticfiles_head.",
@@ -9593,15 +9619,86 @@
               ]
             },
             {
-              "id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-not-modified",
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.html-index-file",
               "dimension": "parameter_combination",
-              "description": "Repeat an input-defined file request with its matching ETag and compare the 304 headers and empty response. Upstream: tests/test_staticfiles.py::test_staticfiles_304_with_etag_match.",
+              "description": "Enable HTML mode, request a slash-terminated directory with an index file, and compare the selected response. Upstream: tests/test_staticfiles.py::test_staticfiles_html_normal.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
                 "rust-native-local",
                 "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.html-not-found-fallback",
+              "dimension": "parameter_combination",
+              "description": "Enable HTML mode with an input-defined 404.html asset and request a missing path to compare fallback selection. Upstream: tests/test_staticfiles.py::test_staticfiles_html_normal.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-date-match",
+              "dimension": "parameter_combination",
+              "description": "Supply an If-Modified-Since value for an input-defined asset and compare the live validator response. Upstream: tests/test_staticfiles.py::test_staticfiles_304_with_last_modified_compare_last_req.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-etag-match",
+              "dimension": "parameter_combination",
+              "description": "Supply an If-None-Match value for an input-defined asset and compare live response events. Upstream: tests/test_staticfiles.py::test_staticfiles_304_with_etag_match.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-weak-etag-list",
+              "dimension": "parameter_combination",
+              "description": "Supply a weak validator inside a comma-separated If-None-Match value and compare live response events. Upstream: tests/test_staticfiles.py::test_staticfiles_304_with_etag_match.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-validator-precedence",
+              "dimension": "parameter_combination",
+              "description": "Supply both If-None-Match and If-Modified-Since for an input-defined asset and compare how the validators interact. Upstream: tests/test_staticfiles.py::test_staticfiles_200_with_etag_mismatch_and_timestamp_match.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.rust-explicit-package-roots",
+              "dimension": "input_family",
+              "description": "Supply package asset roots explicitly through the native Rust constructor and compare asset serving, without claiming Python import discovery on the Rust-native target. Upstream package behavior: tests/test_staticfiles.py::test_staticfiles_with_package.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local"
               ]
             },
             {
@@ -9612,7 +9709,6 @@
                 "parity"
               ],
               "target_profiles": [
-                "rust-native-local",
                 "python-package-cpython312"
               ]
             }
@@ -9631,6 +9727,116 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only StaticFiles correctness slice declares no benchmark workload."
+          }
+        },
+        {
+          "id": "lookup-path",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.staticfiles.StaticFiles.lookup_path",
+            "signature": "StaticFiles(*, directory=..., check_dir=True, follow_symlink=False); lookup_path(path: str) -> tuple[str, os.stat_result | None]",
+            "parameters": [
+              {
+                "id": "directory",
+                "style": "input_asset",
+                "value_types": ["path"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "files",
+                "style": "input_asset",
+                "value_types": ["sequence"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "lookup_path",
+                "style": "positional",
+                "value_types": ["string"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "check_dir",
+                "style": "option",
+                "value_types": ["boolean"],
+                "omission": {"kind": "literal", "value": true}
+              },
+              {
+                "id": "follow_symlink",
+                "style": "option",
+                "value_types": ["boolean"],
+                "omission": {"kind": "literal", "value": false}
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {"path": "resolved_path", "value_types": ["string", "null"], "comparison": {"kind": "exact"}},
+                {"path": "stat_result_present", "value_types": ["boolean"], "comparison": {"kind": "exact"}},
+                {"path": "mode_type_bits", "value_types": ["integer", "null"], "comparison": {"kind": "exact"}},
+                {"path": "is_file", "value_types": ["boolean", "null"], "comparison": {"kind": "exact"}},
+                {"path": "is_directory", "value_types": ["boolean", "null"], "comparison": {"kind": "exact"}},
+                {"path": "size", "value_types": ["integer", "null"], "comparison": {"kind": "exact"}},
+                {"path": "mtime_seconds", "value_types": ["number", "null"], "comparison": {"kind": "exact"}}
+              ],
+              "error": {
+                "fields": ["class", "kind", "message", "stage", "code", "cause", "suppress_context"],
+                "message": {"mode": "exact", "transforms": [], "reason": null}
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::StaticFiles::lookup_path",
+              "signature": "StaticFiles::lookup_path(path) -> Option<StaticFile>",
+              "support": {"status": "supported"}
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.staticfiles.StaticFiles.lookup_path",
+              "signature": "lookup_path(path: str) -> tuple[str, os.stat_result | None]",
+              "support": {"status": "supported"}
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
+              "dimension": "success_path",
+              "description": "Look up an input-defined regular file and compare its root-relative path, file type, size, and modification time. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.directory-metadata",
+              "dimension": "success_path",
+              "description": "Look up an input-defined directory and compare its root-relative path and directory stat classification. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.absolute-path-rejected",
+              "dimension": "error_path",
+              "description": "Reject an absolute path with an empty path and no stat result. Upstream: tests/test_staticfiles.py::test_staticfiles_rejects_absolute_paths.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": ["rust-native-local", "python-package-cpython312"]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only helper comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "StaticFiles lookup helpers are outside active benchmark workloads."
           }
         }
       ]

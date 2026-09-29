@@ -17,24 +17,27 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 246 input-only cases across 34 files,
-covering 52 operations and 309 parity requirements. The authored cases span
+The active parity manifest indexes 258 input-only cases across 35 files,
+covering 53 operations and 320 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware, configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-The latest integrated run `1481bd4d-7fbe-414c-a79e-6223af1a6ced` started at
-`2026-09-29T04:05:10.316Z` and finished at `2026-09-29T04:05:51.425Z`. It
-selected 335 profile comparisons: 331 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 246 cases;
-Rust-native passed 85 of 89 selected cases. The four Rust-native rows require
-arbitrary Python endpoint callables. The six StaticFiles cases ran on both
-targets and cover rooted GET, HEAD, HTML index redirects, conditional 304, and
-package assets through both default and explicit package roots. Both target
+The latest integrated run `2df6e603-63d0-48ee-87d4-333fd07ab0fa` started at
+`2026-09-29T04:58:56.106Z` and finished at `2026-09-29T04:59:38.293Z`. It
+selected 355 profile comparisons: 351 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 256 applicable
+cases; Rust-native passed 95 of 99 selected cases. The four Rust-native rows
+require arbitrary Python endpoint callables. Eighteen StaticFiles inputs are
+authored; 16 cases per target profile produced 32 passing comparisons. They
+cover rooted GET and HEAD, HTML index redirects and fallback, 404/405 outcomes,
+date and ETag validators, validator precedence, package assets, and direct
+`lookup_path` metadata/path checks. Python package discovery is tested on the
+Python profile; Rust-native package serving uses explicit roots. Both target
 trees were dirty when captured. Manifest SHA-256:
-`d822a39b59fe300518443de3e631df07273c91a5352cd607407a4fac79f029c5`.
+`65ce0b52c4b41cbdc7e971b608c0029216a90c7570626b9af7c617033d77b5ba`.
 `make parity-run` exits with status 2 for the four explicitly unsupported native
 callable rows; this is not release proof.
 
@@ -88,15 +91,20 @@ Package assets require Python's import discovery rules. The PyO3 boundary calls
 resulting static directory in the Rust root list; this preserves custom Python
 importers and package origins that filesystem-only Rust discovery cannot
 observe. The input-only `package-static-assets` cases create isolated package
-roots and exercise both the default `statics` directory and an explicit
-subdirectory against the pinned source, installed package, and Rust-native
-target. This boundary uses no upstream Starlette runtime import or added
-runtime dependency.
+roots. The Python package profile exercises both the default `statics`
+directory and an explicit subdirectory through Python import discovery.
+Rust-native cases exercise the corresponding trees through explicit roots; they
+do not claim Python package discovery. This boundary uses no upstream
+Starlette runtime import or added runtime dependency.
 
-The six StaticFiles cases are a correctness slice, not complete coverage of
-its 36 upstream test functions. Constructor failures, path traversal and
-symlink edge cases, 404/405/401 behavior, package import errors, and the full
-validator matrix remain in the backlog.
+The 18 authored StaticFiles inputs are a correctness slice, not complete
+coverage of its 36 upstream test functions. Constructor failures, path
+traversal and symlink edge cases, 401 behavior, package import errors, the full
+validator matrix, subclass override dispatch, event-loop-friendly filesystem
+work, and cross-platform `os.stat_result` field parity remain open. The local
+`lookup_path` cases compare resolved paths, file types, size, and modification
+time against the source oracle; they do not establish complete StaticFiles
+parity.
 
 ## Current denominators
 
@@ -144,18 +152,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 789 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 789 |
-| Existing input mappings in the atlas matrix | 49 |
+| Existing input mappings in the atlas matrix | 56 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 690 |
+| New input-only fixture backlog | 683 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 49 `existing` mappings point to authored YAML input
+crosswalk snapshot, 56 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest now contains 34 indexed files
-and 246 cases, including six StaticFiles cases, four authentication cases,
+input files with 136 cases. The active manifest now contains 35 indexed files
+and 258 cases, including 18 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
@@ -191,7 +199,7 @@ The five upstream HTTPException tests and
 the HTTPException documentation contract map to the two exception input files;
 `test_handled_exc_after_response` has a declared partial observation of its
 after-start behavior, while its `TestClient(raise_server_exceptions=False)`
-branch remains outside this slice. The remaining 690 backlog rows are atlas
+branch remains outside this slice. The remaining 683 backlog rows are atlas
 mapping status, not proof that those behaviors are absent from active inputs or
 untested.
 The merger validates the pinned upstream commit, all 999 API rows, evidence
@@ -270,8 +278,8 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 246 currently indexed cases and
-the 690-row atlas backlog snapshot
+The backlog distinguishes that work from the 258 currently indexed cases and
+the 683-row atlas backlog snapshot
 in [`PRIORITIZED_BACKLOG.md`](atlas/PRIORITIZED_BACKLOG.md).
 
 ## Generate the source candidate catalog

@@ -25,8 +25,8 @@ use starlette_rs::{
     LifespanAction, LifespanState, Mount as NativeMount, MountChild, MountScope, PathConverter,
     PathParameterCapture, QueryParams, RequestBodyAccumulator, RequestHeaders, Response,
     ResponseEvent, RouteTable, Starlette as NativeApplication, StaticFiles as NativeStaticFiles,
-    StaticFilesResponse, StreamingResponse, StreamingResponseEvent, WebSocketState,
-    WebSocketStateMachine, classify_scope, connection_url,
+    StaticFilesError, StaticFilesResponse, StreamingResponse, StreamingResponseEvent,
+    WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
 };
 
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
@@ -39,6 +39,7 @@ const JSON_RESPONSE_SURFACE: &str = "starlette.responses.JSONResponse";
 const STREAMING_RESPONSE_SURFACE: &str = "starlette.responses.StreamingResponse";
 const FILE_RESPONSE_SURFACE: &str = "starlette.responses.FileResponse";
 const STATIC_FILES_SURFACE: &str = "starlette.staticfiles.StaticFiles";
+const STATIC_FILES_LOOKUP_PATH_OPERATION: &str = "lookup-path";
 const RESPONSE_OPERATION: &str = "asgi-call";
 const QUERY_PARAMS_SURFACE: &str = "starlette.datastructures.QueryParams";
 const QUERY_PARAMS_OPERATION: &str = "construction-and-mapping-sequence";
@@ -334,6 +335,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         }
         (Some(FILE_RESPONSE_SURFACE), Some(RESPONSE_OPERATION)) => {
             return run_file_response_case(case);
+        }
+        (Some(STATIC_FILES_SURFACE), Some(STATIC_FILES_LOOKUP_PATH_OPERATION)) => {
+            return run_static_files_lookup_path_case(case);
         }
         (Some(STATIC_FILES_SURFACE), Some(RESPONSE_OPERATION)) => {
             return run_static_files_case(case);
@@ -1856,6 +1860,137 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     }))
 }
 
+fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "directory",
+            "files",
+            "lookup_path",
+            "check_dir",
+            "follow_symlink",
+            "observations",
+        ],
+        "StaticFiles lookup-path case",
+    )?;
+    let case_id = string_field(case, "case_id", "StaticFiles lookup-path case")?;
+    if string_field(case, "surface", "StaticFiles lookup-path case")? != STATIC_FILES_SURFACE
+        || string_field(case, "operation", "StaticFiles lookup-path case")?
+            != STATIC_FILES_LOOKUP_PATH_OPERATION
+        || case.get("observations") != Some(&json!([STATIC_FILES_LOOKUP_PATH_OPERATION]))
+        || case.get("assets") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "case is outside the StaticFiles lookup-path contract",
+        ));
+    }
+    validate_string_array(case, "covers", "StaticFiles lookup-path covers", false)?;
+    validate_string_array(
+        case,
+        "target_profiles",
+        "StaticFiles lookup-path target_profiles",
+        false,
+    )?;
+    let directory_name = string_field(case, "directory", "StaticFiles lookup-path case")?;
+    let check_dir = case
+        .get("check_dir")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| String::from("StaticFiles lookup-path check_dir must be boolean"))?;
+    let follow_symlink = case
+        .get("follow_symlink")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| String::from("StaticFiles lookup-path follow_symlink must be boolean"))?;
+    let file_inputs = case
+        .get("files")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("StaticFiles lookup-path files must be an array"))?;
+    if file_inputs.is_empty() {
+        return Err(String::from(
+            "StaticFiles lookup-path requires at least one input file",
+        ));
+    }
+    let lookup_path = string_field(case, "lookup_path", "StaticFiles lookup-path case")?;
+    let (temporary_directory, root, _) =
+        create_static_files_input(directory_name, file_inputs, &[])?;
+    let static_files = NativeStaticFiles::new(
+        Some(root.clone()),
+        vec![root.clone()],
+        false,
+        check_dir,
+        follow_symlink,
+    )
+    .map_err(|error| format!("StaticFiles lookup-path construction failed: {error:?}"))?;
+    let lookup = static_files
+        .lookup_path(lookup_path)
+        .map_err(|error| format!("StaticFiles lookup_path failed: {error:?}"))?;
+    let observation = match lookup {
+        Some(file) => {
+            let resolved_root = root
+                .canonicalize()
+                .map_err(|error| format!("cannot canonicalize StaticFiles root: {error}"))?;
+            let relative_path = file
+                .path
+                .strip_prefix(&resolved_root)
+                .map_err(|error| format!("StaticFiles result escaped the root: {error}"))?
+                .components()
+                .map(|component| component.as_os_str().to_string_lossy().into_owned())
+                .collect::<Vec<_>>()
+                .join("/");
+            let mode_type_bits = file
+                .metadata
+                .stat_result()
+                .map(|stat| stat.mode & 0o170000)
+                .or_else(|| {
+                    if file.is_file {
+                        Some(0o100000)
+                    } else if file.is_directory {
+                        Some(0o040000)
+                    } else {
+                        None
+                    }
+                });
+            json!({
+                "resolved_path": relative_path,
+                "stat_result_present": true,
+                "mode_type_bits": mode_type_bits,
+                "is_file": file.is_file,
+                "is_directory": file.is_directory,
+                "size": if file.is_file { Some(file.metadata.size()) } else { None },
+                "mtime_seconds": if file.is_file {
+                    Some(file.metadata.modified_unix_seconds())
+                } else {
+                    None
+                },
+            })
+        }
+        None => json!({
+            "resolved_path": null,
+            "stat_result_present": false,
+            "mode_type_bits": null,
+            "is_file": null,
+            "is_directory": null,
+            "size": null,
+            "mtime_seconds": null,
+        }),
+    };
+    drop(temporary_directory);
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
+            "status": "ok",
+            "value": observation,
+        }],
+    }))
+}
+
 fn run_static_files_case(case: &Value) -> Result<Value, String> {
     let case = exact_object(
         case,
@@ -1957,9 +2092,20 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
     static_files
         .check_config()
         .map_err(|error| format!("StaticFiles configuration failed: {error:?}"))?;
-    let selected = static_files
-        .get_response(&path, scope_path, method, &request_headers)
-        .map_err(|error| format!("StaticFiles request failed: {error:?}"))?;
+    let selected = match static_files.get_response(&path, scope_path, method, &request_headers) {
+        Ok(selected) => selected,
+        Err(StaticFilesError::MethodNotAllowed) => {
+            return Ok(static_files_error_result(
+                case_id,
+                405,
+                "Method Not Allowed",
+            ));
+        }
+        Err(StaticFilesError::NotFound) => {
+            return Ok(static_files_error_result(case_id, 404, "Not Found"));
+        }
+        Err(error) => return Err(format!("StaticFiles request failed: {error:?}")),
+    };
 
     let (response_status, ordered_headers, response_bytes, events) = match selected {
         StaticFilesResponse::File { file, status_code } => {
@@ -2088,6 +2234,34 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
             },
         }],
     }))
+}
+
+fn static_files_error_result(case_id: &str, status_code: u16, detail: &str) -> Value {
+    let message = format!("{status_code}: {detail}");
+    json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": RESPONSE_OPERATION,
+            "status": "error",
+            "error": {
+                "class": "starlette.exceptions.HTTPException",
+                "kind": "exception",
+                "message": message,
+                "stage": "dispatch",
+                "code": status_code,
+                "cause": null,
+                "suppress_context": false,
+            },
+            "partial_value": {
+                "response_status": null,
+                "ordered_repeated_headers": [],
+                "response_bytes": {"encoding": "base64", "data": ""},
+                "asgi_event_order": [],
+                "asgi_events": [],
+            },
+        }],
+    })
 }
 
 fn create_static_files_input(

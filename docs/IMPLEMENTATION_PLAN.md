@@ -32,14 +32,14 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 246 input-only cases, 52 operations, and 309
-parity requirements across 34 indexed files. The latest integrated run is
-`1481bd4d-7fbe-414c-a79e-6223af1a6ced`. It selected 335 profile comparisons:
-331 passed, zero failed, zero infrastructure errors, and four were `not_run`.
-The Python package passed all 246 cases; Rust-native passed 85 of 89 selected
-comparisons. The four remaining Rust-native rows require Python endpoint
-callables. Both target trees were dirty when captured. Manifest SHA-256:
-`d822a39b59fe300518443de3e631df07273c91a5352cd607407a4fac79f029c5`.
+The current parity contract has 258 input-only cases, 53 operations, and 320
+parity requirements across 35 indexed files. The latest integrated run is
+`2df6e603-63d0-48ee-87d4-333fd07ab0fa`. It selected 355 profile comparisons:
+351 passed, zero failed, zero infrastructure errors, and four were `not_run`.
+The Python package passed all 256 applicable cases; Rust-native passed 95 of 99
+selected comparisons. The four remaining Rust-native rows require Python
+endpoint callables. Both target trees were dirty when captured. Manifest
+SHA-256: `65ce0b52c4b41cbdc7e971b608c0029216a90c7570626b9af7c617033d77b5ba`.
 `make parity-run` exits with status 2 for the four explicitly unsupported native
 callable rows; this is not release proof.
 
@@ -50,11 +50,16 @@ policy, lookup, method selection, HTML index/fallback selection, redirects, and
 conditional 304 handling. The Python `starlette.staticfiles` module is a thin
 constructor and forwarding facade; package discovery calls Python's
 `importlib.util.find_spec` at the PyO3 boundary so custom importers and package
-origins remain visible. Six input-only cases compare rooted GET and HEAD, HTML
-redirects, conditional responses, and default and explicit package static roots
-against the pinned source, installed package, and native target. This is a
-bounded slice; constructor errors, traversal and symlink edge cases, other
-status mappings, and the remaining upstream StaticFiles tests are still open.
+origins remain visible. Eighteen input-only cases are authored; 16 applicable
+cases per target profile compare rooted GET and HEAD, HTML index/404 behavior,
+404/405 outcomes, date and ETag validators, validator precedence, package
+roots, and direct `lookup_path` metadata/path behavior against the pinned
+source, installed package, and native target. All 32 selected StaticFiles
+comparisons passed. Python package discovery is profile-specific; Rust-native
+uses explicit package roots. This is a bounded slice; constructor errors,
+traversal and symlink edge cases, 401 mapping, override dispatch,
+event-loop-friendly filesystem work, complete cross-platform stat fields, and
+the remaining upstream StaticFiles tests are still open.
 ## 1. Completed bounded goal: lifespan state and cancellation
 
 Five input-only cases now exercise yielded state merge, missing

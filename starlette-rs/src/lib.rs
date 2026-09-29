@@ -37,7 +37,8 @@ pub use connection::{ConnectionUrlError, connection_url};
 pub use exception_handlers::ExceptionHandlerTable;
 pub use file_response::{
     FileMetadata, FileResponse, FileResponseCall, FileResponseCallError, FileResponseCallInput,
-    FileResponseCallStep, FileResponseError, FileResponseEvent, FileResponseOptions,
+    FileResponseCallStep, FileResponseError, FileResponseEvent, FileResponseOptions, FileStat,
+    FileStatTimestamp,
 };
 pub use gzip::{
     DEFAULT_EXCLUDED_CONTENT_TYPES, GzipBodyOutput, GzipCompressionError, GzipCompressor,

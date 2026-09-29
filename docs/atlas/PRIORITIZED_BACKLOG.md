@@ -8,12 +8,12 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 246 input-only cases across 34 files, covering 52
-operations and 309 requirements. Run `1481bd4d-7fbe-414c-a79e-6223af1a6ced`
-selected 335 comparisons: 331 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 246 cases; Rust-native passed
-85 of 89 selected cases. The four unsupported Rust-native rows require
-arbitrary Python callables. See
+The active contract has 258 input-only cases across 35 files, covering 53
+operations and 320 requirements. Run `2df6e603-63d0-48ee-87d4-333fd07ab0fa`
+selected 355 comparisons: 351 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 256 applicable cases;
+Rust-native passed 95 of 99 selected cases. The four unsupported Rust-native
+rows require arbitrary Python callables. See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
 
 ## P0 — Close the source-backed atlas (complete)
@@ -22,13 +22,13 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The matrix has 789 mappings: 690 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 49 existing input mappings. It maps selected
+The matrix has 789 mappings: 683 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 56 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
-untested. The active manifest indexes 18 parity input files containing 118
-cases, including 38 request/routing, 21 reverse-URL, four direct ASGI, eight
+untested. At the P0 atlas-close checkpoint, the manifest indexed 18 parity
+input files containing 118 cases, including 38 request/routing, 21 reverse-URL, four direct ASGI, eight
 basic Response/JSONResponse, four finite synchronous StreamingResponse, one
 finite async-iterator StreamingResponse, four RedirectResponse, eight GZip,
 six WebSocket protocol-tape, six WebSocket state-projection, five Request-style

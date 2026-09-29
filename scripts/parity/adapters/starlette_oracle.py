@@ -51,6 +51,7 @@ JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
 STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
+STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
 RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 BODY_LIMIT_SURFACE = "starlette.middleware.body_limit.RequestBodyLimitMiddleware"
@@ -2900,6 +2901,7 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ValueError("StaticFiles observations must select asgi-call")
 
+    from starlette.exceptions import HTTPException
     from starlette.staticfiles import StaticFiles
 
     with tempfile.TemporaryDirectory(prefix="starlette-static-files-") as temporary_directory:
@@ -2951,7 +2953,13 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             async def send(message: dict[str, Any]) -> None:
                 sent.append(message)
 
-            asyncio.run(application(scope, receive, send))
+            captured_error: Exception | None = None
+            try:
+                asyncio.run(application(scope, receive, send))
+            except Exception as exc:
+                if not isinstance(exc, HTTPException) or exc.status_code not in {404, 405}:
+                    raise
+                captured_error = exc
         finally:
             sys.path.remove(str(package_source_root))
         events = [_canonical_message(message) for message in sent]
@@ -2969,18 +2977,99 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             "ordered_repeated_headers": (
                 response_start_event["headers"] if response_start_event is not None else []
             ),
-            "response_bytes": (
-                {"encoding": "base64", "data": base64.b64encode(response_body).decode("ascii")}
-                if response_start is not None
-                else None
-            ),
+            "response_bytes": {
+                "encoding": "base64",
+                "data": base64.b64encode(response_body).decode("ascii"),
+            },
             "asgi_event_order": [event["type"] for event in events],
             "asgi_events": events,
+        }
+    observation_item = {
+        "step_id": RESPONSE_OPERATION,
+        "status": "ok",
+        "value": observation,
+    }
+    if captured_error is not None:
+        error = _dispatch_error(captured_error)
+        error["code"] = captured_error.status_code
+        observation_item = {
+            "step_id": RESPONSE_OPERATION,
+            "status": "error",
+            "error": error,
+            "partial_value": observation,
         }
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [{"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}],
+        "observations": [observation_item],
+    }
+
+
+def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "directory",
+            "files",
+            "lookup_path",
+            "check_dir",
+            "follow_symlink",
+            "observations",
+        },
+        "StaticFiles lookup-path case",
+    )
+    if (
+        case["surface"] != STATIC_FILES_SURFACE
+        or case["operation"] != STATIC_FILES_LOOKUP_PATH_OPERATION
+        or case["observations"] != [STATIC_FILES_LOOKUP_PATH_OPERATION]
+    ):
+        raise ValueError("workflow is outside the declared StaticFiles lookup-path operation")
+
+    from starlette.staticfiles import StaticFiles
+
+    with tempfile.TemporaryDirectory(prefix="starlette-static-lookup-") as temporary_directory:
+        root = Path(temporary_directory) / case["directory"]
+        root.mkdir(parents=True)
+        for file_spec in case["files"]:
+            path = root / file_spec["path"]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(_decode_b64(file_spec["contents_base64"], "file.contents_base64"))
+            os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
+        application = StaticFiles(
+            directory=root,
+            check_dir=case["check_dir"],
+            follow_symlink=case["follow_symlink"],
+        )
+        full_path, stat_result = application.lookup_path(case["lookup_path"])
+        resolved_path = Path(full_path).relative_to(root.resolve()).as_posix() if full_path else None
+        mode_type_bits = stat.S_IFMT(stat_result.st_mode) if stat_result is not None else None
+        is_file = stat.S_ISREG(stat_result.st_mode) if stat_result is not None else None
+        is_directory = stat.S_ISDIR(stat_result.st_mode) if stat_result is not None else None
+        observation = {
+            "resolved_path": resolved_path,
+            "stat_result_present": stat_result is not None,
+            "mode_type_bits": mode_type_bits,
+            "is_file": is_file,
+            "is_directory": is_directory,
+            "size": stat_result.st_size if is_file else None,
+            "mtime_seconds": stat_result.st_mtime if is_file else None,
+        }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
+                "status": "ok",
+                "value": observation,
+            }
+        ],
     }
 
 
@@ -4769,6 +4858,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == RESPONSE_OPERATION
     ):
         return _run_file_response_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == STATIC_FILES_SURFACE
+        and case.get("operation") == STATIC_FILES_LOOKUP_PATH_OPERATION
+    ):
+        return _run_static_files_lookup_path_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == STATIC_FILES_SURFACE

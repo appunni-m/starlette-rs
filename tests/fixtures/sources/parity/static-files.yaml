@@ -128,11 +128,11 @@
       "observations": ["asgi-call"]
     },
     {
-      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-not-modified",
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-date-match",
       "surface": "starlette.staticfiles.StaticFiles",
       "operation": "asgi-call",
       "covers": [
-        "starlette.staticfiles.StaticFiles.asgi-call.conditional-not-modified"
+        "starlette.staticfiles.StaticFiles.asgi-call.conditional-date-match"
       ],
       "target_profiles": [
         "rust-native-local",
@@ -179,7 +179,6 @@
         "starlette.staticfiles.StaticFiles.asgi-call.package-static-assets"
       ],
       "target_profiles": [
-        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
@@ -227,7 +226,6 @@
         "starlette.staticfiles.StaticFiles.asgi-call.package-static-assets"
       ],
       "target_profiles": [
-        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
@@ -257,6 +255,397 @@
         "scheme": "http",
         "path": "/default.txt",
         "raw_path_base64": "L2RlZmF1bHQudHh0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.html-index-file",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.html-index-file"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "packages": [],
+      "files": [
+        {
+          "path": "docs/index.html",
+          "contents_base64": "PGRvYz5zdGF0aWM8L2RvYz4=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "html": true,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/docs/",
+        "raw_path_base64": "L2RvY3Mv",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.html-not-found-fallback",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.html-not-found-fallback"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "packages": [],
+      "files": [
+        {
+          "path": "404.html",
+          "contents_base64": "Tm90IEZvdW5kIQ==",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "html": true,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/missing.txt",
+        "raw_path_base64": "L21pc3NpbmcudHh0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-etag-match",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.conditional-etag-match"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "packages": [],
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/asset.txt",
+        "raw_path_base64": "L2Fzc2V0LnR4dA==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          ["aWYtbm9uZS1tYXRjaA==", "IjI0NTI2MjY4YTNmY2I3NGQzMzFjMzczNTU2NDQxZjU5Ig=="]
+        ],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-weak-etag-list",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.conditional-weak-etag-list"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "packages": [],
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/asset.txt",
+        "raw_path_base64": "L2Fzc2V0LnR4dA==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          ["aWYtbm9uZS1tYXRjaA==", "Vy8iMjQ1MjYyNjhhM2ZjYjc0ZDMzMWMzNzM1NTY0NDFmNTkiLCAidW5yZWxhdGVkIg=="]
+        ],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-validator-precedence",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.conditional-validator-precedence"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "packages": [],
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/asset.txt",
+        "raw_path_base64": "L2Fzc2V0LnR4dA==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          ["aWYtbm9uZS1tYXRjaA==", "d3JvbmctZXRhZw=="],
+          ["aWYtbW9kaWZpZWQtc2luY2U=", "V2VkLCAxNSBOb3YgMjAyMyAwMDowMDowMCBHTVQ="]
+        ],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.rust-package-explicit-subdir-root",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.rust-explicit-package-roots"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "directory": "public",
+      "packages": [
+        {
+          "name": "static_fixture_custom_pkg",
+          "statics_dir": "static",
+          "files": [
+            {
+              "path": "asset.css",
+              "contents_base64": "Ym9keSB7IGNvbG9yOiByZWQ7IH0=",
+              "mtime_seconds": 1700000000.0
+            }
+          ]
+        }
+      ],
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/asset.css",
+        "raw_path_base64": "L2Fzc2V0LmNzcw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.rust-package-explicit-statics-root",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.rust-explicit-package-roots"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "directory": "public",
+      "packages": [
+        {
+          "name": "static_fixture_default_pkg",
+          "statics_dir": "statics",
+          "files": [
+            {
+              "path": "default.txt",
+              "contents_base64": "ZGVmYXVsdCBwYWNrYWdlIGFzc2V0",
+              "mtime_seconds": 1700000000.0
+            }
+          ]
+        }
+      ],
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/default.txt",
+        "raw_path_base64": "L2RlZmF1bHQudHh0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.not-found-get",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.not-found-get"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "packages": [],
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/missing.txt",
+        "raw_path_base64": "L21pc3NpbmcudHh0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.method-not-allowed-post",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.method-not-allowed-post"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "packages": [],
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/asset.txt",
+        "raw_path_base64": "L2Fzc2V0LnR4dA==",
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],

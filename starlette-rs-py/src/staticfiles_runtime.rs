@@ -6,8 +6,11 @@ use pyo3::exceptions::{
     PyAssertionError, PyKeyError, PyOSError, PyPermissionError, PyRuntimeError, PyValueError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
-use starlette_rs::{StaticFiles as NativeStaticFiles, StaticFilesError, StaticFilesResponse};
+use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
+use starlette_rs::{
+    FileStat, FileStatTimestamp, StaticFiles as NativeStaticFiles, StaticFilesError,
+    StaticFilesResponse,
+};
 
 /// Registers the native static-file runtime.
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -132,11 +135,7 @@ impl PyStaticFiles {
         match self.inner.lookup_path(path).map_err(static_files_error)? {
             Some(file) => Ok((
                 path_string(&file.path)?,
-                stat_result(
-                    py,
-                    file.metadata.size(),
-                    file.metadata.modified_unix_seconds(),
-                )?,
+                stat_result(py, &file.path, file.metadata.stat_result())?,
             )),
             None => Ok((String::new(), py.None())),
         }
@@ -212,11 +211,7 @@ impl PyStaticFiles {
                 kwargs.set_item("status_code", status_code)?;
                 kwargs.set_item(
                     "stat_result",
-                    stat_result(
-                        py,
-                        file.metadata.size(),
-                        file.metadata.modified_unix_seconds(),
-                    )?,
+                    stat_result(py, &file.path, file.metadata.stat_result())?,
                 )?;
                 response_type
                     .call((path_string(&file.path)?,), Some(&kwargs))
@@ -327,12 +322,69 @@ fn path_string(path: &Path) -> PyResult<String> {
         .ok_or_else(|| PyValueError::new_err("filesystem path is not valid UTF-8"))
 }
 
-fn stat_result(py: Python<'_>, size: u64, modified: f64) -> PyResult<Py<PyAny>> {
+fn stat_result(py: Python<'_>, path: &Path, stat: Option<&FileStat>) -> PyResult<Py<PyAny>> {
     let os = PyModule::import(py, "os")?;
+    let Some(stat) = stat else {
+        return os
+            .getattr("stat")?
+            .call1((path_string(path)?,))
+            .map(Bound::unbind);
+    };
+
     let stat_type = os.getattr("stat_result")?;
+    let tuple_fields = (
+        stat.mode,
+        stat.inode,
+        stat.device,
+        stat.link_count,
+        stat.user_id,
+        stat.group_id,
+        stat.size,
+        stat.access_time.seconds,
+        stat.modified_time.seconds,
+        stat.change_time.seconds,
+    );
+    let extra_fields = PyDict::new(py);
+    set_timestamp_fields(py, &extra_fields, "atime", stat.access_time)?;
+    set_timestamp_fields(py, &extra_fields, "mtime", stat.modified_time)?;
+    set_timestamp_fields(py, &extra_fields, "ctime", stat.change_time)?;
+    if let Some(block_size) = stat.block_size {
+        extra_fields.set_item("st_blksize", block_size)?;
+    }
+    if let Some(blocks) = stat.blocks {
+        extra_fields.set_item("st_blocks", blocks)?;
+    }
+    if let Some(special_device) = stat.special_device {
+        extra_fields.set_item("st_rdev", special_device)?;
+    }
+    if let Some(flags) = stat.flags {
+        extra_fields.set_item("st_flags", flags)?;
+    }
+    if let Some(generation) = stat.generation {
+        extra_fields.set_item("st_gen", generation)?;
+    }
+    if let Some(birth_time) = stat.birth_time {
+        extra_fields.set_item("st_birthtime", birth_time.unix_seconds())?;
+    }
     stat_type
-        .call1(((0o100644, 0, 0, 1, 0, 0, size, modified, modified, modified),))
+        .call1((tuple_fields, extra_fields))
         .map(Bound::unbind)
+}
+
+fn set_timestamp_fields(
+    py: Python<'_>,
+    fields: &Bound<'_, PyDict>,
+    name: &str,
+    timestamp: FileStatTimestamp,
+) -> PyResult<()> {
+    let key = format!("st_{name}");
+    fields.set_item(key.as_str(), timestamp.unix_seconds())?;
+    let nanoseconds_key = format!("st_{name}_ns");
+    let nanoseconds = PyInt::new(py, timestamp.seconds)
+        .call_method1("__mul__", (1_000_000_000_i64,))?
+        .call_method1("__add__", (timestamp.nanoseconds,))?;
+    fields.set_item(nanoseconds_key.as_str(), nanoseconds)?;
+    Ok(())
 }
 
 fn headers_mapping<'py>(

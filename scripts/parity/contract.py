@@ -178,6 +178,7 @@ RESPONSE_SURFACES = {RESPONSE_SURFACE, JSON_RESPONSE_SURFACE}
 STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
+STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
 STREAMING_RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 RESPONSE_OPERATION = "asgi-call"
@@ -211,6 +212,13 @@ STATIC_FILES_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
     "incoming",
     "send",
+}
+STATIC_FILES_LOOKUP_PATH_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "directory",
+    "files",
+    "lookup_path",
+    "check_dir",
+    "follow_symlink",
 }
 RESPONSE_OBSERVATIONS = [
     "response_status",
@@ -2623,15 +2631,15 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
             selected_files[file_input["path"]] = (float(file_input["mtime_seconds"]), True)
     method = scope["method"]
     derived: set[str] = set()
+    if method == "POST":
+        derived.add("method-not-allowed-post")
     if method == "HEAD" and normalized_path in selected_files:
         derived.add("head-file")
-    if (
-        case["html"]
-        and not path.endswith("/")
-        and selected_files.get(f"{normalized_path}/index.html") is not None
-    ):
-        derived.add("html-index-redirect")
+    index_path = "index.html" if normalized_path == "." else f"{normalized_path}/index.html"
+    if method == "GET" and case["html"] and index_path in selected_files:
+        derived.add("html-index-file" if path.endswith("/") else "html-index-redirect")
     conditional_match = False
+    request_headers: dict[str, str] = {}
     if method == "GET" and normalized_path in selected_files:
         for encoded_name, encoded_value in scope["headers_base64_pairs"]:
             try:
@@ -2641,6 +2649,7 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "StaticFiles scope headers must use valid base64 bytes"
                 ) from exc
+            request_headers[name] = value
             if name == "if-modified-since":
                 try:
                     request_date = parsedate_to_datetime(value)
@@ -2648,12 +2657,37 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
                     continue
                 if request_date.timestamp() >= selected_files[normalized_path][0]:
                     conditional_match = True
-        if conditional_match:
-            derived.add("conditional-not-modified")
+        if request_headers.get("if-none-match") and request_headers.get("if-modified-since"):
+            derived.add("conditional-validator-precedence")
+        elif request_headers.get("if-none-match"):
+            if "W/" in request_headers["if-none-match"] and "," in request_headers[
+                "if-none-match"
+            ]:
+                derived.add("conditional-weak-etag-list")
+            else:
+                derived.add("conditional-etag-match")
+        elif conditional_match:
+            derived.add("conditional-date-match")
         elif selected_files[normalized_path][1]:
-            derived.add("package-static-assets")
+            if "python-package-cpython312" in case["target_profiles"]:
+                derived.add("package-static-assets")
+            if "rust-native-local" in case["target_profiles"]:
+                derived.add("rust-explicit-package-roots")
         else:
             derived.add("rooted-file-get")
+    if (
+        method == "GET"
+        and case["html"]
+        and normalized_path not in selected_files
+        and "404.html" in selected_files
+    ):
+        derived.add("html-not-found-fallback")
+    elif (
+        method == "GET"
+        and normalized_path not in selected_files
+        and not (case["html"] and index_path in selected_files)
+    ):
+        derived.add("not-found-get")
     if not derived:
         raise ContractError("StaticFiles input must select a declared live response behavior")
     expected_covers = {f"{STATIC_FILES_SURFACE}.asgi-call.{item}" for item in derived}
@@ -2661,6 +2695,59 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "StaticFiles case claims requirements not selected by its configured files and request"
         )
+
+
+def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
+    _exact(case, STATIC_FILES_LOOKUP_PATH_CASE_KEYS, "StaticFiles lookup-path case")
+    if (
+        case["surface"] != STATIC_FILES_SURFACE
+        or case["operation"] != STATIC_FILES_LOOKUP_PATH_OPERATION
+    ):
+        raise ContractError("case is outside the declared StaticFiles lookup-path operation")
+    if case["observations"] != [STATIC_FILES_LOOKUP_PATH_OPERATION]:
+        raise ContractError("StaticFiles lookup-path observations must select lookup-path")
+
+    directory = _string(case["directory"], "StaticFiles lookup-path.directory")
+    if not directory or Path(directory).is_absolute() or Path(directory).name != directory:
+        raise ContractError("StaticFiles lookup-path.directory must be a relative basename")
+    if type(case["check_dir"]) is not bool or type(case["follow_symlink"]) is not bool:
+        raise ContractError("StaticFiles lookup-path options must be boolean")
+
+    files = case["files"]
+    if not isinstance(files, list) or not files:
+        raise ContractError("StaticFiles lookup-path files must be a non-empty array")
+    file_paths: set[str] = set()
+    for index, file_input in enumerate(files):
+        path, _ = _validate_static_asset_file(
+            file_input, f"StaticFiles lookup-path.files[{index}]"
+        )
+        if path in file_paths:
+            raise ContractError("StaticFiles lookup-path file paths must be unique")
+        file_paths.add(path)
+
+    lookup_path = _string(case["lookup_path"], "StaticFiles lookup_path")
+    is_absolute = lookup_path.startswith(("/", "\\")) or Path(lookup_path).is_absolute()
+    if is_absolute:
+        requirement = "absolute-path-rejected"
+    else:
+        if (
+            not lookup_path
+            or "\\" in lookup_path
+            or any(part in {"", ".", ".."} for part in lookup_path.split("/"))
+        ):
+            raise ContractError("StaticFiles lookup_path must be absolute or normalized relative")
+        if lookup_path in file_paths:
+            requirement = "file-metadata"
+        elif any(path.startswith(f"{lookup_path}/") for path in file_paths):
+            requirement = "directory-metadata"
+        else:
+            raise ContractError("StaticFiles lookup_path must select an input file or directory")
+
+    expected_covers = {
+        f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.{requirement}"
+    }
+    if set(case["covers"]) != expected_covers:
+        raise ContractError("StaticFiles lookup-path covers must match the selected input path")
 
 
 def _validate_static_asset_file(value: Any, context: str) -> tuple[str, float]:
@@ -3742,6 +3829,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and case.get("surface") == STATIC_FILES_SURFACE
         and case.get("operation") == RESPONSE_OPERATION
     )
+    is_static_files_lookup_path = (
+        isinstance(case, dict)
+        and case.get("surface") == STATIC_FILES_SURFACE
+        and case.get("operation") == STATIC_FILES_LOOKUP_PATH_OPERATION
+    )
     is_response = isinstance(case, dict) and case.get("surface") in RESPONSE_SURFACES
     is_streaming_response = (
         isinstance(case, dict)
@@ -3799,6 +3891,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_file_response
         else STATIC_FILES_CASE_KEYS
         if is_static_files
+        else STATIC_FILES_LOOKUP_PATH_CASE_KEYS
+        if is_static_files_lookup_path
         else RESPONSE_CASE_KEYS
         if is_response
         else STREAMING_RESPONSE_CASE_KEYS
@@ -3901,6 +3995,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_static_files:
         if case["operation"] != RESPONSE_OPERATION:
             raise ContractError("StaticFiles cases must use the declared asgi-call operation")
+    elif is_static_files_lookup_path:
+        if case["operation"] != STATIC_FILES_LOOKUP_PATH_OPERATION:
+            raise ContractError("StaticFiles lookup cases must use the declared lookup-path operation")
     elif is_response:
         if case["operation"] != RESPONSE_OPERATION:
             raise ContractError("Response cases must use the declared asgi-call operation")
@@ -4067,6 +4164,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_static_files:
         _validate_static_files_case_stimulus(case)
+        return case
+    if is_static_files_lookup_path:
+        _validate_static_files_lookup_path_case(case)
         return case
     if is_response:
         _validate_response_case_stimulus(case)

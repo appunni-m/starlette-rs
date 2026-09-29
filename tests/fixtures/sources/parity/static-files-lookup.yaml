@@ -1,0 +1,80 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.file-metadata"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "lookup_path": "asset.txt",
+      "check_dir": true,
+      "follow_symlink": false,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.directory-metadata",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.directory-metadata"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "nested/asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "lookup_path": "nested",
+      "check_dir": true,
+      "follow_symlink": false,
+      "observations": ["lookup-path"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.absolute-path-rejected",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.absolute-path-rejected"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "lookup_path": "/etc/passwd",
+      "check_dir": true,
+      "follow_symlink": false,
+      "observations": ["lookup-path"]
+    }
+  ]
+}

@@ -366,6 +366,10 @@
         {
           "operation_id": "asgi-call",
           "source_path": "starlette.staticfiles.StaticFiles.__call__"
+        },
+        {
+          "operation_id": "lookup-path",
+          "source_path": "starlette.staticfiles.StaticFiles.lookup_path"
         }
       ]
     },

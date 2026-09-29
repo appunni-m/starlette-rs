@@ -20,6 +20,119 @@ pub struct FileMetadata {
     size: u64,
     modified: SystemTime,
     modified_text: String,
+    stat_result: Option<FileStat>,
+}
+
+/// Filesystem stat fields retained for Python's `os.stat_result` representation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileStat {
+    /// POSIX mode bits.
+    pub mode: u32,
+    /// Inode number.
+    pub inode: u64,
+    /// Device identifier.
+    pub device: u64,
+    /// Number of hard links.
+    pub link_count: u64,
+    /// Owning user identifier.
+    pub user_id: u32,
+    /// Owning group identifier.
+    pub group_id: u32,
+    /// File size in bytes.
+    pub size: u64,
+    /// Last access timestamp.
+    pub access_time: FileStatTimestamp,
+    /// Last modification timestamp.
+    pub modified_time: FileStatTimestamp,
+    /// Status change timestamp.
+    pub change_time: FileStatTimestamp,
+    /// Preferred I/O block size when exposed by the platform.
+    pub block_size: Option<u64>,
+    /// Number of allocated blocks when exposed by the platform.
+    pub blocks: Option<u64>,
+    /// Device identifier for special files when exposed by the platform.
+    pub special_device: Option<u64>,
+    /// File flags when exposed by the platform.
+    pub flags: Option<u32>,
+    /// Filesystem generation number when exposed by the platform.
+    pub generation: Option<u32>,
+    /// Creation time when exposed by the platform.
+    pub birth_time: Option<FileStatTimestamp>,
+}
+
+/// A filesystem timestamp represented in Unix seconds and nanoseconds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FileStatTimestamp {
+    /// Whole seconds from the Unix epoch.
+    pub seconds: i64,
+    /// Nanoseconds within `seconds`.
+    pub nanoseconds: i64,
+}
+
+impl FileStatTimestamp {
+    /// Returns the timestamp as floating-point Unix seconds.
+    #[must_use]
+    pub fn unix_seconds(self) -> f64 {
+        self.seconds as f64 + self.nanoseconds as f64 / 1_000_000_000.0
+    }
+}
+
+impl FileStat {
+    fn from_metadata(metadata: &Metadata) -> Option<Self> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+
+            let mut stat = Self {
+                mode: metadata.mode(),
+                inode: metadata.ino(),
+                device: metadata.dev(),
+                link_count: metadata.nlink(),
+                user_id: metadata.uid(),
+                group_id: metadata.gid(),
+                size: metadata.size(),
+                access_time: FileStatTimestamp {
+                    seconds: metadata.atime(),
+                    nanoseconds: metadata.atime_nsec(),
+                },
+                modified_time: FileStatTimestamp {
+                    seconds: metadata.mtime(),
+                    nanoseconds: metadata.mtime_nsec(),
+                },
+                change_time: FileStatTimestamp {
+                    seconds: metadata.ctime(),
+                    nanoseconds: metadata.ctime_nsec(),
+                },
+                block_size: Some(metadata.blksize()),
+                blocks: Some(metadata.blocks()),
+                special_device: Some(metadata.rdev()),
+                flags: None,
+                generation: None,
+                birth_time: None,
+            };
+
+            #[cfg(target_os = "macos")]
+            {
+                use std::os::macos::fs::MetadataExt as MacMetadataExt;
+
+                stat.flags = Some(MacMetadataExt::st_flags(metadata));
+                stat.generation = Some(MacMetadataExt::st_gen(metadata));
+                stat.birth_time = Some(FileStatTimestamp {
+                    seconds: MacMetadataExt::st_birthtime(metadata),
+                    nanoseconds: MacMetadataExt::st_birthtime_nsec(metadata),
+                });
+            }
+
+            Some(stat)
+        }
+        #[cfg(not(unix))]
+        {
+            // Keep unsupported platforms on Python's own stat_result implementation
+            // instead of filling unavailable tuple fields with invented values.
+            let _ = metadata;
+            None
+        }
+    }
 }
 
 impl FileMetadata {
@@ -40,6 +153,7 @@ impl FileMetadata {
             size,
             modified,
             modified_text: modified_text.into(),
+            stat_result: None,
         })
     }
 
@@ -50,6 +164,7 @@ impl FileMetadata {
             size: metadata.len(),
             modified,
             modified_text: python_float_text(seconds),
+            stat_result: FileStat::from_metadata(metadata),
         })
     }
 
@@ -63,6 +178,12 @@ impl FileMetadata {
     #[must_use]
     pub fn modified_unix_seconds(&self) -> f64 {
         unix_seconds(self.modified)
+    }
+
+    /// Returns the full filesystem stat snapshot when the platform exposes it.
+    #[must_use]
+    pub fn stat_result(&self) -> Option<&FileStat> {
+        self.stat_result.as_ref()
     }
 }
 
