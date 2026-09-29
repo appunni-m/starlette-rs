@@ -5,8 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Literal
 
-from starlette.datastructures import Secret
 from starlette_rs_py import _core
+
+from starlette.datastructures import Secret
 
 
 class Session(dict[str, Any]):

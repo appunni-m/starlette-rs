@@ -183,20 +183,21 @@ separate scheduling assertion for `check_config`, cross-platform
 `os.stat_result` fields and Windows path normalization and semantics, and
 remaining validator branches.
 
-Integrated run `1e508cab-8193-42d8-bf65-49778dfd3309` started at
-`2026-09-29T11:03:04.933Z` and finished at `2026-09-29T11:04:00.797Z`. It
-selected 440 profile comparisons: 436 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 303 selected
+Integrated run `2a46e263-b1d2-4b80-bde4-262075bd998c` started at
+`2026-09-29T12:09:32.851Z` and finished at `2026-09-29T12:10:30.993Z`. It
+selected 448 profile comparisons: 444 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 311 selected
 cases; Rust-native passed 133 of 137 selected cases. The four Rust-native rows
 require arbitrary Python endpoint callables. All 27 FileResponse cases passed
-on both target profiles. The native target was clean at revision
-`f65d14b69386c5c4c71cb635bd662b4a41ad0bf6`; the installed Python package is
-identified by content hash
-`7fccb6bd4c947552e1f7a967a3cc5de64c16d6ba3c6c3cf710d66d6f94092e86` and is
+on both target profiles, and all eight SessionMiddleware cases passed on the
+Python package profile. The native target was dirty at revision
+`268ccde19b0eef1d0c7401303daca50ff940abf9+source-fnv1a64-6d02a046883b0cf5`;
+the installed Python package is identified by content hash
+`8285e8f4e2f6b18e01e8d5f2766d7aabc960413e18b00b26b8f5b1a14bfad646` and is
 marked dirty by the adapter. Manifest SHA-256:
-`e69f5c192622a6b1a49f52cd8a370e716c24e75f5d57996d2008901b0bebebc0`.
+`287280853528a55a455e26e2ecb9c2f6c0600e7d7a853c0f41b04c82af99cfb6`.
 Package wheel artifact SHA-256:
-`cc698e5d4ce56195a238bd8a9f2e13aea8e6fc9a2806bf8d88e6314a18868337`.
+`5fc234604060873cb4f1c6b5933743790007443feae652d74e6182574c8c5f22`.
 `make parity-run` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this run does not establish full Starlette
 parity or release readiness.
@@ -353,7 +354,7 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@9` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 299 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. Generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 313 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. Generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 

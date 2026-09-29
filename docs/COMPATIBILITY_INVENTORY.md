@@ -25,20 +25,21 @@ middleware (including a bounded SessionMiddleware workflow), configuration, and 
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `1e508cab-8193-42d8-bf65-49778dfd3309` started at
-`2026-09-29T11:03:04.933Z` and finished at `2026-09-29T11:04:00.797Z`. It
-selected 440 profile comparisons: 436 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 303 applicable
+Integrated run `2a46e263-b1d2-4b80-bde4-262075bd998c` started at
+`2026-09-29T12:09:32.851Z` and finished at `2026-09-29T12:10:30.993Z`. It
+selected 448 profile comparisons: 444 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 311 applicable
 comparisons; Rust-native passed 133 of 137, with four rows requiring Python
-callables marked `not_run`. All 27 FileResponse cases passed on both profiles.
-The Rust-native target was clean at revision
-`f65d14b69386c5c4c71cb635bd662b4a41ad0bf6`; the installed Python package was
-content-addressed as
-`dirty-tree:7fccb6bd4c947552e1f7a967a3cc5de64c16d6ba3c6c3cf710d66d6f94092e86`.
+callables marked `not_run`. All 27 FileResponse cases passed on both profiles,
+and all eight SessionMiddleware cases passed on the Python package profile.
+The Rust-native target was dirty at revision
+`268ccde19b0eef1d0c7401303daca50ff940abf9+source-fnv1a64-6d02a046883b0cf5`;
+the installed Python package was content-addressed as
+`dirty-tree:8285e8f4e2f6b18e01e8d5f2766d7aabc960413e18b00b26b8f5b1a14bfad646`.
 Manifest SHA-256:
-`e69f5c192622a6b1a49f52cd8a370e716c24e75f5d57996d2008901b0bebebc0`.
+`287280853528a55a455e26e2ecb9c2f6c0600e7d7a853c0f41b04c82af99cfb6`.
 Package wheel artifact SHA-256:
-`cc698e5d4ce56195a238bd8a9f2e13aea8e6fc9a2806bf8d88e6314a18868337`.
+`5fc234604060873cb4f1c6b5933743790007443feae652d74e6182574c8c5f22`.
 This run covers the active disconnect-cancellation, cookie-mutation,
 FileResponse range, and StreamingResponse iterator inputs;
 the four unsupported Rust-native Python-callable rows keep the overall gate incomplete.
@@ -329,9 +330,8 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 299 currently indexed cases and
-the 644-row atlas backlog snapshot
-in [`PRIORITIZED_BACKLOG.md`](atlas/PRIORITIZED_BACKLOG.md).
+The backlog distinguishes that work from the 313 currently indexed cases and
+the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
 
 ## Generate the source candidate catalog
 

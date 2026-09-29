@@ -35,19 +35,20 @@ this plan identify recorded executions.
 The current parity contract has 313 input-only cases, 55 operations, and 390
 parity requirements across 37 indexed files, including a bounded SessionMiddleware
 workflow slice. Latest integrated run
-`1e508cab-8193-42d8-bf65-49778dfd3309`, from `2026-09-29T11:03:04.933Z` to
-`2026-09-29T11:04:00.797Z`, selected 440 profile comparisons: 436 passed,
+`2a46e263-b1d2-4b80-bde4-262075bd998c`, from `2026-09-29T12:09:32.851Z` to
+`2026-09-29T12:10:30.993Z`, selected 448 profile comparisons: 444 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 303 selected comparisons; Rust-native passed 133 of 137,
+package passed all 311 selected comparisons; Rust-native passed 133 of 137,
 with four Python-callable rows `not_run`. All 27 FileResponse cases passed on
-both profiles. The Rust-native target was clean at revision
-`f65d14b69386c5c4c71cb635bd662b4a41ad0bf6`; the installed Python package was
-content-addressed as
-`dirty-tree:7fccb6bd4c947552e1f7a967a3cc5de64c16d6ba3c6c3cf710d66d6f94092e86`.
+both profiles, and all eight SessionMiddleware cases passed on the Python
+package profile. The Rust-native target was dirty at revision
+`268ccde19b0eef1d0c7401303daca50ff940abf9+source-fnv1a64-6d02a046883b0cf5`;
+the installed Python package was content-addressed as
+`dirty-tree:8285e8f4e2f6b18e01e8d5f2766d7aabc960413e18b00b26b8f5b1a14bfad646`.
 Manifest SHA-256:
-`e69f5c192622a6b1a49f52cd8a370e716c24e75f5d57996d2008901b0bebebc0`.
+`287280853528a55a455e26e2ecb9c2f6c0600e7d7a853c0f41b04c82af99cfb6`.
 Package wheel artifact SHA-256:
-`cc698e5d4ce56195a238bd8a9f2e13aea8e6fc9a2806bf8d88e6314a18868337`.
+`5fc234604060873cb4f1c6b5933743790007443feae652d74e6182574c8c5f22`.
 `make parity-run` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 

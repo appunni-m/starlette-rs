@@ -62,16 +62,16 @@ compatibility.
 
 The current contract has 313 input-only cases across 37 files, covering 55
 operations and 390 requirements. Integrated run
-`1e508cab-8193-42d8-bf65-49778dfd3309` selected 440 comparisons: 436 passed,
+`2a46e263-b1d2-4b80-bde4-262075bd998c` selected 448 comparisons: 444 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 303 applicable cases; Rust-native passed 133 of 137 selected
+package passed all 311 applicable cases; Rust-native passed 133 of 137 selected
 cases. The four Rust-native rows require arbitrary Python callables. All 27
-FileResponse cases passed on both profiles. The native target was clean at
-`f65d14b69386c5c4c71cb635bd662b4a41ad0bf6`; the installed Python package is
-content-addressed and marked dirty. Manifest SHA-256:
-`e69f5c192622a6b1a49f52cd8a370e716c24e75f5d57996d2008901b0bebebc0`. See
+FileResponse cases passed on both profiles; all eight SessionMiddleware cases
+passed on the Python package profile. Both targets are content-addressed dirty
+trees. Manifest SHA-256:
+`287280853528a55a455e26e2ecb9c2f6c0600e7d7a853c0f41b04c82af99cfb6`. See
 [Migration parity contract and evidence](../PARITY.md) for current scope and
-the case breakdown; the Router/GZip benchmark lane remains `not_proven`.
+the case breakdown; Rust-native parity remains incomplete.
 
 ## Candidate review CSV
 

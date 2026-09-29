@@ -1726,9 +1726,7 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             {"kind", "value"},
             "SessionMiddleware secret key",
         )
-        if secret_key_input["kind"] != "secret" or not isinstance(
-            secret_key_input["value"], str
-        ):
+        if secret_key_input["kind"] != "secret" or not isinstance(secret_key_input["value"], str):
             raise ValueError("SessionMiddleware secret key must be a string or Secret input")
         from starlette.datastructures import Secret
 
@@ -1953,9 +1951,7 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     {"subprotocol", "headers_base64_pairs"},
                     "SessionMiddleware WebSocket accept action",
                 )
-                if accept["subprotocol"] is not None and not isinstance(
-                    accept["subprotocol"], str
-                ):
+                if accept["subprotocol"] is not None and not isinstance(accept["subprotocol"], str):
                     raise ValueError("WebSocket accept subprotocol must be a string or null")
                 if (
                     accept["subprotocol"] is not None
@@ -2076,9 +2072,7 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     return message
                 return {"type": "http.disconnect"}
 
-            async def send(
-                message: dict[str, Any], _sent: list[dict[str, Any]] = sent
-            ) -> None:
+            async def send(message: dict[str, Any], _sent: list[dict[str, Any]] = sent) -> None:
                 _sent.append(message)
 
             await middleware(scope, receive, send)

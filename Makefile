@@ -5,7 +5,7 @@
 CARGO ?= cargo
 PYTHON ?= python3
 PARITY_PYTHON ?= python3.12
-STARLETTE_ORACLE_ROOT ?= /Users/lazytrot/work/starlette
+STARLETTE_ORACLE_ROOT ?= ../starlette
 STYLE_VENV ?= .venv-style
 STYLE_PYTHON ?= $(STYLE_VENV)/bin/python
 RUFF ?= $(STYLE_PYTHON) -m ruff

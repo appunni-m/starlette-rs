@@ -4640,7 +4640,9 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                 for pair in scope["headers_base64_pairs"]
             }
             if "cookie" in header_names:
-                raise ContractError("session cookie input must use cookie_source, not scope headers")
+                raise ContractError(
+                    "session cookie input must use cookie_source, not scope headers"
+                )
         if scope_type == "http":
             if request["receive"] != [
                 {"type": "http.request", "body_base64": "", "more_body": False}
@@ -4669,9 +4671,7 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
             }:
                 raise ContractError("SessionMiddleware cookie_source has an unsupported kind")
             if cookie_source["kind"] == "raw-cookie":
-                cookie_source = _exact(
-                    cookie_source, {"kind", "value"}, f"{context}.raw-cookie"
-                )
+                cookie_source = _exact(cookie_source, {"kind", "value"}, f"{context}.raw-cookie")
                 value = _string(cookie_source["value"], f"{context}.raw-cookie.value")
                 try:
                     value.encode("latin-1")
@@ -4713,7 +4713,9 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         action_kind = action["kind"]
         if action_kind in {"view", "clear", "no-access"}:
             if scope_type != "http":
-                raise ContractError("session view, clear, and no-access actions require HTTP scopes")
+                raise ContractError(
+                    "session view, clear, and no-access actions require HTTP scopes"
+                )
             action = _exact(action, {"kind"}, f"{context}.action")
         elif action_kind == "update":
             if scope_type != "http":
@@ -4726,7 +4728,9 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
             try:
                 json.dumps(action["values"], allow_nan=False)
             except (TypeError, ValueError) as exc:
-                raise ContractError("SessionMiddleware update values must be JSON-compatible") from exc
+                raise ContractError(
+                    "SessionMiddleware update values must be JSON-compatible"
+                ) from exc
         else:
             if action_kind == "session-mutation" and scope_type != "http":
                 raise ContractError("direct Session mutations require HTTP scopes")
@@ -4789,8 +4793,12 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                     f"{context}.session-mutation action",
                 )
                 initial = action["initial"]
-                if not isinstance(initial, dict) or any(not isinstance(key, str) for key in initial):
-                    raise ContractError("Session mutation initial value must be a string-key mapping")
+                if not isinstance(initial, dict) or any(
+                    not isinstance(key, str) for key in initial
+                ):
+                    raise ContractError(
+                        "Session mutation initial value must be a string-key mapping"
+                    )
                 mutation = action["mutation"]
                 if not isinstance(mutation, dict) or mutation.get("kind") not in {
                     "set",
@@ -4810,9 +4818,7 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                     "setdefault": {"kind", "key", "default"},
                     "update": {"kind", "values"},
                 }[mutation_kind]
-                mutation = _exact(
-                    mutation, mutation_fields, f"{context}.mutation.{mutation_kind}"
-                )
+                mutation = _exact(mutation, mutation_fields, f"{context}.mutation.{mutation_kind}")
                 if mutation_kind in {"set", "delete", "pop", "setdefault"}:
                     _string(mutation["key"], f"{context}.mutation.key")
                 if mutation_kind == "delete" and mutation["key"] not in initial:
@@ -4830,15 +4836,10 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                     ) from exc
         actions.append(action)
 
-    for request, previous in previous_cookie_refs:
+    for _request, previous in previous_cookie_refs:
         previous_action = previous["action"]
-        if (
-            previous_action.get("kind") != "update"
-            or not previous_action.get("values")
-        ):
-            raise ContractError(
-                "previous-set-cookie source must follow a non-empty session update"
-            )
+        if previous_action.get("kind") != "update" or not previous_action.get("values"):
+            raise ContractError("previous-set-cookie source must follow a non-empty session update")
 
     requirements = {SESSION_REQUIREMENTS["construct"]}
     if isinstance(constructor["secret_key"], dict):
@@ -4877,10 +4878,7 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         if (
             constructor["domain"] is not None
             and constructor["https_only"]
-            and any(
-                request["scope"]["scheme"] == "https"
-                for request in update_requests
-            )
+            and any(request["scope"]["scheme"] == "https" for request in update_requests)
         ):
             requirements.add(SESSION_REQUIREMENTS["domain_secure_attributes"])
         if constructor["path"] != "/" and any(
@@ -4889,14 +4887,11 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
             for request in update_requests
         ):
             requirements.add(SESSION_REQUIREMENTS["cookie_subpath"])
-    if (
-        (constructor["max_age"] is None or constructor["max_age"] >= 0)
-        and any(
-            prior["action"]["kind"] == "update"
-            and prior["action"]["values"]
-            and request["action"]["kind"] in {"view", "websocket-view"}
-            for request, prior in previous_cookie_refs
-        )
+    if (constructor["max_age"] is None or constructor["max_age"] >= 0) and any(
+        prior["action"]["kind"] == "update"
+        and prior["action"]["values"]
+        and request["action"]["kind"] in {"view", "websocket-view"}
+        for request, prior in previous_cookie_refs
     ):
         requirements.add(SESSION_REQUIREMENTS["signed_cookie_round_trip"])
     if has_invalid_signature_input:
@@ -4933,24 +4928,19 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
     ):
         requirements.add(SESSION_REQUIREMENTS["websocket_cookie_loading"])
     if any(
-        request["scope"]["type"] == "lifespan"
-        and request["action"]["kind"] == "passthrough"
+        request["scope"]["type"] == "lifespan" and request["action"]["kind"] == "passthrough"
         for request in requests
     ):
         requirements.add(SESSION_REQUIREMENTS["non_http_pass_through"])
 
-    mutation_actions = [
-        action for action in actions if action["kind"] == "session-mutation"
-    ]
+    mutation_actions = [action for action in actions if action["kind"] == "session-mutation"]
     mutation_kinds = {action["mutation"]["kind"] for action in mutation_actions}
     pop_existing = any(
-        action["mutation"]["kind"] == "pop"
-        and action["mutation"]["key"] in action["initial"]
+        action["mutation"]["kind"] == "pop" and action["mutation"]["key"] in action["initial"]
         for action in mutation_actions
     )
     pop_missing = any(
-        action["mutation"]["kind"] == "pop"
-        and action["mutation"]["key"] not in action["initial"]
+        action["mutation"]["kind"] == "pop" and action["mutation"]["key"] not in action["initial"]
         for action in mutation_actions
     )
     setdefault_existing = any(
@@ -5317,9 +5307,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 requirements[requirement["id"]] = requirement
     if is_session_workflow:
         session_operation = operations.get(SESSION_WORKFLOW_OPERATION_KEY)
-        declared_requirements = {
-            item["id"] for item in session_operation["requirements"]
-        } if session_operation is not None else set()
+        declared_requirements = (
+            {item["id"] for item in session_operation["requirements"]}
+            if session_operation is not None
+            else set()
+        )
         if declared_requirements != set(SESSION_REQUIREMENTS.values()):
             raise ContractError(
                 "SessionMiddleware session-workflow must declare the complete canonical requirement set"

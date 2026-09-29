@@ -5421,9 +5421,7 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             {"kind", "value"},
             "SessionMiddleware secret key",
         )
-        if secret_key_input["kind"] != "secret" or not isinstance(
-            secret_key_input["value"], str
-        ):
+        if secret_key_input["kind"] != "secret" or not isinstance(secret_key_input["value"], str):
             raise ValueError("SessionMiddleware secret key must be a string or Secret input")
         from starlette.datastructures import Secret
 
@@ -5450,8 +5448,7 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(case["requests"], list):
         raise ValueError("SessionMiddleware requests must be an array")
 
-    from starlette.middleware.sessions import SessionMiddleware
-    from starlette.middleware.sessions import Session
+    from starlette.middleware.sessions import Session, SessionMiddleware
     from starlette.requests import Request
     from starlette.responses import JSONResponse
     from starlette.websockets import WebSocket
@@ -5587,17 +5584,23 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 if request_spec["receive"] != [
                     {"type": "websocket.connect", "subprotocols": scope["subprotocols"]}
                 ]:
-                    raise ValueError("SessionMiddleware WebSocket requests use offered connect input")
+                    raise ValueError(
+                        "SessionMiddleware WebSocket requests use offered connect input"
+                    )
             elif request_spec["receive"] != [
                 {"type": "lifespan.startup"},
                 {"type": "lifespan.shutdown"},
             ]:
-                raise ValueError("SessionMiddleware lifespan pass-through requires startup then shutdown")
+                raise ValueError(
+                    "SessionMiddleware lifespan pass-through requires startup then shutdown"
+                )
 
             cookie_source = request_spec["cookie_source"]
             if cookie_source is not None:
                 if scope_type not in {"http", "websocket"}:
-                    raise ValueError("SessionMiddleware cookie sources require HTTP or WebSocket scopes")
+                    raise ValueError(
+                        "SessionMiddleware cookie sources require HTTP or WebSocket scopes"
+                    )
                 if not isinstance(cookie_source, dict) or not isinstance(
                     cookie_source.get("kind"), str
                 ):
@@ -5634,7 +5637,9 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("SessionMiddleware action must be a tagged object")
             if action["kind"] in {"view", "clear", "no-access"}:
                 if scope_type != "http":
-                    raise ValueError("session view, clear, and no-access actions require HTTP scopes")
+                    raise ValueError(
+                        "session view, clear, and no-access actions require HTTP scopes"
+                    )
                 _exact_object(action, {"kind"}, "SessionMiddleware action")
             elif action["kind"] == "update":
                 if scope_type != "http":
@@ -5683,7 +5688,9 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     not isinstance(accept["subprotocol"], str)
                     or accept["subprotocol"] not in scope["subprotocols"]
                 ):
-                    raise ValueError("WebSocket accept subprotocol must be null or offered by client")
+                    raise ValueError(
+                        "WebSocket accept subprotocol must be null or offered by client"
+                    )
                 if not isinstance(accept["headers_base64_pairs"], list):
                     raise ValueError("WebSocket accept headers must be an array")
                 for pair in accept["headers_base64_pairs"]:
@@ -5708,13 +5715,15 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     raise ValueError("WebSocket close requires an integer code and string reason")
                 if scope["asgi"].get("spec_version") != "2.5":
                     raise ValueError("SessionMiddleware WebSocket action requires ASGI spec 2.5")
-                if request_spec["cookie_source"] is None or not isinstance(
-                    request_spec["cookie_source"], dict
-                ) or request_spec["cookie_source"].get("kind") != "previous-set-cookie":
-                    raise ValueError("SessionMiddleware WebSocket view requires a previous session cookie")
-                previous_action = actions_by_id[
-                    request_spec["cookie_source"]["request_id"]
-                ]
+                if (
+                    request_spec["cookie_source"] is None
+                    or not isinstance(request_spec["cookie_source"], dict)
+                    or request_spec["cookie_source"].get("kind") != "previous-set-cookie"
+                ):
+                    raise ValueError(
+                        "SessionMiddleware WebSocket view requires a previous session cookie"
+                    )
+                previous_action = actions_by_id[request_spec["cookie_source"]["request_id"]]
                 if previous_action["kind"] != "update" or not previous_action["values"]:
                     raise ValueError("WebSocket session cookie must follow a non-empty update")
             elif action["kind"] == "passthrough":

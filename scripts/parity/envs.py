@@ -243,14 +243,20 @@ def validate_oracle_runtime_lock(root: Path, upstream: Path) -> str:
     oracle_path = root / ORACLE_RUNTIME_LOCK_RELATIVE
     oracle = _lock_declarations(oracle_path)
     if set(oracle) != set(base) | {"itsdangerous"}:
-        raise ContractError("source-oracle lock must add only optional ItsDangerous to the ASGI closure")
+        raise ContractError(
+            "source-oracle lock must add only optional ItsDangerous to the ASGI closure"
+        )
     if any(oracle[name] != entry for name, entry in base.items()):
-        raise ContractError("source-oracle lock entries differ from the committed ASGI runtime lock")
+        raise ContractError(
+            "source-oracle lock entries differ from the committed ASGI runtime lock"
+        )
 
     try:
         upstream_lock = tomllib.loads((upstream / "uv.lock").read_text(encoding="utf-8"))
     except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
-        raise ContractError(f"cannot parse pinned source uv.lock for oracle dependencies: {exc}") from exc
+        raise ContractError(
+            f"cannot parse pinned source uv.lock for oracle dependencies: {exc}"
+        ) from exc
     package = next(
         (
             item
@@ -260,13 +266,15 @@ def validate_oracle_runtime_lock(root: Path, upstream: Path) -> str:
         None,
     )
     if package is None:
-        raise ContractError("pinned Starlette source lock omits its optional ItsDangerous dependency")
+        raise ContractError(
+            "pinned Starlette source lock omits its optional ItsDangerous dependency"
+        )
     version, hashes = oracle["itsdangerous"]
-    wheel_hashes = {
-        wheel["hash"].removeprefix("sha256:") for wheel in package.get("wheels", [])
-    }
+    wheel_hashes = {wheel["hash"].removeprefix("sha256:") for wheel in package.get("wheels", [])}
     if version != package["version"] or not hashes or not hashes <= wheel_hashes:
-        raise ContractError("oracle ItsDangerous version or hash differs from the pinned source lock")
+        raise ContractError(
+            "oracle ItsDangerous version or hash differs from the pinned source lock"
+        )
     return sha256_file(oracle_path)
 
 

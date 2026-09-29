@@ -9,13 +9,13 @@ incomplete.
 ## Current parity snapshot
 
 The active contract has 313 input-only cases across 37 files, covering 55
-operations and 390 requirements. Run `1e508cab-8193-42d8-bf65-49778dfd3309`
-selected 440 comparisons: 436 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 303 applicable cases;
+operations and 390 requirements. Run `2a46e263-b1d2-4b80-bde4-262075bd998c`
+selected 448 comparisons: 444 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 311 applicable cases;
 Rust-native passed 133 of 137 selected cases. The four unsupported Rust-native
 rows require arbitrary Python callables. All 27 FileResponse cases passed on
-both profiles. The Rust-native target was clean at `f65d14b`; the installed
-Python package is content-addressed and marked dirty by the adapter.
+both profiles; all eight SessionMiddleware cases passed on the Python package
+profile. The target identities are content-addressed dirty-tree snapshots.
 See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
 
