@@ -13,7 +13,7 @@ from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
 INPUT_SCHEMA = "migration-parity/parity-input@4"
@@ -2620,10 +2620,8 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
             package_paths.add(package_path)
 
     files = case["files"]
-    if not isinstance(files, list) or (not files and not packages):
-        raise ContractError(
-            "StaticFiles.files must be non-empty unless package roots provide assets"
-        )
+    if not isinstance(files, list):
+        raise ContractError("StaticFiles.files must be an array")
     file_inputs = [
         _validate_static_asset_file(file_input, f"StaticFiles.files[{index}]")
         for index, file_input in enumerate(files)
@@ -2671,6 +2669,10 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
 
     path = scope["path"]
     root_path = scope["root_path"]
+    if not files and not packages and "\x00" not in path:
+        raise ContractError(
+            "StaticFiles requires configured assets unless the input path contains a NUL byte"
+        )
     route_path = path
     if root_path and path.startswith(root_path):
         if path == root_path:
@@ -2787,7 +2789,7 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
         and normalized_path not in selected_files
         and not (case["html"] and index_path in selected_files)
     ):
-        derived.add("not-found-get")
+        derived.add("null-byte-path-maps-404" if "\x00" in path else "not-found-get")
     if not derived:
         raise ContractError("StaticFiles input must select a declared live response behavior")
     expected_covers = {f"{STATIC_FILES_SURFACE}.asgi-call.{item}" for item in derived}
@@ -5719,10 +5721,17 @@ def _validate_dispatch_stimulus(
         _string(scope["method"], "HTTP scope.method")
         path = _string(scope["path"], "HTTP scope.path")
         try:
-            raw_path = path.encode("utf-8")
+            path_bytes = path.encode("utf-8")
         except UnicodeEncodeError as exc:
             raise ContractError("HTTP scope.path must be UTF-8 encodable") from exc
-        if scope["raw_path_base64"] != base64.b64encode(raw_path).decode("ascii"):
+        try:
+            raw_path = base64.b64decode(scope["raw_path_base64"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError("scope.raw_path_base64 is invalid base64") from exc
+        raw_path_matches = raw_path == path_bytes
+        if not raw_path_matches and raw_path.isascii():
+            raw_path_matches = unquote_to_bytes(raw_path.decode("ascii")) == path_bytes
+        if not raw_path_matches:
             raise ContractError("raw_path bytes must match the declared path")
         if (
             scope["asgi"] != {"version": "3.0", "spec_version": "2.4"}

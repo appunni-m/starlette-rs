@@ -60,14 +60,14 @@ workloads; its evidence is summarized in
 files under `build/parity/`. These bounded results do not establish full
 compatibility.
 
-The current contract has 274 input-only cases across 36 files, covering 54
-operations and 337 requirements. The latest integrated run
-`c4297f66-3487-473a-9c80-f70cff27f16d` selected 386 comparisons: 382 passed,
+The current contract has 275 input-only cases across 36 files, covering 54
+operations and 338 requirements. The latest integrated run
+`4ee4e0e8-328c-43ab-a31b-101f1f2bcc76` selected 388 comparisons: 384 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 272 applicable cases; Rust-native passed 110 of 114 selected
+package passed all 273 applicable cases; Rust-native passed 111 of 115 selected
 cases. The four Rust-native rows require arbitrary Python callables. Both target
 trees were dirty, so this is not release proof. Manifest SHA-256:
-`99bd4d7246111229c86a093b4356ef197681669a44dccd38e083080e7bea5ce5`. See
+`13b67f155b74cc8a0abba20dd690b73d3c8b8f1e8183def21918b91e6931c037`. See
 [Migration parity contract and evidence](../PARITY.md) for current scope and
 the case breakdown; the Router/GZip benchmark lane remains `not_proven`.
 
@@ -182,8 +182,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 514 `supported`, 286
 `private/internal`, and 199 `uncertain` candidates. The coverage matrix has 789
-source mappings: 58 existing input mappings, 50 reasoned `not_applicable`
-entries, and 681 input-only backlog rows. These counts describe the current
+source mappings: 59 existing input mappings, 50 reasoned `not_applicable`
+entries, and 680 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

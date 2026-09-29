@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 274 input-only cases in 36 indexed files, covering 54 operations and 337 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 275 input-only cases in 36 indexed files, covering 54 operations and 338 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -174,14 +174,14 @@ separate scheduling assertion for `check_config`, cross-platform
 `os.stat_result` fields and Windows path normalization and semantics, and
 remaining validator branches.
 
-The latest integrated run `c4297f66-3487-473a-9c80-f70cff27f16d` started at
-`2026-09-29T07:06:37.570Z` and finished at `2026-09-29T07:07:24.131Z`. It
-selected 386 profile comparisons: 382 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 272 applicable
-cases; Rust-native passed 110 of 114 selected cases. The four Rust-native rows
+The latest integrated run `4ee4e0e8-328c-43ab-a31b-101f1f2bcc76` started at
+`2026-09-29T07:22:13.975Z` and finished at `2026-09-29T07:23:05.675Z`. It
+selected 388 profile comparisons: 384 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 273 applicable
+cases; Rust-native passed 111 of 115 selected cases. The four Rust-native rows
 require arbitrary Python endpoint callables. Both target trees were dirty when
 captured. Manifest SHA-256:
-`99bd4d7246111229c86a093b4356ef197681669a44dccd38e083080e7bea5ce5`.
+`13b67f155b74cc8a0abba20dd690b73d3c8b8f1e8183def21918b91e6931c037`.
 `make parity-run` exits with status 2 for the four explicitly unsupported native
 callable rows; this is not release proof.
 

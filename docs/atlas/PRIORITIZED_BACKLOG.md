@@ -8,11 +8,11 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 274 input-only cases across 36 files, covering 54
-operations and 337 requirements. Run `c4297f66-3487-473a-9c80-f70cff27f16d`
-selected 386 comparisons: 382 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 272 applicable cases;
-Rust-native passed 110 of 114 selected cases. The four unsupported Rust-native
+The active contract has 275 input-only cases across 36 files, covering 54
+operations and 338 requirements. Run `4ee4e0e8-328c-43ab-a31b-101f1f2bcc76`
+selected 388 comparisons: 384 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 273 applicable cases;
+Rust-native passed 111 of 115 selected cases. The four unsupported Rust-native
 rows require arbitrary Python callables. See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
 
@@ -22,8 +22,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The matrix has 789 mappings: 681 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 58 existing input mappings. It maps selected
+The matrix has 789 mappings: 680 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 59 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

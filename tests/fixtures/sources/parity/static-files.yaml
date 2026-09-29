@@ -915,6 +915,57 @@
       "observations": [
         "asgi-call"
       ]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.null-byte-path-maps-404",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.null-byte-path-maps-404"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "path_limit_stress": null,
+      "permission_denial_stress": null,
+      "packages": [],
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/example\u0000.txt",
+        "raw_path_base64": "L2V4YW1wbGUlMDAudHh0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
     }
   ]
 }

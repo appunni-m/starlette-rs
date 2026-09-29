@@ -9608,6 +9608,18 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.null-byte-path-maps-404",
+              "dimension": "error_path",
+              "description": "Send an ASGI path decoded from an input URL containing %00 and compare Starlette's 404 mapping for the resulting invalid filesystem path. Upstream: tests/test_staticfiles.py::test_staticfiles_null_byte_in_path; starlette/staticfiles.py:StaticFiles.get_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.method-not-allowed-post",
               "dimension": "error_path",
               "description": "Request an input-defined static asset with POST and compare the live 405 HTTPException outcome and empty ASGI event trace. Upstream: tests/test_staticfiles.py::test_staticfiles_post.",

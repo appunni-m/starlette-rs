@@ -2123,9 +2123,14 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
         .get("packages")
         .and_then(Value::as_array)
         .ok_or_else(|| String::from("StaticFiles packages must be an array"))?;
-    if file_inputs.is_empty() && package_inputs.is_empty() {
+    let null_path = case
+        .get("scope")
+        .and_then(|scope| scope.get("path"))
+        .and_then(Value::as_str)
+        .is_some_and(|path| path.contains('\0'));
+    if file_inputs.is_empty() && package_inputs.is_empty() && !null_path {
         return Err(String::from(
-            "StaticFiles must configure at least one asset",
+            "StaticFiles must configure at least one asset unless the input path contains a NUL byte",
         ));
     }
     let (temporary_directory, root, package_roots) =
