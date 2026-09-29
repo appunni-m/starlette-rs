@@ -497,11 +497,32 @@ GZIP_REQUIREMENTS = {
     "identity-client": "starlette.middleware.gzip.GZipMiddleware.identity-client",
     "small-body-bypass": "starlette.middleware.gzip.GZipMiddleware.small-body-bypass",
     "excluded-content-type": "starlette.middleware.gzip.GZipMiddleware.excluded-content-type",
+    "default-excluded-content-type": "starlette.middleware.gzip.GZipMiddleware.default-excluded-content-type",
+    "default-allowed-content-type": "starlette.middleware.gzip.GZipMiddleware.default-allowed-content-type",
     "existing-encoding-stream-bypass": "starlette.middleware.gzip.GZipMiddleware.existing-encoding-stream-bypass",
     "partial-response-stream-bypass": "starlette.middleware.gzip.GZipMiddleware.partial-response-stream-bypass",
     "streaming-chunks": "starlette.middleware.gzip.GZipMiddleware.streaming-chunks",
+    "streaming-empty-chunk": "starlette.middleware.gzip.GZipMiddleware.streaming-empty-chunk",
     "pathsend": "starlette.middleware.gzip.GZipMiddleware.pathsend",
 }
+# Synchronized with the pinned Starlette 1.6.0 source at
+# starlette/middleware/gzip.py:13-27. These values classify authored inputs;
+# runtime outputs still come exclusively from the source and target runs.
+GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES = (
+    "application/gzip",
+    "application/x-gzip",
+    "application/zip",
+    "audio/*",
+    "font/woff",
+    "font/woff2",
+    "image/avif",
+    "image/gif",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "text/event-stream",
+    "video/*",
+)
 
 
 class ContractError(ValueError):
@@ -9472,17 +9493,17 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
 
 
 def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
-    required_arguments = {
+    allowed_arguments = {
         "app",
         "minimum_size",
         "compresslevel",
         "thread_minimum_size",
+        "exclude_content_types",
     }
-    allowed_arguments = required_arguments | {"exclude_content_types"}
-    if not required_arguments.issubset(args) or set(args) - allowed_arguments:
+    if "app" not in args or set(args) - allowed_arguments:
         raise ContractError(
-            "GZipMiddleware construction must supply its app and core settings; "
-            "exclude_content_types may be omitted to exercise the public default"
+            "GZipMiddleware construction must supply its ASGI app and may omit any "
+            "compression setting to exercise the public default"
         )
     app = _exact(args["app"], {"kind", "messages"}, "GZipMiddleware app input")
     if app["kind"] != "asgi-response-sequence":
@@ -9540,9 +9561,9 @@ def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
     else:
         raise ContractError("inner response must be body messages or one pathsend event")
 
-    minimum_size = args["minimum_size"]
-    compresslevel = args["compresslevel"]
-    thread_minimum_size = args["thread_minimum_size"]
+    minimum_size = args.get("minimum_size", 500)
+    compresslevel = args.get("compresslevel", 9)
+    thread_minimum_size = args.get("thread_minimum_size", 128 * 1024)
     if not isinstance(minimum_size, int) or isinstance(minimum_size, bool) or minimum_size < 0:
         raise ContractError("GZipMiddleware minimum_size must be a non-negative integer")
     if (
@@ -9600,12 +9621,19 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
     gzip_accepted = b"gzip" in accept_encoding
     content_type_value = header_value(response_headers, b"content-type") or b""
     media_type = content_type_value.partition(b";")[0].strip().lower().decode("latin-1")
+    constructor_uses_default_exclusions = "exclude_content_types" not in constructor_args
     excluded_types = {
         content_type.partition(";")[0].strip().lower()
-        for content_type in constructor_args.get("exclude_content_types", [])
+        for content_type in (
+            GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES
+            if constructor_uses_default_exclusions
+            else constructor_args["exclude_content_types"]
+        )
     }
     media_family = media_type.partition("/")[0] + "/*"
     excluded = media_type in excluded_types or media_family in excluded_types
+    default_excluded = constructor_uses_default_exclusions and excluded
+    configured_excluded = not constructor_uses_default_exclusions and excluded
     content_encoded = header_value(response_headers, b"content-encoding") is not None
     partial_response = response_start["status"] == 206
     output_messages = messages[1:]
@@ -9620,7 +9648,7 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and all(message["more_body"] for message in body_messages[:-1])
         and not body_messages[-1]["more_body"]
     )
-    minimum_size = constructor_args["minimum_size"]
+    minimum_size = constructor_args.get("minimum_size", 500)
     compressible = not content_encoded and not partial_response and not excluded
     coverage = {GZIP_REQUIREMENT_CONSTRUCTION}
 
@@ -9652,13 +9680,46 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
         gzip_accepted
         and bool(body_messages)
         and body_lengths[0] >= minimum_size
-        and excluded
+        and configured_excluded
         and not content_encoded
         and not partial_response
     ):
         coverage.add(GZIP_REQUIREMENTS["excluded-content-type"])
+    if (
+        gzip_accepted
+        and bool(body_messages)
+        and body_lengths[0] >= minimum_size
+        and default_excluded
+        and not content_encoded
+        and not partial_response
+    ):
+        coverage.add(GZIP_REQUIREMENTS["default-excluded-content-type"])
+    if (
+        gzip_accepted
+        and bool(body_messages)
+        and body_lengths[0] >= minimum_size
+        and constructor_uses_default_exclusions
+        and not excluded
+        and not content_encoded
+        and not partial_response
+    ):
+        coverage.add(GZIP_REQUIREMENTS["default-allowed-content-type"])
     if gzip_accepted and complete_stream and compressible:
         coverage.add(GZIP_REQUIREMENTS["streaming-chunks"])
+    if (
+        gzip_accepted
+        and complete_stream
+        and compressible
+        and len(body_messages) >= 3
+        and any(
+            not base64.b64decode(message["body_base64"], validate=True) and message["more_body"]
+            for message in body_messages
+        )
+        and any(
+            base64.b64decode(message["body_base64"], validate=True) for message in body_messages
+        )
+    ):
+        coverage.add(GZIP_REQUIREMENTS["streaming-empty-chunk"])
     if (
         gzip_accepted
         and complete_stream

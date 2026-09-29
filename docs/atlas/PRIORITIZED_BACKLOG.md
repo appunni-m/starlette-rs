@@ -8,12 +8,12 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 336 input-only cases across 38 files, covering 56
-operations and 412 requirements. Run `4b533da9-4e21-4df4-8e65-b36f9dda5a22` from
-`2026-09-29T19:05:30.433Z` to `2026-09-29T19:06:44.370Z`; it selected 473
-comparisons: 469 passed, zero failed, zero infrastructure errors, and four
-`not_run`. The Python package passed all 334 applicable cases; Rust-native
-passed 135 of 139 selected cases. The four unsupported Rust-native rows require
+The active contract has 346 input-only cases across 38 files, covering 56
+operations and 415 requirements. Run `017ed223-e59a-491e-ad98-7121a35e3b8b` from
+`2026-09-29T19:22:14.371Z` to `2026-09-29T19:23:25.947Z`; it selected 493
+comparisons: 489 passed, zero failed, zero infrastructure errors, and four
+`not_run`. The Python package passed all 344 applicable cases; Rust-native
+passed 145 of 149 selected cases. The four unsupported Rust-native rows require
 arbitrary Python callables. All 28 FileResponse cases passed on both profiles;
 all eight SessionMiddleware cases and all twenty-one BaseHTTPMiddleware cases
 passed on the Python package profile. The twenty-one BaseHTTPMiddleware cases
@@ -93,8 +93,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 791 mappings: 610 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 131 existing input mappings. It maps selected
+The current matrix has 791 mappings: 606 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 135 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

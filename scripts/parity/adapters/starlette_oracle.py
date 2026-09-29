@@ -1566,9 +1566,9 @@ def _materialize_gzip_middleware(arguments: dict[str, Any]) -> Any:
 
     response_app = _materialize_asgi_sequence_app(arguments["app"])
     constructor_arguments: dict[str, Any] = {
-        "minimum_size": arguments["minimum_size"],
-        "compresslevel": arguments["compresslevel"],
-        "thread_minimum_size": arguments["thread_minimum_size"],
+        name: arguments[name]
+        for name in ("minimum_size", "compresslevel", "thread_minimum_size")
+        if name in arguments
     }
     if "exclude_content_types" in arguments:
         constructor_arguments["exclude_content_types"] = tuple(arguments["exclude_content_types"])
@@ -1594,7 +1594,7 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
         steps[0],
         {"app", "minimum_size", "compresslevel", "thread_minimum_size", "exclude_content_types"},
         "GZipMiddleware constructor",
-        optional={"exclude_content_types"},
+        optional={"minimum_size", "compresslevel", "thread_minimum_size", "exclude_content_types"},
     )
     dispatch_arguments = _literal_arguments(
         steps[1], {"scope", "receive", "send"}, "GZipMiddleware dispatch"

@@ -4154,30 +4154,25 @@ struct GzipDispatchInput {
 
 fn build_gzip_middleware(step: &Value) -> Result<(GzipConfig, GzipInnerResponse), String> {
     let arguments = gzip_step_arguments(step, "middleware", "__init__", None)?;
-    let required_arguments = [
+    const ALLOWED_ARGUMENTS: [&str; 5] = [
         "app",
         "minimum_size",
         "compresslevel",
         "thread_minimum_size",
+        "exclude_content_types",
     ];
-    if arguments.contains_key("exclude_content_types") {
-        exact_keys(
-            arguments,
-            &[
-                "app",
-                "minimum_size",
-                "compresslevel",
-                "thread_minimum_size",
-                "exclude_content_types",
-            ],
-            "GZipMiddleware constructor arguments",
-        )?;
-    } else {
-        exact_keys(
-            arguments,
-            &required_arguments,
-            "GZipMiddleware constructor arguments",
-        )?;
+    if arguments
+        .keys()
+        .any(|name| !ALLOWED_ARGUMENTS.contains(&name.as_str()))
+    {
+        return Err(String::from(
+            "GZipMiddleware constructor arguments contain an unknown field",
+        ));
+    }
+    if !arguments.contains_key("app") {
+        return Err(String::from(
+            "GZipMiddleware constructor arguments must include app",
+        ));
     }
 
     let app = argument_value(arguments, "app", "GZipMiddleware constructor arguments")?;
@@ -4221,26 +4216,38 @@ fn build_gzip_middleware(step: &Value) -> Result<(GzipConfig, GzipInnerResponse)
     )?;
     let output_messages = parse_gzip_inner_messages(&messages[1..])?;
 
-    let minimum_size = integer_argument(
-        arguments,
-        "minimum_size",
-        "GZipMiddleware constructor arguments",
-    )?;
-    let thread_minimum_size = integer_argument(
-        arguments,
-        "thread_minimum_size",
-        "GZipMiddleware constructor arguments",
-    )?;
+    let minimum_size = if arguments.contains_key("minimum_size") {
+        integer_argument(
+            arguments,
+            "minimum_size",
+            "GZipMiddleware constructor arguments",
+        )?
+    } else {
+        500
+    };
+    let thread_minimum_size = if arguments.contains_key("thread_minimum_size") {
+        integer_argument(
+            arguments,
+            "thread_minimum_size",
+            "GZipMiddleware constructor arguments",
+        )?
+    } else {
+        128 * 1024
+    };
     if minimum_size < 0 || thread_minimum_size < 0 {
         return Err(String::from(
             "GZipMiddleware size settings must be non-negative integers",
         ));
     }
-    let compresslevel = integer_argument(
-        arguments,
-        "compresslevel",
-        "GZipMiddleware constructor arguments",
-    )?;
+    let compresslevel = if arguments.contains_key("compresslevel") {
+        integer_argument(
+            arguments,
+            "compresslevel",
+            "GZipMiddleware constructor arguments",
+        )?
+    } else {
+        9
+    };
     let compresslevel = i32::try_from(compresslevel)
         .map_err(|_| String::from("GZipMiddleware compresslevel must fit in i32"))?;
     if !(-1..=9).contains(&compresslevel) {

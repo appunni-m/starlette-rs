@@ -32,14 +32,14 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 336 input-only cases, 56 operations, and 412
+The current parity contract has 346 input-only cases, 56 operations, and 415
 parity requirements across 38 indexed files, including bounded
 SessionMiddleware and BaseHTTPMiddleware workflow slices. Latest integrated
-run `4b533da9-4e21-4df4-8e65-b36f9dda5a22`, from
-`2026-09-29T19:05:30.433Z` to `2026-09-29T19:06:44.370Z`, selected 473 profile
-comparisons: 469 passed, zero failed, zero infrastructure errors, and four
-were `not_run`. The Python package passed all 334 applicable comparisons;
-Rust-native passed 135 of 139, with four Python-callable rows `not_run`. All 28
+run `017ed223-e59a-491e-ad98-7121a35e3b8b`, from
+`2026-09-29T19:22:14.371Z` to `2026-09-29T19:23:25.947Z`, selected 493 profile
+comparisons: 489 passed, zero failed, zero infrastructure errors, and four
+were `not_run`. The Python package passed all 344 applicable comparisons;
+Rust-native passed 145 of 149, with four Python-callable rows `not_run`. All 28
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
 passed on the Python package profile, and all twenty-one BaseHTTPMiddleware
 cases passed there. They include the two post-call-next stream-read cases from

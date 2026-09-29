@@ -5142,6 +5142,42 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.default-excluded-content-type",
+              "dimension": "parameter_combination",
+              "description": "Use the public default exclusion list to preserve large responses for each declared default-excluded media-type family.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.default-allowed-content-type",
+              "dimension": "parameter_combination",
+              "description": "Compress a large SVG response with the public default exclusion list, which allows image/svg+xml.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.streaming-empty-chunk",
+              "dimension": "protocol_variant",
+              "description": "Preserve a non-final empty body chunk while streaming gzip output for the surrounding non-empty chunks.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
