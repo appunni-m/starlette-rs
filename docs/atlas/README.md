@@ -60,14 +60,14 @@ workloads; its evidence is summarized in
 files under `build/parity/`. These bounded results do not establish full
 compatibility.
 
-The current contract has 333 input-only cases across 38 files, covering 56
-operations and 409 requirements. Integrated run
-`18f07e1d-1573-4c3b-aa0f-5ea522394f20` selected 469 comparisons: 465 passed,
+The current contract has 335 input-only cases across 38 files, covering 56
+operations and 411 requirements. Integrated run
+`29b8e21f-90a6-43b5-97b1-979552db5618` selected 472 comparisons: 468 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 331 applicable cases; Rust-native passed 134 of 138 selected
-cases. The four Rust-native rows require arbitrary Python callables. All 27
+package passed all 333 applicable cases; Rust-native passed 135 of 139 selected
+cases. The four Rust-native rows require arbitrary Python callables. All 28
 FileResponse cases passed on both profiles; all eight SessionMiddleware cases
-and all nineteen BaseHTTPMiddleware cases passed on the Python package profile.
+and all twenty BaseHTTPMiddleware cases passed on the Python package profile.
 The BaseHTTP cases cover configured-header mutation, awaited `call_next`
 response replacement, request-body cache replay, response-completion
 unblocking downstream receive, exception-context propagation, caught
@@ -79,7 +79,8 @@ downstream body read, body buffering followed by a downstream stream read,
 dispatch stream reads after downstream stream/body consumption, cached stream
 replay after the endpoint reads a body cached by dispatch, a downstream body
 read after dispatch caches the request body, and a downstream stream read after
-dispatch exhausts `request.stream()`.
+dispatch exhausts `request.stream()`, and dispatch closing a consumed response
+stream while the downstream app streams until disconnect.
 The caught case matches `tests/middleware/test_base.py:338-356`: dispatch
 catches `ValueError("TEST")` from `call_next` and returns a plain-text 400
 response whose body comes from `str(exc)`. In the partial-stream case, dispatch
@@ -213,7 +214,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 791 rows:
-127 `existing` mappings, 614 `backlog` rows, and 50 reasoned `not_applicable`
+130 `existing` mappings, 611 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -261,8 +262,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 514 `supported`, 286
 `private/internal`, and 199 `uncertain` candidates. The coverage matrix has 791
-source mappings: 127 existing input mappings, 50 reasoned `not_applicable`
-entries, and 614 input-only backlog rows. These counts describe the current
+source mappings: 130 existing input mappings, 50 reasoned `not_applicable`
+entries, and 611 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

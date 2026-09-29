@@ -8,15 +8,15 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 333 input-only cases across 38 files, covering 56
-operations and 409 requirements. Run `18f07e1d-1573-4c3b-aa0f-5ea522394f20` from
-`2026-09-29T17:40:49.884Z` to `2026-09-29T17:41:39.283Z`; it selected 469
-comparisons: 465 passed, zero failed, zero infrastructure errors, and four
-`not_run`. The Python package passed all 331 applicable cases; Rust-native
-passed 134 of 138 selected cases. The four unsupported Rust-native rows require
-arbitrary Python callables. All 27 FileResponse cases passed on both profiles;
-all eight SessionMiddleware cases and all nineteen BaseHTTPMiddleware cases
-passed on the Python package profile. The nineteen BaseHTTPMiddleware cases
+The active contract has 335 input-only cases across 38 files, covering 56
+operations and 411 requirements. Run `29b8e21f-90a6-43b5-97b1-979552db5618` from
+`2026-09-29T18:40:17.007Z` to `2026-09-29T18:41:18.990Z`; it selected 472
+comparisons: 468 passed, zero failed, zero infrastructure errors, and four
+`not_run`. The Python package passed all 333 applicable cases; Rust-native
+passed 135 of 139 selected cases. The four unsupported Rust-native rows require
+arbitrary Python callables. All 28 FileResponse cases passed on both profiles;
+all eight SessionMiddleware cases and all twenty BaseHTTPMiddleware cases
+passed on the Python package profile. The twenty BaseHTTPMiddleware cases
 cover configured-header mutation, awaited `call_next` response replacement,
 body-cache replay, response-completion unblocking downstream receive,
 exception-context propagation, caught downstream `ValueError` handling,
@@ -37,6 +37,10 @@ The new pre-call-next cache case maps to
 at `tests/middleware/test_base.py:835-862`: dispatch caches the body, the
 endpoint reads it, then dispatch observes the cached stream bytes, empty
 terminal chunk, and exhaustion. The source and package matched exactly.
+The discarded-stream case maps to `tests/middleware/test_base.py:473-546`:
+dispatch consumes one `call_next` chunk, closes the iterator, and returns a
+replacement response while the downstream app streams until disconnect. Its
+observed close, cancellation, response, and disconnect behavior also matches.
 The caught-exception case matches
 `tests/middleware/test_base.py:338-356`: dispatch catches `ValueError("TEST")`
 from `call_next` and returns status 400 with a body derived from `str(exc)`.
@@ -89,8 +93,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 791 mappings: 614 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 127 existing input mappings. It maps selected
+The current matrix has 791 mappings: 611 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 130 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

@@ -15,19 +15,19 @@ run with `python3.12 -m scripts.parity.cli benchmark-upstream`. The result is
 written to `build/parity/upstream-benchmark-result.json`; it records source
 revision `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, pinned benchmark-file
 hashes, and active input-catalog and manifest hashes. The latest run,
-`dc47fe84-9d65-4884-b1b5-6c69bf975467`, ran from
-`2026-09-29T17:47:50.958Z` to `2026-09-29T17:50:13.385Z` and measured all 74
+`fbaf5354-3b6e-4a7a-b07e-554a794329b0`, ran from
+`2026-09-29T18:40:16.892Z` to `2026-09-29T18:42:46.358Z` and measured all 74
 source/package workloads with zero failures or not-run rows. Its separate
 Rust-native lane remains unsupported for all 74 workloads. The correctness
-preflight, `7ea9023b-d09f-474e-b434-df0c8cc79083`, selected 469 comparisons:
-465 passed, zero failed or hit infrastructure errors, and four Rust-native
-Python-callable cases were explicitly `not_run` (Python package 331/331;
-Rust-native 134 passed, 4 not_run). Manifest SHA-256:
-`f3e61309c9efbb0309c5669a0a696120b2a87e27834790d48831e7fed5c2913f`.
+preflight, `29b8e21f-90a6-43b5-97b1-979552db5618`, selected 472 comparisons:
+468 passed, zero failed or hit infrastructure errors, and four Rust-native
+Python-callable cases were explicitly `not_run` (Python package 333/333;
+Rust-native 135 passed, 4 not_run). Manifest SHA-256:
+`4ecd931543157e320e9085893c8f83740a177b154f31b0b39a99dc9a6b745a16`.
 The benchmark wheel artifact SHA-256 is
-`dbeade0dbb2de7bafb5d0ebc46521f5652667e255155b64947f075031efc8708`; its
+`ee265bdd635ff07a3b221680df5d007acb1d848c4c7f2086765d9f048ed0493a`; its
 target tree SHA-256 is
-`754a8d0d2fba383d208802fb03d7b4bbfbef67934e8a2f4303d5cde6c8174962`.
+`24664f6118d6096bf31fd7057c629e642e8eb7b9e40619c2e57f54b819410064`.
 The run records content-addressed target snapshots. This is local
 workload-specific evidence, not full compatibility or release proof.
 
@@ -55,7 +55,7 @@ are ignored local outputs and are not committed.
 
 | Evidence | Artifact | Result |
 | --- | --- | --- |
-| Router/GZip upstream runner, latest run | `build/parity/upstream-benchmark-result.json` | `completed`; run `dc47fe84-9d65-4884-b1b5-6c69bf975467`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 separate Rust-native workloads unsupported; preflight `7ea9023b-d09f-474e-b434-df0c8cc79083`: 465 pass, 4 unsupported native rows `not_run` |
+| Router/GZip upstream runner, latest run | `build/parity/upstream-benchmark-result.json` | `completed`; run `fbaf5354-3b6e-4a7a-b07e-554a794329b0`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 separate Rust-native workloads unsupported; preflight `29b8e21f-90a6-43b5-97b1-979552db5618`: 468 pass, 4 unsupported native rows `not_run` |
 | Router/GZip upstream runner, preceding failed attempt | `build/parity/upstream-benchmark-result.json` | Historical `not_proven`; run `2311eb92-753a-4d59-a882-a0d06ef1970e`; 0/74 measured because two debug traceback comparisons failed preflight |
 | Direct-ASGI smoke correctness | `build/parity/benchmark-correctness-result.json` | Historical smoke gate; separate from the 74-workload runner |
 | Direct-ASGI smoke measurement | `build/parity/benchmark-result.json` | Historical smoke result `not_proven`; does not describe the completed upstream runner |
@@ -117,7 +117,7 @@ boundary is not equivalent. The strict aggregator accepts the artifact, while
 the overall project status remains `not_proven` because the full compatibility
 denominator is incomplete.
 
-The median per-workload source/package ratio was 0.385 for Router and 0.972
+The median per-workload source/package ratio was 0.394 for Router and 0.971
 for GZip. Values below 1 mean the pinned source median was lower for the
 typical workload in that group; individual workloads vary. These are matched
 local timer measurements and workload-specific observations, not a general

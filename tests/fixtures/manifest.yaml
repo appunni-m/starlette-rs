@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers four BaseHTTPMiddleware behaviors through configured Middleware or a direct ASGI wrapper: response-header mutation, replacement responses, request-body cache/replay, and response completion waking a blocked downstream receive.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers five BaseHTTPMiddleware behaviors through configured Middleware or a direct ASGI wrapper: response-header mutation, replacement responses, request-body cache/replay, response completion waking a blocked downstream receive, and cancellation of a discarded response stream.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -1709,7 +1709,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -1720,7 +1720,7 @@
             {
               "id": "starlette.request.receive-worker-access",
               "dimension": "boundary",
-              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO’s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
               "lanes": [
                 "parity"
               ],
@@ -1731,7 +1731,7 @@
             {
               "id": "starlette.request.stream-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO’s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
               "lanes": [
                 "parity"
               ],
@@ -1742,7 +1742,7 @@
             {
               "id": "starlette.request.body-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
               "lanes": [
                 "parity"
               ],
@@ -1753,7 +1753,7 @@
             {
               "id": "starlette.request.json-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity"
               ],
@@ -3674,7 +3674,25 @@
                   }
                 },
                 {
+                  "path": "dispatch_response_stream_reads",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
                   "path": "downstream_stream_reads",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "downstream_stream_cancellation_results",
                   "value_types": [
                     "sequence"
                   ],
@@ -3762,7 +3780,7 @@
             {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
               "dimension": "success_path",
-              "description": "Construct a Starlette app with Middleware(CustomMiddleware) or wrap a direct ASGI app with BaseHTTPMiddleware, then invoke the public ASGI interface. Upstream: tests/middleware/test_base.py:179-187,549-596; starlette/middleware/base.py:96-203.",
+              "description": "Construct a Starlette app with Middleware(CustomMiddleware) or wrap a direct ASGI app with BaseHTTPMiddleware, then invoke the public ASGI interface. Upstream: tests/middleware/test_base.py:179-187,473-596; starlette/middleware/base.py:96-203.",
               "lanes": [
                 "parity"
               ],
@@ -3817,7 +3835,18 @@
             {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.response-completion-unblocks-downstream-receive",
               "dimension": "boundary",
-              "description": "After consuming the request, a direct downstream ASGI app sends response.start and blocks in receive while dispatch returns a replacement response; scheduled outer-send checkpoints expose response completion waking that pending receive as http.disconnect. Upstream: tests/middleware/test_base.py:473-596; starlette/middleware/base.py:108-139,190-197.",
+              "description": "A direct downstream ASGI app sends response.start and two non-terminal body chunks, then blocks in receive while dispatch returns a replacement response; outer-send checkpoints expose response completion waking that receive as http.disconnect. Upstream: tests/middleware/test_base.py:549-596; starlette/middleware/base.py:108-139,190-197.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.discarded-stream-cancelled-on-disconnect",
+              "dimension": "boundary",
+              "description": "While a downstream response streams non-terminal body messages, dispatch reads one body chunk from call_next and closes that iterator before returning a replacement response; downstream observes http.disconnect and its stream task is cancelled. The source timeout is a safety guard and firing it fails the adapter run. Upstream: tests/middleware/test_base.py:473-546; starlette/middleware/base.py:108-139,190-197.",
               "lanes": [
                 "parity"
               ],
@@ -6773,7 +6802,15 @@
                     "kind": "ordered"
                   },
                   "normalization": {
-                    "kind": "multipart-range-boundary"
+                    "kind": "sequence",
+                    "steps": [
+                      {
+                        "kind": "multipart-range-boundary"
+                      },
+                      {
+                        "kind": "file-response-temp-path"
+                      }
+                    ]
                   }
                 }
               ],
@@ -6830,6 +6867,18 @@
               "id": "starlette.responses.FileResponse.asgi-call.head",
               "dimension": "parameter_combination",
               "description": "Send the deterministic file response through a direct HTTP HEAD scope and observe headers plus the empty body event. Upstream: starlette/responses.py::FileResponse.__call__; tests/test_responses.py::test_file_response_head.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.pathsend",
+              "dimension": "protocol_variant",
+              "description": "Declare the ASGI http.response.pathsend extension for a direct GET and compare FileResponse's status, headers, event order, and emitted path. Comparison removes only each isolated run's temporary parent while preserving the input file basename. Upstream: starlette/responses.py::FileResponse.__call__, _handle_simple; tests/test_responses.py:367-395.",
               "lanes": [
                 "parity"
               ],
@@ -6961,7 +7010,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-inverted-single-byte",
               "dimension": "error_path",
-              "description": "Submit `bytes=5-4` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
+              "description": "Submit `bytes=5-4` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
               "lanes": [
                 "parity"
               ],
@@ -6973,7 +7022,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-start-after-end",
               "dimension": "error_path",
-              "description": "Submit `bytes=100-0` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
+              "description": "Submit `bytes=100-0` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
               "lanes": [
                 "parity"
               ],
@@ -7057,7 +7106,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-count-limit-exceeded",
               "dimension": "parameter_combination",
-              "description": "Submit 101 valid ranges and compare Starlette’s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
+              "description": "Submit 101 valid ranges and compare Starlette\u2019s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
               "lanes": [
                 "parity"
               ],
@@ -7069,7 +7118,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-max-ranges-override",
               "dimension": "parameter_combination",
-              "description": "Change the response instance’s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
+              "description": "Change the response instance\u2019s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
               "lanes": [
                 "parity"
               ],

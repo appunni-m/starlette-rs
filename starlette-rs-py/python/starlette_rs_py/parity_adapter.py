@@ -5534,6 +5534,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     returned = None
     saw_header_mutation = False
     saw_disconnect_check = False
+    saw_response_body_read = False
     for index, raw_action in enumerate(dispatch_actions):
         context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
         if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
@@ -5556,6 +5557,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError(
                     "captured request.stream() reads must follow call_next and precede the dispatch return"
                 )
+        elif kind == "read-call-next-response-body-next-and-close":
+            _exact_object(raw_action, {"kind"}, context)
+            if not awaited or returned is not None or saw_response_body_read:
+                raise ValueError(
+                    "call_next response body read requires one awaited response and must precede return"
+                )
+            saw_response_body_read = True
         elif kind == "await-call-next":
             _exact_object(raw_action, {"kind"}, context)
             if awaited or returned is not None:
@@ -5637,28 +5645,118 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             if route_spec is not None:
                 raise ValueError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
             steps = downstream_spec["steps"]
-            if (
-                not isinstance(steps, list)
-                or len(steps) != 3
-                or steps[0] != {"kind": "receive"}
-                or steps[2] != {"kind": "receive"}
-            ):
-                raise ValueError("downstream ASGI input must receive, send response.start, receive")
-            send_step = _exact_object(steps[1], {"kind", "message"}, "downstream ASGI send step")
-            if send_step["kind"] != "send":
-                raise ValueError("downstream ASGI middle step must send response.start")
-            message = _exact_object(
-                send_step["message"],
-                {"type", "status", "headers_base64_pairs"},
-                "downstream ASGI response.start input",
+            if not isinstance(steps, list) or len(steps) < 3 or steps[-1] != {"kind": "receive"}:
+                raise ValueError(
+                    "downstream ASGI input requires response sends followed by receive"
+                )
+            response_started = False
+            body_send_count = 0
+            for step_index, raw_step in enumerate(steps[:-1]):
+                send_step = _exact_object(
+                    raw_step,
+                    {"kind", "message"},
+                    f"downstream ASGI send step[{step_index}]",
+                )
+                if send_step["kind"] != "send":
+                    raise ValueError("downstream ASGI steps before final receive must send")
+                message_spec = send_step["message"]
+                if not isinstance(message_spec, dict) or not isinstance(
+                    message_spec.get("type"), str
+                ):
+                    raise ValueError("downstream ASGI send message must be tagged")
+                if message_spec["type"] == "http.response.start":
+                    message = _exact_object(
+                        message_spec,
+                        {"type", "status", "headers_base64_pairs"},
+                        "downstream ASGI response.start input",
+                    )
+                    if (
+                        response_started
+                        or step_index != 0
+                        or type(message["status"]) is not int
+                        or not 100 <= message["status"] <= 599
+                        or not isinstance(message["headers_base64_pairs"], list)
+                    ):
+                        raise ValueError("downstream ASGI must begin with one valid response.start")
+                    for header_index, pair in enumerate(message["headers_base64_pairs"]):
+                        if not isinstance(pair, list) or len(pair) != 2:
+                            raise ValueError(
+                                f"downstream response header[{header_index}] is invalid"
+                            )
+                        for value in pair:
+                            if not isinstance(value, str):
+                                raise ValueError(
+                                    f"downstream response header[{header_index}] is invalid"
+                                )
+                            _decode_base64(value, f"downstream response header[{header_index}]")
+                    response_started = True
+                elif message_spec["type"] == "http.response.body":
+                    message = _exact_object(
+                        message_spec,
+                        {"type", "body_base64", "more_body"},
+                        "downstream ASGI response.body input",
+                    )
+                    if not response_started or message["more_body"] is not True:
+                        raise ValueError(
+                            "downstream ASGI response.body must follow response.start and remain non-terminal"
+                        )
+                    if not _decode_base64(message["body_base64"], "downstream ASGI response body"):
+                        raise ValueError("downstream ASGI response body must be non-empty")
+                    body_send_count += 1
+                else:
+                    raise ValueError("downstream ASGI send message type is unsupported")
+            if not response_started or body_send_count < 2:
+                raise ValueError(
+                    "downstream ASGI receive race requires response.start and at least two body sends"
+                )
+        elif raw_downstream["kind"] == "stream-until-disconnect-app":
+            downstream_spec = _exact_object(
+                raw_downstream,
+                {"kind", "response_start", "body_message", "guard_timeout_ms"},
+                "BaseHTTPMiddleware downstream streaming app",
+            )
+            if route_spec is not None:
+                raise ValueError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
+            response_start = _exact_object(
+                downstream_spec["response_start"],
+                {"status", "headers_base64_pairs"},
+                "downstream streaming response.start input",
             )
             if (
-                message["type"] != "http.response.start"
-                or type(message["status"]) is not int
-                or not 100 <= message["status"] <= 599
-                or not isinstance(message["headers_base64_pairs"], list)
+                type(response_start["status"]) is not int
+                or not 100 <= response_start["status"] <= 599
+                or not isinstance(response_start["headers_base64_pairs"], list)
             ):
-                raise ValueError("downstream ASGI send step must declare a valid response.start")
+                raise ValueError("downstream streaming response.start input is invalid")
+            for header_index, pair in enumerate(response_start["headers_base64_pairs"]):
+                if not isinstance(pair, list) or len(pair) != 2:
+                    raise ValueError(
+                        f"downstream streaming response header[{header_index}] is invalid"
+                    )
+                for value in pair:
+                    if not isinstance(value, str):
+                        raise ValueError(
+                            f"downstream streaming response header[{header_index}] is invalid"
+                        )
+                    _decode_base64(value, f"downstream streaming response header[{header_index}]")
+            body_message = _exact_object(
+                downstream_spec["body_message"],
+                {"type", "body_base64", "more_body"},
+                "downstream streaming response body input",
+            )
+            if (
+                body_message["type"] != "http.response.body"
+                or body_message["more_body"] is not True
+                or not _decode_base64(body_message["body_base64"], "downstream streaming body")
+            ):
+                raise ValueError("downstream streaming response body input is invalid")
+            if (
+                type(downstream_spec["guard_timeout_ms"]) is not int
+                or not 1 <= downstream_spec["guard_timeout_ms"] <= 10_000
+            ):
+                raise ValueError(
+                    "downstream streaming guard_timeout_ms must be between 1 and 10000"
+                )
         elif raw_downstream["kind"] == "asgi-middleware-stack":
             downstream_spec = _exact_object(
                 raw_downstream,
@@ -6125,6 +6223,33 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive"
         )
+    elif downstream_spec is not None and downstream_spec["kind"] == "stream-until-disconnect-app":
+        request_body_events = [
+            event for event in request_event_specs if event["type"] == "http.request"
+        ]
+        if (
+            not saw_response_body_read
+            or returned != "replacement"
+            or scope_spec["method"] != "GET"
+            or request["receive_after_events"] != "block"
+            or len(request_body_events) != 1
+            or _decode_base64(
+                request_body_events[0]["body_base64"], "BaseHTTPMiddleware request body"
+            )
+            or request_body_events[0]["more_body"]
+            or disconnect_event_indices
+            or send_checkpoints != [0, 1]
+            or len(dispatch_actions) != 3
+            or dispatch_actions[0] != {"kind": "await-call-next"}
+            or dispatch_actions[1] != {"kind": "read-call-next-response-body-next-and-close"}
+            or dispatch_actions[2]["kind"] != "return-plain-text-response"
+        ):
+            raise ValueError(
+                "discarded response streaming requires one empty GET request, one call_next body read, replacement response, blocking receive, and checkpoints after both outer sends"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.discarded-stream-cancelled-on-disconnect"
+        )
     elif downstream_spec is not None and downstream_spec["kind"] == "asgi-middleware-stack":
         body_reads_before_call_next = [
             index
@@ -6223,9 +6348,14 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         downstream_spec is None or downstream_spec["kind"] != "receive-sequence-app"
     ):
         raise ValueError("Request.is_disconnected BaseHTTP input requires a receive-sequence app")
+    if saw_response_body_read and (
+        downstream_spec is None or downstream_spec["kind"] != "stream-until-disconnect-app"
+    ):
+        raise ValueError("call_next response body read requires a streaming-until-disconnect app")
     if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
         raise ValueError("BaseHTTPMiddleware covers differ from its input actions")
 
+    import anyio
     from starlette.applications import Starlette
     from starlette.middleware import Middleware
     from starlette.middleware.base import BaseHTTPMiddleware
@@ -6236,6 +6366,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     execution_trace: list[dict[str, Any]] = []
     dispatch_body_reads: list[dict[str, Any]] = []
     dispatch_stream_reads: list[dict[str, Any]] = []
+    dispatch_response_stream_reads: list[dict[str, Any]] = []
     downstream_stream_reads: list[dict[str, Any]] = []
     downstream_body_reads: list[dict[str, Any]] = []
     downstream_receive_transformations: list[dict[str, Any]] = []
@@ -6243,6 +6374,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     downstream_poll_results: list[dict[str, Any]] = []
     dispatch_caught_exceptions: list[dict[str, Any]] = []
     dispatch_disconnect_checks: list[dict[str, Any]] = []
+    downstream_stream_cancellation_results: list[dict[str, Any]] = []
+    downstream_stream_guard_fired = False
 
     class InputDefinedBaseHTTPMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Any, call_next: Any) -> Any:
@@ -6308,6 +6441,18 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                             "action_index": action_index,
                             "phase": "after-call-next",
                             "outcome": outcome,
+                        }
+                    )
+                elif kind == "read-call-next-response-body-next-and-close":
+                    body_iterator = response.body_iterator
+                    try:
+                        chunk = await body_iterator.__anext__()
+                    finally:
+                        await body_iterator.aclose()
+                    dispatch_response_stream_reads.append(
+                        {
+                            "action_index": action_index,
+                            "body_base64": base64.b64encode(chunk).decode("ascii"),
                         }
                     )
                 elif kind == "await-call-next":
@@ -6429,17 +6574,26 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     receive_index += 1
                 else:
                     message_spec = step["message"]
-                    message = {
-                        "type": message_spec["type"],
-                        "status": message_spec["status"],
-                        "headers": [
-                            (
-                                _decode_base64(pair[0], "downstream response header name"),
-                                _decode_base64(pair[1], "downstream response header value"),
-                            )
-                            for pair in message_spec["headers_base64_pairs"]
-                        ],
-                    }
+                    if message_spec["type"] == "http.response.start":
+                        message = {
+                            "type": message_spec["type"],
+                            "status": message_spec["status"],
+                            "headers": [
+                                (
+                                    _decode_base64(pair[0], "downstream response header name"),
+                                    _decode_base64(pair[1], "downstream response header value"),
+                                )
+                                for pair in message_spec["headers_base64_pairs"]
+                            ],
+                        }
+                    else:
+                        message = {
+                            "type": message_spec["type"],
+                            "body": _decode_base64(
+                                message_spec["body_base64"], "downstream response body"
+                            ),
+                            "more_body": message_spec["more_body"],
+                        }
                     execution_trace.append(
                         {
                             "event": "downstream-send",
@@ -6451,6 +6605,72 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     downstream_send_index += 1
 
         app = InputDefinedBaseHTTPMiddleware(downstream)
+    elif downstream_spec is not None and downstream_spec["kind"] == "stream-until-disconnect-app":
+
+        async def downstream_streaming_app(scope: Any, receive: Any, send: Any) -> None:
+            nonlocal downstream_stream_guard_fired
+            response_start = downstream_spec["response_start"]
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": response_start["status"],
+                    "headers": [
+                        (
+                            _decode_base64(pair[0], "downstream streaming response header name"),
+                            _decode_base64(pair[1], "downstream streaming response header value"),
+                        )
+                        for pair in response_start["headers_base64_pairs"]
+                    ],
+                }
+            )
+            disconnect_received = False
+            guard_timeout = downstream_spec["guard_timeout_ms"] / 1000
+            async with anyio.create_task_group() as task_group:
+
+                async def cancel_stream_on_disconnect(
+                    *, task_status: Any = anyio.TASK_STATUS_IGNORED
+                ) -> None:
+                    nonlocal disconnect_received
+                    task_status.started()
+                    receive_index = 0
+                    while True:
+                        message = await receive()
+                        downstream_receive_events.append(
+                            {
+                                "poll_index": 0,
+                                "receive_index": receive_index,
+                                "message": _canonical_http_message(message),
+                            }
+                        )
+                        receive_index += 1
+                        if message["type"] == "http.disconnect":
+                            disconnect_received = True
+                            task_group.cancel_scope.cancel()
+                            break
+
+                await task_group.start(cancel_stream_on_disconnect)
+                with anyio.move_on_after(guard_timeout) as safety_guard:
+                    body_message = downstream_spec["body_message"]
+                    while True:
+                        await send(
+                            {
+                                "type": "http.response.body",
+                                "body": _decode_base64(
+                                    body_message["body_base64"],
+                                    "downstream streaming response body",
+                                ),
+                                "more_body": body_message["more_body"],
+                            }
+                        )
+                if safety_guard.cancel_called:
+                    downstream_stream_guard_fired = True
+                    task_group.cancel_scope.cancel()
+            if disconnect_received:
+                downstream_stream_cancellation_results.append(
+                    {"disconnect_received": True, "stream_cancelled": True}
+                )
+
+        app = InputDefinedBaseHTTPMiddleware(downstream_streaming_app)
     elif downstream_spec is not None and downstream_spec["kind"] == "asgi-middleware-stack":
 
         async def downstream_endpoint(scope: Any, receive: Any, send: Any) -> None:
@@ -6608,6 +6828,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         propagated_exception = None
     except Exception as exc:
         propagated_exception = _base_http_exception_value(exc)
+    if downstream_stream_guard_fired:
+        raise TimeoutError(
+            "input-defined BaseHTTPMiddleware streaming guard expired before http.disconnect"
+        )
     events = [_canonical_message(message) for message in sent]
     start = next((event for event in events if event["type"] == "http.response.start"), None)
     if start is None and propagated_exception is None:
@@ -6626,11 +6850,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "asgi_events": events,
         "dispatch_body_reads": dispatch_body_reads,
         "dispatch_stream_reads": dispatch_stream_reads,
+        "dispatch_response_stream_reads": dispatch_response_stream_reads,
         "downstream_stream_reads": downstream_stream_reads,
         "downstream_body_reads": downstream_body_reads,
         "downstream_receive_transformations": downstream_receive_transformations,
         "downstream_receive_events": downstream_receive_events,
         "downstream_poll_results": downstream_poll_results,
+        "downstream_stream_cancellation_results": downstream_stream_cancellation_results,
         "dispatch_caught_exceptions": dispatch_caught_exceptions,
         "dispatch_disconnect_checks": dispatch_disconnect_checks,
         "request_receive_events": request_receive_events,

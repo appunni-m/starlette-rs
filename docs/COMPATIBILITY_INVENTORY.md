@@ -17,22 +17,22 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 333 input-only cases across 38 files,
-covering 56 operations and 409 parity requirements. The authored cases span
+The active parity manifest indexes 335 input-only cases across 38 files,
+covering 56 operations and 411 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `18f07e1d-1573-4c3b-aa0f-5ea522394f20` started at
-`2026-09-29T17:40:49.884Z` and finished at `2026-09-29T17:41:39.283Z`. It
-selected 469 profile comparisons: 465 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 331 applicable
-comparisons; Rust-native passed 134 of 138, with four rows requiring Python
-callables marked `not_run`. All 27 FileResponse cases passed on both profiles,
+Integrated run `29b8e21f-90a6-43b5-97b1-979552db5618` started at
+`2026-09-29T18:40:17.007Z` and finished at `2026-09-29T18:41:18.990Z`. It
+selected 472 profile comparisons: 468 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 333 applicable
+comparisons; Rust-native passed 135 of 139, with four rows requiring Python
+callables marked `not_run`. All 28 FileResponse cases passed on both profiles,
 all eight SessionMiddleware cases passed on the Python package profile, and all
-nineteen BaseHTTPMiddleware cases passed there. Those cases cover header
+twenty BaseHTTPMiddleware cases passed there. Those cases cover header
 mutation, replacement responses, body-cache replay, response-completion receive
 racing, exception/context propagation (including cause, TaskGroup
 `ExceptionGroup` context, and suppression-state observations), partial-stream
@@ -264,18 +264,19 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 791 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 791 |
-| Existing input mappings in the atlas matrix | 127 |
+| Existing input mappings in the atlas matrix | 130 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 614 |
+| New input-only fixture backlog | 611 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 127 `existing` mappings point to authored YAML input
+crosswalk snapshot, 130 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 38 indexed files
-and 332 cases, including nineteen BaseHTTPMiddleware cases, 37 authored StaticFiles cases, four authentication cases,
+and 335 cases, including twenty BaseHTTPMiddleware cases and 28 FileResponse
+cases, 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)

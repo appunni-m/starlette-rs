@@ -14,6 +14,7 @@ use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    into_python_awaitable_with_reuse_error,
 };
 
 type SharedHeaders = Rc<RefCell<Vec<(Vec<u8>, Vec<u8>)>>>;
@@ -1356,6 +1357,49 @@ impl PyBaseHTTPBodyIterator {
                 waiting: false,
             },
         )
+    }
+
+    fn aclose(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let borrowed = slf.borrow(py);
+        let finished = borrowed.finished.clone();
+        let pending = borrowed.pending.clone();
+        drop(borrowed);
+        into_python_awaitable_with_reuse_error(
+            py,
+            BodyIteratorCloseMachine { finished, pending },
+            "cannot reuse already awaited aclose()/athrow()",
+        )
+    }
+}
+
+/// Close the Rust-backed equivalent of Starlette's `body_stream` async generator.
+///
+/// Closing a suspended async generator marks only that generator complete; the
+/// owning BaseHTTP call closes the memory streams when its response finishes.
+/// The iterator can be closed only when an `__anext__` call is not currently
+/// awaiting a message, matching Python's asynchronous-generator protocol.
+struct BodyIteratorCloseMachine {
+    finished: Rc<RefCell<bool>>,
+    pending: Rc<RefCell<bool>>,
+}
+
+impl AwaitableStateMachine for BodyIteratorCloseMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => {
+                if *self.pending.borrow() {
+                    return Err(PyRuntimeError::new_err(
+                        "aclose(): asynchronous generator is already running",
+                    ));
+                }
+                *self.finished.borrow_mut() = true;
+                Ok(MachineAction::Complete(py.None()))
+            }
+            MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                Err(error)
+            }
+        }
     }
 }
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import os
 import re
 from html.parser import HTMLParser
 from typing import Any
@@ -540,6 +541,45 @@ def _normalize_multipart_range_boundary(
     raise ContractError(f"multipart-range-boundary normalization is not allowed for {path!r}")
 
 
+def _normalize_file_response_temp_path(value: Any, *, file_basename: str, side: str) -> Any:
+    """Normalize only a FileResponse pathsend temporary root, retaining its input basename."""
+    if not isinstance(value, list):
+        return value
+
+    normalized: list[Any] = []
+    for event in value:
+        if not isinstance(event, dict) or event.get("type") != "http.response.pathsend":
+            normalized.append(event)
+            continue
+
+        emitted_path = event.get("path")
+        normalized_event = dict(event)
+        parent_name = (
+            os.path.basename(os.path.dirname(emitted_path)) if isinstance(emitted_path, str) else ""
+        )
+        python_temp_prefix = "starlette-file-response-"
+        rust_temp_prefix = "starlette-rs-parity-file-"
+        is_python_temp_parent = parent_name.startswith(python_temp_prefix) and len(
+            parent_name
+        ) > len(python_temp_prefix)
+        rust_temp_suffix = parent_name.removeprefix(rust_temp_prefix)
+        rust_temp_parts = rust_temp_suffix.split("-")
+        is_rust_temp_parent = parent_name.startswith(rust_temp_prefix) and (
+            len(rust_temp_parts) == 2 and all(part.isdecimal() for part in rust_temp_parts)
+        )
+        if (
+            not isinstance(emitted_path, str)
+            or not os.path.isabs(emitted_path)
+            or os.path.basename(emitted_path) != file_basename
+            or not (is_python_temp_parent or is_rust_temp_parent)
+        ):
+            normalized_event["path"] = f"<invalid-file-response-temp-path:{side}>"
+        else:
+            normalized_event["path"] = f"<file-response-temp-root>/{file_basename}"
+        normalized.append(normalized_event)
+    return normalized
+
+
 def compare_workflows(
     case: dict[str, Any], operation: dict[str, Any], source: Any, target: Any
 ) -> tuple[str, list[dict[str, Any]]]:
@@ -678,6 +718,28 @@ def compare_workflows(
                         )
                         right_field = _normalize_multipart_range_boundary(
                             path, right_field, observation=right_value
+                        )
+                    elif kind == "file-response-temp-path":
+                        if (
+                            case.get("surface") != "starlette.responses.FileResponse"
+                            or path != "asgi_events"
+                        ):
+                            raise ContractError(
+                                "file-response-temp-path normalization is only allowed for FileResponse asgi_events"
+                            )
+                        file_input = case.get("file")
+                        if not isinstance(file_input, dict) or not isinstance(
+                            file_input.get("name"), str
+                        ):
+                            raise ContractError(
+                                "file-response-temp-path normalization requires the input file basename"
+                            )
+                        file_basename = file_input["name"]
+                        left_field = _normalize_file_response_temp_path(
+                            left_field, file_basename=file_basename, side="source"
+                        )
+                        right_field = _normalize_file_response_temp_path(
+                            right_field, file_basename=file_basename, side="target"
                         )
                     else:
                         raise ContractError(

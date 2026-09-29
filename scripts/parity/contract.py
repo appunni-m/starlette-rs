@@ -78,6 +78,7 @@ BASE_HTTP_REQUIREMENTS = {
     "replacement_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response",
     "body_cache_replay": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-cache-replay",
     "response_completion_unblocks_receive": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive",
+    "discarded_stream_cancellation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.discarded-stream-cancelled-on-disconnect",
     "exception_context_propagation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation",
     "caught_exception_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.catch-call-next-exception",
     "partial_stream_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding",
@@ -241,6 +242,7 @@ STATIC_FILES_ASYNC_BOUNDARY_OPERATION = "asgi-call-async-boundary"
 STREAMING_RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 RESPONSE_OPERATION = "asgi-call"
+FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
 RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "content",
     "status_code",
@@ -996,6 +998,16 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"{octx} permits multipart boundary normalization only for FileResponse headers, bytes, or events"
                             )
+                    elif normalization_kind == "file-response-temp-path":
+                        _exact(normalization_spec, {"kind"}, f"{octx}.normalization")
+                        if (
+                            key != (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
+                            or observation["path"] != "asgi_events"
+                            or comparison["kind"] != "ordered"
+                        ):
+                            raise ContractError(
+                                f"{octx} permits temporary-root normalization only for FileResponse ASGI events"
+                            )
                     elif normalization_kind == "sequence":
                         _exact(
                             normalization_spec,
@@ -1010,10 +1022,18 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             step_context = f"{octx}.normalization.steps[{step_index}]"
                             step = _exact(step, {"kind"}, step_context)
                             step_kinds.append(step["kind"])
-                        if (
-                            observation["path"] not in {"ordered_repeated_headers", "asgi_events"}
-                            or comparison["kind"] != "ordered"
-                            or step_kinds != ["allow-methods-as-set", "starlette-debug-traceback"]
+                        standard_sequence = observation["path"] in {
+                            "ordered_repeated_headers",
+                            "asgi_events",
+                        } and step_kinds == ["allow-methods-as-set", "starlette-debug-traceback"]
+                        file_response_sequence = (
+                            key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
+                            and observation["path"] == "asgi_events"
+                            and step_kinds
+                            == ["multipart-range-boundary", "file-response-temp-path"]
+                        )
+                        if comparison["kind"] != "ordered" or not (
+                            standard_sequence or file_response_sequence
                         ):
                             raise ContractError(
                                 f"{octx} permits only the declared ordered header or ASGI event normalization sequence"
@@ -2752,6 +2772,26 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         ):
             raise ContractError(
                 "FileResponse scope.extensions may only declare http.response.pathsend"
+            )
+    has_pathsend_extension = "http.response.pathsend" in scope_spec.get("extensions", {})
+    has_pathsend_requirement = FILE_RESPONSE_PATHSEND_REQUIREMENT in case["covers"]
+    if has_pathsend_extension != has_pathsend_requirement:
+        raise ContractError(
+            "FileResponse pathsend extension presence must match its declared parity requirement"
+        )
+    if has_pathsend_extension:
+        try:
+            request_header_names = {
+                base64.b64decode(pair[0], validate=True).lower()
+                for pair in scope_spec["headers_base64_pairs"]
+            }
+        except (ValueError, TypeError) as exc:
+            raise ContractError(
+                "FileResponse pathsend request header names must be base64"
+            ) from exc
+        if scope_spec["method"].upper() != "GET" or b"range" in request_header_names:
+            raise ContractError(
+                "FileResponse pathsend coverage requires a GET without a Range request header"
             )
     if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
         raise ContractError("FileResponse asgi-call requires empty receive and captured send")
@@ -5170,6 +5210,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     returned: str | None = None
     saw_header_mutation = False
     saw_disconnect_check = False
+    saw_response_body_read = False
     for index, raw_action in enumerate(actions):
         context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
         if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
@@ -5196,6 +5237,13 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "captured request.stream() reads must follow call_next and precede the dispatch return"
                 )
+        elif kind == "read-call-next-response-body-next-and-close":
+            _exact(raw_action, {"kind"}, context)
+            if not awaited or returned is not None or saw_response_body_read:
+                raise ContractError(
+                    "call_next response body read requires one awaited response and must precede return"
+                )
+            saw_response_body_read = True
         elif kind == "await-call-next":
             _exact(raw_action, {"kind"}, context)
             if awaited or returned is not None:
@@ -5277,43 +5325,81 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             if routes:
                 raise ContractError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
             steps = downstream["steps"]
-            if not isinstance(steps, list) or len(steps) != 3:
-                raise ContractError("downstream ASGI input requires receive, send, receive steps")
-            if steps[0] != {"kind": "receive"} or steps[2] != {"kind": "receive"}:
+            if not isinstance(steps, list) or len(steps) < 3 or steps[-1] != {"kind": "receive"}:
                 raise ContractError(
-                    "downstream ASGI input must receive before and after response start"
+                    "downstream ASGI input requires response sends followed by receive"
                 )
-            send_step = _exact(steps[1], {"kind", "message"}, "downstream ASGI send step")
-            if send_step["kind"] != "send":
-                raise ContractError("downstream ASGI middle step must send response.start")
-            message = _exact(
-                send_step["message"],
-                {"type", "status", "headers_base64_pairs"},
-                "downstream ASGI response.start input",
-            )
-            if (
-                message["type"] != "http.response.start"
-                or type(message["status"]) is not int
-                or not 100 <= message["status"] <= 599
-                or not isinstance(message["headers_base64_pairs"], list)
-            ):
-                raise ContractError("downstream ASGI send step must declare a valid response.start")
-            for header_index, pair in enumerate(message["headers_base64_pairs"]):
-                if (
-                    not isinstance(pair, list)
-                    or len(pair) != 2
-                    or any(not isinstance(value, str) for value in pair)
+            response_started = False
+            body_send_count = 0
+            for step_index, raw_step in enumerate(steps[:-1]):
+                send_step = _exact(
+                    raw_step,
+                    {"kind", "message"},
+                    f"downstream ASGI send step[{step_index}]",
+                )
+                if send_step["kind"] != "send":
+                    raise ContractError("downstream ASGI steps before final receive must send")
+                message_spec = send_step["message"]
+                if not isinstance(message_spec, dict) or not isinstance(
+                    message_spec.get("type"), str
                 ):
-                    raise ContractError(
-                        f"downstream response header[{header_index}] must be a base64 pair"
+                    raise ContractError("downstream ASGI send message must be tagged")
+                if message_spec["type"] == "http.response.start":
+                    message = _exact(
+                        message_spec,
+                        {"type", "status", "headers_base64_pairs"},
+                        "downstream ASGI response.start input",
                     )
-                try:
-                    for value in pair:
-                        base64.b64decode(value, validate=True)
-                except (ValueError, TypeError) as exc:
-                    raise ContractError(
-                        f"downstream response header[{header_index}] is not base64"
-                    ) from exc
+                    if (
+                        response_started
+                        or step_index != 0
+                        or type(message["status"]) is not int
+                        or not 100 <= message["status"] <= 599
+                        or not isinstance(message["headers_base64_pairs"], list)
+                    ):
+                        raise ContractError(
+                            "downstream ASGI must begin with one valid response.start"
+                        )
+                    for header_index, pair in enumerate(message["headers_base64_pairs"]):
+                        if (
+                            not isinstance(pair, list)
+                            or len(pair) != 2
+                            or any(not isinstance(value, str) for value in pair)
+                        ):
+                            raise ContractError(
+                                f"downstream response header[{header_index}] must be a base64 pair"
+                            )
+                        try:
+                            for value in pair:
+                                base64.b64decode(value, validate=True)
+                        except (ValueError, TypeError) as exc:
+                            raise ContractError(
+                                f"downstream response header[{header_index}] is not base64"
+                            ) from exc
+                    response_started = True
+                elif message_spec["type"] == "http.response.body":
+                    message = _exact(
+                        message_spec,
+                        {"type", "body_base64", "more_body"},
+                        "downstream ASGI response.body input",
+                    )
+                    if not response_started or message["more_body"] is not True:
+                        raise ContractError(
+                            "downstream ASGI response.body must follow response.start and remain non-terminal"
+                        )
+                    try:
+                        response_body = base64.b64decode(message["body_base64"], validate=True)
+                    except (ValueError, TypeError) as exc:
+                        raise ContractError("downstream ASGI response body must be base64") from exc
+                    if not response_body:
+                        raise ContractError("downstream ASGI response body must be non-empty")
+                    body_send_count += 1
+                else:
+                    raise ContractError("downstream ASGI send message type is unsupported")
+            if not response_started or body_send_count < 2:
+                raise ContractError(
+                    "downstream ASGI receive race requires response.start and at least two body sends"
+                )
         elif raw_downstream["kind"] == "asgi-middleware-stack":
             downstream = _exact(
                 raw_downstream,
@@ -5413,6 +5499,66 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 or not 100 <= response["status_code"] <= 599
             ):
                 raise ContractError("downstream receive-sequence response input is invalid")
+        elif raw_downstream["kind"] == "stream-until-disconnect-app":
+            downstream = _exact(
+                raw_downstream,
+                {"kind", "response_start", "body_message", "guard_timeout_ms"},
+                "BaseHTTPMiddleware downstream streaming app",
+            )
+            if routes:
+                raise ContractError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
+            response_start = _exact(
+                downstream["response_start"],
+                {"status", "headers_base64_pairs"},
+                "downstream streaming response.start input",
+            )
+            if (
+                type(response_start["status"]) is not int
+                or not 100 <= response_start["status"] <= 599
+                or not isinstance(response_start["headers_base64_pairs"], list)
+            ):
+                raise ContractError("downstream streaming response.start input is invalid")
+            for header_index, pair in enumerate(response_start["headers_base64_pairs"]):
+                if (
+                    not isinstance(pair, list)
+                    or len(pair) != 2
+                    or any(not isinstance(value, str) for value in pair)
+                ):
+                    raise ContractError(
+                        f"downstream streaming response header[{header_index}] must be a base64 pair"
+                    )
+                try:
+                    for value in pair:
+                        base64.b64decode(value, validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(
+                        f"downstream streaming response header[{header_index}] is not base64"
+                    ) from exc
+            body_message = _exact(
+                downstream["body_message"],
+                {"type", "body_base64", "more_body"},
+                "downstream streaming response body input",
+            )
+            if (
+                body_message["type"] != "http.response.body"
+                or body_message["more_body"] is not True
+            ):
+                raise ContractError(
+                    "downstream streaming body must be a non-terminal http.response.body"
+                )
+            try:
+                stream_body = base64.b64decode(body_message["body_base64"], validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError("downstream streaming response body must be base64") from exc
+            if not stream_body:
+                raise ContractError("downstream streaming response body must be non-empty")
+            if (
+                type(downstream["guard_timeout_ms"]) is not int
+                or not 1 <= downstream["guard_timeout_ms"] <= 10_000
+            ):
+                raise ContractError(
+                    "downstream streaming guard_timeout_ms must be between 1 and 10000"
+                )
         else:
             raise ContractError("downstream ASGI input kind is unsupported")
     if returned == "call-next" and not routes and downstream is None:
@@ -5756,6 +5902,23 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 "downstream receive race requires a blocking receive, replacement response, and checkpoints after both outer sends"
             )
         requirements.add(BASE_HTTP_REQUIREMENTS["response_completion_unblocks_receive"])
+    elif downstream is not None and downstream["kind"] == "stream-until-disconnect-app":
+        request_body_events = [event for event in request_events if event["type"] == "http.request"]
+        if (
+            not saw_response_body_read
+            or returned != "replacement"
+            or scope["method"] != "GET"
+            or request["receive_after_events"] != "block"
+            or len(request_body_events) != 1
+            or base64.b64decode(request_body_events[0]["body_base64"], validate=True)
+            or request_body_events[0]["more_body"]
+            or disconnect_events
+            or send_checkpoints != [0, 1]
+        ):
+            raise ContractError(
+                "discarded response streaming requires one consumed empty GET request, a one-chunk call_next read, a replacement response, a blocking receive, and checkpoints after both outer sends"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["discarded_stream_cancellation"])
     elif downstream is not None and downstream["kind"] == "asgi-middleware-stack":
         body_reads_before_call_next = [
             index
@@ -5848,6 +6011,12 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     ):
         raise ContractError(
             "Request.is_disconnected BaseHTTP input requires a receive-sequence app"
+        )
+    if saw_response_body_read and (
+        downstream is None or downstream["kind"] != "stream-until-disconnect-app"
+    ):
+        raise ContractError(
+            "call_next response body read requires a streaming-until-disconnect app"
         )
     if set(case["covers"]) != requirements:
         raise ContractError(
