@@ -84,15 +84,17 @@ iterator case passed against the source and installed Python package. The
 async-iterator case is package-only while Rust-native async streaming is
 pending. Starlette has no dedicated raw-bytes streaming test; the byte case
 probes its source implementation's bytes pass-through branch directly. These
-finite cases do not establish iterator cancellation, disconnect races,
-background task behavior, ASGI 2.4 `OSError` mapping, or memoryview type parity.
-The new package-only `pre-asgi24-disconnect-cancellation` case is sourced from
+finite cases do not establish broader iterator cancellation, disconnect,
+background-task, ASGI 2.4 `OSError` mapping, or memoryview type parity.
+The package-only `pre-asgi24-disconnect-cancellation` case is sourced from
 `test_streaming_response_stops_if_receiving_http_disconnect`: it declares an
 ASGI 2.3 scope, repeating binary chunk input with an event-loop checkpoint, and
 a receive callback that waits for the input-defined 16-byte send threshold
 before returning `http.disconnect`. Its execution trace observes the supplied
-generator cancellation/finally markers and background recorder. The input is
-declared and validated; live source/package comparison remains unrun.
+generator cancellation/finally markers and background recorder. It passed exact
+source/package comparison in integrated run
+`f4df4b18-8c74-46a4-9d33-96a0f684a9b6`; this bounded case does not establish
+all streaming edge cases or a Rust-native async-streaming API.
 
 [`request-path-param-types.yaml`](../tests/fixtures/sources/parity/request-path-param-types.yaml)
 adds six installed-package Request cases for typed path parameters, including
