@@ -82,6 +82,7 @@ BASE_HTTP_REQUIREMENTS = {
     "caught_exception_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.catch-call-next-exception",
     "partial_stream_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding",
     "downstream_body_after_stream_consumption": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-body-read-after-stream-consumption",
+    "downstream_body_after_body_cache": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-body-read-after-body-cache",
     "downstream_stream_after_stream_consumption": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-stream-read-after-stream-consumption",
     "downstream_stream_after_body_cache": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-stream-read-after-body-cache",
     "dispatch_stream_after_downstream_stream_consumption": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-read-after-downstream-stream-consumption",
@@ -5477,7 +5478,16 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     if returned == "replacement":
         requirements.add(BASE_HTTP_REQUIREMENTS["replacement_response"])
     body = b"".join(base64.b64decode(event["body_base64"]) for event in request_events)
-    if (
+    reads_body_before_call_next = (
+        route_kind == "request-body-response"
+        and body
+        and await_index is not None
+        and actions[:await_index] == [{"kind": "read-request-body"}]
+        and actions[await_index + 1 :] == [{"kind": "return-call-next-response"}]
+    )
+    if reads_body_before_call_next:
+        requirements.add(BASE_HTTP_REQUIREMENTS["downstream_body_after_body_cache"])
+    elif (
         route_kind == "request-body-response"
         and body
         and await_index is not None

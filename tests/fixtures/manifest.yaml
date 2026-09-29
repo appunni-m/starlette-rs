@@ -3795,6 +3795,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.downstream-body-read-after-body-cache",
+              "dimension": "boundary",
+              "description": "Dispatch caches a non-empty Request.body() before call_next; the downstream endpoint then reads and returns the same cached body. Compare dispatch and downstream body observations, response bytes/status, and ordered ASGI events. Upstream: tests/middleware/test_base.py:689-712; starlette/middleware/base.py:20-59,80-93,112-130; starlette/requests.py:234-260.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.response-completion-unblocks-downstream-receive",
               "dimension": "boundary",
               "description": "After consuming the request, a direct downstream ASGI app sends response.start and blocks in receive while dispatch returns a replacement response; scheduled outer-send checkpoints expose response completion waking that pending receive as http.disconnect. Upstream: tests/middleware/test_base.py:473-596; starlette/middleware/base.py:108-139,190-197.",

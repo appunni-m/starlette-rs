@@ -5839,7 +5839,18 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         _decode_base64(item["body_base64"], "BaseHTTPMiddleware request body")
         for item in request_event_specs
     )
-    if (
+    reads_body_before_call_next = (
+        route_kind == "request-body-response"
+        and request_body
+        and await_index is not None
+        and dispatch_actions[:await_index] == [{"kind": "read-request-body"}]
+        and dispatch_actions[await_index + 1 :] == [{"kind": "return-call-next-response"}]
+    )
+    if reads_body_before_call_next:
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-body-read-after-body-cache"
+        )
+    elif (
         route_kind == "request-body-response"
         and request_body
         and await_index is not None
@@ -6223,7 +6234,11 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         if route_kind == "request-body-response":
 
             async def endpoint(request: Any) -> Any:
-                return PlainTextResponse(await request.body())
+                body = await request.body()
+                downstream_body_reads.append(
+                    {"body_base64": base64.b64encode(body).decode("ascii")}
+                )
+                return PlainTextResponse(body)
         elif route_kind == "request-body-plain-text-response":
             response_content = endpoint_spec["content"]
             response_status_code = endpoint_spec["status_code"]

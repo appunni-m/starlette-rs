@@ -8,15 +8,15 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 329 input-only cases across 38 files, covering 56
-operations and 406 requirements. Run `33832b96-1a95-4dc4-99ff-d83e7a6eff22` from
-`2026-09-29T16:41:11.162Z` to `2026-09-29T16:42:17.107Z`; it selected 464
-comparisons: 460 passed, zero failed, zero infrastructure errors, and four
-`not_run`. The Python package passed all 327 applicable cases; Rust-native
+The active contract has 330 input-only cases across 38 files, covering 56
+operations and 407 requirements. Run `a8d13bbb-c44a-47e1-9f78-f867e0ac9e53` from
+`2026-09-29T16:48:13.592Z` to `2026-09-29T16:49:14.415Z`; it selected 465
+comparisons: 461 passed, zero failed, zero infrastructure errors, and four
+`not_run`. The Python package passed all 328 applicable cases; Rust-native
 passed 133 of 137 selected cases. The four unsupported Rust-native rows require
 arbitrary Python callables. All 27 FileResponse cases passed on both profiles;
-all eight SessionMiddleware cases and all sixteen BaseHTTPMiddleware cases
-passed on the Python package profile. The sixteen BaseHTTPMiddleware cases
+all eight SessionMiddleware cases and all seventeen BaseHTTPMiddleware cases
+passed on the Python package profile. The seventeen BaseHTTPMiddleware cases
 cover configured-header mutation, awaited `call_next` response replacement,
 body-cache replay, response-completion unblocking downstream receive,
 exception-context propagation, caught downstream `ValueError` handling,
@@ -24,8 +24,9 @@ partial-stream forwarding, downstream receive transformation, repeated
 disconnect polling with `send_body=True` and `False`, stream consumption
 followed by a downstream body read, body buffering followed by a downstream
 stream read, dispatch stream reads after downstream stream/body consumption,
-cached-stream replay after downstream body reading, and a downstream stream read
-after dispatch exhausts `request.stream()`.
+cached-stream replay after downstream body reading, a downstream body read
+after dispatch caches the request body, and a downstream stream read after
+dispatch exhausts `request.stream()`.
 The two post-call-next cases at `tests/middleware/test_base.py:715-773` capture
 the live read result after the endpoint consumes the stream or body; the input
 does not encode an expected exception.
@@ -50,7 +51,10 @@ and downstream reads the cached empty body before returning `Homepage`. The
 case at `tests/middleware/test_base.py:599-628` drains the stream in dispatch
 before `call_next`; downstream stream iteration then sees only the cached
 empty chunk. Both observations match the source exactly. The
-source test-client fixture declares asyncio and trio backends; the active input
+body-cache case maps to `test_read_request_body_in_app_after_middleware_calls_body`
+at `tests/middleware/test_base.py:689-712`: dispatch and the downstream
+endpoint both report reading `b"a"`, and the endpoint response returns those
+bytes. The source test-client fixture declares asyncio and trio backends; the active input
 selects the Python-package profile only. The partial-stream case consumes
 `b"1"` in dispatch, forwards the next unread `b"2"` to the endpoint, then
 resumes dispatch to consume `b"3"` after `call_next`; see
@@ -63,12 +67,12 @@ exception-group shapes beyond the observed TaskGroup context and caught
 `ValueError`, varied or malformed `http.response.debug` frames, broader
 cancellation and cleanup ordering, path-send responses, and additional
 streaming behaviors unproven. The Rust-native target was clean at revision
-`237b6515c4765b4ff913aece9cf683484f628908+source-fnv1a64-e5a0df1c1dca21b4`;
+`58e5ce2d31177222ca42d4f67f0923811a012200+source-fnv1a64-e5a0df1c1dca21b4`;
 the Python-package target was dirty with tree SHA-256
-`4520a4650a06b3c70077b9908d08d3d6457d13d04fba9a81f31452096078d866`. Manifest
-SHA-256: `bedbf38ffb3aa12bb3daa1f2c9c36b9a95dd6028741bdcc0cf49737cbc3d935f`;
+`10a7eb79050c975495749a2a7baf1645c793983b9821fe3a4f7fe9d310e48bb8`. Manifest
+SHA-256: `b29d85e2594540ec21fa51625d3230667fe6a94e022e16f9977b50b6da8b716a`;
 package wheel SHA-256:
-`0d3cb1027c1b22e72163c2285d0c6b88fdd0335a1b59f6bc5171a35e6688f2eb`.
+`24ac6c6fe72aab4e9ad6290420a8df01cee6d3e8e910a88e99aebe1a2538cd88`.
 See [Migration parity contract and evidence](../PARITY.md) for current scope.
 
 ## P0 — Close the source-backed atlas (complete)
@@ -77,8 +81,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 791 mappings: 617 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 124 existing input mappings. It maps selected
+The current matrix has 791 mappings: 616 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 125 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
