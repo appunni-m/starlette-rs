@@ -32,16 +32,16 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 366 input-only cases, 57 operations, and 418
-parity requirements across 39 indexed files, including URL scope construction and bounded
-SessionMiddleware and BaseHTTPMiddleware workflow slices. Latest integrated
-run `017ed223-e59a-491e-ad98-7121a35e3b8b`, from
-`2026-09-29T19:22:14.371Z` to `2026-09-29T19:23:25.947Z`, selected 493 profile
-comparisons: 489 passed, zero failed, zero infrastructure errors, and four
-were `not_run`. That run used the earlier 346-case manifest and excludes the
-20 newly authored URL scope cases, which have not yet been compared. The Python
-package passed all 344 applicable comparisons;
-Rust-native passed 145 of 149, with four Python-callable rows `not_run`. All 28
+The current parity contract has 387 input-only cases, 60 operations, and 441
+parity requirements across 41 indexed files, including URL scope and component
+construction, Headers and MutableHeaders, and bounded SessionMiddleware and
+BaseHTTPMiddleware workflow slices. Latest integrated run
+`ddecf69b-c873-465d-b772-3bdb12df997a`, from `2026-09-29T20:33:37.763Z` to
+`2026-09-29T20:35:02.579Z`, selected 534 profile comparisons: 530 passed,
+zero failed, zero infrastructure errors, and four were `not_run`. The Python
+package passed all 385 selected comparisons; Rust-native passed 145 of 149,
+with four Python-callable rows `not_run`. All 20 URL scope, 14 URL component,
+and seven Headers/MutableHeaders cases passed on the Python package. All 28
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
 passed on the Python package profile, and all twenty-one BaseHTTPMiddleware
 cases passed there. They include the two post-call-next stream-read cases from
@@ -301,20 +301,17 @@ dependencies feature-gated and preserve unsupported coverage visibly.
 The pinned Starlette 1.6.0 Router/GZip workload catalog contains six Router
 and 68 GZip benchmark IDs. All 74 have input-only descriptors and exact
 source-versus-installed-package correctness gates. Latest run
-`fbaf5354-3b6e-4a7a-b07e-554a794329b0` ran from
-`2026-09-29T18:40:16.892Z` to `2026-09-29T18:42:46.358Z` and measured all 74
+`b394fcb0-0a16-46f2-96f3-8dc3f8ee5da5` ran from
+`2026-09-29T20:36:18.665Z` to `2026-09-29T20:39:09.622Z` and measured all 74
 source/package workloads with zero failures and zero not-run rows. Its
-correctness preflight, `29b8e21f-90a6-43b5-97b1-979552db5618`, selected 472
-comparisons: 468 passed, zero failed, zero infrastructure errors, and four
-Rust-native Python-callable rows were `not_run` (package 333/333; Rust-native
-135 passed, 4 not_run). Manifest SHA-256:
-`4ecd931543157e320e9085893c8f83740a177b154f31b0b39a99dc9a6b745a16`; the
-benchmark wheel SHA-256 is
-`ee265bdd635ff07a3b221680df5d007acb1d848c4c7f2086765d9f048ed0493a`, and the
-package target tree SHA-256 is
-`24664f6118d6096bf31fd7057c629e642e8eb7b9e40619c2e57f54b819410064`. The
-median per-workload source/package ratios are 0.394 for Router and 0.971 for
-GZip.
+correctness preflight, `11d66166-c7e1-43e2-88a4-c3dbfab274d0`, selected 534
+comparisons: 530 passed, zero failed, zero infrastructure errors, and four
+Rust-native Python-callable rows were `not_run` (package 385/385; Rust-native
+145 passed, 4 not_run). Manifest SHA-256:
+`9573d42000debef9c754a4ba040b0d2777a9d6f7ef7faa732b74dab92c213b9d`; benchmark
+wheel SHA-256: `95b722e996c226d3283a0dfcd12f7bde6c9910321a0fe95ad8e3d695ad188862`.
+The median per-workload source/package ratios are 0.380 for Router and 0.964
+for GZip.
 
 Rust-native remains `not_run` for all 74 because its public API does not expose
 the same Starlette Router/GZip dispatch boundary. The result is accepted by the

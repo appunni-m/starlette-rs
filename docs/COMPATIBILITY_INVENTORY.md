@@ -17,22 +17,24 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 366 input-only cases across 39 files,
-covering 57 operations and 418 parity requirements. The authored cases span
-the Starlette ASGI application, routing and reverse URLs, requests, responses,
-StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
-middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The exact operation and profile
-denominator is in the parity manifest; generated JSON and run results remain
-ignored local build outputs.
+The active parity manifest indexes 387 input-only cases across 41 files,
+covering 60 operations and 441 parity requirements. The authored cases span
+the Starlette ASGI application, routing and reverse URLs, URL scope/components,
+Headers and MutableHeaders, requests, responses, StaticFiles, WebSockets,
+exceptions, status constants, endpoints, authentication, middleware (including
+bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration,
+and schemas. The exact operation and profile denominator is in the parity
+manifest; generated JSON and run results remain ignored local build outputs.
 
-Integrated run `017ed223-e59a-491e-ad98-7121a35e3b8b` started at
-`2026-09-29T19:22:14.371Z` and finished at `2026-09-29T19:23:25.947Z`. It
-selected 493 profile comparisons: 489 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 344 applicable
-comparisons; Rust-native passed 145 of 149, with four rows requiring Python
-callables marked `not_run`. This run used the earlier 346-case manifest and
-does not include the 20 new URL scope-construction cases; those comparisons
-have not yet been run. All 28 FileResponse cases passed on both profiles,
+Integrated run `ddecf69b-c873-465d-b772-3bdb12df997a` started at
+`2026-09-29T20:33:37.763Z` and finished at `2026-09-29T20:35:02.579Z`. It
+selected 534 profile comparisons: 530 passed, zero failed, zero infrastructure
+errors, and four Rust-native comparisons were `not_run`. The Python package
+passed all 385 selected comparisons; Rust-native passed 145 of 149, with four
+Request-dispatch rows requiring Python callables marked `not_run`. The run
+includes the 20 URL scope, 14 URL component, and seven Headers/MutableHeaders
+cases; all passed on the Python package. All 28 FileResponse cases passed on
+both profiles,
 all eight SessionMiddleware cases passed on the Python package profile, and all
 twenty-one BaseHTTPMiddleware cases passed there. Those cases cover header
 mutation, replacement responses, body-cache replay, response-completion receive

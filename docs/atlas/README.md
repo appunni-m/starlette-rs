@@ -25,7 +25,18 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. At the source-mapping checkpoint, the parity manifest indexed 118 input-only cases
+active and incomplete. The latest contract has 387 input-only cases across 41
+files, 60 operations, and 441 requirements. Run
+`ddecf69b-c873-465d-b772-3bdb12df997a` selected 534 comparisons: 530 passed,
+zero failed, zero infrastructure errors, and four Rust-native callable
+boundaries were `not_run`. The Python package passed all 385 selected cases;
+Rust-native passed 145 of 149. The 20 URL-scope, 14 URL-component, and seven
+Headers/MutableHeaders cases all passed on the Python package. The latest
+Router/GZip run measured all 74 workloads with passing correctness gates; see
+[Benchmark mapping](../BENCHMARKS.md) for its timing summary. These bounded
+results do not establish full compatibility.
+
+At the source-mapping checkpoint, the parity manifest indexed 118 input-only cases
 across 18 files: 38 request/routing cases, 21 reverse-URL cases, four direct
 Starlette ASGI cases, eight basic Response/JSONResponse ASGI-call cases, four
 finite synchronous and one finite async-iterator StreamingResponse ASGI-call
@@ -60,14 +71,7 @@ workloads; its evidence is summarized in
 files under `build/parity/`. These bounded results do not establish full
 compatibility.
 
-The current contract has 366 input-only cases across 39 files, covering 57
-operations and 418 requirements. Integrated run
-`017ed223-e59a-491e-ad98-7121a35e3b8b` selected 493 comparisons: 489 passed,
-zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 344 applicable cases; Rust-native passed 145 of 149 selected
-cases. The four Rust-native rows require arbitrary Python callables. This run
-used the previous manifest and predates the 20 URL scope cases; those cases
-have no integrated parity result yet. All 28
+The latest contract and run are recorded above. All 28
 FileResponse cases passed on both profiles; all eight SessionMiddleware cases
 and all twenty-one BaseHTTPMiddleware cases passed on the Python package profile.
 The BaseHTTP cases cover configured-header mutation, awaited `call_next`
