@@ -74,17 +74,66 @@ pub struct MountDispatchResult {
     pub response: Response,
 }
 
-/// A native Mount over child routes with prebuilt responses.
+/// An ordered child entry in a native [`Mount`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MountChild {
+    /// One HTTP route with a prebuilt response.
+    Route(ApplicationRoute),
+    /// Another Mount dispatched after this Mount matches.
+    Mount(Mount),
+}
+
+impl From<ApplicationRoute> for MountChild {
+    fn from(route: ApplicationRoute) -> Self {
+        Self::Route(route)
+    }
+}
+
+impl From<Mount> for MountChild {
+    fn from(mount: Mount) -> Self {
+        Self::Mount(mount)
+    }
+}
+
+/// One Mount's dispatch result and any recursively selected child Mount.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MountDispatchTreeResult {
+    /// Result for the current Mount level.
+    pub dispatch: MountDispatchResult,
+    /// Recursively selected child Mount, if the current route selected one.
+    pub nested: Option<Box<Self>>,
+}
+
+impl MountDispatchTreeResult {
+    /// Returns the deepest scope extension applied by the selected Mount chain.
+    #[must_use]
+    pub fn final_scope_extension(&self) -> Option<&MountScopeExtension> {
+        self.nested
+            .as_deref()
+            .and_then(Self::final_scope_extension)
+            .or(self.dispatch.scope_extension.as_ref())
+    }
+}
+
+/// A native Mount over HTTP routes with prebuilt responses and nested Mounts.
 ///
 /// This type handles the Mount prefix, root-path extension, parameter merging,
-/// child route selection, and standalone 404/405 responses in Rust. It is an
-/// additive native API for fixed-response routes; it does not invoke Python
-/// endpoints or model arbitrary ASGI child applications.
+/// child route selection, nested Mount composition, and standalone 404/405
+/// responses in Rust. It is an additive native API for fixed-response routes;
+/// it does not invoke Python endpoints or model arbitrary ASGI child
+/// applications.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Mount {
+    mount_pattern: String,
     mount_routes: RouteTable,
     child_routes: RouteTable,
-    responses: Vec<Response>,
+    children: Vec<MountRouteEntry>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum MountRouteEntry {
+    Response(Response),
+    Mount(Mount),
 }
 
 impl Mount {
@@ -105,27 +154,58 @@ impl Mount {
     where
         P: Into<String>,
     {
+        Self::with_children(path, routes.into_iter().map(MountChild::Route))
+    }
+
+    /// Builds a Mount from ordered HTTP-route and nested-Mount children.
+    ///
+    /// Nested Mounts participate in the same insertion order as HTTP routes.
+    /// Their own matching, scope extension, parameter merging, and fallback
+    /// decisions are performed recursively by Rust.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MountError::RouteRegistration`] when this Mount path or any
+    /// HTTP route or nested Mount path is invalid.
+    pub fn with_children<P>(
+        path: P,
+        children: impl IntoIterator<Item = MountChild>,
+    ) -> Result<Self, MountError>
+    where
+        P: Into<String>,
+    {
         let path = path.into();
         let mount_pattern = format!("{}/{{path:path}}", path.trim_end_matches('/'));
         let mut mount_routes = RouteTable::new();
         mount_routes
-            .add_route(mount_pattern, std::iter::empty::<&str>())
+            .add_route(mount_pattern.clone(), std::iter::empty::<&str>())
             .map_err(MountError::RouteRegistration)?;
 
         let mut child_routes = RouteTable::new();
-        let mut responses = Vec::new();
-        for route in routes {
-            let (path, methods, response) = route.into_parts();
-            child_routes
-                .add_route(path, methods)
-                .map_err(MountError::RouteRegistration)?;
-            responses.push(response);
+        let mut route_entries = Vec::new();
+        for child in children {
+            match child {
+                MountChild::Route(route) => {
+                    let (path, methods, response) = route.into_parts();
+                    child_routes
+                        .add_route(path, methods)
+                        .map_err(MountError::RouteRegistration)?;
+                    route_entries.push(MountRouteEntry::Response(response));
+                }
+                MountChild::Mount(mount) => {
+                    child_routes
+                        .add_route(mount.mount_pattern.clone(), std::iter::empty::<&str>())
+                        .map_err(MountError::RouteRegistration)?;
+                    route_entries.push(MountRouteEntry::Mount(mount));
+                }
+            }
         }
 
         Ok(Self {
+            mount_pattern,
             mount_routes,
             child_routes,
-            responses,
+            children: route_entries,
         })
     }
 
@@ -143,6 +223,24 @@ impl Mount {
     /// Returns [`MountError`] if route matching invariants or response
     /// construction fail.
     pub fn dispatch(&self, scope: &MountScope<'_>) -> Result<MountDispatchResult, MountError> {
+        self.dispatch_tree(scope).map(|tree| tree.dispatch)
+    }
+
+    /// Routes one HTTP scope through this Mount and any selected nested Mounts.
+    ///
+    /// The returned tree retains each level's local match and scope extension.
+    /// Use [`MountDispatchTreeResult::final_scope_extension`] to inspect the
+    /// deepest scope applied by the selected chain. The current-level response
+    /// is the final response returned by the chain.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MountError`] if route matching invariants or response
+    /// construction fail at any level.
+    pub fn dispatch_tree(
+        &self,
+        scope: &MountScope<'_>,
+    ) -> Result<MountDispatchTreeResult, MountError> {
         let mount_match = self.mount_routes.matches_detailed_with_root_path(
             scope.path,
             scope.root_path,
@@ -155,11 +253,14 @@ impl Mount {
             } => (*route_index, path_params.as_slice()),
             DetailedRouteMatch::MethodNotAllowed { .. } | DetailedRouteMatch::NotFound => {
                 let response = fallback_response(&mount_match)?;
-                return Ok(MountDispatchResult {
-                    mount_match,
-                    child_match: None,
-                    scope_extension: None,
-                    response,
+                return Ok(MountDispatchTreeResult {
+                    dispatch: MountDispatchResult {
+                        mount_match,
+                        child_match: None,
+                        scope_extension: None,
+                        response,
+                    },
+                    nested: None,
                 });
             }
         };
@@ -189,20 +290,35 @@ impl Mount {
         let child_match =
             self.child_routes
                 .matches_detailed_with_root_path(scope.path, &root_path, scope.method);
+        let mut nested = None;
         let response = match &child_match {
             DetailedRouteMatch::Matched {
                 route_index,
                 path_params: raw_params,
             } => {
-                let child_params = self
-                    .child_routes
-                    .capture_path_parameters(*route_index, raw_params)
-                    .map_err(MountError::PathParameterCapture)?;
-                merge_path_params(&mut path_params, &child_params);
-                self.responses
-                    .get(*route_index)
-                    .cloned()
-                    .ok_or(MountError::MissingChildResponse(*route_index))?
+                match self.children.get(*route_index) {
+                    Some(MountRouteEntry::Response(response)) => {
+                        let child_params = self
+                            .child_routes
+                            .capture_path_parameters(*route_index, raw_params)
+                            .map_err(MountError::PathParameterCapture)?;
+                        merge_path_params(&mut path_params, &child_params);
+                        response.clone()
+                    }
+                    Some(MountRouteEntry::Mount(mount)) => {
+                        // The nested Mount re-matches its prefix and excludes
+                        // its own catch-all `path` capture before merging the
+                        // nested prefix parameters.
+                        let mut child_scope = MountScope::new(scope.path, scope.method, &root_path)
+                            .with_path_params(&path_params);
+                        child_scope = child_scope.with_app_root_path(&app_root_path);
+                        let nested_tree = mount.dispatch_tree(&child_scope)?;
+                        let response = nested_tree.dispatch.response.clone();
+                        nested = Some(Box::new(nested_tree));
+                        response
+                    }
+                    None => return Err(MountError::MissingChildResponse(*route_index)),
+                }
             }
             DetailedRouteMatch::MethodNotAllowed {
                 route_index,
@@ -219,15 +335,18 @@ impl Mount {
             DetailedRouteMatch::NotFound => fallback_response(&child_match)?,
         };
 
-        Ok(MountDispatchResult {
-            mount_match,
-            child_match: Some(child_match),
-            scope_extension: Some(MountScopeExtension {
-                root_path,
-                app_root_path,
-                path_params,
-            }),
-            response,
+        Ok(MountDispatchTreeResult {
+            dispatch: MountDispatchResult {
+                mount_match,
+                child_match: Some(child_match),
+                scope_extension: Some(MountScopeExtension {
+                    root_path,
+                    app_root_path,
+                    path_params,
+                }),
+                response,
+            },
+            nested,
         })
     }
 }

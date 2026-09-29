@@ -2406,42 +2406,70 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 
         return host_app
 
-    async def run() -> tuple[dict[str, Any], dict[str, Any] | None]:
-        route_objects = []
-        for route_index, route_spec in enumerate(routes_spec):
-            if isinstance(route_spec, dict) and route_spec.get("kind") == "host-route":
-                if not is_router or set(route_spec) != {"kind", "host", "name", "app"}:
-                    raise ValueError("Host route input must be a declared Router host-route record")
-                app_spec = _strict_object(
-                    route_spec["app"],
-                    {"kind", "content", "status_code", "media_type", "cookies"},
-                    "Host route app response",
-                )
-                if app_spec["kind"] != "plain-text-response" or app_spec["cookies"]:
-                    raise ValueError(
-                        "Host route app must use a plain-text response without cookies"
-                    )
-                route_objects.append(
-                    Host(
-                        route_spec["host"],
-                        make_host_app(app_spec, route_index),
-                        name=route_spec["name"],
-                    )
-                )
-                continue
-            if (
-                not isinstance(route_spec, dict)
-                or set(route_spec) != {"kind", "path", "methods", "endpoint"}
-                or route_spec["kind"] != "http-route"
-            ):
-                raise ValueError("route input must be a declared http-route record")
-            route_objects.append(
-                Route(
-                    route_spec["path"],
-                    make_endpoint(route_spec["endpoint"], route_index),
-                    methods=route_spec["methods"],
-                )
+    def make_mount_child(route_spec: dict[str, Any]) -> Any:
+        kind = route_spec.get("kind") if isinstance(route_spec, dict) else None
+        if kind == "mount":
+            _strict_object(route_spec, {"kind", "path", "routes"}, "Nested Mount input")
+            nested_routes = route_spec["routes"]
+            if not isinstance(nested_routes, list) or not nested_routes:
+                raise ValueError("Nested Mount routes must be a non-empty array")
+            return Mount(
+                route_spec["path"],
+                routes=[make_mount_child(child) for child in nested_routes],
             )
+        if (
+            not isinstance(route_spec, dict)
+            or set(route_spec) != {"kind", "path", "methods", "endpoint"}
+            or kind != "http-route"
+        ):
+            raise ValueError("Mount child input must be a declared http-route or mount record")
+        return Route(
+            route_spec["path"],
+            make_endpoint(route_spec["endpoint"], 0),
+            methods=route_spec["methods"],
+        )
+
+    async def run() -> tuple[dict[str, Any], dict[str, Any] | None]:
+        if is_mount:
+            route_objects = [make_mount_child(route) for route in routes_spec]
+        else:
+            route_objects = []
+            for route_index, route_spec in enumerate(routes_spec):
+                if isinstance(route_spec, dict) and route_spec.get("kind") == "host-route":
+                    if set(route_spec) != {"kind", "host", "name", "app"}:
+                        raise ValueError(
+                            "Host route input must be a declared Router host-route record"
+                        )
+                    app_spec = _strict_object(
+                        route_spec["app"],
+                        {"kind", "content", "status_code", "media_type", "cookies"},
+                        "Host route app response",
+                    )
+                    if app_spec["kind"] != "plain-text-response" or app_spec["cookies"]:
+                        raise ValueError(
+                            "Host route app must use a plain-text response without cookies"
+                        )
+                    route_objects.append(
+                        Host(
+                            route_spec["host"],
+                            make_host_app(app_spec, route_index),
+                            name=route_spec["name"],
+                        )
+                    )
+                    continue
+                if (
+                    not isinstance(route_spec, dict)
+                    or set(route_spec) != {"kind", "path", "methods", "endpoint"}
+                    or route_spec["kind"] != "http-route"
+                ):
+                    raise ValueError("route input must be a declared http-route record")
+                route_objects.append(
+                    Route(
+                        route_spec["path"],
+                        make_endpoint(route_spec["endpoint"], route_index),
+                        methods=route_spec["methods"],
+                    )
+                )
 
         if is_router:
             application = Router(

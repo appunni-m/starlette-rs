@@ -320,6 +320,161 @@
       "observations": [
         "route-dispatch"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Mount.route-dispatch.nested-scope-composition",
+      "surface": "starlette.routing.Mount",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Mount.route-dispatch.scope-extension",
+        "starlette.routing.Mount.route-dispatch.inherited-path-parameter-collision",
+        "starlette.routing.Mount.route-dispatch.nested-scope-composition"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "mount": {
+        "path": "/tenants/{team:str}",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/regions/{team:int}",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/items/{item_id:int}",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "plain-text-response",
+                  "content": "nested-ok",
+                  "status_code": 200,
+                  "media_type": "text/plain",
+                  "cookies": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/gateway/tenants/acme/regions/008/items/0007",
+        "raw_path_base64": "L2dhdGV3YXkvdGVuYW50cy9hY21lL3JlZ2lvbnMvMDA4L2l0ZW1zLzAwMDc=",
+        "query_string_base64": "",
+        "root_path": "/gateway",
+        "app_root_path": "/external",
+        "path_params": {
+          "team": "scope-team",
+          "item_id": 99,
+          "path": "inherited-path",
+          "untouched": "keep"
+        },
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Mount.route-dispatch.nested-mount-miss",
+      "surface": "starlette.routing.Mount",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Mount.route-dispatch.scope-extension",
+        "starlette.routing.Mount.route-dispatch.child-not-found",
+        "starlette.routing.Mount.route-dispatch.inherited-path-parameter-collision",
+        "starlette.routing.Mount.route-dispatch.nested-mount-miss"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "mount": {
+        "path": "/tenants/{team:str}",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/regions/{team:int}",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/items/{item_id:int}",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "plain-text-response",
+                  "content": "nested-ok",
+                  "status_code": 200,
+                  "media_type": "text/plain",
+                  "cookies": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/gateway/tenants/acme/regions/not-an-int/items/0007",
+        "raw_path_base64": "L2dhdGV3YXkvdGVuYW50cy9hY21lL3JlZ2lvbnMvbm90LWFuLWludC9pdGVtcy8wMDA3",
+        "query_string_base64": "",
+        "root_path": "/gateway",
+        "app_root_path": "/external",
+        "path_params": {
+          "team": "scope-team",
+          "item_id": 99,
+          "path": "inherited-path",
+          "untouched": "keep"
+        },
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ]
     }
   ]
 }

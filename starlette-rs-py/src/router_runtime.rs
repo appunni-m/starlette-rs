@@ -773,18 +773,35 @@ fn native_child_scope(
     scope: &Bound<'_, PyDict>,
     raw_path_params: &[(String, String)],
 ) -> PyResult<Py<PyAny>> {
-    let path_params = converted_path_params(py, route, scope, raw_path_params)?;
+    let (path_params, mount_remainder) = if matches!(kind, RouteKind::Mount) {
+        let remainder = raw_path_params
+            .iter()
+            .find(|(name, _)| name == "path")
+            .map(|(_, value)| value.clone())
+            .ok_or_else(|| PyRuntimeError::new_err("native mount match omitted path"))?;
+        let mount_params = raw_path_params
+            .iter()
+            .filter(|(name, _)| name != "path")
+            .cloned()
+            .collect::<Vec<_>>();
+        (
+            converted_path_params(py, route, scope, &mount_params)?,
+            Some(remainder),
+        )
+    } else {
+        (
+            converted_path_params(py, route, scope, raw_path_params)?,
+            None,
+        )
+    };
     let child_scope = PyDict::new(py);
 
     match kind {
         RouteKind::Mount => {
             let route_path = scope_route_path(scope)?;
-            let remainder = path_params
-                .bind(py)
-                .get_item("path")?
-                .ok_or_else(|| PyRuntimeError::new_err("native mount match omitted path"))?
-                .extract::<String>()?;
-            path_params.bind(py).del_item("path")?;
+            let remainder = mount_remainder
+                .as_deref()
+                .ok_or_else(|| PyRuntimeError::new_err("native mount match omitted path"))?;
             let remaining_path = format!("/{remainder}");
             let remaining_characters = remaining_path.chars().count();
             let route_character_count = route_path.chars().count();

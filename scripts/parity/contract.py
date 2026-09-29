@@ -2846,10 +2846,13 @@ def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("Mount.path must be an absolute route path")
     if not isinstance(mount["routes"], list) or not mount["routes"]:
         raise ContractError("Mount.routes must contain at least one child route")
-    child_routes = [
-        _validate_http_route_input(route, f"Mount.routes[{index}]")
-        for index, route in enumerate(mount["routes"])
-    ]
+    mount = {
+        "path": mount["path"],
+        "routes": [
+            _validate_mount_route_input(route, f"Mount.routes[{index}]")
+            for index, route in enumerate(mount["routes"])
+        ],
+    }
     _validate_route_dispatch_io(case, allow_inherited_mount_scope=True)
     path = case["scope"]["path"]
     root_path = case["scope"]["root_path"]
@@ -2860,14 +2863,23 @@ def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
     if mount_captures is not None:
         remainder = mount_captures["_mount_path"]
         child_path = "/" + remainder
-        matching_child_routes = [
-            route for route in child_routes if _route_template_matches(route["path"], child_path)
-        ]
+        matched_path = route_path[: -len(child_path)]
+        child_root_path = root_path + matched_path
+        matching_child_routes = []
+        for route in mount["routes"]:
+            if route["kind"] == "http-route":
+                if _route_template_matches(route["path"], child_path):
+                    matching_child_routes.append(route)
+            elif _analyze_mount_dispatch(
+                route, path, child_root_path, case["scope"]["method"].upper()
+            )["mount_matches"]:
+                matching_child_routes.append(route)
     else:
         matching_child_routes = []
     method = case["scope"]["method"].upper()
     child_method_matches = any(
-        not route["methods"]
+        route["kind"] == "mount"
+        or not route["methods"]
         or method in {registered.upper() for registered in route["methods"]}
         or (method == "HEAD" and "GET" in {registered.upper() for registered in route["methods"]})
         for route in matching_child_routes
@@ -2884,16 +2896,103 @@ def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
     if mount_matches and "path_params" in case["scope"]:
         inherited_names = set(case["scope"]["path_params"])
         route_names = {"path"}
-        route_names.update(name for name, _ in _route_template_parameters(mount["path"]))
-        route_names.update(
-            name for route in child_routes for name, _ in _route_template_parameters(route["path"])
-        )
+        route_names.update(_mount_route_parameter_names(mount))
         if inherited_names & route_names:
             derived.add("starlette.routing.Mount.route-dispatch.inherited-path-parameter-collision")
+    analysis = _analyze_mount_dispatch(mount, path, root_path, method)
+    if analysis["mount_matches"] and analysis["depth"] > 1 and analysis["leaf_matches"]:
+        derived.add("starlette.routing.Mount.route-dispatch.nested-scope-composition")
+    if analysis["mount_matches"] and analysis["nested_mount_miss"]:
+        derived.add("starlette.routing.Mount.route-dispatch.nested-mount-miss")
     if not set(case["covers"]) <= derived:
         raise ContractError(
             "Mount case requirements are not exercised by its mount and scope inputs"
         )
+
+
+def _validate_mount_route_input(route: Any, context: str) -> dict[str, Any]:
+    if not isinstance(route, dict) or not isinstance(route.get("kind"), str):
+        raise ContractError(f"{context} must declare a route kind")
+    if route["kind"] == "http-route":
+        return _validate_http_route_input(route, context)
+    if route["kind"] != "mount":
+        raise ContractError(f"{context}.kind must be http-route or mount")
+    route = _exact(route, {"kind", "path", "routes"}, context)
+    if not isinstance(route["path"], str) or not route["path"].startswith("/"):
+        raise ContractError(f"{context}.path must be an absolute Mount route path")
+    if not isinstance(route["routes"], list) or not route["routes"]:
+        raise ContractError(f"{context}.routes must contain at least one child route")
+    return {
+        "kind": route["kind"],
+        "path": route["path"],
+        "routes": [
+            _validate_mount_route_input(child, f"{context}.routes[{index}]")
+            for index, child in enumerate(route["routes"])
+        ],
+    }
+
+
+def _mount_route_parameter_names(mount: dict[str, Any]) -> set[str]:
+    names = {name for name, _converter in _route_template_parameters(mount["path"])}
+    for route in mount["routes"]:
+        if route["kind"] == "http-route":
+            names.update(name for name, _converter in _route_template_parameters(route["path"]))
+        else:
+            names.update(_mount_route_parameter_names(route))
+    return names
+
+
+def _analyze_mount_dispatch(
+    mount: dict[str, Any], path: str, root_path: str, method: str
+) -> dict[str, Any]:
+    route_path = _route_path_after_root(path, root_path)
+    mount_template = mount["path"].rstrip("/") + "/{_mount_path:path}"
+    mount_captures = _route_template_capture(mount_template, route_path)
+    if mount_captures is None:
+        return {
+            "mount_matches": False,
+            "depth": 0,
+            "leaf_matches": False,
+            "nested_mount_miss": False,
+        }
+
+    child_path = "/" + mount_captures["_mount_path"]
+    matched_path = route_path[: -len(child_path)]
+    child_root_path = root_path + matched_path
+    nested_mount_miss = False
+    first_partial = False
+    for route in mount["routes"]:
+        if route["kind"] == "mount":
+            nested = _analyze_mount_dispatch(route, path, child_root_path, method)
+            if nested["mount_matches"]:
+                return {
+                    "mount_matches": True,
+                    "depth": 1 + nested["depth"],
+                    "leaf_matches": nested["leaf_matches"],
+                    "nested_mount_miss": nested_mount_miss or nested["nested_mount_miss"],
+                }
+            nested_mount_miss = True
+            continue
+
+        if not _route_template_matches(route["path"], child_path):
+            continue
+        methods = {registered.upper() for registered in route["methods"]}
+        if not methods or method in methods or (method == "HEAD" and "GET" in methods):
+            return {
+                "mount_matches": True,
+                "depth": 1,
+                "leaf_matches": True,
+                "nested_mount_miss": nested_mount_miss,
+            }
+        first_partial = True
+
+    return {
+        "mount_matches": True,
+        "depth": 1,
+        "leaf_matches": False,
+        "nested_mount_miss": nested_mount_miss,
+        "method_not_allowed": first_partial,
+    }
 
 
 def _validate_reverse_path(

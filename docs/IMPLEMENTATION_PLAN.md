@@ -32,17 +32,17 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 219 input-only cases, 43 operations, and 265
+The current parity contract has 221 input-only cases, 43 operations, and 267
 parity requirements across 30 indexed files. Latest integrated run
-`97653ac3-be37-4d6b-acb9-2fb7c597d698`, finished at
-`2026-09-28T23:46:45.127Z`, selected 293 profile comparisons: 289 passed, zero
+`caaade1c-050a-4054-9f59-0b031e481bec`, finished at
+`2026-09-29T00:09:58.843Z`, selected 297 profile comparisons: 293 passed, zero
 failed, zero infrastructure errors, and four were `not_run`. The Python package
-passed all 219 selected comparisons; Rust-native passed 70 of 74. The four
+passed all 221 selected comparisons; Rust-native passed 72 of 76. The four
 remaining Rust-native rows require Python endpoint callables. The manifest
 SHA-256 is
-`810ea6532cb0c6c6b297c82874a1e4859461f5d6cccadb2ca4bb32ca84466669`; the
+`2608a3cd738886fc5302a6428721a60a08eaa868261aad95d47891f5d2b8b732`; the
 target wheel SHA-256 is
-`a42326c9953230ff6e5f46050879471471e8e67edeecc029ed2ed93160675ad2`. Both
+`c2ad97efc70f9092a50497fb079fb93442a07597d8228f17379d4fd70347e229`. Both
 target environments were built from dirty working trees. `make parity-run`
 builds the current Rust-native adapter before running; its nonzero status
 reflects the four explicitly unsupported callback rows.
@@ -87,15 +87,19 @@ arbitrary ASGI child applications and middleware are not part of this slice.
 The Python facade remains a pass-through, while matching and scope decisions
 run in Rust.
 
-## Next bounded goal: Rust-native nested Mount composition
+## Completed bounded goal: Rust-native nested Mount composition
 
-Allow a native Mount to contain another native Mount and dispatch through both
-levels. Add input-only cases for accumulated `root_path`, retained top-level
-`app_root_path`, parameter overrides at each level, an inner Mount miss, and a
-successful inner response. Compare live scope and response observations with
-the pinned source and installed package. Keep recursive matching, scope
-merging, and fallback decisions in Rust and leave Python wrappers as
-pass-throughs.
+The native Mount child tree now accepts recursively nested Mounts and HTTP
+routes. Rust propagates the original path, accumulated `root_path`, retained
+`app_root_path`, and merged typed captures through each selected level, and
+returns the deepest response. Two input-only cases pass against pinned
+Starlette 1.6.0, the installed package, and the native API: a successful inner
+response with inherited/outer/inner/leaf parameter overrides, and an inner
+integer-converter miss that leaves only the outer scope extension applied.
+The nested success case also found and fixed a Rust package-dispatch bug that
+removed an inherited `path` key when stripping Mount's internal catch-all
+capture. The Python Starlette facade remains a pass-through; no upstream
+Starlette runtime dependency was added.
 
 ## 2. Initial ASGI-to-response vertical slice (partial)
 

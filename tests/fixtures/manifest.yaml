@@ -4366,6 +4366,30 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Mount.route-dispatch.nested-scope-composition",
+              "dimension": "boundary",
+              "description": "Nested Mounts accumulate root_path, preserve the top-level app_root_path, and merge typed path captures at each depth before dispatching the leaf response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.route-dispatch.nested-mount-miss",
+              "dimension": "error_path",
+              "description": "When a nested Mount prefix or converter does not match, its scope extension is not applied and the matching parent Mount retains its scope before returning 404.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

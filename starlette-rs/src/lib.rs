@@ -45,7 +45,10 @@ pub use gzip::{
 pub use lifespan::{
     LifespanAction, LifespanError, LifespanOperation, LifespanPhase, LifespanState,
 };
-pub use mount::{Mount, MountDispatchResult, MountError, MountScope, MountScopeExtension};
+pub use mount::{
+    Mount, MountChild, MountDispatchResult, MountDispatchTreeResult, MountError, MountScope,
+    MountScopeExtension,
+};
 pub use request::{
     BodyProgress, Cookies, QueryParams, RequestBodyAccumulator, RequestBodyError, RequestHeaders,
     RequestStreamProgress, RequestStreamState, parse_cookie_header,

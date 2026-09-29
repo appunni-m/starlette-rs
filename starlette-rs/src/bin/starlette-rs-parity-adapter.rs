@@ -22,7 +22,7 @@ use starlette_rs::{
     ApplicationRoute, AsgiScopeKind, Cookies, DetailedRouteMatch, FileMetadata,
     FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
     FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader, GzipResponseStart, HttpScope,
-    LifespanAction, LifespanState, Mount as NativeMount, MountScope, PathConverter,
+    LifespanAction, LifespanState, Mount as NativeMount, MountChild, MountScope, PathConverter,
     PathParameterCapture, QueryParams, RequestBodyAccumulator, RequestHeaders, Response,
     ResponseEvent, RouteTable, Starlette as NativeApplication, StreamingResponse,
     StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope,
@@ -570,82 +570,11 @@ fn run_mount_case(case: &Value) -> Result<Value, String> {
         ));
     }
 
-    let mount_input = exact_object(
+    let mount = mount_from_parity_input(
         case.get("mount")
             .ok_or_else(|| String::from("Mount input is missing"))?,
-        &["path", "routes"],
         "Mount input",
     )?;
-    let mount_path = string_field(mount_input, "path", "Mount input")?;
-    let routes = mount_input
-        .get("routes")
-        .and_then(Value::as_array)
-        .filter(|routes| !routes.is_empty())
-        .ok_or_else(|| String::from("Mount routes must be a non-empty array"))?;
-    let mut application_routes = Vec::with_capacity(routes.len());
-    for route in routes {
-        let route = exact_object(
-            route,
-            &["kind", "path", "methods", "endpoint"],
-            "Mount child route input",
-        )?;
-        if string_field(route, "kind", "Mount child route input")? != "http-route" {
-            return Err(String::from("Mount child route kind must be http-route"));
-        }
-        let path = string_field(route, "path", "Mount child route input")?;
-        let methods = route
-            .get("methods")
-            .and_then(Value::as_array)
-            .ok_or_else(|| String::from("Mount child route methods must be an array"))?;
-        let method_values = methods
-            .iter()
-            .map(|method| {
-                method
-                    .as_str()
-                    .ok_or_else(|| String::from("Mount child methods must contain strings"))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let endpoint = exact_object(
-            route
-                .get("endpoint")
-                .ok_or_else(|| String::from("Mount child endpoint is missing"))?,
-            &["kind", "content", "status_code", "media_type", "cookies"],
-            "Mount child endpoint input",
-        )?;
-        if string_field(endpoint, "kind", "Mount child endpoint")? != "plain-text-response" {
-            return Err(String::from(
-                "Rust-native Mount currently accepts prebuilt plain-text responses",
-            ));
-        }
-        let content = string_field(endpoint, "content", "Mount child endpoint")?;
-        let media_type = string_field(endpoint, "media_type", "Mount child endpoint")?;
-        let status = endpoint
-            .get("status_code")
-            .and_then(Value::as_u64)
-            .filter(|status| *status <= u16::MAX as u64)
-            .ok_or_else(|| String::from("Mount child status_code must fit u16"))?;
-        let cookies = endpoint
-            .get("cookies")
-            .and_then(Value::as_array)
-            .ok_or_else(|| String::from("Mount child cookies must be an array"))?;
-        let mut response = Response::from_content(
-            status as u16,
-            content.as_bytes().to_vec(),
-            Some(media_type),
-            std::iter::empty::<(&str, &str)>(),
-        )
-        .map_err(|error| error.to_string())?;
-        for cookie in cookies {
-            let cookie = exact_object(cookie, &["key", "value"], "Mount response cookie")?;
-            response
-                .set_cookie(
-                    string_field(cookie, "key", "Mount response cookie")?,
-                    string_field(cookie, "value", "Mount response cookie")?,
-                )
-                .map_err(|error| error.to_string())?;
-        }
-        application_routes.push(ApplicationRoute::new(path, method_values, response));
-    }
 
     if case.get("incoming") != Some(&json!([]))
         || case.get("send") != Some(&json!({"kind": "capture-asgi-send"}))
@@ -697,18 +626,15 @@ fn run_mount_case(case: &Value) -> Result<Value, String> {
                 .ok_or_else(|| String::from("Mount scope app_root_path must be a string"))?,
         );
     }
-    let mount =
-        NativeMount::new(mount_path, application_routes).map_err(|error| error.to_string())?;
     let result = mount
-        .dispatch(&mount_scope)
+        .dispatch_tree(&mount_scope)
         .map_err(|error| error.to_string())?;
     let mount_scope = result
-        .scope_extension
-        .as_ref()
+        .final_scope_extension()
         .map(mount_scope_observation)
         .transpose()?;
 
-    let response = result.response;
+    let response = result.dispatch.response;
     let body = encode_base64(response.body());
     let headers = canonical_headers(response.headers());
     let events = json!([
@@ -738,6 +664,106 @@ fn run_mount_case(case: &Value) -> Result<Value, String> {
             },
         }],
     }))
+}
+
+fn mount_from_parity_input(input: &Value, context: &str) -> Result<NativeMount, String> {
+    let mount = exact_object(input, &["path", "routes"], context)?;
+    mount_from_parity_fields(mount, context)
+}
+
+fn mount_from_parity_fields(
+    mount: &Map<String, Value>,
+    context: &str,
+) -> Result<NativeMount, String> {
+    let path = string_field(mount, "path", context)?;
+    let routes = mount
+        .get("routes")
+        .and_then(Value::as_array)
+        .filter(|routes| !routes.is_empty())
+        .ok_or_else(|| format!("{context}.routes must be a non-empty array"))?;
+    let children = routes
+        .iter()
+        .map(|route| mount_child_from_parity_input(route, context))
+        .collect::<Result<Vec<_>, _>>()?;
+    NativeMount::with_children(path, children).map_err(|error| error.to_string())
+}
+
+fn mount_child_from_parity_input(input: &Value, context: &str) -> Result<MountChild, String> {
+    let kind = input
+        .get("kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("{context} child must declare a string kind"))?;
+    if kind == "mount" {
+        let mount = exact_object(input, &["kind", "path", "routes"], "Nested Mount input")?;
+        return mount_from_parity_fields(mount, "Nested Mount input").map(MountChild::Mount);
+    }
+    let route = exact_object(
+        input,
+        &["kind", "path", "methods", "endpoint"],
+        "Mount child route input",
+    )?;
+    if kind != "http-route" {
+        return Err(String::from(
+            "Rust-native Mount child kind must be http-route or mount",
+        ));
+    }
+    let path = string_field(route, "path", "Mount child route input")?;
+    let methods = route
+        .get("methods")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("Mount child route methods must be an array"))?;
+    let method_values = methods
+        .iter()
+        .map(|method| {
+            method
+                .as_str()
+                .ok_or_else(|| String::from("Mount child methods must contain strings"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let endpoint = exact_object(
+        route
+            .get("endpoint")
+            .ok_or_else(|| String::from("Mount child endpoint is missing"))?,
+        &["kind", "content", "status_code", "media_type", "cookies"],
+        "Mount child endpoint input",
+    )?;
+    if string_field(endpoint, "kind", "Mount child endpoint")? != "plain-text-response" {
+        return Err(String::from(
+            "Rust-native Mount currently accepts prebuilt plain-text responses",
+        ));
+    }
+    let content = string_field(endpoint, "content", "Mount child endpoint")?;
+    let media_type = string_field(endpoint, "media_type", "Mount child endpoint")?;
+    let status = endpoint
+        .get("status_code")
+        .and_then(Value::as_u64)
+        .filter(|status| *status <= u16::MAX as u64)
+        .ok_or_else(|| String::from("Mount child status_code must fit u16"))?;
+    let cookies = endpoint
+        .get("cookies")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("Mount child cookies must be an array"))?;
+    let mut response = Response::from_content(
+        status as u16,
+        content.as_bytes().to_vec(),
+        Some(media_type),
+        std::iter::empty::<(&str, &str)>(),
+    )
+    .map_err(|error| error.to_string())?;
+    for cookie in cookies {
+        let cookie = exact_object(cookie, &["key", "value"], "Mount response cookie")?;
+        response
+            .set_cookie(
+                string_field(cookie, "key", "Mount response cookie")?,
+                string_field(cookie, "value", "Mount response cookie")?,
+            )
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(MountChild::Route(ApplicationRoute::new(
+        path,
+        method_values,
+        response,
+    )))
 }
 
 fn mount_inherited_path_params(

@@ -2556,6 +2556,21 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
 
         return Route(route_spec["path"], endpoint=endpoint, methods=route_spec["methods"])
 
+    def make_mount_child(route_spec: dict[str, Any]) -> Any:
+        if route_spec.get("kind") == "mount":
+            if set(route_spec) != {"kind", "path", "routes"}:
+                raise ValueError("nested Mount input has unsupported fields")
+            nested_routes = route_spec["routes"]
+            if not isinstance(nested_routes, list) or not nested_routes:
+                raise ValueError("nested Mount routes must be a non-empty array")
+            return Mount(
+                route_spec["path"],
+                routes=[make_mount_child(child) for child in nested_routes],
+            )
+        if route_spec.get("kind") != "http-route":
+            raise ValueError("Mount child kind must be http-route or mount")
+        return make_route(route_spec, 0)
+
     def make_host_route(route_spec: dict[str, Any], route_index: int) -> Any:
         app_spec = route_spec["app"]
 
@@ -2584,9 +2599,11 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
         )
     elif case["surface"] == "starlette.routing.Mount":
         mount = case["mount"]
+        if set(mount) != {"path", "routes"}:
+            raise ValueError("Mount input has unsupported fields")
         app = Mount(
             mount["path"],
-            routes=[make_route(route, index) for index, route in enumerate(mount["routes"])],
+            routes=[make_mount_child(route) for route in mount["routes"]],
         )
     else:
         raise ValueError("route-dispatch case has an unsupported surface")
