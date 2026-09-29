@@ -19,7 +19,8 @@ hashes, and active input-catalog and manifest hashes. The latest run,
 `2026-09-29T22:06:37.031Z` to `2026-09-29T22:09:26.394Z` and measured all 74
 source/package workloads with zero failures or not-run rows. Its separate
 Rust-native lane remains unsupported for all 74 workloads. The correctness
-preflight, `96a4315c-6641-42b9-9e4d-8dc0df9d15fb`, selected 537 comparisons:
+preflight, `96a4315c-6641-42b9-9e4d-8dc0df9d15fb`, predates the Router
+live-mutation case and selected 537 comparisons:
 533 passed, zero failed or hit infrastructure errors, and four Rust-native
 Python-callable cases were explicitly `not_run` (Python package 387/387;
 Rust-native 146 passed, 4 not_run). Its manifest SHA-256 is

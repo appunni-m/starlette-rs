@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 389 input-only cases across 42 files,
-covering 61 operations and 446 parity requirements. The authored cases span
+The active parity manifest indexes 390 input-only cases across 43 files,
+covering 61 operations and 448 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses, StaticFiles, WebSockets,
 exceptions, status constants, endpoints, authentication, middleware (including
@@ -26,14 +26,16 @@ bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration,
 schemas, and one bounded Python-package Jinja2 template workflow. The exact operation and profile denominator is in the parity
 manifest; generated JSON and run results remain ignored local build outputs.
 
-Integrated run `cc91fa22-48c0-4a76-91a9-5ed61236ead5` started at
-`2026-09-29T22:05:02.321Z` and finished at `2026-09-29T22:06:19.765Z`. It
-selected 537 profile comparisons: 533 passed, zero failed, zero infrastructure
+Integrated run `a7371cf0-05f4-4ba1-bf1c-c5c200c2e162` started at
+`2026-09-29T22:28:47.292Z` and finished at `2026-09-29T22:30:25.820Z`. It
+selected 538 profile comparisons: 534 passed, zero failed, zero infrastructure
 errors, and four Rust-native comparisons were `not_run`. The Python package
-passed all 387 selected comparisons; Rust-native passed 146 of 150, with four
-Request-dispatch rows requiring Python callables marked `not_run`. The run
-includes the 20 URL scope, 14 URL component, seven Headers/MutableHeaders, and
-one Jinja2 template case; all passed on the Python package. The template case
+passed all 388 selected comparisons; Rust-native passed 146 of 150, with four
+Request-dispatch rows requiring Python callables marked `not_run`. The Router
+live-mutation sequence passed all three observations: route-cache warmup,
+adding `POST` to an existing route, and appending a new route. The run includes
+the 20 URL scope, 14 URL component, seven Headers/MutableHeaders, and one
+Jinja2 template case; all passed on the Python package. The template case
 matches escaped HTML, processor merge, `url_for`, response metadata, and the
 ASGI debug event. All 28 FileResponse cases passed on
 both profiles,
@@ -264,26 +266,28 @@ re-exports or `__all__`.
 
 ## Completed atlas coverage
 
-The [`coverage matrix`](atlas/coverage-matrix.csv) contains 791 mappings:
+The [`coverage matrix`](atlas/coverage-matrix.csv) contains 792 mappings:
 
 | Mapping | Count |
 | --- | ---: |
 | Upstream test functions and methods | 514 source functions represented by 537 behavior mappings |
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
-| All source mappings | 791 |
-| Existing input mappings in the atlas matrix | 153 |
+| All source mappings | 792 |
+| Existing input mappings in the atlas matrix | 154 |
 | Reasoned `not_applicable` mappings | 50 |
 | New input-only fixture backlog | 588 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 153 `existing` mappings point to authored YAML input
+crosswalk snapshot, 154 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest now contains 42 indexed files
-and 389 cases, including twenty URL scope-construction cases, twenty-one BaseHTTPMiddleware cases, one Jinja2 template case, and 28 FileResponse
+input files with 136 cases. The active manifest now contains 43 indexed files
+and 390 cases, including a Router sequence that verifies live route-method and
+route-list mutations across dispatches, twenty URL scope-construction cases,
+twenty-one BaseHTTPMiddleware cases, one Jinja2 template case, and 28 FileResponse
 cases, 38 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in

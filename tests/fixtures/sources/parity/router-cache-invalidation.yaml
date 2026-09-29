@@ -1,0 +1,174 @@
+{
+  "schema": "migration-parity/parity-input@9",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.live-route-cache-mutations",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.live-route-method-mutation",
+        "starlette.routing.Router.route-dispatch.live-route-list-append"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/warm",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "warm",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        },
+        {
+          "kind": "http-route",
+          "path": "/method",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "method-updated",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "cache-warmup",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/warm",
+            "raw_path_base64": "L3dhcm0=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        },
+        {
+          "step_id": "method-update",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/method",
+            "raw_path_base64": "L21ldGhvZA==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": [
+            {
+              "operation": "route-method-add",
+              "route_index": 1,
+              "method": "POST"
+            }
+          ]
+        },
+        {
+          "step_id": "list-append",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/added",
+            "raw_path_base64": "L2FkZGVk",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": [
+            {
+              "operation": "route-list-append",
+              "route": {
+                "kind": "http-route",
+                "path": "/added",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "plain-text-response",
+                  "content": "appended-route",
+                  "status_code": 200,
+                  "media_type": "text/plain",
+                  "cookies": []
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "cache-warmup",
+        "method-update",
+        "list-append"
+      ]
+    }
+  ]
+}

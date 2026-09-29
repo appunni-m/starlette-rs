@@ -254,6 +254,7 @@
       "build/parity/inputs/parity/websocket-state-sequence.json",
       "build/parity/inputs/parity/router-converter-dispatch.json",
       "build/parity/inputs/parity/router-slash-redirect.json",
+      "build/parity/inputs/parity/router-cache-invalidation.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
       "build/parity/inputs/parity/reverse-url-routing.json",
@@ -10288,7 +10289,9 @@
                 "reason": "The Rust target supports the declared ordered built-in route-selection and fixed response projection. It does not invoke arbitrary Python endpoints, expose Python scope mutation or typed path_params, or support Python-registered URL convertors.",
                 "missing_requirements": [
                   "starlette.routing.Router.route-dispatch.python-callable-endpoint",
-                  "starlette.routing.Router.route-dispatch.custom-converter-override"
+                  "starlette.routing.Router.route-dispatch.custom-converter-override",
+                  "starlette.routing.Router.route-dispatch.live-route-list-append",
+                  "starlette.routing.Router.route-dispatch.live-route-method-mutation"
                 ]
               }
             },
@@ -10519,6 +10522,28 @@
               "id": "starlette.routing.Router.route-dispatch.host-route-miss",
               "dimension": "error_path",
               "description": "Continue through the Router miss behavior when no Host route matches the request Host header. Upstream: starlette/routing.py:466-512.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.live-route-list-append",
+              "dimension": "boundary",
+              "description": "After a prior dispatch, appending a Route to the live Router.routes list makes the new route available on the next dispatch. Upstream: starlette/routing.py::Router.app and Router.routes.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
+              "dimension": "boundary",
+              "description": "After a prior dispatch, adding a method to an existing Route.methods set makes the route accept that method. Upstream: starlette/routing.py::Route.matches and Route.handle.",
               "lanes": [
                 "parity"
               ],

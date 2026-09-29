@@ -2717,6 +2717,7 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
         register_url_convertor(spec["name"], InputConvertor())
 
     route_index_observations: list[int] = []
+    router_sequence = case.get("surface") == "starlette.routing.Router" and "steps" in case
 
     def make_route(route_spec: dict[str, Any], route_index: int) -> Any:
         response_spec = route_spec["endpoint"]
@@ -2789,46 +2790,97 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
     else:
         raise ValueError("route-dispatch case has an unsupported surface")
 
-    scope = _make_scope(case["scope"])
-    incoming = [_make_message(message) for message in case["incoming"]]
-    received = 0
-    sent: list[dict[str, Any]] = []
+    async def dispatch(dispatch_input: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        scope = _make_scope(dispatch_input["scope"])
+        incoming = [_make_message(message) for message in dispatch_input["incoming"]]
+        received = 0
+        sent: list[dict[str, Any]] = []
+        route_observation_start = len(route_index_observations)
 
-    async def receive() -> dict[str, Any]:
-        nonlocal received
-        if received < len(incoming):
-            message = incoming[received]
-            received += 1
-            return message
-        return {"type": "http.disconnect"}
+        async def receive() -> dict[str, Any]:
+            nonlocal received
+            if received < len(incoming):
+                message = incoming[received]
+                received += 1
+                return message
+            return {"type": "http.disconnect"}
 
-    async def send(message: dict[str, Any]) -> None:
-        sent.append(message)
+        async def send(message: dict[str, Any]) -> None:
+            sent.append(message)
 
-    if case["send"] != {"kind": "capture-asgi-send"}:
-        raise ValueError("send input must select the declared ASGI message collector")
-    asyncio.run(app(scope, receive, send))
-    events = [_canonical_message(message) for message in sent]
-    response_start = next(
-        (event for event in events if event["type"] == "http.response.start"), None
-    )
-    response_body = b"".join(
-        message.get("body", b"") for message in sent if message["type"] == "http.response.body"
-    )
-    observation = {
-        "response_status": response_start["status"] if response_start is not None else None,
-        "ordered_repeated_headers": response_start["headers"] if response_start is not None else [],
-        "response_bytes": (
-            {
-                "encoding": "base64",
-                "data": base64.b64encode(response_body).decode("ascii"),
-            }
+        if dispatch_input["send"] != {"kind": "capture-asgi-send"}:
+            raise ValueError("send input must select the declared ASGI message collector")
+        await app(scope, receive, send)
+        events = [_canonical_message(message) for message in sent]
+        response_start = next(
+            (event for event in events if event["type"] == "http.response.start"), None
+        )
+        response_body = b"".join(
+            message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+        )
+        observation = {
+            "response_status": response_start["status"] if response_start is not None else None,
+            "ordered_repeated_headers": response_start["headers"]
             if response_start is not None
-            else None
-        ),
-        "asgi_event_order": [event["type"] for event in events],
-        "asgi_events": events,
-    }
+            else [],
+            "response_bytes": (
+                {
+                    "encoding": "base64",
+                    "data": base64.b64encode(response_body).decode("ascii"),
+                }
+                if response_start is not None
+                else None
+            ),
+            "asgi_event_order": [event["type"] for event in events],
+            "asgi_events": events,
+        }
+        if case["surface"] == "starlette.routing.Mount":
+            observation["mount_scope"] = (
+                {
+                    "root_path": scope.get("root_path"),
+                    "app_root_path": scope.get("app_root_path"),
+                    "path_params": {
+                        name: {"value": _json_safe(value), "type": type(value).__name__}
+                        for name, value in scope.get("path_params", {}).items()
+                    },
+                }
+                if "app_root_path" in scope
+                else None
+            )
+        else:
+            route_indexes = route_index_observations[route_observation_start:]
+            if len(route_indexes) > 1:
+                raise RuntimeError("Router dispatched more than one route endpoint")
+            observation["route_index"] = route_indexes[0] if route_indexes else None
+        return observation, scope
+
+    if router_sequence:
+
+        async def run_sequence() -> list[dict[str, Any]]:
+            observations = []
+            for step in case["steps"]:
+                for mutation in step["mutations"]:
+                    if mutation["operation"] == "route-method-add":
+                        app.routes[mutation["route_index"]].methods.add(mutation["method"])
+                    elif mutation["operation"] == "route-list-append":
+                        route = make_route(mutation["route"], len(app.routes))
+                        app.routes.append(route)
+                    else:
+                        raise ValueError("unsupported Router route mutation")
+                observation, _scope = await dispatch(step)
+                observations.append(
+                    {"step_id": step["step_id"], "status": "ok", "value": observation}
+                )
+            return observations
+
+        sequence_observations = asyncio.run(run_sequence())
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": sequence_observations,
+        }
+
+    observation, scope = asyncio.run(dispatch(case))
     if case["surface"] == "starlette.routing.Mount":
         observation["mount_scope"] = (
             {
@@ -2841,12 +2893,6 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
             }
             if "app_root_path" in scope
             else None
-        )
-    else:
-        if len(route_index_observations) > 1:
-            raise RuntimeError("Router dispatched more than one route endpoint")
-        observation["route_index"] = (
-            route_index_observations[0] if route_index_observations else None
         )
     return {
         "case_id": case["case_id"],

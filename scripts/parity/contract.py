@@ -267,6 +267,15 @@ ROUTER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "incoming",
     "send",
 }
+ROUTER_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"execution_schedule", "scope", "incoming", "send"}) | {
+    "custom_convertors",
+    "redirect_slashes",
+    "routes",
+}
+ROUTER_SEQUENCE_REQUIREMENTS = {
+    "append_route": "starlette.routing.Router.route-dispatch.live-route-list-append",
+    "mutate_methods": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
+}
 MOUNT_SURFACE = "starlette.routing.Mount"
 MOUNT_OPERATION = "route-dispatch"
 MOUNT_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
@@ -3968,6 +3977,9 @@ def _application_has_slash_redirect(
 
 
 def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
+    if "steps" in case:
+        _validate_router_sequence_case_stimulus(case)
+        return
     _exact(case, ROUTER_CASE_KEYS, "Router route-dispatch case")
     if case["surface"] != ROUTER_SURFACE or case["operation"] != ROUTER_OPERATION:
         raise ContractError("case is outside the declared Router route-dispatch operation")
@@ -4132,6 +4144,97 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "Router case claims route requirements not exercised by its route and scope inputs: "
             f"{sorted(claimed - derived)}"
+        )
+
+
+def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
+    _exact(case, ROUTER_SEQUENCE_CASE_KEYS, "Router route-dispatch sequence case")
+    if case["surface"] != ROUTER_SURFACE or case["operation"] != ROUTER_OPERATION:
+        raise ContractError("case is outside the declared Router route-dispatch operation")
+    if type(case["redirect_slashes"]) is not bool:
+        raise ContractError("Router redirect_slashes must be boolean")
+    if not isinstance(case["routes"], list) or not case["routes"]:
+        raise ContractError("Router route-dispatch requires a non-empty route list")
+    if not isinstance(case["custom_convertors"], list) or case["custom_convertors"]:
+        raise ContractError("Router mutation sequences use the built-in convertors only")
+
+    routes = [
+        _validate_http_route_input(route, f"Router routes[{index}]", {})
+        for index, route in enumerate(case["routes"])
+    ]
+    methods = [
+        {method.upper() for method in route["methods"]}
+        | ({"HEAD"} if "GET" in {method.upper() for method in route["methods"]} else set())
+        for route in routes
+    ]
+    steps = case["steps"]
+    if not isinstance(steps, list) or len(steps) < 2:
+        raise ContractError("Router mutation sequence requires at least two dispatch steps")
+    step_ids: list[str] = []
+    derived: set[str] = set()
+    for step_index, raw_step in enumerate(steps):
+        context = f"Router dispatch steps[{step_index}]"
+        step = _exact(raw_step, {"step_id", "scope", "incoming", "send", "mutations"}, context)
+        step_id = _string(step["step_id"], f"{context}.step_id")
+        if step_id in step_ids:
+            raise ContractError("Router dispatch step IDs must be unique")
+        step_ids.append(step_id)
+        _validate_route_dispatch_io(
+            step,
+            allow_query=True,
+            allow_headers=False,
+            allow_host=False,
+        )
+        if not isinstance(step["mutations"], list):
+            raise ContractError(f"{context}.mutations must be an array")
+        if step_index == 0 and step["mutations"]:
+            raise ContractError("the first Router dispatch step must populate the route cache")
+
+        for mutation_index, raw_mutation in enumerate(step["mutations"]):
+            mutation_context = f"{context}.mutations[{mutation_index}]"
+            if not isinstance(raw_mutation, dict):
+                raise ContractError(f"{mutation_context} must be an object")
+            operation = raw_mutation.get("operation")
+            if operation == "route-method-add":
+                mutation = _exact(
+                    raw_mutation,
+                    {"operation", "route_index", "method"},
+                    mutation_context,
+                )
+                route_index = mutation["route_index"]
+                method = _string(mutation["method"], f"{mutation_context}.method")
+                if (
+                    type(route_index) is not int
+                    or route_index < 0
+                    or route_index >= len(routes)
+                    or method != method.upper()
+                    or method in methods[route_index]
+                ):
+                    raise ContractError(
+                        f"{mutation_context} must add a new uppercase method to an existing route"
+                    )
+                methods[route_index].add(method)
+                derived.add(ROUTER_SEQUENCE_REQUIREMENTS["mutate_methods"])
+            elif operation == "route-list-append":
+                mutation = _exact(raw_mutation, {"operation", "route"}, mutation_context)
+                route = _validate_http_route_input(
+                    mutation["route"], f"{mutation_context}.route", {}
+                )
+                routes.append(route)
+                route_methods = {method.upper() for method in route["methods"]}
+                if "GET" in route_methods:
+                    route_methods.add("HEAD")
+                methods.append(route_methods)
+                derived.add(ROUTER_SEQUENCE_REQUIREMENTS["append_route"])
+            else:
+                raise ContractError(f"{mutation_context}.operation is unsupported")
+
+    if case["observations"] != step_ids:
+        raise ContractError("Router observations must select every dispatch step in order")
+    if set(case["covers"]) != derived:
+        raise ContractError(
+            "Router sequence coverage must match the route mutations in its input: "
+            f"expected={sorted(derived)}, actual={sorted(case['covers'])}"
         )
 
 
@@ -6283,6 +6386,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_websocket_close
         else WEBSOCKET_ROUTE_CASE_KEYS
         if is_websocket_route
+        else ROUTER_SEQUENCE_CASE_KEYS
+        if is_router and isinstance(case, dict) and "steps" in case
         else ROUTER_CASE_KEYS
         if is_router
         else MOUNT_CASE_KEYS

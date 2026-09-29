@@ -25,17 +25,19 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The latest contract has 389 input-only cases across 42
-files, 61 operations, and 446 requirements. Run
-`cc91fa22-48c0-4a76-91a9-5ed61236ead5` selected 537 comparisons: 533 passed,
+active and incomplete. The latest contract has 390 input-only cases across 43
+files, 61 operations, and 448 requirements. Run
+`a7371cf0-05f4-4ba1-bf1c-c5c200c2e162` selected 538 comparisons: 534 passed,
 zero failed, zero infrastructure errors, and four Rust-native callable
-boundaries were `not_run`. The Python package passed all 387 selected cases;
-Rust-native passed 146 of 150. One Jinja2 template workflow now passes on the
+boundaries were `not_run`. The Python package passed all 388 selected cases;
+Rust-native passed 146 of 150. The Router live-mutation sequence passed all
+three dispatches. One Jinja2 template workflow now passes on the
 Python package. The 20 URL-scope, 14 URL-component, and seven
 Headers/MutableHeaders cases all passed on the Python package. The latest
 Router/GZip run `7c05f648-8d59-4b0a-a1f0-5001e37c491d` measured all 74
-source/package workloads after current-manifest parity preflight
-`96a4315c-6641-42b9-9e4d-8dc0df9d15fb`. Router's median source/package ratio
+source/package workloads after parity preflight
+`96a4315c-6641-42b9-9e4d-8dc0df9d15fb`, before the Router live-mutation case
+was added. Router's median source/package ratio
 improved from 0.377 through 0.524 to 0.715 under the same manifest, though the
 package stays slower on five of six Router workloads. See
 [Benchmark mapping](../BENCHMARKS.md)
@@ -225,8 +227,8 @@ selector. A related route or response example is not enough to claim coverage
 for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
-and observes it. The checked-in generated `coverage-matrix.csv` has 791 rows:
-150 `existing` mappings, 591 `backlog` rows, and 50 reasoned `not_applicable`
+and observes it. The checked-in generated `coverage-matrix.csv` has 792 rows:
+154 `existing` mappings, 588 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -273,8 +275,8 @@ and input-only fixture paths. It writes `api-review.csv`,
 For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 514 `supported`, 286
-`private/internal`, and 199 `uncertain` candidates. The coverage matrix has 791
-source mappings: 153 existing input mappings, 50 reasoned `not_applicable`
+`private/internal`, and 199 `uncertain` candidates. The coverage matrix has 792
+source mappings: 154 existing input mappings, 50 reasoned `not_applicable`
 entries, and 588 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.

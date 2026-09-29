@@ -4566,22 +4566,25 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         )
 
     common_keys = {"case_id", "surface", "operation", "covers", "target_profiles", "assets"}
+    router_sequence = is_router and "steps" in case
     if is_router:
+        router_keys = common_keys | {
+            "custom_convertors",
+            "redirect_slashes",
+            "routes",
+            "observations",
+        }
+        router_keys |= {"steps"} if router_sequence else {"scope", "incoming", "send"}
         _strict_object(
             case,
-            common_keys
-            | {
-                "custom_convertors",
-                "redirect_slashes",
-                "routes",
-                "scope",
-                "incoming",
-                "send",
-                "observations",
-            },
+            router_keys,
             "Router route-dispatch case",
         )
-        if case["observations"] != [ROUTER_OPERATION]:
+        if router_sequence:
+            step_ids = [step["step_id"] for step in case["steps"]]
+            if case["observations"] != step_ids:
+                raise ValueError("Router observations must select every dispatch step in order")
+        elif case["observations"] != [ROUTER_OPERATION]:
             raise ValueError("Router observations must select route-dispatch")
         routes_spec = case["routes"]
         custom_convertors = case["custom_convertors"]
@@ -4600,7 +4603,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("route-dispatch requires a non-empty route list")
     if not isinstance(custom_convertors, list):
         raise ValueError("custom_convertors must be an array")
-    if case["send"] != {"kind": "capture-asgi-send"}:
+    if not router_sequence and case["send"] != {"kind": "capture-asgi-send"}:
         raise ValueError("send input must select the declared ASGI message collector")
 
     from starlette.convertors import CONVERTOR_TYPES, Convertor, register_url_convertor
@@ -4686,7 +4689,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             methods=route_spec["methods"],
         )
 
-    async def run() -> tuple[dict[str, Any], dict[str, Any] | None]:
+    async def run() -> tuple[Any, dict[str, Any] | None]:
         if is_mount:
             route_objects = [make_mount_child(route) for route in routes_spec]
         else:
@@ -4738,58 +4741,97 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             _strict_object(mount_spec, {"path", "routes"}, "Mount input")
             application = Mount(mount_spec["path"], routes=route_objects)
 
-        scope = _make_scope(case["scope"])
-        incoming = [_message(item) for item in case["incoming"]]
-        incoming_index = 0
-        sent: list[dict[str, Any]] = []
+        async def dispatch(
+            scope_spec: dict[str, Any], incoming_spec: list[dict[str, Any]]
+        ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+            scope = _make_scope(scope_spec)
+            incoming = [_message(item) for item in incoming_spec]
+            incoming_index = 0
+            sent: list[dict[str, Any]] = []
+            route_observation_start = len(route_index_observations)
 
-        async def receive() -> dict[str, Any]:
-            nonlocal incoming_index
-            if incoming_index >= len(incoming):
-                return {"type": "http.disconnect"}
-            message = incoming[incoming_index]
-            incoming_index += 1
-            return message
+            async def receive() -> dict[str, Any]:
+                nonlocal incoming_index
+                if incoming_index >= len(incoming):
+                    return {"type": "http.disconnect"}
+                message = incoming[incoming_index]
+                incoming_index += 1
+                return message
 
-        async def send(message: dict[str, Any]) -> None:
-            sent.append(message)
+            async def send(message: dict[str, Any]) -> None:
+                sent.append(message)
 
-        await application(scope, receive, send)
-        if incoming_index != len(incoming):
-            raise ValueError("route-dispatch left incoming messages unconsumed")
+            await application(scope, receive, send)
+            if incoming_index != len(incoming):
+                raise ValueError("route-dispatch left incoming messages unconsumed")
 
-        events = [_canonical_message(message) for message in sent]
-        response_start = next(
-            (message for message in sent if message["type"] == "http.response.start"), None
-        )
-        response_body = b"".join(
-            message.get("body", b"") for message in sent if message["type"] == "http.response.body"
-        )
-        start_event = next(
-            (event for event in events if event["type"] == "http.response.start"), None
-        )
-        selected = {
-            "response_status": response_start["status"] if response_start is not None else None,
-            "ordered_repeated_headers": start_event["headers"] if start_event is not None else [],
-            "response_bytes": (
-                {
-                    "encoding": "base64",
-                    "data": base64.b64encode(response_body).decode("ascii"),
-                }
-                if response_start is not None
-                else None
-            ),
-            "asgi_event_order": [event["type"] for event in events],
-            "asgi_events": events,
-        }
-        mount_scope = None
-        if is_mount and "app_root_path" in scope:
-            mount_scope = {
-                "root_path": scope.get("root_path", ""),
-                "app_root_path": scope.get("app_root_path"),
-                "path_params": _route_path_params(scope),
+            events = [_canonical_message(message) for message in sent]
+            response_start = next(
+                (message for message in sent if message["type"] == "http.response.start"), None
+            )
+            response_body = b"".join(
+                message.get("body", b"")
+                for message in sent
+                if message["type"] == "http.response.body"
+            )
+            start_event = next(
+                (event for event in events if event["type"] == "http.response.start"), None
+            )
+            selected = {
+                "response_status": (
+                    response_start["status"] if response_start is not None else None
+                ),
+                "ordered_repeated_headers": (
+                    start_event["headers"] if start_event is not None else []
+                ),
+                "response_bytes": (
+                    {
+                        "encoding": "base64",
+                        "data": base64.b64encode(response_body).decode("ascii"),
+                    }
+                    if response_start is not None
+                    else None
+                ),
+                "asgi_event_order": [event["type"] for event in events],
+                "asgi_events": events,
             }
-        return selected, mount_scope
+            mount_scope = None
+            if is_mount and "app_root_path" in scope:
+                mount_scope = {
+                    "root_path": scope.get("root_path", ""),
+                    "app_root_path": scope.get("app_root_path"),
+                    "path_params": _route_path_params(scope),
+                }
+            if is_router:
+                route_indexes = route_index_observations[route_observation_start:]
+                if len(route_indexes) > 1:
+                    raise RuntimeError("Router dispatched more than one route endpoint")
+                selected["route_index"] = route_indexes[0] if route_indexes else None
+            return selected, mount_scope
+
+        if router_sequence:
+            observations = []
+            for step in case["steps"]:
+                for mutation in step["mutations"]:
+                    if mutation["operation"] == "route-method-add":
+                        application.routes[mutation["route_index"]].methods.add(mutation["method"])
+                    elif mutation["operation"] == "route-list-append":
+                        route_spec = mutation["route"]
+                        route_index = len(application.routes)
+                        application.routes.append(
+                            Route(
+                                route_spec["path"],
+                                make_endpoint(route_spec["endpoint"], route_index),
+                                methods=route_spec["methods"],
+                            )
+                        )
+                    else:
+                        raise ValueError("unsupported Router route mutation")
+                selected, _mount_scope = await dispatch(step["scope"], step["incoming"])
+                observations.append({"step_id": step["step_id"], "status": "ok", "value": selected})
+            return observations, None
+
+        return await dispatch(case["scope"], case["incoming"])
 
     try:
         for spec in custom_convertors:
@@ -4817,12 +4859,17 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             else:
                 CONVERTOR_TYPES[name] = old_convertor
 
+    if router_sequence:
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": selected,
+        }
+
     observation_value = selected
     if is_mount:
         observation_value = {**selected, "mount_scope": mount_scope}
     else:
-        if len(route_index_observations) > 1:
-            raise RuntimeError("Router dispatched more than one route endpoint")
         observation_value = {
             **selected,
             "route_index": route_index_observations[0] if route_index_observations else None,

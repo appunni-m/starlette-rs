@@ -32,15 +32,15 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 389 input-only cases, 61 operations, and 446
-parity requirements across 42 indexed files, including URL scope and component
+The current parity contract has 390 input-only cases, 61 operations, and 448
+parity requirements across 43 indexed files, including URL scope and component
 construction, Headers and MutableHeaders, bounded SessionMiddleware and
 BaseHTTPMiddleware workflow slices, and one Jinja2 template workflow. Latest
-integrated run `cc91fa22-48c0-4a76-91a9-5ed61236ead5`, from
-`2026-09-29T22:05:02.321Z` to `2026-09-29T22:06:19.765Z`, selected 537 profile
-comparisons: 533 passed, zero failed, zero infrastructure errors, and four
-were `not_run`. The Python package passed all 387 selected comparisons;
-Rust-native passed 146 of 150, with four Python-callable rows `not_run`. All 20 URL scope, 14 URL component,
+integrated run `a7371cf0-05f4-4ba1-bf1c-c5c200c2e162`, from
+`2026-09-29T22:28:47.292Z` to `2026-09-29T22:30:25.820Z`, selected 538 profile
+comparisons: 534 passed, zero failed, zero infrastructure errors, and four
+were `not_run`. The Python package passed all 388 selected comparisons;
+Rust-native passed 146 of 150, with four Python-callable rows `not_run`. The Router live-mutation sequence passed on all three dispatches. All 20 URL scope, 14 URL component,
 and seven Headers/MutableHeaders cases passed on the Python package. All 28
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
 passed on the Python package profile, and all twenty-one BaseHTTPMiddleware
@@ -305,8 +305,9 @@ source-versus-installed-package correctness gates. Latest run
 `7c05f648-8d59-4b0a-a1f0-5001e37c491d` ran from
 `2026-09-29T22:06:37.031Z` to `2026-09-29T22:09:26.394Z` and measured all 74
 source/package workloads with zero failures and zero not-run rows. Its
-correctness preflight, `96a4315c-6641-42b9-9e4d-8dc0df9d15fb`, used the current
-manifest and selected 537 comparisons: 533 passed, zero failed, zero
+correctness preflight, `96a4315c-6641-42b9-9e4d-8dc0df9d15fb`, used the
+then-current 389-case manifest (SHA-256
+`44e45ddbf67daa09a23ce54a3f0d43e83b8b77e00fa704ceac904374c2661766`) and selected 537 comparisons: 533 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
 `not_run` (package 387/387; Rust-native 146 passed, 4 not_run). Current
 manifest SHA-256 is
