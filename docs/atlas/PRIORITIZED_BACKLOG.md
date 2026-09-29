@@ -8,22 +8,25 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 325 input-only cases across 38 files, covering 56
-operations and 402 requirements. Run `06b18382-67f5-4dff-94f8-bd179d11b7f0` from
-`2026-09-29T15:38:00.211Z` to `2026-09-29T15:39:22.667Z`; it selected 460
-comparisons: 456 passed, zero failed, zero infrastructure errors, and four
-`not_run`. The Python package passed all 323 applicable cases; Rust-native
+The active contract has 327 input-only cases across 38 files, covering 56
+operations and 404 requirements. Run `a5cabba9-ee97-44dc-a793-f05250bc0da5` from
+`2026-09-29T16:00:35.675Z` to `2026-09-29T16:02:00.188Z`; it selected 462
+comparisons: 458 passed, zero failed, zero infrastructure errors, and four
+`not_run`. The Python package passed all 325 applicable cases; Rust-native
 passed 133 of 137 selected cases. The four unsupported Rust-native rows require
 arbitrary Python callables. All 27 FileResponse cases passed on both profiles;
-all eight SessionMiddleware cases and all twelve BaseHTTPMiddleware cases
-passed on the Python package profile. The twelve BaseHTTPMiddleware cases
+all eight SessionMiddleware cases and all fourteen BaseHTTPMiddleware cases
+passed on the Python package profile. The fourteen BaseHTTPMiddleware cases
 cover configured-header mutation, awaited `call_next` response replacement,
 body-cache replay, response-completion unblocking downstream receive,
 exception-context propagation, caught downstream `ValueError` handling,
 partial-stream forwarding, downstream receive transformation, repeated
 disconnect polling with `send_body=True` and `False`, stream consumption
-followed by a downstream body read, and body buffering followed by a downstream
-stream read. The caught-exception case matches
+followed by a downstream body read, body buffering followed by a downstream
+stream read, and dispatch stream reads after downstream stream/body consumption.
+The two post-call-next cases at `tests/middleware/test_base.py:715-773` capture
+the live read result after the endpoint consumes the stream or body; the input
+does not encode an expected exception. The caught-exception case matches
 `tests/middleware/test_base.py:338-356`: dispatch catches `ValueError("TEST")`
 from `call_next` and returns status 400 with a body derived from `str(exc)`.
 Both polling variants observe two downstream polls, raw and downstream receive
@@ -49,12 +52,12 @@ exception-group shapes beyond the observed TaskGroup context and caught
 `ValueError`, varied or malformed `http.response.debug` frames, broader
 cancellation and cleanup ordering, path-send responses, and additional
 streaming behaviors unproven. The Rust-native target was clean at revision
-`a1e6f7090c1fbf159b1f4ff9d07abed65675238a+source-fnv1a64-e5a0df1c1dca21b4`;
+`b579b076aca157215699919d2cb00f3f01ad52e6+source-fnv1a64-e5a0df1c1dca21b4`;
 the Python-package target was dirty with tree SHA-256
-`c6973ca47ecbebef47d20537c8a55a008842ce94453366f870efc840a5b2569b`. Manifest
-SHA-256: `ec04f15ac05c0c5bfd279eb7bb335b251e7f3e88d3a2f558610ba68cfe5a3175`;
+`f349d8415000d6ce02a909576033b9049aa5ae8038d3cecc4cfe2dc6a01086e1`. Manifest
+SHA-256: `58d2be47b38d1ad036a15f361c01cbeb183e12f54cedd851862a494130aea9e2`;
 package wheel SHA-256:
-`725b37f1cb0d6cf35882c91806cbdf23155964b81fec15528eddfa078153a4e7`.
+`d639ebfe3425eca17881db7ae1f6494d71ec0ea92f2e986567bdecba699e222c`.
 See [Migration parity contract and evidence](../PARITY.md) for current scope.
 
 ## P0 — Close the source-backed atlas (complete)
@@ -63,8 +66,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 791 mappings: 621 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 120 existing input mappings. It maps selected
+The current matrix has 791 mappings: 619 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 122 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
