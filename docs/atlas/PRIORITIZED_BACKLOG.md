@@ -8,13 +8,13 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 387 input-only cases across 41 files, covering 60
+The active contract has 388 input-only cases across 41 files, covering 60
 operations and 441 requirements. Latest run
-`ddecf69b-c873-465d-b772-3bdb12df997a` ran from `2026-09-29T20:33:37.763Z` to
-`2026-09-29T20:35:02.579Z` and selected 534 comparisons: 530 passed, zero
+`ce4a98f0-53e3-4559-b8e7-8dfd62f93cce` ran from `2026-09-29T20:55:25.859Z` to
+`2026-09-29T20:56:46.624Z` and selected 536 comparisons: 532 passed, zero
 failed, zero infrastructure errors, and four Rust-native rows were `not_run`.
-The Python package passed all 385 selected cases; Rust-native passed 145 of
-149. Those four rows require Python endpoint or ASGI callables. The run
+The Python package passed all 386 selected cases; Rust-native passed 146 of
+150. Those four rows require Python endpoint or ASGI callables. The run
 includes the 20 URL scope, 14 URL component, and seven Headers/MutableHeaders
 cases. All 28 FileResponse cases passed on both profiles;
 all eight SessionMiddleware cases and all twenty-one BaseHTTPMiddleware cases
@@ -95,8 +95,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 791 mappings: 592 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 149 existing input mappings. It maps selected
+The current matrix has 791 mappings: 591 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 150 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

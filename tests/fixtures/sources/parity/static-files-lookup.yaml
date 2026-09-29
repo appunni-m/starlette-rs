@@ -95,6 +95,34 @@
       "observations": ["lookup-path"]
     },
     {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.windows-unc-absolute-path-rejected",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.absolute-path-rejected"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [],
+        "symlinks": []
+      },
+      "lookup_path": "\\\\server\\share",
+      "check_dir": true,
+      "follow_symlink": false,
+      "observations": ["lookup-path"]
+    },
+    {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal-follow-symlink-disabled",
       "surface": "starlette.staticfiles.StaticFiles",
       "operation": "lookup-path",

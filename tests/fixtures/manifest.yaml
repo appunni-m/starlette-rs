@@ -12031,7 +12031,7 @@
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.absolute-path-rejected",
               "dimension": "error_path",
-              "description": "Reject an absolute path with an empty path and no stat result. Upstream: tests/test_staticfiles.py::test_staticfiles_rejects_absolute_paths.",
+              "description": "Reject Unix and UNC-style absolute paths with an empty resolved path and no stat result. Upstream: tests/test_staticfiles.py::test_staticfiles_rejects_absolute_paths and ::test_staticfiles_rejects_absolute_windows_paths.",
               "lanes": [
                 "parity"
               ],

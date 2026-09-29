@@ -32,14 +32,14 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 387 input-only cases, 60 operations, and 441
+The current parity contract has 388 input-only cases, 60 operations, and 441
 parity requirements across 41 indexed files, including URL scope and component
 construction, Headers and MutableHeaders, and bounded SessionMiddleware and
 BaseHTTPMiddleware workflow slices. Latest integrated run
-`ddecf69b-c873-465d-b772-3bdb12df997a`, from `2026-09-29T20:33:37.763Z` to
-`2026-09-29T20:35:02.579Z`, selected 534 profile comparisons: 530 passed,
+`ce4a98f0-53e3-4559-b8e7-8dfd62f93cce`, from `2026-09-29T20:55:25.859Z` to
+`2026-09-29T20:56:46.624Z`, selected 536 profile comparisons: 532 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 385 selected comparisons; Rust-native passed 145 of 149,
+package passed all 386 selected comparisons; Rust-native passed 146 of 150,
 with four Python-callable rows `not_run`. All 20 URL scope, 14 URL component,
 and seven Headers/MutableHeaders cases passed on the Python package. All 28
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
@@ -101,17 +101,18 @@ policy, lookup, method selection, HTML index/fallback selection, redirects, and
 conditional 304 handling. The Python `starlette.staticfiles` module is a thin
 constructor and forwarding facade; package discovery calls Python's
 `importlib.util.find_spec` at the PyO3 boundary so custom importers and package
-origins remain visible. Thirty-seven input-only cases are authored across
-three StaticFiles inputs. Fourteen `lookup_path` cases run on both target
-profiles and all 28 comparisons pass. Across the StaticFiles slice, all 69
-selected profile comparisons pass: 34 Rust-native and 35 Python-package
+origins remain visible. Thirty-eight input-only cases are authored across
+three StaticFiles inputs. Fifteen `lookup_path` cases run on both target
+profiles and all 30 comparisons pass, including Unix and UNC-style absolute
+path rejection. Across the StaticFiles slice, all 71 selected profile
+comparisons pass: 35 Rust-native and 36 Python-package
 comparisons.
 The path-limit inputs verify that an overlong first root maps to the
 source-compatible 404 before a later root can serve its matching asset, under
 both symlink settings. Permission inputs deny search access to a root containing
 an asset and match the 401 error for both symlink settings. Python package
 discovery is profile-specific; Rust-native uses explicit package roots.
-Remaining gaps include Windows path normalization and path semantics,
+Remaining gaps include broader Windows path normalization and path semantics,
 `check_config` scheduling, constructor errors, remaining validators and
 subclass hooks, and the rest of the 36 upstream StaticFiles tests.
 
@@ -304,11 +305,13 @@ source-versus-installed-package correctness gates. Latest run
 `b394fcb0-0a16-46f2-96f3-8dc3f8ee5da5` ran from
 `2026-09-29T20:36:18.665Z` to `2026-09-29T20:39:09.622Z` and measured all 74
 source/package workloads with zero failures and zero not-run rows. Its
-correctness preflight, `11d66166-c7e1-43e2-88a4-c3dbfab274d0`, selected 534
-comparisons: 530 passed, zero failed, zero infrastructure errors, and four
-Rust-native Python-callable rows were `not_run` (package 385/385; Rust-native
-145 passed, 4 not_run). Manifest SHA-256:
-`9573d42000debef9c754a4ba040b0d2777a9d6f7ef7faa732b74dab92c213b9d`; benchmark
+correctness preflight, `11d66166-c7e1-43e2-88a4-c3dbfab274d0`, used an earlier
+manifest revision and selected 534 comparisons: 530 passed, zero failed, zero
+infrastructure errors, and four Rust-native Python-callable rows were
+`not_run` (package 385/385; Rust-native 145 passed, 4 not_run). Current
+manifest SHA-256 is
+`f552036328b19763f5afe3b0a9ad69394aa4aa80444acc570980d2cc7c748c0b`; the
+benchmark evidence has not been rerun against this manifest revision. Benchmark
 wheel SHA-256: `95b722e996c226d3283a0dfcd12f7bde6c9910321a0fe95ad8e3d695ad188862`.
 The median per-workload source/package ratios are 0.380 for Router and 0.964
 for GZip.

@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 387 input-only cases across 41 files,
+The active parity manifest indexes 388 input-only cases across 41 files,
 covering 60 operations and 441 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses, StaticFiles, WebSockets,
@@ -26,11 +26,11 @@ bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration,
 and schemas. The exact operation and profile denominator is in the parity
 manifest; generated JSON and run results remain ignored local build outputs.
 
-Integrated run `ddecf69b-c873-465d-b772-3bdb12df997a` started at
-`2026-09-29T20:33:37.763Z` and finished at `2026-09-29T20:35:02.579Z`. It
-selected 534 profile comparisons: 530 passed, zero failed, zero infrastructure
+Integrated run `ce4a98f0-53e3-4559-b8e7-8dfd62f93cce` started at
+`2026-09-29T20:55:25.859Z` and finished at `2026-09-29T20:56:46.624Z`. It
+selected 536 profile comparisons: 532 passed, zero failed, zero infrastructure
 errors, and four Rust-native comparisons were `not_run`. The Python package
-passed all 385 selected comparisons; Rust-native passed 145 of 149, with four
+passed all 386 selected comparisons; Rust-native passed 146 of 150, with four
 Request-dispatch rows requiring Python callables marked `not_run`. The run
 includes the 20 URL scope, 14 URL component, and seven Headers/MutableHeaders
 cases; all passed on the Python package. All 28 FileResponse cases passed on
@@ -109,10 +109,10 @@ Parity wheel artifact SHA-256:
 `5570181fde32d83487e692fa908db24fba86b5d06a9bcf6fc1487a016d35c8d3`.
 The four unsupported Rust-native Python-callable rows keep the overall gate
 incomplete; this run is not full parity or release proof.
-Thirty-seven StaticFiles cases are authored across
-three inputs. Fourteen `lookup_path` cases run on both profiles and all 28
-comparisons pass; all 69 StaticFiles profile comparisons pass (34 Rust-native
-and 35 Python-package). The package-only async-boundary case checks bound
+Thirty-eight StaticFiles cases are authored across
+three inputs. Fifteen `lookup_path` cases run on both profiles and all 30
+comparisons pass; all 71 StaticFiles profile comparisons pass (35 Rust-native
+and 36 Python-package). The package-only async-boundary case checks bound
 `lookup_path` override dispatch on an AnyIO worker, event-loop progress while
 the callback blocks, and the resulting ASGI response. Other StaticFiles cases
 cover rooted GET and HEAD, HTML index redirects and fallback, 401/404/405
@@ -183,7 +183,7 @@ Rust-native cases exercise the corresponding trees through explicit roots; they
 do not claim Python package discovery. This boundary uses no upstream
 Starlette runtime import or added runtime dependency.
 
-The 37 authored StaticFiles cases are a correctness slice, not complete
+The 38 authored StaticFiles cases are a correctness slice, not complete
 coverage of its 36 upstream test functions. A package-only async-boundary case
 checks that a bound `lookup_path` override runs on an AnyIO worker while the
 event loop advances, then compares the ASGI response. Fourteen `lookup_path`
@@ -270,19 +270,19 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 791 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 791 |
-| Existing input mappings in the atlas matrix | 138 |
+| Existing input mappings in the atlas matrix | 150 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 603 |
+| New input-only fixture backlog | 591 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 138 `existing` mappings point to authored YAML input
+crosswalk snapshot, 150 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest now contains 39 indexed files
-and 366 cases, including twenty URL scope-construction cases, twenty-one BaseHTTPMiddleware cases and 28 FileResponse
-cases, 37 authored StaticFiles cases, four authentication cases,
+input files with 136 cases. The active manifest now contains 41 indexed files
+and 388 cases, including twenty URL scope-construction cases, twenty-one BaseHTTPMiddleware cases and 28 FileResponse
+cases, 38 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)

@@ -22,9 +22,13 @@ Rust-native lane remains unsupported for all 74 workloads. The correctness
 preflight, `11d66166-c7e1-43e2-88a4-c3dbfab274d0`, selected 534 comparisons:
 530 passed, zero failed or hit infrastructure errors, and four Rust-native
 Python-callable cases were explicitly `not_run` (Python package 385/385;
-Rust-native 145 passed, 4 not_run). Manifest SHA-256:
+Rust-native 145 passed, 4 not_run). Its manifest SHA-256 was
 `9573d42000debef9c754a4ba040b0d2777a9d6f7ef7faa732b74dab92c213b9d`. The
-benchmark wheel artifact SHA-256 is
+current parity manifest includes an additional StaticFiles UNC-path input and
+has SHA-256
+`f552036328b19763f5afe3b0a9ad69394aa4aa80444acc570980d2cc7c748c0b`; the
+benchmark lane has not been rerun against it, so this timing snapshot is
+historical evidence. The benchmark wheel artifact SHA-256 is
 `95b722e996c226d3283a0dfcd12f7bde6c9910321a0fe95ad8e3d695ad188862`. This is
 local workload-specific evidence, not full compatibility or release proof.
 

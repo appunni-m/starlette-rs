@@ -25,16 +25,17 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The latest contract has 387 input-only cases across 41
+active and incomplete. The latest contract has 388 input-only cases across 41
 files, 60 operations, and 441 requirements. Run
-`ddecf69b-c873-465d-b772-3bdb12df997a` selected 534 comparisons: 530 passed,
+`ce4a98f0-53e3-4559-b8e7-8dfd62f93cce` selected 536 comparisons: 532 passed,
 zero failed, zero infrastructure errors, and four Rust-native callable
-boundaries were `not_run`. The Python package passed all 385 selected cases;
-Rust-native passed 145 of 149. The 20 URL-scope, 14 URL-component, and seven
+boundaries were `not_run`. The Python package passed all 386 selected cases;
+Rust-native passed 146 of 150. The 20 URL-scope, 14 URL-component, and seven
 Headers/MutableHeaders cases all passed on the Python package. The latest
-Router/GZip run measured all 74 workloads with passing correctness gates; see
-[Benchmark mapping](../BENCHMARKS.md) for its timing summary. These bounded
-results do not establish full compatibility.
+Router/GZip run measured all 74 workloads against the earlier manifest
+revision; that benchmark evidence has not been refreshed for the current
+manifest. See [Benchmark mapping](../BENCHMARKS.md) for the recorded timing
+summary. These bounded results do not establish full compatibility.
 
 At the source-mapping checkpoint, the parity manifest indexed 118 input-only cases
 across 18 files: 38 request/routing cases, 21 reverse-URL cases, four direct
@@ -220,7 +221,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 791 rows:
-149 `existing` mappings, 592 `backlog` rows, and 50 reasoned `not_applicable`
+150 `existing` mappings, 591 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -268,8 +269,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 514 `supported`, 286
 `private/internal`, and 199 `uncertain` candidates. The coverage matrix has 791
-source mappings: 149 existing input mappings, 50 reasoned `not_applicable`
-entries, and 592 input-only backlog rows. These counts describe the current
+source mappings: 150 existing input mappings, 50 reasoned `not_applicable`
+entries, and 591 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

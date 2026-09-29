@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 387 input-only cases in 41 indexed files, covering 60 operations and 441 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, URL scope and component construction/replacement, Headers and MutableHeaders, requests, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 388 input-only cases in 41 indexed files, covering 60 operations and 441 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, URL scope and component construction/replacement, Headers and MutableHeaders, requests, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,7 +8,7 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest integrated run, `ddecf69b-c873-465d-b772-3bdb12df997a`, started at `2026-09-29T20:33:37.763Z` and finished at `2026-09-29T20:35:02.579Z`. It selected 534 profile comparisons: 530 passed, zero failed, zero infrastructure errors, and four Rust-native rows were `not_run` because they require Python callables. The Python package passed all 385 selected comparisons; Rust-native passed 145 of 149. Manifest SHA-256: `9573d42000debef9c754a4ba040b0d2777a9d6f7ef7faa732b74dab92c213b9d`. The installed package target tree SHA-256 is `50d415a1d4a44d6fd937aed56f6ca292b41f4f6b86fb0be39d0b924300535ea3`; the Rust-native target identity is `68ef7d4fe73f718ef37eb75b588f2db32a424c5b+source-fnv1a64-3f737351c1674203`. `make parity-run` exits 2 for the four explicitly unsupported Rust-native Request-dispatch callable forms. The 20 URL-scope cases, 14 URL-component cases, and seven Headers/MutableHeaders cases are included in this run. The targets were captured from dirty local trees; this bounded run is not full parity or release proof.
+The latest integrated run, `ce4a98f0-53e3-4559-b8e7-8dfd62f93cce`, started at `2026-09-29T20:55:25.859Z` and finished at `2026-09-29T20:56:46.624Z`. It selected 536 profile comparisons: 532 passed, zero failed, zero infrastructure errors, and four Rust-native rows were `not_run` because they require Python callables. The Python package passed all 386 selected comparisons; Rust-native passed 146 of 150. Manifest SHA-256: `f552036328b19763f5afe3b0a9ad69394aa4aa80444acc570980d2cc7c748c0b`. The installed package target tree SHA-256 is `50d415a1d4a44d6fd937aed56f6ca292b41f4f6b86fb0be39d0b924300535ea3`; the Rust-native target identity is `16a102f38fb77cdafe43f6b61a182d88025a4c86+source-fnv1a64-3f737351c1674203`. `make parity-run` exits 2 for the four explicitly unsupported Rust-native Request-dispatch callable forms. The 20 URL-scope cases, 14 URL-component cases, and seven Headers/MutableHeaders cases are included in this run. The targets were captured from dirty local trees; this bounded run is not full parity or release proof.
 
 The BaseHTTP body/stream parity cases map to `tests/middleware/test_base.py:599-712,715-773,835-862`. At `599-628`, dispatch exhausts `request.stream()` before `call_next`, then downstream stream iteration yields only the cached empty chunk. At `689-712`, adapters record the `b"a"` body read in dispatch and again in the endpoint; the endpoint response carries those observed bytes. The two cases at `715-773` record dispatch reads after the endpoint exhausts its stream or reads `request.body()`. The case at `835-862` caches the body before `call_next`, then records dispatch stream replay after the endpoint reads the cached body. These inputs contain no expected exceptions or chunks: source and installed package report the live reads and exact response events. The selected profiles run through asyncio and do not establish Trio behavior from the upstream test-client fixture.
 
@@ -226,7 +226,7 @@ API parity.
 [`static-files.yaml`](../tests/fixtures/sources/parity/static-files.yaml)
 contains 22 input-defined `StaticFiles` ASGI-call cases,
 [`static-files-lookup.yaml`](../tests/fixtures/sources/parity/static-files-lookup.yaml)
-compares 14 direct `lookup_path` calls, including absolute-path rejection,
+compares 15 direct `lookup_path` calls, including Unix and UNC-style absolute-path rejection,
 parent traversal, a symlinked configured root, and internal and external file
 and directory symlinks with both `follow_symlink` settings. The observations
 include the resolved relative path and file metadata. A package-only case in
@@ -239,16 +239,16 @@ overlong first root with both `follow_symlink` settings and verify that its
 404 preempts a later configured root containing the requested asset. Two more
 cases remove search permission from an existing asset's root and compare the
 401 exception with both symlink settings. Together
-with the 14 lookup cases on each profile and the package-only async-boundary
-case, they produce 69 profile comparisons: 34 Rust-native and 35 Python-package.
+with the 15 lookup cases on each profile and the package-only async-boundary
+case, they produce 71 profile comparisons: 35 Rust-native and 36 Python-package.
 They cover rooted GET and HEAD,
 HTML index redirects and 404 fallback, 401/404/405 outcomes, date and ETag
 validators, validator precedence, package assets, absolute-path rejection,
 file/directory metadata, path traversal and symlink containment, bound override
 dispatch, the resulting ASGI response, and path-limit error precedence. Python
 package discovery is exercised through `importlib` on the Python package
-profile; Rust-native package cases pass explicit roots. All 69 selected
-StaticFiles comparisons passed in the latest run, including all 28 direct
+profile; Rust-native package cases pass explicit roots. All 71 selected
+StaticFiles comparisons passed in the latest run, including all 30 direct
 lookup comparisons. These cases do not
 cover the full 36-function upstream StaticFiles suite. Known gaps include
 constructor errors, permission conditions beyond root-search denial, subclass hooks beyond `lookup_path`, a
@@ -432,7 +432,7 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@9` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every target-profile comparison declared for the 387 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 534 comparisons; its four declared Rust-native callable boundaries are recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every target-profile comparison declared for the 388 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 536 comparisons; its four declared Rust-native callable boundaries are recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 
