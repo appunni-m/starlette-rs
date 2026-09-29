@@ -1,6 +1,6 @@
 //! Rust-owned route ordering, scope changes, and ASGI dispatch.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -21,7 +21,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     route_types_runtime::register(module)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum RouteKind {
     Http,
     WebSocket,
@@ -76,9 +76,24 @@ struct RouterRoutes {
     custom_websocket_indexes: Vec<usize>,
 }
 
+#[derive(Clone, PartialEq, Eq)]
+struct RouteSignature {
+    identity: usize,
+    kind: RouteKind,
+    path: String,
+    custom: bool,
+    methods: Vec<String>,
+}
+
+struct CachedRouterRoutes {
+    routes: Rc<RouterRoutes>,
+    signatures: Vec<RouteSignature>,
+}
+
 #[pyclass(name = "RouterRuntime", unsendable)]
 pub(crate) struct PyRouterRuntime {
     route_types: RouteTypes,
+    routes_cache: Rc<RefCell<Option<Rc<CachedRouterRoutes>>>>,
 }
 
 #[pymethods]
@@ -97,6 +112,7 @@ impl PyRouterRuntime {
                 mount: mount_type,
                 host: host_type,
             },
+            routes_cache: Rc::new(RefCell::new(None)),
         }
     }
 
@@ -125,6 +141,7 @@ impl PyRouterRuntime {
                     mount: self.route_types.mount.clone_ref(py),
                     host: self.route_types.host.clone_ref(py),
                 },
+                routes_cache: self.routes_cache.clone(),
                 routes_source: routes,
                 router,
                 scope,
@@ -188,30 +205,62 @@ impl PyRouterRuntime {
 }
 
 impl RouteTypes {
-    fn build_routes(&self, py: Python<'_>, source: &Bound<'_, PyAny>) -> PyResult<RouterRoutes> {
-        let mut state = RouterRoutes {
-            routes: Vec::new(),
-            kinds: Vec::new(),
-            http_table: RouteTable::new(),
-            http_indexes: Vec::new(),
-            custom_http_indexes: Vec::new(),
-            websocket_table: RouteTable::new(),
-            websocket_indexes: Vec::new(),
-            custom_websocket_indexes: Vec::new(),
-        };
-
-        for route in source.try_iter()? {
-            self.register_route(py, &mut state, route?)?;
-        }
-        Ok(state)
-    }
-
-    fn register_route(
+    fn routes_for(
         &self,
         py: Python<'_>,
-        state: &mut RouterRoutes,
+        source: &Bound<'_, PyAny>,
+        cache: &RefCell<Option<Rc<CachedRouterRoutes>>>,
+    ) -> PyResult<Rc<RouterRoutes>> {
+        let cached = cache.borrow().as_ref().cloned();
+        let Some(cached) = cached else {
+            let mut state = RouterRoutes::new();
+            let mut signatures = Vec::new();
+            for route in source.try_iter()? {
+                let (signature, route) = self.inspect_route(py, route?)?;
+                Self::register_route(&mut state, &signature, route)?;
+                signatures.push(signature);
+            }
+            return Ok(Self::cache_routes(cache, state, signatures));
+        };
+
+        let mut prefix_len = 0;
+        let mut route_iterator = source.try_iter()?;
+        while let Some(route) = route_iterator.next() {
+            let (signature, route) = self.inspect_route(py, route?)?;
+            if cached.signatures.get(prefix_len) == Some(&signature) {
+                prefix_len += 1;
+                continue;
+            }
+
+            let mut state = Self::routes_from_prefix(py, &cached, prefix_len)?;
+            let mut signatures = cached.signatures[..prefix_len].to_vec();
+            Self::register_route(&mut state, &signature, route)?;
+            signatures.push(signature);
+            for route in route_iterator {
+                let (signature, route) = self.inspect_route(py, route?)?;
+                Self::register_route(&mut state, &signature, route)?;
+                signatures.push(signature);
+            }
+            return Ok(Self::cache_routes(cache, state, signatures));
+        }
+
+        if prefix_len == cached.signatures.len() {
+            return Ok(cached.routes.clone());
+        }
+
+        let state = Self::routes_from_prefix(py, &cached, prefix_len)?;
+        Ok(Self::cache_routes(
+            cache,
+            state,
+            cached.signatures[..prefix_len].to_vec(),
+        ))
+    }
+
+    fn inspect_route(
+        &self,
+        py: Python<'_>,
         route: Bound<'_, PyAny>,
-    ) -> PyResult<()> {
+    ) -> PyResult<(RouteSignature, Py<PyAny>)> {
         let kind = if route.is_instance(self.mount.bind(py))? {
             RouteKind::Mount
         } else if route.is_instance(self.host.bind(py))? {
@@ -235,28 +284,50 @@ impl RouteTypes {
         let custom = route
             .getattr("_uses_custom_convertors")?
             .extract::<bool>()?;
+        let methods = if matches!(kind, RouteKind::Http) && !custom {
+            route_methods(&route)?
+        } else {
+            Vec::new()
+        };
+        let signature = RouteSignature {
+            identity: route.as_ptr() as usize,
+            kind,
+            path,
+            custom,
+            methods,
+        };
+        Ok((signature, route.unbind()))
+    }
+
+    fn register_route(
+        state: &mut RouterRoutes,
+        signature: &RouteSignature,
+        route: Py<PyAny>,
+    ) -> PyResult<()> {
         let route_index = state.routes.len();
 
-        match kind {
-            RouteKind::Http if custom => state.custom_http_indexes.push(route_index),
+        match signature.kind {
+            RouteKind::Http if signature.custom => {
+                state.custom_http_indexes.push(route_index);
+            }
             RouteKind::Http => {
                 state
                     .http_table
-                    .add_route(path, route_methods(&route)?)
+                    .add_route(signature.path.clone(), signature.methods.iter())
                     .map_err(|error| PyValueError::new_err(error.to_string()))?;
                 state.http_indexes.push(route_index);
             }
-            RouteKind::WebSocket if custom => {
+            RouteKind::WebSocket if signature.custom => {
                 state.custom_websocket_indexes.push(route_index);
             }
             RouteKind::WebSocket => {
                 state
                     .websocket_table
-                    .add_route(path, ["GET"])
+                    .add_route(signature.path.clone(), ["GET"])
                     .map_err(|error| PyValueError::new_err(error.to_string()))?;
                 state.websocket_indexes.push(route_index);
             }
-            RouteKind::Mount if custom => {
+            RouteKind::Mount if signature.custom => {
                 state.custom_http_indexes.push(route_index);
                 state.custom_websocket_indexes.push(route_index);
             }
@@ -265,7 +336,7 @@ impl RouteTypes {
                 state.custom_websocket_indexes.push(route_index);
             }
             RouteKind::Mount => {
-                let mount_path = format!("{path}/{{path:path}}");
+                let mount_path = format!("{}/{{path:path}}", signature.path);
                 state
                     .http_table
                     .add_route(mount_path.clone(), std::iter::empty::<&str>())
@@ -279,14 +350,59 @@ impl RouteTypes {
             }
         }
 
-        state.kinds.push(kind);
-        state.routes.push(route.unbind());
+        state.kinds.push(signature.kind);
+        state.routes.push(route);
         Ok(())
+    }
+
+    fn routes_from_prefix(
+        py: Python<'_>,
+        cached: &CachedRouterRoutes,
+        prefix_len: usize,
+    ) -> PyResult<RouterRoutes> {
+        let mut state = RouterRoutes::new();
+        for index in 0..prefix_len {
+            Self::register_route(
+                &mut state,
+                &cached.signatures[index],
+                cached.routes.routes[index].clone_ref(py),
+            )?;
+        }
+        Ok(state)
+    }
+
+    fn cache_routes(
+        cache: &RefCell<Option<Rc<CachedRouterRoutes>>>,
+        routes: RouterRoutes,
+        signatures: Vec<RouteSignature>,
+    ) -> Rc<RouterRoutes> {
+        let routes = Rc::new(routes);
+        *cache.borrow_mut() = Some(Rc::new(CachedRouterRoutes {
+            routes: routes.clone(),
+            signatures,
+        }));
+        routes
+    }
+}
+
+impl RouterRoutes {
+    fn new() -> Self {
+        Self {
+            routes: Vec::new(),
+            kinds: Vec::new(),
+            http_table: RouteTable::new(),
+            http_indexes: Vec::new(),
+            custom_http_indexes: Vec::new(),
+            websocket_table: RouteTable::new(),
+            websocket_indexes: Vec::new(),
+            custom_websocket_indexes: Vec::new(),
+        }
     }
 }
 
 struct RouterDispatchMachine {
     route_types: RouteTypes,
+    routes_cache: Rc<RefCell<Option<Rc<CachedRouterRoutes>>>>,
     routes_source: Py<PyAny>,
     router: Py<PyAny>,
     scope: Py<PyAny>,
@@ -359,9 +475,9 @@ impl RouterDispatchMachine {
                 .map(Bound::unbind);
         }
 
-        let routes = self
-            .route_types
-            .build_routes(py, self.routes_source.bind(py))?;
+        let routes =
+            self.route_types
+                .routes_for(py, self.routes_source.bind(py), &self.routes_cache)?;
         let (plan, custom_child_scopes) = if scope_type == "http" {
             self.http_plan(py, scope_dict, &routes)?
         } else {
