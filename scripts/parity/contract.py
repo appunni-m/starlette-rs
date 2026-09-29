@@ -85,6 +85,7 @@ BASE_HTTP_REQUIREMENTS = {
     "downstream_stream_after_body_cache": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-stream-read-after-body-cache",
     "dispatch_stream_after_downstream_stream_consumption": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-read-after-downstream-stream-consumption",
     "dispatch_stream_after_downstream_body_read": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-read-after-downstream-body-read",
+    "dispatch_stream_after_pre_call_next_body_cache": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-replay-after-pre-call-next-body-cache",
     "downstream_receive_transformation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-middleware-receive-transformation",
     "repeated_disconnect_polling": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.repeated-disconnect-polling",
 }
@@ -5564,12 +5565,24 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             {"kind": "capture-request-stream-next"},
             {"kind": "return-call-next-response"},
         ]
+        reads_stream_after_downstream_body_cache = actions == [
+            {"kind": "read-request-body"},
+            {"kind": "await-call-next"},
+            {"kind": "read-request-stream-next"},
+            {"kind": "read-request-stream-next"},
+            {"kind": "read-request-stream-next"},
+            {"kind": "return-call-next-response"},
+        ]
         if (
             returned != "call-next"
             or scope["method"] != "POST"
             or not body
             or await_index is None
-            or not (reads_body_after_stream or reads_stream_after_downstream_body)
+            or not (
+                reads_body_after_stream
+                or reads_stream_after_downstream_body
+                or reads_stream_after_downstream_body_cache
+            )
             or request["receive_after_events"] != "disconnect"
             or disconnect_events
             or send_checkpoints
@@ -5579,6 +5592,10 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             )
         if reads_body_after_stream:
             requirements.add(BASE_HTTP_REQUIREMENTS["downstream_body_after_stream_consumption"])
+        elif reads_stream_after_downstream_body_cache:
+            requirements.add(
+                BASE_HTTP_REQUIREMENTS["dispatch_stream_after_pre_call_next_body_cache"]
+            )
         else:
             requirements.add(BASE_HTTP_REQUIREMENTS["dispatch_stream_after_downstream_body_read"])
     if route_kind == "request-stream-plain-text-response":

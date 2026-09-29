@@ -32,22 +32,25 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 327 input-only cases, 56 operations, and 404
+The current parity contract has 328 input-only cases, 56 operations, and 405
 parity requirements across 38 indexed files, including bounded
 SessionMiddleware and BaseHTTPMiddleware workflow slices. Latest integrated
-run `a5cabba9-ee97-44dc-a793-f05250bc0da5`, from
-`2026-09-29T16:00:35.675Z` to `2026-09-29T16:02:00.188Z`, selected 462 profile
-comparisons: 458 passed, zero failed, zero infrastructure errors, and four
-were `not_run`. The Python package passed all 325 applicable comparisons;
+run `787caca0-b6e6-48c5-9b34-4ab3fa709969`, from
+`2026-09-29T16:20:06.811Z` to `2026-09-29T16:21:03.740Z`, selected 463 profile
+comparisons: 459 passed, zero failed, zero infrastructure errors, and four
+were `not_run`. The Python package passed all 326 applicable comparisons;
 Rust-native passed 133 of 137, with four Python-callable rows `not_run`. All 27
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
-passed on the Python package profile, and all fourteen BaseHTTPMiddleware
-cases passed there. They include the two new post-call-next stream-read cases
-from `tests/middleware/test_base.py:715-773`: after the endpoint exhausts
+passed on the Python package profile, and all fifteen BaseHTTPMiddleware
+cases passed there. They include the two post-call-next stream-read cases from
+`tests/middleware/test_base.py:715-773`: after the endpoint exhausts
 `request.stream()` or reads `request.body()`, dispatch captures the live result
-of another stream read. Both source/package comparisons match exactly. The
-source test fixture lists asyncio and Trio; the current adapter profile runs
-asyncio only. Existing BaseHTTP coverage includes header mutation, replacement
+of another stream read. The third new case maps to
+`tests/middleware/test_base.py:835-862`: dispatch caches the body before
+`call_next`, the endpoint reads it, then dispatch observes the cached stream's
+body chunk, terminal empty chunk, and exhaustion. All three source/package
+comparisons match exactly. The source test fixture lists asyncio and Trio; the
+current adapter profile runs asyncio only. Existing BaseHTTP coverage includes header mutation, replacement
 response, body-cache replay, response-completion receive racing,
 exception-context propagation, partial-stream forwarding from
 `tests/middleware/test_base.py:777-832`, and receive transformation from
@@ -70,13 +73,13 @@ catch case covers `test_exception_can_be_caught` at
 `tests/middleware/test_base.py:338-356`: dispatch catches the endpoint's
 `ValueError("TEST")` from `call_next` and returns status 400 with body `TEST`.
 The Rust-native target reported clean at revision
-`b579b076aca157215699919d2cb00f3f01ad52e6+source-fnv1a64-e5a0df1c1dca21b4`;
+`86cf9165b3da1c4f2281b7123ab7445b5c336f6e+source-fnv1a64-e5a0df1c1dca21b4`;
 the installed package artifact SHA-256 is
-`d639ebfe3425eca17881db7ae1f6494d71ec0ea92f2e986567bdecba699e222c`, with
+`7c2f54171556536f157de356c4ae714440bf0d4eea96e20d4d1bfe2ab59482d3`, with
 content tree SHA-256
-`f349d8415000d6ce02a909576033b9049aa5ae8038d3cecc4cfe2dc6a01086e1`.
+`639e7d4a960c31e441235d9252aee6af84ec24979d682d0dd5f819af7366d192`.
 Manifest SHA-256:
-`58d2be47b38d1ad036a15f361c01cbeb183e12f54cedd851862a494130aea9e2`.
+`49611ee77fe5479c5102765cf071d5a60f6ea566537433c2e47978680feb5715`.
 `make parity-run` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 

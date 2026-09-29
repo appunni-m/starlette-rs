@@ -2243,12 +2243,24 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             {"kind": "capture-request-stream-next"},
             {"kind": "return-call-next-response"},
         ]
+        reads_stream_after_downstream_body_cache = dispatch_actions == [
+            {"kind": "read-request-body"},
+            {"kind": "await-call-next"},
+            {"kind": "read-request-stream-next"},
+            {"kind": "read-request-stream-next"},
+            {"kind": "read-request-stream-next"},
+            {"kind": "return-call-next-response"},
+        ]
         if (
             returned != "call-next"
             or scope_spec["method"] != "POST"
             or not request_body
             or await_index is None
-            or not (reads_body_after_stream or reads_stream_after_downstream_body)
+            or not (
+                reads_body_after_stream
+                or reads_stream_after_downstream_body
+                or reads_stream_after_downstream_body_cache
+            )
             or request["receive_after_events"] != "disconnect"
             or disconnect_event_indices
             or send_checkpoints
@@ -2259,6 +2271,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         if reads_body_after_stream:
             required_covers.add(
                 f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-body-read-after-stream-consumption"
+            )
+        elif reads_stream_after_downstream_body_cache:
+            required_covers.add(
+                f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-replay-after-pre-call-next-body-cache"
             )
         else:
             required_covers.add(

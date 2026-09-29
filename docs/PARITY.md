@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 327 input-only cases in 38 indexed files, covering 56 operations and 404 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 328 input-only cases in 38 indexed files, covering 56 operations and 405 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,9 +8,9 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest integrated run, `a5cabba9-ee97-44dc-a793-f05250bc0da5`, started at `2026-09-29T16:00:35.675Z` and finished at `2026-09-29T16:02:00.188Z`. It selected 462 profile comparisons: 458 passed, zero failed, zero infrastructure errors, and four Rust-native rows were `not_run` because they require Python callables. The Python package passed all 325 applicable comparisons; Rust-native passed 133 of 137. Manifest SHA-256: `58d2be47b38d1ad036a15f361c01cbeb183e12f54cedd851862a494130aea9e2`. The installed package artifact SHA-256 is `d639ebfe3425eca17881db7ae1f6494d71ec0ea92f2e986567bdecba699e222c`; its content tree SHA-256 is `f349d8415000d6ce02a909576033b9049aa5ae8038d3cecc4cfe2dc6a01086e1`. The Rust-native target reported clean at revision `b579b076aca157215699919d2cb00f3f01ad52e6+source-fnv1a64-e5a0df1c1dca21b4`; the installed-package adapter identifies its wheel as a content-addressed dirty tree. `make parity-run` exits 2 for the four explicitly unsupported Rust-native rows; this run is not full parity or release proof.
+The latest integrated run, `787caca0-b6e6-48c5-9b34-4ab3fa709969`, started at `2026-09-29T16:20:06.811Z` and finished at `2026-09-29T16:21:03.740Z`. It selected 463 profile comparisons: 459 passed, zero failed, zero infrastructure errors, and four Rust-native rows were `not_run` because they require Python callables. The Python package passed all 326 applicable comparisons; Rust-native passed 133 of 137. Manifest SHA-256: `49611ee77fe5479c5102765cf071d5a60f6ea566537433c2e47978680feb5715`. The installed package artifact SHA-256 is `7c2f54171556536f157de356c4ae714440bf0d4eea96e20d4d1bfe2ab59482d3`; its content tree SHA-256 is `639e7d4a960c31e441235d9252aee6af84ec24979d682d0dd5f819af7366d192`. The Rust-native target reported clean at revision `86cf9165b3da1c4f2281b7123ab7445b5c336f6e+source-fnv1a64-e5a0df1c1dca21b4`; the installed-package adapter identifies its wheel as a content-addressed dirty tree. `make parity-run` exits 2 for the four explicitly unsupported Rust-native rows; this run is not full parity or release proof.
 
-The two new BaseHTTPMiddleware inputs map to `tests/middleware/test_base.py:715-773`. They separately exercise dispatch reading `request.stream()` after the endpoint exhausted that stream or read `request.body()`. The input records no expected exception: source and installed package both report the live stream-read outcome, including its class and message. These parity profiles run through asyncio; they do not establish Trio behavior from the upstream test-client fixture.
+Three new BaseHTTPMiddleware inputs map to `tests/middleware/test_base.py:715-773,835-862`. Two exercise dispatch reading `request.stream()` after the endpoint exhausted that stream or read `request.body()`; the third has dispatch cache the body before `call_next`, then replay its stream after the endpoint reads the cached body. The input records no expected exception or chunks: source and installed package report the live stream reads, including yielded bytes, the empty terminal chunk, and exhaustion. These parity profiles run through asyncio; they do not establish Trio behavior from the upstream test-client fixture.
 
 ## Input-only cases
 
@@ -43,14 +43,16 @@ pinned source and installed package exactly.
 The upstream basis is `starlette/requests.py` (`HTTPConnection.headers`, `query_params`, `path_params`, `cookies`, and `Request.stream`/`body`/`json`), `starlette/datastructures.py` (`ImmutableMultiDict` and `Headers`), and `starlette/routing.py` (`Route.matches` and `Router.app`). Related pinned tests include `tests/test_requests.py::test_request_query_params`, `test_request_headers`, `test_request_cookies`, `test_request_json`, `tests/test_routing.py::test_route_converters`, and `test_router`.
 
 [`base-http-middleware.yaml`](../tests/fixtures/sources/parity/base-http-middleware.yaml)
-now contains twelve Python-package cases, all passing exact comparison
+now contains fifteen Python-package cases, all passing exact comparison
 against pinned Starlette 1.6.0 in the latest integrated run. They cover
 configured-middleware response-header mutation and replacement responses,
 request-body cache/replay across dispatch and the downstream endpoint, response
 completion waking a blocked downstream receive as `http.disconnect`, downstream
 exception/context propagation (including its cause, TaskGroup `ExceptionGroup`
 context, and suppression observations), partial-stream forwarding, and
-downstream receive transformation, repeated disconnect polling, and stream-consumption/downstream-body-read workflows. The caught-exception case matches
+downstream receive transformation, repeated disconnect polling, and request
+body/stream replay orderings across dispatch and the downstream endpoint. The
+caught-exception case matches
 `tests/middleware/test_base.py:338-356`: the endpoint raises
 `ValueError("TEST")`, dispatch catches it from `call_next`, and returns a
 plain-text 400 response whose body is derived from `str(exc)`; the compared
@@ -84,6 +86,14 @@ before returning `Homepage`. The source TestClient fixture declares asyncio and
 trio backends, while the active input selects the Python-package profile only;
 this case does not establish parity for both backends. This is a bounded
 Python-package slice, not general `BaseHTTPMiddleware` parity.
+
+The new dispatch replay case maps to
+`test_read_request_stream_in_dispatch_after_app_calls_body_with_middleware_calling_body_before_call_next`
+at `tests/middleware/test_base.py:835-862`: dispatch caches `b"a"`, the
+endpoint reads that body, and dispatch's stream iterator yields `b"a"`, then
+`b""`, then exhausts. All observed chunks and the response tape matched the
+source exactly. Rust already owns the cache/replay state; this adds parity
+evidence without adding runtime Python behavior.
 
 Unverified BaseHTTP behavior still includes other receive-transformation and wrapper combinations, partial-stream/replay interleavings beyond the tested `b"1"`/`b"2"`/`b"3"` flow, disconnect ordering across stacked middleware, broader exception cause/context combinations and exception-group shapes beyond the observed TaskGroup context and caught `ValueError`, varied and malformed `http.response.debug` frame sequences, cancellation and ContextVar behavior, background-task and context-manager cleanup ordering, path-send responses, the full `MutableHeaders` API and live `raw_headers` mutation, and other streaming paths. The atlas backlog retains the remaining upstream middleware cases.
 
