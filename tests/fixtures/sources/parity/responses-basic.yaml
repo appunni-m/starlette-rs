@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@6",
+  "schema": "migration-parity/parity-input@7",
   "cases": [
     {
       "case_id": "starlette.responses.Response.asgi-call.text-content",
@@ -508,7 +508,8 @@
       "surface": "starlette.responses.Response",
       "operation": "asgi-call",
       "covers": [
-        "starlette.responses.Response.asgi-call.set-cookie-attributes"
+        "starlette.responses.Response.asgi-call.set-cookie-attributes",
+        "starlette.responses.Response.asgi-call.cookie-mutations"
       ],
       "target_profiles": [
         "rust-native-local",
@@ -578,6 +579,16 @@
           "httponly": false,
           "samesite": null,
           "partitioned": false
+        },
+        {
+          "method": "delete",
+          "key": "session",
+          "clock_unix_seconds": 1800000000,
+          "path": "/account",
+          "domain": "example.test",
+          "secure": true,
+          "httponly": true,
+          "samesite": "strict"
         }
       ]
     },

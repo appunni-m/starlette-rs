@@ -32,18 +32,18 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 281 input-only cases, 54 operations, and 344
+The current parity contract has 284 input-only cases, 54 operations, and 351
 parity requirements across 36 indexed files. Integrated run
-`f4df4b18-8c74-46a4-9d33-96a0f684a9b6`, from `2026-09-29T08:34:48.928Z` to
-`2026-09-29T08:35:37.866Z`, selected 396 profile comparisons: 392 passed,
+`c880ff73-6d4d-488a-bc94-3dfa9853b241`, from `2026-09-29T09:54:01.890Z` to
+`2026-09-29T09:55:05.712Z`, selected 400 profile comparisons: 396 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 279 selected comparisons; Rust-native passed 113 of 117,
-with four Python-callable rows `not_run`. The Rust-native target was clean. The
-installed Python package is fingerprinted by package contents and reports the
-content digest `2439b52be8a2a8407264489553f5a1b9cef00aecd655bc8113eacd43dce3fc27`
-as a `dirty-tree` revision. Manifest SHA-256:
-`21aa07faa2275cd65b735ce09a5a04f25949652b438d34032f535f188422023b`.
-`make parity-run` exits with status 2 only for those four explicitly unsupported
+package passed all 282 selected comparisons; Rust-native passed 114 of 118,
+with four Python-callable rows `not_run`. Both targets were dirty. The installed
+Python package is fingerprinted by package contents and reports the content
+digest `b6c3e6a158fb96f461d48fc9c7042fa7341b62a001d2d7ada140ced1d680eefe` as a
+`dirty-tree` revision. Manifest SHA-256:
+`a6e0cb866dca5a1036805541eb35cfd3d089034c806fa9fe85f89b7bc1ae9f8f`.
+`make parity-run` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 
 ## Completed bounded goal: Rust-owned StaticFiles core

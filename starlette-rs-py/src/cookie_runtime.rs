@@ -1,9 +1,9 @@
 //! Conversion of Python cookie attributes into Rust-owned response options.
 
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyAssertionError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use starlette_rs::CookieOptions;
+use starlette_rs::{CookieOptions, ResponseError};
 
 /// Converts Starlette cookie arguments at the PyO3 boundary.
 ///
@@ -22,16 +22,7 @@ pub(crate) fn options_from_python(
     samesite: Option<String>,
     partitioned: bool,
 ) -> PyResult<CookieOptions> {
-    if partitioned {
-        let version_info = py.import("sys")?.getattr("version_info")?;
-        let major = version_info.get_item(0)?.extract::<u8>()?;
-        let minor = version_info.get_item(1)?.extract::<u8>()?;
-        if (major, minor) < (3, 14) {
-            return Err(PyValueError::new_err(
-                "Partitioned cookies are only supported in Python 3.14 and above.",
-            ));
-        }
-    }
+    validate_partitioned_version(py, partitioned)?;
 
     Ok(CookieOptions {
         max_age: max_age
@@ -47,6 +38,56 @@ pub(crate) fn options_from_python(
         samesite,
         partitioned,
     })
+}
+
+/// Converts deletion attributes and Python's current-time expires value.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn delete_options_from_python(
+    py: Python<'_>,
+    path: Option<String>,
+    domain: Option<String>,
+    secure: bool,
+    httponly: bool,
+    samesite: Option<String>,
+) -> PyResult<(String, CookieOptions)> {
+    let expires = py
+        .import("http.cookies")?
+        .getattr("_getdate")?
+        .call1((0,))?
+        .extract::<String>()?;
+    let options = CookieOptions {
+        max_age: None,
+        expires: Some(expires.clone()),
+        path,
+        domain,
+        secure,
+        httponly,
+        samesite,
+        partitioned: false,
+    };
+    Ok((expires, options))
+}
+
+/// Maps response errors to the exception class used by Starlette's cookie API.
+pub(crate) fn response_error(error: ResponseError) -> PyErr {
+    match error {
+        ResponseError::InvalidSameSite => PyAssertionError::new_err(error.to_string()),
+        _ => PyValueError::new_err(error.to_string()),
+    }
+}
+
+fn validate_partitioned_version(py: Python<'_>, partitioned: bool) -> PyResult<()> {
+    if partitioned {
+        let version_info = py.import("sys")?.getattr("version_info")?;
+        let major = version_info.get_item(0)?.extract::<u8>()?;
+        let minor = version_info.get_item(1)?.extract::<u8>()?;
+        if (major, minor) < (3, 14) {
+            return Err(PyValueError::new_err(
+                "Partitioned cookies are only supported in Python 3.14 and above.",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn expiration_text(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<String> {

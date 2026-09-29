@@ -9,6 +9,7 @@ use std::process::{Command, ExitCode};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll, Waker};
+use std::time::{Duration, UNIX_EPOCH};
 
 #[cfg(unix)]
 use std::ffi::CString;
@@ -20,7 +21,6 @@ use std::os::unix::fs::PermissionsExt;
 // The workspace's flate2 dependency is used by the companion library target.
 use flate2 as _;
 use getrandom as _;
-use httpdate as _;
 use md5 as _;
 use mime_guess as _;
 use serde_json::{Map, Number, Value, json};
@@ -1102,25 +1102,25 @@ fn canonical_uuid(value: &str) -> Result<String, String> {
 }
 
 fn run_redirect_response_case(case: &Value) -> Result<Value, String> {
-    let case = exact_object(
-        case,
-        &[
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "url",
-            "status_code",
-            "header_pairs",
-            "scope",
-            "incoming",
-            "send",
-            "observations",
-        ],
-        "RedirectResponse asgi-call case",
-    )?;
+    let mut expected_fields = vec![
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "url",
+        "status_code",
+        "header_pairs",
+        "scope",
+        "incoming",
+        "send",
+        "observations",
+    ];
+    if case.get("cookie_actions").is_some() {
+        expected_fields.push("cookie_actions");
+    }
+    let case = exact_object(case, &expected_fields, "RedirectResponse asgi-call case")?;
     let case_id = string_field(case, "case_id", "RedirectResponse asgi-call case")?;
     if !case_id.starts_with(&format!(
         "{REDIRECT_RESPONSE_SURFACE}.{REDIRECT_RESPONSE_OPERATION}."
@@ -1187,8 +1187,11 @@ fn run_redirect_response_case(case: &Value) -> Result<Value, String> {
         })
         .collect::<Result<Vec<_>, String>>()?;
 
-    let response =
+    let mut response =
         Response::redirect(url, status_code, &header_pairs).map_err(|error| error.to_string())?;
+    if let Some(actions) = case.get("cookie_actions") {
+        apply_response_cookie_actions(&mut response, actions)?;
+    }
     let events = response
         .asgi_events()
         .into_iter()
@@ -1351,6 +1354,82 @@ fn parse_scope_request_headers(
             Ok((name, value))
         })
         .collect()
+}
+
+trait CookieMutationTarget {
+    fn apply_set_cookie(
+        &mut self,
+        key: &str,
+        value: &str,
+        options: &CookieOptions,
+    ) -> Result<(), starlette_rs::ResponseError>;
+
+    fn apply_delete_cookie(
+        &mut self,
+        key: &str,
+        expires: &str,
+        options: &CookieOptions,
+    ) -> Result<(), starlette_rs::ResponseError>;
+}
+
+impl CookieMutationTarget for Response {
+    fn apply_set_cookie(
+        &mut self,
+        key: &str,
+        value: &str,
+        options: &CookieOptions,
+    ) -> Result<(), starlette_rs::ResponseError> {
+        self.set_cookie_with_options(key, value, options)
+    }
+
+    fn apply_delete_cookie(
+        &mut self,
+        key: &str,
+        expires: &str,
+        options: &CookieOptions,
+    ) -> Result<(), starlette_rs::ResponseError> {
+        self.delete_cookie_with_options(key, expires, options)
+    }
+}
+
+impl CookieMutationTarget for StreamingResponse {
+    fn apply_set_cookie(
+        &mut self,
+        key: &str,
+        value: &str,
+        options: &CookieOptions,
+    ) -> Result<(), starlette_rs::ResponseError> {
+        self.set_cookie_with_options(key, value, options)
+    }
+
+    fn apply_delete_cookie(
+        &mut self,
+        key: &str,
+        expires: &str,
+        options: &CookieOptions,
+    ) -> Result<(), starlette_rs::ResponseError> {
+        self.delete_cookie_with_options(key, expires, options)
+    }
+}
+
+impl CookieMutationTarget for NativeFileResponse {
+    fn apply_set_cookie(
+        &mut self,
+        key: &str,
+        value: &str,
+        options: &CookieOptions,
+    ) -> Result<(), starlette_rs::ResponseError> {
+        self.set_cookie_with_options(key, value, options)
+    }
+
+    fn apply_delete_cookie(
+        &mut self,
+        key: &str,
+        expires: &str,
+        options: &CookieOptions,
+    ) -> Result<(), starlette_rs::ResponseError> {
+        self.delete_cookie_with_options(key, expires, options)
+    }
 }
 
 fn run_basic_response_case(case: &Value) -> Result<Value, String> {
@@ -1526,15 +1605,23 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
     }))
 }
 
-fn apply_response_cookie_actions(response: &mut Response, value: &Value) -> Result<(), String> {
+fn apply_response_cookie_actions<T: CookieMutationTarget>(
+    response: &mut T,
+    value: &Value,
+) -> Result<(), String> {
     let actions = value
         .as_array()
         .ok_or_else(|| String::from("Response cookie_actions must be an array"))?;
     for (index, raw_action) in actions.iter().enumerate() {
         let context = format!("Response cookie_actions[{index}]");
-        let action = exact_object(
-            raw_action,
-            &[
+        let method = value
+            .get(index)
+            .and_then(Value::as_object)
+            .and_then(|action| action.get("method"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("{context}.method must be a string"))?;
+        let fields = match method {
+            "set" => &[
                 "method",
                 "key",
                 "value",
@@ -1546,63 +1633,100 @@ fn apply_response_cookie_actions(response: &mut Response, value: &Value) -> Resu
                 "httponly",
                 "samesite",
                 "partitioned",
-            ],
-            &context,
-        )?;
-        if string_field(action, "method", &context)? != "set" {
-            return Err(format!("{context}.method must be set"));
-        }
+            ][..],
+            "delete" => &[
+                "method",
+                "key",
+                "clock_unix_seconds",
+                "path",
+                "domain",
+                "secure",
+                "httponly",
+                "samesite",
+            ][..],
+            _ => return Err(format!("{context}.method must be set or delete")),
+        };
+        let action = exact_object(raw_action, fields, &context)?;
         let key = string_field(action, "key", &context)?;
-        let cookie_value = string_field(action, "value", &context)?;
-        let max_age = match action.get("max_age") {
-            Some(Value::Null) => None,
-            Some(Value::Number(value)) => Some(
-                value
-                    .as_i64()
-                    .ok_or_else(|| format!("{context}.max_age must fit a signed 64-bit integer"))?
-                    .to_string(),
-            ),
-            _ => return Err(format!("{context}.max_age must be an integer or null")),
+        let max_age = if method == "set" {
+            match action.get("max_age") {
+                Some(Value::Null) => None,
+                Some(Value::Number(value)) => Some(
+                    value
+                        .as_i64()
+                        .ok_or_else(|| {
+                            format!("{context}.max_age must fit a signed 64-bit integer")
+                        })?
+                        .to_string(),
+                ),
+                _ => return Err(format!("{context}.max_age must be an integer or null")),
+            }
+        } else {
+            None
+        };
+        let expires = if method == "set" {
+            optional_string_field(action, "expires", &context)?
+        } else {
+            None
         };
         let options = CookieOptions {
             max_age,
-            expires: optional_string_field(action, "expires", &context)?,
+            expires,
             path: optional_string_field(action, "path", &context)?,
             domain: optional_string_field(action, "domain", &context)?,
             secure: bool_field(action, "secure", &context)?,
             httponly: bool_field(action, "httponly", &context)?,
             samesite: optional_string_field(action, "samesite", &context)?,
-            partitioned: bool_field(action, "partitioned", &context)?,
+            partitioned: if method == "set" {
+                bool_field(action, "partitioned", &context)?
+            } else {
+                false
+            },
         };
-        response
-            .set_cookie_with_options(key, cookie_value, &options)
-            .map_err(|error| format!("{context}: {error}"))?;
+        if method == "set" {
+            let cookie_value = string_field(action, "value", &context)?;
+            response
+                .apply_set_cookie(key, cookie_value, &options)
+                .map_err(|error| format!("{context}: {error}"))?;
+        } else {
+            let clock_seconds = action
+                .get("clock_unix_seconds")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| format!("{context}.clock_unix_seconds must be non-negative"))?;
+            let now = UNIX_EPOCH
+                .checked_add(Duration::from_secs(clock_seconds))
+                .ok_or_else(|| format!("{context}.clock_unix_seconds is out of range"))?;
+            let expires = httpdate::fmt_http_date(now);
+            response
+                .apply_delete_cookie(key, &expires, &options)
+                .map_err(|error| format!("{context}: {error}"))?;
+        }
     }
     Ok(())
 }
 
 fn run_streaming_response_case(case: &Value) -> Result<Value, String> {
-    let case = exact_object(
-        case,
-        &[
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "content",
-            "status_code",
-            "header_pairs",
-            "media_type",
-            "scope",
-            "incoming",
-            "send",
-            "observations",
-            "streaming",
-        ],
-        "StreamingResponse asgi-call case",
-    )?;
+    let mut expected_fields = vec![
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "content",
+        "status_code",
+        "header_pairs",
+        "media_type",
+        "scope",
+        "incoming",
+        "send",
+        "observations",
+        "streaming",
+    ];
+    if case.get("cookie_actions").is_some() {
+        expected_fields.push("cookie_actions");
+    }
+    let case = exact_object(case, &expected_fields, "StreamingResponse asgi-call case")?;
     let case_id = string_field(case, "case_id", "StreamingResponse asgi-call case")?;
     if !case_id.starts_with(&format!(
         "{STREAMING_RESPONSE_SURFACE}.{RESPONSE_OPERATION}."
@@ -1713,7 +1837,7 @@ fn run_streaming_response_case(case: &Value) -> Result<Value, String> {
         }
     };
 
-    let response = StreamingResponse::from_chunks(
+    let mut response = StreamingResponse::from_chunks(
         status_code,
         chunks,
         media_type,
@@ -1722,6 +1846,9 @@ fn run_streaming_response_case(case: &Value) -> Result<Value, String> {
             .map(|(name, value)| (name.as_str(), value.as_str())),
     )
     .map_err(|error| error.to_string())?;
+    if let Some(actions) = case.get("cookie_actions") {
+        apply_response_cookie_actions(&mut response, actions)?;
+    }
     let response_body = response
         .chunks()
         .iter()
@@ -1760,27 +1887,27 @@ fn run_streaming_response_case(case: &Value) -> Result<Value, String> {
 }
 
 fn run_file_response_case(case: &Value) -> Result<Value, String> {
-    let case = exact_object(
-        case,
-        &[
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "file",
-            "status_code",
-            "header_pairs",
-            "media_type",
-            "filename",
-            "scope",
-            "incoming",
-            "send",
-            "observations",
-        ],
-        "FileResponse asgi-call case",
-    )?;
+    let mut expected_fields = vec![
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "file",
+        "status_code",
+        "header_pairs",
+        "media_type",
+        "filename",
+        "scope",
+        "incoming",
+        "send",
+        "observations",
+    ];
+    if case.get("cookie_actions").is_some() {
+        expected_fields.push("cookie_actions");
+    }
+    let case = exact_object(case, &expected_fields, "FileResponse asgi-call case")?;
     let case_id = string_field(case, "case_id", "FileResponse asgi-call case")?;
     if !case_id.starts_with(&format!("{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}."))
         || string_field(case, "surface", "FileResponse asgi-call case")? != FILE_RESPONSE_SURFACE
@@ -1898,7 +2025,7 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         mtime_text,
     )
     .map_err(|error| error.to_string())?;
-    let response = NativeFileResponse::new(
+    let mut response = NativeFileResponse::new(
         path.clone(),
         path.to_string_lossy().into_owned(),
         status_code,
@@ -1911,6 +2038,9 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         },
     )
     .map_err(|error| error.to_string())?;
+    if let Some(actions) = case.get("cookie_actions") {
+        apply_response_cookie_actions(&mut response, actions)?;
+    }
     let mut call = response
         .call_state("http", method, &request_headers, pathsend_extension, false)
         .map_err(|error| error.to_string())?;

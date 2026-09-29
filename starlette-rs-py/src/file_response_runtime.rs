@@ -17,6 +17,7 @@ use starlette_rs::{
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
 };
+use crate::cookie_runtime;
 use crate::runtime_calls::header_pairs;
 
 /// Registers the `FileResponse` PyO3 type.
@@ -74,8 +75,61 @@ impl PyFileResponse {
         self.inner.media_type().to_owned()
     }
 
-    fn set_cookie(&mut self, key: &str, value: &str) -> PyResult<()> {
-        self.inner.set_cookie(key, value).map_err(response_error)
+    #[pyo3(signature = (key, value="", max_age=None, expires=None, path="/", domain=None, secure=false, httponly=false, samesite="lax", partitioned=false))]
+    #[allow(clippy::too_many_arguments)]
+    fn set_cookie(
+        &mut self,
+        py: Python<'_>,
+        key: &str,
+        value: &str,
+        max_age: Option<Py<PyAny>>,
+        expires: Option<Py<PyAny>>,
+        path: Option<&str>,
+        domain: Option<&str>,
+        secure: bool,
+        httponly: bool,
+        samesite: Option<&str>,
+        partitioned: bool,
+    ) -> PyResult<()> {
+        let options = cookie_runtime::options_from_python(
+            py,
+            max_age,
+            expires,
+            path.map(str::to_owned),
+            domain.map(str::to_owned),
+            secure,
+            httponly,
+            samesite.map(str::to_owned),
+            partitioned,
+        )?;
+        self.inner
+            .set_cookie_with_options(key, value, &options)
+            .map_err(response_error)
+    }
+
+    #[pyo3(signature = (key, path="/", domain=None, secure=false, httponly=false, samesite="lax"))]
+    #[allow(clippy::too_many_arguments)]
+    fn delete_cookie(
+        &mut self,
+        py: Python<'_>,
+        key: &str,
+        path: Option<&str>,
+        domain: Option<&str>,
+        secure: bool,
+        httponly: bool,
+        samesite: Option<&str>,
+    ) -> PyResult<()> {
+        let (expires, options) = cookie_runtime::delete_options_from_python(
+            py,
+            path.map(str::to_owned),
+            domain.map(str::to_owned),
+            secure,
+            httponly,
+            samesite.map(str::to_owned),
+        )?;
+        self.inner
+            .delete_cookie_with_options(key, &expires, &options)
+            .map_err(response_error)
     }
 
     fn asgi_call(
@@ -343,5 +397,5 @@ fn io_error(error: std::io::Error) -> PyErr {
 }
 
 fn response_error(error: ResponseError) -> PyErr {
-    PyValueError::new_err(error.to_string())
+    cookie_runtime::response_error(error)
 }

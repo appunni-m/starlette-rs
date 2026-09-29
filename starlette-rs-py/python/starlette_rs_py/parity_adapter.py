@@ -2833,23 +2833,26 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_redirect_response_case(case: dict[str, Any]) -> dict[str, Any]:
+    case_keys = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "url",
+        "status_code",
+        "header_pairs",
+        "scope",
+        "incoming",
+        "send",
+        "observations",
+    }
+    if "cookie_actions" in case:
+        case_keys.add("cookie_actions")
     _exact_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "url",
-            "status_code",
-            "header_pairs",
-            "scope",
-            "incoming",
-            "send",
-            "observations",
-        },
+        case_keys,
         "RedirectResponse ASGI-call case",
     )
     if (
@@ -2881,6 +2884,8 @@ def _run_redirect_response_case(case: dict[str, Any]) -> dict[str, Any]:
         status_code=case["status_code"],
         headers=dict(header_pairs),
     )
+    for index, raw_action in enumerate(case.get("cookie_actions", [])):
+        _apply_response_cookie_action(response, raw_action, index)
     scope = _make_scope(case["scope"])
     incoming = [_make_message(item) for item in case["incoming"]]
     incoming_index = 0
@@ -2934,25 +2939,28 @@ def _run_redirect_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
+    case_keys = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "file",
+        "status_code",
+        "header_pairs",
+        "media_type",
+        "filename",
+        "scope",
+        "incoming",
+        "send",
+        "observations",
+    }
+    if "cookie_actions" in case:
+        case_keys.add("cookie_actions")
     _exact_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "file",
-            "status_code",
-            "header_pairs",
-            "media_type",
-            "filename",
-            "scope",
-            "incoming",
-            "send",
-            "observations",
-        },
+        case_keys,
         "FileResponse ASGI-call case",
     )
     if case["surface"] != FILE_RESPONSE_SURFACE or case["operation"] != RESPONSE_OPERATION:
@@ -3023,6 +3031,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             filename=filename,
             stat_result=stat_result,
         )
+        for index, raw_action in enumerate(case.get("cookie_actions", [])):
+            _apply_response_cookie_action(response, raw_action, index)
         scope = _make_scope(scope_spec)
         sent: list[dict[str, Any]] = []
 
@@ -3628,25 +3638,59 @@ def _run_static_files_async_boundary_case(case: dict[str, Any]) -> dict[str, Any
 
 
 def _apply_response_cookie_action(response: Any, raw_action: dict[str, Any], index: int) -> None:
-    action = _exact_object(
-        raw_action,
-        {
-            "method",
-            "key",
-            "value",
-            "max_age",
-            "expires",
-            "path",
-            "domain",
-            "secure",
-            "httponly",
-            "samesite",
-            "partitioned",
-        },
-        f"Response cookie_actions[{index}]",
-    )
-    if action["method"] != "set":
-        raise ValueError("Response cookie action method must be set")
+    context = f"Response cookie_actions[{index}]"
+    method = raw_action.get("method") if isinstance(raw_action, dict) else None
+    if method == "set":
+        action = _exact_object(
+            raw_action,
+            {
+                "method",
+                "key",
+                "value",
+                "max_age",
+                "expires",
+                "path",
+                "domain",
+                "secure",
+                "httponly",
+                "samesite",
+                "partitioned",
+            },
+            context,
+        )
+    elif method == "delete":
+        action = _exact_object(
+            raw_action,
+            {
+                "method",
+                "key",
+                "clock_unix_seconds",
+                "path",
+                "domain",
+                "secure",
+                "httponly",
+                "samesite",
+            },
+            context,
+        )
+        import time
+
+        original_time = time.time
+        time.time = lambda: float(action["clock_unix_seconds"])
+        try:
+            response.delete_cookie(
+                key=action["key"],
+                path=action["path"],
+                domain=action["domain"],
+                secure=action["secure"],
+                httponly=action["httponly"],
+                samesite=action["samesite"],
+            )
+        finally:
+            time.time = original_time
+        return
+    else:
+        raise ValueError(f"{context}.method must be set or delete")
     expires = action["expires"]
     clock_timestamp: float | None = None
     if isinstance(expires, dict):

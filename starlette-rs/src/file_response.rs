@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use md5::{Digest, Md5};
 
-use crate::response::{Response, ResponseError};
+use crate::response::{CookieOptions, Response, ResponseError};
 
 const DEFAULT_CHUNK_SIZE: usize = 64 * 1024;
 type RawHeaderPair = (Vec<u8>, Vec<u8>);
@@ -445,16 +445,46 @@ impl FileResponse {
         })
     }
 
-    /// Appends a response cookie using Starlette's basic cookie formatting.
+    /// Appends a response cookie using Starlette's cookie formatting.
     ///
     /// # Errors
     ///
     /// Returns a response error if the cookie cannot be represented in the
     /// Latin-1 response-header encoding.
     pub fn set_cookie(&mut self, key: &str, value: &str) -> Result<(), ResponseError> {
+        self.set_cookie_with_options(key, value, &CookieOptions::default())
+    }
+
+    /// Appends a response cookie with Starlette's optional attributes.
+    pub fn set_cookie_with_options(
+        &mut self,
+        key: &str,
+        value: &str,
+        options: &CookieOptions,
+    ) -> Result<(), ResponseError> {
         let mut response =
             Response::from_content(200, Vec::new(), None, std::iter::empty::<(&str, &str)>())?;
-        response.set_cookie(key, value)?;
+        response.set_cookie_with_options(key, value, options)?;
+        if let Some((_, cookie)) = response
+            .headers()
+            .iter()
+            .find(|(name, _)| name.as_slice() == b"set-cookie")
+        {
+            self.headers.push((b"set-cookie".to_vec(), cookie.clone()));
+        }
+        Ok(())
+    }
+
+    /// Deletes a response cookie using zero age and the supplied HTTP date.
+    pub fn delete_cookie_with_options(
+        &mut self,
+        key: &str,
+        expires: &str,
+        options: &CookieOptions,
+    ) -> Result<(), ResponseError> {
+        let mut response =
+            Response::from_content(200, Vec::new(), None, std::iter::empty::<(&str, &str)>())?;
+        response.delete_cookie_with_options(key, expires, options)?;
         if let Some((_, cookie)) = response
             .headers()
             .iter()

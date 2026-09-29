@@ -779,6 +779,25 @@ impl Response {
         Ok(())
     }
 
+    /// Deletes a cookie using Starlette's zero-age and expires attributes.
+    ///
+    /// `expires` is the HTTP-date representation of the caller's current time.
+    /// Python callers obtain it from `http.cookies`; Rust callers can supply
+    /// the equivalent date produced from their chosen clock.
+    pub fn delete_cookie_with_options(
+        &mut self,
+        key: &str,
+        expires: &str,
+        options: &CookieOptions,
+    ) -> Result<(), ResponseError> {
+        let delete_options = CookieOptions {
+            max_age: Some(String::from("0")),
+            expires: Some(expires.to_owned()),
+            ..options.clone()
+        };
+        self.set_cookie_with_options(key, "", &delete_options)
+    }
+
     /// Returns the response-start and response-body ASGI messages in send order.
     ///
     /// The body message omits `more_body`, as Starlette's `Response.__call__`
@@ -931,12 +950,39 @@ impl StreamingResponse {
 
     /// Appends a cookie using the same encoding and validation as [`Response`].
     pub fn set_cookie(&mut self, key: &str, value: &str) -> Result<(), ResponseError> {
+        self.set_cookie_with_options(key, value, &CookieOptions::default())
+    }
+
+    /// Appends a cookie with Starlette's optional attributes.
+    pub fn set_cookie_with_options(
+        &mut self,
+        key: &str,
+        value: &str,
+        options: &CookieOptions,
+    ) -> Result<(), ResponseError> {
         let mut response = Response {
             status_code: self.status_code,
             headers: self.headers.clone(),
             body: Vec::new(),
         };
-        response.set_cookie(key, value)?;
+        response.set_cookie_with_options(key, value, options)?;
+        self.headers = response.headers;
+        Ok(())
+    }
+
+    /// Deletes a cookie using Starlette's zero-age and expires attributes.
+    pub fn delete_cookie_with_options(
+        &mut self,
+        key: &str,
+        expires: &str,
+        options: &CookieOptions,
+    ) -> Result<(), ResponseError> {
+        let mut response = Response {
+            status_code: self.status_code,
+            headers: self.headers.clone(),
+            body: Vec::new(),
+        };
+        response.delete_cookie_with_options(key, expires, options)?;
         self.headers = response.headers;
         Ok(())
     }
@@ -1593,27 +1639,28 @@ fn interpolate(template: &str, replacements: &[(&str, &str)]) -> String {
 }
 
 fn is_cookie_token(value: &str) -> bool {
-    value.chars().all(|character| {
-        character.is_ascii_alphanumeric()
-            || matches!(
-                character,
-                '_' | '!'
-                    | '#'
-                    | '$'
-                    | '%'
-                    | '&'
-                    | '\''
-                    | '*'
-                    | '+'
-                    | '-'
-                    | '.'
-                    | '^'
-                    | '`'
-                    | '|'
-                    | '~'
-                    | ':'
-            )
-    })
+    !value.is_empty()
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric()
+                || matches!(
+                    character,
+                    '_' | '!'
+                        | '#'
+                        | '$'
+                        | '%'
+                        | '&'
+                        | '\''
+                        | '*'
+                        | '+'
+                        | '-'
+                        | '.'
+                        | '^'
+                        | '`'
+                        | '|'
+                        | '~'
+                        | ':'
+                )
+        })
 }
 
 fn is_cookie_control(character: char) -> bool {

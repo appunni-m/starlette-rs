@@ -203,7 +203,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@6",
+      "input_schema": "migration-parity/parity-input@7",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -6084,6 +6084,18 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.cookie-mutations",
+              "dimension": "parameter_combination",
+              "description": "Apply input-defined set_cookie and delete_cookie calls to FileResponse with a fixed deletion clock, then compare all repeated headers through HTTP ASGI. Upstream: starlette/responses.py::Response.set_cookie and Response.delete_cookie; tests/test_responses.py::test_set_cookie and test_delete_cookie.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -6542,6 +6554,18 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.RedirectResponse.asgi-call.cookie-mutations",
+              "dimension": "parameter_combination",
+              "description": "Apply input-defined set_cookie and delete_cookie calls through the Response API inherited by RedirectResponse, with a fixed deletion clock. Upstream: starlette/responses.py::Response.set_cookie and Response.delete_cookie; tests/test_responses.py::test_set_cookie and test_delete_cookie.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -6877,6 +6901,18 @@
               ]
             },
             {
+              "id": "starlette.responses.Response.asgi-call.cookie-mutations",
+              "dimension": "parameter_combination",
+              "description": "Apply input-defined set_cookie and delete_cookie calls to Response with a fixed deletion clock, then compare all repeated headers through HTTP ASGI. Upstream: starlette/responses.py::Response.set_cookie and Response.delete_cookie; tests/test_responses.py::test_set_cookie and test_delete_cookie.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.Response.asgi-call.cookie-expiration-inputs",
               "dimension": "parameter_combination",
               "description": "Apply input-defined timezone-aware datetime and integer-offset expires values with a fixed time source, then invoke Response through HTTP ASGI. This records the conversion required at the Python boundary. Upstream: starlette/responses.py::Response.set_cookie; tests/test_responses.py::test_expires_on_set_cookie.",
@@ -7137,6 +7173,18 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.text-chunks",
               "dimension": "input_family",
               "description": "Send the five text values and separators from the synchronous streaming response case, with media_type=\"text/plain\", one body event per chunk. This bounded finite-chunk input omits generator lifecycle and background-task behavior. Upstream: starlette/responses.py::StreamingResponse.stream_response; tests/test_responses.py::test_sync_streaming_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.cookie-mutations",
+              "dimension": "parameter_combination",
+              "description": "Apply input-defined set_cookie and delete_cookie calls through the Response API inherited by StreamingResponse, with a fixed deletion clock. Upstream: starlette/responses.py::Response.set_cookie and Response.delete_cookie; tests/test_responses.py::test_set_cookie and test_delete_cookie.",
               "lanes": [
                 "parity"
               ],

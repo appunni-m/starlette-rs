@@ -60,16 +60,16 @@ workloads; its evidence is summarized in
 files under `build/parity/`. These bounded results do not establish full
 compatibility.
 
-The current contract has 281 input-only cases across 36 files, covering 54
-operations and 344 requirements. Integrated run
-`f4df4b18-8c74-46a4-9d33-96a0f684a9b6` selected 396 comparisons: 392 passed,
+The current contract has 284 input-only cases across 36 files, covering 54
+operations and 351 requirements. Integrated run
+`c880ff73-6d4d-488a-bc94-3dfa9853b241` selected 400 comparisons: 396 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 279 applicable cases; Rust-native passed 113 of 117 selected
-cases. The four Rust-native rows require arbitrary Python callables. The
-Rust-native target was clean; the installed Python package reports its
-content-addressed digest `2439b52be8a2a8407264489553f5a1b9cef00aecd655bc8113eacd43dce3fc27`
-as a `dirty-tree` revision. Manifest SHA-256:
-`21aa07faa2275cd65b735ce09a5a04f25949652b438d34032f535f188422023b`. See
+package passed all 282 applicable cases; Rust-native passed 114 of 118 selected
+cases. The four Rust-native rows require arbitrary Python callables. Both targets
+were dirty; the installed Python package reports its content-addressed digest
+`b6c3e6a158fb96f461d48fc9c7042fa7341b62a001d2d7ada140ced1d680eefe` as a
+`dirty-tree` revision. Manifest SHA-256:
+`a6e0cb866dca5a1036805541eb35cfd3d089034c806fa9fe85f89b7bc1ae9f8f`. See
 [Migration parity contract and evidence](../PARITY.md) for current scope and
 the case breakdown; the Router/GZip benchmark lane remains `not_proven`.
 

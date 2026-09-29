@@ -72,6 +72,18 @@ class Response:
             key, value, max_age, expires, path, domain, secure, httponly, samesite, partitioned
         )
 
+    def delete_cookie(
+        self,
+        key: str,
+        path: str = "/",
+        domain: str | None = None,
+        secure: bool = False,
+        httponly: bool = False,
+        samesite: Literal["lax", "strict", "none"] | None = "lax",
+    ) -> None:
+        """Delete a cookie through the Rust response implementation."""
+        self._inner.delete_cookie(key, path, domain, secure, httponly, samesite)
+
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
@@ -113,10 +125,6 @@ class StreamingResponse(Response):
         self._inner = _core.StreamingResponse(
             content, status_code, headers, media_type, self.charset
         )
-
-    def set_cookie(self, key: str, value: str) -> None:
-        """Append a cookie header before the stream begins."""
-        self._inner.set_cookie(key, value)
 
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
@@ -167,10 +175,6 @@ class FileResponse(Response):
             self.max_ranges,
         )
         self.media_type = self._inner.media_type
-
-    def set_cookie(self, key: str, value: str) -> None:
-        """Append a cookie header before the file response starts."""
-        self._inner.set_cookie(key, value)
 
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]

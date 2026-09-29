@@ -846,6 +846,31 @@ impl PyResponse {
             .map_err(response_error)
     }
 
+    #[pyo3(signature = (key, path="/", domain=None, secure=false, httponly=false, samesite="lax"))]
+    #[allow(clippy::too_many_arguments)]
+    fn delete_cookie(
+        &mut self,
+        py: Python<'_>,
+        key: &str,
+        path: Option<&str>,
+        domain: Option<&str>,
+        secure: bool,
+        httponly: bool,
+        samesite: Option<&str>,
+    ) -> PyResult<()> {
+        let (expires, options) = cookie_runtime::delete_options_from_python(
+            py,
+            path.map(str::to_owned),
+            domain.map(str::to_owned),
+            secure,
+            httponly,
+            samesite.map(str::to_owned),
+        )?;
+        self.inner
+            .delete_cookie_with_options(key, &expires, &options)
+            .map_err(response_error)
+    }
+
     fn asgi_messages<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         let messages = PyList::empty(py);
         for event in self.inner.asgi_events() {
@@ -1166,10 +1191,7 @@ fn response_body_bytes(py: Python<'_>, content: Option<&Bound<'_, PyAny>>) -> Py
 }
 
 fn response_error(error: ResponseError) -> PyErr {
-    match error {
-        ResponseError::InvalidSameSite => PyAssertionError::new_err(error.to_string()),
-        _ => PyValueError::new_err(error.to_string()),
-    }
+    cookie_runtime::response_error(error)
 }
 
 fn server_error_plan_parts(plan: ServerErrorPlan) -> (&'static str, Option<usize>) {

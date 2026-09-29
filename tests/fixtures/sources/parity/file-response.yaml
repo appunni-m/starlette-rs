@@ -1,12 +1,13 @@
 {
-  "schema": "migration-parity/parity-input@6",
+  "schema": "migration-parity/parity-input@7",
   "cases": [
     {
       "case_id": "starlette.responses.FileResponse.asgi-call.get",
       "surface": "starlette.responses.FileResponse",
       "operation": "asgi-call",
       "covers": [
-        "starlette.responses.FileResponse.asgi-call.get"
+        "starlette.responses.FileResponse.asgi-call.get",
+        "starlette.responses.FileResponse.asgi-call.cookie-mutations"
       ],
       "target_profiles": [
         "rust-native-local",
@@ -51,6 +52,31 @@
       },
       "observations": [
         "asgi-call"
+      ],
+      "cookie_actions": [
+        {
+          "method": "set",
+          "key": "session",
+          "value": "active",
+          "max_age": 60,
+          "expires": null,
+          "path": "/account",
+          "domain": "example.test",
+          "secure": true,
+          "httponly": true,
+          "samesite": "strict",
+          "partitioned": false
+        },
+        {
+          "method": "delete",
+          "key": "session",
+          "clock_unix_seconds": 1800000000,
+          "path": "/account",
+          "domain": "example.test",
+          "secure": true,
+          "httponly": true,
+          "samesite": "strict"
+        }
       ]
     },
     {
