@@ -1,15 +1,15 @@
-//! Mutable response-header views backed by Rust response objects.
+//! Construction and in-place refresh of response header views.
 
-use pyo3::exceptions::PyKeyError;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyList, PyModule, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyList, PyTuple};
 
-pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_class::<PyResponseHeaders>()
-}
-
-pub(crate) fn view(py: Python<'_>, inner: Py<PyAny>) -> PyResult<Py<PyAny>> {
-    Py::new(py, PyResponseHeaders { inner }).map(Py::into_any)
+pub(crate) fn view(py: Python<'_>, raw_headers: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("raw", raw_headers)?;
+    py.import("starlette.datastructures")?
+        .getattr("MutableHeaders")?
+        .call((), Some(&kwargs))
+        .map(Bound::unbind)
 }
 
 pub(crate) fn items(headers: &[(Vec<u8>, Vec<u8>)]) -> Vec<(String, String)> {
@@ -30,6 +30,29 @@ pub(crate) fn raw_pairs(py: Python<'_>, headers: &[(Vec<u8>, Vec<u8>)]) -> PyRes
     Ok(output.into_any().unbind())
 }
 
+pub(crate) fn refresh_raw_pairs(
+    py: Python<'_>,
+    raw: &Bound<'_, PyAny>,
+    headers: &[(Vec<u8>, Vec<u8>)],
+) -> PyResult<()> {
+    let raw_len = raw.len()?;
+    for (index, pair) in headers.iter().enumerate() {
+        let replacement = raw_pair(py, pair)?;
+        if index < raw_len {
+            let current = raw.get_item(index)?.extract::<(Vec<u8>, Vec<u8>)>()?;
+            if current != *pair {
+                raw.set_item(index, replacement)?;
+            }
+        } else {
+            raw.call_method1("append", (replacement,))?;
+        }
+    }
+    for index in (headers.len()..raw_len).rev() {
+        raw.call_method1("__delitem__", (index,))?;
+    }
+    Ok(())
+}
+
 pub(crate) fn parse_raw_pairs(raw: &Bound<'_, PyAny>) -> PyResult<Vec<(Vec<u8>, Vec<u8>)>> {
     raw.try_iter()?
         .map(|pair| pair?.extract::<(Vec<u8>, Vec<u8>)>())
@@ -40,132 +63,6 @@ fn decode_latin1(value: &[u8]) -> String {
     value.iter().copied().map(char::from).collect()
 }
 
-#[pyclass(name = "_MutableHeadersView")]
-struct PyResponseHeaders {
-    inner: Py<PyAny>,
-}
-
-#[pymethods]
-impl PyResponseHeaders {
-    fn __getitem__(&self, py: Python<'_>, key: &str) -> PyResult<String> {
-        self.get_value(py, key)?
-            .ok_or_else(|| PyKeyError::new_err(key.to_owned()))
-    }
-
-    fn __setitem__(&self, py: Python<'_>, key: &str, value: &str) -> PyResult<()> {
-        self.inner
-            .bind(py)
-            .call_method1("_header_set", (key, value))?;
-        Ok(())
-    }
-
-    fn __delitem__(&self, py: Python<'_>, key: &str) -> PyResult<()> {
-        let existed = self.get_value(py, key)?.is_some();
-        if !existed {
-            return Err(PyKeyError::new_err(key.to_owned()));
-        }
-        self.inner.bind(py).call_method1("_header_delete", (key,))?;
-        Ok(())
-    }
-
-    fn __contains__(&self, py: Python<'_>, key: &str) -> PyResult<bool> {
-        Ok(self.get_value(py, key)?.is_some())
-    }
-
-    fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        PyList::new(py, self.keys(py)?)?
-            .call_method0("__iter__")
-            .map(Bound::unbind)
-    }
-
-    fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
-        self.inner
-            .bind(py)
-            .call_method0("_header_len")?
-            .extract::<usize>()
-    }
-
-    fn keys(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        Ok(self.items(py)?.into_iter().map(|(key, _)| key).collect())
-    }
-
-    fn values(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        Ok(self
-            .items(py)?
-            .into_iter()
-            .map(|(_, value)| value)
-            .collect())
-    }
-
-    fn items(&self, py: Python<'_>) -> PyResult<Vec<(String, String)>> {
-        self.inner
-            .bind(py)
-            .call_method0("_header_items")?
-            .extract::<Vec<(String, String)>>()
-    }
-
-    #[getter]
-    fn raw(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.inner
-            .bind(py)
-            .call_method0("_header_raw")
-            .map(Bound::unbind)
-    }
-
-    #[pyo3(signature = (key, default=None))]
-    fn get(&self, py: Python<'_>, key: &str, default: Option<Py<PyAny>>) -> PyResult<Py<PyAny>> {
-        match self.get_value(py, key)? {
-            Some(value) => Ok(value.into_pyobject(py)?.into_any().unbind()),
-            None => Ok(default.unwrap_or_else(|| py.None())),
-        }
-    }
-
-    fn getlist(&self, py: Python<'_>, key: &str) -> PyResult<Vec<String>> {
-        self.inner
-            .bind(py)
-            .call_method1("_header_values", (key,))?
-            .extract::<Vec<String>>()
-    }
-
-    fn append(&self, py: Python<'_>, key: &str, value: &str) -> PyResult<()> {
-        self.inner
-            .bind(py)
-            .call_method1("_header_append", (key, value))?;
-        Ok(())
-    }
-
-    fn setdefault(&self, py: Python<'_>, key: &str, value: &str) -> PyResult<String> {
-        if let Some(existing) = self.get_value(py, key)? {
-            return Ok(existing);
-        }
-        self.__setitem__(py, key, value)?;
-        Ok(value.to_owned())
-    }
-
-    fn update(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
-        let pairs = other
-            .call_method0("items")?
-            .extract::<Vec<(String, String)>>()?;
-        for (key, value) in pairs {
-            self.__setitem__(py, &key, &value)?;
-        }
-        Ok(())
-    }
-
-    fn add_vary_header(&self, py: Python<'_>, value: &str) -> PyResult<()> {
-        let joined = self.get_value(py, "vary")?.map_or_else(
-            || value.to_owned(),
-            |existing| format!("{existing}, {value}"),
-        );
-        self.__setitem__(py, "vary", &joined)
-    }
-}
-
-impl PyResponseHeaders {
-    fn get_value(&self, py: Python<'_>, key: &str) -> PyResult<Option<String>> {
-        self.inner
-            .bind(py)
-            .call_method1("_header_get", (key,))?
-            .extract::<Option<String>>()
-    }
+fn raw_pair<'py>(py: Python<'py>, pair: &(Vec<u8>, Vec<u8>)) -> PyResult<Bound<'py, PyTuple>> {
+    PyTuple::new(py, [PyBytes::new(py, &pair.0), PyBytes::new(py, &pair.1)])
 }

@@ -94,7 +94,8 @@
       "operation": "consumer-sequence",
       "covers": [
         "starlette.datastructures.Headers.constructor.raw",
-        "starlette.datastructures.Headers.mutablecopy-independent-duplicate-preserving-copy"
+        "starlette.datastructures.Headers.mutablecopy-independent-duplicate-preserving-copy",
+        "starlette.datastructures.Headers.mutablecopy-retains-pair-tuple-identities"
       ],
       "target_profiles": ["python-package-cpython312"],
       "assets": [],
@@ -112,7 +113,7 @@
         }
       ],
       "actions": [
-        {"action_id": "copy", "receiver": "source", "call": "mutablecopy", "arguments": [], "bind_instance_id": "copy"},
+        {"action_id": "copy", "receiver": "source", "call": "mutablecopy", "arguments": [], "bind_instance_id": "copy", "identity_indices": [0, 1, 2]},
         {"action_id": "replace-copy-value", "receiver": "copy", "call": "__setitem__", "arguments": ["a", "abc"]}
       ],
       "observations": ["action-trace", "instance-snapshots"]
@@ -235,6 +236,89 @@
         {"action_id": "update-scope-backed", "receiver": "scope-backed", "call": "update", "arguments": [{"kind": "mapping", "items": [["b", "3"]]}]}
       ],
       "observations": ["action-trace", "instance-snapshots", "scope-snapshots"]
+    },
+    {
+      "case_id": "starlette.datastructures.Headers.consumer-sequence.raw-input-alias-and-copy-view",
+      "surface": "starlette.datastructures.Headers",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.Headers.constructor.raw",
+        "starlette.datastructures.Headers.raw-list-input-alias-and-copy-view"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "headers",
+          "constructor": {
+            "kind": "raw",
+            "headers_base64_pairs": [["YQ==", "MQ=="], ["Yg==", "Mg=="]]
+          }
+        }
+      ],
+      "actions": [
+        {"action_id": "mutate-caller-raw-list", "receiver": "headers", "call": "raw-input-append", "arguments": [[["Yw==", "Mw=="]]]},
+        {"action_id": "append-to-raw-property-copy", "receiver": "headers", "call": "raw-view-append", "arguments": [[["ZA==", "NA=="]]]},
+        {"action_id": "read-caller-list-addition", "receiver": "headers", "call": "getlist", "arguments": ["c"]},
+        {"action_id": "read-raw-view-copy-addition", "receiver": "headers", "call": "getlist", "arguments": ["d"]}
+      ],
+      "observations": ["action-trace", "instance-snapshots"]
+    },
+    {
+      "case_id": "starlette.datastructures.MutableHeaders.consumer-sequence.raw-input-and-view-aliasing",
+      "surface": "starlette.datastructures.MutableHeaders",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.MutableHeaders.constructor",
+        "starlette.datastructures.MutableHeaders.raw-list-input-and-view-aliasing"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "headers",
+          "constructor": {
+            "kind": "raw",
+            "headers_base64_pairs": [["YQ==", "MQ=="], ["Yg==", "Mg=="]]
+          }
+        }
+      ],
+      "actions": [
+        {"action_id": "mutate-caller-raw-list", "receiver": "headers", "call": "raw-input-append", "arguments": [[["Yw==", "Mw=="]]]},
+        {"action_id": "append-to-raw-property-list", "receiver": "headers", "call": "raw-view-append", "arguments": [[["ZA==", "NA=="]]]},
+        {"action_id": "read-caller-list-addition", "receiver": "headers", "call": "getlist", "arguments": ["c"]},
+        {"action_id": "read-raw-property-addition", "receiver": "headers", "call": "getlist", "arguments": ["d"]}
+      ],
+      "observations": ["action-trace", "instance-snapshots"]
+    },
+    {
+      "case_id": "starlette.datastructures.MutableHeaders.consumer-sequence.no-op-mutation-preserves-pair-identities",
+      "surface": "starlette.datastructures.MutableHeaders",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.MutableHeaders.constructor",
+        "starlette.datastructures.MutableHeaders.setdefault-preserves-existing-and-appends-new",
+        "starlette.datastructures.MutableHeaders.delete-removes-all-matches",
+        "starlette.datastructures.MutableHeaders.update-uses-set-semantics",
+        "starlette.datastructures.MutableHeaders.no-op-mutation-preserves-raw-pair-identities"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "headers",
+          "constructor": {
+            "kind": "raw",
+            "headers_base64_pairs": [["YQ==", "MQ=="], ["Yg==", "Mg=="], ["YQ==", "Mw=="]]
+          }
+        }
+      ],
+      "actions": [
+        {"action_id": "setdefault-existing", "receiver": "headers", "call": "setdefault", "arguments": ["A", "ignored"], "identity_indices": [0, 1, 2]},
+        {"action_id": "delete-absent", "receiver": "headers", "call": "__delitem__", "arguments": ["missing"], "identity_indices": [0, 1, 2]},
+        {"action_id": "update-empty-mapping", "receiver": "headers", "call": "update", "arguments": [{"kind": "mapping", "items": []}], "identity_indices": [0, 1, 2]}
+      ],
+      "observations": ["action-trace", "instance-snapshots"]
     }
   ]
 }

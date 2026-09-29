@@ -306,7 +306,7 @@ fn route_decision(py: Python<'_>, route_match: DetailedRouteMatch) -> PyResult<R
     let fallback = route_match
         .fallback_response()
         .map_err(response_error)?
-        .map(|inner| Py::new(py, PyResponse { inner }))
+        .map(|inner| PyResponse::from_inner(py, inner).and_then(|response| Py::new(py, response)))
         .transpose()?;
     let (kind, route_index, path_params, allowed_methods) = match route_match {
         DetailedRouteMatch::Matched {
@@ -686,6 +686,19 @@ impl PyRequestBodyAccumulator {
 #[pyclass(name = "Response")]
 struct PyResponse {
     inner: Response,
+    raw_headers: Py<PyAny>,
+    headers_view: Option<Py<PyAny>>,
+}
+
+impl PyResponse {
+    fn from_inner(py: Python<'_>, inner: Response) -> PyResult<Self> {
+        let raw_headers = response_headers_runtime::raw_pairs(py, inner.headers())?;
+        Ok(Self {
+            inner,
+            raw_headers,
+            headers_view: None,
+        })
+    }
 }
 
 #[pymethods]
@@ -707,7 +720,7 @@ impl PyResponse {
             runtime_calls::header_pairs(py, headers)?,
         )
         .map_err(response_error)?;
-        Ok(Self { inner })
+        Self::from_inner(py, inner)
     }
 
     /// Applies Starlette's default Response.render behavior to a Python value.
@@ -753,7 +766,9 @@ impl PyResponse {
             &runtime_calls::header_pairs(py, headers)?,
         )
         .map_err(response_error)?;
-        Ok(Self { inner })
+        let mut response = Self::from_inner(py, inner)?;
+        let _ = response.headers(py)?;
+        Ok(response)
     }
 
     #[staticmethod]
@@ -772,7 +787,7 @@ impl PyResponse {
             runtime_calls::header_pairs(py, headers)?,
         )
         .map_err(response_error)?;
-        Ok(Self { inner })
+        Self::from_inner(py, inner)
     }
 
     #[staticmethod]
@@ -820,8 +835,23 @@ impl PyResponse {
     }
 
     #[getter]
-    fn headers(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        response_headers_runtime::view(py, slf.into_any())
+    fn headers(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        if let Some(headers) = self.headers_view.as_ref() {
+            return Ok(headers.clone_ref(py));
+        }
+        let headers = response_headers_runtime::view(py, self.raw_headers.bind(py))?;
+        self.headers_view = Some(headers.clone_ref(py));
+        Ok(headers)
+    }
+
+    #[getter]
+    fn raw_headers(&self, py: Python<'_>) -> Py<PyAny> {
+        self.raw_headers.clone_ref(py)
+    }
+
+    #[setter]
+    fn set_raw_headers(&mut self, headers: Py<PyAny>) {
+        self.raw_headers = headers;
     }
 
     fn _header_get(&self, key: &str) -> PyResult<Option<String>> {
@@ -856,6 +886,14 @@ impl PyResponse {
         self.inner
             .replace_headers_raw(response_headers_runtime::parse_raw_pairs(raw)?);
         Ok(())
+    }
+
+    fn _header_refresh_raw(&self, py: Python<'_>) -> PyResult<()> {
+        response_headers_runtime::refresh_raw_pairs(
+            py,
+            self.raw_headers.bind(py),
+            self.inner.headers(),
+        )
     }
 
     fn _header_len(&self) -> usize {
@@ -1127,34 +1165,35 @@ fn connection_url(
 
 #[pyfunction(name = "_http_exception_response")]
 fn http_exception_response(
+    py: Python<'_>,
     status_code: u16,
     detail: &str,
     headers: Vec<(String, String)>,
 ) -> PyResult<PyResponse> {
     let inner = Response::http_exception(status_code, detail, &headers).map_err(response_error)?;
-    Ok(PyResponse { inner })
+    PyResponse::from_inner(py, inner)
 }
 
 #[pyfunction(name = "_server_error_response")]
-fn server_error_response() -> PyResponse {
-    PyResponse {
-        inner: Response::server_error(),
-    }
+fn server_error_response(py: Python<'_>) -> PyResult<PyResponse> {
+    PyResponse::from_inner(py, Response::server_error())
 }
 
 #[pyfunction(name = "_debug_traceback_text_response")]
-fn debug_traceback_text_response(formatted_traceback: &str) -> PyResponse {
-    PyResponse {
-        inner: Response::debug_traceback_text(formatted_traceback),
-    }
+fn debug_traceback_text_response(
+    py: Python<'_>,
+    formatted_traceback: &str,
+) -> PyResult<PyResponse> {
+    PyResponse::from_inner(py, Response::debug_traceback_text(formatted_traceback))
 }
 
 #[pyfunction(name = "_debug_traceback_html_response")]
 fn debug_traceback_html_response(
+    py: Python<'_>,
     exception_type: &str,
     exception_message: &str,
     frames: Vec<PyDebugTracebackFrame>,
-) -> PyResponse {
+) -> PyResult<PyResponse> {
     let frames = frames
         .into_iter()
         .map(
@@ -1167,9 +1206,10 @@ fn debug_traceback_html_response(
             },
         )
         .collect::<Vec<_>>();
-    PyResponse {
-        inner: Response::debug_traceback_html(exception_type, exception_message, &frames),
-    }
+    PyResponse::from_inner(
+        py,
+        Response::debug_traceback_html(exception_type, exception_message, &frames),
+    )
 }
 
 #[pymodule]
@@ -1184,7 +1224,6 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCookies>()?;
     module.add_class::<PyRequestBodyAccumulator>()?;
     module.add_class::<PyResponse>()?;
-    response_headers_runtime::register(module)?;
     headers_runtime::register(module)?;
     runtime_calls::register(module)?;
     base_http_runtime::register(module)?;

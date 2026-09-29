@@ -160,6 +160,8 @@ impl ResponseCallMachine {
 #[pyclass(name = "StreamingResponse", unsendable)]
 pub(crate) struct PyStreamingResponse {
     inner: NativeStreamingResponse,
+    raw_headers: Py<PyAny>,
+    headers_view: Option<Py<PyAny>>,
     content: Py<PyAny>,
     async_iterable: bool,
     charset: String,
@@ -190,8 +192,11 @@ impl PyStreamingResponse {
             header_pairs(py, headers)?,
         )
         .map_err(response_error)?;
+        let raw_headers = crate::response_headers_runtime::raw_pairs(py, inner.headers())?;
         Ok(Self {
             inner,
+            raw_headers,
+            headers_view: None,
             content,
             async_iterable,
             charset: charset.to_owned(),
@@ -200,8 +205,23 @@ impl PyStreamingResponse {
     }
 
     #[getter]
-    fn headers(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        crate::response_headers_runtime::view(py, slf.into_any())
+    fn headers(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        if let Some(headers) = self.headers_view.as_ref() {
+            return Ok(headers.clone_ref(py));
+        }
+        let headers = crate::response_headers_runtime::view(py, self.raw_headers.bind(py))?;
+        self.headers_view = Some(headers.clone_ref(py));
+        Ok(headers)
+    }
+
+    #[getter]
+    fn raw_headers(&self, py: Python<'_>) -> Py<PyAny> {
+        self.raw_headers.clone_ref(py)
+    }
+
+    #[setter]
+    fn set_raw_headers(&mut self, headers: Py<PyAny>) {
+        self.raw_headers = headers;
     }
 
     fn _header_get(&self, key: &str) -> PyResult<Option<String>> {
@@ -236,6 +256,14 @@ impl PyStreamingResponse {
         self.inner
             .replace_headers_raw(crate::response_headers_runtime::parse_raw_pairs(raw)?);
         Ok(())
+    }
+
+    fn _header_refresh_raw(&self, py: Python<'_>) -> PyResult<()> {
+        crate::response_headers_runtime::refresh_raw_pairs(
+            py,
+            self.raw_headers.bind(py),
+            self.inner.headers(),
+        )
     }
 
     fn _header_len(&self) -> usize {

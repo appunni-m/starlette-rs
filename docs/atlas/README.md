@@ -25,15 +25,17 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The latest contract has 402 input-only cases across 44
-files, 61 operations, and 455 requirements. Run
-`d2513cff-c6bc-4b66-b3c4-586474a9a105` selected 550 comparisons: 546 passed,
+active and incomplete. The latest contract has 408 input-only cases across 44
+files, 61 operations, and 462 requirements. Run
+`af914b8c-5933-4ced-9e1d-c60b23263e1a` selected 556 comparisons: 552 passed,
 zero failed, zero infrastructure errors, and four Rust-native callable
-boundaries were `not_run`. The Python package passed all 400 selected cases;
+boundaries were `not_run`. The Python package passed all 406 selected cases;
 Rust-native passed 146 of 150. The Router live-mutation sequence passed all
 three dispatches. Twelve BackgroundTask/BackgroundTasks cases and one Jinja2
 template workflow passed on the Python package. The 20 URL-scope,
-14 URL-component, and seven Headers/MutableHeaders cases also passed there. The latest
+14 URL-component, and ten Headers/MutableHeaders cases also passed there. Six
+package-only header probes passed exact source/package comparison, including
+`Response.headers` aliasing and FileResponse range isolation. The latest
 Router/GZip run `7c05f648-8d59-4b0a-a1f0-5001e37c491d` measured all 74
 source/package workloads after parity preflight
 `96a4315c-6641-42b9-9e4d-8dc0df9d15fb`, before the Router live-mutation case

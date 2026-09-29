@@ -5,6 +5,7 @@
 //! required by `MutableHeaders.raw` and `scope["headers"]`, and forwards the
 //! public operations to the native types.
 
+use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyAssertionError, PyKeyError, PyOverflowError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PySlice, PyString, PyTuple};
@@ -78,25 +79,28 @@ impl PyHeadersStore {
             .map(Bound::unbind)
     }
 
-    fn keys(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        Ok(self.headers(py)?.keys())
+    fn keys(&self, py: Python<'_>) -> PyResult<Vec<Py<PyAny>>> {
+        self.header_names(py)
     }
 
-    fn values(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        Ok(self.headers(py)?.values())
+    fn values(&self, py: Python<'_>) -> PyResult<Vec<Py<PyAny>>> {
+        self.header_values(py)
     }
 
-    fn items(&self, py: Python<'_>) -> PyResult<Vec<(String, String)>> {
-        Ok(self.headers(py)?.items())
+    fn items(&self, py: Python<'_>) -> PyResult<Vec<(Py<PyAny>, Py<PyAny>)>> {
+        self.header_items(py)
     }
 
-    fn getlist(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
+    fn getlist(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Vec<Py<PyAny>>> {
         let key = normalized_key(key)?;
-        self.headers(py)?
-            .get_list(&key)
-            .into_iter()
-            .map(|value| Ok(decode_latin1(py, value)?.to_str()?.to_owned()))
-            .collect()
+        let mut values = Vec::new();
+        for pair in self.raw.bind(py).try_iter()? {
+            let (name, value) = pair?.extract::<(Py<PyAny>, Py<PyAny>)>()?;
+            if header_key_matches(py, name.bind(py), &key)? {
+                values.push(decode_header_component(value.bind(py))?);
+            }
+        }
+        Ok(values)
     }
 
     #[pyo3(signature = (key, default=None))]
@@ -107,23 +111,23 @@ impl PyHeadersStore {
         default: Option<Py<PyAny>>,
     ) -> PyResult<Py<PyAny>> {
         let key = normalized_key(key)?;
-        match self.headers(py)?.get(&key) {
-            Some(value) => decode_latin1(py, value).map(|value| value.into_any().unbind()),
+        match self.first_header_value(py, &key)? {
+            Some(value) => decode_header_component(value.bind(py)),
             None => Ok(default.unwrap_or_else(|| py.None())),
         }
     }
 
     fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         let normalized = normalized_key(key)?;
-        match self.headers(py)?.get(&normalized) {
-            Some(value) => decode_latin1(py, value).map(|value| value.into_any().unbind()),
+        match self.first_header_value(py, &normalized)? {
+            Some(value) => decode_header_component(value.bind(py)),
             None => Err(PyKeyError::new_err(key.clone().unbind())),
         }
     }
 
     fn __contains__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let normalized = normalized_key(key)?;
-        Ok(self.headers(py)?.contains_key(&normalized))
+        Ok(self.first_header_value(py, &normalized)?.is_some())
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
@@ -137,12 +141,13 @@ impl PyHeadersStore {
     }
 
     fn repr(&self, py: Python<'_>, class_name: &str) -> PyResult<String> {
-        let headers = self.headers(py)?;
+        let length = self.raw.bind(py).len()?;
+        let items = self.header_items(py)?;
         let mapping = PyDict::new(py);
-        for (key, value) in headers.items() {
-            mapping.set_item(key, value)?;
+        for (key, value) in items {
+            mapping.set_item(key.bind(py), value.bind(py))?;
         }
-        if mapping.len() == headers.len() {
+        if mapping.len() == length {
             return Ok(format!("{class_name}({})", mapping.repr()?.to_str()?));
         }
         let raw = if self.mutable {
@@ -176,24 +181,14 @@ impl PyHeadersStore {
     ) -> PyResult<()> {
         let key = normalized_key(key)?;
         let value = encoded_latin1(value)?;
-        let mut headers = self.mutable_headers(py)?;
-        let matching: Vec<usize> = headers
-            .raw_pairs()
-            .iter()
-            .enumerate()
-            .filter_map(|(index, (name, _))| (name == &key).then_some(index))
-            .collect();
-        headers.set(&key, &value);
-        let replacement = headers
-            .raw_pairs()
-            .get(
-                matching
-                    .first()
-                    .copied()
-                    .unwrap_or(headers.raw_pairs().len() - 1),
-            )
-            .ok_or_else(|| PyOverflowError::new_err("header set produced no raw pair"))?;
-        let replacement = raw_pair(py, replacement)?;
+        let mut matching = Vec::new();
+        for (index, pair) in self.raw.bind(py).try_iter()?.enumerate() {
+            let (name, _value) = pair?.extract::<(Py<PyAny>, Py<PyAny>)>()?;
+            if header_key_matches(py, name.bind(py), &key)? {
+                matching.push(index);
+            }
+        }
+        let replacement = raw_pair(py, &(key, value))?;
         if let Some(first) = matching.first().copied() {
             for index in matching.iter().skip(1).rev() {
                 self.raw.bind(py).call_method1("__delitem__", (index,))?;
@@ -209,14 +204,13 @@ impl PyHeadersStore {
 
     fn delete(&mut self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<()> {
         let key = normalized_key(key)?;
-        let mut headers = self.mutable_headers(py)?;
-        let matching: Vec<usize> = headers
-            .raw_pairs()
-            .iter()
-            .enumerate()
-            .filter_map(|(index, (name, _))| (name == &key).then_some(index))
-            .collect();
-        headers.delete(&key);
+        let mut matching = Vec::new();
+        for (index, pair) in self.raw.bind(py).try_iter()?.enumerate() {
+            let (name, _value) = pair?.extract::<(Py<PyAny>, Py<PyAny>)>()?;
+            if header_key_matches(py, name.bind(py), &key)? {
+                matching.push(index);
+            }
+        }
         for index in matching.iter().rev() {
             self.raw.bind(py).call_method1("__delitem__", (index,))?;
         }
@@ -231,18 +225,10 @@ impl PyHeadersStore {
     ) -> PyResult<Py<PyAny>> {
         let key = normalized_key(key)?;
         let encoded_value = encoded_latin1(value)?;
-        let mut headers = self.mutable_headers(py)?;
-        if let Some(existing) = headers.get(&key) {
-            return Ok(decode_latin1(py, existing)?.into_any().unbind());
+        if let Some(existing) = self.first_header_value(py, &key)? {
+            return decode_header_component(existing.bind(py));
         }
-        headers.setdefault(&key, &encoded_value);
-        let new_pair = raw_pair(
-            py,
-            headers
-                .raw_pairs()
-                .last()
-                .ok_or_else(|| PyOverflowError::new_err("setdefault produced no raw pair"))?,
-        )?;
+        let new_pair = raw_pair(py, &(key, encoded_value))?;
         self.raw.bind(py).call_method1("append", (new_pair,))?;
         Ok(value.clone().unbind())
     }
@@ -334,13 +320,63 @@ impl PyHeadersStore {
             .collect()
     }
 
-    fn headers(&self, py: Python<'_>) -> PyResult<NativeHeaders> {
-        Ok(NativeHeaders::from_raw(self.raw_pairs(py)?))
+    /// Reads only as far as the pinned operation does before its first match.
+    ///
+    /// Starlette's mapping lookup methods iterate the live Python list and
+    /// return immediately on a match. Parsing the full list first would make a
+    /// malformed later entry observable even though upstream never inspects
+    /// it. Keep iteration and conversion on the Rust side while retaining that
+    /// short-circuit behavior.
+    fn first_header_value(&self, py: Python<'_>, key: &[u8]) -> PyResult<Option<Py<PyAny>>> {
+        for pair in self.raw.bind(py).try_iter()? {
+            let (name, value) = pair?.extract::<(Py<PyAny>, Py<PyAny>)>()?;
+            if header_key_matches(py, name.bind(py), key)? {
+                return Ok(Some(value));
+            }
+        }
+        Ok(None)
     }
 
-    fn mutable_headers(&self, py: Python<'_>) -> PyResult<NativeMutableHeaders> {
-        Ok(NativeMutableHeaders::from_raw(self.raw_pairs(py)?))
+    fn header_names(&self, py: Python<'_>) -> PyResult<Vec<Py<PyAny>>> {
+        let mut names = Vec::new();
+        for pair in self.raw.bind(py).try_iter()? {
+            let (name, _) = pair?.extract::<(Py<PyAny>, Py<PyAny>)>()?;
+            names.push(decode_header_component(name.bind(py))?);
+        }
+        Ok(names)
     }
+
+    fn header_values(&self, py: Python<'_>) -> PyResult<Vec<Py<PyAny>>> {
+        let mut values = Vec::new();
+        for pair in self.raw.bind(py).try_iter()? {
+            let (_, value) = pair?.extract::<(Py<PyAny>, Py<PyAny>)>()?;
+            values.push(decode_header_component(value.bind(py))?);
+        }
+        Ok(values)
+    }
+
+    fn header_items(&self, py: Python<'_>) -> PyResult<Vec<(Py<PyAny>, Py<PyAny>)>> {
+        let mut items = Vec::new();
+        for pair in self.raw.bind(py).try_iter()? {
+            let (name, value) = pair?.extract::<(Py<PyAny>, Py<PyAny>)>()?;
+            items.push((
+                decode_header_component(name.bind(py))?,
+                decode_header_component(value.bind(py))?,
+            ));
+        }
+        Ok(items)
+    }
+}
+
+fn header_key_matches(py: Python<'_>, name: &Bound<'_, PyAny>, key: &[u8]) -> PyResult<bool> {
+    name.rich_compare(PyBytes::new(py, key), CompareOp::Eq)?
+        .is_truthy()
+}
+
+fn decode_header_component(value: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    value
+        .call_method1("decode", ("latin-1",))
+        .map(Bound::unbind)
 }
 
 fn mapping_pairs(py: Python<'_>, mapping: &Bound<'_, PyAny>) -> PyResult<Vec<(Vec<u8>, Vec<u8>)>> {
@@ -383,11 +419,6 @@ fn encoded_latin1(value: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
     value
         .call_method1("encode", ("latin-1",))?
         .extract::<Vec<u8>>()
-}
-
-fn decode_latin1<'py>(py: Python<'py>, value: &[u8]) -> PyResult<Bound<'py, PyString>> {
-    let decoded: String = value.iter().copied().map(char::from).collect();
-    Ok(PyString::new(py, &decoded))
 }
 
 fn ensure_mapping(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<()> {

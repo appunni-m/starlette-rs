@@ -11,7 +11,7 @@ use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyTuple};
 use starlette_rs::{
     FileMetadata, FileResponse as NativeFileResponse, FileResponseCall, FileResponseCallError,
     FileResponseCallInput, FileResponseCallStep, FileResponseError, FileResponseEvent,
-    FileResponseOptions, ResponseError,
+    FileResponseHeaderViews, FileResponseOptions, ResponseError,
 };
 
 use crate::awaitable::{
@@ -28,6 +28,8 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 #[pyclass(name = "FileResponse", unsendable)]
 struct PyFileResponse {
     inner: NativeFileResponse,
+    raw_headers: Py<PyAny>,
+    headers_view: Option<Py<PyAny>>,
 }
 
 #[pymethods]
@@ -67,12 +69,33 @@ impl PyFileResponse {
             },
         )
         .map_err(file_response_error)?;
-        Ok(Self { inner })
+        let raw_headers = crate::response_headers_runtime::raw_pairs(py, inner.headers())?;
+        let headers_view = crate::response_headers_runtime::view(py, raw_headers.bind(py))?;
+        Ok(Self {
+            inner,
+            raw_headers,
+            headers_view: Some(headers_view),
+        })
     }
 
     #[getter]
-    fn headers(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        crate::response_headers_runtime::view(py, slf.into_any())
+    fn headers(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        if let Some(headers) = self.headers_view.as_ref() {
+            return Ok(headers.clone_ref(py));
+        }
+        let headers = crate::response_headers_runtime::view(py, self.raw_headers.bind(py))?;
+        self.headers_view = Some(headers.clone_ref(py));
+        Ok(headers)
+    }
+
+    #[getter]
+    fn raw_headers(&self, py: Python<'_>) -> Py<PyAny> {
+        self.raw_headers.clone_ref(py)
+    }
+
+    #[setter]
+    fn set_raw_headers(&mut self, headers: Py<PyAny>) {
+        self.raw_headers = headers;
     }
 
     fn _header_get(&self, key: &str) -> PyResult<Option<String>> {
@@ -107,6 +130,14 @@ impl PyFileResponse {
         self.inner
             .replace_headers_raw(crate::response_headers_runtime::parse_raw_pairs(raw)?);
         Ok(())
+    }
+
+    fn _header_refresh_raw(&self, py: Python<'_>) -> PyResult<()> {
+        crate::response_headers_runtime::refresh_raw_pairs(
+            py,
+            self.raw_headers.bind(py),
+            self.inner.headers(),
+        )
     }
 
     fn _header_len(&self) -> usize {
@@ -180,7 +211,7 @@ impl PyFileResponse {
     }
 
     fn asgi_call(
-        &self,
+        &mut self,
         py: Python<'_>,
         scope: &Bound<'_, PyDict>,
         receive: Py<PyAny>,
@@ -208,9 +239,20 @@ impl PyFileResponse {
             Some(extensions) => extensions.contains("http.response.pathsend")?,
             None => false,
         };
+        let headers_view = self.headers(py)?;
+        let view_raw = headers_view.bind(py).getattr("raw")?;
+        let view_headers = crate::response_headers_runtime::parse_raw_pairs(&view_raw)?;
+        let raw_headers =
+            crate::response_headers_runtime::parse_raw_pairs(self.raw_headers.bind(py))?;
+        let view_is_raw = view_raw.is(self.raw_headers.bind(py));
         let call = self
             .inner
-            .call_state(
+            .call_state_with_headers(
+                FileResponseHeaderViews {
+                    view: view_headers,
+                    raw: raw_headers,
+                    view_is_raw,
+                },
                 &scope_type,
                 &method,
                 &request_headers,
@@ -218,6 +260,7 @@ impl PyFileResponse {
                 background.is_some(),
             )
             .map_err(file_response_error)?;
+        crate::response_headers_runtime::refresh_raw_pairs(py, &view_raw, call.base_headers())?;
         into_python_awaitable(
             py,
             FileResponseMachine {

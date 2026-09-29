@@ -32,22 +32,23 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 402 input-only cases, 61 operations, and 455
+The current parity contract has 408 input-only cases, 61 operations, and 462
 parity requirements across 44 indexed files, including URL scope and component
 construction, Headers and MutableHeaders, bounded SessionMiddleware and
 BaseHTTPMiddleware workflow slices, twelve BackgroundTask/BackgroundTasks
-cases, and one Jinja2 template workflow. Latest integrated run
-`d2513cff-c6bc-4b66-b3c4-586474a9a105`, from `2026-09-29T23:14:30.493Z` to
-`2026-09-29T23:15:53.740Z`, selected 550 profile comparisons: 546 passed, zero
-failed, zero infrastructure errors, and four were `not_run`. The Python package
-passed all 400 selected comparisons; Rust-native passed 146 of 150, with four
-Python-callable rows `not_run`. The Router live-mutation sequence passed on all
-three dispatches, and all twelve background-task cases passed against the pinned
-source. All 20 URL scope, 14 URL component, and seven Headers/MutableHeaders
-cases passed on the Python package. All 28
-FileResponse cases passed on both profiles, all eight SessionMiddleware cases
-passed on the Python package profile, and all twenty-one BaseHTTPMiddleware
-cases passed there. They include the two post-call-next stream-read cases from
+cases, one Jinja2 template workflow, and six header alias/view probes. Latest
+integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a`, from
+`2026-09-29T23:48:10.322Z` to `2026-09-29T23:49:31.637Z`, selected 556 profile
+comparisons: 552 passed, zero failed, zero infrastructure errors, and four
+were `not_run`. The Python package passed all 406 selected comparisons;
+Rust-native passed 146 of 150, with four Python-callable rows `not_run`. The
+Router live-mutation sequence passed on all three dispatches, and all twelve
+background-task cases passed against the pinned source. All 20 URL scope, 14
+URL component, and ten Headers/MutableHeaders cases passed on the Python
+package, as did all six new raw-header, Response-view, and FileResponse range
+view probes. All 30 FileResponse cases passed on the selected profiles, all
+eight SessionMiddleware cases passed on the Python package profile, and all
+twenty-one BaseHTTPMiddleware cases passed there. They include the two post-call-next stream-read cases from
 `tests/middleware/test_base.py:715-773`: after the endpoint exhausts
 `request.stream()` or reads `request.body()`, dispatch captures the live result
 of another stream read. The cached replay case maps to
@@ -421,7 +422,7 @@ This remains a bounded slice. Task cancellation, context variables,
 concurrency, and broader middleware/error interactions with background
 failures remain unproven. Four Rust-native Request-dispatch callable rows still
 produce the expected `not_run` status, so the integrated `make test` command
-exits 2 despite all 546 executed comparisons passing.
+exits 2 despite all 552 executed comparisons passing.
 
 ### HTTPException default-response slice: bounded parity verified
 

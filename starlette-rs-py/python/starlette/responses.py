@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterable, Callable, Iterable, Mapping
 from datetime import datetime
-from functools import cached_property
 from typing import Any, Literal
 
 from starlette_rs_py import _core
@@ -55,21 +54,25 @@ class Response:
         """
         return _core.Response.render_content(content, self.charset)
 
-    @cached_property
+    @property
     def raw_headers(self) -> list[tuple[bytes, bytes]]:
         """Return the response's mutable raw header list."""
-        return self._inner._header_raw()
+        return self._inner.raw_headers
 
-    @cached_property
+    @raw_headers.setter
+    def raw_headers(self, value: list[tuple[bytes, bytes]]) -> None:
+        self._inner.raw_headers = value
+
+    @property
     def headers(self) -> MutableHeaders:
-        """Return the cached mutable header view backed by ``raw_headers``."""
-        return MutableHeaders(raw=self.raw_headers)
+        """Return the Rust-cached mutable header view."""
+        return self._inner.headers
 
     def _sync_raw_headers(self) -> None:
         self._inner._header_replace_raw(self.raw_headers)
 
     def _refresh_raw_headers(self) -> None:
-        self.raw_headers[:] = self._inner._header_raw()
+        self._inner._header_refresh_raw()
 
     def set_cookie(
         self,

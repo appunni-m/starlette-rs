@@ -717,7 +717,11 @@ def compare_workflows(
                 )
             )
             continue
-        expected_paths = {selector["path"] for selector in selectors}
+        expected_paths = {
+            selector["path"]
+            for selector in selectors
+            if "condition" not in selector or selector["condition"]["input_key"] in case
+        }
         if set(left_value) != expected_paths or set(right_value) != expected_paths:
             differences.append(
                 _diff(
@@ -733,6 +737,8 @@ def compare_workflows(
         left_has_debug_traceback = _observation_has_debug_traceback(left_value)
         right_has_debug_traceback = _observation_has_debug_traceback(right_value)
         for selector in selectors:
+            if "condition" in selector and selector["condition"]["input_key"] not in case:
+                continue
             path = selector["path"]
             left_field = left_value[path]
             right_field = right_value[path]

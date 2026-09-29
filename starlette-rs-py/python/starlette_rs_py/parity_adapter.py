@@ -3174,6 +3174,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         case_keys.add("chunk_size")
     if "max_ranges" in case:
         case_keys.add("max_ranges")
+    if "header_view_probe" in case:
+        case_keys.add("header_view_probe")
     _exact_object(
         case,
         case_keys,
@@ -3254,6 +3256,20 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         )
         if "chunk_size" in case:
             response.chunk_size = case["chunk_size"]
+        header_view_probe_value = None
+        if "header_view_probe" in case:
+            header_view_before_reads = [response.headers, response.headers]
+            header_view_before = header_view_before_reads[-1]
+            raw_headers_before = response.raw_headers
+            view_raw_before = header_view_before.raw
+            header_view_probe_value = {
+                "cached_property_object_before_call": all(
+                    view is header_view_before_reads[0] for view in header_view_before_reads
+                ),
+                "response_raw_header_list_alias_before_call": view_raw_before is raw_headers_before,
+                "response_raw_headers_before_call": _raw_header_pairs_snapshot(raw_headers_before),
+                "header_view_raw_before_call": _raw_header_pairs_snapshot(view_raw_before),
+            }
         for index, raw_action in enumerate(case.get("cookie_actions", [])):
             _apply_response_cookie_action(response, raw_action, index)
         scope = _make_scope(scope_spec)
@@ -3266,6 +3282,21 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             sent.append(message)
 
         asyncio.run(response(scope, receive, send))
+        if header_view_probe_value is not None:
+            header_view_after = response.headers
+            header_view_probe_value.update(
+                {
+                    "cached_property_object_after_call": header_view_after is header_view_before,
+                    "raw_property_object_after_call": header_view_after.raw is view_raw_before,
+                    "response_raw_header_list_alias_after_call": (
+                        header_view_after.raw is response.raw_headers
+                    ),
+                    "response_raw_headers_after_call": _raw_header_pairs_snapshot(
+                        response.raw_headers
+                    ),
+                    "header_view_raw_after_call": _raw_header_pairs_snapshot(header_view_after.raw),
+                }
+            )
         events = [_canonical_message(message) for message in sent]
         response_start = next(
             (message for message in sent if message["type"] == "http.response.start"), None
@@ -3292,6 +3323,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             "asgi_event_order": [event["type"] for event in events],
             "asgi_events": events,
         }
+        if header_view_probe_value is not None:
+            observation["header_view_probe"] = header_view_probe_value
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -3961,6 +3994,13 @@ def _apply_response_header_action(response: Any, raw_action: dict[str, Any], ind
     response.headers[action["key"]] = action["value"]
 
 
+def _raw_header_pairs_snapshot(raw_headers: Any) -> list[list[str]]:
+    return [
+        [base64.b64encode(name).decode("ascii"), base64.b64encode(value).decode("ascii")]
+        for name, value in raw_headers
+    ]
+
+
 def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     surface = case.get("surface")
     required_fields = {
@@ -3985,6 +4025,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         required_fields.add("cookie_actions")
     if "header_actions" in case:
         required_fields.add("header_actions")
+    if "header_view_probe" in case:
+        required_fields.add("header_view_probe")
     if "background" in case:
         required_fields.add("background")
     if surface == STREAMING_RESPONSE_SURFACE:
@@ -4290,6 +4332,32 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             _apply_response_header_action(response, raw_action, index)
         for index, raw_action in enumerate(case.get("cookie_actions", [])):
             _apply_response_cookie_action(response, raw_action, index)
+        header_view_probe_value = None
+        if "header_view_probe" in case:
+            probe = case["header_view_probe"]
+            header_views = [response.headers for _ in range(probe["read_count"])]
+            raw_headers_before = response.raw_headers
+            header_view_probe_value = {
+                "cached_property_object": all(view is header_views[0] for view in header_views),
+                "raw_property_object": all(
+                    view.raw is header_views[0].raw for view in header_views
+                ),
+                "response_raw_header_list_alias": header_views[0].raw is raw_headers_before,
+                "response_raw_headers_before": _raw_header_pairs_snapshot(raw_headers_before),
+            }
+            for pair_index, pair in enumerate(probe["raw_append_base64_pairs"]):
+                header_views[-1].raw.append(
+                    (
+                        _decode_base64(pair[0], f"Response header_view_probe[{pair_index}].name"),
+                        _decode_base64(pair[1], f"Response header_view_probe[{pair_index}].value"),
+                    )
+                )
+            header_view_probe_value["response_raw_headers_after"] = _raw_header_pairs_snapshot(
+                response.raw_headers
+            )
+            header_view_probe_value["header_view_raw_after"] = _raw_header_pairs_snapshot(
+                header_views[-1].raw
+            )
     except Exception as exc:
         partial_value = {
             "response_status": None,
@@ -4386,6 +4454,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         observation["execution_trace"] = execution_trace
     if surface == RESPONSE_SURFACE:
         observation["background_execution_trace"] = background_execution_trace
+    if header_view_probe_value is not None:
+        observation["header_view_probe"] = header_view_probe_value
     item = {
         "case_id": case["case_id"],
         "status": "completed",

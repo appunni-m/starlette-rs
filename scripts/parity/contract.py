@@ -192,6 +192,8 @@ HEADERS_ACTIONS = {
     "__or__",
     "__ior__",
     "append",
+    "raw-input-append",
+    "raw-view-append",
 }
 URL_SCOPE_REQUIREMENTS = {
     "from-scope": "starlette.datastructures.URL.scope-construction",
@@ -315,6 +317,15 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "callable_shapes": "starlette.responses.Response.asgi-call.background-callable-shapes",
 }
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
+FILE_RESPONSE_SINGLE_RANGE_VIEW_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.single-range-header-view-isolation"
+)
+FILE_RESPONSE_MULTIPLE_RANGE_VIEW_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.multiple-range-header-view-isolation"
+)
+RESPONSE_HEADER_VIEW_REQUIREMENT = (
+    f"{RESPONSE_SURFACE}.{RESPONSE_OPERATION}.headers-property-cache-and-raw-alias"
+)
 RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "content",
     "status_code",
@@ -1029,10 +1040,30 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 expected_observation_keys = {"path", "value_types", "comparison"}
                 if "normalization" in observation:
                     expected_observation_keys.add("normalization")
+                if "condition" in observation:
+                    expected_observation_keys.add("condition")
                 _exact(observation, expected_observation_keys, octx)
                 if observation["path"] in obs_paths:
                     raise ContractError(f"{octx}.path is duplicated")
                 obs_paths.add(observation["path"])
+                if "condition" in observation:
+                    condition = _exact(
+                        observation["condition"],
+                        {"input_key"},
+                        f"{octx}.condition",
+                    )
+                    if (
+                        condition["input_key"] != "header_view_probe"
+                        or key
+                        not in {
+                            (RESPONSE_SURFACE, RESPONSE_OPERATION),
+                            (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION),
+                        }
+                        or observation["path"] != "header_view_probe"
+                    ):
+                        raise ContractError(
+                            f"{octx}.condition only supports input-gated Response header-view probes"
+                        )
                 if (
                     not isinstance(observation["value_types"], list)
                     or not observation["value_types"]
@@ -2656,7 +2687,13 @@ def _validate_cookie_actions(case: dict[str, Any]) -> None:
 def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
     case_keys = RESPONSE_CASE_KEYS | {
         key
-        for key in ("render_override", "cookie_actions", "header_actions", "background")
+        for key in (
+            "render_override",
+            "cookie_actions",
+            "header_actions",
+            "header_view_probe",
+            "background",
+        )
         if key in case
     }
     _exact(case, case_keys, "Response asgi-call case")
@@ -2705,6 +2742,30 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 action["value"].encode("latin-1")
             except UnicodeEncodeError as exc:
                 raise ContractError(f"{context} must be Latin-1 encodable") from exc
+
+    if "header_view_probe" in case:
+        probe = _exact(
+            case["header_view_probe"],
+            {"read_count", "raw_append_base64_pairs"},
+            "Response header_view_probe",
+        )
+        if case["surface"] != RESPONSE_SURFACE or case["target_profiles"] != [
+            "python-package-cpython312"
+        ]:
+            raise ContractError("Response header_view_probe is a Python-package Response input")
+        read_count = probe["read_count"]
+        if type(read_count) is not int or not 2 <= read_count <= 8:
+            raise ContractError("Response header_view_probe.read_count must be from 2 to 8")
+        raw_appends = _validate_header_pairs(
+            probe["raw_append_base64_pairs"],
+            "Response header_view_probe.raw_append_base64_pairs",
+        )
+        if not raw_appends:
+            raise ContractError("Response header_view_probe must append at least one raw pair")
+        if RESPONSE_HEADER_VIEW_REQUIREMENT not in case["covers"]:
+            raise ContractError(
+                "Response header_view_probe must map the headers cache/raw-alias requirement"
+            )
 
     content = _exact(case["content"], {"kind", "value"}, "Response content")
     content_kind = _string(content["kind"], "Response content.kind")
@@ -2916,7 +2977,11 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
-    optional_keys = {key for key in ("cookie_actions", "chunk_size", "max_ranges") if key in case}
+    optional_keys = {
+        key
+        for key in ("cookie_actions", "chunk_size", "max_ranges", "header_view_probe")
+        if key in case
+    }
     case_keys = FILE_RESPONSE_CASE_KEYS | optional_keys
     _exact(case, case_keys, "FileResponse asgi-call case")
     if case["surface"] != FILE_RESPONSE_SURFACE or case["operation"] != RESPONSE_OPERATION:
@@ -3039,6 +3104,41 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         request_dispatch=True,
         allow_headers=True,
     )
+    if "header_view_probe" in case:
+        probe = _exact(
+            case["header_view_probe"],
+            {"observe_cached_headers_across_call"},
+            "FileResponse header_view_probe",
+        )
+        if probe["observe_cached_headers_across_call"] is not True or case["target_profiles"] != [
+            "python-package-cpython312"
+        ]:
+            raise ContractError("FileResponse header_view_probe selects the Python package target")
+        range_headers = []
+        for pair in scope_spec["headers_base64_pairs"]:
+            try:
+                name = base64.b64decode(pair[0], validate=True).lower()
+                value = base64.b64decode(pair[1], validate=True).decode("latin-1")
+            except (ValueError, TypeError, UnicodeDecodeError) as exc:
+                raise ContractError("FileResponse range header input must be valid base64") from exc
+            if name == b"range":
+                range_headers.append(value)
+        if len(range_headers) != 1:
+            raise ContractError("FileResponse header_view_probe requires one Range header")
+        range_requirements = set(case["covers"]) & {
+            FILE_RESPONSE_SINGLE_RANGE_VIEW_REQUIREMENT,
+            FILE_RESPONSE_MULTIPLE_RANGE_VIEW_REQUIREMENT,
+        }
+        if range_requirements == {FILE_RESPONSE_SINGLE_RANGE_VIEW_REQUIREMENT}:
+            if "," in range_headers[0]:
+                raise ContractError("single-range header-view input must contain one range")
+        elif range_requirements == {FILE_RESPONSE_MULTIPLE_RANGE_VIEW_REQUIREMENT}:
+            if "," not in range_headers[0]:
+                raise ContractError("multiple-range header-view input must contain several ranges")
+        else:
+            raise ContractError(
+                "FileResponse header_view_probe must map one range-view requirement"
+            )
 
 
 def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
@@ -6575,11 +6675,13 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and (is_response or is_streaming_response)
     ):
         expected_case_keys = expected_case_keys | {"header_actions"}
+    if isinstance(case, dict) and "header_view_probe" in case and (is_response or is_file_response):
+        expected_case_keys = expected_case_keys | {"header_view_probe"}
     if isinstance(case, dict) and "background" in case and is_response:
         expected_case_keys = expected_case_keys | {"background"}
     if is_file_response and isinstance(case, dict):
         expected_case_keys = expected_case_keys | (
-            {key for key in ("chunk_size", "max_ranges") if key in case}
+            {key for key in ("chunk_size", "max_ranges", "header_view_probe") if key in case}
         )
     if is_value_formatting:
         value_keys = (
@@ -9292,6 +9394,7 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
     instance_ids: set[str] = set()
     instance_mutability: dict[str, bool] = {}
     instance_pairs: dict[str, list[tuple[bytes, bytes]]] = {}
+    instance_raw_constructor: dict[str, bool] = {}
     scope_ids: set[str] = set()
     for index, instance in enumerate(instances):
         context = f"Headers instances[{index}]"
@@ -9308,6 +9411,10 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
             exercised=exercised,
         )
         instance_pairs[instance_id] = raw_pairs
+        instance_raw_constructor[instance_id] = (
+            isinstance(instance["constructor"], dict)
+            and instance["constructor"].get("kind") == "raw"
+        )
         if is_scope:
             scope_ids.add(instance_id)
 
@@ -9324,6 +9431,9 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
     mutablecopy_bindings: set[str] = set()
     mutated_mutablecopy_bindings: set[str] = set()
     has_scope_mutation = False
+    raw_input_append_instances: set[str] = set()
+    raw_view_append_instances: set[str] = set()
+    no_op_mutations_with_identity: set[str] = set()
     for index, action in enumerate(actions):
         context = f"Headers actions[{index}]"
         if not isinstance(action, dict):
@@ -9373,6 +9483,8 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
             expected_arity = {1, 2}
         elif call == "__setitem__" or call == "setdefault" or call == "append":
             expected_arity = {2}
+        elif call in {"raw-input-append", "raw-view-append"}:
+            expected_arity = {1}
         elif call == "update" or call in {"__or__", "__ior__", "__eq__"}:
             expected_arity = {1}
         else:
@@ -9383,6 +9495,19 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
             _validate_header_argument(value, instance_ids, f"{context}.arguments[{arg_index}]")
             for arg_index, value in enumerate(arguments)
         ]
+        if call in {"raw-input-append", "raw-view-append"}:
+            if call == "raw-input-append" and not instance_raw_constructor[receiver]:
+                raise ContractError(f"{context} requires a raw-list constructor")
+            added_pairs = _validate_header_pairs(arguments[0], f"{context}.arguments[0]")
+            if len(added_pairs) != 1:
+                raise ContractError(f"{context}.arguments[0] must contain exactly one raw pair")
+            if call == "raw-input-append":
+                raw_input_append_instances.add(receiver)
+                instance_pairs[receiver].extend(added_pairs)
+            else:
+                raw_view_append_instances.add(receiver)
+                if mutable:
+                    instance_pairs[receiver].extend(added_pairs)
         if call in {"__contains__", "__getitem__", "get", "getlist"} and arguments:
             key = arguments[0]
             if not isinstance(key, str):
@@ -9427,6 +9552,25 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
             if argument_kinds[0] == "nonmapping":
                 nonmapping_union_methods.add(call)
 
+        if instance_mutability[receiver] and "identity_indices" in action:
+            tracked_indices = action["identity_indices"]
+            tracks_all_pairs = tracked_indices == list(range(len(instance_pairs[receiver])))
+            if tracks_all_pairs and call == "__delitem__" and isinstance(arguments[0], str):
+                key = arguments[0].lower().encode("latin-1")
+                if all(raw_key != key for raw_key, _ in instance_pairs[receiver]):
+                    no_op_mutations_with_identity.add("delete-absent")
+            elif tracks_all_pairs and call == "setdefault" and isinstance(arguments[0], str):
+                key = arguments[0].lower().encode("latin-1")
+                if any(raw_key == key for raw_key, _ in instance_pairs[receiver]):
+                    no_op_mutations_with_identity.add("setdefault-existing")
+            elif (
+                tracks_all_pairs
+                and call == "update"
+                and argument_kinds[0] == "mapping"
+                and arguments[0]["items"] == []
+            ):
+                no_op_mutations_with_identity.add("empty-update")
+
         if receiver in scope_ids and call in {
             "__setitem__",
             "__delitem__",
@@ -9455,6 +9599,7 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
                 True if call in {"mutablecopy", "__or__"} else instance_mutability[receiver]
             )
             instance_pairs[binding] = list(instance_pairs.get(receiver, []))
+            instance_raw_constructor[binding] = False
             if call == "mutablecopy":
                 instance_mutability[binding] = True
     if needs_case_insensitive_lookup:
@@ -9477,6 +9622,35 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
         )
     if scope_ids and "scope-snapshots" in observations and has_scope_mutation:
         exercised.add("starlette.datastructures.MutableHeaders.scope-aliasing")
+    if raw_input_append_instances & raw_view_append_instances and {
+        "action-trace",
+        "instance-snapshots",
+    } <= set(observations):
+        exercised.add(
+            "starlette.datastructures.MutableHeaders.raw-list-input-and-view-aliasing"
+            if mutable
+            else "starlette.datastructures.Headers.raw-list-input-alias-and-copy-view"
+        )
+    if no_op_mutations_with_identity >= {
+        "delete-absent",
+        "setdefault-existing",
+        "empty-update",
+    }:
+        exercised.add(
+            "starlette.datastructures.MutableHeaders.no-op-mutation-preserves-raw-pair-identities"
+        )
+    if (
+        mutablecopy_bindings
+        and any(
+            isinstance(action, dict)
+            and action.get("call") == "mutablecopy"
+            and "identity_indices" in action
+            and "bind_instance_id" in action
+            for action in actions
+        )
+        and {"action-trace", "instance-snapshots"} <= set(observations)
+    ):
+        exercised.add("starlette.datastructures.Headers.mutablecopy-retains-pair-tuple-identities")
     unexercised = set(case["covers"]) - exercised
     if unexercised:
         raise ContractError(

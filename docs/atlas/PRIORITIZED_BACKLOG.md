@@ -8,18 +8,19 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 402 input-only cases across 44 files, covering 61
-operations and 455 requirements. Latest run
-`d2513cff-c6bc-4b66-b3c4-586474a9a105` ran from `2026-09-29T23:14:30.493Z` to
-`2026-09-29T23:15:53.740Z` and selected 550 comparisons: 546 passed, zero
+The active contract has 408 input-only cases across 44 files, covering 61
+operations and 462 requirements. Latest run
+`af914b8c-5933-4ced-9e1d-c60b23263e1a` ran from `2026-09-29T23:48:10.322Z` to
+`2026-09-29T23:49:31.637Z` and selected 556 comparisons: 552 passed, zero
 failed, zero infrastructure errors, and four Rust-native rows were `not_run`.
-The Python package passed all 400 selected cases; Rust-native passed 146 of
+The Python package passed all 406 selected cases; Rust-native passed 146 of
 150. Those four rows require Python endpoint or ASGI callables. The Router
 live-mutation sequence passed on all three dispatches. Twelve BackgroundTask
 and BackgroundTasks cases and the Python-package Jinja2 template workflow also
 passed. The run
-includes the 20 URL scope, 14 URL component, and seven Headers/MutableHeaders
-cases. All 28 FileResponse cases passed on both profiles;
+includes the 20 URL scope, 14 URL component, and ten Headers/MutableHeaders
+cases. Six new package-only header-view probes passed exact source/package
+comparison. All 30 FileResponse cases passed on the selected profiles;
 all eight SessionMiddleware cases and all twenty-one BaseHTTPMiddleware cases
 passed on the Python package profile. The twenty-one BaseHTTPMiddleware cases
 cover configured-header mutation, awaited `call_next` response replacement,
@@ -133,8 +134,9 @@ The current slice crosses the Python/Rust boundary for a bounded set of
 request and ASGI flows. Exact Python-package parity now covers async Request
 endpoints, synchronous functions, bound methods and partials through AnyIO,
 callable-instance routes invoked as ASGI apps, and basic BackgroundTask and
-BackgroundTasks execution. The remaining boundary work includes background
-callable shapes and cancellation, broader exception identity/chaining,
+BackgroundTasks execution. Response-attached tasks also cover bound-method,
+callable-object, and partial callable shapes. The remaining boundary work includes
+background cancellation, broader exception identity/chaining,
 streaming backpressure, broader lifespan state and concurrency, and other
 Python/Rust ownership decisions. The new bounded generator-lifespan slice covers sync and
 async entry/cleanup, startup/shutdown failures, synchronous callback-call
@@ -256,7 +258,7 @@ assert exact parity before the coordinated gate records that result.
 ## P3 — Expand by atlas requirements
 
 Implement routing, connections, requests/responses, middleware, authentication,
-remaining background-task callable and cancellation behavior, data structures,
+remaining background-task cancellation behavior, data structures,
 forms/uploads, remaining StaticFiles edge cases, templates,
 schemas, configuration, WSGI, and TestClient in dependency-aware groups.
 Promote remaining fixture-backlog entries into the single active manifest as

@@ -69,7 +69,7 @@ def _header_pairs(value: Any, context: str) -> list[tuple[bytes, bytes]]:
 
 def _construct(
     header_type: type[Any], constructor: Any, instance_id: str
-) -> tuple[Any, dict[str, Any] | None]:
+) -> tuple[Any, dict[str, Any] | None, list[tuple[bytes, bytes]] | None]:
     if not isinstance(constructor, dict) or not isinstance(constructor.get("kind"), str):
         raise ValueError(f"constructor for {instance_id!r} must declare a kind")
     kind = constructor["kind"]
@@ -77,10 +77,11 @@ def _construct(
         source = _exact_object(
             constructor, {"kind", "headers_base64_pairs"}, f"{instance_id} raw constructor"
         )
-        return header_type(raw=_header_pairs(source["headers_base64_pairs"], instance_id)), None
+        raw = _header_pairs(source["headers_base64_pairs"], instance_id)
+        return header_type(raw=raw), None, raw
     if kind == "mapping":
         source = _exact_object(constructor, {"kind", "items"}, f"{instance_id} mapping constructor")
-        return header_type(headers=dict(_pair_items(source["items"], instance_id))), None
+        return header_type(headers=dict(_pair_items(source["items"], instance_id))), None, None
     if kind == "scope":
         source = _exact_object(
             constructor,
@@ -93,10 +94,10 @@ def _construct(
         pairs = _header_pairs(source["headers_base64_pairs"], instance_id)
         headers = tuple(pairs) if container == "tuple" else pairs
         scope = {"headers": headers}
-        return header_type(scope=scope), scope
+        return header_type(scope=scope), scope, None
     if kind == "empty":
         _exact_object(constructor, {"kind"}, f"{instance_id} empty constructor")
-        return header_type(), None
+        return header_type(), None, None
     raise ValueError(f"unsupported Headers constructor kind: {kind!r}")
 
 
@@ -229,6 +230,7 @@ def run_headers_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Headers consumer-sequence instances must be a non-empty array")
     instances: dict[str, Any] = {}
     scopes: dict[str, dict[str, Any]] = {}
+    raw_inputs: dict[str, list[tuple[bytes, bytes]]] = {}
     for index, instance_spec in enumerate(case["instances"]):
         source = _exact_object(
             instance_spec, {"instance_id", "constructor"}, f"Headers instance[{index}]"
@@ -236,10 +238,12 @@ def run_headers_case(case: dict[str, Any]) -> dict[str, Any]:
         instance_id = source["instance_id"]
         if not isinstance(instance_id, str) or not instance_id or instance_id in instances:
             raise ValueError(f"Headers instance[{index}] has an invalid or duplicate ID")
-        instance, scope = _construct(header_type, source["constructor"], instance_id)
+        instance, scope, raw_input = _construct(header_type, source["constructor"], instance_id)
         instances[instance_id] = instance
         if scope is not None:
             scopes[instance_id] = scope
+        if raw_input is not None:
+            raw_inputs[instance_id] = raw_input
 
     if "actions" in case and not isinstance(case["actions"], list):
         raise ValueError("Headers consumer-sequence actions must be an array")
@@ -278,7 +282,17 @@ def run_headers_case(case: dict[str, Any]) -> dict[str, Any]:
             "call": call,
         }
         try:
-            value = _call(instances[receiver_id], call, resolved_arguments)
+            if call in {"raw-input-append", "raw-view-append"}:
+                pair = _header_pairs(arguments[0], f"Headers action[{index}] pair")[0]
+                raw_list = (
+                    raw_inputs[receiver_id]
+                    if call == "raw-input-append"
+                    else instances[receiver_id].raw
+                )
+                raw_list.append(pair)
+                value = None
+            else:
+                value = _call(instances[receiver_id], call, resolved_arguments)
         except Exception as exc:
             result.update({"outcome": "error", "error": _error_snapshot(exc)})
         else:
@@ -289,6 +303,22 @@ def run_headers_case(case: dict[str, Any]) -> dict[str, Any]:
                 instances[binding] = value
                 if binding in scopes:
                     raise ValueError(f"Headers result binding collides with scope ID: {binding!r}")
+                if identity_indices and isinstance(value, header_types):
+                    bound_raw = value.raw
+                    result["bound_raw_pair_identity"] = [
+                        {
+                            "source_index": raw_index,
+                            "bound_index": next(
+                                (
+                                    current_index
+                                    for current_index, current_pair in enumerate(bound_raw)
+                                    if current_pair is retained_pair
+                                ),
+                                None,
+                            ),
+                        }
+                        for raw_index, retained_pair in retained_pairs
+                    ]
             if call == "raw":
                 observed_value = _raw_snapshot(value)
             else:

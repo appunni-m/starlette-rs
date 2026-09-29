@@ -220,6 +220,17 @@ pub struct FileResponseOptions {
     pub max_ranges: usize,
 }
 
+/// The two Python-visible header lists used while planning a file response.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileResponseHeaderViews {
+    /// Raw pairs retained by the cached `MutableHeaders` view.
+    pub view: Vec<(Vec<u8>, Vec<u8>)>,
+    /// Raw pairs currently exposed through `FileResponse.raw_headers`.
+    pub raw: Vec<(Vec<u8>, Vec<u8>)>,
+    /// Whether `view` and `raw` refer to the same Python list.
+    pub view_is_raw: bool,
+}
+
 impl Default for FileResponseOptions {
     fn default() -> Self {
         Self {
@@ -330,6 +341,7 @@ pub struct FileResponseCall {
     pending: Option<PendingOperation>,
     status_code: u16,
     headers: Vec<(Vec<u8>, Vec<u8>)>,
+    base_headers: Vec<(Vec<u8>, Vec<u8>)>,
     mode: FileResponseMode,
     path: PathBuf,
     display_path: String,
@@ -568,6 +580,46 @@ impl FileResponse {
         pathsend_extension: bool,
         has_background: bool,
     ) -> Result<FileResponseCall, FileResponseError> {
+        let raw_headers = self.headers.clone();
+        self.call_state_with_headers(
+            FileResponseHeaderViews {
+                view: raw_headers.clone(),
+                raw: raw_headers,
+                view_is_raw: true,
+            },
+            scope_type,
+            method,
+            request_headers,
+            pathsend_extension,
+            has_background,
+        )
+    }
+
+    /// Prepares a request-specific call from a cached header view and the
+    /// response's current raw header list.
+    ///
+    /// Starlette may retain a cached `MutableHeaders` view after
+    /// `raw_headers` has been rebound. In that state metadata defaults mutate
+    /// the cached view, while response messages read the current raw list.
+    /// `view_is_raw` identifies whether both inputs alias the same list.
+    ///
+    /// # Errors
+    ///
+    /// Returns a file or metadata error before emitting response headers.
+    pub fn call_state_with_headers(
+        &self,
+        header_views: FileResponseHeaderViews,
+        scope_type: &str,
+        method: &str,
+        request_headers: &[(Vec<u8>, Vec<u8>)],
+        pathsend_extension: bool,
+        has_background: bool,
+    ) -> Result<FileResponseCall, FileResponseError> {
+        let FileResponseHeaderViews {
+            view: mut view_headers,
+            raw: raw_headers,
+            view_is_raw,
+        } = header_views;
         let metadata = match self.stat_override.as_ref() {
             Some(metadata) => metadata.clone(),
             None => {
@@ -585,14 +637,19 @@ impl FileResponse {
             }
         };
 
-        let mut headers = self.headers.clone();
-        set_stat_headers(&mut headers, &metadata)?;
+        set_stat_headers(&mut view_headers, &metadata)?;
+        let base_headers = view_headers.clone();
+        let mut headers = if view_is_raw {
+            view_headers.clone()
+        } else {
+            raw_headers
+        };
         let range = header_value(request_headers, b"range");
         let if_range = header_value(request_headers, b"if-range");
         let use_range = range.as_ref().is_some_and(|_| {
             if_range.as_ref().is_none_or(|value| {
-                value == &header_text(&headers, b"last-modified").unwrap_or_default()
-                    || value == &header_text(&headers, b"etag").unwrap_or_default()
+                value == &header_text(&view_headers, b"last-modified").unwrap_or_default()
+                    || value == &header_text(&view_headers, b"etag").unwrap_or_default()
             })
         });
 
@@ -620,7 +677,8 @@ impl FileResponse {
                 Ok(ranges) => {
                     send_pathsend = false;
                     let boundary = random_boundary()?;
-                    let content_type = header_bytes(&headers, b"content-type").unwrap_or_default();
+                    let content_type =
+                        header_bytes(&view_headers, b"content-type").unwrap_or_default();
                     let content_length =
                         multipart_content_length(&ranges, &boundary, metadata.size, &content_type);
                     status_code = 206;
@@ -643,6 +701,7 @@ impl FileResponse {
                         status_code,
                         headers,
                         message.as_bytes().to_vec(),
+                        base_headers,
                     ));
                 }
                 Err(RangeParseError::NotSatisfiable) => {
@@ -659,6 +718,7 @@ impl FileResponse {
                         status_code,
                         headers,
                         Vec::new(),
+                        base_headers,
                     ));
                 }
             }
@@ -669,6 +729,7 @@ impl FileResponse {
             pending: None,
             status_code,
             headers,
+            base_headers,
             mode,
             path: self.path.clone(),
             display_path: self.display_path.clone(),
@@ -684,12 +745,18 @@ impl FileResponse {
 }
 
 impl FileResponseCall {
-    fn prepared_error(status_code: u16, headers: Vec<(Vec<u8>, Vec<u8>)>, body: Vec<u8>) -> Self {
+    fn prepared_error(
+        status_code: u16,
+        headers: Vec<(Vec<u8>, Vec<u8>)>,
+        body: Vec<u8>,
+        base_headers: Vec<(Vec<u8>, Vec<u8>)>,
+    ) -> Self {
         Self {
             phase: FileResponsePhase::Start,
             pending: None,
             status_code,
             headers,
+            base_headers,
             mode: FileResponseMode::Simple,
             path: PathBuf::new(),
             display_path: String::new(),
@@ -701,6 +768,13 @@ impl FileResponseCall {
             file_size: 0,
             error_body: Some(body),
         }
+    }
+
+    /// Returns the stat-enriched base header view before any request-specific
+    /// range or error response headers are applied.
+    #[must_use]
+    pub fn base_headers(&self) -> &[(Vec<u8>, Vec<u8>)] {
+        &self.base_headers
     }
 
     /// Produces the next send/background/completion action.

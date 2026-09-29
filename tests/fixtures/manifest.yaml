@@ -2903,6 +2903,17 @@
               ]
             },
             {
+              "id": "starlette.datastructures.Headers.raw-list-input-alias-and-copy-view",
+              "dimension": "boundary",
+              "description": "Observe that the raw constructor retains the caller's declared list, while Headers.raw returns a separate list whose append does not mutate the instance. Pinned source: starlette/datastructures.py:516-526; tests/test_datastructures.py::test_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.datastructures.Headers.constructor.mapping",
               "dimension": "input_family",
               "description": "Construct from a text mapping by lowercasing names and encoding names and values as Latin-1. Pinned source: starlette/datastructures.py:505-515; tests/test_datastructures.py::test_headers.",
@@ -2972,6 +2983,17 @@
               "id": "starlette.datastructures.Headers.mutablecopy-independent-duplicate-preserving-copy",
               "dimension": "boundary",
               "description": "Copy all duplicate pairs into an independent MutableHeaders value, preserving order and leaving the original unchanged after mutation. Pinned source: starlette/datastructures.py:541-542; tests/test_datastructures.py::test_headers_mutablecopy.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.Headers.mutablecopy-retains-pair-tuple-identities",
+              "dimension": "boundary",
+              "description": "Observe the shallow pair-list copy made by mutablecopy: immutable pair tuples initially retain their identities in the copy while a later set replaces only the copied pair. Pinned source: starlette/datastructures.py:541-542, 594-598; tests/test_datastructures.py::test_headers_mutablecopy.",
               "lanes": [
                 "parity"
               ],
@@ -3219,6 +3241,28 @@
               "id": "starlette.datastructures.MutableHeaders.scope-aliasing",
               "dimension": "boundary",
               "description": "Keep subsequent appends and updates visible through the scope headers collection. Pinned source: starlette/datastructures.py:519-522,627-629; tests/test_datastructures.py::test_mutable_headers_from_scope.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.raw-list-input-and-view-aliasing",
+              "dimension": "boundary",
+              "description": "Observe that the raw constructor and MutableHeaders.raw property retain a shared caller-visible list. Pinned source: starlette/datastructures.py:516-518, 627-629; tests/test_datastructures.py::test_mutable_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MutableHeaders.no-op-mutation-preserves-raw-pair-identities",
+              "dimension": "boundary",
+              "description": "Retain existing raw pair objects when setdefault finds a name, deletion finds no match, and update receives an empty mapping. Pinned source: starlette/datastructures.py:600-612, 631-647; tests/test_datastructures.py::test_mutable_headers.",
               "lanes": [
                 "parity"
               ],
@@ -7593,6 +7637,18 @@
                       }
                     ]
                   }
+                },
+                {
+                  "path": "header_view_probe",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "header_view_probe"
+                  }
                 }
               ],
               "error": {
@@ -7677,6 +7733,28 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.single-range-header-view-isolation",
+              "dimension": "boundary",
+              "description": "Observe the response's base raw_headers and cached headers view before and after one single-range ASGI call. Range handling uses a copied list, so per-range 206 headers remain local to the emitted response. Pinned source: starlette/responses.py:401-407; tests/test_responses.py::test_file_response_range.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.multiple-range-header-view-isolation",
+              "dimension": "boundary",
+              "description": "Observe the response's base raw_headers and cached headers view before and after one multiple-range ASGI call. Multipart range headers are assembled from a copied list and do not replace the FileResponse object's base headers. Pinned source: starlette/responses.py:420-435; tests/test_responses.py::test_file_response_range_multi.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },
@@ -8624,6 +8702,18 @@
                   "comparison": {
                     "kind": "ordered"
                   }
+                },
+                {
+                  "path": "header_view_probe",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "header_view_probe"
+                  }
                 }
               ],
               "error": {
@@ -8824,6 +8914,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.headers-property-cache-and-raw-alias",
+              "dimension": "boundary",
+              "description": "Read Response.headers repeatedly, observe cached object identity and its raw-list alias to response.raw_headers, append through the view's public raw list, and compare the resulting output headers. Pinned source: starlette/responses.py:81-87; tests/test_responses.py::test_response_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },
