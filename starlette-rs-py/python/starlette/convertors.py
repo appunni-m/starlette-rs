@@ -28,7 +28,7 @@ class Convertor(Generic[T]):
 
 
 class StringConvertor(Convertor[str]):
-    regex = "[^/]+"
+    regex: ClassVar[str] = _core._STRING_CONVERTOR_REGEX
 
     def convert(self, value: str) -> str:
         return _core._convert_builtin_convertor("str", value)
@@ -38,7 +38,7 @@ class StringConvertor(Convertor[str]):
 
 
 class PathConvertor(Convertor[str]):
-    regex = ".*"
+    regex: ClassVar[str] = _core._PATH_CONVERTOR_REGEX
 
     def convert(self, value: str) -> str:
         return _core._convert_builtin_convertor("path", value)
@@ -48,7 +48,7 @@ class PathConvertor(Convertor[str]):
 
 
 class IntegerConvertor(Convertor[int]):
-    regex = "[0-9]+"
+    regex: ClassVar[str] = _core._INTEGER_CONVERTOR_REGEX
 
     def convert(self, value: str) -> int:
         return _core._convert_builtin_convertor("int", value)
@@ -58,7 +58,7 @@ class IntegerConvertor(Convertor[int]):
 
 
 class FloatConvertor(Convertor[float]):
-    regex = r"[0-9]+(\.[0-9]+)?"
+    regex: ClassVar[str] = _core._FLOAT_CONVERTOR_REGEX
 
     def convert(self, value: str) -> float:
         return _core._convert_builtin_convertor("float", value)
@@ -68,7 +68,7 @@ class FloatConvertor(Convertor[float]):
 
 
 class UUIDConvertor(Convertor[uuid.UUID]):
-    regex = "[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}"
+    regex: ClassVar[str] = _core._UUID_CONVERTOR_REGEX
 
     def convert(self, value: str) -> uuid.UUID:
         return _core._convert_builtin_convertor("uuid", value)

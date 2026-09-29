@@ -70,10 +70,16 @@ VALUE_FORMATTING_OPERATIONS = {
 }
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
+REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_SEND_PUSH_PROMISE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
     "path",
     "send_callback",
+}
+REQUEST_IS_DISCONNECTED_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "scope",
+    "receive",
+    "receive_checkpoints",
 }
 STATUS_OPERATION = ("starlette.status", "module-symbol-sequence")
 CONFIG_OPERATIONS = {
@@ -908,6 +914,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key in RUST_OWNED_PYTHON_OPERATIONS
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
+                or key == REQUEST_IS_DISCONNECTED_OPERATION
                 else {
                     "class",
                     "kind",
@@ -1073,6 +1080,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) in RUST_OWNED_PYTHON_OPERATIONS
                         or (surface["id"], operation["id"]) == REQUEST_DEFAULT_RECEIVE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_SEND_PUSH_PROMISE_OPERATION
+                        or (surface["id"], operation["id"]) == REQUEST_IS_DISCONNECTED_OPERATION
                         or (surface["id"], operation["id"]) == STATUS_OPERATION
                         else profile_ids
                     )
@@ -3546,6 +3554,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_SEND_PUSH_PROMISE_OPERATION
     )
+    is_request_is_disconnected = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_IS_DISCONNECTED_OPERATION
+    )
     is_status_symbols = (
         isinstance(case, dict) and (case.get("surface"), case.get("operation")) == STATUS_OPERATION
     )
@@ -3604,6 +3616,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
     elif is_send_push_promise:
         expected_case_keys = REQUEST_SEND_PUSH_PROMISE_CASE_KEYS
+    elif is_request_is_disconnected:
+        expected_case_keys = REQUEST_IS_DISCONNECTED_CASE_KEYS
     elif is_status_symbols:
         expected_case_keys = STATUS_CASE_KEYS
     if is_streaming_response and "background" in case:
@@ -3678,6 +3692,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_send_push_promise:
         if case["observations"] != ["send-push-promise"]:
             raise ContractError("push-promise cases must select the send-push-promise observation")
+    elif is_request_is_disconnected:
+        if case["observations"] != ["is-disconnected"]:
+            raise ContractError("disconnect cases must select the is-disconnected observation")
     elif is_status_symbols:
         if (case["surface"], case["operation"]) != STATUS_OPERATION:
             raise ContractError(
@@ -3746,6 +3763,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_send_push_promise:
         _validate_send_push_promise_case(case)
+        return case
+    if is_request_is_disconnected:
+        _validate_request_is_disconnected_case(case)
         return case
     if is_status_symbols:
         _validate_status_symbols_case(case)
@@ -4796,6 +4816,7 @@ def _validate_dispatch_stimulus(
     allow_host: bool = False,
     allow_lifespan_callback_failures: bool = False,
     allow_inherited_mount_scope: bool = False,
+    allow_http_disconnect: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -4905,6 +4926,13 @@ def _validate_dispatch_stimulus(
         if not isinstance(args["receive"], list):
             raise ContractError("HTTP request input must be a list of request events")
         for message in args["receive"]:
+            if (
+                allow_http_disconnect
+                and isinstance(message, dict)
+                and message.get("type") == "http.disconnect"
+            ):
+                _exact(message, {"type"}, "HTTP disconnect message")
+                continue
             _exact(message, {"type", "body_base64", "more_body"}, "HTTP request message")
             if message["type"] != "http.request" or not isinstance(message["more_body"], bool):
                 raise ContractError(
@@ -5141,6 +5169,53 @@ def _validate_send_push_promise_case(case: dict[str, Any]) -> None:
         expected = "starlette.request.send-push-promise.extension-event"
     if case["covers"] != [expected]:
         raise ContractError("push-promise case must cover the behavior selected by its inputs")
+
+
+def _validate_request_is_disconnected_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Request.is_disconnected parity currently targets the Python package")
+    if case["assets"] != [] or case["observations"] != ["is-disconnected"]:
+        raise ContractError("disconnect cases must select one observation without external assets")
+    _validate_dispatch_stimulus(
+        {
+            "scope": case["scope"],
+            "receive": case["receive"],
+            "send": {"kind": "capture-asgi-send"},
+        },
+        request_dispatch=True,
+        allow_http_disconnect=True,
+    )
+    if case["scope"]["type"] != "http":
+        raise ContractError("Request.is_disconnected requires an HTTP scope")
+    message_types = [message["type"] for message in case["receive"]]
+    checkpoints = case["receive_checkpoints"]
+    if (
+        not isinstance(checkpoints, list)
+        or any(type(index) is not int or not 0 <= index < 3 for index in checkpoints)
+        or len(set(checkpoints)) != len(checkpoints)
+    ):
+        raise ContractError("receive_checkpoints must contain unique callback indices from 0 to 2")
+    if checkpoints == []:
+        if message_types != ["http.request", "http.request", "http.disconnect"]:
+            raise ContractError(
+                "disconnect case must supply the request body, a non-disconnect poll result, "
+                "then the client disconnect"
+            )
+    elif checkpoints == [1]:
+        if message_types != ["http.request", "http.disconnect"]:
+            raise ContractError(
+                "canceled poll must leave the disconnect queued after the request body"
+            )
+    else:
+        raise ContractError("disconnect parity supports a checkpoint on the first poll only")
+    expected_covers = [
+        "starlette.request.is-disconnected.detect-after-response",
+        "starlette.request.is-disconnected.cache-observed-disconnect",
+    ]
+    if checkpoints:
+        expected_covers.append("starlette.request.is-disconnected.cancel-pending-receive")
+    if case["covers"] != expected_covers:
+        raise ContractError("disconnect case must cover detection and cached disconnect state")
 
 
 def _validate_status_symbols_case(case: dict[str, Any]) -> None:

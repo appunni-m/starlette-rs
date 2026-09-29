@@ -7,7 +7,7 @@ use pyo3::exceptions::{
     PyTypeError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyTraceback, PyTuple, PyType};
+use pyo3::types::{PyBool, PyBytes, PyDict, PyList, PyModule, PyTraceback, PyTuple, PyType};
 use starlette_rs::{
     RequestBodyAccumulator as NativeRequestBodyAccumulator, RequestBodyError,
     RequestStreamProgress, RequestStreamState,
@@ -23,6 +23,7 @@ type SharedRequestBody = Arc<Mutex<RequestBodyRuntime>>;
 struct RequestBodyRuntime {
     accumulator: NativeRequestBodyAccumulator,
     receive: Option<Py<PyAny>>,
+    request_disconnected: bool,
     body_object: Option<Py<PyBytes>>,
     json_object: Option<Py<PyAny>>,
 }
@@ -583,6 +584,7 @@ impl PyRequestBody {
             shared: Arc::new(Mutex::new(RequestBodyRuntime {
                 accumulator: NativeRequestBodyAccumulator::default(),
                 receive: Some(receive),
+                request_disconnected: false,
                 body_object: None,
                 json_object: None,
             })),
@@ -626,6 +628,25 @@ impl PyRequestBody {
             JsonMachine {
                 shared: self.shared.clone(),
                 pending_body: false,
+            },
+        )
+    }
+
+    fn is_disconnected(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let receive = borrow_runtime(&self.shared)?
+            .receive
+            .as_ref()
+            .map(|receive| receive.clone_ref(py))
+            .ok_or_else(|| {
+                PyRuntimeError::new_err("Receive channel has not been made available")
+            })?;
+        into_python_awaitable(
+            py,
+            RequestDisconnectedMachine {
+                shared: self.shared.clone(),
+                receive,
+                cancel_scope: None,
+                pending_receive: false,
             },
         )
     }
@@ -786,6 +807,117 @@ impl AwaitableStateMachine for EmptySend {
     }
 }
 
+struct RequestDisconnectedMachine {
+    shared: SharedRequestBody,
+    receive: Py<PyAny>,
+    cancel_scope: Option<Py<PyAny>>,
+    pending_receive: bool,
+}
+
+impl AwaitableStateMachine for RequestDisconnectedMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start if !self.pending_receive => self.start(py),
+            MachineResume::Start => self.finish_error(
+                py,
+                PyRuntimeError::new_err(
+                    "request disconnect check already has an operation pending",
+                ),
+            ),
+            MachineResume::Value(message) if self.pending_receive => {
+                self.pending_receive = false;
+                self.exit_cancel_scope(py, None)?;
+                if message
+                    .bind(py)
+                    .call_method1("get", ("type",))?
+                    .eq("http.disconnect")?
+                {
+                    borrow_runtime_mut(&self.shared)?.request_disconnected = true;
+                }
+                self.complete_current(py)
+            }
+            MachineResume::Value(_) => self.finish_error(
+                py,
+                PyRuntimeError::new_err(
+                    "request disconnect check resumed without a pending receive",
+                ),
+            ),
+            MachineResume::Error(error) if self.pending_receive => {
+                self.pending_receive = false;
+                self.finish_error(py, error)
+            }
+            MachineResume::Error(error) => self.finish_error(py, error),
+            MachineResume::AsyncIterationComplete(error) => {
+                self.pending_receive = false;
+                self.finish_error(py, error)
+            }
+        }
+    }
+}
+
+impl RequestDisconnectedMachine {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        if borrow_runtime(&self.shared)?.request_disconnected {
+            return self.complete_current(py);
+        }
+
+        let cancel_scope = py.import("anyio")?.getattr("CancelScope")?.call0()?;
+        cancel_scope.call_method0("__enter__")?;
+        self.cancel_scope = Some(cancel_scope.unbind());
+
+        let cancel_result = self
+            .cancel_scope
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("request cancel scope was not initialized"))?
+            .bind(py)
+            .call_method0("cancel")
+            .map(|_| ());
+        if let Err(error) = cancel_result {
+            return self.finish_error(py, error);
+        }
+
+        let receive = match self.receive.bind(py).call0() {
+            Ok(awaitable) => awaitable,
+            Err(error) => return self.finish_error(py, error),
+        };
+        self.pending_receive = true;
+        Ok(MachineAction::Await(receive.unbind()))
+    }
+
+    fn finish_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        if self.exit_cancel_scope(py, Some(&error))? {
+            self.complete_current(py)
+        } else {
+            Err(error)
+        }
+    }
+
+    fn exit_cancel_scope(&mut self, py: Python<'_>, error: Option<&PyErr>) -> PyResult<bool> {
+        let Some(cancel_scope) = self.cancel_scope.take() else {
+            return Ok(false);
+        };
+        let cancel_scope = cancel_scope.bind(py);
+        let result = match error {
+            Some(error) => {
+                let traceback = error
+                    .traceback(py)
+                    .map_or_else(|| py.None().into_bound(py), Bound::into_any);
+                cancel_scope
+                    .call_method1("__exit__", (error.get_type(py), error.value(py), traceback))?
+            }
+            None => cancel_scope.call_method1("__exit__", (py.None(), py.None(), py.None()))?,
+        };
+        result.is_truthy()
+    }
+
+    fn complete_current(&self, py: Python<'_>) -> PyResult<MachineAction> {
+        let disconnected = borrow_runtime(&self.shared)?.request_disconnected;
+        Ok(MachineAction::Complete(
+            PyBool::new(py, disconnected).to_owned().into_any().unbind(),
+        ))
+    }
+}
+
 struct BodyMachine {
     shared: SharedRequestBody,
     stream: RequestStreamState,
@@ -813,6 +945,9 @@ impl AwaitableStateMachine for BodyMachine {
                 };
                 let progress = {
                     let mut runtime = borrow_runtime_mut(&self.shared)?;
+                    if message_type == "http.disconnect" {
+                        runtime.request_disconnected = true;
+                    }
                     self.stream
                         .accept(&mut runtime.accumulator, &message_type, &body, more_body)
                 };
@@ -943,6 +1078,9 @@ impl AwaitableStateMachine for StreamMachine {
                 };
                 let progress = {
                     let mut runtime = borrow_runtime_mut(&self.shared)?;
+                    if message_type == "http.disconnect" {
+                        runtime.request_disconnected = true;
+                    }
                     let mut state = borrow_stream_mut(&self.state)?;
                     state.accept(&mut runtime.accumulator, &message_type, &body, more_body)
                 };

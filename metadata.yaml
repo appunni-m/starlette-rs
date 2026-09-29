@@ -142,6 +142,10 @@
         {
           "operation_id": "send-push-promise",
           "source_path": "starlette.requests.Request.send_push_promise"
+        },
+        {
+          "operation_id": "is-disconnected",
+          "source_path": "starlette.requests.Request.is_disconnected"
         }
       ]
     },

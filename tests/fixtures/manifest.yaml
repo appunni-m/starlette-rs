@@ -1663,7 +1663,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -1674,7 +1674,7 @@
             {
               "id": "starlette.request.receive-worker-access",
               "dimension": "boundary",
-              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO’s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
               "lanes": [
                 "parity"
               ],
@@ -1685,7 +1685,7 @@
             {
               "id": "starlette.request.stream-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO’s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
               "lanes": [
                 "parity"
               ],
@@ -1696,7 +1696,7 @@
             {
               "id": "starlette.request.body-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
               "lanes": [
                 "parity"
               ],
@@ -1707,7 +1707,7 @@
             {
               "id": "starlette.request.json-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity"
               ],
@@ -5045,14 +5045,22 @@
               {
                 "id": "self",
                 "style": "receiver",
-                "value_types": ["handle"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "path",
                 "style": "positional",
-                "value_types": ["string"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               }
             ],
             "result": {
@@ -5060,13 +5068,22 @@
               "observations": [
                 {
                   "path": "send",
-                  "value_types": ["sequence", "null"],
-                  "comparison": {"kind": "exact"}
+                  "value_types": [
+                    "sequence",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 }
               ],
               "error": {
                 "fields": [],
-                "message": {"mode": "exact", "transforms": [], "reason": null}
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
               }
             }
           },
@@ -5085,7 +5102,9 @@
               "target_id": "python-package",
               "path": "starlette.requests.Request.send_push_promise",
               "signature": "async send_push_promise(self, path: str) -> None",
-              "support": {"status": "supported"}
+              "support": {
+                "status": "supported"
+              }
             }
           ],
           "requirements": [
@@ -5093,27 +5112,41 @@
               "id": "starlette.request.send-push-promise.extension-event",
               "dimension": "success_path",
               "description": "With http.response.push enabled, emit the push event and copy only the designated request headers. Upstream: starlette/requests.py::Request.send_push_promise and SERVER_PUSH_HEADERS_TO_COPY.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.request.send-push-promise.without-extension",
               "dimension": "success_path",
               "description": "With no http.response.push extension, return without invoking the send callback. Upstream: starlette/requests.py::Request.send_push_promise.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.request.send-push-promise.missing-send",
               "dimension": "error_path",
               "description": "With push enabled and the default send callback, preserve the exact missing-send RuntimeError. Upstream: starlette/requests.py::empty_send and Request.send_push_promise.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
-            "target_profiles": ["python-package-cpython312"]
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
           },
           "coverage": {
             "applicability": "not_applicable",
@@ -5122,6 +5155,122 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Push-promise callback behavior is outside the active benchmark workloads."
+          }
+        },
+        {
+          "id": "is-disconnected",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.Request.is_disconnected",
+            "signature": "async is_disconnected(self) -> bool",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "is-disconnected",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not expose the Python Request callback facade.",
+                "blocker": "This operation exercises the Python ASGI Receive and AnyIO cancellation boundary."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.is_disconnected",
+              "signature": "async is_disconnected(self) -> bool",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.request.is-disconnected.detect-after-response",
+              "dimension": "success_path",
+              "description": "Poll the Python Receive callback under AnyIO cancellation and report http.disconnect after the response. Upstream: starlette/requests.py::Request.is_disconnected; tests/test_requests.py::test_request_is_disconnected; docs/requests.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.is-disconnected.cache-observed-disconnect",
+              "dimension": "boundary",
+              "description": "Once http.disconnect is observed, repeated checks return the cached state without another Receive call. Upstream: starlette/requests.py::Request.is_disconnected.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.is-disconnected.cancel-pending-receive",
+              "dimension": "boundary",
+              "description": "AnyIO cancellation suppresses a receive callback blocked at a checkpoint and leaves the queued http.disconnect available to a later poll. Upstream: starlette/requests.py::Request.is_disconnected.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only request callback comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request disconnect polling is outside the active dispatch benchmark workload."
           }
         }
       ]

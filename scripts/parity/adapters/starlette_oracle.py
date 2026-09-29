@@ -61,6 +61,7 @@ MIDDLEWARE_CONFIG_SURFACE = "starlette.middleware.Middleware"
 VALUE_FORMATTING_OPERATION = "value-formatting"
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
+REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 STATUS_SURFACE = "starlette.status"
 STATUS_OPERATION = "module-symbol-sequence"
 CONFIG_OPERATIONS = {
@@ -372,6 +373,8 @@ def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
 
 def _message(spec: dict[str, Any]) -> dict[str, Any]:
     if spec["type"] in {"lifespan.startup", "lifespan.shutdown"}:
+        return {"type": spec["type"]}
+    if spec["type"] == "http.disconnect":
         return {"type": spec["type"]}
     if spec["type"] == "websocket.connect":
         return {"type": spec["type"]}
@@ -3651,6 +3654,83 @@ def _run_send_push_promise_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_request_is_disconnected_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "scope",
+            "receive",
+            "receive_checkpoints",
+            "observations",
+        },
+        "Request is-disconnected case",
+    )
+    import anyio
+    from starlette.requests import Request
+    from starlette.responses import PlainTextResponse
+
+    scope = _make_scope(case["scope"])
+    incoming = [_message(message) for message in case["receive"]]
+    receive_checkpoints = set(case["receive_checkpoints"])
+    receive_calls = 0
+    received = 0
+    checkpoint_entries = 0
+    checkpoint_completions = 0
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        nonlocal checkpoint_completions, checkpoint_entries, receive_calls, received
+        call_index = receive_calls
+        receive_calls += 1
+        if call_index in receive_checkpoints:
+            checkpoint_entries += 1
+            await anyio.lowlevel.checkpoint()
+            checkpoint_completions += 1
+        message = incoming[received]
+        received += 1
+        return message
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(_canonical_message(message))
+
+    async def observe() -> dict[str, Any]:
+        request = Request(scope, receive)
+        body = await request.body()
+        disconnected_before = await request.is_disconnected()
+        await PlainTextResponse("ok")(scope, receive, send)
+        disconnected_after = await request.is_disconnected()
+        disconnected_cached = await request.is_disconnected()
+        return {
+            "body_base64": base64.b64encode(body).decode("ascii"),
+            "disconnected_before": disconnected_before,
+            "response_messages": sent,
+            "disconnected_after": disconnected_after,
+            "disconnected_cached": disconnected_cached,
+            "receive_calls": receive_calls,
+            "received_messages": received,
+            "receive_checkpoint_entries": checkpoint_entries,
+            "receive_checkpoint_completions": checkpoint_completions,
+        }
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "is-disconnected",
+                "status": "ok",
+                "value": {"is-disconnected": asyncio.run(observe())},
+            }
+        ],
+    }
+
+
 def _run_status_symbols_case(case: dict[str, Any]) -> dict[str, Any]:
     _strict_object(
         case,
@@ -4090,6 +4170,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) == REQUEST_SEND_PUSH_PROMISE_OPERATION
     ):
         return _run_send_push_promise_case(case)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_IS_DISCONNECTED_OPERATION
+    ):
+        return _run_request_is_disconnected_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         STATUS_SURFACE,
         STATUS_OPERATION,

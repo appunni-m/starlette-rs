@@ -4,7 +4,19 @@ use pyo3::exceptions::{PyAssertionError, PyNotImplementedError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule};
 
+const STRING_CONVERTOR_REGEX: &str = "[^/]+";
+const PATH_CONVERTOR_REGEX: &str = ".*";
+const INTEGER_CONVERTOR_REGEX: &str = "[0-9]+";
+const FLOAT_CONVERTOR_REGEX: &str = r"[0-9]+(\.[0-9]+)?";
+const UUID_CONVERTOR_REGEX: &str =
+    "[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}";
+
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add("_STRING_CONVERTOR_REGEX", STRING_CONVERTOR_REGEX)?;
+    module.add("_PATH_CONVERTOR_REGEX", PATH_CONVERTOR_REGEX)?;
+    module.add("_INTEGER_CONVERTOR_REGEX", INTEGER_CONVERTOR_REGEX)?;
+    module.add("_FLOAT_CONVERTOR_REGEX", FLOAT_CONVERTOR_REGEX)?;
+    module.add("_UUID_CONVERTOR_REGEX", UUID_CONVERTOR_REGEX)?;
     module.add_function(wrap_pyfunction!(convert_builtin, module)?)?;
     module.add_function(wrap_pyfunction!(format_builtin, module)?)?;
     module.add_function(wrap_pyfunction!(register_convertor, module)?)?;

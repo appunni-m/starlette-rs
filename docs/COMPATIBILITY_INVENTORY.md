@@ -17,26 +17,26 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 228 input-only cases across 31 files,
-covering 45 operations and 276 parity requirements. The authored cases span
+The active parity manifest indexes 230 input-only cases across 31 files,
+covering 46 operations and 279 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 WebSockets, exceptions, status constants, endpoints, authentication,
 middleware, configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-The latest integrated run `a3314acd-18ae-4245-8c0c-55076f1ad7ef` finished at
-`2026-09-29T01:34:30.111Z` after starting at `2026-09-29T01:33:49.913Z`. It
-selected 305 profile comparisons: 301 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 228 cases;
+The latest integrated run `5e66f6db-0c16-48f7-a9dd-1e0fcb42882f` finished at
+`2026-09-29T02:12:15.556Z` after starting at `2026-09-29T02:11:40.394Z`. It
+selected 307 profile comparisons: 303 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 230 cases;
 Rust-native passed 73 of 77 selected cases. Four arbitrary Python-callable
 boundaries are unsupported for Rust-native. The CLI exits with status 2 because
 of those `not_run` rows, so this is not an all-target pass. The Python package
 tree was dirty when captured, so this is not release proof. The manifest
 SHA-256 is
-`e4c311ef937ce41c10baf0a26b8592b265079322dc30bcc54a86a5abf449e315`; the
+`8e55fb64a037dcb7e55b2e2940742f1bfa13627777b2f19401252662f50c2bd1`; the
 target wheel SHA-256 is
-`e1fbc79fd18cde5eec63b5cb3ac73f43988c408a9fd496378867510d39566cd7`. The two
+`4b31d687ed0d72016afaf9775ee3705aaa3236246f297c837d1eadcbb52f1bdc`. The two
 registered-handler inputs in
 [`asgi-exception-handlers.yaml`](../tests/fixtures/sources/parity/asgi-exception-handlers.yaml)
 exercise status-code precedence over an `HTTPException` class handler and an

@@ -1088,6 +1088,114 @@
       "observations": [
         "send-push-promise"
       ]
+    },
+    {
+      "case_id": "starlette.requests.Request.is-disconnected.after-response",
+      "surface": "starlette.requests.Request",
+      "operation": "is-disconnected",
+      "covers": [
+        "starlette.request.is-disconnected.detect-after-response",
+        "starlette.request.is-disconnected.cache-observed-disconnect"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "Zm9v",
+          "more_body": false
+        },
+        {
+          "type": "http.request",
+          "body_base64": "",
+          "more_body": false
+        },
+        {
+          "type": "http.disconnect"
+        }
+      ],
+      "receive_checkpoints": [],
+      "observations": [
+        "is-disconnected"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.is-disconnected.cancelled-poll",
+      "surface": "starlette.requests.Request",
+      "operation": "is-disconnected",
+      "covers": [
+        "starlette.request.is-disconnected.detect-after-response",
+        "starlette.request.is-disconnected.cache-observed-disconnect",
+        "starlette.request.is-disconnected.cancel-pending-receive"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "Zm9v",
+          "more_body": false
+        },
+        {
+          "type": "http.disconnect"
+        }
+      ],
+      "receive_checkpoints": [
+        1
+      ],
+      "observations": [
+        "is-disconnected"
+      ]
     }
   ]
 }

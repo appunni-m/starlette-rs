@@ -187,5 +187,8 @@ class Request(HTTPConnection):
         """Decode and cache JSON using Rust-owned request state."""
         return await self._body_state.json()
 
+    async def is_disconnected(self) -> bool:
+        return await self._body_state.is_disconnected()
+
     async def send_push_promise(self, path: str) -> None:
         await self._inner._send_push_promise(self._send, path)

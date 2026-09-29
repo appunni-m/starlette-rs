@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 228 input-only cases in 31 indexed files, covering 45 operations and 276 parity requirements. The cases cover bounded Starlette application, routing, request, response, WebSocket, exception, status, endpoint, authentication, middleware, configuration, and schema behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 230 input-only cases in 31 indexed files, covering 46 operations and 279 parity requirements. The cases cover bounded Starlette application, routing, request, response, WebSocket, exception, status, endpoint, authentication, middleware, configuration, and schema behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -28,6 +28,13 @@ error. Rust owns the extension check, header filtering, event construction, and
 callback await; the Python method forwards the call through PyO3. These cases
 exercise the Python callback boundary and do not claim a Rust-native
 `Request` API.
+
+The same input file adds two `Request.is_disconnected` cases. Rust owns the
+cancel scope, receive polling, disconnect cache, and boolean result; the Python
+method delegates directly to that state machine. The cancellation case blocks
+the receive callback at an AnyIO checkpoint, then verifies that the canceled
+poll leaves `http.disconnect` queued for the later check. Both cases match the
+pinned source and installed package exactly.
 
 The upstream basis is `starlette/requests.py` (`HTTPConnection.headers`, `query_params`, `path_params`, `cookies`, and `Request.stream`/`body`/`json`), `starlette/datastructures.py` (`ImmutableMultiDict` and `Headers`), and `starlette/routing.py` (`Route.matches` and `Router.app`). Related pinned tests include `tests/test_requests.py::test_request_query_params`, `test_request_headers`, `test_request_cookies`, `test_request_json`, `tests/test_routing.py::test_route_converters`, and `test_router`.
 
@@ -125,19 +132,19 @@ docstring YAML parsing and parser errors, and OpenAPI response rendering. Their
 Python `starlette.*` modules forward to Rust; the adapters run the same
 input-only cases against pinned Starlette 1.6.0.
 
-The latest integrated run `a3314acd-18ae-4245-8c0c-55076f1ad7ef` finished at
-`2026-09-29T01:34:30.111Z`. It selected 305 profile comparisons: 301 passed,
+The latest integrated run `5e66f6db-0c16-48f7-a9dd-1e0fcb42882f` finished at
+`2026-09-29T02:12:15.556Z`. It selected 307 profile comparisons: 303 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 228 cases; Rust-native passed 73 of 77 selected
+package passed all 230 cases; Rust-native passed 73 of 77 selected
 comparisons. The four remaining Rust-native rows require arbitrary Python
 endpoint callables. `make parity-run` exits with status 2 because those rows
 are explicitly unsupported by the Rust-native target. This run includes the
 Unicode and regex-special route-template case, URL query operations, the new
-Response override/memoryview cases, and the three push-promise cases. The
-manifest SHA-256 is
-`e4c311ef937ce41c10baf0a26b8592b265079322dc30bcc54a86a5abf449e315`; the
+Response override/memoryview cases, three push-promise cases, and two
+disconnect cases. The manifest SHA-256 is
+`8e55fb64a037dcb7e55b2e2940742f1bfa13627777b2f19401252662f50c2bd1`; the
 installed wheel SHA-256 is
-`e1fbc79fd18cde5eec63b5cb3ac73f43988c408a9fd496378867510d39566cd7`. The
+`4b31d687ed0d72016afaf9775ee3705aaa3236246f297c837d1eadcbb52f1bdc`. The
 Python package tree was dirty during this local run; this is not release proof.
 
 The package policy check confirms there is no upstream Starlette runtime
