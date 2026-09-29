@@ -1604,22 +1604,27 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
         .map(str::to_owned)
         .collect::<Vec<_>>();
 
+    let mut observation = json!({
+        "response_status": response.status_code(),
+        "ordered_repeated_headers": canonical_headers(response.headers()),
+        "response_bytes": {
+            "encoding": "base64",
+            "data": encode_base64(response.body()),
+        },
+        "asgi_event_order": event_order,
+        "asgi_events": events,
+    });
+    if label == "Response" {
+        observation["background_execution_trace"] = Value::Null;
+    }
+
     Ok(json!({
         "case_id": case_id,
         "status": "completed",
         "observations": [{
             "step_id": RESPONSE_OPERATION,
             "status": "ok",
-            "value": {
-                "response_status": response.status_code(),
-                "ordered_repeated_headers": canonical_headers(response.headers()),
-                "response_bytes": {
-                    "encoding": "base64",
-                    "data": encode_base64(response.body()),
-                },
-                "asgi_event_order": event_order,
-                "asgi_events": events,
-            },
+            "value": observation,
         }],
     }))
 }

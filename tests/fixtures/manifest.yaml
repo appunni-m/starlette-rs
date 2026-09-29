@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension. The active Python-package profile also covers response-attached BackgroundTask and BackgroundTasks async/sync execution, sequential task ordering, and failure propagation.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -260,6 +260,7 @@
       "build/parity/inputs/parity/reverse-url-routing.json",
       "build/parity/inputs/parity/redirect-response.json",
       "build/parity/inputs/parity/responses-basic.json",
+      "build/parity/inputs/parity/background-tasks.json",
       "build/parity/inputs/parity/streaming-response.json",
       "build/parity/inputs/parity/websocket-convenience.json",
       "build/parity/inputs/parity/exception-values.json",
@@ -1714,7 +1715,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -1725,7 +1726,7 @@
             {
               "id": "starlette.request.receive-worker-access",
               "dimension": "boundary",
-              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO’s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
               "lanes": [
                 "parity"
               ],
@@ -1736,7 +1737,7 @@
             {
               "id": "starlette.request.stream-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO’s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
               "lanes": [
                 "parity"
               ],
@@ -1747,7 +1748,7 @@
             {
               "id": "starlette.request.body-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
               "lanes": [
                 "parity"
               ],
@@ -1758,7 +1759,7 @@
             {
               "id": "starlette.request.json-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity"
               ],
@@ -7790,7 +7791,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-inverted-single-byte",
               "dimension": "error_path",
-              "description": "Submit `bytes=5-4` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
+              "description": "Submit `bytes=5-4` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
               "lanes": [
                 "parity"
               ],
@@ -7802,7 +7803,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-start-after-end",
               "dimension": "error_path",
-              "description": "Submit `bytes=100-0` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
+              "description": "Submit `bytes=100-0` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
               "lanes": [
                 "parity"
               ],
@@ -7886,7 +7887,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-count-limit-exceeded",
               "dimension": "parameter_combination",
-              "description": "Submit 101 valid ranges and compare Starlette’s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
+              "description": "Submit 101 valid ranges and compare Starlette\u2019s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
               "lanes": [
                 "parity"
               ],
@@ -7898,7 +7899,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-max-ranges-override",
               "dimension": "parameter_combination",
-              "description": "Change the response instance’s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
+              "description": "Change the response instance\u2019s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
               "lanes": [
                 "parity"
               ],
@@ -8613,6 +8614,16 @@
                   "comparison": {
                     "kind": "ordered"
                   }
+                },
+                {
+                  "path": "background_execution_trace",
+                  "value_types": [
+                    "sequence",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 }
               ],
               "error": {
@@ -8813,6 +8824,72 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-async-task",
+              "dimension": "boundary",
+              "description": "Attach one async BackgroundTask with input-defined positional and keyword arguments to Response; compare response-send and task start/completion events. Upstream: tests/test_background.py::test_async_task; starlette/background.py:12-23; starlette/responses.py:54-70.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-sync-task",
+              "dimension": "boundary",
+              "description": "Attach one sync BackgroundTask with input-defined keyword arguments to Response; compare response-send and worker-thread task start/completion events. Upstream: tests/test_background.py::test_sync_task; starlette/background.py:12-23; starlette/concurrency.py:32-34.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-task-order",
+              "dimension": "success_path",
+              "description": "Attach three input-defined sync tasks through BackgroundTasks and compare callback arguments and exact sequential start/completion order after the response is sent. Upstream: tests/test_background.py::test_multiple_tasks; starlette/background.py:26-36.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-task-failure-stops",
+              "dimension": "error_path",
+              "description": "Make the first input-defined BackgroundTasks callback raise Exception and observe that the error propagates after response events and later callbacks are not invoked. Upstream: tests/test_background.py::test_multi_tasks_failure_avoids_next_execution; starlette/background.py:34-36.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-task-add",
+              "dimension": "parameter_combination",
+              "description": "Construct BackgroundTasks with its default empty task list, call add_task with input-defined sync callbacks and captured arguments, attach it to Response, and observe callback execution. Upstream: starlette/background.py:26-33; tests/test_background.py::test_multiple_tasks.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-task-sequence-constructor",
+              "dimension": "parameter_combination",
+              "description": "Construct BackgroundTasks from an input-defined sequence of prebuilt BackgroundTask instances and invoke it through Response; compare task arguments and ordered completion after response send. Upstream: starlette/background.py:26-36; docs/background.md:42-47.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             }

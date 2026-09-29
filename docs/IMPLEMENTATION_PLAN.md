@@ -32,16 +32,19 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 390 input-only cases, 61 operations, and 448
-parity requirements across 43 indexed files, including URL scope and component
+The current parity contract has 395 input-only cases, 61 operations, and 454
+parity requirements across 44 indexed files, including URL scope and component
 construction, Headers and MutableHeaders, bounded SessionMiddleware and
-BaseHTTPMiddleware workflow slices, and one Jinja2 template workflow. Latest
-integrated run `a7371cf0-05f4-4ba1-bf1c-c5c200c2e162`, from
-`2026-09-29T22:28:47.292Z` to `2026-09-29T22:30:25.820Z`, selected 538 profile
-comparisons: 534 passed, zero failed, zero infrastructure errors, and four
-were `not_run`. The Python package passed all 388 selected comparisons;
-Rust-native passed 146 of 150, with four Python-callable rows `not_run`. The Router live-mutation sequence passed on all three dispatches. All 20 URL scope, 14 URL component,
-and seven Headers/MutableHeaders cases passed on the Python package. All 28
+BaseHTTPMiddleware workflow slices, five BackgroundTask/BackgroundTasks cases,
+and one Jinja2 template workflow. Latest integrated run
+`feabfe49-8275-4a74-b2c3-18eeabbb8635`, from `2026-09-29T22:58:18.511Z` to
+`2026-09-29T22:59:39.022Z`, selected 543 profile comparisons: 539 passed, zero
+failed, zero infrastructure errors, and four were `not_run`. The Python package
+passed all 393 selected comparisons; Rust-native passed 146 of 150, with four
+Python-callable rows `not_run`. The Router live-mutation sequence passed on all
+three dispatches, and all five background-task cases passed against the pinned
+source. All 20 URL scope, 14 URL component, and seven Headers/MutableHeaders
+cases passed on the Python package. All 28
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
 passed on the Python package profile, and all twenty-one BaseHTTPMiddleware
 cases passed there. They include the two post-call-next stream-read cases from
@@ -91,7 +94,7 @@ content tree SHA-256 is
 `99fd7a11cb20c8a9bda279f5807b621c4dd3a08f86dca79503bb135319edc492`.
 Manifest SHA-256:
 `44e45ddbf67daa09a23ce54a3f0d43e83b8b77e00fa704ceac904374c2661766`.
-`make parity-run` exits with status 2 for the four explicitly unsupported
+`make test` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 
 ## Completed bounded goal: Rust-owned StaticFiles core
@@ -284,7 +287,8 @@ direct `ServerErrorMiddleware` call-boundary
 parity, broader WebSocket exception flows beyond the three declared cases,
 remaining TestClient exception-propagation modes, arbitrary middleware
 ordering, middleware
-composition, authentication, background tasks, and concurrency.
+composition, authentication, broader background-task callable and cancellation
+behavior, and concurrency.
 
 ## 4. Optional and edge features
 
@@ -396,7 +400,29 @@ emits each chunk lazily using Rust-built ASGI messages, and sends the final
 empty body event on exhaustion. The byte case is supported by the pinned source
 pass-through branch; upstream has no dedicated raw-bytes test. This evidence
 does not establish arbitrary iterator cancellation, disconnect races,
-background tasks, ASGI 2.4 `OSError` mapping, or all memoryview formats.
+background-task callable shapes or cancellation, ASGI 2.4 `OSError` mapping,
+or all memoryview formats.
+
+### Completed bounded goal: Response background task sequencing
+
+[`background-tasks.yaml`](../tests/fixtures/sources/parity/background-tasks.yaml)
+adds five package-profile cases with callback mode, arguments, failure, and
+task-list construction supplied by each input. They compare async and
+synchronous `BackgroundTask` execution, callback arguments, response-send
+ordering, worker-thread execution for synchronous callbacks,
+`BackgroundTasks()` plus `add_task`, construction from prebuilt tasks, ordered
+sequential execution, and propagation that stops later tasks after the first
+failure. All five cases pass exact comparison against pinned Starlette 1.6.0
+and the installed package. The active fixture crosswalk promotes four upstream
+test behaviors, three documentation behaviors, the synchronous thread-pool
+guidance, and the constructor behavior to existing input mappings.
+
+This remains a bounded slice. Callable objects, bound methods and partials,
+context variables, cancellation, concurrency, and broader middleware/error
+interactions with background failures remain unproven. Four Rust-native
+Request-dispatch callable rows still produce the expected `not_run` status, so
+the integrated `make test` command exits 2 despite all 539 executed
+comparisons passing.
 
 ### HTTPException default-response slice: bounded parity verified
 

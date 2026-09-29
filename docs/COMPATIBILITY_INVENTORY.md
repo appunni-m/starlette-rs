@@ -17,25 +17,29 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 390 input-only cases across 43 files,
-covering 61 operations and 448 parity requirements. The authored cases span
+The active parity manifest indexes 395 input-only cases across 44 files,
+covering 61 operations and 454 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
-Headers and MutableHeaders, requests, responses, StaticFiles, WebSockets,
-exceptions, status constants, endpoints, authentication, middleware (including
-bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration,
+Headers and MutableHeaders, requests, responses and background tasks,
+StaticFiles, WebSockets, exceptions, status constants, endpoints,
+authentication, middleware (including bounded SessionMiddleware and
+BaseHTTPMiddleware workflows), configuration,
 schemas, and one bounded Python-package Jinja2 template workflow. The exact operation and profile denominator is in the parity
 manifest; generated JSON and run results remain ignored local build outputs.
 
-Integrated run `a7371cf0-05f4-4ba1-bf1c-c5c200c2e162` started at
-`2026-09-29T22:28:47.292Z` and finished at `2026-09-29T22:30:25.820Z`. It
-selected 538 profile comparisons: 534 passed, zero failed, zero infrastructure
+Integrated run `feabfe49-8275-4a74-b2c3-18eeabbb8635` started at
+`2026-09-29T22:58:18.511Z` and finished at `2026-09-29T22:59:39.022Z`. It
+selected 543 profile comparisons: 539 passed, zero failed, zero infrastructure
 errors, and four Rust-native comparisons were `not_run`. The Python package
-passed all 388 selected comparisons; Rust-native passed 146 of 150, with four
+passed all 393 selected comparisons; Rust-native passed 146 of 150, with four
 Request-dispatch rows requiring Python callables marked `not_run`. The Router
 live-mutation sequence passed all three observations: route-cache warmup,
-adding `POST` to an existing route, and appending a new route. The run includes
-the 20 URL scope, 14 URL component, seven Headers/MutableHeaders, and one
-Jinja2 template case; all passed on the Python package. The template case
+adding `POST` to an existing route, and appending a new route. Five
+input-defined BackgroundTask/BackgroundTasks cases pass on the Python package;
+they cover async and sync callbacks, worker-thread execution, sequential order,
+both task-list construction paths, and fail-fast exception propagation. The run
+includes the 20 URL scope, 14 URL component, seven Headers/MutableHeaders, and
+one Jinja2 template case; all passed on the Python package. The template case
 matches escaped HTML, processor merge, `url_for`, response metadata, and the
 ASGI debug event. All 28 FileResponse cases passed on
 both profiles,
@@ -274,19 +278,20 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 792 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 792 |
-| Existing input mappings in the atlas matrix | 154 |
+| Existing input mappings in the atlas matrix | 163 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 588 |
+| New input-only fixture backlog | 579 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 154 `existing` mappings point to authored YAML input
+crosswalk snapshot, 163 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest now contains 43 indexed files
-and 390 cases, including a Router sequence that verifies live route-method and
-route-list mutations across dispatches, twenty URL scope-construction cases,
+input files with 136 cases. The active manifest now contains 44 indexed files
+and 395 cases, including five Response background-task workflows and a Router
+sequence that verifies live route-method and route-list mutations across
+dispatches, twenty URL scope-construction cases,
 twenty-one BaseHTTPMiddleware cases, one Jinja2 template case, and 28 FileResponse
 cases, 38 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
@@ -403,7 +408,7 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 389 currently indexed cases and
+The backlog distinguishes that work from the 395 currently indexed cases and
 the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
 
 ## Generate the source candidate catalog

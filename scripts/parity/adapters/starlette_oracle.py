@@ -180,6 +180,103 @@ async def _record_background_values(
     execution_trace.append({"event": "background-complete"})
 
 
+def _record_input_background_task(
+    task_index: int,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    failure: dict[str, str] | None,
+    execution_trace: list[dict[str, Any]],
+    event_loop_thread_id: list[int | None],
+) -> None:
+    execution_trace.append(
+        {
+            "event": "task-start",
+            "task_index": task_index,
+            "args": _json_safe(args),
+            "kwargs": _json_safe(kwargs),
+            "thread": (
+                "event-loop" if threading.get_ident() == event_loop_thread_id[0] else "worker"
+            ),
+        }
+    )
+    if failure is not None:
+        execution_trace.append(
+            {
+                "event": "task-error",
+                "task_index": task_index,
+                "class": failure["kind"],
+                "message": failure["message"],
+            }
+        )
+        raise Exception(failure["message"])
+    execution_trace.append({"event": "task-complete", "task_index": task_index})
+
+
+def _input_background_tasks(
+    spec: dict[str, Any],
+    execution_trace: list[dict[str, Any]],
+    event_loop_thread_id: list[int | None],
+) -> Any:
+    from starlette.background import BackgroundTask, BackgroundTasks
+
+    if spec["kind"] not in {"single-task", "task-list", "task-list-constructor"}:
+        raise ValueError("Response background task kind is unsupported")
+    if not isinstance(spec["tasks"], list) or not spec["tasks"]:
+        raise ValueError("Response background tasks must be a non-empty array")
+    if (spec["kind"] == "single-task") != (len(spec["tasks"]) == 1):
+        raise ValueError("Response background task count does not match its kind")
+    if spec["kind"] != "single-task" and len(spec["tasks"]) < 2:
+        raise ValueError("Response background task lists must contain multiple tasks")
+
+    def make_callback(task_index: int, task_spec: dict[str, Any]) -> Any:
+        failure = task_spec["failure"]
+        if task_spec["mode"] == "async":
+
+            async def callback(*args: Any, **kwargs: Any) -> None:
+                _record_input_background_task(
+                    task_index, args, kwargs, failure, execution_trace, event_loop_thread_id
+                )
+
+        else:
+
+            def callback(*args: Any, **kwargs: Any) -> None:
+                _record_input_background_task(
+                    task_index, args, kwargs, failure, execution_trace, event_loop_thread_id
+                )
+
+        return callback
+
+    tasks = []
+    background_tasks = BackgroundTasks() if spec["kind"] == "task-list" else None
+    for task_index, task_spec in enumerate(spec["tasks"]):
+        task_spec = _strict_object(
+            task_spec,
+            {"mode", "args", "kwargs", "failure"},
+            f"Response background task[{task_index}]",
+        )
+        if task_spec["mode"] not in {"sync", "async"}:
+            raise ValueError("Response background task mode is unsupported")
+        if not isinstance(task_spec["args"], list) or not isinstance(task_spec["kwargs"], dict):
+            raise ValueError("Response background task arguments must be arrays and objects")
+        failure = task_spec["failure"]
+        if failure is not None:
+            failure = _strict_object(
+                failure, {"kind", "message"}, f"Response background task[{task_index}].failure"
+            )
+            if failure["kind"] != "Exception" or not isinstance(failure["message"], str):
+                raise ValueError("Response background task failure input is unsupported")
+        callback = make_callback(task_index, task_spec)
+        if background_tasks is None:
+            tasks.append(BackgroundTask(callback, *task_spec["args"], **task_spec["kwargs"]))
+        else:
+            background_tasks.add_task(callback, *task_spec["args"], **task_spec["kwargs"])
+    if spec["kind"] == "single-task":
+        return tasks[0]
+    if spec["kind"] == "task-list-constructor":
+        return BackgroundTasks(tasks)
+    return background_tasks
+
+
 @dataclass(frozen=True)
 class _CapturedDispatchError:
     error: dict[str, Any]
@@ -5859,6 +5956,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         required_fields.add("cookie_actions")
     if "header_actions" in case:
         required_fields.add("header_actions")
+    if "background" in case:
+        required_fields.add("background")
     if surface == STREAMING_RESPONSE_SURFACE:
         required_fields.add("streaming")
         required_fields.update(
@@ -6034,16 +6133,30 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("StreamingResponse failing send input is invalid")
 
     background_values: list[str] | None = None
+    background_tasks_spec: dict[str, Any] | None = None
     if "background" in case:
-        background_spec = _strict_object(
-            case["background"], {"kind", "values"}, "Response background"
-        )
-        if background_spec["kind"] != "async-values-recorder":
-            raise ValueError("Response background must select the async values recorder")
-        values = background_spec["values"]
-        if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
-            raise ValueError("Response background values must be an array of strings")
-        background_values = values
+        if not isinstance(case["background"], dict):
+            raise ValueError("Response background input must be an object")
+        if case["background"].get("kind") == "async-values-recorder":
+            background_spec = _strict_object(
+                case["background"], {"kind", "values"}, "Response background"
+            )
+            values = background_spec["values"]
+            if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+                raise ValueError("Response background values must be an array of strings")
+            background_values = values
+        else:
+            background_tasks_spec = _strict_object(
+                case["background"], {"kind", "tasks"}, "Response background tasks"
+            )
+            if background_tasks_spec["kind"] not in {
+                "single-task",
+                "task-list",
+                "task-list-constructor",
+            }:
+                raise ValueError("Response background task kind is unsupported")
+            if not isinstance(background_tasks_spec["tasks"], list):
+                raise ValueError("Response background tasks must be an array")
 
     stream_lifecycle: dict[str, str] | None = None
     if "stream_lifecycle" in case:
@@ -6076,6 +6189,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     execution_trace = (
         [] if streaming == "async-generator" or background_values is not None else None
     )
+    background_execution_trace = [] if background_tasks_spec is not None else None
+    event_loop_thread_id: list[int | None] = [None]
 
     from starlette.responses import JSONResponse, Response, StreamingResponse
 
@@ -6134,6 +6249,12 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         response_arguments["background"] = BackgroundTask(
             _record_background_values, background_values, execution_trace
         )
+    if background_tasks_spec is not None:
+        if background_execution_trace is None:
+            raise RuntimeError("background tasks require an execution trace")
+        response_arguments["background"] = _input_background_tasks(
+            background_tasks_spec, background_execution_trace, event_loop_thread_id
+        )
     response = response_type(**response_arguments)
     try:
         for index, raw_action in enumerate(case.get("header_actions", [])):
@@ -6141,6 +6262,15 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         for index, raw_action in enumerate(case.get("cookie_actions", [])):
             _apply_response_cookie_action(response, raw_action, index)
     except Exception as exc:
+        partial_value = {
+            "response_status": None,
+            "ordered_repeated_headers": [],
+            "response_bytes": {"encoding": "base64", "data": ""},
+            "asgi_event_order": [],
+            "asgi_events": [],
+        }
+        if surface == RESPONSE_SURFACE:
+            partial_value["background_execution_trace"] = background_execution_trace
         return {
             "case_id": case["case_id"],
             "status": "completed",
@@ -6149,13 +6279,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                     "step_id": case["observations"][0],
                     "status": "error",
                     "error": _dispatch_error(exc),
-                    "partial_value": {
-                        "response_status": None,
-                        "ordered_repeated_headers": [],
-                        "response_bytes": {"encoding": "base64", "data": ""},
-                        "asgi_event_order": [],
-                        "asgi_events": [],
-                    },
+                    "partial_value": partial_value,
                 }
             ],
         }
@@ -6180,6 +6304,12 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             send_index += 1
             raise OSError(send_error_spec["message"])
         sent.append(message)
+        if background_execution_trace is not None:
+            if event_loop_thread_id[0] is None:
+                event_loop_thread_id[0] = threading.get_ident()
+            background_execution_trace.append(
+                {"event": "asgi-send", "message": _canonical_message(message)}
+            )
         if execution_trace is not None:
             execution_trace.append({"event": "asgi-send", "message": _canonical_message(message)})
         if receive_behavior is not None and message["type"] == "http.response.body":
@@ -6194,7 +6324,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     try:
         asyncio.run(response(scope, receive, send))
     except Exception as exc:
-        if send_error_spec is None:
+        if send_error_spec is None and background_tasks_spec is None:
             raise
         captured_error = exc
     events = [_canonical_message(message) for message in sent]
@@ -6225,6 +6355,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if execution_trace is not None:
         observation["execution_trace"] = execution_trace
+    if surface == RESPONSE_SURFACE:
+        observation["background_execution_trace"] = background_execution_trace
     item = {
         "case_id": case["case_id"],
         "status": "completed",

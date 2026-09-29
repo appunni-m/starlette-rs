@@ -305,6 +305,14 @@ STATIC_FILES_ASYNC_BOUNDARY_OPERATION = "asgi-call-async-boundary"
 STREAMING_RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 RESPONSE_OPERATION = "asgi-call"
+RESPONSE_BACKGROUND_REQUIREMENTS = {
+    "async_task": "starlette.responses.Response.asgi-call.background-async-task",
+    "sync_task": "starlette.responses.Response.asgi-call.background-sync-task",
+    "task_add": "starlette.responses.Response.asgi-call.background-task-add",
+    "task_order": "starlette.responses.Response.asgi-call.background-task-order",
+    "task_failure": "starlette.responses.Response.asgi-call.background-task-failure-stops",
+    "task_sequence_constructor": "starlette.responses.Response.asgi-call.background-task-sequence-constructor",
+}
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
 RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "content",
@@ -2646,7 +2654,9 @@ def _validate_cookie_actions(case: dict[str, Any]) -> None:
 
 def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
     case_keys = RESPONSE_CASE_KEYS | {
-        key for key in ("render_override", "cookie_actions", "header_actions") if key in case
+        key
+        for key in ("render_override", "cookie_actions", "header_actions", "background")
+        if key in case
     }
     _exact(case, case_keys, "Response asgi-call case")
     if case["surface"] not in RESPONSE_SURFACES or case["operation"] != RESPONSE_OPERATION:
@@ -2705,6 +2715,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 ("hi", 200, "text/html"),
                 ("hello, world", 200, "text/plain"),
                 ("input", 200, "text/plain"),
+                ("task initiated", 200, "text/plain"),
             }
             if (value, case["status_code"], case["media_type"]) not in allowed:
                 raise ContractError(
@@ -2753,9 +2764,85 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             if override["kind"] != "prefix-text":
                 raise ContractError("Response.render override kind must be prefix-text")
             _string(override["prefix"], "Response.render override prefix")
+
+        if "background" in case:
+            if case["target_profiles"] != ["python-package-cpython312"]:
+                raise ContractError("Response background callbacks are Python-package-only")
+            background = _exact(
+                case["background"], {"kind", "tasks"}, "Response background task input"
+            )
+            kind = _string(background["kind"], "Response background.kind")
+            tasks = background["tasks"]
+            if not isinstance(tasks, list) or not tasks:
+                raise ContractError("Response background tasks must be a non-empty array")
+            if kind == "single-task" and len(tasks) != 1:
+                raise ContractError("single-task background input must contain exactly one task")
+            if kind in {"task-list", "task-list-constructor"} and len(tasks) < 2:
+                raise ContractError("background task lists must contain multiple tasks")
+            if kind not in {"single-task", "task-list", "task-list-constructor"}:
+                raise ContractError(
+                    "Response background.kind must select a single task or a task-list form"
+                )
+
+            failures = []
+            for index, raw_task in enumerate(tasks):
+                context = f"Response background.tasks[{index}]"
+                task = _exact(raw_task, {"mode", "args", "kwargs", "failure"}, context)
+                if task["mode"] not in {"sync", "async"}:
+                    raise ContractError(f"{context}.mode must be sync or async")
+                if not isinstance(task["args"], list) or any(
+                    type(value) not in {str, int} for value in task["args"]
+                ):
+                    raise ContractError(f"{context}.args must contain only strings or integers")
+                if not isinstance(task["kwargs"], dict) or any(
+                    not isinstance(key, str) or type(value) not in {str, int}
+                    for key, value in task["kwargs"].items()
+                ):
+                    raise ContractError(f"{context}.kwargs must map strings to strings or integers")
+                failure = task["failure"]
+                if failure is not None:
+                    failure = _exact(failure, {"kind", "message"}, f"{context}.failure")
+                    if failure["kind"] != "Exception":
+                        raise ContractError(f"{context}.failure.kind must be Exception")
+                    _string(failure["message"], f"{context}.failure.message")
+                    failures.append(index)
+
+            if kind == "single-task":
+                derived = [
+                    RESPONSE_BACKGROUND_REQUIREMENTS[
+                        "async_task" if tasks[0]["mode"] == "async" else "sync_task"
+                    ]
+                ]
+            elif failures:
+                if len(failures) != 1 or failures[0] != 0 or len(tasks) < 2:
+                    raise ContractError(
+                        "task-list failure input must fail the first task before a later task"
+                    )
+                derived = [RESPONSE_BACKGROUND_REQUIREMENTS["task_failure"]]
+                if kind == "task-list":
+                    derived.insert(0, RESPONSE_BACKGROUND_REQUIREMENTS["task_add"])
+                else:
+                    derived.insert(0, RESPONSE_BACKGROUND_REQUIREMENTS["task_sequence_constructor"])
+            elif kind == "task-list-constructor":
+                derived = [
+                    RESPONSE_BACKGROUND_REQUIREMENTS["task_order"],
+                    RESPONSE_BACKGROUND_REQUIREMENTS["task_sequence_constructor"],
+                ]
+            else:
+                derived = [
+                    RESPONSE_BACKGROUND_REQUIREMENTS["task_add"],
+                    RESPONSE_BACKGROUND_REQUIREMENTS["task_order"],
+                ]
+            if case["covers"] != derived:
+                raise ContractError(
+                    "Response background coverage must match its task inputs: "
+                    f"expected={derived}, actual={case['covers']}"
+                )
     else:
         if "render_override" in case:
             raise ContractError("JSONResponse does not accept a Response.render override")
+        if "background" in case:
+            raise ContractError("JSONResponse background task inputs are outside this slice")
         if content_kind != "json" or content["value"] is not None:
             raise ContractError("JSONResponse content must be json null for this input slice")
         if case["status_code"] != 200 or case["media_type"] is not None:
@@ -6430,6 +6517,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and (is_response or is_streaming_response)
     ):
         expected_case_keys = expected_case_keys | {"header_actions"}
+    if isinstance(case, dict) and "background" in case and is_response:
+        expected_case_keys = expected_case_keys | {"background"}
     if is_file_response and isinstance(case, dict):
         expected_case_keys = expected_case_keys | (
             {key for key in ("chunk_size", "max_ranges") if key in case}

@@ -8,15 +8,16 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 390 input-only cases across 43 files, covering 61
-operations and 448 requirements. Latest run
-`a7371cf0-05f4-4ba1-bf1c-c5c200c2e162` ran from `2026-09-29T22:28:47.292Z` to
-`2026-09-29T22:30:25.820Z` and selected 538 comparisons: 534 passed, zero
+The active contract has 395 input-only cases across 44 files, covering 61
+operations and 454 requirements. Latest run
+`feabfe49-8275-4a74-b2c3-18eeabbb8635` ran from `2026-09-29T22:58:18.511Z` to
+`2026-09-29T22:59:39.022Z` and selected 543 comparisons: 539 passed, zero
 failed, zero infrastructure errors, and four Rust-native rows were `not_run`.
-The Python package passed all 388 selected cases; Rust-native passed 146 of
+The Python package passed all 393 selected cases; Rust-native passed 146 of
 150. Those four rows require Python endpoint or ASGI callables. The Router
-live-mutation sequence passed on all three dispatches. The new
-Python-package Jinja2 template workflow also passed. The run
+live-mutation sequence passed on all three dispatches. Five BackgroundTask and
+BackgroundTasks cases and the Python-package Jinja2 template workflow also
+passed. The run
 includes the 20 URL scope, 14 URL component, and seven Headers/MutableHeaders
 cases. All 28 FileResponse cases passed on both profiles;
 all eight SessionMiddleware cases and all twenty-one BaseHTTPMiddleware cases
@@ -97,8 +98,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 792 mappings: 588 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 154 existing input mappings. It maps selected
+The current matrix has 792 mappings: 579 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 163 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
@@ -131,10 +132,11 @@ commit.
 The current slice crosses the Python/Rust boundary for a bounded set of
 request and ASGI flows. Exact Python-package parity now covers async Request
 endpoints, synchronous functions, bound methods and partials through AnyIO,
-plus callable-instance routes invoked as ASGI apps. The remaining boundary
-work includes cancellation, broader exception identity/chaining, streaming
-backpressure, broader lifespan state and concurrency, and other Python/Rust
-ownership decisions. The new bounded generator-lifespan slice covers sync and
+callable-instance routes invoked as ASGI apps, and basic BackgroundTask and
+BackgroundTasks execution. The remaining boundary work includes background
+callable shapes and cancellation, broader exception identity/chaining,
+streaming backpressure, broader lifespan state and concurrency, and other
+Python/Rust ownership decisions. The new bounded generator-lifespan slice covers sync and
 async entry/cleanup, startup/shutdown failures, synchronous callback-call
 failures, special-method lookup, extra-yield errors, and shutdown-error
 suppression. Rust implements the generator context-manager protocol and calls
@@ -254,7 +256,8 @@ assert exact parity before the coordinated gate records that result.
 ## P3 — Expand by atlas requirements
 
 Implement routing, connections, requests/responses, middleware, authentication,
-background tasks, data structures, forms/uploads, remaining StaticFiles edge cases, templates,
+remaining background-task callable and cancellation behavior, data structures,
+forms/uploads, remaining StaticFiles edge cases, templates,
 schemas, configuration, WSGI, and TestClient in dependency-aware groups.
 Promote remaining fixture-backlog entries into the single active manifest as
 independent inputs and keep unsupported behavior visible until implemented
