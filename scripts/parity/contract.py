@@ -4856,7 +4856,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             )
     dispatch = case["steps"][-1]
     dispatch_args = {key: descriptor["value"] for key, descriptor in dispatch["arguments"].items()}
-    if not is_protocol_middleware and (
+    if not is_protocol_middleware and app_args["routes"][0]["kind"] == "websocket-route":
+        _validate_websocket_exception_dispatch(app_args, dispatch_args)
+    elif not is_protocol_middleware and (
         body_reuse or app_args["exception_handlers"] or server_error_case
     ):
         _validate_exception_handler_dispatch(app_args, dispatch_args)
@@ -4884,8 +4886,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             raise ContractError("interleaved workflow must pair lifespan and HTTP scopes")
         expected_schedule = ["lifespan.startup", "dispatch", "lifespan.shutdown"]
     else:
-        if dispatch_args["scope"]["type"] != "http":
-            raise ContractError("dispatch step must use an HTTP scope")
+        expected_scope = (
+            "websocket" if app_args["routes"][0]["kind"] == "websocket-route" else "http"
+        )
+        if dispatch_args["scope"]["type"] != expected_scope:
+            raise ContractError(f"dispatch step must use a {expected_scope} scope")
         expected_schedule = ["dispatch"]
     if schedule != expected_schedule:
         raise ContractError(
@@ -5362,6 +5367,15 @@ def _validate_application_stimulus(
         raise ContractError(
             "application inputs must explicitly encode each Starlette constructor input"
         )
+    if (
+        not request_dispatch
+        and isinstance(args["routes"], list)
+        and len(args["routes"]) == 1
+        and isinstance(args["routes"][0], dict)
+        and args["routes"][0].get("kind") == "websocket-route"
+    ):
+        _validate_websocket_exception_application(args)
+        return
     if not request_dispatch and _is_server_error_stimulus(args):
         _validate_server_error_application(args)
         return
@@ -5563,6 +5577,10 @@ def _validate_exception_handler_registry(value: Any) -> None:
                 _exact(key, {"kind", "name", "base_class"}, f"{context}.key")
                 if key["base_class"] != "HTTPException":
                     raise ContractError("BodyReuseException must derive from HTTPException")
+            elif name == "CustomWSException":
+                _exact(key, {"kind", "name", "base_class"}, f"{context}.key")
+                if key["base_class"] != "Exception":
+                    raise ContractError("CustomWSException must derive from Exception")
             else:
                 raise ContractError(f"{context}.key names an unsupported exception class")
             identity = ("exception-class", name)
@@ -5597,8 +5615,113 @@ def _validate_exception_handler_recipe(value: Any, context: str) -> None:
         _string(value["content"], f"{context}.content")
         if value["status_code"] != 500:
             raise ContractError(f"{context}.status_code must be 500")
+    elif kind == "websocket-close-handler":
+        _exact(value, {"kind", "label", "callable_kind", "code"}, context)
+        _string(value["label"], f"{context}.label")
+        if value["callable_kind"] != "sync-from-thread":
+            raise ContractError(f"{context}.callable_kind must preserve the source sync handler")
+        if type(value["code"]) is not int or value["code"] < 0:
+            raise ContractError(f"{context}.code must be a non-negative integer")
     else:
         raise ContractError(f"{context} uses an unsupported handler recipe: {kind!r}")
+
+
+def _validate_websocket_exception_application(args: dict[str, Any]) -> None:
+    if (
+        args["debug"] is not False
+        or args["middleware"] != []
+        or args["max_body_size"] is not None
+        or args["lifespan"]
+        != {
+            "kind": "async-context-manager",
+            "record_entry": True,
+            "record_exit": True,
+        }
+    ):
+        raise ContractError("WebSocket exception application differs from the declared baseline")
+    route = _exact(args["routes"][0], {"kind", "path", "endpoint"}, "WebSocket route input")
+    if (
+        route["kind"] != "websocket-route"
+        or not isinstance(route["path"], str)
+        or not route["path"].startswith("/")
+    ):
+        raise ContractError("WebSocket exception input requires one absolute WebSocket route")
+    endpoint = route["endpoint"]
+    if not isinstance(endpoint, dict) or not isinstance(endpoint.get("kind"), str):
+        raise ContractError("WebSocket endpoint must use a declared exception stimulus")
+
+    handlers = args["exception_handlers"]
+    if endpoint["kind"] == "http-exception":
+        endpoint = _exact(
+            endpoint, {"kind", "status_code", "detail", "headers"}, "HTTPException endpoint"
+        )
+        if (
+            type(endpoint["status_code"]) is not int
+            or not 100 <= endpoint["status_code"] <= 599
+            or (endpoint["detail"] is not None and not isinstance(endpoint["detail"], str))
+            or endpoint["headers"] != []
+        ):
+            raise ContractError("WebSocket HTTPException input has invalid values")
+        expected_handlers = [
+            {
+                "key": {"kind": "exception-class", "name": "HTTPException"},
+                "handler": {
+                    "kind": "json-exception-detail-response",
+                    "status_from_exception": True,
+                },
+            }
+        ]
+        if handlers != expected_handlers:
+            raise ContractError("WebSocket HTTPException must use the declared JSON detail handler")
+        return
+
+    endpoint = _exact(endpoint, {"kind", "actions"}, "WebSocket action-sequence endpoint")
+    actions = endpoint["actions"]
+    if (
+        endpoint["kind"] != "websocket-action-sequence"
+        or not isinstance(actions, list)
+        or len(actions) != 2
+    ):
+        raise ContractError(
+            "WebSocket exception endpoint must accept then raise one declared exception"
+        )
+    if actions[0] != {"action": "accept"}:
+        raise ContractError("WebSocket exception sequence must accept before raising")
+    raise_action = actions[1]
+    if not isinstance(raise_action, dict) or raise_action.get("action") not in {
+        "raise-websocket-exception",
+        "raise-custom-exception",
+    }:
+        raise ContractError("WebSocket sequence must end by raising a declared WebSocket exception")
+    if raise_action["action"] == "raise-websocket-exception":
+        allowed = {"action", "code", "reason"}
+        if set(raise_action) not in ({"action", "code"}, allowed):
+            raise ContractError("WebSocketException action has invalid fields")
+        if type(raise_action["code"]) is not int or raise_action["code"] < 0:
+            raise ContractError("WebSocketException code must be a non-negative integer")
+        if "reason" in raise_action and not isinstance(raise_action["reason"], str):
+            raise ContractError("WebSocketException reason must be a string")
+        if handlers != []:
+            raise ContractError(
+                "built-in WebSocketException handling must use the default registry"
+            )
+        return
+
+    _exact(raise_action, {"action", "exception_class"}, "custom WebSocket exception action")
+    if raise_action["exception_class"] != "CustomWSException":
+        raise ContractError("custom WebSocket exception must name its declared class")
+    _validate_exception_handler_registry(handlers)
+    expected_key = {
+        "kind": "exception-class",
+        "name": "CustomWSException",
+        "base_class": "Exception",
+    }
+    if (
+        len(handlers) != 1
+        or handlers[0]["key"] != expected_key
+        or handlers[0]["handler"].get("kind") != "websocket-close-handler"
+    ):
+        raise ContractError("custom WebSocket exception must use its registered close handler")
 
 
 def _validate_status_precedence_application(route: dict[str, Any], handlers: Any) -> None:
@@ -5834,8 +5957,15 @@ def _validate_dispatch_stimulus(
                 raise ContractError(
                     "body-reuse input must contain a non-empty chunked request body"
                 )
+    elif scope.get("type") == "websocket":
+        _validate_websocket_scope(scope)
+        messages = args["receive"]
+        if not isinstance(messages, list):
+            raise ContractError("WebSocket receive input must be a message array")
+        for index, message in enumerate(messages):
+            _validate_websocket_message(message, f"WebSocket receive[{index}]", incoming=True)
     else:
-        raise ContractError("scope type must be http or lifespan")
+        raise ContractError("scope type must be http, websocket, or lifespan")
     if args["send"] != {"kind": "capture-asgi-send"}:
         if allow_lifespan_callback_failures and scope.get("type") == "lifespan":
             return
@@ -5888,6 +6018,31 @@ def _validate_exception_handler_dispatch(
             raise ContractError("body-reuse input must dispatch a POST request")
     elif scope["method"] != "POST" or route["methods"] != ["GET"]:
         raise ContractError("status-code precedence input must POST to its GET-only route")
+
+
+def _validate_websocket_exception_dispatch(
+    app_arguments: dict[str, Any], dispatch_arguments: dict[str, Any]
+) -> None:
+    route = app_arguments["routes"][0]
+    scope = dispatch_arguments["scope"]
+    if (
+        route["kind"] != "websocket-route"
+        or scope.get("type") != "websocket"
+        or scope.get("path") != route["path"]
+    ):
+        raise ContractError("WebSocket exception input must dispatch to its declared route path")
+    _validate_websocket_scope(scope)
+    if dispatch_arguments["receive"] != [{"type": "websocket.connect", "subprotocols": []}]:
+        raise ContractError("WebSocket exception input must supply one connection event")
+    if dispatch_arguments["send"] != {"kind": "capture-asgi-send"}:
+        raise ContractError("WebSocket exception input must use the ASGI event collector")
+    if route["endpoint"]["kind"] == "http-exception":
+        if scope.get("extensions") != {"websocket.http.response": {}}:
+            raise ContractError(
+                "WebSocket HTTPException input must expose the denial-response extension"
+            )
+    elif "extensions" in scope:
+        raise ContractError("accepted WebSocket exception input does not declare extensions")
 
 
 def _gzip_header_pairs(value: Any, context: str) -> list[tuple[bytes, bytes]]:
@@ -7646,6 +7801,16 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     }
     scope = dispatch_arguments["scope"]
     path = scope["path"]
+    if case["operation"] == "__call__" and route["kind"] == "websocket-route":
+        if scope.get("type") != "websocket" or path != route["path"]:
+            return set()
+        endpoint = route["endpoint"]
+        if endpoint["kind"] == "http-exception":
+            return {"starlette.asgi.websocket-exception.http-denial-response"}
+        action = endpoint["actions"][-1]
+        if action["action"] == "raise-websocket-exception":
+            return {"starlette.asgi.websocket-exception.default-handler"}
+        return {"starlette.asgi.websocket-exception.custom-handler"}
     method = scope["method"]
     path_matches = _route_path_matches(route["path"], path)
     methods = set(route["methods"])

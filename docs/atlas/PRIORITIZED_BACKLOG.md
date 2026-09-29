@@ -8,10 +8,10 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 277 input-only cases across 36 files, covering 54
-operations and 340 requirements. Run `8c298e2a-0df2-4b93-a4d0-f0e6145e746f`
-selected 392 comparisons: 388 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 275 applicable cases;
+The active contract has 280 input-only cases across 36 files, covering 54
+operations and 343 requirements. Run `a63cb688-2fb9-4da1-8b13-daa4b8af0e0f`
+selected 395 comparisons: 391 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 278 applicable cases;
 Rust-native passed 113 of 117 selected cases. The four unsupported Rust-native
 rows require arbitrary Python callables. See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
@@ -22,8 +22,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The matrix has 789 mappings: 678 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 61 existing input mappings. It maps selected
+The matrix has 789 mappings: 675 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 64 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
@@ -71,12 +71,13 @@ response start, status-code handler precedence over an HTTPException class
 handler, and async-handler reuse of a body consumed by the endpoint. The
 server-error slice now covers default and registered 500 handling, special
 handler-key order, text/HTML debug responses, response-start state, and handled
-`HTTPException(500)`. All 21 WebSocket comparisons passed: six protocol-tape
-cases on the Python package, six state projections on both targets, and three
-route-dispatch cases on the Python package. Convenience methods, denial
-responses, WebSocket exception handlers, direct middleware
-invocation, arbitrary middleware ordering, and TestClient propagation remain
-open.
+`HTTPException(500)`. At the earlier WebSocket checkpoint, 21 comparisons
+passed: six protocol-tape cases on the Python package, six state projections
+on both targets, and three route-dispatch cases on the Python package. Later
+inputs add convenience/close behavior and three app-level exception flows:
+the built-in close handler, an HTTP denial response, and a custom close handler.
+TestClient propagation, TestClient WebSocket sessions, direct middleware
+invocation, and arbitrary middleware ordering remain open.
 
 ## P2 — Scoped ASGI and WebSocket workflows (bounded parity recorded)
 

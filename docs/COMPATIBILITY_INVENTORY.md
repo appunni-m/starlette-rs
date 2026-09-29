@@ -17,20 +17,23 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 277 input-only cases across 36 files,
-covering 54 operations and 340 parity requirements. The authored cases span
+The active parity manifest indexes 280 input-only cases across 36 files,
+covering 54 operations and 343 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware, configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-The latest integrated run `8c298e2a-0df2-4b93-a4d0-f0e6145e746f` started at
-`2026-09-29T07:32:14.746Z` and finished at `2026-09-29T07:33:04.630Z`. It
-selected 392 profile comparisons: 388 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 275 of 275
+The latest integrated run `a63cb688-2fb9-4da1-8b13-daa4b8af0e0f` started at
+`2026-09-29T07:59:14.390Z` and finished at `2026-09-29T08:00:15.722Z`. It
+selected 395 profile comparisons: 391 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 278 of 278
 comparisons; Rust-native passed 113 of 117, with four rows requiring Python
-callables marked `not_run`. Thirty-seven StaticFiles cases are authored across
+callables marked `not_run`. This run uses the 280-case, 343-requirement
+manifest with SHA-256
+`4872658329b37e8d60c68f20bf9803a83499e8a9058d29f0191e7e42fd5f4311`.
+Thirty-seven StaticFiles cases are authored across
 three inputs. Fourteen `lookup_path` cases run on both profiles and all 28
 comparisons pass; all 69 StaticFiles profile comparisons pass (34 Rust-native
 and 35 Python-package). The package-only async-boundary case checks bound
@@ -40,9 +43,10 @@ cover rooted GET and HEAD, HTML index redirects and fallback, 401/404/405
 outcomes, missing-subdirectory and file-as-directory 404 paths, date and ETag
 validators, validator precedence, package assets, NUL-path 404 handling, and
 direct `lookup_path` metadata/path checks. Python package discovery is tested on
-the Python profile; Rust-native package serving uses explicit roots. Both target
-trees were dirty when captured. Manifest SHA-256:
-`8af09d8882769b5724dcc3cf56adc9342d79e78b0a17cc95b51d9c249ae4f190`.
+the Python profile; Rust-native package serving uses explicit roots. The
+Rust-native target tree was clean; the installed Python-package target tree was
+dirty. Its wheel SHA-256 is
+`71f943856c333550a10257d0a9b4dbe6530e399d472dbb52207d1e300a16cd9a`.
 `make parity-run` exits with status 2 only for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 
@@ -63,14 +67,15 @@ special-key order, debug text/HTML responses, response-start handling, and a
 handled `HTTPException(500)` through the installed package. All selected
 server-error cases pass in the latest run under the declared traceback
 normalization; raw source and target bodies remain in the local result
-artifact. The WebSocket inputs
-also include six ordered
-receive/send callback-tape comparisons on the Python package, six projected
-state cases on both targets, three package-profile route-dispatch cases, and
-the 16 convenience/close cases described above. The earlier run's 21 selected
-WebSocket comparisons do not include those added cases. WebSocket exception
-handlers, direct `ServerErrorMiddleware` invocation, arbitrary middleware
-ordering, and TestClient propagation remain outside the active contract.
+artifact. The WebSocket inputs also include six ordered receive/send callback-
+tape comparisons on the Python package, six projected state cases on both
+targets, three package-profile route-dispatch cases, and the 16
+convenience/close cases described above. Three additional package-profile
+cases cover the built-in `WebSocketException` close path, an `HTTPException`
+denial response, and a registered synchronous WebSocket close handler. These
+map to the pinned `test_websocket_raise_*` workflows. Direct
+`ServerErrorMiddleware` invocation, arbitrary middleware ordering, and
+TestClient propagation remain outside the active contract.
 `asgi-core.app.test_app_debug` stays in backlog because its input constructs
 the app with debug enabled rather than setting debug after construction. The
 parity artifact status is `completed`; four explicitly unsupported Rust-native
@@ -102,7 +107,7 @@ Rust-native cases exercise the corresponding trees through explicit roots; they
 do not claim Python package discovery. This boundary uses no upstream
 Starlette runtime import or added runtime dependency.
 
-The 34 authored StaticFiles cases are a correctness slice, not complete
+The 37 authored StaticFiles cases are a correctness slice, not complete
 coverage of its 36 upstream test functions. A package-only async-boundary case
 checks that a bound `lookup_path` override runs on an AnyIO worker while the
 event loop advances, then compares the ASGI response. Fourteen `lookup_path`
@@ -163,18 +168,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 789 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 789 |
-| Existing input mappings in the atlas matrix | 58 |
+| Existing input mappings in the atlas matrix | 64 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 681 |
+| New input-only fixture backlog | 675 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 58 `existing` mappings point to authored YAML input
+crosswalk snapshot, 64 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 36 indexed files
-and 274 cases, including 34 authored StaticFiles cases, four authentication cases,
+and 280 cases, including 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)

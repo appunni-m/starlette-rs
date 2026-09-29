@@ -951,6 +951,39 @@
               ]
             },
             {
+              "id": "starlette.asgi.websocket-exception.default-handler",
+              "dimension": "error_path",
+              "description": "A WebSocket endpoint that accepts and then raises WebSocketException is handled by the built-in WebSocket exception handler, which closes with the exception code and reason. Upstream: tests/test_applications.py::test_websocket_raise_websocket_exception; starlette/middleware/exceptions.py:28-30,71-73.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.websocket-exception.http-denial-response",
+              "dimension": "error_path",
+              "description": "A WebSocket endpoint that raises HTTPException before acceptance uses the registered HTTPException handler and the WebSocket Denial Response extension. Upstream: tests/test_applications.py::test_websocket_raise_http_exception; starlette/middleware/exceptions.py:65-69; docs/exceptions.md:126-141.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.websocket-exception.custom-handler",
+              "dimension": "boundary",
+              "description": "A sync handler registered for a custom WebSocket endpoint exception runs through the application's exception dispatcher and can close the accepted connection from its worker thread. Upstream: tests/test_applications.py::test_websocket_raise_custom_exception; starlette/middleware/exceptions.py:36-45,63,71-73.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.asgi.server-error.status-500-handler",
               "dimension": "error_path",
               "description": "An uncaught HTTP RuntimeError selects the registered integer 500 handler, sends its response, and re-raises the original error. Upstream: starlette/applications.py middleware-stack handler selection; starlette/middleware/errors.py.",

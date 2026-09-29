@@ -32,15 +32,16 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 277 input-only cases, 54 operations, and 340
+The current parity contract has 280 input-only cases, 54 operations, and 343
 parity requirements across 36 indexed files. The latest integrated run is
-`8c298e2a-0df2-4b93-a4d0-f0e6145e746f`, from
-`2026-09-29T07:32:14.746Z` to `2026-09-29T07:33:04.630Z`. It selected 392
-profile comparisons: 388 passed, zero failed, zero infrastructure errors, and
-four were `not_run`. The Python package passed all 275 selected comparisons;
-Rust-native passed 113 of 117, with four Python-callable rows `not_run`. Both
-target trees were dirty when captured. Manifest SHA-256:
-`8af09d8882769b5724dcc3cf56adc9342d79e78b0a17cc95b51d9c249ae4f190`.
+`a63cb688-2fb9-4da1-8b13-daa4b8af0e0f`, from
+`2026-09-29T07:59:14.390Z` to `2026-09-29T08:00:15.722Z`. It selected 395
+profile comparisons: 391 passed, zero failed, zero infrastructure errors, and
+four were `not_run`. The Python package passed all 278 selected comparisons;
+Rust-native passed 113 of 117, with four Python-callable rows `not_run`. The
+Rust-native target tree was clean; the Python-package target tree was dirty.
+Manifest SHA-256:
+`4872658329b37e8d60c68f20bf9803a83499e8a9058d29f0191e7e42fd5f4311`.
 `make parity-run` exits with status 2 only for those four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 
@@ -51,10 +52,11 @@ policy, lookup, method selection, HTML index/fallback selection, redirects, and
 conditional 304 handling. The Python `starlette.staticfiles` module is a thin
 constructor and forwarding facade; package discovery calls Python's
 `importlib.util.find_spec` at the PyO3 boundary so custom importers and package
-origins remain visible. Thirty-four input-only cases are authored across three
-StaticFiles inputs. Fourteen `lookup_path` cases run on both target profiles
-and all 28 comparisons pass. Across the StaticFiles slice, all 63 selected
-profile comparisons pass: 31 Rust-native and 32 Python-package comparisons.
+origins remain visible. Thirty-seven input-only cases are authored across
+three StaticFiles inputs. Fourteen `lookup_path` cases run on both target
+profiles and all 28 comparisons pass. Across the StaticFiles slice, all 69
+selected profile comparisons pass: 34 Rust-native and 35 Python-package
+comparisons.
 The path-limit inputs verify that an overlong first root maps to the
 source-compatible 404 before a later root can serve its matching asset, under
 both symlink settings. Permission inputs deny search access to a root containing
@@ -229,8 +231,9 @@ replacement is still incomplete. Later work includes broader HTTP/WebSocket
 connection and request-body behavior, streaming backpressure and iterator
 lifecycle, route-local middleware, Host reverse lookup,
 direct `ServerErrorMiddleware` call-boundary
-parity, WebSocket exception handlers, remaining TestClient
-exception-propagation modes, arbitrary middleware ordering, middleware
+parity, broader WebSocket exception flows beyond the three declared cases,
+remaining TestClient exception-propagation modes, arbitrary middleware
+ordering, middleware
 composition, authentication, background tasks, and concurrency.
 
 ## 4. Optional and edge features
@@ -353,8 +356,9 @@ the exception. The latter matches Starlette's chained `RuntimeError`, direct
 `HTTPException` cause, suppression flag, and partial ASGI event tape against
 the installed package. Rust-native cannot invoke these Python callables, so its
 rows are `not_run`. These HTTPException cases do not cover middleware-raised
-exceptions, WebSocket exception handlers, or all `TestClient` propagation
-modes. The separate server-error application cases below cover a bounded
+exceptions or all `TestClient` propagation modes; the three application-level
+WebSocket exception workflows are declared separately in the parity evidence.
+The separate server-error application cases below cover a bounded
 subset of 500/Exception handling and debug responses. At the 51-case
 checkpoint, all package comparisons passed and Rust-native had four
 callable-boundary rows `not_run`. The current integrated result is in section
@@ -410,7 +414,7 @@ declared stable traceback
 projection for response bodies and ASGI events, and normalize `Content-Length`
 only for those cases; raw bodies remain in the result artifact. These cases do
 not cover direct `ServerErrorMiddleware` invocation, arbitrary middleware
-ordering, TestClient behavior, or WebSocket exception handling. The raw
+ordering, TestClient behavior, or broader WebSocket exception workflows. The raw
 protocol and route-dispatch cases pass in their declared profiles. Full
 replacement parity remains open.
 The upstream `asgi-core.app.test_app_debug` crosswalk row stays backlog because
@@ -462,8 +466,9 @@ infrastructure errors. The adapter exits with status 2 for those `not_run`
 rows. Target identities were dirty local trees, so the run is not clean
 aggregate or release proof. The full replacement remains incomplete.
 
-JSON convenience methods, async iterators, denial-response behavior,
-`WebSocketEndpoint`, application-level exception handling, `TestClient`,
+JSON convenience methods, async iterators, denial-response behavior beyond the
+declared cases, `WebSocketEndpoint`, further application-level exception modes,
+`TestClient`,
 authentication and mount/host route behavior beyond the child-scope case,
 broader streaming and file-denial
 behavior, and concurrency cancellation remain follow-on work requiring their

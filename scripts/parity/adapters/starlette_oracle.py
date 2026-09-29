@@ -628,11 +628,16 @@ def _materialize_exception_handlers(
     json_response_type: Any,
     plain_text_response_type: Any,
     http_exception_type: Any,
+    websocket_exception_type: Any,
     handler_calls: list[str],
 ) -> tuple[dict[Any, Any], dict[str, Any]]:
     if not isinstance(registry, list):
         raise ValueError("exception-handler registry must be an ordered entry array")
-    exception_types = {"HTTPException": http_exception_type}
+    exception_types = {
+        "HTTPException": http_exception_type,
+        "WebSocketException": websocket_exception_type,
+        "CustomWSException": type("CustomWSException", (Exception,), {}),
+    }
     handlers: dict[Any, Any] = {}
     for index, raw_entry in enumerate(registry):
         context = f"exception_handlers[{index}]"
@@ -658,6 +663,11 @@ def _materialize_exception_handlers(
                     raise ValueError("BodyReuseException must derive from HTTPException")
                 key = type("BodyReuseException", (http_exception_type,), {})
                 exception_types["BodyReuseException"] = key
+            elif key_spec.get("name") == "CustomWSException":
+                _strict_object(key_spec, {"kind", "name", "base_class"}, f"{context}.key")
+                if key_spec["base_class"] != "Exception":
+                    raise ValueError("CustomWSException must derive from Exception")
+                key = exception_types["CustomWSException"]
             else:
                 raise ValueError(f"{context}.key names an unsupported exception class")
         else:
@@ -668,6 +678,25 @@ def _materialize_exception_handlers(
             raise ValueError(f"{context}.handler must use a tagged handler recipe")
 
         def make_handler(spec: dict[str, Any]) -> Any:
+            if spec.get("kind") == "websocket-close-handler":
+                _strict_object(
+                    spec,
+                    {"kind", "label", "callable_kind", "code"},
+                    "WebSocket close handler",
+                )
+                if spec["callable_kind"] != "sync-from-thread":
+                    raise ValueError(
+                        "WebSocket close handler must preserve the source sync callback"
+                    )
+
+                def websocket_close_handler(websocket: Any, _exc: Exception) -> None:
+                    handler_calls.append(spec["label"])
+                    import anyio
+
+                    anyio.from_thread.run(websocket.close, spec["code"])
+
+                return websocket_close_handler
+
             async def handler(request: Any, exc: Exception) -> Any:
                 if spec["kind"] == "json-exception-detail-response":
                     _strict_object(
@@ -741,9 +770,9 @@ def _materialize_application(
     app_spec: dict[str, Any],
 ) -> tuple[Any, list[str], list[dict[str, Any]], Any, list[dict[str, Any]]]:
     from starlette.applications import Starlette
-    from starlette.exceptions import HTTPException
+    from starlette.exceptions import HTTPException, WebSocketException
     from starlette.responses import JSONResponse, PlainTextResponse
-    from starlette.routing import Route
+    from starlette.routing import Route, WebSocketRoute
 
     if set(app_spec) != {
         "debug",
@@ -881,9 +910,69 @@ def _materialize_application(
         JSONResponse,
         PlainTextResponse,
         HTTPException,
+        WebSocketException,
         handler_calls,
     )
     for route in app_spec["routes"]:
+        if isinstance(route, dict) and route.get("kind") == "websocket-route":
+            _strict_object(route, {"kind", "path", "endpoint"}, "WebSocket route input")
+            endpoint_spec = route["endpoint"]
+            if not isinstance(endpoint_spec, dict) or not isinstance(
+                endpoint_spec.get("kind"), str
+            ):
+                raise ValueError("WebSocket endpoint input must be a declared endpoint record")
+            if endpoint_spec["kind"] == "http-exception":
+                _strict_object(
+                    endpoint_spec,
+                    {"kind", "status_code", "detail", "headers"},
+                    "WebSocket HTTPException endpoint",
+                )
+
+                def make_websocket_http_exception_endpoint(spec: dict[str, Any]) -> Any:
+                    async def endpoint(_websocket: Any) -> None:
+                        arguments = {
+                            "status_code": spec["status_code"],
+                            "headers": dict(spec["headers"]),
+                        }
+                        if spec["detail"] is not None:
+                            arguments["detail"] = spec["detail"]
+                        raise HTTPException(**arguments)
+
+                    return endpoint
+
+                websocket_endpoint = make_websocket_http_exception_endpoint(endpoint_spec)
+            elif endpoint_spec["kind"] == "websocket-action-sequence":
+                _strict_object(
+                    endpoint_spec,
+                    {"kind", "actions"},
+                    "WebSocket exception action sequence",
+                )
+
+                def make_websocket_exception_endpoint(spec: dict[str, Any]) -> Any:
+                    async def endpoint(websocket: Any) -> None:
+                        for action in spec["actions"]:
+                            if action["action"] == "accept":
+                                await websocket.accept()
+                            elif action["action"] == "raise-websocket-exception":
+                                arguments = {"code": action["code"]}
+                                if "reason" in action:
+                                    arguments["reason"] = action["reason"]
+                                raise WebSocketException(**arguments)
+                            elif action["action"] == "raise-custom-exception":
+                                exception_type = exception_types[action["exception_class"]]
+                                raise exception_type()
+                            else:
+                                raise ValueError(
+                                    f"unsupported WebSocket exception action: {action['action']!r}"
+                                )
+
+                    return endpoint
+
+                websocket_endpoint = make_websocket_exception_endpoint(endpoint_spec)
+            else:
+                raise ValueError("WebSocket route endpoint uses an unsupported input kind")
+            route_objects.append(WebSocketRoute(route["path"], websocket_endpoint))
+            continue
         if set(route) != {"kind", "path", "methods", "endpoint"} or route["kind"] != "http-route":
             raise ValueError("route input must be a declared http-route record")
         response_spec = route["endpoint"]
@@ -1269,15 +1358,25 @@ async def _invoke(
             state["context_var"].reset(token)
     events = [_canonical_message(message) for message in sent]
     start = next((event for event in events if event["type"] == "http.response.start"), None)
+    if start is None and scope["type"] == "websocket":
+        start = next(
+            (event for event in events if event["type"] == "websocket.http.response.start"),
+            None,
+        )
     if start is None and scope["type"] not in {"lifespan", "websocket"}:
         raise RuntimeError("Starlette completed without an http.response.start event")
-    body_chunks = [
-        event["body"]["data"] for event in events if event["type"] == "http.response.body"
-    ]
+    body_chunks = []
+    for event in events:
+        if event["type"] == "http.response.body":
+            body_chunks.append(event["body"]["data"])
+        elif event["type"] == "websocket.http.response.body":
+            body_chunks.append(event["body_base64"])
     body = b"".join(base64.b64decode(chunk) for chunk in body_chunks)
     result = {
         "response_status": start["status"] if start is not None else None,
-        "ordered_repeated_headers": start["headers"] if start is not None else [],
+        "ordered_repeated_headers": (
+            start.get("headers", start.get("headers_base64_pairs", [])) if start is not None else []
+        ),
         "response_bytes": {"encoding": "base64", "data": base64.b64encode(body).decode("ascii")},
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
@@ -5321,12 +5420,17 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("ASGI route workflows must build one public Starlette application")
     application_arguments = {name: item["value"] for name, item in steps[0]["arguments"].items()}
-    capture_dispatch_error = is_request_dispatch or application_arguments["routes"][0]["endpoint"][
-        "kind"
-    ] in {
-        "asgi-callable-action-sequence",
-        "raise-runtime-error",
-    }
+    route_spec = application_arguments["routes"][0]
+    endpoint_kind = route_spec["endpoint"]["kind"]
+    capture_dispatch_error = (
+        is_request_dispatch
+        or endpoint_kind
+        in {
+            "asgi-callable-action-sequence",
+            "raise-runtime-error",
+        }
+        or route_spec["kind"] == "websocket-route"
+    )
     (
         app,
         lifecycle_trace,
