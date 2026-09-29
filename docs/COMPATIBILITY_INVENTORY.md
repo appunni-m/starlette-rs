@@ -17,24 +17,24 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 299 input-only cases across 36 files,
-covering 54 operations and 366 parity requirements. The authored cases span
+The active parity manifest indexes 303 input-only cases across 36 files,
+covering 54 operations and 369 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware, configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `0969d54c-3e21-4348-92d7-11567d07e5ca` started at
-`2026-09-29T10:24:38.499Z` and finished at `2026-09-29T10:25:32.575Z`. It
-selected 430 profile comparisons: 426 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 297 applicable
-comparisons; Rust-native passed 129 of 133, with four rows requiring Python
-callables marked `not_run`. All 23 FileResponse cases passed on both profiles.
+Integrated run `2d279ba8-6c04-4fb2-95df-5a39f13fbf24` started at
+`2026-09-29T10:28:04.426Z` and finished at `2026-09-29T10:29:15.507Z`. It
+selected 438 profile comparisons: 434 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 301 applicable
+comparisons; Rust-native passed 133 of 137, with four rows requiring Python
+callables marked `not_run`. All 27 FileResponse cases passed on both profiles.
 Both targets were dirty. Manifest SHA-256:
-`2c75acf26a1610c85f558199d78063a0609e573fd16f7adcc35fe4e52caeffe`.
+`6cf870bd0c7b5109be2e639a6ae1cbeca1779b86b4cbdfc68fec8dba7cf14a69`.
 Target wheel SHA-256:
-`fe55c434f0295b3bf30d2cd1fed577b34fc4e7c4c722abca456e727b15a504f5`.
+`9f3e8a04f33608e2335ce50ee77b2e7b6b5c7314cdc5e0905e703f67be62b0f3`.
 This run covers the active disconnect-cancellation, cookie-mutation, and
 FileResponse range inputs;
 the four unsupported Rust-native Python-callable rows keep the overall gate incomplete.
@@ -173,18 +173,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 789 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 789 |
-| Existing input mappings in the atlas matrix | 92 |
+| Existing input mappings in the atlas matrix | 95 |
 | Reasoned `not_applicable` mappings | 50 |
 | New input-only fixture backlog | 647 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 92 `existing` mappings point to authored YAML input
+crosswalk snapshot, 95 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 36 indexed files
-and 299 cases, including 37 authored StaticFiles cases, four authentication cases,
+and 303 cases, including 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
@@ -300,7 +300,7 @@ block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
 The backlog distinguishes that work from the 299 currently indexed cases and
-the 647-row atlas backlog snapshot
+the 644-row atlas backlog snapshot
 in [`PRIORITIZED_BACKLOG.md`](atlas/PRIORITIZED_BACKLOG.md).
 
 ## Generate the source candidate catalog

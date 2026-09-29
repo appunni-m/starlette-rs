@@ -6285,6 +6285,42 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-head-206",
+              "dimension": "parameter_combination",
+              "description": "Request one byte range using an HTTP HEAD scope and compare its 206 headers and empty body. Upstream: starlette/responses.py::FileResponse.__call__; tests/test_responses.py::test_file_response_range_head.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-head-multipart",
+              "dimension": "parameter_combination",
+              "description": "Request disjoint byte ranges using an HTTP HEAD scope and compare multipart metadata, random-boundary normalization, and the empty body event. Upstream: starlette/responses.py::FileResponse.__call__; tests/test_responses.py::test_file_response_range_multi_head.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-head-max",
+              "dimension": "parameter_combination",
+              "description": "Request an end offset beyond the file extent using HEAD and compare the clamped 206 range headers. Upstream: starlette/responses.py::FileResponse._parse_ranges; tests/test_responses.py::test_file_response_range_head_max.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

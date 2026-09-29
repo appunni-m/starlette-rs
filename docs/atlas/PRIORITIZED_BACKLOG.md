@@ -8,12 +8,12 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 299 input-only cases across 36 files, covering 54
-operations and 366 requirements. Run `0969d54c-3e21-4348-92d7-11567d07e5ca`
-selected 430 comparisons: 426 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 297 applicable cases;
-Rust-native passed 129 of 133 selected cases. The four unsupported Rust-native
-rows require arbitrary Python callables. All 23 FileResponse cases passed on
+The active contract has 303 input-only cases across 36 files, covering 54
+operations and 369 requirements. Run `2d279ba8-6c04-4fb2-95df-5a39f13fbf24`
+selected 438 comparisons: 434 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 301 applicable cases;
+Rust-native passed 133 of 137 selected cases. The four unsupported Rust-native
+rows require arbitrary Python callables. All 27 FileResponse cases passed on
 both profiles. Both targets were dirty.
 See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
@@ -24,8 +24,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The matrix has 789 mappings: 647 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 92 existing input mappings. It maps selected
+The matrix has 789 mappings: 644 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 95 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
