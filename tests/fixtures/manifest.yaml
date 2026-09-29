@@ -7451,6 +7451,28 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.memoryview-chunks",
+              "dimension": "input_family",
+              "description": "Stream two memoryview chunks from input-defined bytes and compare exact ASGI body bytes, chunk boundaries, headers, and event order. Pinned source: starlette/responses.py::StreamingResponse.stream_response; test: tests/test_responses.py::test_streaming_response_memoryview.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.custom-async-iterable",
+              "dimension": "input_family",
+              "description": "Construct StreamingResponse from a custom object whose async __aiter__ yields five input-defined text chunks; compare exact response events through normal exhaustion. Pinned source: starlette/responses.py::StreamingResponse.__call__; test: tests/test_responses.py::test_streaming_response_custom_iterable.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

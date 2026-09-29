@@ -3415,7 +3415,12 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     _validate_cookie_actions(case)
     if type(case["status_code"]) is not int or case["status_code"] != 200:
         raise ContractError("StreamingResponse status_code must be 200 for this input slice")
-    if case["streaming"] not in {"sync", "async-iterator", "async-generator"}:
+    if case["streaming"] not in {
+        "sync",
+        "async-iterator",
+        "async-iterable",
+        "async-generator",
+    }:
         raise ContractError("StreamingResponse streaming must select a declared iterator mode")
 
     content_value = case["content"]
@@ -3440,10 +3445,11 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         if not isinstance(chunk["kind"], str) or chunk["kind"] not in {
             "text",
             "base64-bytes",
+            "memoryview-base64",
         }:
-            raise ContractError("StreamingResponse chunks must be text or base64 bytes")
+            raise ContractError("StreamingResponse chunks must be text, bytes, or memoryview input")
         value = _string(chunk["value"], f"StreamingResponse content[{index}].value")
-        if chunk["kind"] == "base64-bytes":
+        if chunk["kind"] in {"base64-bytes", "memoryview-base64"}:
             try:
                 base64.b64decode(value, validate=True)
             except (ValueError, TypeError) as exc:
@@ -3529,6 +3535,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             "text/plain",
         ),
         ((("base64-bytes", "AP8B"),), (), None),
+        ((("memoryview-base64", "wA=="), ("memoryview-base64", "9Q==")), (), None),
     }
     async_iterator_stimulus = (
         (
@@ -3541,6 +3548,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         (),
         "text/plain",
     )
+    async_iterable_stimulus = async_iterator_stimulus
     async_generator_stimulus = (
         (
             ("text", "1"),
@@ -3563,19 +3571,28 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or background is not None
             or stream_lifecycle is not None
             or receive_behavior is not None
+            or (
+                any(kind == "memoryview-base64" for kind, _value in chunks)
+                and case["target_profiles"] != ["python-package-cpython312"]
+            )
         ):
             raise ContractError("StreamingResponse chunks and headers are outside this input slice")
-    elif case["streaming"] == "async-iterator":
+    elif case["streaming"] in {"async-iterator", "async-iterable"}:
+        expected_stimulus = (
+            async_iterator_stimulus
+            if case["streaming"] == "async-iterator"
+            else async_iterable_stimulus
+        )
         if (
             repeating_chunks
-            or stimulus != async_iterator_stimulus
+            or stimulus != expected_stimulus
             or background is not None
             or stream_lifecycle is not None
             or receive_behavior is not None
             or case["target_profiles"] != ["python-package-cpython312"]
         ):
             raise ContractError(
-                "StreamingResponse async-iterator input is limited to its declared Python-package case"
+                "StreamingResponse async iterator/iterable input is limited to its declared Python-package case"
             )
     elif repeating_chunks:
         if (

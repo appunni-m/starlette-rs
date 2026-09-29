@@ -104,6 +104,24 @@ class _InputAsyncIterator:
         return value
 
 
+class _InputAsyncIterable:
+    """Expose case-input values through an async-generator __aiter__ method."""
+
+    def __init__(
+        self, values: list[Any], execution_trace: list[dict[str, Any]] | None = None
+    ) -> None:
+        self._values = values
+        self._execution_trace = execution_trace
+
+    async def __aiter__(self) -> Any:
+        for value in self._values:
+            if self._execution_trace is not None:
+                self._execution_trace.append(
+                    {"event": "iterator-yield", "value": _json_safe(value)}
+                )
+            yield value
+
+
 def _input_sync_iterator(values: list[Any], execution_trace: list[dict[str, Any]]) -> Iterator[Any]:
     for value in values:
         execution_trace.append({"event": "iterator-yield", "value": _json_safe(value)})
@@ -3759,11 +3777,18 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 if not isinstance(encoded_chunk, str):
                     raise ValueError("StreamingResponse base64-bytes chunks must be strings")
                 chunk = _decode_b64(encoded_chunk, f"content.value[{index}].value")
+            elif chunk_spec["kind"] == "memoryview-base64":
+                encoded_chunk = chunk_spec["value"]
+                if not isinstance(encoded_chunk, str):
+                    raise ValueError("StreamingResponse memoryview chunks must be base64 strings")
+                chunk = memoryview(_decode_b64(encoded_chunk, f"content.value[{index}].value"))
             else:
-                raise ValueError("StreamingResponse chunks must be text or base64-bytes")
+                raise ValueError(
+                    "StreamingResponse chunks must be text, bytes, or memoryview input"
+                )
             content.append(chunk)
         streaming = case["streaming"]
-        if streaming not in {"sync", "async-iterator", "async-generator"}:
+        if streaming not in {"sync", "async-iterator", "async-iterable", "async-generator"}:
             raise ValueError("StreamingResponse streaming must select a supported iterator")
     elif surface == RESPONSE_SURFACE:
         if content_kind == "text":
@@ -3940,6 +3965,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         )
     elif streaming == "async-iterator":
         content = _InputAsyncIterator(content, execution_trace)
+    elif streaming == "async-iterable":
+        content = _InputAsyncIterable(content, execution_trace)
     elif streaming == "async-generator":
         if repeating_stream:
             if execution_trace is None or stream_lifecycle is None:

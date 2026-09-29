@@ -597,6 +597,136 @@
         "asgi-call"
       ],
       "streaming": "sync"
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.asgi-call.memoryview-chunks",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.StreamingResponse.asgi-call.memoryview-chunks"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "content": {
+        "kind": "chunks",
+        "value": [
+          {
+            "kind": "memoryview-base64",
+            "value": "wA=="
+          },
+          {
+            "kind": "memoryview-base64",
+            "value": "9Q=="
+          }
+        ]
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "streaming": "sync"
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.asgi-call.custom-async-iterable",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.StreamingResponse.asgi-call.custom-async-iterable"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "content": {
+        "kind": "chunks",
+        "value": [
+          {
+            "kind": "text",
+            "value": "1"
+          },
+          {
+            "kind": "text",
+            "value": "2"
+          },
+          {
+            "kind": "text",
+            "value": "3"
+          },
+          {
+            "kind": "text",
+            "value": "4"
+          },
+          {
+            "kind": "text",
+            "value": "5"
+          }
+        ]
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "streaming": "async-iterable"
     }
   ]
 }
