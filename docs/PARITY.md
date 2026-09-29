@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 323 input-only cases in 38 indexed files, covering 56 operations and 400 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 324 input-only cases in 38 indexed files, covering 56 operations and 401 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,7 +8,7 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest integrated run, `48a198e6-ac28-4a11-ab1e-6443411e3486`, started at `2026-09-29T14:55:44.047Z` and finished at `2026-09-29T14:56:43.430Z`. It selected 458 profile comparisons: 454 passed, zero failed, zero infrastructure errors, and four Rust-native rows were `not_run` because they require Python callables. The Python package passed all 321 applicable comparisons; Rust-native passed 133 of 137. Manifest SHA-256: `6fcc1783dfc3c76d48e3222b77c272a8643d00a2a87249d7da9535334c4b6b85`. The installed package artifact SHA-256 is `b073a572bd7d28b4a1796b78df4a8924c18479187cd5332a2632ab58d470143f`. The Rust-native target reported clean at revision `0a39bd1fc3bb235a6b50f4c416abd2d983cfa135+source-fnv1a64-e5a0df1c1dca21b4`; the installed Python-package target was dirty with tree SHA-256 `a964d60151a11ed7b68bd72bd28fa6577bdd29d87ce51c6d0e26f86155798643`. `make parity-run` exits 2 for the four explicitly unsupported Rust-native rows; this run is not full parity or release proof.
+The latest integrated run, `2f83558f-12e1-4e81-ba47-75c855414644`, started at `2026-09-29T15:18:30.482Z` and finished at `2026-09-29T15:19:28.422Z`. It selected 459 profile comparisons: 455 passed, zero failed, zero infrastructure errors, and four Rust-native rows were `not_run` because they require Python callables. The Python package passed all 322 applicable comparisons; Rust-native passed 133 of 137. Manifest SHA-256: `4e363422ec80832907f4701da24804477890aa9dbeb4951d090e6484a877123d`. The installed package artifact SHA-256 is `2504965c5f2d0b308c9a254d94ac16cefe6b53cd6bd726726ee45583bb7eb84b`. The Rust-native target reported clean at revision `07391c79bef7bb5fc4d0a027d35dc54aa7a3a1de+source-fnv1a64-e5a0df1c1dca21b4`; the installed Python-package target was dirty with tree SHA-256 `b0d8e698be93323a36c63deded652f9f5832f333385a1c83755e28163a6f7a43`. `make parity-run` exits 2 for the four explicitly unsupported Rust-native rows; this run is not full parity or release proof.
 
 ## Input-only cases
 
@@ -41,14 +41,14 @@ pinned source and installed package exactly.
 The upstream basis is `starlette/requests.py` (`HTTPConnection.headers`, `query_params`, `path_params`, `cookies`, and `Request.stream`/`body`/`json`), `starlette/datastructures.py` (`ImmutableMultiDict` and `Headers`), and `starlette/routing.py` (`Route.matches` and `Router.app`). Related pinned tests include `tests/test_requests.py::test_request_query_params`, `test_request_headers`, `test_request_cookies`, `test_request_json`, `tests/test_routing.py::test_route_converters`, and `test_router`.
 
 [`base-http-middleware.yaml`](../tests/fixtures/sources/parity/base-http-middleware.yaml)
-now contains ten Python-package cases, all passing exact comparison
+now contains eleven Python-package cases, all passing exact comparison
 against pinned Starlette 1.6.0 in the latest integrated run. They cover
 configured-middleware response-header mutation and replacement responses,
 request-body cache/replay across dispatch and the downstream endpoint, response
 completion waking a blocked downstream receive as `http.disconnect`, downstream
 exception/context propagation (including its cause, TaskGroup `ExceptionGroup`
 context, and suppression observations), partial-stream forwarding, and
-downstream receive transformation. The caught-exception case matches
+downstream receive transformation, repeated disconnect polling, and stream-consumption/downstream-body-read workflows. The caught-exception case matches
 `tests/middleware/test_base.py:338-356`: the endpoint raises
 `ValueError("TEST")`, dispatch catches it from `call_next`, and returns a
 plain-text 400 response whose body is derived from `str(exc)`; the compared
@@ -70,8 +70,12 @@ state. The repeated-disconnect cases match
 by disconnect and the other begins with disconnect; both poll downstream
 receive twice. Their observations include raw and downstream receive traces,
 each poll's drained request events and result, and the exact `200 b"good!"`
-response tape. This is a bounded Python-package slice, not general
-`BaseHTTPMiddleware` parity.
+response tape. The stream-consumption workflow matches
+`test_read_request_body_in_app_after_middleware_calls_stream` at
+`tests/middleware/test_base.py:660-686`: dispatch exhausts `request.stream()`
+through `b"a"`, the terminal empty chunk, and iterator exhaustion; downstream
+reads the cached empty body and returns `Homepage`. This is a bounded
+Python-package slice, not general `BaseHTTPMiddleware` parity.
 
 Unverified BaseHTTP behavior still includes other receive-transformation and wrapper combinations, partial-stream/replay interleavings beyond the tested `b"1"`/`b"2"`/`b"3"` flow, disconnect ordering across stacked middleware, broader exception cause/context combinations and exception-group shapes beyond the observed TaskGroup context and caught `ValueError`, varied and malformed `http.response.debug` frame sequences, cancellation and ContextVar behavior, background-task and context-manager cleanup ordering, path-send responses, the full `MutableHeaders` API and live `raw_headers` mutation, and other streaming paths. The atlas backlog retains the remaining upstream middleware cases.
 
@@ -392,7 +396,7 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@9` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every target-profile comparison declared for the 323 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 458 comparisons and its limitations are recorded in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every target-profile comparison declared for the 324 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 459 comparisons and its limitations are recorded in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 

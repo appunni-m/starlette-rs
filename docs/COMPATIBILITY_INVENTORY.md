@@ -17,44 +17,49 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 323 input-only cases across 38 files,
-covering 56 operations and 400 parity requirements. The authored cases span
+The active parity manifest indexes 324 input-only cases across 38 files,
+covering 56 operations and 401 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `48a198e6-ac28-4a11-ab1e-6443411e3486` started at
-`2026-09-29T14:55:44.047Z` and finished at `2026-09-29T14:56:43.430Z`. It
-selected 458 profile comparisons: 454 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 321 applicable
-comparisons;
-Rust-native passed 133 of 137, with four rows requiring Python callables marked
-`not_run`. All 27 FileResponse cases passed on both profiles, all eight
-SessionMiddleware cases passed on the Python package profile, and all ten
-BaseHTTPMiddleware cases passed on that profile. Those BaseHTTP cases
-cover header mutation, replacement responses, body-cache replay,
-response-completion receive racing, exception/context propagation (including
-cause, TaskGroup `ExceptionGroup` context, and suppression-state observations),
-partial-stream forwarding, caught downstream exception handling, and the
-`test_downstream_middleware_modifies_receive` wrapper case:
-dispatch observes `b"foo "`, the downstream receive wrapper doubles the body,
-and the endpoint observes `b"foo foo "` with the exact empty-200 response
-events. It maps to `tests/middleware/test_base.py:979-1017`. The repeated-
-disconnect workflow has inputs for `send_body=True` and `False`; both poll
-downstream receive twice and observe raw/downstream receive traces, drained
-request events, poll results, and the exact `200 b"good!"` response tape. It
-maps to `tests/middleware/test_base.py:1168-1215`. The catch case covers
+Integrated run `2f83558f-12e1-4e81-ba47-75c855414644` started at
+`2026-09-29T15:18:30.482Z` and finished at `2026-09-29T15:19:28.422Z`. It
+selected 459 profile comparisons: 455 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 322 applicable
+comparisons; Rust-native passed 133 of 137, with four rows requiring Python
+callables marked `not_run`. All 27 FileResponse cases passed on both profiles,
+all eight SessionMiddleware cases passed on the Python package profile, and all
+eleven BaseHTTPMiddleware cases passed there. Those cases cover header
+mutation, replacement responses, body-cache replay, response-completion receive
+racing, exception/context propagation (including cause, TaskGroup
+`ExceptionGroup` context, and suppression-state observations), partial-stream
+forwarding, caught downstream exception handling, downstream receive
+transformation, repeated disconnect polling, and a stream-consumption/downstream
+body-read workflow. The `test_downstream_middleware_modifies_receive` wrapper
+case maps to `tests/middleware/test_base.py:979-1017`: dispatch observes
+`b"foo "`, the downstream wrapper doubles the body, and the endpoint observes
+`b"foo foo "` with the exact empty-200 response events. The repeated-disconnect
+workflow maps to `tests/middleware/test_base.py:1168-1215`; its two inputs poll
+downstream receive twice and compare raw/downstream receive traces, drained
+request events, poll results, and the exact `200 b"good!"` response tape. The
+stream-consumption workflow maps to
+`test_read_request_body_in_app_after_middleware_calls_stream` at
+`tests/middleware/test_base.py:660-686`: dispatch exhausts `request.stream()`
+over `b"a"`, the terminal empty chunk, and `StopAsyncIteration`; downstream
+then reads the cached empty body and returns `Homepage`. The catch case covers
 `test_exception_can_be_caught` at `tests/middleware/test_base.py:338-356`:
 dispatch catches `ValueError("TEST")` from `call_next` and returns status 400
-with body `TEST`. This is a bounded Python-package workflow. The installed
-Python-package target was dirty with tree SHA-256
-`a964d60151a11ed7b68bd72bd28fa6577bdd29d87ce51c6d0e26f86155798643`.
+with body `TEST`. The Rust-native target was clean at revision
+`07391c79bef7bb5fc4d0a027d35dc54aa7a3a1de+source-fnv1a64-e5a0df1c1dca21b4`;
+the installed Python-package target was dirty with tree SHA-256
+`b0d8e698be93323a36c63deded652f9f5832f333385a1c83755e28163a6f7a43`.
 Manifest SHA-256:
-`6fcc1783dfc3c76d48e3222b77c272a8643d00a2a87249d7da9535334c4b6b85`.
+`4e363422ec80832907f4701da24804477890aa9dbeb4951d090e6484a877123d`.
 Parity wheel artifact SHA-256:
-`b073a572bd7d28b4a1796b78df4a8924c18479187cd5332a2632ab58d470143f`.
+`2504965c5f2d0b308c9a254d94ac16cefe6b53cd6bd726726ee45583bb7eb84b`.
 The four unsupported Rust-native Python-callable rows keep the overall gate
 incomplete; this run is not full parity or release proof.
 Thirty-seven StaticFiles cases are authored across
@@ -218,9 +223,9 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 791 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 791 |
-| Existing input mappings in the atlas matrix | 118 |
+| Existing input mappings in the atlas matrix | 119 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 623 |
+| New input-only fixture backlog | 622 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
@@ -229,7 +234,7 @@ crosswalk snapshot, 118 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 38 indexed files
-and 323 cases, including ten BaseHTTPMiddleware cases, 37 authored StaticFiles cases, four authentication cases,
+and 324 cases, including eleven BaseHTTPMiddleware cases, 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)

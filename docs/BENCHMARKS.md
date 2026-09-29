@@ -15,20 +15,20 @@ run with `python3.12 -m scripts.parity.cli benchmark-upstream`. The result is
 written to `build/parity/upstream-benchmark-result.json`; it records source
 revision `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, pinned benchmark-file
 hashes, and active input-catalog and manifest hashes. The latest run,
-`3c519dd4-7dfe-4498-a093-517f7032d9f5`, ran from
-`2026-09-29T14:59:45.620Z` to `2026-09-29T15:02:20.169Z` and measured all 74
+`c39eb247-118f-4be8-8d7d-ee3421e56f89`, ran from
+`2026-09-29T15:19:47.239Z` to `2026-09-29T15:22:02.889Z` and measured all 74
 source/package workloads with zero failures or not-run rows. Its separate
-Rust-native lane remains unsupported for all 74 workloads. The fresh correctness
-preflight, `00db7e2a-cf60-40de-bfdc-c88cd582e989`, selected 458 comparisons:
-454 passed, zero failed or hit infrastructure errors, and four Rust-native
-Python-callable cases were explicitly `not_run` (Python package 321/321;
-Rust-native 133 passed, 4 not_run). The parity run passed all ten bounded
+Rust-native lane remains unsupported for all 74 workloads. The correctness
+preflight, `676ecc17-2d09-4e91-9843-2b0766cdfb1f`, selected 459 comparisons:
+455 passed, zero failed or hit infrastructure errors, and four Rust-native
+Python-callable cases were explicitly `not_run` (Python package 322/322;
+Rust-native 133 passed, 4 not_run). The parity run passed all eleven bounded
 BaseHTTPMiddleware cases on the Python-package profile. Manifest SHA-256:
-`6fcc1783dfc3c76d48e3222b77c272a8643d00a2a87249d7da9535334c4b6b85`.
+`4e363422ec80832907f4701da24804477890aa9dbeb4951d090e6484a877123d`.
 The benchmark wheel artifact SHA-256 was
-`6b5023caeb6c1314081d15453f0d5a6a4d05d1c5d2eccb0cfb03040086833b55`; its
+`7b93eebfab33e8125456121f1cb803d4fe3db173d8c946fb0a01ef2d49d95075`; its
 target tree SHA-256 was
-`1834c5a0123429408de7e0509051223f35e735d1b8bb2556de3732eb4e319c99`.
+`b0d8e698be93323a36c63deded652f9f5832f333385a1c83755e28163a6f7a43`.
 The run records content-addressed target snapshots. This is local
 workload-specific evidence, not full compatibility or release proof.
 
@@ -56,7 +56,7 @@ are ignored local outputs and are not committed.
 
 | Evidence | Artifact | Result |
 | --- | --- | --- |
-| Router/GZip upstream runner, latest run | `build/parity/upstream-benchmark-result.json` | `completed`; run `3c519dd4-7dfe-4498-a093-517f7032d9f5`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 separate Rust-native workloads unsupported; preflight `00db7e2a-cf60-40de-bfdc-c88cd582e989`: 454 pass, 4 unsupported native rows `not_run` |
+| Router/GZip upstream runner, latest run | `build/parity/upstream-benchmark-result.json` | `completed`; run `c39eb247-118f-4be8-8d7d-ee3421e56f89`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 separate Rust-native workloads unsupported; preflight `676ecc17-2d09-4e91-9843-2b0766cdfb1f`: 455 pass, 4 unsupported native rows `not_run` |
 | Router/GZip upstream runner, preceding failed attempt | `build/parity/upstream-benchmark-result.json` | Historical `not_proven`; run `2311eb92-753a-4d59-a882-a0d06ef1970e`; 0/74 measured because two debug traceback comparisons failed preflight |
 | Direct-ASGI smoke correctness | `build/parity/benchmark-correctness-result.json` | Historical smoke gate; separate from the 74-workload runner |
 | Direct-ASGI smoke measurement | `build/parity/benchmark-result.json` | Historical smoke result `not_proven`; does not describe the completed upstream runner |
@@ -118,7 +118,7 @@ boundary is not equivalent. The strict aggregator accepts the artifact, while
 the overall project status remains `not_proven` because the full compatibility
 denominator is incomplete.
 
-The median per-workload source/package ratio was 0.372 for Router and 0.972
+The median per-workload source/package ratio was 0.383 for Router and 0.975
 for GZip. Values below 1 mean the pinned source median was lower for the
 typical workload in that group; individual workloads vary. These are matched
 local timer measurements and workload-specific observations, not a general

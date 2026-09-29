@@ -5447,6 +5447,19 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             _exact_object(endpoint_spec, {"kind"}, "BaseHTTPMiddleware request-body endpoint")
             if "POST" not in route_spec["methods"]:
                 raise ValueError("request-body-response routes must accept POST")
+        elif route_kind == "request-body-plain-text-response":
+            endpoint_spec = _exact_object(
+                endpoint_spec,
+                {"kind", "content", "status_code"},
+                "BaseHTTPMiddleware request-body plain-text endpoint",
+            )
+            if (
+                "POST" not in route_spec["methods"]
+                or not isinstance(endpoint_spec["content"], str)
+                or type(endpoint_spec["status_code"]) is not int
+                or not 100 <= endpoint_spec["status_code"] <= 599
+            ):
+                raise ValueError("BaseHTTPMiddleware request-body plain-text route is invalid")
         elif route_kind == "request-stream-response":
             endpoint_spec = _exact_object(
                 endpoint_spec,
@@ -5870,6 +5883,44 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding"
         )
+    if route_kind == "request-body-plain-text-response":
+        stream_body_reads = (
+            [
+                action
+                for action in dispatch_actions[:await_index]
+                if action["kind"] == "read-request-stream-next"
+            ]
+            if await_index is not None
+            else []
+        )
+        expected_stream_reads = (
+            sum(
+                bool(_decode_base64(event["body_base64"], "BaseHTTPMiddleware request body"))
+                for event in request_event_specs
+            )
+            + 2
+        )
+        if (
+            returned != "call-next"
+            or scope_spec["method"] != "POST"
+            or not request_body
+            or await_index is None
+            or len(stream_body_reads) != expected_stream_reads
+            or any(
+                action["kind"] != "read-request-stream-next"
+                for action in dispatch_actions[:await_index]
+            )
+            or dispatch_actions[await_index + 1 :] != [{"kind": "return-call-next-response"}]
+            or request["receive_after_events"] != "disconnect"
+            or disconnect_event_indices
+            or send_checkpoints
+        ):
+            raise ValueError(
+                "downstream body-after-stream-consumption requires a non-empty POST stream fully exhausted in dispatch before call_next, an input-defined plain-text response, and disconnect after the supplied request events"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-body-read-after-stream-consumption"
+        )
     if downstream_spec is not None and downstream_spec["kind"] == "asgi-sequence":
         if (
             request["receive_after_events"] != "block"
@@ -6027,6 +6078,16 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
 
             async def endpoint(request: Any) -> Any:
                 return PlainTextResponse(await request.body())
+        elif route_kind == "request-body-plain-text-response":
+            response_content = endpoint_spec["content"]
+            response_status_code = endpoint_spec["status_code"]
+
+            async def endpoint(request: Any) -> Any:
+                body = await request.body()
+                downstream_body_reads.append(
+                    {"body_base64": base64.b64encode(body).decode("ascii")}
+                )
+                return PlainTextResponse(response_content, status_code=response_status_code)
         elif route_kind == "raise-exception":
             exception_type = getattr(builtins, exception_spec["class"])
             exception_message = exception_spec["message"]

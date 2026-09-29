@@ -81,6 +81,7 @@ BASE_HTTP_REQUIREMENTS = {
     "exception_context_propagation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation",
     "caught_exception_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.catch-call-next-exception",
     "partial_stream_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding",
+    "downstream_body_after_stream_consumption": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-body-read-after-stream-consumption",
     "downstream_receive_transformation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-middleware-receive-transformation",
     "repeated_disconnect_polling": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.repeated-disconnect-polling",
 }
@@ -5052,6 +5053,19 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             _exact(endpoint_value, {"kind"}, "BaseHTTPMiddleware request-body endpoint")
             if "POST" not in route_methods:
                 raise ContractError("request-body-response routes must accept POST")
+        elif route_kind == "request-body-plain-text-response":
+            endpoint = _exact(
+                endpoint_value,
+                {"kind", "content", "status_code"},
+                "BaseHTTPMiddleware request-body plain-text endpoint",
+            )
+            if (
+                "POST" not in route_methods
+                or not isinstance(endpoint["content"], str)
+                or type(endpoint["status_code"]) is not int
+                or not 100 <= endpoint["status_code"] <= 599
+            ):
+                raise ContractError("BaseHTTPMiddleware request-body plain-text route is invalid")
         elif route_kind == "raise-exception":
             _exact(
                 endpoint_value,
@@ -5493,6 +5507,35 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 "partial request-stream forwarding requires dispatch reads on both sides of call_next, at least three non-empty chunks, and a blocking exhausted receive"
             )
         requirements.add(BASE_HTTP_REQUIREMENTS["partial_stream_forwarding"])
+    if route_kind == "request-body-plain-text-response":
+        stream_body_reads = (
+            [
+                action
+                for action in actions[:await_index]
+                if action["kind"] == "read-request-stream-next"
+            ]
+            if await_index is not None
+            else []
+        )
+        expected_stream_reads = (
+            sum(bool(base64.b64decode(event["body_base64"])) for event in request_events) + 2
+        )
+        if (
+            returned != "call-next"
+            or scope["method"] != "POST"
+            or not body
+            or await_index is None
+            or len(stream_body_reads) != expected_stream_reads
+            or any(action["kind"] != "read-request-stream-next" for action in actions[:await_index])
+            or actions[await_index + 1 :] != [{"kind": "return-call-next-response"}]
+            or request["receive_after_events"] != "disconnect"
+            or disconnect_events
+            or send_checkpoints
+        ):
+            raise ContractError(
+                "downstream body-after-stream-consumption requires a non-empty POST stream fully exhausted in dispatch before call_next, an input-defined plain-text response, and disconnect after the supplied request events"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["downstream_body_after_stream_consumption"])
     if downstream is not None and downstream["kind"] == "asgi-sequence":
         if (
             request["receive_after_events"] != "block"
