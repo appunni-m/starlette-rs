@@ -25,12 +25,13 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The latest contract has 388 input-only cases across 41
-files, 60 operations, and 441 requirements. Run
-`ce4a98f0-53e3-4559-b8e7-8dfd62f93cce` selected 536 comparisons: 532 passed,
+active and incomplete. The latest contract has 389 input-only cases across 42
+files, 61 operations, and 446 requirements. Run
+`ad5d9f03-30be-4025-bbce-a6c7c0d5e6f5` selected 537 comparisons: 533 passed,
 zero failed, zero infrastructure errors, and four Rust-native callable
-boundaries were `not_run`. The Python package passed all 386 selected cases;
-Rust-native passed 146 of 150. The 20 URL-scope, 14 URL-component, and seven
+boundaries were `not_run`. The Python package passed all 387 selected cases;
+Rust-native passed 146 of 150. One Jinja2 template workflow now passes on the
+Python package. The 20 URL-scope, 14 URL-component, and seven
 Headers/MutableHeaders cases all passed on the Python package. The latest
 Router/GZip run measured all 74 workloads against the earlier manifest
 revision; that benchmark evidence has not been refreshed for the current
@@ -269,8 +270,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 514 `supported`, 286
 `private/internal`, and 199 `uncertain` candidates. The coverage matrix has 791
-source mappings: 150 existing input mappings, 50 reasoned `not_applicable`
-entries, and 591 input-only backlog rows. These counts describe the current
+source mappings: 153 existing input mappings, 50 reasoned `not_applicable`
+entries, and 588 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

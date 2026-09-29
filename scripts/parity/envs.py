@@ -170,7 +170,15 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
         for item in upstream_lock.get("package", [])
         if "version" in item
     }
-    expected_names = {"anyio", "idna", "sniffio", "typing-extensions", "pyyaml"}
+    expected_names = {
+        "anyio",
+        "idna",
+        "jinja2",
+        "markupsafe",
+        "sniffio",
+        "typing-extensions",
+        "pyyaml",
+    }
     declarations: dict[str, tuple[str, set[str]]] = {}
     try:
         for line in runtime_path.read_text(encoding="utf-8").splitlines():
@@ -194,7 +202,7 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
         raise ContractError(f"cannot parse committed CPython runtime lock: {exc}") from exc
     if set(declarations) != expected_names:
         raise ContractError(
-            "runtime dependency lock must contain the ASGI closure and optional YAML parser"
+            "runtime dependency lock must contain the ASGI closure and optional YAML/template parsers"
         )
     for name, (version, hashes) in declarations.items():
         package = locked_packages.get(name)

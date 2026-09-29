@@ -29,6 +29,7 @@ classifiers = [
 
 [project.optional-dependencies]
 schemas = ["pyyaml"]
+templates = ["jinja2"]
 
 [project.urls]
 Repository = "https://github.com/appunni-m/starlette-rs"

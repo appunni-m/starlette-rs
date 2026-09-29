@@ -148,6 +148,14 @@ SCHEMA_OPERATIONS = {
     ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"),
     ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
 }
+TEMPLATING_OPERATION = ("starlette.templating.Jinja2Templates", "template-response")
+TEMPLATING_REQUIREMENTS = {
+    "starlette.templating.Jinja2Templates.constructor-directory-autoescape",
+    "starlette.templating.Jinja2Templates.context-processors",
+    "starlette.templating.Jinja2Templates.url-for-global",
+    "starlette.templating._TemplateResponse.template-context-metadata",
+    "starlette.templating._TemplateResponse.debug-extension",
+}
 URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
 URL_SCOPE_OPERATION = ("starlette.datastructures.URL", "scope-construction")
 URL_COMPONENTS_OPERATION = (
@@ -204,6 +212,7 @@ RUST_OWNED_PYTHON_OPERATIONS = (
     CONFIG_OPERATIONS
     | SCHEMA_OPERATIONS
     | {
+        TEMPLATING_OPERATION,
         URL_QUERY_OPERATION,
         URL_SCOPE_OPERATION,
         URL_COMPONENTS_OPERATION,
@@ -6341,6 +6350,17 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 "docstrings",
             },
             ("starlette.schemas.OpenAPIResponse", "openapi-response-render"): {"content"},
+            TEMPLATING_OPERATION: {
+                "template_files",
+                "template_name",
+                "route",
+                "context",
+                "processor_additions",
+                "scope",
+                "status_code",
+                "headers",
+                "media_type",
+            },
             URL_QUERY_OPERATION: {"url", "actions"},
             URL_SCOPE_OPERATION: {"scope"},
             URL_COMPONENTS_OPERATION: {"url", "actions"},
@@ -6595,6 +6615,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             _validate_config_case(case)
         elif (case["surface"], case["operation"]) in SCHEMA_OPERATIONS:
             _validate_schema_case(case)
+        elif (case["surface"], case["operation"]) == TEMPLATING_OPERATION:
+            _validate_templating_case(case)
         elif (case["surface"], case["operation"]) == URL_QUERY_OPERATION:
             _validate_url_query_case(case)
         elif (case["surface"], case["operation"]) == URL_SCOPE_OPERATION:
@@ -8595,6 +8617,149 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
         "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse",
     }:
         raise ContractError("OpenAPIResponse coverage must match render and generator response")
+
+
+def _validate_templating_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Jinja2Templates parity currently targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["template-response"]:
+        raise ContractError(
+            "Jinja2Templates cases use inline templates and select template-response"
+        )
+    if set(case["covers"]) != TEMPLATING_REQUIREMENTS:
+        raise ContractError(
+            "Jinja2Templates coverage must select the complete declared template workflow"
+        )
+
+    template_files = case["template_files"]
+    if not isinstance(template_files, list) or not template_files:
+        raise ContractError("Jinja2Templates template_files must be a non-empty array")
+    source_by_path: dict[str, str] = {}
+    for index, item in enumerate(template_files):
+        item = _exact(item, {"path", "text"}, f"Jinja2Templates template_files[{index}]")
+        path = _string(item["path"], f"Jinja2Templates template_files[{index}].path")
+        components = path.split("/")
+        if (
+            path.startswith("/")
+            or "\\" in path
+            or any(component in {"", ".", ".."} for component in components)
+        ):
+            raise ContractError("Jinja2Templates file paths must be safe relative POSIX paths")
+        if path in source_by_path:
+            raise ContractError(f"Jinja2Templates template path is duplicated: {path!r}")
+        source_by_path[path] = _string(
+            item["text"], f"Jinja2Templates template_files[{index}].text"
+        )
+
+    template_name = _string(case["template_name"], "Jinja2Templates template_name")
+    if template_name not in source_by_path:
+        raise ContractError("Jinja2Templates template_name must select a supplied template file")
+    if not template_name.lower().endswith((".html", ".htm", ".xml")):
+        raise ContractError(
+            "Jinja2Templates autoescape input must use a documented HTML/XML suffix"
+        )
+
+    route = _exact(case["route"], {"path", "name"}, "Jinja2Templates route")
+    route_path = _string(route["path"], "Jinja2Templates route.path")
+    route_name = _string(route["name"], "Jinja2Templates route.name")
+    if "{" not in route_path or "}" not in route_path:
+        raise ContractError("Jinja2Templates url_for input must contain a route parameter")
+
+    context = case["context"]
+    if not isinstance(context, dict) or not context:
+        raise ContractError("Jinja2Templates context must be a non-empty record")
+    template_text = source_by_path[template_name]
+    if "url_for" not in template_text or route_name not in template_text:
+        raise ContractError("Jinja2Templates template must call the configured url_for route")
+    if not all(key in template_text for key in context):
+        raise ContractError("Jinja2Templates template must render every supplied context key")
+
+    additions = case["processor_additions"]
+    if (
+        not isinstance(additions, list)
+        or not additions
+        or any(not isinstance(item, dict) or not item for item in additions)
+    ):
+        raise ContractError("Jinja2Templates processor_additions must be non-empty records")
+    if not any(key in template_text for processor in additions for key in processor):
+        raise ContractError("Jinja2Templates template must render a context-processor value")
+
+    scope = _exact(
+        case["scope"],
+        {
+            "type",
+            "asgi",
+            "http_version",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+            "method",
+            "extensions",
+        },
+        "Jinja2Templates ASGI scope",
+    )
+    if scope["type"] != "http":
+        raise ContractError("Jinja2Templates ASGI scope.type must be http")
+    asgi = _exact(scope["asgi"], {"version", "spec_version"}, "Jinja2Templates ASGI scope.asgi")
+    if asgi != {"version": "3.0", "spec_version": "2.4"}:
+        raise ContractError("Jinja2Templates scope must use ASGI 3.0 with spec version 2.4")
+    for key in ("http_version", "scheme", "path", "method"):
+        _string(scope[key], f"Jinja2Templates ASGI scope.{key}")
+    if not isinstance(scope["root_path"], str):
+        raise ContractError("Jinja2Templates ASGI scope.root_path must be a string")
+    try:
+        expected_raw_path = base64.b64encode(scope["path"].encode("ascii")).decode("ascii")
+    except UnicodeEncodeError as exc:
+        raise ContractError("Jinja2Templates ASGI scope.path must be ASCII") from exc
+    if scope["raw_path_base64"] != expected_raw_path:
+        raise ContractError("Jinja2Templates raw_path bytes must match the declared ASCII path")
+    for key in ("raw_path_base64", "query_string_base64"):
+        try:
+            base64.b64decode(scope[key], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(f"Jinja2Templates ASGI scope.{key} is invalid base64") from exc
+    scope_headers = scope["headers_base64_pairs"]
+    if not isinstance(scope_headers, list):
+        raise ContractError("Jinja2Templates scope headers must be an array")
+    for index, pair in enumerate(scope_headers):
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise ContractError(f"Jinja2Templates scope headers[{index}] must be a pair")
+        for value in pair:
+            try:
+                base64.b64decode(value, validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError(
+                    f"Jinja2Templates scope headers[{index}] is invalid base64"
+                ) from exc
+    for key in ("client", "server"):
+        address = scope[key]
+        if (
+            not isinstance(address, list)
+            or len(address) != 2
+            or not isinstance(address[0], str)
+            or not isinstance(address[1], int)
+            or isinstance(address[1], bool)
+        ):
+            raise ContractError(f"Jinja2Templates ASGI scope.{key} must be a host/port pair")
+    extensions = scope["extensions"]
+    if not isinstance(extensions, dict) or "http.response.debug" not in extensions:
+        raise ContractError("Jinja2Templates scope must request the debug response extension")
+
+    status_code = case["status_code"]
+    if not isinstance(status_code, int) or isinstance(status_code, bool):
+        raise ContractError("Jinja2Templates status_code must be an integer")
+    headers = case["headers"]
+    if not isinstance(headers, dict) or any(
+        not isinstance(name, str) or not isinstance(value, str) for name, value in headers.items()
+    ):
+        raise ContractError("Jinja2Templates headers must be a string mapping")
+    if case["media_type"] is not None and not isinstance(case["media_type"], str):
+        raise ContractError("Jinja2Templates media_type must be a string or null")
 
 
 def _validate_url_query_case(case: dict[str, Any]) -> None:

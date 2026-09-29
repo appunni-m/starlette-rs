@@ -408,6 +408,16 @@
       ]
     },
     {
+      "surface_id": "starlette.templating.Jinja2Templates",
+      "source_path": "starlette/templating.py:54",
+      "operations": [
+        {
+          "operation_id": "template-response",
+          "source_path": "starlette.templating.Jinja2Templates.__init__, _setup_env_defaults, get_template, TemplateResponse, and _TemplateResponse.__call__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.staticfiles.StaticFiles",
       "source_path": "starlette/staticfiles.py:39",
       "operations": [

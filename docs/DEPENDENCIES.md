@@ -165,6 +165,8 @@ equivalence remains a compatibility boundary to cover before a release.
   or wheel release.
 - Keep the minimal Python runtime independent of PyYAML. Install the
   `schemas` extra to enable YAML-backed schema parsing and OpenAPI responses.
+- Install the `templates` extra to enable `starlette.templating`; it adds the
+  optional Jinja2 dependency, while the core runtime remains Jinja-free.
 - Do not require optional templates, multipart, YAML, or client packages for a
   minimal ASGI application.
 - Generate a new locked graph per supported Python/platform build, record the

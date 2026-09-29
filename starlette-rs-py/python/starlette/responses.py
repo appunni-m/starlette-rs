@@ -128,6 +128,13 @@ class PlainTextResponse(Response):
         super().__init__(content, status_code, headers, media_type, background)
 
 
+class HTMLResponse(Response):
+    """A response with Starlette's HTML media type."""
+
+    __slots__ = ()
+    media_type = "text/html"
+
+
 class StreamingResponse(Response):
     """Send iterable content as a streamed ASGI response."""
 

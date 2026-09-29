@@ -1,0 +1,51 @@
+{
+  "schema": "migration-parity/parity-input@9",
+  "cases": [
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-response.directory-autoescape-context-processors-url-for-debug",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-response",
+      "covers": [
+        "starlette.templating.Jinja2Templates.constructor-directory-autoescape",
+        "starlette.templating.Jinja2Templates.context-processors",
+        "starlette.templating.Jinja2Templates.url-for-global",
+        "starlette.templating._TemplateResponse.template-context-metadata",
+        "starlette.templating._TemplateResponse.debug-extension"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "template_files": [
+        {
+          "path": "views/item.html",
+          "text": "<main>{{ markup }}</main><span>{{ display_name }}</span><a href=\"{{ url_for('item', item_id=9) }}\">item</a><strong>{{ processed_value }}</strong>"
+        }
+      ],
+      "template_name": "views/item.html",
+      "route": {"path": "/items/{item_id:int}", "name": "item"},
+      "context": {
+        "markup": "<script>user input</script>",
+        "display_name": "Ada"
+      },
+      "processor_additions": [{"processed_value": "from processor"}],
+      "status_code": 201,
+      "headers": {"x-template-source": "input-defined"},
+      "media_type": null,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "scheme": "https",
+        "path": "/render",
+        "raw_path_base64": "L3JlbmRlcg==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["template-client", 50001],
+        "server": ["template.example", 443],
+        "method": "GET",
+        "extensions": {"http.response.debug": {}}
+      },
+      "observations": ["template-response"]
+    }
+  ]
+}

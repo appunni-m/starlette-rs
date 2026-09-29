@@ -33,6 +33,7 @@ mod server_error_runtime;
 mod sessions_runtime;
 mod staticfiles_runtime;
 mod status_runtime;
+mod templating_runtime;
 mod websocket_calls;
 
 use pyo3::exceptions::{PyAssertionError, PyKeyError};
@@ -1208,6 +1209,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     server_error_runtime::register(module)?;
     sessions_runtime::register(module)?;
     status_runtime::register(module)?;
+    templating_runtime::register(module)?;
     websocket_calls::register(module)?;
     module.add_class::<PyLifespanState>()?;
     module.add_class::<PyGzipConfig>()?;

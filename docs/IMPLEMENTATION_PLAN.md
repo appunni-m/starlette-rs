@@ -32,15 +32,15 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 388 input-only cases, 60 operations, and 441
-parity requirements across 41 indexed files, including URL scope and component
-construction, Headers and MutableHeaders, and bounded SessionMiddleware and
-BaseHTTPMiddleware workflow slices. Latest integrated run
-`ce4a98f0-53e3-4559-b8e7-8dfd62f93cce`, from `2026-09-29T20:55:25.859Z` to
-`2026-09-29T20:56:46.624Z`, selected 536 profile comparisons: 532 passed,
-zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 386 selected comparisons; Rust-native passed 146 of 150,
-with four Python-callable rows `not_run`. All 20 URL scope, 14 URL component,
+The current parity contract has 389 input-only cases, 61 operations, and 446
+parity requirements across 42 indexed files, including URL scope and component
+construction, Headers and MutableHeaders, bounded SessionMiddleware and
+BaseHTTPMiddleware workflow slices, and one Jinja2 template workflow. Latest
+integrated run `ad5d9f03-30be-4025-bbce-a6c7c0d5e6f5`, from
+`2026-09-29T21:27:31.092Z` to `2026-09-29T21:28:42.648Z`, selected 537 profile
+comparisons: 533 passed, zero failed, zero infrastructure errors, and four
+were `not_run`. The Python package passed all 387 selected comparisons;
+Rust-native passed 146 of 150, with four Python-callable rows `not_run`. All 20 URL scope, 14 URL component,
 and seven Headers/MutableHeaders cases passed on the Python package. All 28
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
 passed on the Python package profile, and all twenty-one BaseHTTPMiddleware

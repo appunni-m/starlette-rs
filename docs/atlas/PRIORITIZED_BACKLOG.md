@@ -8,13 +8,14 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 388 input-only cases across 41 files, covering 60
-operations and 441 requirements. Latest run
-`ce4a98f0-53e3-4559-b8e7-8dfd62f93cce` ran from `2026-09-29T20:55:25.859Z` to
-`2026-09-29T20:56:46.624Z` and selected 536 comparisons: 532 passed, zero
+The active contract has 389 input-only cases across 42 files, covering 61
+operations and 446 requirements. Latest run
+`ad5d9f03-30be-4025-bbce-a6c7c0d5e6f5` ran from `2026-09-29T21:27:31.092Z` to
+`2026-09-29T21:28:42.648Z` and selected 537 comparisons: 533 passed, zero
 failed, zero infrastructure errors, and four Rust-native rows were `not_run`.
-The Python package passed all 386 selected cases; Rust-native passed 146 of
-150. Those four rows require Python endpoint or ASGI callables. The run
+The Python package passed all 387 selected cases; Rust-native passed 146 of
+150. Those four rows require Python endpoint or ASGI callables. The new
+Python-package Jinja2 template workflow also passed. The run
 includes the 20 URL scope, 14 URL component, and seven Headers/MutableHeaders
 cases. All 28 FileResponse cases passed on both profiles;
 all eight SessionMiddleware cases and all twenty-one BaseHTTPMiddleware cases
@@ -95,8 +96,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 791 mappings: 591 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 150 existing input mappings. It maps selected
+The current matrix has 791 mappings: 588 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 153 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

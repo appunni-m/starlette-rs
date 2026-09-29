@@ -7544,6 +7544,14 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if (
         isinstance(case, dict)
+        and case.get("surface") == "starlette.templating.Jinja2Templates"
+        and case.get("operation") == "template-response"
+    ):
+        from scripts.parity.adapters.templating import run_template_response_case
+
+        return run_template_response_case(case)
+    if (
+        isinstance(case, dict)
         and case.get("surface") == BASE_HTTP_SURFACE
         and case.get("operation") == BASE_HTTP_WORKFLOW_OPERATION
     ):
