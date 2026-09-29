@@ -199,6 +199,43 @@ impl PyStreamingResponse {
         })
     }
 
+    #[getter]
+    fn headers(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        crate::response_headers_runtime::view(py, slf.into_any())
+    }
+
+    fn _header_get(&self, key: &str) -> PyResult<Option<String>> {
+        self.inner.get_header(key).map_err(response_error)
+    }
+
+    fn _header_set(&mut self, key: &str, value: &str) -> PyResult<()> {
+        self.inner.set_header(key, value).map_err(response_error)
+    }
+
+    fn _header_delete(&mut self, key: &str) -> PyResult<()> {
+        self.inner.delete_header(key).map_err(response_error)
+    }
+
+    fn _header_append(&mut self, key: &str, value: &str) -> PyResult<()> {
+        self.inner.append_header(key, value).map_err(response_error)
+    }
+
+    fn _header_values(&self, key: &str) -> PyResult<Vec<String>> {
+        self.inner.get_header_values(key).map_err(response_error)
+    }
+
+    fn _header_items(&self) -> Vec<(String, String)> {
+        crate::response_headers_runtime::items(self.inner.headers())
+    }
+
+    fn _header_raw(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        crate::response_headers_runtime::raw_pairs(py, self.inner.headers())
+    }
+
+    fn _header_len(&self) -> usize {
+        self.inner.headers().len()
+    }
+
     #[pyo3(signature = (key, value="", max_age=None, expires=None, path="/", domain=None, secure=false, httponly=false, samesite="lax", partitioned=false))]
     #[allow(clippy::too_many_arguments)]
     fn set_cookie(

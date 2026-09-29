@@ -705,6 +705,31 @@ impl Response {
         &self.headers
     }
 
+    /// Returns the first value for a response header using a case-insensitive name.
+    pub fn get_header(&self, name: &str) -> Result<Option<String>, ResponseError> {
+        get_response_header(&self.headers, name)
+    }
+
+    /// Replaces a response header while retaining its first position and removing duplicates.
+    pub fn set_header(&mut self, name: &str, value: &str) -> Result<(), ResponseError> {
+        set_response_header(&mut self.headers, name, value)
+    }
+
+    /// Removes all response headers with the supplied case-insensitive name.
+    pub fn delete_header(&mut self, name: &str) -> Result<(), ResponseError> {
+        delete_response_header(&mut self.headers, name)
+    }
+
+    /// Appends a response header without removing existing fields of the same name.
+    pub fn append_header(&mut self, name: &str, value: &str) -> Result<(), ResponseError> {
+        append_response_header(&mut self.headers, name, value)
+    }
+
+    /// Returns every value for a response header in wire order.
+    pub fn get_header_values(&self, name: &str) -> Result<Vec<String>, ResponseError> {
+        get_response_header_values(&self.headers, name)
+    }
+
     /// Returns the response body bytes.
     #[must_use]
     pub fn body(&self) -> &[u8] {
@@ -997,6 +1022,31 @@ impl StreamingResponse {
     #[must_use]
     pub fn headers(&self) -> &[(Vec<u8>, Vec<u8>)] {
         &self.headers
+    }
+
+    /// Returns the first value for a response header using a case-insensitive name.
+    pub fn get_header(&self, name: &str) -> Result<Option<String>, ResponseError> {
+        get_response_header(&self.headers, name)
+    }
+
+    /// Replaces a response header while retaining its first position and removing duplicates.
+    pub fn set_header(&mut self, name: &str, value: &str) -> Result<(), ResponseError> {
+        set_response_header(&mut self.headers, name, value)
+    }
+
+    /// Removes all response headers with the supplied case-insensitive name.
+    pub fn delete_header(&mut self, name: &str) -> Result<(), ResponseError> {
+        delete_response_header(&mut self.headers, name)
+    }
+
+    /// Appends a response header without removing existing fields of the same name.
+    pub fn append_header(&mut self, name: &str, value: &str) -> Result<(), ResponseError> {
+        append_response_header(&mut self.headers, name, value)
+    }
+
+    /// Returns every value for a response header in wire order.
+    pub fn get_header_values(&self, name: &str) -> Result<Vec<String>, ResponseError> {
+        get_response_header_values(&self.headers, name)
     }
 
     /// Returns the pre-collected body chunks.
@@ -1707,6 +1757,84 @@ fn append_quoted_cookie_char(cookie: &mut Vec<u8>, character: char) -> Result<()
 
 fn encode_latin1(value: &str) -> Option<Vec<u8>> {
     value.chars().map(encode_latin1_char).collect()
+}
+
+pub(crate) fn get_response_header(
+    headers: &[(Vec<u8>, Vec<u8>)],
+    name: &str,
+) -> Result<Option<String>, ResponseError> {
+    let key = response_header_key(name)?;
+    Ok(headers
+        .iter()
+        .find(|(header, _)| header == &key)
+        .map(|(_, value)| decode_latin1(value)))
+}
+
+pub(crate) fn get_response_header_values(
+    headers: &[(Vec<u8>, Vec<u8>)],
+    name: &str,
+) -> Result<Vec<String>, ResponseError> {
+    let key = response_header_key(name)?;
+    Ok(headers
+        .iter()
+        .filter(|(header, _)| header == &key)
+        .map(|(_, value)| decode_latin1(value))
+        .collect())
+}
+
+pub(crate) fn set_response_header(
+    headers: &mut Vec<(Vec<u8>, Vec<u8>)>,
+    name: &str,
+    value: &str,
+) -> Result<(), ResponseError> {
+    let key = response_header_key(name)?;
+    let value = encode_latin1(value).ok_or(ResponseError::HeaderDataIsNotLatin1)?;
+    let mut found = false;
+    headers.retain_mut(|(header, existing)| {
+        if *header == key {
+            if found {
+                false
+            } else {
+                *existing = value.clone();
+                found = true;
+                true
+            }
+        } else {
+            true
+        }
+    });
+    if !found {
+        headers.push((key, value));
+    }
+    Ok(())
+}
+
+pub(crate) fn delete_response_header(
+    headers: &mut Vec<(Vec<u8>, Vec<u8>)>,
+    name: &str,
+) -> Result<(), ResponseError> {
+    let key = response_header_key(name)?;
+    headers.retain(|(header, _)| header != &key);
+    Ok(())
+}
+
+pub(crate) fn append_response_header(
+    headers: &mut Vec<(Vec<u8>, Vec<u8>)>,
+    name: &str,
+    value: &str,
+) -> Result<(), ResponseError> {
+    let key = response_header_key(name)?;
+    let value = encode_latin1(value).ok_or(ResponseError::HeaderDataIsNotLatin1)?;
+    headers.push((key, value));
+    Ok(())
+}
+
+fn response_header_key(name: &str) -> Result<Vec<u8>, ResponseError> {
+    encode_latin1(&name.to_lowercase()).ok_or(ResponseError::HeaderDataIsNotLatin1)
+}
+
+fn decode_latin1(value: &[u8]) -> String {
+    value.iter().copied().map(char::from).collect()
 }
 
 fn quote_redirect_url(url: &str) -> String {

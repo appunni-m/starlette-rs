@@ -54,6 +54,11 @@ class Response:
         """
         return _core.Response.render_content(content, self.charset)
 
+    @property
+    def headers(self) -> Any:
+        """Return the mutable header view owned by the Rust response."""
+        return self._inner.headers
+
     def set_cookie(
         self,
         key: str,

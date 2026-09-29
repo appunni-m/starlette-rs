@@ -7807,8 +7807,8 @@
           "targets": [
             {
               "target_id": "rust-native",
-              "path": "starlette_rs::Response::from_content",
-              "signature": "Response::from_content(status_code, body, media_type, ordered_headers) -> Result<Response, ResponseError>; Response::asgi_events() -> [ResponseEvent; 2]",
+              "path": "starlette_rs::Response::from_content + Response::set_header",
+              "signature": "Response::from_content(status_code, body, media_type, ordered_headers) -> Result<Response, ResponseError>; Response::set_header(name, value) -> Result<(), ResponseError>; Response::asgi_events() -> [ResponseEvent; 2]",
               "support": {
                 "status": "supported"
               }
@@ -7816,7 +7816,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.responses.Response",
-              "signature": "Response(content=None, status_code=200, headers=None, media_type=None, background=None); async __call__(scope, receive, send) -> None",
+              "signature": "Response(content=None, status_code=200, headers=None, media_type=None, background=None); response.headers[key] = value; async __call__(scope, receive, send) -> None",
               "support": {
                 "status": "supported"
               }
@@ -7972,6 +7972,18 @@
                 "parity"
               ],
               "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.mutable-header-assignment",
+              "dimension": "feature",
+              "description": "Construct a Response with two supplied headers, assign a replacement value through response.headers[key], and invoke it through direct HTTP ASGI. Upstream: starlette/datastructures.py::MutableHeaders.__setitem__; tests/test_responses.py::test_response_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             }

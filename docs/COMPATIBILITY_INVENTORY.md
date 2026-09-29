@@ -17,19 +17,19 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 332 input-only cases across 38 files,
-covering 56 operations and 408 parity requirements. The authored cases span
+The active parity manifest indexes 333 input-only cases across 38 files,
+covering 56 operations and 409 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `a3f3e4a1-b085-409d-a0f3-5a7ab47806fb` started at
-`2026-09-29T17:04:29.897Z` and finished at `2026-09-29T17:05:39.606Z`. It
-selected 467 profile comparisons: 463 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 330 applicable
-comparisons; Rust-native passed 133 of 137, with four rows requiring Python
+Integrated run `18f07e1d-1573-4c3b-aa0f-5ea522394f20` started at
+`2026-09-29T17:40:49.884Z` and finished at `2026-09-29T17:41:39.283Z`. It
+selected 469 profile comparisons: 465 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 331 applicable
+comparisons; Rust-native passed 134 of 138, with four rows requiring Python
 callables marked `not_run`. All 27 FileResponse cases passed on both profiles,
 all eight SessionMiddleware cases passed on the Python package profile, and all
 nineteen BaseHTTPMiddleware cases passed there. Those cases cover header

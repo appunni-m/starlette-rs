@@ -3763,6 +3763,14 @@ def _apply_response_cookie_action(response: Any, raw_action: dict[str, Any], ind
             time.time = original_time
 
 
+def _apply_response_header_action(response: Any, raw_action: dict[str, Any], index: int) -> None:
+    context = f"Response header_actions[{index}]"
+    action = _exact_object(raw_action, {"kind", "key", "value"}, context)
+    if action["kind"] != "set":
+        raise ValueError(f"{context}.kind must be set")
+    response.headers[action["key"]] = action["value"]
+
+
 def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     surface = case.get("surface")
     required_fields = {
@@ -3785,6 +3793,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         required_fields.add("render_override")
     if "cookie_actions" in case:
         required_fields.add("cookie_actions")
+    if "header_actions" in case:
+        required_fields.add("header_actions")
     if surface == STREAMING_RESPONSE_SURFACE:
         required_fields.add("streaming")
         required_fields.update(
@@ -4062,6 +4072,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         )
     response = response_type(**response_arguments)
     try:
+        for index, raw_action in enumerate(case.get("header_actions", [])):
+            _apply_response_header_action(response, raw_action, index)
         for index, raw_action in enumerate(case.get("cookie_actions", [])):
             _apply_response_cookie_action(response, raw_action, index)
     except Exception as exc:

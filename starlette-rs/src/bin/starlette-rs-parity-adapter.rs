@@ -1465,6 +1465,9 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
     if case.get("cookie_actions").is_some() {
         expected_fields.push("cookie_actions");
     }
+    if case.get("header_actions").is_some() {
+        expected_fields.push("header_actions");
+    }
     let case = exact_object(case, &expected_fields, "Response asgi-call case")?;
     let case_id = string_field(case, "case_id", "Response asgi-call case")?;
     let surface = string_field(case, "surface", "Response asgi-call case")?;
@@ -1586,6 +1589,9 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
     .map_err(|error| error.to_string())?;
     if let Some(actions) = case.get("cookie_actions") {
         apply_response_cookie_actions(&mut response, actions)?;
+    }
+    if let Some(actions) = case.get("header_actions") {
+        apply_response_header_actions(&mut response, actions)?;
     }
     let events = response
         .asgi_events()
@@ -1714,6 +1720,26 @@ fn apply_response_cookie_actions<T: CookieMutationTarget>(
                 .apply_delete_cookie(key, &expires, &options)
                 .map_err(|error| format!("{context}: {error}"))?;
         }
+    }
+    Ok(())
+}
+
+fn apply_response_header_actions(response: &mut Response, value: &Value) -> Result<(), String> {
+    let actions = value
+        .as_array()
+        .ok_or_else(|| String::from("Response header_actions must be an array"))?;
+    for (index, raw_action) in actions.iter().enumerate() {
+        let context = format!("Response header_actions[{index}]");
+        let action = exact_object(raw_action, &["kind", "key", "value"], &context)?;
+        if string_field(action, "kind", &context)? != "set" {
+            return Err(format!("{context}.kind must be set"));
+        }
+        response
+            .set_header(
+                string_field(action, "key", &context)?,
+                string_field(action, "value", &context)?,
+            )
+            .map_err(|error| error.to_string())?;
     }
     Ok(())
 }

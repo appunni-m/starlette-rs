@@ -2534,7 +2534,7 @@ def _validate_cookie_actions(case: dict[str, Any]) -> None:
 
 def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
     case_keys = RESPONSE_CASE_KEYS | {
-        key for key in ("render_override", "cookie_actions") if key in case
+        key for key in ("render_override", "cookie_actions", "header_actions") if key in case
     }
     _exact(case, case_keys, "Response asgi-call case")
     if case["surface"] not in RESPONSE_SURFACES or case["operation"] != RESPONSE_OPERATION:
@@ -2543,12 +2543,45 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("Response observations must select asgi-call")
     if type(case["status_code"]) is not int or case["status_code"] not in {200, 204}:
         raise ContractError("Response status_code must be 200 or 204 for this input slice")
-    if case["header_pairs"] != []:
-        raise ContractError("Response header_pairs must be empty for this input slice")
+    header_pairs = case["header_pairs"]
+    if not isinstance(header_pairs, list) or any(
+        not isinstance(pair, list)
+        or len(pair) != 2
+        or any(not isinstance(value, str) for value in pair)
+        for pair in header_pairs
+    ):
+        raise ContractError("Response header_pairs must be an array of string pairs")
+    if len({pair[0] for pair in header_pairs}) != len(header_pairs):
+        raise ContractError("Response header_pairs must map unique names")
+    for index, (name, value) in enumerate(header_pairs):
+        try:
+            name.lower().encode("latin-1")
+            value.encode("latin-1")
+        except UnicodeEncodeError as exc:
+            raise ContractError(
+                f"Response header_pairs[{index}] must be Latin-1 encodable"
+            ) from exc
     if case["media_type"] is not None and not isinstance(case["media_type"], str):
         raise ContractError("Response media_type must be a string or null")
 
     _validate_cookie_actions(case)
+
+    if "header_actions" in case:
+        actions = case["header_actions"]
+        if not isinstance(actions, list):
+            raise ContractError("Response header_actions must be an array")
+        for index, action in enumerate(actions):
+            context = f"Response header_actions[{index}]"
+            action = _exact(action, {"kind", "key", "value"}, context)
+            if action["kind"] != "set":
+                raise ContractError(f"{context}.kind must be set")
+            _string(action["key"], f"{context}.key")
+            _string(action["value"], f"{context}.value")
+            try:
+                action["key"].lower().encode("latin-1")
+                action["value"].encode("latin-1")
+            except UnicodeEncodeError as exc:
+                raise ContractError(f"{context} must be Latin-1 encodable") from exc
 
     content = _exact(case["content"], {"kind", "value"}, "Response content")
     content_kind = _string(content["kind"], "Response content.kind")
@@ -5959,6 +5992,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and (is_response or is_streaming_response or is_file_response or is_redirect_response)
     ):
         expected_case_keys = expected_case_keys | {"cookie_actions"}
+    if (
+        isinstance(case, dict)
+        and "header_actions" in case
+        and (is_response or is_streaming_response)
+    ):
+        expected_case_keys = expected_case_keys | {"header_actions"}
     if is_file_response and isinstance(case, dict):
         expected_case_keys = expected_case_keys | (
             {key for key in ("chunk_size", "max_ranges") if key in case}

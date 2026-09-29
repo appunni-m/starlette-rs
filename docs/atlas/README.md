@@ -60,11 +60,11 @@ workloads; its evidence is summarized in
 files under `build/parity/`. These bounded results do not establish full
 compatibility.
 
-The current contract has 332 input-only cases across 38 files, covering 56
-operations and 408 requirements. Integrated run
-`a3f3e4a1-b085-409d-a0f3-5a7ab47806fb` selected 467 comparisons: 463 passed,
+The current contract has 333 input-only cases across 38 files, covering 56
+operations and 409 requirements. Integrated run
+`18f07e1d-1573-4c3b-aa0f-5ea522394f20` selected 469 comparisons: 465 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 330 applicable cases; Rust-native passed 133 of 137 selected
+package passed all 331 applicable cases; Rust-native passed 134 of 138 selected
 cases. The four Rust-native rows require arbitrary Python callables. All 27
 FileResponse cases passed on both profiles; all eight SessionMiddleware cases
 and all nineteen BaseHTTPMiddleware cases passed on the Python package profile.

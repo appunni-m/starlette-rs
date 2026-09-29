@@ -8,12 +8,12 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 332 input-only cases across 38 files, covering 56
-operations and 408 requirements. Run `a3f3e4a1-b085-409d-a0f3-5a7ab47806fb` from
-`2026-09-29T17:04:29.897Z` to `2026-09-29T17:05:39.606Z`; it selected 467
-comparisons: 463 passed, zero failed, zero infrastructure errors, and four
-`not_run`. The Python package passed all 330 applicable cases; Rust-native
-passed 133 of 137 selected cases. The four unsupported Rust-native rows require
+The active contract has 333 input-only cases across 38 files, covering 56
+operations and 409 requirements. Run `18f07e1d-1573-4c3b-aa0f-5ea522394f20` from
+`2026-09-29T17:40:49.884Z` to `2026-09-29T17:41:39.283Z`; it selected 469
+comparisons: 465 passed, zero failed, zero infrastructure errors, and four
+`not_run`. The Python package passed all 331 applicable cases; Rust-native
+passed 134 of 138 selected cases. The four unsupported Rust-native rows require
 arbitrary Python callables. All 27 FileResponse cases passed on both profiles;
 all eight SessionMiddleware cases and all nineteen BaseHTTPMiddleware cases
 passed on the Python package profile. The nineteen BaseHTTPMiddleware cases

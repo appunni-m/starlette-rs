@@ -20,7 +20,7 @@ class _StreamingResponse(Response):
 
     def __init__(self, runtime: Any) -> None:
         self._base_http_runtime = runtime
-        self.headers = runtime.headers
+        self._headers = runtime.headers
         self.body_iterator = runtime.body_iterator
         self.background = None
         self.info = runtime.info
@@ -33,6 +33,10 @@ class _StreamingResponse(Response):
     @status_code.setter
     def status_code(self, value: int) -> None:
         self._base_http_runtime.status_code = value
+
+    @property
+    def headers(self) -> Any:
+        return self._headers
 
     @property
     def raw_headers(self) -> list[tuple[bytes, bytes]]:

@@ -8,7 +8,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use md5::{Digest, Md5};
 
-use crate::response::{CookieOptions, Response, ResponseError};
+use crate::response::{
+    CookieOptions, Response, ResponseError, append_response_header, delete_response_header,
+    get_response_header, get_response_header_values, set_response_header,
+};
 
 const DEFAULT_CHUNK_SIZE: usize = 64 * 1024;
 type RawHeaderPair = (Vec<u8>, Vec<u8>);
@@ -512,6 +515,31 @@ impl FileResponse {
     #[must_use]
     pub fn headers(&self) -> &[(Vec<u8>, Vec<u8>)] {
         &self.headers
+    }
+
+    /// Returns the first response-header value for a case-insensitive name.
+    pub fn get_header(&self, name: &str) -> Result<Option<String>, ResponseError> {
+        get_response_header(&self.headers, name)
+    }
+
+    /// Replaces a response header while retaining its first position and removing duplicates.
+    pub fn set_header(&mut self, name: &str, value: &str) -> Result<(), ResponseError> {
+        set_response_header(&mut self.headers, name, value)
+    }
+
+    /// Removes all response headers with the supplied case-insensitive name.
+    pub fn delete_header(&mut self, name: &str) -> Result<(), ResponseError> {
+        delete_response_header(&mut self.headers, name)
+    }
+
+    /// Appends a response header without removing existing fields of the same name.
+    pub fn append_header(&mut self, name: &str, value: &str) -> Result<(), ResponseError> {
+        append_response_header(&mut self.headers, name, value)
+    }
+
+    /// Returns every value for a response header in wire order.
+    pub fn get_header_values(&self, name: &str) -> Result<Vec<String>, ResponseError> {
+        get_response_header_values(&self.headers, name)
     }
 
     /// Prepares one request-specific response call.
