@@ -741,9 +741,9 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
             let status = endpoint
                 .get("status_code")
                 .and_then(Value::as_u64)
-                .filter(|status| *status <= u16::MAX as u64)
+                .and_then(|status| u16::try_from(status).ok())
                 .ok_or_else(|| String::from("selected endpoint status_code must fit u16"))?;
-            Response::plain_text_with_status(status as u16, content)
+            Response::plain_text_with_status(status, content)
         }
         (DetailedRouteMatch::MethodNotAllowed { .. }, _) => route_match
             .fallback_response()
@@ -987,14 +987,14 @@ fn mount_child_from_parity_input(input: &Value, context: &str) -> Result<MountCh
     let status = endpoint
         .get("status_code")
         .and_then(Value::as_u64)
-        .filter(|status| *status <= u16::MAX as u64)
+        .and_then(|status| u16::try_from(status).ok())
         .ok_or_else(|| String::from("Mount child status_code must fit u16"))?;
     let cookies = endpoint
         .get("cookies")
         .and_then(Value::as_array)
         .ok_or_else(|| String::from("Mount child cookies must be an array"))?;
     let mut response = Response::from_content(
-        status as u16,
+        status,
         content.as_bytes().to_vec(),
         Some(media_type),
         std::iter::empty::<(&str, &str)>(),
@@ -2550,8 +2550,11 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
             )?;
             let headers = parse_scope_request_headers(&scope, "StaticFiles HTTP scope")?;
             let server = scope.get("server").and_then(Value::as_array);
-            let server = server.and_then(|server| {
-                Some((server.first()?.as_str()?, server.get(1)?.as_u64()? as u16))
+            let server = server.and_then(|values| {
+                Some((
+                    values.first()?.as_str()?,
+                    u16::try_from(values.get(1)?.as_u64()?).ok()?,
+                ))
             });
             let url = connection_url(
                 scope.get("scheme").and_then(Value::as_str),

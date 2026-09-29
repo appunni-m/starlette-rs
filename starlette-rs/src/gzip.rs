@@ -52,7 +52,10 @@ impl GzipCompressor {
     pub fn new(compresslevel: i32) -> Result<Self, GzipCompressionError> {
         let compression = match compresslevel {
             -1 => Compression::default(),
-            0..=9 => Compression::new(compresslevel as u32),
+            0..=9 => Compression::new(
+                u32::try_from(compresslevel)
+                    .map_err(|_| GzipCompressionError::InvalidCompressionLevel(compresslevel))?,
+            ),
             _ => return Err(GzipCompressionError::InvalidCompressionLevel(compresslevel)),
         };
 
@@ -71,8 +74,8 @@ impl GzipCompressor {
     /// # Errors
     ///
     /// Returns [`GzipCompressionError::Finished`] after a previous final
-    /// chunk, or a backend error if zlib rejects an operation or makes no
-    /// progress.
+    /// chunk, or an error if zlib rejects an operation, reports an invalid
+    /// counter delta, or makes no progress.
     pub fn compress_chunk(
         &mut self,
         body: &[u8],
@@ -112,8 +115,8 @@ impl GzipCompressor {
             let status = compressor
                 .compress(&input[input_offset..], &mut buffer, flush)
                 .map_err(GzipCompressionError::Compression)?;
-            let consumed = (compressor.total_in() - before_in) as usize;
-            let produced = (compressor.total_out() - before_out) as usize;
+            let consumed = counter_delta(compressor.total_in(), before_in)?;
+            let produced = counter_delta(compressor.total_out(), before_out)?;
             input_offset += consumed;
             output.extend_from_slice(&buffer[..produced]);
 
@@ -137,6 +140,18 @@ impl GzipCompressor {
     }
 }
 
+fn counter_delta(current: u64, previous: u64) -> Result<usize, GzipCompressionError> {
+    current
+        .checked_sub(previous)
+        .and_then(|delta| usize::try_from(delta).ok())
+        .ok_or_else(|| {
+            GzipCompressionError::Io(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "gzip compressor reported an invalid counter delta",
+            ))
+        })
+}
+
 const COMPRESSION_BUFFER_SIZE: usize = 16 * 1024;
 
 /// An error returned while constructing or advancing a gzip stream.
@@ -148,7 +163,7 @@ pub enum GzipCompressionError {
     Finished,
     /// The compression backend rejected a zlib operation.
     Compression(CompressError),
-    /// The compression backend reported an I/O failure.
+    /// Compression reported an I/O failure or invalid counter delta.
     Io(io::Error),
 }
 
