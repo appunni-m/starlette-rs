@@ -32,17 +32,17 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 395 input-only cases, 61 operations, and 454
+The current parity contract has 402 input-only cases, 61 operations, and 455
 parity requirements across 44 indexed files, including URL scope and component
 construction, Headers and MutableHeaders, bounded SessionMiddleware and
-BaseHTTPMiddleware workflow slices, five BackgroundTask/BackgroundTasks cases,
-and one Jinja2 template workflow. Latest integrated run
-`feabfe49-8275-4a74-b2c3-18eeabbb8635`, from `2026-09-29T22:58:18.511Z` to
-`2026-09-29T22:59:39.022Z`, selected 543 profile comparisons: 539 passed, zero
+BaseHTTPMiddleware workflow slices, twelve BackgroundTask/BackgroundTasks
+cases, and one Jinja2 template workflow. Latest integrated run
+`d2513cff-c6bc-4b66-b3c4-586474a9a105`, from `2026-09-29T23:14:30.493Z` to
+`2026-09-29T23:15:53.740Z`, selected 550 profile comparisons: 546 passed, zero
 failed, zero infrastructure errors, and four were `not_run`. The Python package
-passed all 393 selected comparisons; Rust-native passed 146 of 150, with four
+passed all 400 selected comparisons; Rust-native passed 146 of 150, with four
 Python-callable rows `not_run`. The Router live-mutation sequence passed on all
-three dispatches, and all five background-task cases passed against the pinned
+three dispatches, and all twelve background-task cases passed against the pinned
 source. All 20 URL scope, 14 URL component, and seven Headers/MutableHeaders
 cases passed on the Python package. All 28
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
@@ -406,23 +406,22 @@ or all memoryview formats.
 ### Completed bounded goal: Response background task sequencing
 
 [`background-tasks.yaml`](../tests/fixtures/sources/parity/background-tasks.yaml)
-adds five package-profile cases with callback mode, arguments, failure, and
-task-list construction supplied by each input. They compare async and
-synchronous `BackgroundTask` execution, callback arguments, response-send
-ordering, worker-thread execution for synchronous callbacks,
-`BackgroundTasks()` plus `add_task`, construction from prebuilt tasks, ordered
+contains twelve package-profile cases with callback mode, arguments, failure,
+callable shape, and task-list construction supplied by each input. They cover
+async and sync functions, bound methods, callable objects, partials, nested
+partials, callback arguments, response-send ordering, worker-thread execution
+for synchronous callbacks, both `BackgroundTasks` construction paths,
 sequential execution, and propagation that stops later tasks after the first
-failure. All five cases pass exact comparison against pinned Starlette 1.6.0
-and the installed package. The active fixture crosswalk promotes four upstream
-test behaviors, three documentation behaviors, the synchronous thread-pool
-guidance, and the constructor behavior to existing input mappings.
+failure. All twelve cases pass exact comparison against pinned Starlette 1.6.0
+and the installed package. The active fixture crosswalk promotes the
+callable-shape behavior alongside the previously mapped BackgroundTask
+behaviors.
 
-This remains a bounded slice. Callable objects, bound methods and partials,
-context variables, cancellation, concurrency, and broader middleware/error
-interactions with background failures remain unproven. Four Rust-native
-Request-dispatch callable rows still produce the expected `not_run` status, so
-the integrated `make test` command exits 2 despite all 539 executed
-comparisons passing.
+This remains a bounded slice. Task cancellation, context variables,
+concurrency, and broader middleware/error interactions with background
+failures remain unproven. Four Rust-native Request-dispatch callable rows still
+produce the expected `not_run` status, so the integrated `make test` command
+exits 2 despite all 546 executed comparisons passing.
 
 ### HTTPException default-response slice: bounded parity verified
 

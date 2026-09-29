@@ -233,26 +233,72 @@ def _input_background_tasks(
         failure = task_spec["failure"]
         if task_spec["mode"] == "async":
 
-            async def callback(*args: Any, **kwargs: Any) -> None:
+            async def base_callback(*args: Any, **kwargs: Any) -> None:
                 _record_input_background_task(
                     task_index, args, kwargs, failure, execution_trace, event_loop_thread_id
                 )
 
         else:
 
-            def callback(*args: Any, **kwargs: Any) -> None:
+            def base_callback(*args: Any, **kwargs: Any) -> None:
                 _record_input_background_task(
                     task_index, args, kwargs, failure, execution_trace, event_loop_thread_id
                 )
 
+        callable_spec = task_spec.get("callable", {"kind": "function"})
+        callable_kind = callable_spec["kind"]
+        callback = base_callback
+        if callable_kind == "bound-method":
+            if task_spec["mode"] == "async":
+
+                class BoundCallback:
+                    async def invoke(self, *args: Any, **kwargs: Any) -> None:
+                        await base_callback(*args, **kwargs)
+
+            else:
+
+                class BoundCallback:
+                    def invoke(self, *args: Any, **kwargs: Any) -> None:
+                        base_callback(*args, **kwargs)
+
+            callback = BoundCallback().invoke
+        elif callable_kind in {"callable-object", "partial", "nested-partial"}:
+            if task_spec["mode"] == "async":
+
+                class CallableObject:
+                    async def __call__(self, *args: Any, **kwargs: Any) -> None:
+                        await base_callback(*args, **kwargs)
+
+            else:
+
+                class CallableObject:
+                    def __call__(self, *args: Any, **kwargs: Any) -> None:
+                        base_callback(*args, **kwargs)
+
+            if callable_kind == "callable-object" or callable_spec["target"] == "callable-object":
+                callback = CallableObject()
+            if callable_kind in {"partial", "nested-partial"}:
+                from functools import partial
+
+                for binding in callable_spec["bindings"]:
+                    callback = partial(
+                        callback,
+                        *binding["args"],
+                        **binding["kwargs"],
+                    )
+        elif callable_kind != "function":
+            raise ValueError("Response background callable shape is unsupported")
         return callback
 
     tasks = []
     background_tasks = BackgroundTasks() if spec["kind"] == "task-list" else None
     for task_index, task_spec in enumerate(spec["tasks"]):
+        task_fields = {"mode", "args", "kwargs", "failure"}
+        if isinstance(task_spec, dict) and "callable" in task_spec:
+            task_fields.add("callable")
         task_spec = _exact_object(
             task_spec,
-            {"mode", "args", "kwargs", "failure"},
+            task_fields,
             f"Response background task[{task_index}]",
         )
         if task_spec["mode"] not in {"sync", "async"}:

@@ -312,6 +312,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_order": "starlette.responses.Response.asgi-call.background-task-order",
     "task_failure": "starlette.responses.Response.asgi-call.background-task-failure-stops",
     "task_sequence_constructor": "starlette.responses.Response.asgi-call.background-task-sequence-constructor",
+    "callable_shapes": "starlette.responses.Response.asgi-call.background-callable-shapes",
 }
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
 RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
@@ -2785,9 +2786,13 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 )
 
             failures = []
+            has_callable_shape = False
             for index, raw_task in enumerate(tasks):
                 context = f"Response background.tasks[{index}]"
-                task = _exact(raw_task, {"mode", "args", "kwargs", "failure"}, context)
+                task_fields = {"mode", "args", "kwargs", "failure"}
+                if isinstance(raw_task, dict) and "callable" in raw_task:
+                    task_fields.add("callable")
+                task = _exact(raw_task, task_fields, context)
                 if task["mode"] not in {"sync", "async"}:
                     raise ContractError(f"{context}.mode must be sync or async")
                 if not isinstance(task["args"], list) or any(
@@ -2806,6 +2811,57 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         raise ContractError(f"{context}.failure.kind must be Exception")
                     _string(failure["message"], f"{context}.failure.message")
                     failures.append(index)
+                if "callable" in task:
+                    callable_input = task["callable"]
+                    if not isinstance(callable_input, dict):
+                        raise ContractError(f"{context}.callable must be an object")
+                    callable_kind = _string(callable_input.get("kind"), f"{context}.callable.kind")
+                    if callable_kind in {"function", "bound-method", "callable-object"}:
+                        _exact(callable_input, {"kind"}, f"{context}.callable")
+                    elif callable_kind in {"partial", "nested-partial"}:
+                        callable_input = _exact(
+                            callable_input,
+                            {"kind", "target", "bindings"},
+                            f"{context}.callable",
+                        )
+                        if callable_input["target"] not in {"function", "callable-object"}:
+                            raise ContractError(
+                                f"{context}.callable.target must be function or callable-object"
+                            )
+                        bindings = callable_input["bindings"]
+                        if (
+                            not isinstance(bindings, list)
+                            or (callable_kind == "partial" and len(bindings) != 1)
+                            or (callable_kind == "nested-partial" and len(bindings) < 2)
+                        ):
+                            raise ContractError(
+                                f"{context}.callable.bindings does not match its partial kind"
+                            )
+                        for binding_index, raw_binding in enumerate(bindings):
+                            binding_context = f"{context}.callable.bindings[{binding_index}]"
+                            binding = _exact(
+                                raw_binding,
+                                {"args", "kwargs"},
+                                binding_context,
+                            )
+                            if not isinstance(binding["args"], list) or any(
+                                type(value) not in {str, int} for value in binding["args"]
+                            ):
+                                raise ContractError(
+                                    f"{binding_context}.args must contain only strings or integers"
+                                )
+                            if not isinstance(binding["kwargs"], dict) or any(
+                                not isinstance(key, str) or type(value) not in {str, int}
+                                for key, value in binding["kwargs"].items()
+                            ):
+                                raise ContractError(
+                                    f"{binding_context}.kwargs must map strings to strings or integers"
+                                )
+                    else:
+                        raise ContractError(
+                            f"{context}.callable.kind selects an unsupported callable form"
+                        )
+                    has_callable_shape |= callable_kind != "function"
 
             if kind == "single-task":
                 derived = [
@@ -2833,6 +2889,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     RESPONSE_BACKGROUND_REQUIREMENTS["task_add"],
                     RESPONSE_BACKGROUND_REQUIREMENTS["task_order"],
                 ]
+            if has_callable_shape:
+                derived.append(RESPONSE_BACKGROUND_REQUIREMENTS["callable_shapes"])
             if case["covers"] != derived:
                 raise ContractError(
                     "Response background coverage must match its task inputs: "

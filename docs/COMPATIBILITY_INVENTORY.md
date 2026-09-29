@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 395 input-only cases across 44 files,
-covering 61 operations and 454 parity requirements. The authored cases span
+The active parity manifest indexes 402 input-only cases across 44 files,
+covering 61 operations and 455 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 StaticFiles, WebSockets, exceptions, status constants, endpoints,
@@ -27,17 +27,18 @@ BaseHTTPMiddleware workflows), configuration,
 schemas, and one bounded Python-package Jinja2 template workflow. The exact operation and profile denominator is in the parity
 manifest; generated JSON and run results remain ignored local build outputs.
 
-Integrated run `feabfe49-8275-4a74-b2c3-18eeabbb8635` started at
-`2026-09-29T22:58:18.511Z` and finished at `2026-09-29T22:59:39.022Z`. It
-selected 543 profile comparisons: 539 passed, zero failed, zero infrastructure
+Integrated run `d2513cff-c6bc-4b66-b3c4-586474a9a105` started at
+`2026-09-29T23:14:30.493Z` and finished at `2026-09-29T23:15:53.740Z`. It
+selected 550 profile comparisons: 546 passed, zero failed, zero infrastructure
 errors, and four Rust-native comparisons were `not_run`. The Python package
-passed all 393 selected comparisons; Rust-native passed 146 of 150, with four
+passed all 400 selected comparisons; Rust-native passed 146 of 150, with four
 Request-dispatch rows requiring Python callables marked `not_run`. The Router
 live-mutation sequence passed all three observations: route-cache warmup,
-adding `POST` to an existing route, and appending a new route. Five
+adding `POST` to an existing route, and appending a new route. Twelve
 input-defined BackgroundTask/BackgroundTasks cases pass on the Python package;
-they cover async and sync callbacks, worker-thread execution, sequential order,
-both task-list construction paths, and fail-fast exception propagation. The run
+they cover async and sync functions, bound methods, callable objects, partials,
+nested partials, worker-thread execution, sequential order, both task-list
+construction paths, and fail-fast exception propagation. The run
 includes the 20 URL scope, 14 URL component, seven Headers/MutableHeaders, and
 one Jinja2 template case; all passed on the Python package. The template case
 matches escaped HTML, processor merge, `url_for`, response metadata, and the
@@ -278,18 +279,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 792 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 792 |
-| Existing input mappings in the atlas matrix | 163 |
+| Existing input mappings in the atlas matrix | 164 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 579 |
+| New input-only fixture backlog | 578 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 163 `existing` mappings point to authored YAML input
+crosswalk snapshot, 164 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 44 indexed files
-and 395 cases, including five Response background-task workflows and a Router
+and 402 cases, including twelve Response background-task workflows and a Router
 sequence that verifies live route-method and route-list mutations across
 dispatches, twenty URL scope-construction cases,
 twenty-one BaseHTTPMiddleware cases, one Jinja2 template case, and 28 FileResponse
@@ -408,7 +409,7 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 395 currently indexed cases and
+The backlog distinguishes that work from the 402 currently indexed cases and
 the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
 
 ## Generate the source candidate catalog
