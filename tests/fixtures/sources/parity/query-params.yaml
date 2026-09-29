@@ -1,0 +1,140 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.unicode-query-string",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
+        "starlette.datastructures.QueryParams.query-string-and-repr",
+        "starlette.datastructures.QueryParams.equality-order-insensitive"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {
+        "kind": "string",
+        "value": "tag=first&empty=&tag=last+value&space=caf%C3%A9&raw=café&flag"
+      },
+      "probe_keys": ["tag", "empty", "space", "raw", "flag", "A", "c", "missing"],
+      "comparison": {
+        "kind": "pairs",
+        "items": [
+          ["raw", "café"],
+          ["flag", ""],
+          ["space", "café"],
+          ["tag", "first"],
+          ["empty", ""],
+          ["tag", "last value"]
+        ],
+        "kwargs": []
+      },
+      "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.latin1-bytes",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-bytes-and-latin1-decoding",
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
+        "starlette.datastructures.QueryParams.query-string-and-repr"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {
+        "kind": "bytes",
+        "value_base64": "bmFtZT1jYWbpJnRhZz1vbmUmdGFnPXR3byt3b3JkcyZibGFuayZlbXB0eT0="
+      },
+      "probe_keys": ["name", "tag", "blank", "empty", "missing"],
+      "comparison": {
+        "kind": "pairs",
+        "items": [
+          ["name", "café"],
+          ["tag", "one"],
+          ["tag", "two words"],
+          ["blank", ""],
+          ["empty", ""]
+        ],
+        "kwargs": []
+      },
+      "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.pairs-and-keywords",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
+        "starlette.datastructures.QueryParams.query-string-and-repr",
+        "starlette.datastructures.QueryParams.equality-order-insensitive"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [["tag", "first"], ["tag", "snow 雪"], ["empty", ""], [2, null]],
+        "kwargs": [["tag", "last"], ["extra", 3]]
+      },
+      "probe_keys": ["tag", "empty", "2", "extra", "missing"],
+      "comparison": {
+        "kind": "pairs",
+        "items": [["extra", 3], [2, null], ["empty", ""], ["tag", "last"], ["tag", "first"], ["tag", "snow 雪"]],
+        "kwargs": []
+      },
+      "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.mapping-order-and-equality",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
+        "starlette.datastructures.QueryParams.equality-order-insensitive"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "mapping", "items": [["b", "2"], ["a", "1"]]},
+      "probe_keys": ["a", "b", "missing"],
+      "comparison": {"kind": "mapping", "items": [["a", "1"], ["b", "2"]]},
+      "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.copy-existing",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
+        "starlette.datastructures.QueryParams.query-string-and-repr",
+        "starlette.datastructures.QueryParams.equality-order-insensitive"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "copy", "items": [["a", "123"], ["a", "456"]]},
+      "probe_keys": ["a", "missing"],
+      "comparison": {"kind": "string", "value": "a=123&a=456"},
+      "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.empty-input",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
+        "starlette.datastructures.QueryParams.query-string-and-repr",
+        "starlette.datastructures.QueryParams.equality-order-insensitive"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "empty"},
+      "probe_keys": ["missing"],
+      "comparison": {"kind": "mapping", "items": []},
+      "observations": ["snapshot"]
+    }
+  ]
+}

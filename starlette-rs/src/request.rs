@@ -67,7 +67,7 @@ impl RequestHeaders {
 /// Repeated keys remain in [`multi_items`](Self::multi_items) and
 /// [`get_list`](Self::get_list); scalar lookup returns the last value, as
 /// Starlette's `QueryParams` does.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default)]
 pub struct QueryParams {
     items: Vec<(String, String)>,
 }
@@ -77,6 +77,24 @@ impl QueryParams {
     /// `parse_qsl(..., keep_blank_values=True)` behavior.
     #[must_use]
     pub fn parse(raw_query: &[u8]) -> Self {
+        Self::parse_fields(raw_query, true)
+    }
+
+    /// Parses a Unicode query string using Starlette's `parse_qsl` behavior.
+    #[must_use]
+    pub fn parse_str(query: &str) -> Self {
+        Self::parse_fields(query.as_bytes(), false)
+    }
+
+    /// Creates query parameters from ordered key/value pairs.
+    #[must_use]
+    pub fn from_pairs(items: impl IntoIterator<Item = (String, String)>) -> Self {
+        Self {
+            items: items.into_iter().collect(),
+        }
+    }
+
+    fn parse_fields(raw_query: &[u8], decode_raw_as_latin1: bool) -> Self {
         let mut items = Vec::new();
         for field in raw_query.split(|byte| *byte == b'&') {
             // `parse_qsl` ignores empty fields but retains a non-empty key with
@@ -90,7 +108,10 @@ impl QueryParams {
                 Some(index) => (&field[..index], &field[index + 1..]),
                 None => (field, &[][..]),
             };
-            items.push((decode_query_component(key), decode_query_component(value)));
+            items.push((
+                decode_query_component(key, decode_raw_as_latin1),
+                decode_query_component(value, decode_raw_as_latin1),
+            ));
         }
         Self { items }
     }
@@ -121,6 +142,55 @@ impl QueryParams {
         &self.items
     }
 
+    /// Returns distinct keys in their first-occurrence order.
+    #[must_use]
+    pub fn keys(&self) -> Vec<&str> {
+        self.items
+            .iter()
+            .enumerate()
+            .filter(|(index, (key, _))| {
+                !self.items[..*index]
+                    .iter()
+                    .any(|(prior_key, _)| prior_key == key)
+            })
+            .map(|(_, (key, _))| key.as_str())
+            .collect()
+    }
+
+    /// Returns the last value for each key in first-occurrence key order.
+    #[must_use]
+    pub fn values(&self) -> Vec<&str> {
+        self.keys()
+            .into_iter()
+            .filter_map(|key| self.get(key))
+            .collect()
+    }
+
+    /// Returns one last-value pair per key in first-occurrence key order.
+    #[must_use]
+    pub fn items(&self) -> Vec<(&str, &str)> {
+        self.keys()
+            .into_iter()
+            .filter_map(|key| self.get(key).map(|value| (key, value)))
+            .collect()
+    }
+
+    /// Serializes every pair using `urllib.parse.urlencode` form encoding.
+    #[must_use]
+    pub fn query_string(&self) -> String {
+        self.items
+            .iter()
+            .map(|(key, value)| {
+                format!(
+                    "{}={}",
+                    encode_query_component(key),
+                    encode_query_component(value)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("&")
+    }
+
     /// Returns the number of distinct keys.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -142,7 +212,19 @@ impl QueryParams {
     }
 }
 
-fn decode_query_component(component: &[u8]) -> String {
+impl PartialEq for QueryParams {
+    fn eq(&self, other: &Self) -> bool {
+        let mut left = self.items.clone();
+        let mut right = other.items.clone();
+        left.sort_unstable();
+        right.sort_unstable();
+        left == right
+    }
+}
+
+impl Eq for QueryParams {}
+
+fn decode_query_component(component: &[u8], decode_raw_as_latin1: bool) -> String {
     // Starlette first decodes the raw query as Latin-1, then urllib's
     // unquote_plus encodes those Unicode characters as UTF-8 before replacing
     // percent escapes and decoding the result as UTF-8 with replacement.
@@ -171,14 +253,33 @@ fn decode_query_component(component: &[u8]) -> String {
                 index += 1;
             }
             byte => {
-                let mut utf8 = [0; 2];
-                let character = char::from(byte);
-                encoded.extend_from_slice(character.encode_utf8(&mut utf8).as_bytes());
+                if decode_raw_as_latin1 && !byte.is_ascii() {
+                    let mut utf8 = [0; 2];
+                    let character = char::from(byte);
+                    encoded.extend_from_slice(character.encode_utf8(&mut utf8).as_bytes());
+                } else {
+                    encoded.push(byte);
+                }
                 index += 1;
             }
         }
     }
     String::from_utf8_lossy(&encoded).into_owned()
+}
+
+fn encode_query_component(component: &str) -> String {
+    let mut encoded = String::with_capacity(component.len());
+    for byte in component.as_bytes() {
+        if byte.is_ascii_alphanumeric() || b"_.-~".contains(byte) {
+            encoded.push(char::from(*byte));
+        } else if *byte == b' ' {
+            encoded.push('+');
+        } else {
+            use fmt::Write as _;
+            let _ = write!(encoded, "%{byte:02X}");
+        }
+    }
+    encoded
 }
 
 fn hex_value(byte: u8) -> Option<u8> {

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, Literal, NamedTuple
 from urllib.parse import SplitResult
 
 from starlette_rs_py import _core
+
+
+class QueryParams(_core.QueryParams, Mapping[str, str]):
+    """Immutable query parameters with Rust-owned parsing and lookup behavior."""
 
 
 class Address(NamedTuple):

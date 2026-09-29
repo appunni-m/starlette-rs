@@ -320,6 +320,16 @@
       ]
     },
     {
+      "surface_id": "starlette.datastructures.QueryParams",
+      "source_path": "starlette/datastructures.py:378",
+      "operations": [
+        {
+          "operation_id": "construction-and-mapping-sequence",
+          "source_path": "starlette.datastructures.QueryParams.__init__, QueryParams.__getitem__, QueryParams.__eq__, QueryParams.__str__, and QueryParams.__repr__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.datastructures.URL",
       "source_path": "starlette/datastructures.py:28",
       "operations": [

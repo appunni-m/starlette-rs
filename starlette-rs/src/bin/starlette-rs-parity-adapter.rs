@@ -38,6 +38,8 @@ const JSON_RESPONSE_SURFACE: &str = "starlette.responses.JSONResponse";
 const STREAMING_RESPONSE_SURFACE: &str = "starlette.responses.StreamingResponse";
 const FILE_RESPONSE_SURFACE: &str = "starlette.responses.FileResponse";
 const RESPONSE_OPERATION: &str = "asgi-call";
+const QUERY_PARAMS_SURFACE: &str = "starlette.datastructures.QueryParams";
+const QUERY_PARAMS_OPERATION: &str = "construction-and-mapping-sequence";
 const WEBSOCKET_SURFACE: &str = "starlette.websockets.WebSocket";
 const WEBSOCKET_OPERATION: &str = "protocol-sequence";
 const WEBSOCKET_STATE_OPERATION: &str = "state-sequence";
@@ -334,11 +336,178 @@ fn run_case(case: &Value) -> Result<Value, String> {
         (Some("starlette.routing.Mount"), Some("route-dispatch")) => {
             return run_mount_case(case);
         }
+        (Some(QUERY_PARAMS_SURFACE), Some(QUERY_PARAMS_OPERATION)) => {
+            return run_query_params_case(case);
+        }
         (Some("starlette.applications.Starlette"), Some("__call__")) => {}
         _ => return Err(String::from("workflow surface or operation is unsupported")),
     }
 
     run_application_case(case)
+}
+
+fn run_query_params_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "source",
+            "probe_keys",
+            "comparison",
+            "observations",
+        ],
+        "QueryParams construction case",
+    )?;
+    if string_field(case, "surface", "QueryParams case")? != QUERY_PARAMS_SURFACE
+        || string_field(case, "operation", "QueryParams case")? != QUERY_PARAMS_OPERATION
+    {
+        return Err(String::from(
+            "QueryParams surface or operation is unsupported",
+        ));
+    }
+
+    let params = query_params_from_input(
+        case.get("source")
+            .ok_or_else(|| String::from("QueryParams case has no source"))?,
+    )?;
+    let comparison = match case.get("comparison") {
+        Some(Value::Null) => None,
+        Some(value) => Some(query_params_from_input(value)?),
+        None => return Err(String::from("QueryParams case has no comparison input")),
+    };
+    let probe_keys = case
+        .get("probe_keys")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("QueryParams probe_keys must be an array"))?;
+    let mut lookups = Vec::with_capacity(probe_keys.len());
+    for (index, key) in probe_keys.iter().enumerate() {
+        let key = key
+            .as_str()
+            .ok_or_else(|| format!("QueryParams probe_keys[{index}] must be a string"))?;
+        let scalar = params.get(key);
+        lookups.push(json!({
+            "key": key,
+            "contains": scalar.is_some(),
+            "get": scalar,
+            "get_with_default": scalar.unwrap_or("__starlette_rs_default__"),
+            "getlist": params.get_list(key),
+            "getitem": scalar,
+        }));
+    }
+    let mut dict = Map::new();
+    for (key, value) in params.items() {
+        dict.insert(key.to_owned(), Value::String(value.to_owned()));
+    }
+    let query_string = params.query_string();
+    let snapshot = json!({
+        "str": query_string,
+        "repr": format!("QueryParams('{query_string}')"),
+        "len": params.len(),
+        "is_empty": params.is_empty(),
+        "keys": params.keys(),
+        "values": params.values(),
+        "items": params.items(),
+        "multi_items": params.multi_items(),
+        "dict": dict,
+        "lookups": lookups,
+        "equals_comparison": comparison.map(|value| params == value),
+    });
+    Ok(json!({
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "snapshot", "status": "ok", "value": {"snapshot": snapshot}}],
+    }))
+}
+
+fn query_params_from_input(source: &Value) -> Result<QueryParams, String> {
+    let object = source
+        .as_object()
+        .ok_or_else(|| String::from("QueryParams source must be an object"))?;
+    match object.get("kind").and_then(Value::as_str) {
+        Some("string") => {
+            let object = exact_object(source, &["kind", "value"], "QueryParams string source")?;
+            Ok(QueryParams::parse_str(string_field(
+                object,
+                "value",
+                "QueryParams string source",
+            )?))
+        }
+        Some("bytes") => {
+            let object = exact_object(
+                source,
+                &["kind", "value_base64"],
+                "QueryParams bytes source",
+            )?;
+            let bytes = decode_base64(
+                string_field(object, "value_base64", "QueryParams bytes source")?,
+                "QueryParams bytes source.value_base64",
+            )?;
+            Ok(QueryParams::parse(&bytes))
+        }
+        Some("empty") => {
+            let _ = exact_object(source, &["kind"], "QueryParams empty source")?;
+            Ok(QueryParams::default())
+        }
+        Some(kind @ ("pairs" | "mapping" | "copy")) => {
+            let expected = if kind == "pairs" {
+                &["kind", "items", "kwargs"][..]
+            } else {
+                &["kind", "items"][..]
+            };
+            let object = exact_object(source, expected, "QueryParams pair source")?;
+            let mut items = query_params_pairs(
+                object
+                    .get("items")
+                    .ok_or_else(|| String::from("QueryParams source has no items"))?,
+                "QueryParams source.items",
+            )?;
+            if kind == "pairs" {
+                let kwargs = query_params_pairs(
+                    object
+                        .get("kwargs")
+                        .ok_or_else(|| String::from("QueryParams source has no kwargs"))?,
+                    "QueryParams source.kwargs",
+                )?;
+                items.extend(kwargs);
+            }
+            Ok(QueryParams::from_pairs(items))
+        }
+        _ => Err(String::from("QueryParams source kind is unsupported")),
+    }
+}
+
+fn query_params_pairs(value: &Value, context: &str) -> Result<Vec<(String, String)>, String> {
+    value
+        .as_array()
+        .ok_or_else(|| format!("{context} must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, pair)| {
+            let pair = pair
+                .as_array()
+                .filter(|pair| pair.len() == 2)
+                .ok_or_else(|| format!("{context}[{index}] must be a two-item array"))?;
+            Ok((
+                query_params_value_string(&pair[0], &format!("{context}[{index}][0]"))?,
+                query_params_value_string(&pair[1], &format!("{context}[{index}][1]"))?,
+            ))
+        })
+        .collect()
+}
+
+fn query_params_value_string(value: &Value, context: &str) -> Result<String, String> {
+    match value {
+        Value::Null => Ok(String::from("None")),
+        Value::Bool(value) => Ok(if *value { "True" } else { "False" }.to_owned()),
+        Value::Number(value) => Ok(value.to_string()),
+        Value::String(value) => Ok(value.clone()),
+        _ => Err(format!("{context} must be a JSON scalar")),
+    }
 }
 
 fn run_router_case(case: &Value) -> Result<Value, String> {

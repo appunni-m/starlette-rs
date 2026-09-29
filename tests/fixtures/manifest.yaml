@@ -264,6 +264,7 @@
       "build/parity/inputs/parity/config-runtime.json",
       "build/parity/inputs/parity/schemas-runtime.json",
       "build/parity/inputs/parity/url-query-operations.json",
+      "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/lifespan-generators.json"
     ],
@@ -9134,6 +9135,189 @@
           "parity": {
             "applicability": "required",
             "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.datastructures.QueryParams",
+      "kind": "type",
+      "source_path": "starlette/datastructures.py:378",
+      "storage_slug": "starlette-datastructures-QueryParams",
+      "operations": [
+        {
+          "id": "construction-and-mapping-sequence",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.QueryParams.__init__, QueryParams.__getitem__, QueryParams.__eq__, QueryParams.__str__, and QueryParams.__repr__",
+            "signature": "QueryParams(*args, **kwargs); lookup and immutable multi-dict operations",
+            "parameters": [
+              {
+                "id": "source",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "probe_keys",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "comparison",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "snapshot",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::QueryParams",
+              "signature": "QueryParams::parse, parse_str, and from_pairs with lookup and multi-dict observations",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.QueryParams",
+              "signature": "QueryParams(*args, **kwargs) with immutable mapping and query-string operations",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
+              "dimension": "input_family",
+              "description": "Parse Unicode query strings, plus encoding, percent escapes, blank fields, and repeated keys using the public constructor. Upstream: starlette/datastructures.py:383-388.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.QueryParams.constructor-bytes-and-latin1-decoding",
+              "dimension": "input_family",
+              "description": "Decode bytes through the Latin-1 query constructor path before percent decoding and UTF-8 replacement. Upstream: starlette/datastructures.py:389-390.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
+              "dimension": "protocol_variant",
+              "description": "Construct from mappings, ordered pair sequences, another QueryParams, empty input, and keyword pairs while stringifying keys and values. Upstream: starlette/datastructures.py:263-292, 378-399.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
+              "dimension": "protocol_variant",
+              "description": "Preserve first-seen key order, last-value scalar lookup, duplicate lists, mapping views, membership, iteration, length, and dict conversion. Upstream: starlette/datastructures.py:293-319, 393-399.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.QueryParams.query-string-and-repr",
+              "dimension": "format",
+              "description": "Format every ordered pair with application/x-www-form-urlencoded escaping and preserve the QueryParams repr shape. Upstream: starlette/datastructures.py:401-407.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.QueryParams.equality-order-insensitive",
+              "dimension": "parameter_combination",
+              "description": "Compare complete duplicate-preserving key/value multisets independent of pair order. Upstream: starlette/datastructures.py:316-319.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
               "python-package-cpython312"
             ]
           },

@@ -7,7 +7,7 @@ from typing import Any
 
 from starlette_rs_py import _core
 
-from starlette.datastructures import URL, Address
+from starlette.datastructures import URL, Address, QueryParams
 
 
 class ClientDisconnect(Exception):
@@ -112,7 +112,7 @@ class HTTPConnection(Mapping[str, Any]):
         return self._inner.headers
 
     @property
-    def query_params(self) -> Any:
+    def query_params(self) -> QueryParams:
         return self._inner.query_params
 
     @property

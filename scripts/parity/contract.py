@@ -93,7 +93,17 @@ SCHEMA_OPERATIONS = {
     ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
 }
 URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
-RUST_OWNED_PYTHON_OPERATIONS = CONFIG_OPERATIONS | SCHEMA_OPERATIONS | {URL_QUERY_OPERATION}
+QUERY_PARAMS_OPERATION = (
+    "starlette.datastructures.QueryParams",
+    "construction-and-mapping-sequence",
+)
+RUST_OWNED_PYTHON_OPERATIONS = (
+    CONFIG_OPERATIONS
+    | SCHEMA_OPERATIONS
+    | {
+        URL_QUERY_OPERATION,
+    }
+)
 WEBSOCKET_PROJECTED_ERROR_OPERATIONS = {
     (WEBSOCKET_SURFACE, WEBSOCKET_OPERATION),
     (WEBSOCKET_SURFACE, WEBSOCKET_STATE_OPERATION),
@@ -912,6 +922,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key in REVERSE_URL_OPERATIONS
                 or key in VALUE_FORMATTING_OPERATIONS
                 or key in RUST_OWNED_PYTHON_OPERATIONS
+                or key == QUERY_PARAMS_OPERATION
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
@@ -3546,6 +3557,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) in RUST_OWNED_PYTHON_OPERATIONS
     )
+    is_query_params = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == QUERY_PARAMS_OPERATION
+    )
     is_default_receive = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_DEFAULT_RECEIVE_OPERATION
@@ -3612,6 +3627,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             URL_QUERY_OPERATION: {"url", "actions"},
         }[(case["surface"], case["operation"])]
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
+    elif is_query_params:
+        expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+            "source",
+            "probe_keys",
+            "comparison",
+        }
     elif is_default_receive:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
     elif is_send_push_promise:
@@ -3686,6 +3707,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_rust_owned_python:
         if (case["surface"], case["operation"]) not in RUST_OWNED_PYTHON_OPERATIONS:
             raise ContractError("configuration and schema cases must use declared operations")
+    elif is_query_params:
+        if (case["surface"], case["operation"]) != QUERY_PARAMS_OPERATION:
+            raise ContractError("QueryParams cases must use the declared constructor operation")
     elif is_default_receive:
         if case["observations"] != ["receive"]:
             raise ContractError("default receive cases must select the receive observation")
@@ -3775,8 +3799,13 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             _validate_config_case(case)
         elif (case["surface"], case["operation"]) in SCHEMA_OPERATIONS:
             _validate_schema_case(case)
+        elif (case["surface"], case["operation"]) == URL_QUERY_OPERATION:
+            _validate_url_query_case(case)
         else:
             _validate_url_query_case(case)
+        return case
+    if is_query_params:
+        _validate_query_params_case(case)
         return case
 
     if is_body_limit:
@@ -5626,6 +5655,83 @@ def _validate_url_query_case(case: dict[str, Any]) -> None:
     }
     if methods != expected_methods or set(case["covers"]) != expected_covers:
         raise ContractError("URL query actions and coverage must include all declared methods")
+
+
+def _validate_query_params_source(value: Any, context: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or not isinstance(value.get("kind"), str):
+        raise ContractError(f"{context} must select a QueryParams constructor input")
+    kind = value["kind"]
+    if kind == "string":
+        source = _exact(value, {"kind", "value"}, context)
+        if not isinstance(source["value"], str):
+            raise ContractError(f"{context}.value must be a string")
+        return source
+    if kind == "bytes":
+        source = _exact(value, {"kind", "value_base64"}, context)
+        if not isinstance(source["value_base64"], str):
+            raise ContractError(f"{context}.value_base64 must be a string")
+        try:
+            base64.b64decode(source["value_base64"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(f"{context}.value_base64 is invalid base64") from exc
+        return source
+    if kind == "empty":
+        return _exact(value, {"kind"}, context)
+    if kind in {"pairs", "mapping", "copy"}:
+        source = _exact(
+            value,
+            {"kind", "items", "kwargs"} if kind == "pairs" else {"kind", "items"},
+            context,
+        )
+        items = source["items"]
+        if not isinstance(items, list):
+            raise ContractError(f"{context}.items must be an array")
+        seen: set[str] = set()
+        for index, pair in enumerate(items):
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError(f"{context}.items[{index}] must be a two-item array")
+            key, item = pair
+            if kind == "mapping":
+                if not isinstance(key, str):
+                    raise ContractError(f"{context}.items[{index}][0] must be a string")
+                if key in seen:
+                    raise ContractError(f"{context}.items has duplicate mapping key {key!r}")
+                seen.add(key)
+            if not isinstance(key, (str, int, float, bool)) and key is not None:
+                raise ContractError(f"{context}.items[{index}][0] must be a scalar")
+            if not isinstance(item, (str, int, float, bool)) and item is not None:
+                raise ContractError(f"{context}.items[{index}][1] must be a scalar")
+        if kind == "pairs":
+            kwargs = source["kwargs"]
+            if not isinstance(kwargs, list):
+                raise ContractError(f"{context}.kwargs must be an array")
+            kwarg_names: set[str] = set()
+            for index, pair in enumerate(kwargs):
+                if not isinstance(pair, list) or len(pair) != 2:
+                    raise ContractError(f"{context}.kwargs[{index}] must be a two-item array")
+                key, item = pair
+                if not isinstance(key, str):
+                    raise ContractError(f"{context}.kwargs[{index}][0] must be a string")
+                if key in kwarg_names:
+                    raise ContractError(f"{context}.kwargs has duplicate key {key!r}")
+                kwarg_names.add(key)
+                if not isinstance(item, (str, int, float, bool)) and item is not None:
+                    raise ContractError(f"{context}.kwargs[{index}][1] must be a scalar")
+        return source
+    raise ContractError(f"{context}.kind is outside the declared QueryParams constructors")
+
+
+def _validate_query_params_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]:
+        raise ContractError("QueryParams parity requires both declared targets")
+    if case["assets"] != [] or case["observations"] != ["snapshot"]:
+        raise ContractError("QueryParams cases use no assets and select the snapshot")
+    _validate_query_params_source(case["source"], "QueryParams source")
+    if case["comparison"] is not None:
+        _validate_query_params_source(case["comparison"], "QueryParams comparison")
+    probe_keys = case["probe_keys"]
+    if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
+        raise ContractError("QueryParams probe_keys must contain strings")
 
 
 def _validate_value_formatting_case(case: dict[str, Any]) -> None:

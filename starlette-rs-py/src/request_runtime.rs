@@ -173,7 +173,9 @@ impl PyHTTPConnection {
             return Ok(params.clone_ref(py));
         }
         let raw_query = self.scope.bind(py).get_item("query_string")?;
-        let query_type = py.import("starlette_rs_py._core")?.getattr("QueryParams")?;
+        let query_type = py
+            .import("starlette.datastructures")?
+            .getattr("QueryParams")?;
         let params = query_type.call1((raw_query,))?.unbind();
         self.query_params = Some(params.clone_ref(py));
         Ok(params)

@@ -3960,6 +3960,78 @@ def _run_url_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _query_params_from_input(query_params_type: Any, source: dict[str, Any]) -> Any:
+    kind = source["kind"]
+    if kind == "string":
+        return query_params_type(source["value"])
+    if kind == "bytes":
+        return query_params_type(base64.b64decode(source["value_base64"], validate=True))
+    if kind == "empty":
+        return query_params_type()
+    if kind == "pairs":
+        return query_params_type(source["items"], **dict(source["kwargs"]))
+    if kind == "mapping":
+        return query_params_type(dict(source["items"]))
+    original = query_params_type(source["items"])
+    return query_params_type(original)
+
+
+def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "source",
+            "probe_keys",
+            "comparison",
+            "observations",
+        },
+        "QueryParams construction case",
+    )
+    from starlette.datastructures import QueryParams
+
+    params = _query_params_from_input(QueryParams, case["source"])
+    comparison = (
+        None
+        if case["comparison"] is None
+        else _query_params_from_input(QueryParams, case["comparison"])
+    )
+    lookups = [
+        {
+            "key": key,
+            "contains": key in params,
+            "get": params.get(key),
+            "get_with_default": params.get(key, "__starlette_rs_default__"),
+            "getlist": params.getlist(key),
+            "getitem": params[key] if key in params else None,
+        }
+        for key in case["probe_keys"]
+    ]
+    snapshot = {
+        "str": str(params),
+        "repr": repr(params),
+        "len": len(params),
+        "is_empty": not params,
+        "keys": list(params.keys()),
+        "values": list(params.values()),
+        "items": list(params.items()),
+        "multi_items": params.multi_items(),
+        "dict": dict(params),
+        "lookups": lookups,
+        "equals_comparison": None if comparison is None else params == comparison,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "snapshot", "status": "ok", "value": {"snapshot": snapshot}}],
+    }
+
+
 def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.config import Config, Environ
 
@@ -4189,6 +4261,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) == URL_QUERY_OPERATION
     ):
         return _run_url_query_params_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.datastructures.QueryParams",
+        "construction-and-mapping-sequence",
+    ):
+        return _run_query_params_case(case)
     if (
         isinstance(case, dict)
         and case.get("operation") == VALUE_FORMATTING_OPERATION

@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 230 input-only cases in 31 indexed files, covering 46 operations and 279 parity requirements. The cases cover bounded Starlette application, routing, request, response, WebSocket, exception, status, endpoint, authentication, middleware, configuration, and schema behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 236 input-only cases in 32 indexed files, covering 47 operations and 285 parity requirements. The cases cover bounded Starlette application, routing, request and query parameters, response, WebSocket, exception, status, endpoint, authentication, middleware, configuration, and schema behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -132,19 +132,19 @@ docstring YAML parsing and parser errors, and OpenAPI response rendering. Their
 Python `starlette.*` modules forward to Rust; the adapters run the same
 input-only cases against pinned Starlette 1.6.0.
 
-The latest integrated run `5e66f6db-0c16-48f7-a9dd-1e0fcb42882f` finished at
-`2026-09-29T02:12:15.556Z`. It selected 307 profile comparisons: 303 passed,
+The latest integrated run `95dc7ad2-020a-48db-a5bd-69ebc4751a5c` finished at
+`2026-09-29T03:03:32.095Z`. It selected 319 profile comparisons: 315 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 230 cases; Rust-native passed 73 of 77 selected
+package passed all 236 cases; Rust-native passed 79 of 83 selected
 comparisons. The four remaining Rust-native rows require arbitrary Python
 endpoint callables. `make parity-run` exits with status 2 because those rows
 are explicitly unsupported by the Rust-native target. This run includes the
 Unicode and regex-special route-template case, URL query operations, the new
-Response override/memoryview cases, three push-promise cases, and two
-disconnect cases. The manifest SHA-256 is
-`8e55fb64a037dcb7e55b2e2940742f1bfa13627777b2f19401252662f50c2bd1`; the
+QueryParams constructors and lookup cases, Response override/memoryview cases,
+three push-promise cases, and two disconnect cases. The manifest SHA-256 is
+`54825068abcb75b47639ac78a9fef896c926989e61693bba5d80193a6b92e363`; the
 installed wheel SHA-256 is
-`4b31d687ed0d72016afaf9775ee3705aaa3236246f297c837d1eadcbb52f1bdc`. The
+`39d14953294c92512a7d897364db72292f83e5bd810e431a7be0f21ce285f69b`. The
 Python package tree was dirty during this local run; this is not release proof.
 
 The package policy check confirms there is no upstream Starlette runtime

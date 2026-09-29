@@ -60,11 +60,11 @@ workloads; its evidence is summarized in
 files under `build/parity/`. These bounded results do not establish full
 compatibility.
 
-The current contract has 230 input-only cases across 31 files, covering 46
-operations and 279 requirements. The latest integrated run
-`5e66f6db-0c16-48f7-a9dd-1e0fcb42882f` selected 307 comparisons: 303 passed,
+The current contract has 236 input-only cases across 32 files, covering 47
+operations and 285 requirements. The latest integrated run
+`95dc7ad2-020a-48db-a5bd-69ebc4751a5c` selected 319 comparisons: 315 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 230 cases; Rust-native passed 73 of 77 selected cases. The
+package passed all 236 cases; Rust-native passed 79 of 83 selected cases. The
 four Rust-native rows require arbitrary Python callables. The Python package
 tree was dirty, so this is not release proof. See
 [Migration parity contract and evidence](../PARITY.md) for current scope and

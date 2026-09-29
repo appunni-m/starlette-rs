@@ -29,7 +29,7 @@ mod server_error_runtime;
 mod status_runtime;
 mod websocket_calls;
 
-use pyo3::exceptions::PyKeyError;
+use pyo3::exceptions::{PyAssertionError, PyKeyError};
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
@@ -370,7 +370,7 @@ impl PyRequestHeaders {
     }
 }
 
-#[pyclass(name = "QueryParams")]
+#[pyclass(name = "QueryParams", subclass)]
 struct PyQueryParams {
     inner: NativeQueryParams,
 }
@@ -378,25 +378,46 @@ struct PyQueryParams {
 #[pymethods]
 impl PyQueryParams {
     #[new]
-    fn new(raw_query: Vec<u8>) -> Self {
-        Self {
-            inner: NativeQueryParams::parse(&raw_query),
+    #[pyo3(signature = (*args, **kwargs))]
+    fn new(args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+        if args.len() > 1 {
+            return Err(PyAssertionError::new_err("Too many arguments."));
         }
+        let mut items = if args.is_empty() {
+            Vec::new()
+        } else {
+            query_params_from_python(&args.get_item(0)?)?
+        };
+        if let Some(kwargs) = kwargs {
+            items.extend(query_params_from_mapping(kwargs)?);
+        }
+        Ok(Self {
+            inner: NativeQueryParams::from_pairs(items),
+        })
     }
 
-    fn get(&self, key: &str) -> Option<String> {
-        self.inner.get(key).map(str::to_owned)
+    #[pyo3(signature = (key, default=None))]
+    fn get(&self, py: Python<'_>, key: &Bound<'_, PyAny>, default: Option<Py<PyAny>>) -> Py<PyAny> {
+        query_params_key(key)
+            .as_deref()
+            .and_then(|query_key| self.inner.get(query_key))
+            .map(|value| PyString::new(py, value).into_any().unbind())
+            .or(default)
+            .unwrap_or_else(|| py.None())
     }
 
-    fn get_list(&self, key: &str) -> Vec<String> {
+    fn get_list(&self, key: &Bound<'_, PyAny>) -> Vec<String> {
+        let Some(key) = query_params_key(key) else {
+            return Vec::new();
+        };
         self.inner
-            .get_list(key)
+            .get_list(&key)
             .into_iter()
             .map(str::to_owned)
             .collect()
     }
 
-    fn getlist(&self, key: &str) -> Vec<String> {
+    fn getlist(&self, key: &Bound<'_, PyAny>) -> Vec<String> {
         self.get_list(key)
     }
 
@@ -416,14 +437,104 @@ impl PyQueryParams {
         self.inner.len()
     }
 
-    fn __contains__(&self, key: &str) -> bool {
-        self.inner.get(key).is_some()
+    fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let keys = self.inner.keys();
+        PyList::new(py, keys)?
+            .call_method0("__iter__")
+            .map(Bound::unbind)
     }
 
-    fn __getitem__(&self, key: &str) -> PyResult<String> {
-        self.get(key)
-            .ok_or_else(|| PyKeyError::new_err(key.to_owned()))
+    fn __contains__(&self, key: &Bound<'_, PyAny>) -> bool {
+        query_params_key(key).is_some_and(|key| self.inner.get(&key).is_some())
     }
+
+    fn __getitem__(&self, key: &Bound<'_, PyAny>) -> PyResult<String> {
+        let query_key = query_params_key(key);
+        query_key
+            .as_deref()
+            .and_then(|query_key| self.inner.get(query_key))
+            .map(str::to_owned)
+            .ok_or_else(|| PyKeyError::new_err(key.clone().unbind()))
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.query_string()
+    }
+
+    fn __repr__(slf: PyRef<'_, Self>) -> PyResult<String> {
+        let py = slf.py();
+        let query = slf.inner.query_string();
+        let instance = slf.into_pyobject(py)?;
+        let class_name = instance.get_type().name()?.to_string();
+        Ok(format!("{class_name}('{query}')"))
+    }
+
+    fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
+        other
+            .extract::<PyRef<'_, PyQueryParams>>()
+            .is_ok_and(|other| self.inner == other.inner)
+    }
+}
+
+fn query_params_key(value: &Bound<'_, PyAny>) -> Option<String> {
+    value
+        .is_instance_of::<PyString>()
+        .then(|| value.extract::<String>().ok())
+        .flatten()
+}
+
+fn query_params_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
+    if !value.is_truthy()? {
+        return Ok(Vec::new());
+    }
+    if value.is_instance_of::<PyString>() {
+        return Ok(NativeQueryParams::parse_str(&value.extract::<String>()?)
+            .multi_items()
+            .to_vec());
+    }
+    if let Ok(bytes) = value.cast::<PyBytes>() {
+        return Ok(NativeQueryParams::parse(bytes.as_bytes())
+            .multi_items()
+            .to_vec());
+    }
+    if value.hasattr("multi_items")? {
+        return query_params_from_iterable(&value.call_method0("multi_items")?);
+    }
+    if value.hasattr("items")? {
+        return query_params_from_iterable(&value.call_method0("items")?);
+    }
+    query_params_from_iterable(value)
+}
+
+fn query_params_from_mapping(mapping: &Bound<'_, PyDict>) -> PyResult<Vec<(String, String)>> {
+    mapping
+        .iter()
+        .map(|(key, value)| Ok((key.str()?.extract()?, value.str()?.extract()?)))
+        .collect()
+}
+
+fn query_params_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
+    values
+        .try_iter()?
+        .map(|pair| {
+            let pair = pair?;
+            let pair_values = pair.try_iter()?.collect::<PyResult<Vec<_>>>()?;
+            if pair_values.len() != 2 {
+                let message = if pair_values.len() < 2 {
+                    format!(
+                        "not enough values to unpack (expected 2, got {})",
+                        pair_values.len()
+                    )
+                } else {
+                    "too many values to unpack (expected 2)".to_owned()
+                };
+                return Err(PyValueError::new_err(message));
+            }
+            let key = pair_values[0].str()?.extract()?;
+            let value = pair_values[1].str()?.extract()?;
+            Ok((key, value))
+        })
+        .collect()
 }
 
 #[pyclass(name = "Cookies")]
