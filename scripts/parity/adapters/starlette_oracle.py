@@ -344,7 +344,7 @@ def _load_starlette() -> tuple[Any, Path]:
     if commit != ORACLE_COMMIT:
         raise RuntimeError(f"oracle source revision mismatch: {commit}")
     dirty = subprocess.run(
-        ["git", "-C", str(root), "diff", "--quiet", "--", "starlette"],
+        ["git", "-C", str(root), "diff", "--quiet", "HEAD", "--", "starlette"],
         check=False,
         timeout=10,
     ).returncode

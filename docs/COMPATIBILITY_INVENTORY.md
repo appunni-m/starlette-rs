@@ -17,26 +17,30 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 303 input-only cases across 36 files,
-covering 54 operations and 369 parity requirements. The authored cases span
+The active parity manifest indexes 305 input-only cases across 36 files,
+covering 54 operations and 371 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware, configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `2d279ba8-6c04-4fb2-95df-5a39f13fbf24` started at
-`2026-09-29T10:28:04.426Z` and finished at `2026-09-29T10:29:15.507Z`. It
-selected 438 profile comparisons: 434 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 301 applicable
+Integrated run `1e508cab-8193-42d8-bf65-49778dfd3309` started at
+`2026-09-29T11:03:04.933Z` and finished at `2026-09-29T11:04:00.797Z`. It
+selected 440 profile comparisons: 436 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 303 applicable
 comparisons; Rust-native passed 133 of 137, with four rows requiring Python
 callables marked `not_run`. All 27 FileResponse cases passed on both profiles.
-Both targets were dirty. Manifest SHA-256:
-`6cf870bd0c7b5109be2e639a6ae1cbeca1779b86b4cbdfc68fec8dba7cf14a69`.
-Target wheel SHA-256:
-`9f3e8a04f33608e2335ce50ee77b2e7b6b5c7314cdc5e0905e703f67be62b0f3`.
-This run covers the active disconnect-cancellation, cookie-mutation, and
-FileResponse range inputs;
+The Rust-native target was clean at revision
+`f65d14b69386c5c4c71cb635bd662b4a41ad0bf6`; the installed Python package was
+content-addressed as
+`dirty-tree:7fccb6bd4c947552e1f7a967a3cc5de64c16d6ba3c6c3cf710d66d6f94092e86`.
+Manifest SHA-256:
+`e69f5c192622a6b1a49f52cd8a370e716c24e75f5d57996d2008901b0bebebc0`.
+Package wheel artifact SHA-256:
+`cc698e5d4ce56195a238bd8a9f2e13aea8e6fc9a2806bf8d88e6314a18868337`.
+This run covers the active disconnect-cancellation, cookie-mutation,
+FileResponse range, and StreamingResponse iterator inputs;
 the four unsupported Rust-native Python-callable rows keep the overall gate incomplete.
 Thirty-seven StaticFiles cases are authored across
 three inputs. Fourteen `lookup_path` cases run on both profiles and all 28
@@ -173,18 +177,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 789 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 789 |
-| Existing input mappings in the atlas matrix | 95 |
+| Existing input mappings in the atlas matrix | 97 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 647 |
+| New input-only fixture backlog | 642 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 95 `existing` mappings point to authored YAML input
+crosswalk snapshot, 97 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 36 indexed files
-and 303 cases, including 37 authored StaticFiles cases, four authentication cases,
+and 305 cases, including 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)

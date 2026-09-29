@@ -665,6 +665,11 @@ def run_parity(
     manifest_file = manifest_path or root / MANIFEST_RELATIVE
     if not manifest_file.is_absolute():
         manifest_file = root / manifest_file
+    manifest_file = manifest_file.resolve()
+    try:
+        manifest_relative = manifest_file.relative_to(root).as_posix()
+    except ValueError as exc:
+        raise ContractError("active parity manifest must be inside the repository root") from exc
     manifest, indexed_inputs, cases = _load_contract(root, manifest_file)
     commands = _command_map(manifest)
     env = _base_environment()
@@ -739,7 +744,7 @@ def run_parity(
         "started_at": started,
         "finished_at": started,
         "manifest": {
-            "path": MANIFEST_RELATIVE.as_posix(),
+            "path": manifest_relative,
             "schema": MANIFEST_SCHEMA,
             "sha256": sha256_file(manifest_file),
         },
@@ -890,7 +895,7 @@ def run_parity(
         "comparisons": comparisons,
         "infrastructure_errors": infra,
     }
-    validate_result_artifact(result)
+    validate_result_artifact(result, root=root, manifest_path=manifest_file)
     destination = output_path or root / RESULT_RELATIVE
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(

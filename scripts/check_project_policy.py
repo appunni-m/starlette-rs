@@ -11,10 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TESTS_ROOT = ROOT / "tests"
 FIXTURE_ROOT = TESTS_ROOT / "fixtures"
-RUST_SOURCE_ROOTS = (ROOT / "starlette-rs" / "src", ROOT / "starlette-rs-py" / "src")
+RUST_PACKAGE_ROOTS = (ROOT / "starlette-rs", ROOT / "starlette-rs-py")
 PYTHON_SOURCE_ROOTS = (
     ROOT / "scripts",
-    ROOT / "starlette-rs-py" / "python",
+    ROOT / "starlette-rs-py",
 )
 PYTHON_RUNTIME_ROOT = ROOT / "starlette-rs-py" / "python" / "starlette"
 PYTHON_RUNTIME_CONTROL_FLOW_NAMES = (
@@ -55,7 +55,7 @@ DEPENDENCY_NAME = re.compile(r"^\s*['\"]([^<>=!~;\s\[]+)")
 
 
 def rust_sources() -> list[Path]:
-    return sorted(path for root in RUST_SOURCE_ROOTS for path in root.rglob("*.rs"))
+    return sorted(path for root in RUST_PACKAGE_ROOTS for path in root.rglob("*.rs"))
 
 
 def python_sources() -> list[Path]:

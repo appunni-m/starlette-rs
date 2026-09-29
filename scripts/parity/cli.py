@@ -15,6 +15,7 @@ from .benchmark import run_benchmark
 from .comparator import compare_workflows
 from .contract import (
     BENCHMARK_RESULT_SCHEMA,
+    INPUT_SCHEMA,
     MANIFEST_SCHEMA,
     ORACLE_COMMIT,
     RESULT_SCHEMA,
@@ -113,6 +114,8 @@ def _parser() -> argparse.ArgumentParser:
 
     aggregate = subparsers.add_parser("aggregate", help="aggregate compatible lane artifacts")
     aggregate.add_argument("results", nargs="*", type=Path)
+    aggregate.add_argument("--root", type=Path, default=ROOT)
+    aggregate.add_argument("--manifest", type=Path, default=None)
     return parser
 
 
@@ -177,6 +180,19 @@ def _validate_schema(root: Path) -> None:
     }:
         raise ContractError(
             "result-schema.json required top-level fields differ from the fixed result contract"
+        )
+    input_schema = (
+        schema.get("$defs", {})
+        .get("identity", {})
+        .get("properties", {})
+        .get("inputs", {})
+        .get("items", {})
+        .get("properties", {})
+        .get("schema")
+    )
+    if input_schema != {"const": INPUT_SCHEMA}:
+        raise ContractError(
+            "result-schema.json input schema identifier does not match the parity input contract"
         )
     benchmark_schema = load_json(root / BENCHMARK_RESULT_SCHEMA_RELATIVE)
     if (
@@ -496,7 +512,14 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 )
                 return 2
-            artifacts = [validate_result_artifact(load_json(path)) for path in args.results]
+            active_root = args.root.resolve()
+            active_manifest = _manifest_path(active_root, args.manifest)
+            artifacts = [
+                validate_result_artifact(
+                    load_json(path), root=active_root, manifest_path=active_manifest
+                )
+                for path in args.results
+            ]
             if len(artifacts) != len(args.results):
                 raise ContractError("not every supplied artifact was validated")
             artifact_rows = [

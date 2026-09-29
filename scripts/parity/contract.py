@@ -10390,7 +10390,141 @@ def _validate_upstream_benchmark_result_artifact(value: Any) -> dict[str, Any]:
     return result
 
 
-def validate_result_artifact(value: Any) -> dict[str, Any]:
+def _validate_parity_result_against_active_contract(
+    value: dict[str, Any], root: Path, manifest_path: Path | None
+) -> None:
+    """Bind parity evidence to the active inputs and recompute its comparison rows."""
+    root = root.resolve()
+    active_manifest_path = manifest_path or (root / "tests/fixtures/manifest.yaml")
+    if not active_manifest_path.is_absolute():
+        active_manifest_path = root / active_manifest_path
+    active_manifest_path = active_manifest_path.resolve()
+    try:
+        manifest_relative = active_manifest_path.relative_to(root).as_posix()
+    except ValueError as exc:
+        raise ContractError("active parity manifest must be inside the repository root") from exc
+
+    manifest = load_manifest(active_manifest_path)
+    validate_manifest(manifest)
+    from .generate_inputs import _check_generated, _validate_sources
+
+    generated_inputs = _validate_sources(root, manifest)
+    _check_generated(root, generated_inputs)
+    indexed_inputs, cases = validate_inputs(root, manifest)
+    expected_manifest_identity = {
+        "path": manifest_relative,
+        "schema": manifest["schema"],
+        "sha256": sha256_file(active_manifest_path),
+    }
+    if value["identity"]["manifest"] != expected_manifest_identity:
+        raise ContractError("parity result manifest identity differs from the active manifest")
+
+    expected_input_identity = [
+        {
+            "path": path.resolve().relative_to(root).as_posix(),
+            "schema": document["schema"],
+            "sha256": sha256_file(path),
+        }
+        for path, document in indexed_inputs
+    ]
+    if value["identity"]["inputs"] != expected_input_identity:
+        raise ContractError("parity result inputs differ from the active indexed input digests")
+    if value["identity"]["assets"] != []:
+        raise ContractError("parity result assets differ from the active input contract")
+
+    command_id = _string(
+        value["identity"]["command"]["command_id"], "result.identity.command.command_id"
+    )
+    commands = {command["id"]: command for command in manifest["commands"]}
+    if command_id not in {"parity", "oracle-only"} or command_id not in commands:
+        raise ContractError("parity result command is not a declared parity execution mode")
+    command = commands[command_id]
+    expected_command = {
+        "command_id": command_id,
+        "argv": command["argv"],
+        "cwd": command["cwd"],
+        "timeout_seconds": command["timeout_seconds"],
+    }
+    if value["identity"]["command"] != expected_command:
+        raise ContractError("parity result command identity differs from the active manifest")
+
+    expected_rows = [
+        (case["case_id"], profile_id) for case in cases for profile_id in case["target_profiles"]
+    ]
+    comparisons = value["comparisons"]
+    for index, row in enumerate(comparisons):
+        _string(row["case_id"], f"result.comparisons[{index}].case_id")
+        _string(row["target_profile"], f"result.comparisons[{index}].target_profile")
+    actual_rows = [(row["case_id"], row["target_profile"]) for row in comparisons]
+    if len(actual_rows) != len(set(actual_rows)):
+        raise ContractError("parity result contains duplicate case/target-profile rows")
+    expected_set = set(expected_rows)
+    actual_set = set(actual_rows)
+    if actual_set != expected_set:
+        raise ContractError(
+            "parity result comparison rows differ from active cases and target profiles: "
+            f"missing={sorted(expected_set - actual_set)}, extra={sorted(actual_set - expected_set)}"
+        )
+
+    from .comparator import compare_workflows
+
+    operations = {
+        (surface["id"], operation["id"]): operation
+        for surface in manifest["surfaces"]
+        for operation in surface["operations"]
+    }
+    case_by_id = {case["case_id"]: case for case in cases}
+    for index, comparison in enumerate(comparisons):
+        context = f"result.comparisons[{index}]"
+        case = case_by_id[comparison["case_id"]]
+        if comparison["requirements"] != case["covers"]:
+            raise ContractError(f"{context}.requirements differ from the active case")
+
+        source = comparison["source"]
+        target = comparison["target"]
+        both_completed = source["status"] == target["status"] == "completed"
+        if command_id == "oracle-only":
+            if target["status"] != "skipped":
+                raise ContractError(f"{context}: oracle-only evidence must omit target execution")
+            if source["status"] == "completed":
+                expected_target = {
+                    "case_id": case["case_id"],
+                    "status": "skipped",
+                    "observations": [
+                        {
+                            "step_id": step_id,
+                            "status": "skipped",
+                            "reason": (
+                                "not run: target intentionally omitted by the explicit "
+                                "oracle-only command"
+                            ),
+                        }
+                        for step_id in case["observations"]
+                    ],
+                }
+                if target != expected_target:
+                    raise ContractError(f"{context}: oracle-only target omission reason is invalid")
+        if both_completed:
+            expected_outcome, expected_diffs = compare_workflows(
+                case,
+                operations[(case["surface"], case["operation"])],
+                source,
+                target,
+            )
+        else:
+            expected_outcome, expected_diffs = "not_run", []
+        if comparison["outcome"] != expected_outcome or comparison["diffs"] != expected_diffs:
+            raise ContractError(
+                f"{context}: outcome/diffs do not match canonical comparison of workflow evidence"
+            )
+
+
+def validate_result_artifact(
+    value: Any,
+    *,
+    root: Path | None = None,
+    manifest_path: Path | None = None,
+) -> dict[str, Any]:
     if isinstance(value, dict) and value.get("schema") == UPSTREAM_BENCHMARK_RESULT_SCHEMA:
         return _validate_upstream_benchmark_result_artifact(value)
     if isinstance(value, dict) and value.get("schema") == BENCHMARK_RESULT_SCHEMA:
@@ -10522,6 +10656,8 @@ def validate_result_artifact(value: Any) -> dict[str, Any]:
         {"selected", "executed", "passed", "failed", "not_run", "infrastructure_errors"},
         "result.summary",
     )
+    for name, count in value["summary"].items():
+        _validate_nonnegative_integer(count, f"result.summary.{name}")
     comparisons = value["comparisons"]
     if not isinstance(comparisons, list):
         raise ContractError("result.comparisons must be an array")
@@ -10579,4 +10715,9 @@ def validate_result_artifact(value: Any) -> dict[str, Any]:
         for item in comparisons
     ):
         raise ContractError("a pass requires completed source and target evidence")
+    if root is None:
+        raise ContractError(
+            "parity result integrity validation requires the active repository root"
+        )
+    _validate_parity_result_against_active_contract(value, root, manifest_path)
     return value
