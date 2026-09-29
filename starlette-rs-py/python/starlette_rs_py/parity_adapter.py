@@ -5551,36 +5551,77 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
 
     downstream_spec = None
     if "downstream" in application:
-        downstream_spec = _exact_object(
-            application["downstream"],
-            {"kind", "steps"},
-            "BaseHTTPMiddleware downstream ASGI input",
-        )
-        if downstream_spec["kind"] != "asgi-sequence" or route_spec is not None:
-            raise ValueError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
-        steps = downstream_spec["steps"]
-        if (
-            not isinstance(steps, list)
-            or len(steps) != 3
-            or steps[0] != {"kind": "receive"}
-            or steps[2] != {"kind": "receive"}
-        ):
-            raise ValueError("downstream ASGI input must receive, send response.start, receive")
-        send_step = _exact_object(steps[1], {"kind", "message"}, "downstream ASGI send step")
-        if send_step["kind"] != "send":
-            raise ValueError("downstream ASGI middle step must send response.start")
-        message = _exact_object(
-            send_step["message"],
-            {"type", "status", "headers_base64_pairs"},
-            "downstream ASGI response.start input",
-        )
-        if (
-            message["type"] != "http.response.start"
-            or type(message["status"]) is not int
-            or not 100 <= message["status"] <= 599
-            or not isinstance(message["headers_base64_pairs"], list)
-        ):
-            raise ValueError("downstream ASGI send step must declare a valid response.start")
+        raw_downstream = application["downstream"]
+        if not isinstance(raw_downstream, dict) or not isinstance(raw_downstream.get("kind"), str):
+            raise ValueError("BaseHTTPMiddleware downstream ASGI input must be tagged")
+        if raw_downstream["kind"] == "asgi-sequence":
+            downstream_spec = _exact_object(
+                raw_downstream,
+                {"kind", "steps"},
+                "BaseHTTPMiddleware downstream ASGI input",
+            )
+            if route_spec is not None:
+                raise ValueError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
+            steps = downstream_spec["steps"]
+            if (
+                not isinstance(steps, list)
+                or len(steps) != 3
+                or steps[0] != {"kind": "receive"}
+                or steps[2] != {"kind": "receive"}
+            ):
+                raise ValueError("downstream ASGI input must receive, send response.start, receive")
+            send_step = _exact_object(steps[1], {"kind", "message"}, "downstream ASGI send step")
+            if send_step["kind"] != "send":
+                raise ValueError("downstream ASGI middle step must send response.start")
+            message = _exact_object(
+                send_step["message"],
+                {"type", "status", "headers_base64_pairs"},
+                "downstream ASGI response.start input",
+            )
+            if (
+                message["type"] != "http.response.start"
+                or type(message["status"]) is not int
+                or not 100 <= message["status"] <= 599
+                or not isinstance(message["headers_base64_pairs"], list)
+            ):
+                raise ValueError("downstream ASGI send step must declare a valid response.start")
+        elif raw_downstream["kind"] == "asgi-middleware-stack":
+            downstream_spec = _exact_object(
+                raw_downstream,
+                {"kind", "wrappers", "endpoint"},
+                "BaseHTTPMiddleware downstream middleware stack",
+            )
+            if route_spec is not None:
+                raise ValueError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
+            wrappers = downstream_spec["wrappers"]
+            if not isinstance(wrappers, list) or len(wrappers) != 1:
+                raise ValueError("downstream middleware stack requires one ordered wrapper")
+            wrapper = _exact_object(
+                wrappers[0],
+                {"kind", "repeat_count"},
+                "downstream receive wrapper",
+            )
+            if wrapper["kind"] != "repeat-http-request-body" or (
+                type(wrapper["repeat_count"]) is not int or wrapper["repeat_count"] < 2
+            ):
+                raise ValueError(
+                    "downstream receive wrapper must repeat request bodies at least twice"
+                )
+            endpoint = _exact_object(
+                downstream_spec["endpoint"],
+                {"kind", "status_code"},
+                "downstream ASGI endpoint",
+            )
+            if (
+                endpoint["kind"] != "request-body-empty-response"
+                or type(endpoint["status_code"]) is not int
+                or not 100 <= endpoint["status_code"] <= 599
+            ):
+                raise ValueError(
+                    "downstream endpoint must read the request body and return an empty response"
+                )
+        else:
+            raise ValueError("downstream ASGI input kind is unsupported")
 
     required_covers = {
         f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware"
@@ -5738,7 +5779,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding"
         )
-    if downstream_spec is not None:
+    if downstream_spec is not None and downstream_spec["kind"] == "asgi-sequence":
         if (
             request["receive_after_events"] != "block"
             or returned != "replacement"
@@ -5750,12 +5791,35 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive"
         )
+    elif downstream_spec is not None and downstream_spec["kind"] == "asgi-middleware-stack":
+        body_reads_before_call_next = [
+            index
+            for index, action in enumerate(dispatch_actions)
+            if action["kind"] == "read-request-body"
+            and await_index is not None
+            and index < await_index
+        ]
+        if (
+            returned != "call-next"
+            or not body_reads_before_call_next
+            or not request_body
+            or len(receive_specs) != 1
+            or scope_spec["method"] != "POST"
+            or send_checkpoints
+        ):
+            raise ValueError(
+                "downstream receive transformation requires a consumed non-empty POST body, one terminal request event, call_next, and no send checkpoints"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-middleware-receive-transformation"
+        )
     if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
         raise ValueError("BaseHTTPMiddleware covers differ from its input actions")
 
     from starlette.applications import Starlette
     from starlette.middleware import Middleware
     from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.requests import Request
     from starlette.responses import PlainTextResponse, Response
     from starlette.routing import Route
 
@@ -5763,6 +5827,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     dispatch_body_reads: list[dict[str, Any]] = []
     dispatch_stream_reads: list[dict[str, Any]] = []
     downstream_stream_reads: list[dict[str, Any]] = []
+    downstream_body_reads: list[dict[str, Any]] = []
+    downstream_receive_transformations: list[dict[str, Any]] = []
 
     class InputDefinedBaseHTTPMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Any, call_next: Any) -> Any:
@@ -5853,7 +5919,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             routes=routes,
             middleware=[Middleware(InputDefinedBaseHTTPMiddleware)],
         )
-    elif downstream_spec is not None:
+    elif downstream_spec is not None and downstream_spec["kind"] == "asgi-sequence":
 
         async def downstream(scope: Any, receive: Any, send: Any) -> None:
             receive_index = 0
@@ -5896,6 +5962,59 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     downstream_send_index += 1
 
         app = InputDefinedBaseHTTPMiddleware(downstream)
+    elif downstream_spec is not None and downstream_spec["kind"] == "asgi-middleware-stack":
+
+        async def downstream_endpoint(scope: Any, receive: Any, send: Any) -> None:
+            request_value = Request(scope, receive)
+            body = await request_value.body()
+            downstream_body_reads.append({"body_base64": base64.b64encode(body).decode("ascii")})
+            await Response(status_code=downstream_spec["endpoint"]["status_code"])(
+                scope,
+                receive,
+                send,
+            )
+
+        downstream_app = downstream_endpoint
+        for wrapper_index, wrapper_spec in reversed(list(enumerate(downstream_spec["wrappers"]))):
+            wrapped_app = downstream_app
+            repeat_count = wrapper_spec["repeat_count"]
+
+            def receive_wrapper(
+                app_value: Any,
+                current_wrapper_index: int,
+                current_repeat_count: int,
+            ) -> Any:
+                async def wrapped_app_value(scope: Any, receive: Any, send: Any) -> None:
+                    receive_index = 0
+
+                    async def wrapped_receive() -> Any:
+                        nonlocal receive_index
+                        message = await receive()
+                        before = _canonical_http_message(message)
+                        if message["type"] == "http.request":
+                            message["body"] = message.get("body", b"") * current_repeat_count
+                        downstream_receive_transformations.append(
+                            {
+                                "wrapper_index": current_wrapper_index,
+                                "receive_index": receive_index,
+                                "before": before,
+                                "after": _canonical_http_message(message),
+                            }
+                        )
+                        receive_index += 1
+                        return message
+
+                    await app_value(scope, wrapped_receive, send)
+
+                return wrapped_app_value
+
+            downstream_app = receive_wrapper(
+                wrapped_app,
+                wrapper_index,
+                repeat_count,
+            )
+
+        app = InputDefinedBaseHTTPMiddleware(downstream_app)
     else:
         app = Starlette(
             debug=application["debug"],
@@ -5957,6 +6076,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "dispatch_body_reads": dispatch_body_reads,
         "dispatch_stream_reads": dispatch_stream_reads,
         "downstream_stream_reads": downstream_stream_reads,
+        "downstream_body_reads": downstream_body_reads,
+        "downstream_receive_transformations": downstream_receive_transformations,
         "request_receive_events": request_receive_events,
         "execution_trace": execution_trace,
         "propagated_exception": propagated_exception,

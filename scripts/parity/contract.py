@@ -79,6 +79,7 @@ BASE_HTTP_REQUIREMENTS = {
     "response_completion_unblocks_receive": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive",
     "exception_context_propagation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation",
     "partial_stream_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding",
+    "downstream_receive_transformation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-middleware-receive-transformation",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -5156,51 +5157,92 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
 
     downstream: dict[str, Any] | None = None
     if "downstream" in application:
-        downstream = _exact(
-            application["downstream"],
-            {"kind", "steps"},
-            "BaseHTTPMiddleware downstream ASGI input",
-        )
-        if downstream["kind"] != "asgi-sequence" or routes:
-            raise ContractError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
-        steps = downstream["steps"]
-        if not isinstance(steps, list) or len(steps) != 3:
-            raise ContractError("downstream ASGI input requires receive, send, receive steps")
-        if steps[0] != {"kind": "receive"} or steps[2] != {"kind": "receive"}:
-            raise ContractError(
-                "downstream ASGI input must receive before and after response start"
+        raw_downstream = application["downstream"]
+        if not isinstance(raw_downstream, dict) or not isinstance(raw_downstream.get("kind"), str):
+            raise ContractError("BaseHTTPMiddleware downstream ASGI input must be tagged")
+        if raw_downstream["kind"] == "asgi-sequence":
+            downstream = _exact(
+                raw_downstream,
+                {"kind", "steps"},
+                "BaseHTTPMiddleware downstream ASGI input",
             )
-        send_step = _exact(steps[1], {"kind", "message"}, "downstream ASGI send step")
-        if send_step["kind"] != "send":
-            raise ContractError("downstream ASGI middle step must send response.start")
-        message = _exact(
-            send_step["message"],
-            {"type", "status", "headers_base64_pairs"},
-            "downstream ASGI response.start input",
-        )
-        if (
-            message["type"] != "http.response.start"
-            or type(message["status"]) is not int
-            or not 100 <= message["status"] <= 599
-            or not isinstance(message["headers_base64_pairs"], list)
-        ):
-            raise ContractError("downstream ASGI send step must declare a valid response.start")
-        for header_index, pair in enumerate(message["headers_base64_pairs"]):
+            if routes:
+                raise ContractError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
+            steps = downstream["steps"]
+            if not isinstance(steps, list) or len(steps) != 3:
+                raise ContractError("downstream ASGI input requires receive, send, receive steps")
+            if steps[0] != {"kind": "receive"} or steps[2] != {"kind": "receive"}:
+                raise ContractError(
+                    "downstream ASGI input must receive before and after response start"
+                )
+            send_step = _exact(steps[1], {"kind", "message"}, "downstream ASGI send step")
+            if send_step["kind"] != "send":
+                raise ContractError("downstream ASGI middle step must send response.start")
+            message = _exact(
+                send_step["message"],
+                {"type", "status", "headers_base64_pairs"},
+                "downstream ASGI response.start input",
+            )
             if (
-                not isinstance(pair, list)
-                or len(pair) != 2
-                or any(not isinstance(value, str) for value in pair)
+                message["type"] != "http.response.start"
+                or type(message["status"]) is not int
+                or not 100 <= message["status"] <= 599
+                or not isinstance(message["headers_base64_pairs"], list)
+            ):
+                raise ContractError("downstream ASGI send step must declare a valid response.start")
+            for header_index, pair in enumerate(message["headers_base64_pairs"]):
+                if (
+                    not isinstance(pair, list)
+                    or len(pair) != 2
+                    or any(not isinstance(value, str) for value in pair)
+                ):
+                    raise ContractError(
+                        f"downstream response header[{header_index}] must be a base64 pair"
+                    )
+                try:
+                    for value in pair:
+                        base64.b64decode(value, validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(
+                        f"downstream response header[{header_index}] is not base64"
+                    ) from exc
+        elif raw_downstream["kind"] == "asgi-middleware-stack":
+            downstream = _exact(
+                raw_downstream,
+                {"kind", "wrappers", "endpoint"},
+                "BaseHTTPMiddleware downstream middleware stack",
+            )
+            if routes:
+                raise ContractError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
+            wrappers = downstream["wrappers"]
+            if not isinstance(wrappers, list) or len(wrappers) != 1:
+                raise ContractError("downstream middleware stack requires one ordered wrapper")
+            wrapper = _exact(
+                wrappers[0],
+                {"kind", "repeat_count"},
+                "downstream receive wrapper",
+            )
+            if wrapper["kind"] != "repeat-http-request-body" or (
+                type(wrapper["repeat_count"]) is not int or wrapper["repeat_count"] < 2
             ):
                 raise ContractError(
-                    f"downstream response header[{header_index}] must be a base64 pair"
+                    "downstream receive wrapper must repeat request bodies at least twice"
                 )
-            try:
-                for value in pair:
-                    base64.b64decode(value, validate=True)
-            except (ValueError, TypeError) as exc:
+            endpoint = _exact(
+                downstream["endpoint"],
+                {"kind", "status_code"},
+                "downstream ASGI endpoint",
+            )
+            if (
+                endpoint["kind"] != "request-body-empty-response"
+                or type(endpoint["status_code"]) is not int
+                or not 100 <= endpoint["status_code"] <= 599
+            ):
                 raise ContractError(
-                    f"downstream response header[{header_index}] is not base64"
-                ) from exc
+                    "downstream endpoint must read the request body and return an empty response"
+                )
+        else:
+            raise ContractError("downstream ASGI input kind is unsupported")
     if returned == "call-next" and not routes and downstream is None:
         raise ContractError("call_next response requires a configured route or downstream ASGI app")
 
@@ -5354,7 +5396,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 "partial request-stream forwarding requires dispatch reads on both sides of call_next, at least three non-empty chunks, and a blocking exhausted receive"
             )
         requirements.add(BASE_HTTP_REQUIREMENTS["partial_stream_forwarding"])
-    if downstream is not None:
+    if downstream is not None and downstream["kind"] == "asgi-sequence":
         if (
             request["receive_after_events"] != "block"
             or returned != "replacement"
@@ -5364,6 +5406,26 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 "downstream receive race requires a blocking receive, replacement response, and checkpoints after both outer sends"
             )
         requirements.add(BASE_HTTP_REQUIREMENTS["response_completion_unblocks_receive"])
+    elif downstream is not None and downstream["kind"] == "asgi-middleware-stack":
+        body_reads_before_call_next = [
+            index
+            for index, action in enumerate(actions)
+            if action["kind"] == "read-request-body"
+            and await_index is not None
+            and index < await_index
+        ]
+        if (
+            returned != "call-next"
+            or not body_reads_before_call_next
+            or not body
+            or len(receive) != 1
+            or scope["method"] != "POST"
+            or send_checkpoints
+        ):
+            raise ContractError(
+                "downstream receive transformation requires a consumed non-empty POST body, one terminal request event, call_next, and no send checkpoints"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["downstream_receive_transformation"])
     if set(case["covers"]) != requirements:
         raise ContractError(
             "BaseHTTPMiddleware covers must match the input middleware, request, and dispatch actions: "

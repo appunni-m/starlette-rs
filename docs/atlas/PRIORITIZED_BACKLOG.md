@@ -8,32 +8,36 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 319 input-only cases across 38 files, covering 56
-operations and 397 requirements. Run `9feeec07-93e6-45e5-9416-d42abf209a88` from
-`2026-09-29T13:54:45.920Z` to `2026-09-29T13:55:31.844Z`; it selected 454
-comparisons: 450 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 317 applicable cases;
+The active contract has 320 input-only cases across 38 files, covering 56
+operations and 398 requirements. Run `89c8651e-ad72-4607-bfa2-7fd08faf93d9` from
+`2026-09-29T14:13:18.144Z` to `2026-09-29T14:14:17.464Z`; it selected 455
+comparisons: 451 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 318 applicable cases;
 Rust-native passed 133 of 137 selected cases. The four unsupported Rust-native
 rows require arbitrary Python callables. All 27 FileResponse cases passed on
-both profiles; all eight SessionMiddleware cases and all six BaseHTTPMiddleware
-cases passed on the Python package profile. The six BaseHTTPMiddleware cases
+both profiles; all eight SessionMiddleware cases and all seven BaseHTTPMiddleware
+cases passed on the Python package profile. The seven BaseHTTPMiddleware cases
 cover configured-header mutation, awaited `call_next` response replacement,
 body-cache replay, response-completion unblocking downstream receive, and
-exception-context propagation, and partial-stream forwarding. The partial
+exception-context propagation, partial-stream forwarding, and downstream
+receive transformation. The partial
 stream case consumes `b"1"` in dispatch, forwards the next unread `b"2"` to the
 endpoint, then resumes dispatch to consume `b"3"` after `call_next`; see
-`tests/middleware/test_base.py:777-832`. This bounded slice leaves other
+`tests/middleware/test_base.py:777-832`. The receive-transformation case maps
+`tests/middleware/test_base.py:979-1017`: dispatch observes `b"foo "`, the
+downstream wrapper doubles the request body, and the endpoint observes
+`b"foo foo "`. This bounded slice leaves other
 partial-stream/replay interleavings, repeated disconnects, broader
 exception-group shapes beyond the observed
 TaskGroup context, varied or malformed `http.response.debug` frames, broader
 cancellation and cleanup ordering, path-send responses, and additional
 streaming behaviors unproven. The Rust-native target was clean at
-revision `e64e82fec615724ff375c54b835b1ecca6ddb5a8+source-fnv1a64-e5a0df1c1dca21b4`;
+revision `bad834d227544d59579eae7bd7213b3b1cadaa45+source-fnv1a64-e5a0df1c1dca21b4`;
 the Python-package target was dirty with tree SHA-256
-`53cc0a4ea8c34f2138f0d64ebb01fceb99749dc1bb1a188f33e081b6c3d8e97e`. Manifest
-SHA-256: `13ca65b30c8c90fe442df141d9cd69591cd2a8587f8687314af2e1dbf6c7f36f`;
+`0fcc9d07728340b5e7e084afc06e3c0b0385413a8adcd85fe1f82e286f96f4a3`. Manifest
+SHA-256: `69c5d989b776171faa91abfa3b2b89b175e9e10edea08a85599521eb1ba8259b`;
 package wheel SHA-256:
-`f2ca476c1c20a6ce433a5ef02023e421f7621354b44bdf60e3fd090bc5e7eeb3`.
+`0c0f881854710381b18d7f0284bdf442401761382727ff711fb55b7f3a9383ae`.
 See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
 
@@ -43,8 +47,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The matrix has 791 mappings: 626 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 115 existing input mappings. It maps selected
+The matrix has 791 mappings: 625 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 116 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

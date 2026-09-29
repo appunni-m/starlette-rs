@@ -3665,6 +3665,24 @@
                   }
                 },
                 {
+                  "path": "downstream_body_reads",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "downstream_receive_transformations",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
                   "path": "request_receive_events",
                   "value_types": [
                     "sequence"
@@ -3775,6 +3793,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.partial-request-stream-forwarding",
               "dimension": "boundary",
               "description": "Read part of one request.stream() iterator in dispatch before call_next, consume a later chunk in the downstream endpoint, then resume dispatch's suspended iterator. Upstream: tests/middleware/test_base.py:777-832; starlette/middleware/base.py:80-90; starlette/requests.py:234-252.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.downstream-middleware-receive-transformation",
+              "dimension": "boundary",
+              "description": "Dispatch consumes the original POST body, call_next enters an explicitly ordered downstream ASGI receive wrapper that repeats each http.request body, and the endpoint reads the transformed body before returning an empty response. Upstream: tests/middleware/test_base.py:979-1017; starlette/middleware/base.py:106-107,112-130; starlette/requests.py:254-260.",
               "lanes": [
                 "parity"
               ],
