@@ -27,6 +27,7 @@ mod response;
 mod route_table;
 mod router_dispatch;
 mod server_error;
+mod sessions;
 mod staticfiles;
 mod websocket;
 
@@ -72,6 +73,7 @@ pub use route_table::{
 };
 pub use router_dispatch::{DispatchPlanError, HttpDispatchPlan, SupplementalRouteMatch};
 pub use server_error::{ServerErrorPlan, ServerErrorPolicy, ServerErrorState};
+pub use sessions::{SessionSignatureError, timestamp_sign, timestamp_unsign};
 pub use staticfiles::{
     StaticFile, StaticFiles, StaticFilesError, StaticFilesResponse, StaticFilesResponseFlow,
     StaticFilesResponseStep,

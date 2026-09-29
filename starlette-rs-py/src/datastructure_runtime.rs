@@ -11,6 +11,10 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString, PyTuple};
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PySecret>()?;
+    module
+        .getattr("Secret")?
+        .setattr("__module__", "starlette.datastructures")?;
     module.add_function(wrap_pyfunction!(url_init, module)?)?;
     module.add_function(wrap_pyfunction!(url_components, module)?)?;
     module.add_function(wrap_pyfunction!(url_replace, module)?)?;
@@ -30,6 +34,35 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(state_iter, module)?)?;
     module.add_function(wrap_pyfunction!(state_len, module)?)?;
     Ok(())
+}
+
+/// Redacted string value accepted by configuration and session middleware.
+#[pyclass(name = "Secret", subclass)]
+pub(crate) struct PySecret {
+    value: String,
+}
+
+#[pymethods]
+impl PySecret {
+    #[new]
+    fn new(value: String) -> Self {
+        Self { value }
+    }
+
+    fn __str__(&self) -> String {
+        self.value.clone()
+    }
+
+    fn __repr__(slf: PyRef<'_, Self>) -> PyResult<String> {
+        let py = slf.py();
+        let instance = slf.into_pyobject(py)?;
+        let class_name = instance.get_type().name()?.to_string();
+        Ok(format!("{class_name}('**********')"))
+    }
+
+    fn __bool__(&self) -> bool {
+        !self.value.is_empty()
+    }
 }
 
 #[pyfunction(name = "_url_init")]

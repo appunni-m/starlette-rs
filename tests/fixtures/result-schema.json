@@ -112,7 +112,7 @@
                 "minLength": 1
               },
               "schema": {
-                "const": "migration-parity/parity-input@8"
+                "const": "migration-parity/parity-input@9"
               },
               "sha256": {
                 "$ref": "#/$defs/sha256"
@@ -768,7 +768,7 @@
               "minLength": 1
             },
             "dependency_lock_path": {
-              "const": "scripts/parity/locks/asgi-runtime-cpython312.txt"
+              "const": "scripts/parity/locks/starlette-oracle-cpython312.txt"
             },
             "dependency_lock_sha256": {
               "$ref": "#/$defs/sha256"

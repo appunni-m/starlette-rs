@@ -19,6 +19,7 @@ from .contract import ORACLE_COMMIT, ContractError, sha256_file
 ENVIRONMENTS_SCHEMA = "migration-parity/python-environments@1"
 ENVIRONMENTS_RELATIVE = Path("build/parity/python-environments.json")
 RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/asgi-runtime-cpython312.txt")
+ORACLE_RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/starlette-oracle-cpython312.txt")
 ENVIRONMENT_IDS = ("starlette-oracle-cpython312", "starlette-rs-py-cpython312")
 _PROBE = r"""
 import importlib.metadata as metadata
@@ -116,6 +117,7 @@ def _probe(python: Path, root: Path) -> dict[str, Any]:
 def _environment_fingerprints(
     environment_id: str,
     python_relative: str,
+    runtime_lock_path: Path,
     runtime_lock_digest: str,
     probe: dict[str, Any],
     artifact_sha256: str | None,
@@ -132,7 +134,7 @@ def _environment_fingerprints(
         "runtime": f"{probe['implementation']} {probe['python']}",
         "os": probe["os"],
         "architecture": probe["architecture"],
-        "dependency_lock_path": RUNTIME_LOCK_RELATIVE.as_posix(),
+        "dependency_lock_path": runtime_lock_path.as_posix(),
         "dependency_lock_sha256": runtime_lock_digest,
         "installed_lock_sha256": installed_digest,
         "artifact_sha256": artifact_sha256,
@@ -210,6 +212,64 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
     return sha256_file(runtime_path)
 
 
+def _lock_declarations(path: Path) -> dict[str, tuple[str, set[str]]]:
+    declarations: dict[str, tuple[str, set[str]]] = {}
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            requirement, *hash_parts = stripped.split()
+            name, version = requirement.split("==", 1)
+            normalized = name.lower().replace("_", "-")
+            hashes = {
+                part.removeprefix("--hash=sha256:")
+                for part in hash_parts
+                if part.startswith("--hash=sha256:")
+            }
+            if not hashes or normalized in declarations:
+                raise ContractError(f"runtime lock entry is malformed or duplicated: {stripped}")
+            declarations[normalized] = (version, hashes)
+    except (OSError, UnicodeError, ValueError) as exc:
+        if isinstance(exc, ContractError):
+            raise
+        raise ContractError(f"cannot parse committed CPython runtime lock: {exc}") from exc
+    return declarations
+
+
+def validate_oracle_runtime_lock(root: Path, upstream: Path) -> str:
+    """Check the oracle lock adds only Starlette's pinned optional signer."""
+    base = _lock_declarations(root / RUNTIME_LOCK_RELATIVE)
+    oracle_path = root / ORACLE_RUNTIME_LOCK_RELATIVE
+    oracle = _lock_declarations(oracle_path)
+    if set(oracle) != set(base) | {"itsdangerous"}:
+        raise ContractError("source-oracle lock must add only optional ItsDangerous to the ASGI closure")
+    if any(oracle[name] != entry for name, entry in base.items()):
+        raise ContractError("source-oracle lock entries differ from the committed ASGI runtime lock")
+
+    try:
+        upstream_lock = tomllib.loads((upstream / "uv.lock").read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+        raise ContractError(f"cannot parse pinned source uv.lock for oracle dependencies: {exc}") from exc
+    package = next(
+        (
+            item
+            for item in upstream_lock.get("package", [])
+            if item.get("name", "").lower().replace("_", "-") == "itsdangerous"
+        ),
+        None,
+    )
+    if package is None:
+        raise ContractError("pinned Starlette source lock omits its optional ItsDangerous dependency")
+    version, hashes = oracle["itsdangerous"]
+    wheel_hashes = {
+        wheel["hash"].removeprefix("sha256:") for wheel in package.get("wheels", [])
+    }
+    if version != package["version"] or not hashes or not hashes <= wheel_hashes:
+        raise ContractError("oracle ItsDangerous version or hash differs from the pinned source lock")
+    return sha256_file(oracle_path)
+
+
 def _target_wheel(root: Path, wheelhouse: Path, python: Path, env: dict[str, str]) -> Path:
     wheelhouse.mkdir(parents=True)
     _run(
@@ -245,6 +305,8 @@ def prepare_environments(
     revision, _ = _source_revision(upstream)
     lock_path = root / RUNTIME_LOCK_RELATIVE
     lock_digest = validate_runtime_lock(root, upstream)
+    oracle_lock_path = root / ORACLE_RUNTIME_LOCK_RELATIVE
+    oracle_lock_digest = validate_oracle_runtime_lock(root, upstream)
 
     build_root = root / "build" / "parity"
     env_root = build_root / "envs"
@@ -270,7 +332,10 @@ def prepare_environments(
     records: list[dict[str, Any]] = []
     source_path = _venv_python(env_root / "oracle")
     target_path = _venv_python(env_root / "python-package")
-    for environment in (env_root / "oracle", env_root / "python-package"):
+    for environment, environment_lock in (
+        (env_root / "oracle", oracle_lock_path),
+        (env_root / "python-package", lock_path),
+    ):
         _run([str(host_python), "-m", "venv", str(environment)], cwd=root, env=env, timeout=120)
         venv_python = _venv_python(environment)
         if not venv_python.is_file():
@@ -285,7 +350,7 @@ def prepare_environments(
                 "--no-deps",
                 "--only-binary=:all:",
                 "-r",
-                str(lock_path),
+                str(environment_lock),
             ],
             cwd=root,
             env=env,
@@ -299,15 +364,20 @@ def prepare_environments(
         timeout=600,
     )
 
-    for environment_id, interpreter, artifact_digest in (
-        (ENVIRONMENT_IDS[0], source_path, None),
-        (ENVIRONMENT_IDS[1], target_path, wheel_digest),
+    for environment_id, interpreter, artifact_digest, runtime_lock_path, runtime_lock_digest in (
+        (ENVIRONMENT_IDS[0], source_path, None, ORACLE_RUNTIME_LOCK_RELATIVE, oracle_lock_digest),
+        (ENVIRONMENT_IDS[1], target_path, wheel_digest, RUNTIME_LOCK_RELATIVE, lock_digest),
     ):
         probe = _probe(interpreter, root)
         relative_python = interpreter.relative_to(root).as_posix()
         records.append(
             _environment_fingerprints(
-                environment_id, relative_python, lock_digest, probe, artifact_digest
+                environment_id,
+                relative_python,
+                runtime_lock_path,
+                runtime_lock_digest,
+                probe,
+                artifact_digest,
             )
         )
 
@@ -362,10 +432,10 @@ def load_prepared_environments(
         raise ContractError(
             "prepared environment lock must describe the oracle and installed-wheel environments"
         )
-    lock_path = root / RUNTIME_LOCK_RELATIVE
-    if not lock_path.is_file():
-        raise ContractError("committed runtime dependency lock is missing")
-    lock_digest = sha256_file(lock_path)
+    expected_locks = {
+        ENVIRONMENT_IDS[0]: ORACLE_RUNTIME_LOCK_RELATIVE,
+        ENVIRONMENT_IDS[1]: RUNTIME_LOCK_RELATIVE,
+    }
     output: dict[str, dict[str, Any]] = {}
     expected_keys = {
         "id",
@@ -382,8 +452,13 @@ def load_prepared_environments(
     for row in rows:
         if not isinstance(row, dict) or set(row) != expected_keys:
             raise ContractError("prepared environment identity has unknown or missing fields")
+        expected_lock = expected_locks[row["id"]]
+        lock_path = root / expected_lock
+        if not lock_path.is_file():
+            raise ContractError(f"committed dependency lock is missing: {expected_lock.as_posix()}")
+        lock_digest = sha256_file(lock_path)
         if (
-            row["dependency_lock_path"] != RUNTIME_LOCK_RELATIVE.as_posix()
+            row["dependency_lock_path"] != expected_lock.as_posix()
             or row["dependency_lock_sha256"] != lock_digest
         ):
             raise ContractError(f"{row['id']} dependency lock differs from the committed lock")
@@ -401,7 +476,12 @@ def load_prepared_environments(
             raise ContractError(f"{row['id']} interpreter is not under build/parity/envs")
         probe = _probe(interpreter, root)
         actual = _environment_fingerprints(
-            row["id"], row["python"], lock_digest, probe, row["artifact_sha256"]
+            row["id"],
+            row["python"],
+            expected_lock,
+            lock_digest,
+            probe,
+            row["artifact_sha256"],
         )
         if actual != row:
             raise ContractError(f"{row['id']} environment changed after preparation")

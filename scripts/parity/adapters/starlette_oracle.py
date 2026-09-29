@@ -60,6 +60,8 @@ BODY_LIMIT_SURFACE = "starlette.middleware.body_limit.RequestBodyLimitMiddleware
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
+SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
+SESSION_WORKFLOW_OPERATION = "session-workflow"
 EXCEPTION_VALUES_SURFACE = "starlette.exceptions"
 MIDDLEWARE_CONFIG_SURFACE = "starlette.middleware.Middleware"
 VALUE_FORMATTING_OPERATION = "value-formatting"
@@ -1668,6 +1670,484 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [{"step_id": "dispatch", "status": "ok", "value": selected}],
+    }
+
+
+def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "constructor",
+            "requests",
+            "observations",
+        },
+        "SessionMiddleware session-workflow case",
+    )
+    if (
+        case["surface"] != SESSION_MIDDLEWARE_SURFACE
+        or case["operation"] != SESSION_WORKFLOW_OPERATION
+    ):
+        raise ValueError("workflow is outside the SessionMiddleware session-workflow operation")
+    if not isinstance(case["case_id"], str):
+        raise ValueError("SessionMiddleware case_id must be a string")
+    for field in ("covers", "target_profiles", "assets"):
+        if not isinstance(case[field], list):
+            raise ValueError(f"SessionMiddleware {field} must be an array")
+    if case["observations"] != [SESSION_WORKFLOW_OPERATION]:
+        raise ValueError("SessionMiddleware observations must select session-workflow")
+
+    constructor = _strict_object(
+        case["constructor"],
+        {
+            "secret_key",
+            "session_cookie",
+            "max_age",
+            "path",
+            "same_site",
+            "https_only",
+            "domain",
+            "clock_epoch",
+        },
+        "SessionMiddleware constructor",
+    )
+    secret_key_input = constructor["secret_key"]
+    secret_key_observation = None
+    if isinstance(secret_key_input, str):
+        secret_key = secret_key_input
+    else:
+        _strict_object(
+            secret_key_input,
+            {"kind", "value"},
+            "SessionMiddleware secret key",
+        )
+        if secret_key_input["kind"] != "secret" or not isinstance(
+            secret_key_input["value"], str
+        ):
+            raise ValueError("SessionMiddleware secret key must be a string or Secret input")
+        from starlette.datastructures import Secret
+
+        secret_key = Secret(secret_key_input["value"])
+        secret_key_observation = {
+            "repr": repr(secret_key),
+            "string": str(secret_key),
+            "truth": bool(secret_key),
+        }
+    if not isinstance(constructor["session_cookie"], str):
+        raise ValueError("SessionMiddleware session_cookie must be a string")
+    if constructor["max_age"] is not None and type(constructor["max_age"]) is not int:
+        raise ValueError("SessionMiddleware max_age must be an integer or null")
+    if not isinstance(constructor["path"], str):
+        raise ValueError("SessionMiddleware path must be a string")
+    if not isinstance(constructor["same_site"], str):
+        raise ValueError("SessionMiddleware same_site must be a string")
+    if not isinstance(constructor["https_only"], bool):
+        raise ValueError("SessionMiddleware https_only must be a boolean")
+    if constructor["domain"] is not None and not isinstance(constructor["domain"], str):
+        raise ValueError("SessionMiddleware domain must be a string or null")
+    clock_epoch = constructor["clock_epoch"]
+    if clock_epoch is not None and type(clock_epoch) is not int:
+        raise ValueError("SessionMiddleware clock_epoch must be an integer or null")
+    if not isinstance(case["requests"], list):
+        raise ValueError("SessionMiddleware requests must be an array")
+
+    from starlette.middleware.sessions import Session, SessionMiddleware
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+    from starlette.websockets import WebSocket
+
+    current: dict[str, Any] = {}
+
+    async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        action = current["action"]
+        action_kind = action["kind"]
+        mutation_result = None
+        if action_kind == "websocket-view":
+            websocket = WebSocket(scope, receive, send)
+            session = websocket.scope["session"]
+            session_value = dict(session)
+            accessed = session.accessed
+            modified = session.modified
+            accept = action["accept"]
+            headers = [
+                (
+                    _decode_b64(pair[0], "WebSocket accept header name"),
+                    _decode_b64(pair[1], "WebSocket accept header value"),
+                )
+                for pair in accept["headers_base64_pairs"]
+            ]
+            await websocket.accept(subprotocol=accept["subprotocol"], headers=headers)
+            close = action["close"]
+            await websocket.close(code=close["code"], reason=close["reason"])
+        elif action_kind == "passthrough":
+            for outbound in action["outbound"]:
+                await receive()
+                await send({"type": outbound["type"]})
+            session_value = None
+            accessed = None
+            modified = None
+        else:
+            request = Request(scope, receive)
+            if action_kind == "view":
+                session = request.session
+                session_value = dict(session)
+            elif action_kind == "update":
+                session = request.session
+                session.update(action["values"])
+                session_value = dict(session)
+            elif action_kind == "clear":
+                session = request.session
+                session.clear()
+                session_value = dict(session)
+            elif action_kind == "session-mutation":
+                session = Session(action["initial"])
+                scope["session"] = session
+                mutation = action["mutation"]
+                mutation_kind = mutation["kind"]
+                if mutation_kind == "set":
+                    session[mutation["key"]] = mutation["value"]
+                elif mutation_kind == "delete":
+                    del session[mutation["key"]]
+                elif mutation_kind == "clear":
+                    session.clear()
+                elif mutation_kind == "pop":
+                    mutation_result = session.pop(mutation["key"], mutation["default"])
+                elif mutation_kind == "setdefault":
+                    mutation_result = session.setdefault(mutation["key"], mutation["default"])
+                elif mutation_kind == "update":
+                    session.update(mutation["values"])
+                session_value = dict(session)
+            else:
+                session_value = None
+            live_session = scope["session"]
+            accessed = live_session.accessed
+            modified = live_session.modified
+        current["session"] = _json_safe(session_value)
+        current["accessed"] = accessed
+        current["modified"] = modified
+        current["mutation_result"] = _json_safe(mutation_result)
+        if action_kind in {"websocket-view", "passthrough"}:
+            return
+        response = JSONResponse(
+            {
+                "session": session_value,
+                "accessed": current["accessed"],
+                "modified": current["modified"],
+                "mutation_result": current["mutation_result"],
+            }
+        )
+        await response(scope, receive, send)
+
+    middleware = SessionMiddleware(
+        app,
+        secret_key=secret_key,
+        session_cookie=constructor["session_cookie"],
+        max_age=constructor["max_age"],
+        path=constructor["path"],
+        same_site=constructor["same_site"],
+        https_only=constructor["https_only"],
+        domain=constructor["domain"],
+    )
+    if clock_epoch is not None:
+        # TimestampSigner.sign() and unsign() both consult this per-instance clock.
+        middleware.signer.get_timestamp = lambda: clock_epoch
+
+    async def run_requests() -> list[dict[str, Any]]:
+        outputs = []
+        prior_set_cookies: dict[str, str | None] = {}
+        actions_by_id: dict[str, dict[str, Any]] = {}
+        seen_request_ids: set[str] = set()
+        for index, request_spec in enumerate(case["requests"]):
+            request_spec = _strict_object(
+                request_spec,
+                {"request_id", "scope", "receive", "cookie_source", "action"},
+                f"SessionMiddleware request[{index}]",
+            )
+            request_id = request_spec["request_id"]
+            if not isinstance(request_id, str) or request_id in seen_request_ids:
+                raise ValueError("SessionMiddleware request_id values must be unique strings")
+            seen_request_ids.add(request_id)
+            scope = _make_scope(request_spec["scope"])
+
+            cookie_source = request_spec["cookie_source"]
+            if cookie_source is not None:
+                if scope["type"] not in {"http", "websocket"}:
+                    raise ValueError(
+                        "SessionMiddleware cookie sources require HTTP or WebSocket scopes"
+                    )
+                if not isinstance(cookie_source, dict) or not isinstance(
+                    cookie_source.get("kind"), str
+                ):
+                    raise ValueError("SessionMiddleware cookie_source must be a tagged object")
+                if cookie_source["kind"] == "raw-cookie":
+                    _strict_object(cookie_source, {"kind", "value"}, "raw-cookie source")
+                    cookie_value = cookie_source["value"]
+                    if not isinstance(cookie_value, str):
+                        raise ValueError("raw-cookie value must be a string")
+                    cookie_header = cookie_value.encode("latin-1")
+                elif cookie_source["kind"] == "previous-set-cookie":
+                    _strict_object(
+                        cookie_source,
+                        {"kind", "request_id"},
+                        "previous-set-cookie source",
+                    )
+                    previous_request_id = cookie_source["request_id"]
+                    if previous_request_id not in prior_set_cookies:
+                        raise ValueError("previous-set-cookie must reference an earlier request_id")
+                    previous_value = prior_set_cookies[previous_request_id]
+                    if previous_value is None:
+                        raise ValueError(
+                            "previous-set-cookie referenced a response without Set-Cookie"
+                        )
+                    cookie_header = previous_value.encode("latin-1")
+                else:
+                    raise ValueError(
+                        f"unsupported SessionMiddleware cookie source: {cookie_source['kind']!r}"
+                    )
+                scope["headers"].append((b"cookie", cookie_header))
+
+            action = request_spec["action"]
+            if not isinstance(action, dict) or not isinstance(action.get("kind"), str):
+                raise ValueError("SessionMiddleware action must be a tagged object")
+            if action["kind"] in {"view", "clear", "no-access"}:
+                _strict_object(action, {"kind"}, "SessionMiddleware action")
+            elif action["kind"] == "update":
+                _strict_object(action, {"kind", "values"}, "SessionMiddleware update action")
+                if not isinstance(action["values"], dict):
+                    raise ValueError("SessionMiddleware update values must be an object")
+            elif action["kind"] == "session-mutation":
+                _strict_object(
+                    action,
+                    {"kind", "initial", "mutation"},
+                    "SessionMiddleware direct Session mutation action",
+                )
+                if not isinstance(action["initial"], dict):
+                    raise ValueError("SessionMiddleware mutation initial value must be an object")
+                mutation = action["mutation"]
+                if not isinstance(mutation, dict) or not isinstance(mutation.get("kind"), str):
+                    raise ValueError("SessionMiddleware mutation must be a tagged object")
+                mutation_keys = {
+                    "set": {"kind", "key", "value"},
+                    "delete": {"kind", "key"},
+                    "clear": {"kind"},
+                    "pop": {"kind", "key", "default"},
+                    "setdefault": {"kind", "key", "default"},
+                    "update": {"kind", "values"},
+                }.get(mutation["kind"])
+                if mutation_keys is None:
+                    raise ValueError(f"unsupported Session mutation: {mutation['kind']!r}")
+                _strict_object(mutation, mutation_keys, "SessionMiddleware mutation")
+            elif action["kind"] == "websocket-view":
+                _strict_object(
+                    action,
+                    {"kind", "accept", "close"},
+                    "SessionMiddleware WebSocket view action",
+                )
+                accept = _strict_object(
+                    action["accept"],
+                    {"subprotocol", "headers_base64_pairs"},
+                    "SessionMiddleware WebSocket accept action",
+                )
+                if accept["subprotocol"] is not None and not isinstance(
+                    accept["subprotocol"], str
+                ):
+                    raise ValueError("WebSocket accept subprotocol must be a string or null")
+                if (
+                    accept["subprotocol"] is not None
+                    and accept["subprotocol"] not in scope["subprotocols"]
+                ):
+                    raise ValueError("WebSocket accept subprotocol must be offered by the client")
+                if not isinstance(accept["headers_base64_pairs"], list):
+                    raise ValueError("WebSocket accept headers must be an array")
+                for pair in accept["headers_base64_pairs"]:
+                    if (
+                        not isinstance(pair, list)
+                        or len(pair) != 2
+                        or any(not isinstance(part, str) for part in pair)
+                    ):
+                        raise ValueError("WebSocket accept headers must be base64 string pairs")
+                    _decode_b64(pair[0], "WebSocket accept header name")
+                    _decode_b64(pair[1], "WebSocket accept header value")
+                close = _strict_object(
+                    action["close"],
+                    {"code", "reason"},
+                    "SessionMiddleware WebSocket close action",
+                )
+                if (
+                    type(close["code"]) is not int
+                    or not 1000 <= close["code"] <= 4999
+                    or not isinstance(close["reason"], str)
+                ):
+                    raise ValueError("WebSocket close requires an integer code and string reason")
+                if scope["asgi"].get("spec_version") != "2.5":
+                    raise ValueError("SessionMiddleware WebSocket action requires ASGI spec 2.5")
+                offered_subprotocols = scope["subprotocols"]
+                if request_spec["receive"] != [
+                    {"type": "websocket.connect", "subprotocols": offered_subprotocols}
+                ]:
+                    raise ValueError(
+                        "SessionMiddleware WebSocket action requires its offered connect input"
+                    )
+            elif action["kind"] == "passthrough":
+                _strict_object(action, {"kind", "outbound"}, "SessionMiddleware passthrough action")
+                if not isinstance(action["outbound"], list):
+                    raise ValueError("SessionMiddleware passthrough outbound must be an array")
+                for outbound in action["outbound"]:
+                    outbound = _strict_object(
+                        outbound,
+                        {"type"},
+                        "SessionMiddleware passthrough output event",
+                    )
+                    if not isinstance(outbound["type"], str):
+                        raise ValueError(
+                            "SessionMiddleware passthrough output type must be a string"
+                        )
+                if request_spec["cookie_source"] is not None:
+                    raise ValueError("SessionMiddleware lifespan passthrough has no cookie source")
+                if request_spec["receive"] != [
+                    {"type": "lifespan.startup"},
+                    {"type": "lifespan.shutdown"},
+                ]:
+                    raise ValueError("SessionMiddleware passthrough requires startup then shutdown")
+                if action["outbound"] != [
+                    {"type": "lifespan.startup.complete"},
+                    {"type": "lifespan.shutdown.complete"},
+                ]:
+                    raise ValueError(
+                        "SessionMiddleware passthrough requires matching lifecycle completions"
+                    )
+            else:
+                raise ValueError(f"unsupported SessionMiddleware action: {action['kind']!r}")
+
+            expected_scope_type = {
+                "view": "http",
+                "update": "http",
+                "clear": "http",
+                "no-access": "http",
+                "session-mutation": "http",
+                "websocket-view": "websocket",
+                "passthrough": "lifespan",
+            }[action["kind"]]
+            if scope["type"] != expected_scope_type:
+                raise ValueError(
+                    f"SessionMiddleware {action['kind']} requires a {expected_scope_type} scope"
+                )
+            if action["kind"] == "websocket-view":
+                if (
+                    not isinstance(cookie_source, dict)
+                    or cookie_source.get("kind") != "previous-set-cookie"
+                ):
+                    raise ValueError(
+                        "SessionMiddleware WebSocket view requires a previous session cookie"
+                    )
+                previous_action = actions_by_id[cookie_source["request_id"]]
+                if previous_action["kind"] != "update" or not previous_action["values"]:
+                    raise ValueError(
+                        "WebSocket session cookie must follow a non-empty session update"
+                    )
+
+            incoming = [_message(message) for message in request_spec["receive"]]
+            sent: list[dict[str, Any]] = []
+            receive_state = {"index": 0}
+            current.clear()
+            current.update(
+                {
+                    "action": action,
+                    "session": None,
+                    "accessed": None,
+                    "modified": None,
+                    "mutation_result": None,
+                }
+            )
+
+            async def receive(
+                _incoming: list[dict[str, Any]] = incoming,
+                _state: dict[str, int] = receive_state,
+            ) -> dict[str, Any]:
+                received = _state["index"]
+                if received < len(_incoming):
+                    message = _incoming[received]
+                    _state["index"] = received + 1
+                    return message
+                return {"type": "http.disconnect"}
+
+            async def send(
+                message: dict[str, Any], _sent: list[dict[str, Any]] = sent
+            ) -> None:
+                _sent.append(message)
+
+            await middleware(scope, receive, send)
+            events = [_canonical_message(message) for message in sent]
+            start = next(
+                (message for message in sent if message["type"] == "http.response.start"),
+                None,
+            )
+            body = b"".join(
+                message.get("body", b"")
+                for message in sent
+                if message["type"] == "http.response.body"
+            )
+            set_cookie = next(
+                (
+                    value.decode("latin-1").partition(";")[0]
+                    for message in sent
+                    if message["type"] == "http.response.start"
+                    for name, value in message["headers"]
+                    if name.lower() == b"set-cookie"
+                ),
+                None,
+            )
+            prior_set_cookies[request_id] = set_cookie
+            headers = (
+                [
+                    [
+                        base64.b64encode(name).decode("ascii"),
+                        base64.b64encode(value).decode("ascii"),
+                    ]
+                    for name, value in start["headers"]
+                ]
+                if start is not None
+                else []
+            )
+            outputs.append(
+                {
+                    "request_id": request_id,
+                    "action": action["kind"],
+                    "session": current["session"],
+                    "accessed": current["accessed"],
+                    "modified": current["modified"],
+                    "mutation_result": current["mutation_result"],
+                    "response_status": start["status"] if start is not None else None,
+                    "response_headers": headers,
+                    "response_bytes": {
+                        "encoding": "base64",
+                        "data": base64.b64encode(body).decode("ascii"),
+                    },
+                    "asgi_event_order": [message["type"] for message in events],
+                    "asgi_events": events,
+                }
+            )
+            actions_by_id[request_id] = action
+        return outputs
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": SESSION_WORKFLOW_OPERATION,
+                "status": "ok",
+                "value": {
+                    "secret_key_observation": secret_key_observation,
+                    "requests": asyncio.run(run_requests()),
+                },
+            }
+        ],
     }
 
 
@@ -5482,6 +5962,12 @@ def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == SESSION_MIDDLEWARE_SURFACE
+        and case.get("operation") == SESSION_WORKFLOW_OPERATION
+    ):
+        return _run_session_workflow_case(case)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) in AUTHENTICATION_OPERATIONS

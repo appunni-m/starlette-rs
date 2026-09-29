@@ -1,10 +1,10 @@
 {
   "schema": "migration-parity/manifest@2",
   "scope": {
-    "id": "starlette-1.6.0-asgi-http-config-schema-slice",
+    "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -27,6 +27,11 @@
           "id": "typing-extensions",
           "name": "typing_extensions",
           "version": "4.15.0"
+        },
+        {
+          "id": "itsdangerous",
+          "name": "itsdangerous",
+          "version": "2.2.0"
         }
       ]
     }
@@ -203,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@8",
+      "input_schema": "migration-parity/parity-input@9",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -270,7 +275,8 @@
       "build/parity/inputs/parity/authentication-runtime.json",
       "build/parity/inputs/parity/static-files.json",
       "build/parity/inputs/parity/static-files-lookup.json",
-      "build/parity/inputs/parity/static-files-async-boundary.json"
+      "build/parity/inputs/parity/static-files-async-boundary.json",
+      "build/parity/inputs/parity/session-middleware.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -4638,6 +4644,348 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only correctness slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.sessions.SessionMiddleware",
+      "kind": "type",
+      "source_path": "starlette/middleware/sessions.py:16",
+      "storage_slug": "starlette-middleware-sessions-SessionMiddleware",
+      "operations": [
+        {
+          "id": "session-workflow",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.sessions.SessionMiddleware.__call__",
+            "signature": "async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "requests",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "secret_key_observation",
+                  "value_types": [
+                    "mapping",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "SessionMiddleware is a Python ASGI middleware consumer contract and has no Rust-native public middleware consumer surface in this slice.",
+                "authority": "The requested parity target profile is python-package-cpython312 only."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.sessions.SessionMiddleware.__call__",
+              "signature": "async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+              "dimension": "success_path",
+              "description": "Construct SessionMiddleware with input-selected options through the documented public middleware import. Upstream: starlette/middleware/sessions.py:16-37.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.signed-cookie-round-trip",
+              "dimension": "success_path",
+              "description": "Persist a modified session with a signed cookie and replay that Set-Cookie value dynamically into a later request. Upstream: tests/middleware/test_session.py:32-62.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.invalid-signature-fallback",
+              "dimension": "error_path",
+              "description": "Read a session whose supplied cookie signature is invalid and observe the source fallback session through the live request flow. Upstream: tests/middleware/test_session.py:144-160.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-expiry",
+              "dimension": "boundary",
+              "description": "Reject an expired signed cookie using the source test max_age boundary and controlled signer timestamp. Upstream: tests/middleware/test_session.py:65-86.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-default",
+              "dimension": "parameter",
+              "description": "Issue a session cookie with the default two-week Max-Age. Upstream: tests/middleware/test_session.py:32-62.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-none",
+              "dimension": "parameter",
+              "description": "Issue a session cookie with max_age=None and observe session-cookie persistence attributes. Upstream: docs/middleware.md:129-160.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.default-cookie-attributes",
+              "dimension": "parameter_combination",
+              "description": "Observe the default cookie name, path, HttpOnly, SameSite, and Max-Age attributes. Upstream: starlette/middleware/sessions.py:48-68; tests/middleware/test_session.py:32-62.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.custom-cookie-attributes",
+              "dimension": "parameter_combination",
+              "description": "Observe custom cookie name, path, and SameSite attributes supplied to SessionMiddleware. Upstream: tests/middleware/test_session.py:163-182.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.domain-secure-attributes",
+              "dimension": "parameter_combination",
+              "description": "Observe Domain and Secure flags configured for a session cookie issued on an HTTPS scope. Upstream: tests/middleware/test_session.py:89-123,185-204.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.cookie-subpath",
+              "dimension": "parameter",
+              "description": "Emit and replay the session cookie with the configured subpath. Upstream: tests/middleware/test_session.py:126-141.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.session-mutation-flags",
+              "dimension": "protocol_variant",
+              "description": "Compare Session accessed and modified flags and mutation results for set, delete, clear, pop, setdefault, and empty/non-empty update inputs. Upstream: tests/middleware/test_session.py:251-287.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access",
+              "dimension": "success_path",
+              "description": "Add Vary: Cookie when request handling accesses the session. Upstream: tests/middleware/test_session.py:227-248.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.no-access-no-vary",
+              "dimension": "boundary",
+              "description": "Do not add Vary: Cookie when the session is not accessed by the request action. Upstream: tests/middleware/test_session.py:227-248.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.set-cookie-only-on-modification",
+              "dimension": "success_path",
+              "description": "Set a session cookie only when request handling modifies session data. Upstream: tests/middleware/test_session.py:207-224.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.clear-existing-session",
+              "dimension": "protocol_variant",
+              "description": "Clear a non-empty previously signed session and emit the source expired-cookie response. Upstream: tests/middleware/test_session.py:32-62.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.clear-empty-session",
+              "dimension": "boundary",
+              "description": "Clear a new empty session without emitting a clearing cookie. Upstream: starlette/middleware/sessions.py:53-68.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.websocket-cookie-loading",
+              "dimension": "protocol_variant",
+              "description": "Load a previously signed HTTP session cookie into a WebSocket scope, expose the loaded mapping to the downstream public WebSocket consumer, and preserve the unmodified session flags. Upstream: starlette/middleware/sessions.py:39-46,78-89.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.non-http-pass-through",
+              "dimension": "boundary",
+              "description": "Forward a lifespan scope and its input-defined startup/shutdown events to the downstream ASGI application without adding session state or changing event order. Upstream: starlette/middleware/sessions.py:39-42.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.secret-key-wrapper",
+              "dimension": "boundary",
+              "description": "Accept the documented Secret key wrapper and preserve its redacted repr, string value, truthiness, and SessionMiddleware signing behavior. Upstream: starlette/datastructures.py:205-222; starlette/middleware/sessions.py:16-20; docs/config.md:45-59.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded input-only middleware slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only correctness slice declares no SessionMiddleware benchmark workload."
           }
         }
       ]

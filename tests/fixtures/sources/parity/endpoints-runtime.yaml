@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@6",
+  "schema": "migration-parity/parity-input@9",
   "cases": [
     {
       "case_id": "starlette.endpoints.HTTPEndpoint.head-falls-back-to-get",

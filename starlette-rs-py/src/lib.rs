@@ -27,6 +27,7 @@ mod router_runtime;
 mod runtime_calls;
 mod schemas_runtime;
 mod server_error_runtime;
+mod sessions_runtime;
 mod staticfiles_runtime;
 mod status_runtime;
 mod websocket_calls;
@@ -1156,6 +1157,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     router_runtime::register(module)?;
     gzip_runtime::register(module)?;
     server_error_runtime::register(module)?;
+    sessions_runtime::register(module)?;
     status_runtime::register(module)?;
     websocket_calls::register(module)?;
     module.add_class::<PyLifespanState>()?;

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@8",
+  "schema": "migration-parity/parity-input@9",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.__call__.http-exception.default-406",

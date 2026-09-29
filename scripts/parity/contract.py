@@ -17,7 +17,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@8"
+INPUT_SCHEMA = "migration-parity/parity-input@9"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -61,6 +61,30 @@ WEBSOCKET_SURFACE = "starlette.websockets.WebSocket"
 WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
 WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
+SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
+SESSION_WORKFLOW_OPERATION = "session-workflow"
+SESSION_WORKFLOW_OPERATION_KEY = (SESSION_MIDDLEWARE_SURFACE, SESSION_WORKFLOW_OPERATION)
+SESSION_REQUIREMENTS = {
+    "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
+    "signed_cookie_round_trip": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.signed-cookie-round-trip",
+    "invalid_signature_fallback": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.invalid-signature-fallback",
+    "max_age_expiry": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-expiry",
+    "max_age_default": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-default",
+    "max_age_none": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-none",
+    "default_cookie_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.default-cookie-attributes",
+    "custom_cookie_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.custom-cookie-attributes",
+    "domain_secure_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.domain-secure-attributes",
+    "cookie_subpath": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.cookie-subpath",
+    "mutation_flags": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.session-mutation-flags",
+    "vary_on_access": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.vary-cookie-on-access",
+    "no_access": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.no-access-no-vary",
+    "set_cookie_modification": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.set-cookie-only-on-modification",
+    "clear_existing": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.clear-existing-session",
+    "clear_empty": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.clear-empty-session",
+    "websocket_cookie_loading": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.websocket-cookie-loading",
+    "non_http_pass_through": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.non-http-pass-through",
+    "secret_key_wrapper": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.secret-key-wrapper",
+}
 WEBSOCKET_CLOSE_SURFACE = "starlette.websockets.WebSocketClose"
 WEBSOCKET_CLOSE_OPERATION = "call-sequence"
 EXCEPTION_VALUES_SURFACE = "starlette.exceptions"
@@ -117,6 +141,7 @@ WEBSOCKET_PROJECTED_ERROR_OPERATIONS = {
     (WEBSOCKET_SURFACE, WEBSOCKET_STATE_OPERATION),
     (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION),
     (WEBSOCKET_CLOSE_SURFACE, WEBSOCKET_CLOSE_OPERATION),
+    SESSION_WORKFLOW_OPERATION_KEY,
 }
 WEBSOCKET_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
@@ -128,6 +153,10 @@ STATUS_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "deprecated_names",
     "missing_names",
     "observe_directory",
+}
+SESSION_WORKFLOW_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "constructor",
+    "requests",
 }
 WEBSOCKET_CLOSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
@@ -1135,6 +1164,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             (WEBSOCKET_SURFACE, WEBSOCKET_OPERATION),
                             (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION),
                             (WEBSOCKET_CLOSE_SURFACE, WEBSOCKET_CLOSE_OPERATION),
+                            SESSION_WORKFLOW_OPERATION_KEY,
                         }
                         or (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
                         or (surface["id"], operation["id"])
@@ -4528,6 +4558,437 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_session_workflow_case(case: dict[str, Any]) -> None:
+    constructor = _exact(
+        case["constructor"],
+        {
+            "secret_key",
+            "session_cookie",
+            "max_age",
+            "path",
+            "same_site",
+            "https_only",
+            "domain",
+            "clock_epoch",
+        },
+        "SessionMiddleware constructor input",
+    )
+    secret_key = constructor["secret_key"]
+    if isinstance(secret_key, str):
+        pass
+    else:
+        secret_key = _exact(
+            secret_key,
+            {"kind", "value"},
+            "SessionMiddleware constructor.secret_key",
+        )
+        if secret_key["kind"] != "secret":
+            raise ContractError("SessionMiddleware secret_key kind must be secret")
+        _string(secret_key["value"], "SessionMiddleware constructor.secret_key.value")
+    for name in ("session_cookie", "path"):
+        _string(constructor[name], f"SessionMiddleware constructor.{name}")
+    if constructor["max_age"] is not None and type(constructor["max_age"]) is not int:
+        raise ContractError("SessionMiddleware max_age must be an integer or null")
+    if not isinstance(constructor["same_site"], str) or constructor["same_site"] not in {
+        "lax",
+        "strict",
+        "none",
+    }:
+        raise ContractError("SessionMiddleware same_site must be lax, strict, or none")
+    if type(constructor["https_only"]) is not bool:
+        raise ContractError("SessionMiddleware https_only must be a boolean")
+    if constructor["domain"] is not None and not isinstance(constructor["domain"], str):
+        raise ContractError("SessionMiddleware domain must be a string or null")
+    if type(constructor["clock_epoch"]) is not int or constructor["clock_epoch"] < 0:
+        raise ContractError("SessionMiddleware clock_epoch must be a non-negative integer")
+
+    requests = case["requests"]
+    if not isinstance(requests, list) or not requests:
+        raise ContractError("SessionMiddleware requests must be a non-empty array")
+    request_by_id: dict[str, dict[str, Any]] = {}
+    previous_cookie_refs: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    actions: list[dict[str, Any]] = []
+    has_invalid_signature_input = False
+    for index, raw_request in enumerate(requests):
+        context = f"SessionMiddleware request[{index}]"
+        request = _exact(
+            raw_request,
+            {"request_id", "scope", "receive", "cookie_source", "action"},
+            context,
+        )
+        request_id = _string(request["request_id"], f"{context}.request_id")
+        if request_id in request_by_id:
+            raise ContractError("SessionMiddleware request_id values must be unique")
+        request_by_id[request_id] = request
+        _validate_dispatch_stimulus(
+            {
+                "scope": request["scope"],
+                "receive": request["receive"],
+                "send": {"kind": "capture-asgi-send"},
+            },
+            request_dispatch=True,
+            allow_headers=True,
+            allow_host=True,
+        )
+        scope = request["scope"]
+        scope_type = scope["type"]
+        if scope_type == "lifespan" and request["cookie_source"] is not None:
+            raise ContractError("lifespan pass-through cannot receive a session cookie")
+        if scope_type in {"http", "websocket"}:
+            header_names = {
+                base64.b64decode(pair[0], validate=True).decode("latin-1").casefold()
+                for pair in scope["headers_base64_pairs"]
+            }
+            if "cookie" in header_names:
+                raise ContractError("session cookie input must use cookie_source, not scope headers")
+        if scope_type == "http":
+            if request["receive"] != [
+                {"type": "http.request", "body_base64": "", "more_body": False}
+            ]:
+                raise ContractError("SessionMiddleware HTTP requests use one empty body event")
+        elif scope_type == "websocket":
+            if request["receive"] != [
+                {"type": "websocket.connect", "subprotocols": scope["subprotocols"]}
+            ]:
+                raise ContractError(
+                    "SessionMiddleware WebSocket requests use one connect event with the offered subprotocols"
+                )
+        elif request["receive"] != [
+            {"type": "lifespan.startup"},
+            {"type": "lifespan.shutdown"},
+        ]:
+            raise ContractError(
+                "SessionMiddleware lifespan pass-through uses startup followed by shutdown"
+            )
+
+        cookie_source = request["cookie_source"]
+        if cookie_source is not None:
+            if not isinstance(cookie_source, dict) or cookie_source.get("kind") not in {
+                "raw-cookie",
+                "previous-set-cookie",
+            }:
+                raise ContractError("SessionMiddleware cookie_source has an unsupported kind")
+            if cookie_source["kind"] == "raw-cookie":
+                cookie_source = _exact(
+                    cookie_source, {"kind", "value"}, f"{context}.raw-cookie"
+                )
+                value = _string(cookie_source["value"], f"{context}.raw-cookie.value")
+                try:
+                    value.encode("latin-1")
+                except UnicodeEncodeError as exc:
+                    raise ContractError("raw session cookie must be Latin-1 encodable") from exc
+                if (
+                    isinstance(request["action"], dict)
+                    and request["action"].get("kind") == "view"
+                    and value.startswith(f"{constructor['session_cookie']}=")
+                ):
+                    has_invalid_signature_input = True
+            else:
+                cookie_source = _exact(
+                    cookie_source,
+                    {"kind", "request_id"},
+                    f"{context}.previous-set-cookie",
+                )
+                previous_id = _string(
+                    cookie_source["request_id"], f"{context}.previous-set-cookie.request_id"
+                )
+                previous = request_by_id.get(previous_id)
+                if previous is None:
+                    raise ContractError(
+                        "previous-set-cookie must reference an earlier workflow request"
+                    )
+                previous_cookie_refs.append((request, previous))
+
+        action = request["action"]
+        if not isinstance(action, dict) or action.get("kind") not in {
+            "view",
+            "update",
+            "clear",
+            "no-access",
+            "session-mutation",
+            "websocket-view",
+            "passthrough",
+        }:
+            raise ContractError("SessionMiddleware action has an unsupported kind")
+        action_kind = action["kind"]
+        if action_kind in {"view", "clear", "no-access"}:
+            if scope_type != "http":
+                raise ContractError("session view, clear, and no-access actions require HTTP scopes")
+            action = _exact(action, {"kind"}, f"{context}.action")
+        elif action_kind == "update":
+            if scope_type != "http":
+                raise ContractError("session update actions require HTTP scopes")
+            action = _exact(action, {"kind", "values"}, f"{context}.action")
+            if not isinstance(action["values"], dict) or any(
+                not isinstance(key, str) for key in action["values"]
+            ):
+                raise ContractError("SessionMiddleware update values must be a string-key mapping")
+            try:
+                json.dumps(action["values"], allow_nan=False)
+            except (TypeError, ValueError) as exc:
+                raise ContractError("SessionMiddleware update values must be JSON-compatible") from exc
+        else:
+            if action_kind == "session-mutation" and scope_type != "http":
+                raise ContractError("direct Session mutations require HTTP scopes")
+            if action_kind == "websocket-view":
+                if scope_type != "websocket":
+                    raise ContractError("websocket-view actions require WebSocket scopes")
+                action = _exact(
+                    action,
+                    {"kind", "accept", "close"},
+                    f"{context}.websocket-view action",
+                )
+                accept = _exact(
+                    action["accept"],
+                    {"subprotocol", "headers_base64_pairs"},
+                    f"{context}.websocket-view.accept",
+                )
+                if accept["subprotocol"] is not None and (
+                    not isinstance(accept["subprotocol"], str)
+                    or accept["subprotocol"] not in scope["subprotocols"]
+                ):
+                    raise ContractError(
+                        "WebSocket accept subprotocol must be null or one offered by the client"
+                    )
+                _gzip_header_pairs(
+                    accept["headers_base64_pairs"],
+                    f"{context}.websocket-view.accept.headers_base64_pairs",
+                )
+                close = _exact(
+                    action["close"],
+                    {"code", "reason"},
+                    f"{context}.websocket-view.close",
+                )
+                if (
+                    type(close["code"]) is not int
+                    or not 1000 <= close["code"] <= 4999
+                    or not isinstance(close["reason"], str)
+                ):
+                    raise ContractError("WebSocket close code and reason are invalid")
+            elif action_kind == "passthrough":
+                if scope_type != "lifespan":
+                    raise ContractError("passthrough actions require lifespan scopes")
+                action = _exact(
+                    action,
+                    {"kind", "outbound"},
+                    f"{context}.lifespan passthrough action",
+                )
+                outbound = action["outbound"]
+                expected_outbound = [
+                    {"type": "lifespan.startup.complete"},
+                    {"type": "lifespan.shutdown.complete"},
+                ]
+                if outbound != expected_outbound:
+                    raise ContractError(
+                        "lifespan pass-through outbound messages must match the declared completion sequence"
+                    )
+            else:
+                action = _exact(
+                    action,
+                    {"kind", "initial", "mutation"},
+                    f"{context}.session-mutation action",
+                )
+                initial = action["initial"]
+                if not isinstance(initial, dict) or any(not isinstance(key, str) for key in initial):
+                    raise ContractError("Session mutation initial value must be a string-key mapping")
+                mutation = action["mutation"]
+                if not isinstance(mutation, dict) or mutation.get("kind") not in {
+                    "set",
+                    "delete",
+                    "clear",
+                    "pop",
+                    "setdefault",
+                    "update",
+                }:
+                    raise ContractError("SessionMiddleware mutation has an unsupported kind")
+                mutation_kind = mutation["kind"]
+                mutation_fields = {
+                    "set": {"kind", "key", "value"},
+                    "delete": {"kind", "key"},
+                    "clear": {"kind"},
+                    "pop": {"kind", "key", "default"},
+                    "setdefault": {"kind", "key", "default"},
+                    "update": {"kind", "values"},
+                }[mutation_kind]
+                mutation = _exact(
+                    mutation, mutation_fields, f"{context}.mutation.{mutation_kind}"
+                )
+                if mutation_kind in {"set", "delete", "pop", "setdefault"}:
+                    _string(mutation["key"], f"{context}.mutation.key")
+                if mutation_kind == "delete" and mutation["key"] not in initial:
+                    raise ContractError("SessionMiddleware delete mutation requires an input key")
+                if mutation_kind == "update" and (
+                    not isinstance(mutation["values"], dict)
+                    or any(not isinstance(key, str) for key in mutation["values"])
+                ):
+                    raise ContractError("SessionMiddleware mutation update requires a mapping")
+                try:
+                    json.dumps({"initial": initial, "mutation": mutation}, allow_nan=False)
+                except (TypeError, ValueError) as exc:
+                    raise ContractError(
+                        "SessionMiddleware mutation values must be JSON-compatible"
+                    ) from exc
+        actions.append(action)
+
+    for request, previous in previous_cookie_refs:
+        previous_action = previous["action"]
+        if (
+            previous_action.get("kind") != "update"
+            or not previous_action.get("values")
+        ):
+            raise ContractError(
+                "previous-set-cookie source must follow a non-empty session update"
+            )
+
+    requirements = {SESSION_REQUIREMENTS["construct"]}
+    if isinstance(constructor["secret_key"], dict):
+        requirements.add(SESSION_REQUIREMENTS["secret_key_wrapper"])
+    action_kinds = {action["kind"] for action in actions}
+    update_requests = [
+        request
+        for request in requests
+        if request["action"]["kind"] == "update" and request["action"]["values"]
+    ]
+    if "no-access" in action_kinds:
+        requirements.add(SESSION_REQUIREMENTS["no_access"])
+    if action_kinds & {"view", "update", "clear"}:
+        requirements.add(SESSION_REQUIREMENTS["vary_on_access"])
+    if update_requests:
+        requirements.add(SESSION_REQUIREMENTS["set_cookie_modification"])
+        if constructor["max_age"] == 14 * 24 * 60 * 60:
+            requirements.add(SESSION_REQUIREMENTS["max_age_default"])
+        if constructor["max_age"] is None:
+            requirements.add(SESSION_REQUIREMENTS["max_age_none"])
+        if (
+            constructor["session_cookie"] == "session"
+            and constructor["max_age"] == 14 * 24 * 60 * 60
+            and constructor["path"] == "/"
+            and constructor["same_site"] == "lax"
+            and not constructor["https_only"]
+            and constructor["domain"] is None
+        ):
+            requirements.add(SESSION_REQUIREMENTS["default_cookie_attributes"])
+        if (
+            constructor["session_cookie"] != "session"
+            or constructor["path"] != "/"
+            or constructor["same_site"] != "lax"
+        ):
+            requirements.add(SESSION_REQUIREMENTS["custom_cookie_attributes"])
+        if (
+            constructor["domain"] is not None
+            and constructor["https_only"]
+            and any(
+                request["scope"]["scheme"] == "https"
+                for request in update_requests
+            )
+        ):
+            requirements.add(SESSION_REQUIREMENTS["domain_secure_attributes"])
+        if constructor["path"] != "/" and any(
+            request["scope"]["path"].startswith(constructor["path"].rstrip("/") + "/")
+            or request["scope"]["path"] == constructor["path"]
+            for request in update_requests
+        ):
+            requirements.add(SESSION_REQUIREMENTS["cookie_subpath"])
+    if (
+        (constructor["max_age"] is None or constructor["max_age"] >= 0)
+        and any(
+            prior["action"]["kind"] == "update"
+            and prior["action"]["values"]
+            and request["action"]["kind"] in {"view", "websocket-view"}
+            for request, prior in previous_cookie_refs
+        )
+    ):
+        requirements.add(SESSION_REQUIREMENTS["signed_cookie_round_trip"])
+    if has_invalid_signature_input:
+        requirements.add(SESSION_REQUIREMENTS["invalid_signature_fallback"])
+    if (
+        type(constructor["max_age"]) is int
+        and constructor["max_age"] < 0
+        and any(
+            prior["action"]["kind"] == "update"
+            and prior["action"]["values"]
+            and request["action"]["kind"] == "view"
+            for request, prior in previous_cookie_refs
+        )
+    ):
+        requirements.add(SESSION_REQUIREMENTS["max_age_expiry"])
+    if any(
+        request["action"]["kind"] == "clear"
+        and prior["action"]["kind"] == "update"
+        and prior["action"]["values"]
+        for request, prior in previous_cookie_refs
+    ):
+        requirements.add(SESSION_REQUIREMENTS["clear_existing"])
+    if any(
+        request["action"]["kind"] == "clear" and request["cookie_source"] is None
+        for request in requests
+    ):
+        requirements.add(SESSION_REQUIREMENTS["clear_empty"])
+    if any(
+        request["scope"]["type"] == "websocket"
+        and request["action"]["kind"] == "websocket-view"
+        and prior["action"]["kind"] == "update"
+        and prior["action"]["values"]
+        for request, prior in previous_cookie_refs
+    ):
+        requirements.add(SESSION_REQUIREMENTS["websocket_cookie_loading"])
+    if any(
+        request["scope"]["type"] == "lifespan"
+        and request["action"]["kind"] == "passthrough"
+        for request in requests
+    ):
+        requirements.add(SESSION_REQUIREMENTS["non_http_pass_through"])
+
+    mutation_actions = [
+        action for action in actions if action["kind"] == "session-mutation"
+    ]
+    mutation_kinds = {action["mutation"]["kind"] for action in mutation_actions}
+    pop_existing = any(
+        action["mutation"]["kind"] == "pop"
+        and action["mutation"]["key"] in action["initial"]
+        for action in mutation_actions
+    )
+    pop_missing = any(
+        action["mutation"]["kind"] == "pop"
+        and action["mutation"]["key"] not in action["initial"]
+        for action in mutation_actions
+    )
+    setdefault_existing = any(
+        action["mutation"]["kind"] == "setdefault"
+        and action["mutation"]["key"] in action["initial"]
+        for action in mutation_actions
+    )
+    setdefault_missing = any(
+        action["mutation"]["kind"] == "setdefault"
+        and action["mutation"]["key"] not in action["initial"]
+        for action in mutation_actions
+    )
+    update_empty = any(
+        action["mutation"]["kind"] == "update" and not action["mutation"]["values"]
+        for action in mutation_actions
+    )
+    update_nonempty = any(
+        action["mutation"]["kind"] == "update" and action["mutation"]["values"]
+        for action in mutation_actions
+    )
+    if (
+        {"set", "delete", "clear", "pop", "setdefault", "update"} <= mutation_kinds
+        and pop_existing
+        and pop_missing
+        and setdefault_existing
+        and setdefault_missing
+        and update_empty
+        and update_nonempty
+    ):
+        requirements.add(SESSION_REQUIREMENTS["mutation_flags"])
+
+    if set(case["covers"]) != requirements:
+        raise ContractError(
+            "SessionMiddleware covers must match the constructor and input action behaviors: "
+            f"expected={sorted(requirements)}, actual={sorted(case['covers'])}"
+        )
+
+
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     is_websocket = isinstance(case, dict) and case.get("surface") == WEBSOCKET_SURFACE
     is_websocket_close = isinstance(case, dict) and case.get("surface") == WEBSOCKET_CLOSE_SURFACE
@@ -4613,6 +5074,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     is_status_symbols = (
         isinstance(case, dict) and (case.get("surface"), case.get("operation")) == STATUS_OPERATION
     )
+    is_session_workflow = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == SESSION_WORKFLOW_OPERATION_KEY
+    )
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
@@ -4642,6 +5107,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_streaming_response
         else STATUS_CASE_KEYS
         if is_status_symbols
+        else SESSION_WORKFLOW_CASE_KEYS
+        if is_session_workflow
         else CASE_KEYS
     )
     if is_response and isinstance(case, dict) and "render_override" in case:
@@ -4705,6 +5172,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = REQUEST_IS_DISCONNECTED_CASE_KEYS
     elif is_status_symbols:
         expected_case_keys = STATUS_CASE_KEYS
+    elif is_session_workflow:
+        expected_case_keys = SESSION_WORKFLOW_CASE_KEYS
     if is_streaming_response:
         expected_case_keys = expected_case_keys | {
             key for key in ("background", "receive_behavior", "stream_lifecycle") if key in case
@@ -4806,6 +5275,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             raise ContractError(
                 "status module cases must use the declared symbol-sequence operation"
             )
+    elif is_session_workflow:
+        if (case["surface"], case["operation"]) != SESSION_WORKFLOW_OPERATION_KEY:
+            raise ContractError("session cases must use the declared session-workflow operation")
     elif case["surface"] != "starlette.applications.Starlette" or case["operation"] not in {
         "__call__",
         "request-dispatch",
@@ -4834,6 +5306,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ContractError("case must select one or more declared target profiles")
     selected_profile_ids = set(selected_profiles)
+    if is_session_workflow and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError("SessionMiddleware cases select only the Python-package profile")
     requirements: dict[str, dict[str, Any]] = {}
     operations: dict[tuple[str, str], dict[str, Any]] = {}
     for surface in manifest["surfaces"]:
@@ -4841,6 +5315,15 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             operations[(surface["id"], operation["id"])] = operation
             for requirement in operation["requirements"]:
                 requirements[requirement["id"]] = requirement
+    if is_session_workflow:
+        session_operation = operations.get(SESSION_WORKFLOW_OPERATION_KEY)
+        declared_requirements = {
+            item["id"] for item in session_operation["requirements"]
+        } if session_operation is not None else set()
+        if declared_requirements != set(SESSION_REQUIREMENTS.values()):
+            raise ContractError(
+                "SessionMiddleware session-workflow must declare the complete canonical requirement set"
+            )
     covers = case["covers"]
     if (
         not isinstance(covers, list)
@@ -4875,6 +5358,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_status_symbols:
         _validate_status_symbols_case(case)
+        return case
+    if is_session_workflow:
+        if case["observations"] != [SESSION_WORKFLOW_OPERATION]:
+            raise ContractError("SessionMiddleware observations must select session-workflow")
+        _validate_session_workflow_case(case)
         return case
     if is_rust_owned_python:
         if (case["surface"], case["operation"]) in CONFIG_OPERATIONS:
@@ -5046,7 +5534,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 and not record_matches
                 and "any_json" not in allowed_types
                 # JSON cannot encode Python exception-class keys or callback
-                # values. parity-input@8 therefore encodes this declared
+                # values. parity-input@9 therefore encodes this declared
                 # mapping parameter as an ordered array of tagged entries;
                 # `_validate_application_stimulus` validates and materializes
                 # that representation before either live adapter calls Starlette.
@@ -9081,6 +9569,15 @@ def _validate_benchmark_result_artifact(value: Any) -> dict[str, Any]:
         environment_ids.add(environment["id"])
         for name in ("python", "runtime", "os", "architecture", "dependency_lock_path"):
             _string(environment[name], f"benchmark environment.{name}")
+        expected_lock_path = (
+            "scripts/parity/locks/starlette-oracle-cpython312.txt"
+            if environment["id"] == "starlette-oracle-cpython312"
+            else "scripts/parity/locks/asgi-runtime-cpython312.txt"
+        )
+        if environment["dependency_lock_path"] != expected_lock_path:
+            raise ContractError(
+                "benchmark environment dependency_lock_path differs from its isolated runtime lock"
+            )
         for name in (
             "dependency_lock_sha256",
             "installed_lock_sha256",
@@ -10037,10 +10534,12 @@ def _validate_upstream_benchmark_result_artifact(value: Any) -> dict[str, Any]:
             raise ContractError("upstream benchmark prepared environment order differs")
         for name in ("python", "runtime", "os", "architecture"):
             _string(environment[name], f"{context}.{name}")
-        if (
-            environment["dependency_lock_path"]
-            != "scripts/parity/locks/asgi-runtime-cpython312.txt"
-        ):
+        expected_lock_path = (
+            "scripts/parity/locks/starlette-oracle-cpython312.txt"
+            if environment["id"] == "starlette-oracle-cpython312"
+            else "scripts/parity/locks/asgi-runtime-cpython312.txt"
+        )
+        if environment["dependency_lock_path"] != expected_lock_path:
             raise ContractError(
                 f"{context}.dependency_lock_path differs from the active runtime lock"
             )
@@ -10638,9 +11137,14 @@ def validate_result_artifact(
                 },
                 f"result.identity.environments[{index}]",
             )
-            if item["dependency_lock_path"] != "scripts/parity/locks/asgi-runtime-cpython312.txt":
+            expected_lock_path = (
+                "scripts/parity/locks/starlette-oracle-cpython312.txt"
+                if item["id"] == "starlette-oracle-cpython312"
+                else "scripts/parity/locks/asgi-runtime-cpython312.txt"
+            )
+            if item["dependency_lock_path"] != expected_lock_path:
                 raise ContractError(
-                    "Python environment must bind to the committed runtime dependency lock"
+                    "Python environment must bind to its committed isolated dependency lock"
                 )
         else:
             raise ContractError(

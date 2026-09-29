@@ -8,6 +8,8 @@ from urllib.parse import SplitResult
 
 from starlette_rs_py import _core
 
+Secret = _core.Secret
+
 
 class QueryParams(_core.QueryParams, Mapping[str, str]):
     """Immutable query parameters with Rust-owned parsing and lookup behavior."""

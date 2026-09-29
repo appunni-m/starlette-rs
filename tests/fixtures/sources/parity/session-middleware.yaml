@@ -1,0 +1,1252 @@
+{
+  "schema": "migration-parity/parity-input@9",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.default-cookie-and-lifecycle",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "session-workflow",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.clear-empty-session",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.clear-existing-session",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.default-cookie-attributes",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-default",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.no-access-no-vary",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.set-cookie-only-on-modification",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.signed-cookie-round-trip",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "secret_key": "session-parity-secret",
+        "session_cookie": "session",
+        "max_age": 1209600,
+        "path": "/",
+        "same_site": "lax",
+        "https_only": false,
+        "domain": null,
+        "clock_epoch": 1700000000
+      },
+      "requests": [
+        {
+          "request_id": "initial-view",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "view"
+          }
+        },
+        {
+          "request_id": "write-session",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "update",
+            "values": {
+              "user": "Ada",
+              "count": 1
+            }
+          }
+        },
+        {
+          "request_id": "replay-session",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "write-session"
+          },
+          "action": {
+            "kind": "view"
+          }
+        },
+        {
+          "request_id": "clear-existing",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "write-session"
+          },
+          "action": {
+            "kind": "clear"
+          }
+        },
+        {
+          "request_id": "no-session-access",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "no-access"
+          }
+        },
+        {
+          "request_id": "clear-empty",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "clear"
+          }
+        }
+      ],
+      "observations": [
+        "session-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.invalid-signature-fallback",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "session-workflow",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.invalid-signature-fallback",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "secret_key": "session-parity-secret",
+        "session_cookie": "session",
+        "max_age": 1209600,
+        "path": "/",
+        "same_site": "lax",
+        "https_only": false,
+        "domain": null,
+        "clock_epoch": 1700000000
+      },
+      "requests": [
+        {
+          "request_id": "bad-signature",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "raw-cookie",
+            "value": "session=invalid.signature"
+          },
+          "action": {
+            "kind": "view"
+          }
+        }
+      ],
+      "observations": [
+        "session-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.expired-cookie",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "session-workflow",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-expiry",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.set-cookie-only-on-modification",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "secret_key": "session-parity-secret",
+        "session_cookie": "session",
+        "max_age": -1,
+        "path": "/",
+        "same_site": "lax",
+        "https_only": false,
+        "domain": null,
+        "clock_epoch": 1700000000
+      },
+      "requests": [
+        {
+          "request_id": "expired-cookie-write",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "update",
+            "values": {
+              "user": "Ada"
+            }
+          }
+        },
+        {
+          "request_id": "expired-cookie-read",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "expired-cookie-write"
+          },
+          "action": {
+            "kind": "view"
+          }
+        }
+      ],
+      "observations": [
+        "session-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.custom-cookie-attributes",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "session-workflow",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.cookie-subpath",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.custom-cookie-attributes",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.domain-secure-attributes",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-none",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.set-cookie-only-on-modification",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.signed-cookie-round-trip",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "secret_key": "session-parity-secret",
+        "session_cookie": "sid",
+        "max_age": null,
+        "path": "/sub",
+        "same_site": "none",
+        "https_only": true,
+        "domain": ".example.test",
+        "clock_epoch": 1700000000
+      },
+      "requests": [
+        {
+          "request_id": "custom-cookie-write",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "https",
+            "path": "/sub/session",
+            "raw_path_base64": "L3N1Yi9zZXNzaW9u",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              443
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "update",
+            "values": {
+              "role": "editor"
+            }
+          }
+        },
+        {
+          "request_id": "custom-cookie-read",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "https",
+            "path": "/sub/session",
+            "raw_path_base64": "L3N1Yi9zZXNzaW9u",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              443
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "custom-cookie-write"
+          },
+          "action": {
+            "kind": "view"
+          }
+        }
+      ],
+      "observations": [
+        "session-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.direct-session-mutation-flags",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "session-workflow",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.session-mutation-flags"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "secret_key": "session-parity-secret",
+        "session_cookie": "session",
+        "max_age": 1209600,
+        "path": "/",
+        "same_site": "lax",
+        "https_only": false,
+        "domain": null,
+        "clock_epoch": 1700000000
+      },
+      "requests": [
+        {
+          "request_id": "mutation-set",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1"
+            },
+            "mutation": {
+              "kind": "set",
+              "key": "b",
+              "value": "2"
+            }
+          }
+        },
+        {
+          "request_id": "mutation-delete",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1"
+            },
+            "mutation": {
+              "kind": "delete",
+              "key": "a"
+            }
+          }
+        },
+        {
+          "request_id": "mutation-clear",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1"
+            },
+            "mutation": {
+              "kind": "clear"
+            }
+          }
+        },
+        {
+          "request_id": "mutation-pop-present",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1"
+            },
+            "mutation": {
+              "kind": "pop",
+              "key": "a",
+              "default": null
+            }
+          }
+        },
+        {
+          "request_id": "mutation-pop-missing",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1"
+            },
+            "mutation": {
+              "kind": "pop",
+              "key": "missing",
+              "default": null
+            }
+          }
+        },
+        {
+          "request_id": "mutation-setdefault-missing",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1"
+            },
+            "mutation": {
+              "kind": "setdefault",
+              "key": "b",
+              "default": "2"
+            }
+          }
+        },
+        {
+          "request_id": "mutation-setdefault-present",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1"
+            },
+            "mutation": {
+              "kind": "setdefault",
+              "key": "a",
+              "default": "2"
+            }
+          }
+        },
+        {
+          "request_id": "mutation-update-empty",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1"
+            },
+            "mutation": {
+              "kind": "update",
+              "values": {}
+            }
+          }
+        },
+        {
+          "request_id": "mutation-update-nonempty",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1"
+            },
+            "mutation": {
+              "kind": "update",
+              "values": {
+                "b": "2"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "session-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.websocket-cookie-load",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "session-workflow",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.default-cookie-attributes",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-default",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.set-cookie-only-on-modification",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.signed-cookie-round-trip",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.websocket-cookie-loading"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "secret_key": "session-parity-secret",
+        "session_cookie": "session",
+        "max_age": 1209600,
+        "path": "/",
+        "same_site": "lax",
+        "https_only": false,
+        "domain": null,
+        "clock_epoch": 1700000000
+      },
+      "requests": [
+        {
+          "request_id": "websocket-cookie-write",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "update",
+            "values": {
+              "user": "WebSocket Ada"
+            }
+          }
+        },
+        {
+          "request_id": "websocket-cookie-read",
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": [
+              "chat"
+            ]
+          },
+          "receive": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": [
+                "chat"
+              ]
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "websocket-cookie-write"
+          },
+          "action": {
+            "kind": "websocket-view",
+            "accept": {
+              "subprotocol": "chat",
+              "headers_base64_pairs": []
+            },
+            "close": {
+              "code": 1000,
+              "reason": "session-observed"
+            }
+          }
+        }
+      ],
+      "observations": [
+        "session-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.non-http-lifespan-pass-through",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "session-workflow",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.non-http-pass-through"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "secret_key": "session-parity-secret",
+        "session_cookie": "session",
+        "max_age": 1209600,
+        "path": "/",
+        "same_site": "lax",
+        "https_only": false,
+        "domain": null,
+        "clock_epoch": 1700000000
+      },
+      "requests": [
+        {
+          "request_id": "lifespan-pass-through",
+          "scope": {
+            "type": "lifespan",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            }
+          },
+          "receive": [
+            {
+              "type": "lifespan.startup"
+            },
+            {
+              "type": "lifespan.shutdown"
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "passthrough",
+            "outbound": [
+              {
+                "type": "lifespan.startup.complete"
+              },
+              {
+                "type": "lifespan.shutdown.complete"
+              }
+            ]
+          }
+        }
+      ],
+      "observations": [
+        "session-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.secret-key-wrapper",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "session-workflow",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.default-cookie-attributes",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-default",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.secret-key-wrapper",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.set-cookie-only-on-modification",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "secret_key": {
+          "kind": "secret",
+          "value": "session-parity-secret"
+        },
+        "session_cookie": "session",
+        "max_age": 1209600,
+        "path": "/",
+        "same_site": "lax",
+        "https_only": false,
+        "domain": null,
+        "clock_epoch": 1700000000
+      },
+      "requests": [
+        {
+          "request_id": "secret-wrapper-write",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "update",
+            "values": {
+              "user": "Secret key"
+            }
+          }
+        }
+      ],
+      "observations": [
+        "session-workflow"
+      ]
+    }
+  ]
+}

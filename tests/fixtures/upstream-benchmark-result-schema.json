@@ -175,62 +175,118 @@
       }
     },
     "environmentIdentity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "python",
-        "runtime",
-        "os",
-        "architecture",
-        "dependency_lock_path",
-        "dependency_lock_sha256",
-        "installed_lock_sha256",
-        "artifact_sha256",
-        "environment_sha256"
-      ],
-      "properties": {
-        "id": {
-          "enum": [
-            "starlette-oracle-cpython312",
-            "starlette-rs-py-cpython312"
-          ]
-        },
-        "python": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "runtime": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "os": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "architecture": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "dependency_lock_path": {
-          "const": "scripts/parity/locks/asgi-runtime-cpython312.txt"
-        },
-        "dependency_lock_sha256": {
-          "$ref": "#/$defs/sha256"
-        },
-        "installed_lock_sha256": {
-          "$ref": "#/$defs/sha256"
-        },
-        "artifact_sha256": {
-          "anyOf": [
-            {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "python",
+            "runtime",
+            "os",
+            "architecture",
+            "dependency_lock_path",
+            "dependency_lock_sha256",
+            "installed_lock_sha256",
+            "artifact_sha256",
+            "environment_sha256"
+          ],
+          "properties": {
+            "id": {
+              "const": "starlette-oracle-cpython312"
+            },
+            "python": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "runtime": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "os": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "architecture": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "dependency_lock_path": {
+              "const": "scripts/parity/locks/starlette-oracle-cpython312.txt"
+            },
+            "dependency_lock_sha256": {
               "$ref": "#/$defs/sha256"
             },
-            {
-              "type": "null"
+            "installed_lock_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "artifact_sha256": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sha256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "environment_sha256": {
+              "$ref": "#/$defs/sha256"
             }
-          ]
+          }
         },
-        "environment_sha256": {
-          "$ref": "#/$defs/sha256"
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "python",
+            "runtime",
+            "os",
+            "architecture",
+            "dependency_lock_path",
+            "dependency_lock_sha256",
+            "installed_lock_sha256",
+            "artifact_sha256",
+            "environment_sha256"
+          ],
+          "properties": {
+            "id": {
+              "const": "starlette-rs-py-cpython312"
+            },
+            "python": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "runtime": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "os": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "architecture": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "dependency_lock_path": {
+              "const": "scripts/parity/locks/asgi-runtime-cpython312.txt"
+            },
+            "dependency_lock_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "installed_lock_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "artifact_sha256": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sha256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "environment_sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
         }
-      }
+      ]
     },
     "machineIdentity": {
       "type": "object",

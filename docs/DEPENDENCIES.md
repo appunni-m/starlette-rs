@@ -107,6 +107,34 @@ release clearance.
 - [`flate2` 1.1.10 manifest and feature definitions](https://docs.rs/crate/flate2/1.1.10)
 - [`libz-sys` 1.1.29 backend and licensing notes](https://docs.rs/crate/libz-sys/1.1.29)
 
+## Rust signed-session-cookie support
+
+| Crate | Locked version | Role | Cargo manifest license |
+| --- | --- | --- | --- |
+| `base64` | `0.22.1` | URL-safe encoding for signed-cookie timestamps and signatures, plus payload encoding | MIT OR Apache-2.0 |
+| `hmac` | `0.12.1` | HMAC construction and verification for timestamped session cookies | MIT OR Apache-2.0 |
+| `sha1` | `0.10.7` | SHA-1 digest used to match the pinned ItsDangerous signer format | MIT OR Apache-2.0 |
+| `subtle` | `2.6.1` (transitive) | Constant-time tag comparison through `digest 0.10.7`, a dependency of `hmac` | BSD-3-Clause |
+
+The versions come from the workspace `Cargo.lock`; license expressions come
+from the corresponding locked crate `Cargo.toml` files in the local Cargo
+registry. These are metadata facts, not a review of each crate archive's
+included license files. The direct crates and the transitive `subtle` crate
+must be included in the eventual Rust distribution notice audit.
+
+- [`base64` 0.22.1 manifest](https://docs.rs/crate/base64/0.22.1)
+- [`hmac` 0.12.1 manifest](https://docs.rs/crate/hmac/0.12.1)
+- [`sha1` 0.10.7 manifest](https://docs.rs/crate/sha1/0.10.7)
+- [`subtle` 2.6.1 manifest](https://docs.rs/crate/subtle/2.6.1)
+
+The parity environments keep the upstream oracle separate from the installed
+Starlette-RS package. `scripts/parity/locks/starlette-oracle-cpython312.txt`
+pins `itsdangerous==2.2.0` for the source oracle, whose `SessionMiddleware`
+uses ItsDangerous. The installed Python-package environment is defined by
+`scripts/parity/locks/asgi-runtime-cpython312.txt`; it does not install
+ItsDangerous because the replacement's session signing runs in Rust. This
+separation keeps the source oracle dependency out of the target runtime.
+
 ## Rust file-response helpers
 
 | Crate | Locked version | Feature / role | License and compatibility note |

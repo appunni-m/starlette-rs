@@ -17,11 +17,11 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 305 input-only cases across 36 files,
-covering 54 operations and 371 parity requirements. The authored cases span
+The active parity manifest indexes 313 input-only cases across 37 files,
+covering 55 operations and 390 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
-middleware, configuration, and schemas. The exact operation and profile
+middleware (including a bounded SessionMiddleware workflow), configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
@@ -131,6 +131,32 @@ and subclass hooks, and the rest of the upstream StaticFiles tests. Direct
 file types, size, and modification time against the source oracle; they do not
 establish complete StaticFiles parity.
 
+## SessionMiddleware slice and boundary
+
+The active contract adds eight input-only SessionMiddleware workflows for the
+`python-package-cpython312` profile. They compare signed-cookie persistence and
+replay, invalid-signature fallback, `max_age` expiry/default/`None` settings,
+cookie name/path/SameSite/Domain/Secure attributes, access and modification
+flags for direct `Session` mutations, `Vary: Cookie` behavior, clearing,
+WebSocket cookie loading, lifespan pass-through, and the public `Secret` key
+wrapper's redacted representation, string conversion, truth value, and signing
+use. The inputs replay the earlier live `Set-Cookie` value dynamically and
+contain no expected outputs. This is a bounded slice sourced from the pinned session tests
+and `docs/middleware.md`; it does not establish full SessionMiddleware or
+Starlette parity.
+
+Rust owns session signing and verification, expiration, cookie response
+behavior, documented `Secret` representation and truth behavior, and the
+`Session` mutation state. The Rust/PyO3 value boundary calls
+Python's standard-library `json.dumps` and `json.loads` to preserve the Python
+JSON byte representation used by the pinned implementation. The authored
+SessionMiddleware workflows compare those calls through the live source oracle.
+The codec remains a Python-specific compatibility boundary. The public status
+of `SessionMiddleware.signer` is unresolved: upstream assigns this attribute,
+but the compatibility inventory has not established it as supported public API.
+The installed facade does not expose ItsDangerous' signer object; ItsDangerous
+remains in the isolated source-oracle environment only.
+
 ## Current denominators
 
 Root `metadata.yaml` selects the pinned public Starlette source files and the
@@ -169,26 +195,26 @@ re-exports or `__all__`.
 
 ## Completed atlas coverage
 
-The [`coverage matrix`](atlas/coverage-matrix.csv) contains 789 mappings:
+The [`coverage matrix`](atlas/coverage-matrix.csv) contains 791 mappings:
 
 | Mapping | Count |
 | --- | ---: |
 | Upstream test functions and methods | 514 source functions represented by 537 behavior mappings |
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
-| All source mappings | 789 |
-| Existing input mappings in the atlas matrix | 97 |
+| All source mappings | 791 |
+| Existing input mappings in the atlas matrix | 111 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 642 |
+| New input-only fixture backlog | 630 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 97 `existing` mappings point to authored YAML input
+crosswalk snapshot, 111 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest now contains 36 indexed files
-and 305 cases, including 37 authored StaticFiles cases, four authentication cases,
+input files with 136 cases. The active manifest now contains 37 indexed files
+and 313 cases, including 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)

@@ -12,12 +12,15 @@ readme = "../README.md"
 name = "starlette_rs"
 
 [dependencies]
+base64.workspace = true
 flate2.workspace = true
 getrandom = "0.4.3"
+hmac = "0.12.1"
 httpdate = "1.0.3"
 libc = "0.2"
 md-5 = "0.11.0"
 mime_guess = "2.0.5"
+sha1 = "0.10.6"
 sha2 = "0.10"
 serde_json = { version = "1", features = ["arbitrary_precision"] }
 

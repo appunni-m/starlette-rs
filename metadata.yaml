@@ -164,6 +164,16 @@
       ]
     },
     {
+      "surface_id": "starlette.middleware.sessions.SessionMiddleware",
+      "source_path": "starlette/middleware/sessions.py:16",
+      "operations": [
+        {
+          "operation_id": "session-workflow",
+          "source_path": "starlette.middleware.sessions.SessionMiddleware.__call__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
       "source_path": "starlette/middleware/httpsredirect.py:7",
       "operations": [

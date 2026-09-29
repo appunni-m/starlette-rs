@@ -32,8 +32,9 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 305 input-only cases, 54 operations, and 371
-parity requirements across 36 indexed files. Latest integrated run
+The current parity contract has 313 input-only cases, 55 operations, and 390
+parity requirements across 37 indexed files, including a bounded SessionMiddleware
+workflow slice. Latest integrated run
 `1e508cab-8193-42d8-bf65-49778dfd3309`, from `2026-09-29T11:03:04.933Z` to
 `2026-09-29T11:04:00.797Z`, selected 440 profile comparisons: 436 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
