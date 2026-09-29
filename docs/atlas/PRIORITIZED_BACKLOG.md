@@ -9,14 +9,14 @@ incomplete.
 ## Current parity snapshot
 
 The active contract has 281 input-only cases across 36 files, covering 54
-operations and 344 requirements. Run `a63cb688-2fb9-4da1-8b13-daa4b8af0e0f`
-selected 395 comparisons: 391 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 278 applicable cases;
+operations and 344 requirements. Run `f4df4b18-8c74-46a4-9d33-96a0f684a9b6`
+selected 396 comparisons: 392 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 279 applicable cases;
 Rust-native passed 113 of 117 selected cases. The four unsupported Rust-native
-rows require arbitrary Python callables. See
+rows require arbitrary Python callables. The Rust-native target was clean; the
+installed Python package is fingerprinted by its content digest as a
+`dirty-tree` revision. See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
-That run predates the `parity-input@5` disconnect-cancellation case and is not
-evidence for the current manifest.
 
 ## P0 — Close the source-backed atlas (complete)
 

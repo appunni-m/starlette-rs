@@ -25,16 +25,18 @@ middleware, configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-The latest integrated run `a63cb688-2fb9-4da1-8b13-daa4b8af0e0f` started at
-`2026-09-29T07:59:14.390Z` and finished at `2026-09-29T08:00:15.722Z`. It
-selected 395 profile comparisons: 391 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 278 of 278
+Integrated run `f4df4b18-8c74-46a4-9d33-96a0f684a9b6` started at
+`2026-09-29T08:34:48.928Z` and finished at `2026-09-29T08:35:37.866Z`. It
+selected 396 profile comparisons: 392 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 279 of 279
 comparisons; Rust-native passed 113 of 117, with four rows requiring Python
-callables marked `not_run`. This run uses the 280-case, 343-requirement
-manifest with SHA-256
-`4872658329b37e8d60c68f20bf9803a83499e8a9058d29f0191e7e42fd5f4311`.
-This historical run predates the `parity-input@5` disconnect-cancellation
-case, so it does not provide current parity evidence for that input.
+callables marked `not_run`. The Rust-native target was clean. The installed
+Python package reports its content-addressed digest
+`2439b52be8a2a8407264489553f5a1b9cef00aecd655bc8113eacd43dce3fc27` as a
+`dirty-tree` revision. Manifest SHA-256:
+`21aa07faa2275cd65b735ce09a5a04f25949652b438d34032f535f188422023b`.
+This run covers the active disconnect-cancellation input; the four unsupported
+Rust-native Python-callable rows keep the overall gate incomplete.
 Thirty-seven StaticFiles cases are authored across
 three inputs. Fourteen `lookup_path` cases run on both profiles and all 28
 comparisons pass; all 69 StaticFiles profile comparisons pass (34 Rust-native

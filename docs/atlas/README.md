@@ -61,16 +61,15 @@ files under `build/parity/`. These bounded results do not establish full
 compatibility.
 
 The current contract has 281 input-only cases across 36 files, covering 54
-operations and 344 requirements. The latest integrated run
-`a63cb688-2fb9-4da1-8b13-daa4b8af0e0f` selected 395 comparisons: 391 passed,
+operations and 344 requirements. Integrated run
+`f4df4b18-8c74-46a4-9d33-96a0f684a9b6` selected 396 comparisons: 392 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 278 applicable cases; Rust-native passed 113 of 117 selected
+package passed all 279 applicable cases; Rust-native passed 113 of 117 selected
 cases. The four Rust-native rows require arbitrary Python callables. The
-Rust-native target tree was clean; the Python-package target tree was dirty.
-Manifest SHA-256:
-`4872658329b37e8d60c68f20bf9803a83499e8a9058d29f0191e7e42fd5f4311`. This
-historical run predates the new `parity-input@5` disconnect-cancellation case,
-so it does not cover the current manifest. See
+Rust-native target was clean; the installed Python package reports its
+content-addressed digest `2439b52be8a2a8407264489553f5a1b9cef00aecd655bc8113eacd43dce3fc27`
+as a `dirty-tree` revision. Manifest SHA-256:
+`21aa07faa2275cd65b735ce09a5a04f25949652b438d34032f535f188422023b`. See
 [Migration parity contract and evidence](../PARITY.md) for current scope and
 the case breakdown; the Router/GZip benchmark lane remains `not_proven`.
 
