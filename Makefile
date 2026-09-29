@@ -11,7 +11,7 @@ STYLE_PYTHON ?= $(STYLE_VENV)/bin/python
 RUFF ?= $(STYLE_PYTHON) -m ruff
 PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/python/starlette_rs_py
 
-.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check lint check build test parity-inputs parity-env parity-adapter parity-run contract-check benchmark-upstream rustdoc-check docs-check ci
+.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check lint check build test parity-inputs parity-env parity-adapter parity-run contract-check source-inventory-check benchmark-upstream rustdoc-check docs-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
@@ -30,6 +30,7 @@ help: ## Show common Rust workspace commands
 	  '  make parity-inputs  Generate ignored JSON inputs from authored YAML' \
 	  '  make parity-env  Build the wheel and prepare isolated source/package environments' \
 	  '  make parity-adapter  Build the current Rust-native parity adapter' \
+	  '  make source-inventory-check  Check the metadata-derived API catalog and source atlas' \
 	  '  make test       Run live source-to-package and supported Rust parity comparisons' \
 	  '  make contract-check  Generate and statically validate parity inputs' \
 	  '  make benchmark-upstream  Run 74 correctness-gated Starlette source/package workloads' \
@@ -86,7 +87,11 @@ parity-adapter: ## Build the current Rust-native parity adapter
 contract-check: parity-inputs ## Generate inputs, then validate the local parity contract and input inventory offline
 	$(PARITY_PYTHON) -m scripts.parity.cli validate-contract
 
-parity-run: contract-check parity-env parity-adapter ## Run exact source/package and supported Rust comparisons
+source-inventory-check: contract-check ## Check the generated API catalog and source coverage atlas against pinned Starlette
+	$(PARITY_PYTHON) scripts/inventory_upstream_api.py --upstream "$(STARLETTE_ORACLE_ROOT)" --check
+	$(PARITY_PYTHON) scripts/merge_compatibility_atlas.py --check --upstream "$(STARLETTE_ORACLE_ROOT)"
+
+parity-run: contract-check parity-env parity-adapter source-inventory-check ## Run source inventory, exact source/package, and supported Rust comparisons
 	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" $(PARITY_PYTHON) -m scripts.parity.cli run
 
 test: parity-run ## Run behavioral checks as live source-to-target parity only
@@ -97,4 +102,4 @@ benchmark-upstream: contract-check parity-env ## Run 74 correctness-gated Starle
 docs-check: ## Check local Markdown links without network access
 	$(PYTHON) scripts/check_docs.py
 
-ci: lint rustdoc-check check build parity-run docs-check ## Run formatting, lint, compilation, live parity, and docs gates
+ci: lint rustdoc-check check build source-inventory-check parity-run docs-check ## Run formatting, lint, compilation, source inventory, live parity, and docs gates

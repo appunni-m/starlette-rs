@@ -314,3 +314,7 @@ python3 scripts/inventory_upstream_api.py \
 
 The command rejects an unexpected upstream commit. The generated catalog is a
 review aid, not a claim that every non-private source declaration is public.
+Check for catalog drift without writing it by adding `--check`. The
+`make source-inventory-check` target runs that check, then validates the full
+fixture/documentation atlas against the same pinned checkout; source-parity CI
+runs the target before behavioral comparisons.

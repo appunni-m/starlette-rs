@@ -11,6 +11,7 @@ import argparse
 import ast
 import copy
 import csv
+import io
 import pathlib
 import re
 import subprocess
@@ -327,7 +328,12 @@ def make_rows(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--upstream", type=pathlib.Path, required=True)
-    parser.add_argument("--output", type=pathlib.Path, required=True)
+    parser.add_argument(
+        "--output", type=pathlib.Path, default=REPOSITORY_ROOT / "docs/api-surface.csv"
+    )
+    parser.add_argument(
+        "--check", action="store_true", help="fail if the checked-in catalog is stale"
+    )
     parser.add_argument("--metadata", type=pathlib.Path, default=REPOSITORY_ROOT / "metadata.yaml")
     args = parser.parse_args()
 
@@ -362,7 +368,6 @@ def main() -> int:
         package_name,
     )
     output = args.output.resolve()
-    output.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "record_type",
         "qualified_name",
@@ -373,10 +378,24 @@ def main() -> int:
         "documentation_evidence",
         "audit_status",
     ]
+    rendered = io.StringIO(newline="")
+    writer = csv.DictWriter(rendered, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    catalog = rendered.getvalue()
+    if args.check:
+        if not output.is_file():
+            raise SystemExit(f"API candidate catalog is missing: {output}")
+        if output.read_text(encoding="utf-8") != catalog:
+            raise SystemExit(
+                f"API candidate catalog is stale: {output}; regenerate it from metadata.yaml"
+            )
+        print(f"API candidate catalog check passed: {len(rows)} rows match {output}")
+        return 0
+
+    output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames, lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(rows)
+        file.write(catalog)
     print(f"wrote {len(rows)} candidate/documentation rows to {output}")
     print("review the audit_status column; rows are not automatic public API claims")
     return 0
