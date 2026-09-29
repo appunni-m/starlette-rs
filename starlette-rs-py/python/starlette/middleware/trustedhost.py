@@ -11,7 +11,7 @@ from starlette.responses import PlainTextResponse, RedirectResponse
 from starlette.responses import Response as Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-ENFORCE_DOMAIN_WILDCARD = "Domain wildcard patterns must be like '*.example.com'."
+ENFORCE_DOMAIN_WILDCARD = _core.ENFORCE_DOMAIN_WILDCARD
 
 
 class TrustedHostMiddleware:

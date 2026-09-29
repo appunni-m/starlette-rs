@@ -80,7 +80,8 @@ SCHEMA_OPERATIONS = {
     ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"),
     ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
 }
-RUST_OWNED_PYTHON_OPERATIONS = CONFIG_OPERATIONS | SCHEMA_OPERATIONS
+URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
+RUST_OWNED_PYTHON_OPERATIONS = CONFIG_OPERATIONS | SCHEMA_OPERATIONS | {URL_QUERY_OPERATION}
 WEBSOCKET_PROJECTED_ERROR_OPERATIONS = {
     (WEBSOCKET_SURFACE, WEBSOCKET_OPERATION),
     (WEBSOCKET_SURFACE, WEBSOCKET_STATE_OPERATION),
@@ -2057,6 +2058,21 @@ def _route_template_parameters(template: str) -> list[tuple[str, str]]:
     return [(name, converter or "str") for name, converter in parameter.findall(template)]
 
 
+def _route_template_has_unicode_regex_special_and_malformed_prefix(template: str) -> bool:
+    """Check for Unicode, regex-special, and malformed text before a route parameter."""
+    parameter = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)(?::([a-zA-Z_][a-zA-Z0-9_]*))?\}")
+    first_parameter = parameter.search(template)
+    if first_parameter is None:
+        return False
+
+    literal_prefix = template[: first_parameter.start()]
+    return (
+        any(not character.isascii() for character in literal_prefix)
+        and any(re.escape(character) != character for character in literal_prefix)
+        and re.search(r"\{[^{}]*\}", literal_prefix) is not None
+    )
+
+
 def _route_path_after_root(path: str, root_path: str) -> str:
     if not root_path or not path.startswith(root_path):
         return path
@@ -2770,6 +2786,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
                 }.get(converter)
                 if requirement is not None:
                     derived.add(f"starlette.routing.Router.route-dispatch.{requirement}")
+        if _route_template_has_unicode_regex_special_and_malformed_prefix(route["path"]):
+            derived.add("starlette.routing.Router.route-dispatch.unicode-regex-literal")
     if not matched:
         derived.add("starlette.routing.Router.route-dispatch.converter-miss")
     first_full_route_index = min(
@@ -3544,6 +3562,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 "docstrings",
             },
             ("starlette.schemas.OpenAPIResponse", "openapi-response-render"): {"content"},
+            URL_QUERY_OPERATION: {"url", "actions"},
         }[(case["surface"], case["operation"])]
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
     elif is_default_receive:
@@ -3691,8 +3710,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     if is_rust_owned_python:
         if (case["surface"], case["operation"]) in CONFIG_OPERATIONS:
             _validate_config_case(case)
-        else:
+        elif (case["surface"], case["operation"]) in SCHEMA_OPERATIONS:
             _validate_schema_case(case)
+        else:
+            _validate_url_query_case(case)
         return case
 
     if is_body_limit:
@@ -4790,7 +4811,11 @@ def _validate_dispatch_stimulus(
                 )
         _string(scope["method"], "HTTP scope.method")
         path = _string(scope["path"], "HTTP scope.path")
-        if scope["raw_path_base64"] != base64.b64encode(path.encode("ascii")).decode("ascii"):
+        try:
+            raw_path = path.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            raise ContractError("HTTP scope.path must be UTF-8 encodable") from exc
+        if scope["raw_path_base64"] != base64.b64encode(raw_path).decode("ascii"):
             raise ContractError("raw_path bytes must match the declared path")
         if (
             scope["asgi"] != {"version": "3.0", "spec_version": "2.4"}
@@ -5399,6 +5424,51 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
         raise ContractError("OpenAPIResponse coverage must match render and generator response")
 
 
+def _validate_url_query_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("URL query parity currently targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["action-results"]:
+        raise ContractError("URL query cases use no assets and select action-results")
+    _string(case["url"], "URL query input URL")
+    actions = case["actions"]
+    if not isinstance(actions, list) or not actions:
+        raise ContractError("URL query actions must be a non-empty array")
+
+    methods: set[str] = set()
+    for index, action in enumerate(actions):
+        context = f"URL query actions[{index}]"
+        if not isinstance(action, dict) or not isinstance(action.get("method"), str):
+            raise ContractError(f"{context} must select a public URL method")
+        method = action["method"]
+        if method in {"include_query_params", "replace_query_params"}:
+            action = _exact(action, {"method", "kwargs"}, context)
+            kwargs = action["kwargs"]
+            if not isinstance(kwargs, dict) or any(not isinstance(key, str) for key in kwargs):
+                raise ContractError(f"{context}.kwargs must be a string-keyed mapping")
+        elif method == "remove_query_params":
+            action = _exact(action, {"method", "args"}, context)
+            args = action["args"]
+            if not isinstance(args, list) or len(args) != 1:
+                raise ContractError(f"{context}.args must contain the keys argument")
+            keys = args[0]
+            if not isinstance(keys, str) and not (
+                isinstance(keys, list) and all(isinstance(key, str) for key in keys)
+            ):
+                raise ContractError(f"{context}.args[0] must be a string or string array")
+        else:
+            raise ContractError(f"{context}.method is outside the declared URL query operations")
+        methods.add(method)
+
+    expected_methods = {"include_query_params", "replace_query_params", "remove_query_params"}
+    expected_covers = {
+        "starlette.datastructures.URL.include_query_params",
+        "starlette.datastructures.URL.replace_query_params",
+        "starlette.datastructures.URL.remove_query_params",
+    }
+    if methods != expected_methods or set(case["covers"]) != expected_covers:
+        raise ContractError("URL query actions and coverage must include all declared methods")
+
+
 def _validate_value_formatting_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("value-formatting parity currently targets the Python package profile")
@@ -5993,14 +6063,18 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
 
 
 def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
-    if set(args) != {
+    required_arguments = {
         "app",
         "minimum_size",
         "compresslevel",
         "thread_minimum_size",
-        "exclude_content_types",
-    }:
-        raise ContractError("GZipMiddleware construction must supply its app and all settings")
+    }
+    allowed_arguments = required_arguments | {"exclude_content_types"}
+    if not required_arguments.issubset(args) or set(args) - allowed_arguments:
+        raise ContractError(
+            "GZipMiddleware construction must supply its app and core settings; "
+            "exclude_content_types may be omitted to exercise the public default"
+        )
     app = _exact(args["app"], {"kind", "messages"}, "GZipMiddleware app input")
     if app["kind"] != "asgi-response-sequence":
         raise ContractError("GZipMiddleware app must be an input-defined ASGI response sequence")
@@ -6074,11 +6148,12 @@ def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
         or thread_minimum_size < 0
     ):
         raise ContractError("GZipMiddleware thread_minimum_size must be a non-negative integer")
-    exclusions = args["exclude_content_types"]
-    if not isinstance(exclusions, list) or any(
-        not isinstance(content_type, str) or not content_type for content_type in exclusions
-    ):
-        raise ContractError("GZipMiddleware exclude_content_types must be a string array")
+    if "exclude_content_types" in args:
+        exclusions = args["exclude_content_types"]
+        if not isinstance(exclusions, list) or any(
+            not isinstance(content_type, str) or not content_type for content_type in exclusions
+        ):
+            raise ContractError("GZipMiddleware exclude_content_types must be a string array")
 
     content_lengths = [value for name, value in start_headers if name.lower() == b"content-length"]
     if len(content_lengths) > 1:
@@ -6118,7 +6193,7 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
     media_type = content_type_value.partition(b";")[0].strip().lower().decode("latin-1")
     excluded_types = {
         content_type.partition(";")[0].strip().lower()
-        for content_type in constructor_args["exclude_content_types"]
+        for content_type in constructor_args.get("exclude_content_types", [])
     }
     media_family = media_type.partition("/")[0] + "/*"
     excluded = media_type in excluded_types or media_family in excluded_types

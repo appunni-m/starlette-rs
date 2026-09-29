@@ -312,6 +312,16 @@
       ]
     },
     {
+      "surface_id": "starlette.datastructures.URL",
+      "source_path": "starlette/datastructures.py:28",
+      "operations": [
+        {
+          "operation_id": "query-parameter-operations",
+          "source_path": "starlette.datastructures.URL.include_query_params, URL.replace_query_params, and URL.remove_query_params"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.schemas.BaseSchemaGenerator",
       "source_path": "starlette/schemas.py:36",
       "operations": [

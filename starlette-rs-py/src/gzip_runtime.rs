@@ -6,7 +6,7 @@ use std::rc::Rc;
 use pyo3::exceptions::{PyKeyError, PyLookupError, PyRuntimeError, PyStopAsyncIteration};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyTuple};
-use starlette_rs::GzipHeader;
+use starlette_rs::{DEFAULT_EXCLUDED_CONTENT_TYPES, GzipHeader};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
@@ -15,6 +15,10 @@ use crate::awaitable::{
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyGzipMiddlewareRuntime>()?;
     module.add_class::<PyGzipSendProxy>()?;
+    module.add(
+        "GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES",
+        PyTuple::new(module.py(), DEFAULT_EXCLUDED_CONTENT_TYPES)?,
+    )?;
     module.add_function(wrap_pyfunction!(offload_gzip_body, module)?)?;
     Ok(())
 }

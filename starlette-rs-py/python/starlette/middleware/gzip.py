@@ -8,21 +8,7 @@ from typing import Any
 import anyio.lowlevel
 from starlette_rs_py import _core
 
-DEFAULT_EXCLUDED_CONTENT_TYPES = (
-    "application/gzip",
-    "application/x-gzip",
-    "application/zip",
-    "audio/*",
-    "font/woff",
-    "font/woff2",
-    "image/avif",
-    "image/gif",
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "text/event-stream",
-    "video/*",
-)
+DEFAULT_EXCLUDED_CONTENT_TYPES: tuple[str, ...] = _core.GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES
 
 _gzip_capacity_limiter: anyio.lowlevel.RunVar[anyio.CapacityLimiter] = anyio.lowlevel.RunVar(
     "_gzip_capacity_limiter"

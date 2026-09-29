@@ -9,13 +9,13 @@ from starlette_rs_py import _core
 
 from starlette.exceptions import HTTPException
 
-MAX_BODY_SIZE_SCOPE_KEY = "starlette.max_body_size"
-_BODY_LIMIT_RESPONDER_SCOPE_KEY = "starlette._body_limit_responder"
+MAX_BODY_SIZE_SCOPE_KEY = _core.MAX_BODY_SIZE_SCOPE_KEY
+_BODY_LIMIT_RESPONDER_SCOPE_KEY = _core.BODY_LIMIT_RESPONDER_SCOPE_KEY
 
 
+# Rust uses these Python marker types to preserve exception identity at the boundary.
 class _RequestBodyTooLarge(HTTPException):
-    def __init__(self) -> None:
-        super().__init__(status_code=413, detail="Content Too Large")
+    pass
 
 
 class _RequestBodyLimitResponseSent(Exception):

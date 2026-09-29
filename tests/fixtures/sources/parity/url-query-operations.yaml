@@ -1,0 +1,31 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.URL.query-parameter-operations.order-and-escaping",
+      "surface": "starlette.datastructures.URL",
+      "operation": "query-parameter-operations",
+      "covers": [
+        "starlette.datastructures.URL.include_query_params",
+        "starlette.datastructures.URL.replace_query_params",
+        "starlette.datastructures.URL.remove_query_params"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "https://example.test/search?keep=first&tag=old+one&empty=&tag=old%2Ftwo&space=a+b&broken=%ZZ#section",
+      "actions": [
+        {
+          "method": "include_query_params",
+          "kwargs": {"tag": "fresh value", "added": "café /+"}
+        },
+        {"method": "remove_query_params", "args": ["space"]},
+        {"method": "remove_query_params", "args": [["tag", "empty", "missing"]]},
+        {
+          "method": "replace_query_params",
+          "kwargs": {"new key": "snow 雪", "symbol": "a&b=c"}
+        }
+      ],
+      "observations": ["action-results"]
+    }
+  ]
+}

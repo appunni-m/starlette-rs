@@ -8,12 +8,15 @@
 
 use pyo3::exceptions::{PyAssertionError, PyAttributeError, PyKeyError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyModule, PyString, PyTuple};
+use pyo3::types::{PyDict, PyList, PyModule, PyString, PyTuple};
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(url_init, module)?)?;
     module.add_function(wrap_pyfunction!(url_components, module)?)?;
     module.add_function(wrap_pyfunction!(url_replace, module)?)?;
+    module.add_function(wrap_pyfunction!(url_include_query_params, module)?)?;
+    module.add_function(wrap_pyfunction!(url_replace_query_params, module)?)?;
+    module.add_function(wrap_pyfunction!(url_remove_query_params, module)?)?;
     module.add_function(wrap_pyfunction!(url_repr, module)?)?;
     module.add_function(wrap_pyfunction!(url_is_secure, module)?)?;
     module.add_function(wrap_pyfunction!(url_eq, module)?)?;
@@ -109,6 +112,127 @@ fn url_replace(
     };
     replace_split(py, &split, components)
         .and_then(|result| result.call_method0("geturl").map(Bound::unbind))
+}
+
+#[pyfunction(name = "_url_include_query_params")]
+fn url_include_query_params(
+    py: Python<'_>,
+    url: &Bound<'_, PyAny>,
+    kwargs: &Bound<'_, PyDict>,
+) -> PyResult<Py<PyAny>> {
+    let mut pairs = parse_query_pairs(py, url)?;
+    let updates = PyDict::new(py);
+    let stringify = py.import("builtins")?.getattr("str")?;
+    for (key, value) in kwargs.iter() {
+        let key = stringify.call1((key,))?;
+        let value = stringify.call1((value,))?;
+        updates.set_item(&key, &value)?;
+    }
+
+    let update_keys = updates.keys();
+    let mut retained = Vec::with_capacity(pairs.len());
+    for (key, value) in pairs.drain(..) {
+        if !update_keys.contains(key.bind(py))? {
+            retained.push((key, value));
+        }
+    }
+    for pair in updates.items().try_iter()? {
+        let pair = pair?.cast_into::<PyTuple>()?;
+        retained.push((pair.get_item(0)?.unbind(), pair.get_item(1)?.unbind()));
+    }
+
+    let query = encode_query_pairs(py, &retained)?;
+    replace_url_query(url, query.bind(py))
+}
+
+#[pyfunction(name = "_url_replace_query_params")]
+fn url_replace_query_params(
+    py: Python<'_>,
+    url: &Bound<'_, PyAny>,
+    kwargs: &Bound<'_, PyDict>,
+) -> PyResult<Py<PyAny>> {
+    let stringify = py.import("builtins")?.getattr("str")?;
+    let mut pairs = Vec::with_capacity(kwargs.len());
+    for (key, value) in kwargs.iter() {
+        pairs.push((
+            stringify.call1((key,))?.unbind(),
+            stringify.call1((value,))?.unbind(),
+        ));
+    }
+    let query = encode_query_pairs(py, &pairs)?;
+    replace_url_query(url, query.bind(py))
+}
+
+#[pyfunction(name = "_url_remove_query_params")]
+fn url_remove_query_params(
+    py: Python<'_>,
+    url: &Bound<'_, PyAny>,
+    keys: &Bound<'_, PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let mut pairs = parse_query_pairs(py, url)?;
+    let parameters = PyDict::new(py);
+    for (key, value) in &pairs {
+        parameters.set_item(key.bind(py), value.bind(py))?;
+    }
+
+    let keys = if keys.is_instance_of::<PyString>() {
+        PyList::new(py, [keys.clone()])?.into_any()
+    } else {
+        keys.clone()
+    };
+    for key in keys.try_iter()? {
+        let key = key?;
+        let mut retained = Vec::with_capacity(pairs.len());
+        for (parameter, value) in pairs.drain(..) {
+            if parameter
+                .bind(py)
+                .rich_compare(&key, pyo3::class::basic::CompareOp::Ne)?
+                .is_truthy()?
+            {
+                retained.push((parameter, value));
+            }
+        }
+        pairs = retained;
+        parameters.call_method1("pop", (&key, py.None()))?;
+    }
+
+    let query = encode_query_pairs(py, &pairs)?;
+    replace_url_query(url, query.bind(py))
+}
+
+fn parse_query_pairs(
+    py: Python<'_>,
+    url: &Bound<'_, PyAny>,
+) -> PyResult<Vec<(Py<PyAny>, Py<PyAny>)>> {
+    let parse_qsl = py.import("urllib.parse")?.getattr("parse_qsl")?;
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("keep_blank_values", true)?;
+    let parsed = parse_qsl.call((url.getattr("query")?,), Some(&kwargs))?;
+    parsed
+        .try_iter()?
+        .map(|pair| {
+            let pair = pair?.cast_into::<PyTuple>()?;
+            Ok((pair.get_item(0)?.unbind(), pair.get_item(1)?.unbind()))
+        })
+        .collect()
+}
+
+fn encode_query_pairs(py: Python<'_>, pairs: &[(Py<PyAny>, Py<PyAny>)]) -> PyResult<Py<PyAny>> {
+    let values = PyList::empty(py);
+    for (key, value) in pairs {
+        values.append(PyTuple::new(py, [key.clone_ref(py), value.clone_ref(py)])?)?;
+    }
+    py.import("urllib.parse")?
+        .getattr("urlencode")?
+        .call1((values,))
+        .map(Bound::unbind)
+}
+
+fn replace_url_query(url: &Bound<'_, PyAny>, query: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let kwargs = PyDict::new(url.py());
+    kwargs.set_item("query", query)?;
+    url.call_method("replace", (), Some(&kwargs))
+        .map(Bound::unbind)
 }
 
 fn replace_split<'py>(

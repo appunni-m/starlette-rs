@@ -12,6 +12,7 @@ use crate::awaitable::{
 const ENFORCE_DOMAIN_WILDCARD: &str = "Domain wildcard patterns must be like '*.example.com'.";
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add("ENFORCE_DOMAIN_WILDCARD", ENFORCE_DOMAIN_WILDCARD)?;
     module.add_function(wrap_pyfunction!(https_redirect_middleware_call, module)?)?;
     module.add_function(wrap_pyfunction!(trusted_host_validate, module)?)?;
     module.add_function(wrap_pyfunction!(trusted_host_list, module)?)?;

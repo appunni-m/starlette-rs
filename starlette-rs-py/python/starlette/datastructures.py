@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import Any, Literal, NamedTuple
 from urllib.parse import SplitResult
 
@@ -78,6 +78,15 @@ class URL:
     def replace(self, **components: Any) -> URL:
         url = _core._url_replace(self._url, self.components, components)
         return self.__class__(url)
+
+    def include_query_params(self, **kwargs: Any) -> URL:
+        return _core._url_include_query_params(self, kwargs)
+
+    def replace_query_params(self, **kwargs: Any) -> URL:
+        return _core._url_replace_query_params(self, kwargs)
+
+    def remove_query_params(self, keys: str | Sequence[str]) -> URL:
+        return _core._url_remove_query_params(self, keys)
 
     def __str__(self) -> str:
         return self._url

@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-schema-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, docstring-based schema generation, and OpenAPI response rendering.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -263,6 +263,7 @@
       "build/parity/inputs/parity/host-middleware.json",
       "build/parity/inputs/parity/config-runtime.json",
       "build/parity/inputs/parity/schemas-runtime.json",
+      "build/parity/inputs/parity/url-query-operations.json",
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/lifespan-generators.json"
     ],
@@ -3909,6 +3910,18 @@
                 "parity"
               ],
               "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.unicode-regex-literal",
+              "dimension": "parameter_combination",
+              "description": "A Unicode prefix, regex-special literals, and parameter-shaped static text remain exact before a parsed route parameter. Upstream: starlette/routing.py::compile_path; tests/test_routing.py route matching cases.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -8865,6 +8878,140 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.datastructures.URL",
+      "kind": "type",
+      "source_path": "starlette/datastructures.py:28",
+      "storage_slug": "starlette-datastructures-URL",
+      "operations": [
+        {
+          "id": "query-parameter-operations",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.URL.include_query_params, URL.replace_query_params, and URL.remove_query_params",
+            "signature": "URL(url); include_query_params(**kwargs), replace_query_params(**kwargs), remove_query_params(keys: str | Sequence[str]) -> URL",
+            "parameters": [
+              {
+                "id": "url",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "action-results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not expose the Python starlette.datastructures.URL compatibility facade.",
+                "blocker": "No Rust-native URL query-parameter operation is declared for this Python import surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.URL",
+              "signature": "URL(url); include_query_params(**kwargs), replace_query_params(**kwargs), remove_query_params(keys: str | Sequence[str]) -> URL",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.URL.include_query_params",
+              "dimension": "parameter_combination",
+              "description": "Replace all existing occurrences of supplied keys, preserve other repeated query pairs in order, append stringified updates, and re-encode them while retaining URL components. Upstream: starlette/datastructures.py:143-147 and MultiDict.update.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URL.replace_query_params",
+              "dimension": "parameter_combination",
+              "description": "Replace the query with the ordered, stringified keyword pairs encoded by urllib.parse.urlencode. Upstream: starlette/datastructures.py:149-151.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URL.remove_query_params",
+              "dimension": "parameter_combination",
+              "description": "Remove every matching query key for either one string key or a sequence of keys while retaining the remaining pair order. Upstream: starlette/datastructures.py:153-160.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "URL query-parameter operations are outside the declared benchmark workloads."
           }
         }
       ]

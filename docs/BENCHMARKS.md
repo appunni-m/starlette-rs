@@ -14,29 +14,23 @@ Run `make parity-inputs` to generate local benchmark JSON, then reproduce the
 run with `python3.12 -m scripts.parity.cli benchmark-upstream`. The result is
 written to `build/parity/upstream-benchmark-result.json`; it records source
 revision `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, pinned benchmark-file
-hashes, and active input-catalog and manifest hashes. The latest attempt,
-`2311eb92-753a-4d59-a882-a0d06ef1970e`, ran from
-`2026-09-28T20:54:10.030Z` to `2026-09-28T20:54:46.122Z` and finished
-`not_proven`: 0 of 74 workloads were measured and all 74 were `not_run` because
-the fresh correctness preflight did not pass. Preflight run
-`8118a073-211f-48a9-b9b1-a1c52dddbbe3` selected 267 comparisons: 259 passed,
-two debug traceback cases failed, six unsupported Rust-native rows were
-`not_run`, and there were zero infrastructure errors. Since the gate failed,
-the source and installed-package benchmark subjects were not started;
-Rust-native is also `not_run` for all 74 because its public dispatch boundary
-is not equivalent. This attempt makes no performance claim. The package wheel
+hashes, and active input-catalog and manifest hashes. The latest run,
+`ff0c0d3e-a2a2-4391-9e5e-09a06cdeb10c`, ran from
+`2026-09-29T00:52:45.034Z` to `2026-09-29T00:54:32.953Z` and measured all 74
+workloads with zero failures or not-run source/package workloads. Its fresh
+correctness preflight, `a72a2211-e531-4110-ac01-dc0ad6808ba2`, selected 300
+comparisons: all 223 Python-package comparisons and 73 supported Rust-native
+comparisons passed, zero failed or hit infrastructure errors, and four
+Rust-native Python-callable cases were explicitly `not_run`. The wheel
 SHA-256 was
-`a65ef46ca4c84d14f213b6756270805d7bd65068d849c179280a0de7918db81d`.
+`f9dfe601ae338756da256333b68f5ff4ef328bf1e88c5fc35127d73e94b7cf01`.
+This is local evidence from dirty working trees, not clean release proof.
 
-The preceding full parity run `a217b1d7-5baa-45e2-a3c1-7f373b8a5d5d` selected
-276 comparisons after adding nine lifecycle cases: 268 passed, two debug
-traceback cases failed, six Rust-native rows were `not_run`, and there were
-zero infrastructure errors. The current run
-`efd76095-d4d6-48a2-951f-030dde4bb49a` selected 282 comparisons after adding
-six generator-protocol cases: 274 passed, the same two debug traceback cases
-failed, six Rust-native rows were `not_run`, and there were zero infrastructure
-errors. The benchmark command was not rerun, and its 74 workloads remain
-unmeasured until the two Python-package failures are resolved.
+Earlier full parity runs `a217b1d7-5baa-45e2-a3c1-7f373b8a5d5d` and
+`efd76095-d4d6-48a2-951f-030dde4bb49a` selected 276 and 282 comparisons. Both
+had two debug traceback failures and zero infrastructure errors; they are
+superseded by the latest passing preflight above. Those runs did not rerun the
+benchmark command.
 
 An earlier run, `5f88f441-8747-4d0f-9e1b-fb7153aeb218`, ran from
 `2026-09-28T12:04:48.059Z` to `2026-09-28T12:06:19.166Z` and measured 74/74
@@ -44,8 +38,8 @@ workloads under the then-current comparison policy. Its preflight,
 `e45ffb4f-29e7-4267-b84d-91ed40d9ef97`, selected 181 comparisons: 175 passed,
 zero failed, zero infrastructure errors, and six Rust-native rows were
 `not_run` (package 118/118; Rust-native 57/63). That result is historical and
-does not replace the latest failed preflight. Target identities came from
-dirty local trees, so neither run is clean aggregate or release proof. The
+does not replace the current correctness-gated run. Target identities came
+from dirty local trees, so it is not clean aggregate or release proof. The
 input-only workload catalog is
 [`starlette-upstream-workloads.yaml`](../tests/fixtures/sources/benchmark/starlette-upstream-workloads.yaml);
 the source-invocation inventory is
@@ -56,8 +50,8 @@ are ignored local outputs and are not committed.
 
 | Evidence | Artifact | Result |
 | --- | --- | --- |
-| Router/GZip upstream runner, latest attempt | `build/parity/upstream-benchmark-result.json` | `not_proven`; run `2311eb92-753a-4d59-a882-a0d06ef1970e`; 0/74 measured, 74 `not_run`; preflight `8118a073-211f-48a9-b9b1-a1c52dddbbe3`: 259 pass, 2 fail, 6 unsupported native rows `not_run` |
-| Router/GZip upstream runner, earlier completed run | `build/parity/upstream-benchmark-result.json` | Historical `completed`; run `5f88f441-8747-4d0f-9e1b-fb7153aeb218`; 74/74 measured before the stricter current preflight; not current gate evidence |
+| Router/GZip upstream runner, latest run | `build/parity/upstream-benchmark-result.json` | `completed`; run `ff0c0d3e-a2a2-4391-9e5e-09a06cdeb10c`; 74/74 measured, 0 failed, 0 not-run; preflight `a72a2211-e531-4110-ac01-dc0ad6808ba2`: 296 pass, 4 unsupported native rows `not_run` |
+| Router/GZip upstream runner, preceding failed attempt | `build/parity/upstream-benchmark-result.json` | Historical `not_proven`; run `2311eb92-753a-4d59-a882-a0d06ef1970e`; 0/74 measured because two debug traceback comparisons failed preflight |
 | Direct-ASGI smoke correctness | `build/parity/benchmark-correctness-result.json` | Historical smoke gate; separate from the 74-workload runner |
 | Direct-ASGI smoke measurement | `build/parity/benchmark-result.json` | Historical smoke result `not_proven`; does not describe the completed upstream runner |
 
@@ -103,22 +97,25 @@ timer excludes that per-call loop-entry overhead, so its numbers do not
 reproduce the upstream timings. It is an in-process Python ASGI dispatch
 measurement, not a Rust-kernel-only result or real-server throughput.
 
-## Earlier completed run: 74-workload Router/GZip benchmark lane
+## Current completed run: 74-workload Router/GZip benchmark lane
 
-The earlier run's input catalog maps all 74 pinned source IDs to input-only
-workloads. At that time, the source and installed package matched the declared
-observations for all 74 correctness gates, then both were measured using the
-same declared timer policy. The artifact
-records raw and post-normalization observation hashes:
-73 cases have identical raw hashes, while `test_routing_method_not_allowed`
-uses the declared `Allow` token-order normalization and has matching normalized
-hashes. That historical result accounts for all 74 as measured, with zero
-failed and zero not-run workloads. In the latest attempt, the fresh parity
-gate failed before measurement, so none of those earlier timings serve as
-current correctness-gated performance evidence. Rust-native remains explicitly
-`not_run` on each row because the public boundary is not equivalent. The strict aggregator accepts
-the artifact, while the overall project status remains `not_proven` because
-the full compatibility denominator is incomplete.
+The input catalog maps all 74 pinned source IDs to input-only workloads. In the
+current run, the source and installed package matched the declared observations
+for all 74 correctness gates, then both were measured using the same declared
+timer policy. The artifact records raw and post-normalization observation
+hashes: 73 cases have identical raw hashes, while
+`test_routing_method_not_allowed` uses the declared `Allow` token-order
+normalization and has matching normalized hashes. The current result accounts
+for all 74 as measured, with zero failed and zero not-run workloads.
+Rust-native remains explicitly `not_run` on each row because the public
+boundary is not equivalent. The strict aggregator accepts the artifact, while
+the overall project status remains `not_proven` because the full compatibility
+denominator is incomplete.
+
+The median per-workload source/package ratio was 0.387 for Router and 0.979
+for GZip; values below 1 indicate a lower source median. These are matched
+local timer measurements and workload-specific observations, not a general
+performance claim.
 
 The public Python `Router.__call__` path used by the six upstream Router
 benchmarks runs through the Rust matcher, including default string parameters.

@@ -19,10 +19,17 @@ use crate::awaitable::{
 
 const MAX_BODY_SIZE_SCOPE_KEY: &str = "starlette.max_body_size";
 const BODY_LIMIT_RESPONDER_SCOPE_KEY: &str = "starlette._body_limit_responder";
+const REQUEST_BODY_LIMIT_STATUS_CODE: u16 = 413;
+const REQUEST_BODY_LIMIT_DETAIL: &str = "Content Too Large";
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRequestBodyLimitResponder>()?;
     module.add_class::<PyRequestBodyLimitMiddlewareRuntime>()?;
+    module.add("MAX_BODY_SIZE_SCOPE_KEY", MAX_BODY_SIZE_SCOPE_KEY)?;
+    module.add(
+        "BODY_LIMIT_RESPONDER_SCOPE_KEY",
+        BODY_LIMIT_RESPONDER_SCOPE_KEY,
+    )?;
     Ok(())
 }
 
@@ -668,10 +675,10 @@ fn replacement_response_call(py: Python<'_>, state: &SharedBodyLimitState) -> Py
         )
     };
     let kwargs = PyDict::new(py);
-    kwargs.set_item("status_code", 413)?;
+    kwargs.set_item("status_code", REQUEST_BODY_LIMIT_STATUS_CODE)?;
     let response = response_type
         .bind(py)
-        .call(("Content Too Large",), Some(&kwargs))?;
+        .call((REQUEST_BODY_LIMIT_DETAIL,), Some(&kwargs))?;
     response
         .call1((scope.bind(py), receive.bind(py), send.bind(py)))
         .map(Bound::unbind)
@@ -697,7 +704,13 @@ fn is_instance_of_error(
 
 fn new_too_large_error(py: Python<'_>, state: &SharedBodyLimitState) -> PyResult<PyErr> {
     let exception_type = state.borrow().too_large_type.clone_ref(py);
-    exception_type.bind(py).call0().map(PyErr::from_value)
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("status_code", REQUEST_BODY_LIMIT_STATUS_CODE)?;
+    kwargs.set_item("detail", REQUEST_BODY_LIMIT_DETAIL)?;
+    exception_type
+        .bind(py)
+        .call((), Some(&kwargs))
+        .map(PyErr::from_value)
 }
 
 fn new_response_sent_error(py: Python<'_>, state: &SharedBodyLimitState) -> PyResult<PyErr> {

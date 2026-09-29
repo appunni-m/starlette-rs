@@ -111,19 +111,27 @@ docstring YAML parsing and parser errors, and OpenAPI response rendering. Their
 Python `starlette.*` modules forward to Rust; the adapters run the same
 input-only cases against pinned Starlette 1.6.0.
 
-The latest integrated run `caaade1c-050a-4054-9f59-0b031e481bec` finished at
-`2026-09-29T00:09:58.843Z`. It selected 297 profile comparisons: 293 passed,
+The latest integrated run `bc5e9566-863d-4815-851f-d980de38504c` finished at
+`2026-09-29T00:52:00.077Z`. It selected 300 profile comparisons: 296 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 221 cases; Rust-native passed 72 of 76 selected comparisons.
-The four remaining Rust-native rows require Python endpoint callables. The
-source, installed package, and Rust-native `Mount` cases all pass. `make
-parity-run` exits with status 2 because those four callable rows are explicitly
-unsupported by the Rust-native target. Manifest SHA-256 is
-`2608a3cd738886fc5302a6428721a60a08eaa868261aad95d47891f5d2b8b732`; the
+package passed all 223 cases; Rust-native passed 73 of 77 selected
+comparisons. The four remaining Rust-native rows require arbitrary Python
+endpoint callables. `make parity-run` exits with status 2 because those rows
+are explicitly unsupported by the Rust-native target. This run includes the
+Unicode and regex-special route-template case on both targets and URL query
+parameter operations on the Python package. Manifest SHA-256 is
+`98232b3e41be3307d30396c5d1dac667b1210a071cd1f59e0c86e1fd883cb283`; the
 installed wheel SHA-256 is
-`c2ad97efc70f9092a50497fb079fb93442a07597d8228f17379d4fd70347e229`. Both
+`a8c33ec2f2ab9d95224729da440c5e168463ad4bba54d553dadc95d474d9f46d`. Both
 target trees were dirty during this local run, so it is not clean aggregate or
 release proof.
+
+The package policy check confirms there is no upstream Starlette runtime
+dependency and no Python control flow in its runtime facades. Routing template
+tokenization, URL query operations, middleware defaults, and middleware error
+policy in this change are implemented in Rust; Python methods forward values
+through the PyO3 boundary. Python remains the public import and callable/event
+loop boundary. The overall Starlette replacement remains incomplete.
 
 The synchronous function case, `starlette.applications.Starlette.request-dispatch.sync-get-items-0007-contextvar-worker`, sends `GET /items/0007` through a route declared as `/items/{item_id:int}`. It selects the converted integer path parameter, caller `ContextVar` propagation, execution on a worker thread distinct from the ASGI caller, one endpoint invocation, route-scope observations, and complete ASGI events. The latest integrated run above compares this case exactly between pinned Starlette 1.6.0 and the installed Python package. Its Rust-native row is `not_run` because that profile cannot invoke a Python callable through this boundary; the manifest declares the sync-endpoint observations unsupported for Rust-native.
 
@@ -246,7 +254,7 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@4` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 205 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. See `build/parity/results/config-schemas-run-2.json`; generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 223 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. See `build/parity/results/config-schemas-run-2.json`; generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 

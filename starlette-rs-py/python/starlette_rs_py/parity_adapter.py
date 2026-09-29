@@ -73,6 +73,7 @@ SCHEMA_OPERATIONS = {
     ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"),
     ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
 }
+URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
 _MISSING = object()
 
 
@@ -1324,8 +1325,22 @@ async def _invoke(
     return result
 
 
-def _literal_arguments(step: dict[str, Any], expected: set[str], context: str) -> dict[str, Any]:
-    arguments = _exact_object(step["arguments"], expected, f"{context} arguments")
+def _literal_arguments(
+    step: dict[str, Any],
+    expected: set[str],
+    context: str,
+    optional: set[str] | None = None,
+) -> dict[str, Any]:
+    if optional is None:
+        arguments = _exact_object(step["arguments"], expected, f"{context} arguments")
+    else:
+        arguments = step["arguments"]
+        if (
+            not isinstance(arguments, dict)
+            or not (expected - optional).issubset(arguments)
+            or set(arguments) - expected
+        ):
+            raise ValueError(f"{context} arguments must contain its required input fields")
     values: dict[str, Any] = {}
     for name, descriptor in arguments.items():
         descriptor = _exact_object(descriptor, {"kind", "value"}, f"{context}.{name}")
@@ -1387,13 +1402,15 @@ def _materialize_gzip_middleware(arguments: dict[str, Any]) -> Any:
                 raise ValueError(f"unsupported inner response event: {message_type!r}")
             await send(message)
 
-    return GZipMiddleware(
-        response_app,
-        minimum_size=arguments["minimum_size"],
-        compresslevel=arguments["compresslevel"],
-        thread_minimum_size=arguments["thread_minimum_size"],
-        exclude_content_types=tuple(arguments["exclude_content_types"]),
-    )
+    constructor_arguments: dict[str, Any] = {
+        "minimum_size": arguments["minimum_size"],
+        "compresslevel": arguments["compresslevel"],
+        "thread_minimum_size": arguments["thread_minimum_size"],
+    }
+    if "exclude_content_types" in arguments:
+        constructor_arguments["exclude_content_types"] = tuple(arguments["exclude_content_types"])
+
+    return GZipMiddleware(response_app, **constructor_arguments)
 
 
 def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
@@ -1532,6 +1549,7 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
         steps[0],
         {"app", "minimum_size", "compresslevel", "thread_minimum_size", "exclude_content_types"},
         "GZipMiddleware constructor",
+        optional={"exclude_content_types"},
     )
     dispatch_arguments = _literal_arguments(
         steps[1], {"scope", "receive", "send"}, "GZipMiddleware dispatch"
@@ -3619,6 +3637,47 @@ def _error_snapshot(exc: Exception) -> dict[str, str]:
     return {"class": f"{type(exc).__module__}.{type(exc).__qualname__}", "message": str(exc)}
 
 
+def _run_url_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "url",
+            "actions",
+            "observations",
+        },
+        "URL query-parameter case",
+    )
+    from starlette.datastructures import URL
+
+    url = URL(case["url"])
+    results = []
+    for action in case["actions"]:
+        method = getattr(url, action["method"])
+        try:
+            updated = method(*action.get("args", []), **action.get("kwargs", {}))
+        except Exception as exc:
+            results.append(
+                {"method": action["method"], "outcome": "error", "error": _error_snapshot(exc)}
+            )
+        else:
+            url = updated
+            results.append({"method": action["method"], "outcome": "value", "url": str(url)})
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": "action-results", "status": "ok", "value": {"action-results": results}}
+        ],
+    }
+
+
 def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.config import Config, Environ
 
@@ -3833,6 +3892,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         return _run_config_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in SCHEMA_OPERATIONS:
         return _run_schema_case(case)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == URL_QUERY_OPERATION
+    ):
+        return _run_url_query_params_case(case)
     if (
         isinstance(case, dict)
         and case.get("operation") == VALUE_FORMATTING_OPERATION

@@ -62,12 +62,6 @@
             "thread_minimum_size": {
               "kind": "literal",
               "value": 131072
-            },
-            "exclude_content_types": {
-              "kind": "literal",
-              "value": [
-                "image/*"
-              ]
             }
           }
         },

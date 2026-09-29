@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable, Iterable, Sequence
 from enum import Enum
 from re import Pattern
@@ -35,14 +34,11 @@ class Match(Enum):
     FULL = 2
 
 
-PARAM_REGEX = re.compile(r"{([a-zA-Z_][a-zA-Z0-9_]*)(:[a-zA-Z_][a-zA-Z0-9_]*)?}")
-
-
 def compile_path(
     path: str,
 ) -> tuple[Pattern[str], str, dict[str, Convertor[Any]]]:
     """Compile a Starlette path template into a regex and parameter map."""
-    return _core.compile_route_path(path, PARAM_REGEX, CONVERTOR_TYPES)
+    return _core.compile_route_path(path, CONVERTOR_TYPES)
 
 
 def _get_route_path(scope: dict[str, Any]) -> str:
@@ -190,7 +186,6 @@ class Route(BaseRoute):
             middleware,
             max_body_size,
             None,
-            PARAM_REGEX,
             CONVERTOR_TYPES,
             _BUILTIN_CONVERTOR_TYPES,
             _core.RouteTable,
@@ -273,7 +268,6 @@ class WebSocketRoute(BaseRoute):
             middleware,
             None,
             None,
-            PARAM_REGEX,
             CONVERTOR_TYPES,
             _BUILTIN_CONVERTOR_TYPES,
             _core.RouteTable,
@@ -358,7 +352,6 @@ class Mount(BaseRoute):
             middleware,
             max_body_size,
             routes,
-            PARAM_REGEX,
             CONVERTOR_TYPES,
             _BUILTIN_CONVERTOR_TYPES,
             _core.RouteTable,
@@ -369,7 +362,7 @@ class Mount(BaseRoute):
 
     @property
     def routes(self) -> list[BaseRoute]:
-        return getattr(self._base_app, "routes", [])
+        return _core.route_children(self._base_app)
 
     def matches(self, scope: dict[str, Any]) -> tuple[Match, dict[str, Any]]:
         return _core.route_matches(self, scope, Match, "mount", _BUILTIN_CONVERTOR_TYPES)
@@ -437,7 +430,6 @@ class Host(BaseRoute):
             None,
             None,
             None,
-            PARAM_REGEX,
             CONVERTOR_TYPES,
             _BUILTIN_CONVERTOR_TYPES,
             _core.RouteTable,

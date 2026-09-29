@@ -19,8 +19,8 @@ use mime_guess as _;
 use serde_json::{Map, Number, Value, json};
 use sha2::{Digest, Sha256};
 use starlette_rs::{
-    ApplicationRoute, AsgiScopeKind, Cookies, DetailedRouteMatch, FileMetadata,
-    FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
+    ApplicationRoute, AsgiScopeKind, Cookies, DEFAULT_EXCLUDED_CONTENT_TYPES, DetailedRouteMatch,
+    FileMetadata, FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
     FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader, GzipResponseStart, HttpScope,
     LifespanAction, LifespanState, Mount as NativeMount, MountChild, MountScope, PathConverter,
     PathParameterCapture, QueryParams, RequestBodyAccumulator, RequestHeaders, Response,
@@ -2419,17 +2419,31 @@ struct GzipDispatchInput {
 
 fn build_gzip_middleware(step: &Value) -> Result<(GzipConfig, GzipInnerResponse), String> {
     let arguments = gzip_step_arguments(step, "middleware", "__init__", None)?;
-    exact_keys(
-        arguments,
-        &[
-            "app",
-            "minimum_size",
-            "compresslevel",
-            "thread_minimum_size",
-            "exclude_content_types",
-        ],
-        "GZipMiddleware constructor arguments",
-    )?;
+    let required_arguments = [
+        "app",
+        "minimum_size",
+        "compresslevel",
+        "thread_minimum_size",
+    ];
+    if arguments.contains_key("exclude_content_types") {
+        exact_keys(
+            arguments,
+            &[
+                "app",
+                "minimum_size",
+                "compresslevel",
+                "thread_minimum_size",
+                "exclude_content_types",
+            ],
+            "GZipMiddleware constructor arguments",
+        )?;
+    } else {
+        exact_keys(
+            arguments,
+            &required_arguments,
+            "GZipMiddleware constructor arguments",
+        )?;
+    }
 
     let app = argument_value(arguments, "app", "GZipMiddleware constructor arguments")?;
     let app = exact_object(app, &["kind", "messages"], "GZipMiddleware inner app")?;
@@ -2499,22 +2513,32 @@ fn build_gzip_middleware(step: &Value) -> Result<(GzipConfig, GzipInnerResponse)
             "GZipMiddleware compresslevel must be from -1 through 9",
         ));
     }
-    let exclusions = argument_value(
-        arguments,
-        "exclude_content_types",
-        "GZipMiddleware constructor arguments",
-    )?
-    .as_array()
-    .ok_or_else(|| String::from("exclude_content_types must be a string array"))?
-    .iter()
-    .map(|value| {
-        value
-            .as_str()
-            .filter(|value| !value.is_empty())
-            .map(str::to_owned)
-            .ok_or_else(|| String::from("exclude_content_types must contain non-empty strings"))
-    })
-    .collect::<Result<Vec<_>, _>>()?;
+    let exclusions: Vec<String> = if arguments.contains_key("exclude_content_types") {
+        let exclusions = argument_value(
+            arguments,
+            "exclude_content_types",
+            "GZipMiddleware constructor arguments",
+        )?;
+        exclusions
+            .as_array()
+            .ok_or_else(|| String::from("exclude_content_types must be a string array"))?
+            .iter()
+            .map(|value| {
+                value
+                    .as_str()
+                    .filter(|value| !value.is_empty())
+                    .map(str::to_owned)
+                    .ok_or_else(|| {
+                        String::from("exclude_content_types must contain non-empty strings")
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        DEFAULT_EXCLUDED_CONTENT_TYPES
+            .iter()
+            .map(|content_type| (*content_type).to_owned())
+            .collect()
+    };
 
     let config = GzipConfig::new(minimum_size, compresslevel, thread_minimum_size, exclusions);
     Ok((

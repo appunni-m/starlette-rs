@@ -836,16 +836,15 @@ fn traceback_text(py: Python<'_>, error: &PyErr) -> PyResult<String> {
 fn compile_route_path(
     py: Python<'_>,
     path: &str,
-    param_regex: &Bound<'_, PyAny>,
     convertor_types: &Bound<'_, PyDict>,
 ) -> PyResult<(Py<PyAny>, String, Py<PyDict>)> {
     let (pattern, path_format, convertors, _) =
-        compile_path_parts(py, path, param_regex, convertor_types, None)?;
+        compile_path_parts(py, path, convertor_types, None)?;
     Ok((pattern.unbind(), path_format, convertors.unbind()))
 }
 
 #[pyfunction]
-#[pyo3(signature = (kind, path, endpoint, methods, name, include_in_schema, middleware, max_body_size, routes, param_regex, convertor_types, builtin_convertors, route_table_type, request_response_factory, websocket_endpoint_factory, router_type))]
+#[pyo3(signature = (kind, path, endpoint, methods, name, include_in_schema, middleware, max_body_size, routes, convertor_types, builtin_convertors, route_table_type, request_response_factory, websocket_endpoint_factory, router_type))]
 #[allow(clippy::too_many_arguments)]
 fn initialize_route(
     py: Python<'_>,
@@ -858,7 +857,6 @@ fn initialize_route(
     middleware: Option<Py<PyAny>>,
     max_body_size: Option<Py<PyAny>>,
     routes: Option<Py<PyAny>>,
-    param_regex: Py<PyAny>,
     convertor_types: Py<PyAny>,
     builtin_convertors: Py<PyAny>,
     route_table_type: Py<PyAny>,
@@ -866,7 +864,6 @@ fn initialize_route(
     websocket_endpoint_factory: Py<PyAny>,
     router_type: Py<PyAny>,
 ) -> PyResult<Py<PyTuple>> {
-    let param_regex = param_regex.bind(py);
     let convertor_types = convertor_types.bind(py).cast::<PyDict>()?;
     let builtin_convertors = builtin_convertors.bind(py).cast::<PyDict>()?;
     let (
@@ -892,7 +889,6 @@ fn initialize_route(
             include_in_schema,
             middleware,
             max_body_size,
-            param_regex,
             convertor_types,
             builtin_convertors,
             request_response_factory.bind(py),
@@ -904,7 +900,6 @@ fn initialize_route(
             endpoint,
             name,
             middleware,
-            param_regex,
             convertor_types,
             builtin_convertors,
             websocket_endpoint_factory.bind(py),
@@ -915,7 +910,6 @@ fn initialize_route(
             path,
             endpoint,
             name,
-            param_regex,
             convertor_types,
             builtin_convertors,
             route_table_type.bind(py),
@@ -928,7 +922,6 @@ fn initialize_route(
             name,
             middleware,
             max_body_size,
-            param_regex,
             convertor_types,
             builtin_convertors,
             route_table_type.bind(py),
@@ -1311,7 +1304,6 @@ fn initialize_http_route(
     include_in_schema: bool,
     middleware: Option<Py<PyAny>>,
     max_body_size: Option<Py<PyAny>>,
-    param_regex: &Bound<'_, PyAny>,
     convertor_types: &Bound<'_, PyDict>,
     builtin_convertors: &Bound<'_, PyDict>,
     request_response_factory: &Bound<'_, PyAny>,
@@ -1353,13 +1345,8 @@ fn initialize_http_route(
 
     let normalized_methods =
         normalize_methods(py, effective_methods.as_ref().map(|item| item.bind(py)))?;
-    let (regex, path_format, convertors, custom) = compile_path_parts(
-        py,
-        path,
-        param_regex,
-        convertor_types,
-        Some(builtin_convertors),
-    )?;
+    let (regex, path_format, convertors, custom) =
+        compile_path_parts(py, path, convertor_types, Some(builtin_convertors))?;
     let route_table = make_route_table(
         py,
         route_table_type,
@@ -1394,7 +1381,6 @@ fn initialize_websocket_route(
     endpoint: Option<Py<PyAny>>,
     name: Option<Py<PyAny>>,
     middleware: Option<Py<PyAny>>,
-    param_regex: &Bound<'_, PyAny>,
     convertor_types: &Bound<'_, PyDict>,
     builtin_convertors: &Bound<'_, PyDict>,
     websocket_endpoint_factory: &Bound<'_, PyAny>,
@@ -1425,13 +1411,8 @@ fn initialize_websocket_route(
         middleware.as_ref().map(|item| item.bind(py)),
         None,
     )?;
-    let (regex, path_format, convertors, custom) = compile_path_parts(
-        py,
-        path,
-        param_regex,
-        convertor_types,
-        Some(builtin_convertors),
-    )?;
+    let (regex, path_format, convertors, custom) =
+        compile_path_parts(py, path, convertor_types, Some(builtin_convertors))?;
     let route_table = make_route_table(py, route_table_type, path, custom, None)?;
 
     Ok((
@@ -1456,7 +1437,6 @@ fn initialize_host_route(
     host: &str,
     app: Option<Py<PyAny>>,
     name: Option<Py<PyAny>>,
-    param_regex: &Bound<'_, PyAny>,
     convertor_types: &Bound<'_, PyDict>,
     builtin_convertors: &Bound<'_, PyDict>,
     route_table_type: &Bound<'_, PyAny>,
@@ -1465,13 +1445,8 @@ fn initialize_host_route(
         return Err(PyAssertionError::new_err("Host must not start with '/'"));
     }
     let app = app.unwrap_or_else(|| py.None());
-    let (regex, host_format, convertors, custom) = compile_path_parts(
-        py,
-        host,
-        param_regex,
-        convertor_types,
-        Some(builtin_convertors),
-    )?;
+    let (regex, host_format, convertors, custom) =
+        compile_path_parts(py, host, convertor_types, Some(builtin_convertors))?;
     let route_table_path = format!("/{host_format}");
     let route_table = make_route_table(py, route_table_type, &route_table_path, custom, None)?;
     Ok((
@@ -1499,7 +1474,6 @@ fn initialize_mount(
     name: Option<Py<PyAny>>,
     middleware: Option<Py<PyAny>>,
     max_body_size: Option<Py<PyAny>>,
-    param_regex: &Bound<'_, PyAny>,
     convertor_types: &Bound<'_, PyDict>,
     builtin_convertors: &Bound<'_, PyDict>,
     route_table_type: &Bound<'_, PyAny>,
@@ -1535,13 +1509,8 @@ fn initialize_mount(
         max_body_size.as_ref().map(|item| item.bind(py)),
     )?;
     let path_pattern = format!("{path}/{{path:path}}");
-    let (regex, path_format, convertors, custom) = compile_path_parts(
-        py,
-        &path_pattern,
-        param_regex,
-        convertor_types,
-        Some(builtin_convertors),
-    )?;
+    let (regex, path_format, convertors, custom) =
+        compile_path_parts(py, &path_pattern, convertor_types, Some(builtin_convertors))?;
     let route_table = make_route_table(py, route_table_type, &path_pattern, custom, None)?;
 
     Ok((
@@ -1560,10 +1529,16 @@ fn initialize_mount(
     ))
 }
 
+struct PathParameter {
+    start: usize,
+    end: usize,
+    name: String,
+    convertor_name: String,
+}
+
 fn compile_path_parts<'py>(
     py: Python<'py>,
     path: &str,
-    param_regex: &Bound<'py, PyAny>,
     convertor_types: &Bound<'py, PyDict>,
     builtin_convertors: Option<&Bound<'py, PyDict>>,
 ) -> PyResult<(Bound<'py, PyAny>, String, Bound<'py, PyDict>, bool)> {
@@ -1575,50 +1550,40 @@ fn compile_path_parts<'py>(
     let mut index = 0;
     let convertors = PyDict::new(py);
     let mut has_custom = false;
-    let re = py.import("re")?;
 
-    for capture in param_regex.call_method1("finditer", (path,))?.try_iter()? {
-        let capture = capture?;
-        let start = capture.call_method0("start")?.extract::<usize>()?;
-        let end = capture.call_method0("end")?.extract::<usize>()?;
-        let groups_value = capture.call_method1("groups", ("str",))?;
-        let groups = groups_value.cast::<PyTuple>()?;
-        let parameter = groups.get_item(0)?.extract::<String>()?;
-        let converter_name = groups
-            .get_item(1)?
-            .extract::<String>()?
-            .trim_start_matches(':')
-            .to_owned();
-        let convertor = convertor_types.get_item(&converter_name)?.ok_or_else(|| {
-            PyAssertionError::new_err(format!("Unknown path convertor '{converter_name}'"))
-        })?;
+    for parameter in path_parameters(path) {
+        let convertor = convertor_types
+            .get_item(&parameter.convertor_name)?
+            .ok_or_else(|| {
+                PyAssertionError::new_err(format!(
+                    "Unknown path convertor '{}'",
+                    parameter.convertor_name
+                ))
+            })?;
 
-        let static_text = &path[index..start];
-        let escaped = re
-            .getattr("escape")?
-            .call1((static_text,))?
-            .extract::<String>()?;
+        let static_text = &path[index..parameter.start];
+        let escaped = escape_regex_text(static_text);
         let converter_regex = convertor.getattr("regex")?.extract::<String>()?;
         path_regex.push_str(&escaped);
         path_regex.push_str("(?P<");
-        path_regex.push_str(&parameter);
+        path_regex.push_str(&parameter.name);
         path_regex.push('>');
         path_regex.push_str(&converter_regex);
         path_regex.push(')');
         path_format.push_str(static_text);
         path_format.push('{');
-        path_format.push_str(&parameter);
+        path_format.push_str(&parameter.name);
         path_format.push('}');
 
-        if !parameter_names.insert(parameter.clone()) {
-            duplicated_params.insert(parameter.clone());
+        if !parameter_names.insert(parameter.name.clone()) {
+            duplicated_params.insert(parameter.name.clone());
         }
-        convertors.set_item(&parameter, &convertor)?;
+        convertors.set_item(&parameter.name, &convertor)?;
         if let Some(builtins) = builtin_convertors {
-            let builtin = builtins.get_item(&converter_name)?;
+            let builtin = builtins.get_item(&parameter.convertor_name)?;
             has_custom |= builtin.is_none_or(|builtin| !convertor.is(&builtin));
         }
-        index = end;
+        index = parameter.end;
     }
 
     if !duplicated_params.is_empty() {
@@ -1634,13 +1599,9 @@ fn compile_path_parts<'py>(
     let tail = &path[index..];
     if is_host {
         let hostname = tail.split(':').next().unwrap_or_default();
-        path_regex.push_str(
-            &re.getattr("escape")?
-                .call1((hostname,))?
-                .extract::<String>()?,
-        );
+        path_regex.push_str(&escape_regex_text(hostname));
     } else {
-        path_regex.push_str(&re.getattr("escape")?.call1((tail,))?.extract::<String>()?);
+        path_regex.push_str(&escape_regex_text(tail));
     }
     path_regex.push('$');
     path_format.push_str(if is_host {
@@ -1648,8 +1609,125 @@ fn compile_path_parts<'py>(
     } else {
         tail
     });
-    let pattern = re.getattr("compile")?.call1((path_regex,))?;
+    let pattern = py.import("re")?.getattr("compile")?.call1((path_regex,))?;
     Ok((pattern, path_format, convertors, has_custom))
+}
+
+fn path_parameters(path: &str) -> Vec<PathParameter> {
+    let bytes = path.as_bytes();
+    let mut parameters = Vec::new();
+    let mut search_from = 0;
+
+    while search_from < bytes.len() {
+        let Some(offset) = bytes[search_from..].iter().position(|byte| *byte == b'{') else {
+            break;
+        };
+        let start = search_from + offset;
+        let Some(parameter) = path_parameter_at(path, start) else {
+            search_from = start + 1;
+            continue;
+        };
+        search_from = parameter.end;
+        parameters.push(parameter);
+    }
+
+    parameters
+}
+
+// Parameter markers use the pinned ASCII identifier grammar. Scanning UTF-8
+// bytes is safe here because every accepted boundary is an ASCII delimiter.
+fn path_parameter_at(path: &str, start: usize) -> Option<PathParameter> {
+    let bytes = path.as_bytes();
+    let mut index = start + 1;
+    let name_start = index;
+    if !bytes.get(index).copied().is_some_and(is_identifier_start) {
+        return None;
+    }
+    index += 1;
+    while bytes
+        .get(index)
+        .copied()
+        .is_some_and(is_identifier_continue)
+    {
+        index += 1;
+    }
+    let name = path[name_start..index].to_owned();
+
+    let convertor_name = if bytes.get(index).copied() == Some(b':') {
+        index += 1;
+        let convertor_start = index;
+        if !bytes.get(index).copied().is_some_and(is_identifier_start) {
+            return None;
+        }
+        index += 1;
+        while bytes
+            .get(index)
+            .copied()
+            .is_some_and(is_identifier_continue)
+        {
+            index += 1;
+        }
+        path[convertor_start..index].to_owned()
+    } else {
+        "str".to_owned()
+    };
+
+    if bytes.get(index).copied() != Some(b'}') {
+        return None;
+    }
+
+    Some(PathParameter {
+        start,
+        end: index + 1,
+        name,
+        convertor_name,
+    })
+}
+
+fn is_identifier_start(byte: u8) -> bool {
+    byte.is_ascii_alphabetic() || byte == b'_'
+}
+
+fn is_identifier_continue(byte: u8) -> bool {
+    is_identifier_start(byte) || byte.is_ascii_digit()
+}
+
+fn escape_regex_text(text: &str) -> String {
+    // Keep the pattern string identical to Python's re.escape output without
+    // delegating path-template construction back to Python.
+    let mut escaped = String::with_capacity(text.len());
+    for character in text.chars() {
+        if matches!(
+            character,
+            '(' | ')'
+                | '['
+                | ']'
+                | '{'
+                | '}'
+                | '?'
+                | '*'
+                | '+'
+                | '-'
+                | '|'
+                | '^'
+                | '$'
+                | '\\'
+                | '.'
+                | '&'
+                | '~'
+                | '#'
+                | ' '
+                | '\t'
+                | '\n'
+                | '\r'
+                | '\u{000b}'
+                | '\u{000c}'
+        ) {
+            escaped.push('\\');
+        }
+        escaped.push(character);
+    }
+    escaped
 }
 
 fn normalize_methods(
