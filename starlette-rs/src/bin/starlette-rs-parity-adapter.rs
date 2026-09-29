@@ -10,6 +10,11 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll, Waker};
 
+#[cfg(unix)]
+use std::ffi::CString;
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt;
+
 // The workspace's flate2 dependency is used by the companion library target.
 use flate2 as _;
 use getrandom as _;
@@ -50,6 +55,18 @@ const WEBSOCKET_STATE_OPERATION: &str = "state-sequence";
 static NEXT_FILE_RESPONSE_TEMP: AtomicU64 = AtomicU64::new(0);
 
 struct FileResponseTempDirectory(PathBuf);
+
+#[derive(Clone, Copy)]
+struct StaticFilesPathLimitStress {
+    overflow_bytes: usize,
+    later_root_margin_bytes: usize,
+    safe_component_bytes: usize,
+}
+
+enum StaticFilesPathLimitStressSetup {
+    Ready(PathBuf),
+    Skipped(String),
+}
 
 impl Drop for FileResponseTempDirectory {
     fn drop(&mut self) {
@@ -1936,7 +1953,7 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
     let observation = match lookup {
         Some(file) => {
             let resolved_root = if follow_symlink {
-                root.clone()
+                root
             } else {
                 root.canonicalize()
                     .map_err(|error| format!("cannot canonicalize StaticFiles root: {error}"))?
@@ -1953,7 +1970,7 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
                 .metadata
                 .stat_result()
                 .map(|stat| stat.mode & 0o170000)
-                .or_else(|| {
+                .or({
                     if file.is_file {
                         Some(0o100000)
                     } else if file.is_directory {
@@ -2009,6 +2026,7 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
             "target_profiles",
             "assets",
             "directory",
+            "path_limit_stress",
             "packages",
             "files",
             "html",
@@ -2066,6 +2084,7 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
         .get("follow_symlink")
         .and_then(Value::as_bool)
         .ok_or_else(|| String::from("StaticFiles follow_symlink must be boolean"))?;
+    let path_limit_stress = parse_static_files_path_limit_stress(case)?;
     let file_inputs = case
         .get("files")
         .and_then(Value::as_array)
@@ -2091,6 +2110,23 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
     let method = string_field(&scope, "method", "StaticFiles HTTP scope")?;
     let request_headers = parse_scope_request_headers(&scope, "StaticFiles HTTP scope")?;
     let path = NativeStaticFiles::get_path(scope_path, root_path);
+    let root = match path_limit_stress {
+        Some(stress) => {
+            match prepare_static_files_path_limit_stress(
+                &root,
+                &package_roots,
+                &path,
+                follow_symlink,
+                stress,
+            )? {
+                StaticFilesPathLimitStressSetup::Ready(root) => root,
+                StaticFilesPathLimitStressSetup::Skipped(reason) => {
+                    return Ok(static_files_skipped_result(case_id, &reason));
+                }
+            }
+        }
+        None => root,
+    };
     let mut directories = vec![root.clone()];
     directories.extend(package_roots);
     let static_files =
@@ -2241,6 +2277,366 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
             },
         }],
     }))
+}
+
+fn parse_static_files_path_limit_stress(
+    case: &Map<String, Value>,
+) -> Result<Option<StaticFilesPathLimitStress>, String> {
+    let Some(value) = case.get("path_limit_stress") else {
+        return Err(String::from(
+            "StaticFiles path_limit_stress field is missing",
+        ));
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let stress = exact_object(
+        value,
+        &[
+            "kind",
+            "overflow_bytes",
+            "later_root_margin_bytes",
+            "safe_component_bytes",
+        ],
+        "StaticFiles path_limit_stress",
+    )?;
+    if string_field(stress, "kind", "StaticFiles path_limit_stress")?
+        != "ordered-root-path-overflow"
+    {
+        return Err(String::from(
+            "StaticFiles path_limit_stress kind is unsupported",
+        ));
+    }
+    let positive_usize = |name: &str, maximum: u64| -> Result<usize, String> {
+        let value = stress
+            .get(name)
+            .and_then(Value::as_u64)
+            .filter(|value| (1..=maximum).contains(value))
+            .and_then(|value| usize::try_from(value).ok())
+            .ok_or_else(|| format!("StaticFiles path_limit_stress.{name} is invalid"))?;
+        Ok(value)
+    };
+    Ok(Some(StaticFilesPathLimitStress {
+        overflow_bytes: positive_usize("overflow_bytes", 128)?,
+        later_root_margin_bytes: positive_usize("later_root_margin_bytes", 1024)?,
+        safe_component_bytes: positive_usize("safe_component_bytes", 255)?,
+    }))
+}
+
+#[cfg(unix)]
+fn prepare_static_files_path_limit_stress(
+    root: &Path,
+    package_roots: &[PathBuf],
+    request_path: &str,
+    follow_symlink: bool,
+    stress: StaticFilesPathLimitStress,
+) -> Result<StaticFilesPathLimitStressSetup, String> {
+    let relative_path = Path::new(request_path);
+    if request_path.is_empty()
+        || relative_path.is_absolute()
+        || request_path
+            .split('/')
+            .any(|component| component.is_empty() || matches!(component, "." | ".."))
+    {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "StaticFiles path_limit_stress request path is not normalized and relative".to_owned(),
+        ));
+    }
+
+    let workspace = root.parent().unwrap_or(root);
+    let Some(path_max) = pathconf_limit(workspace, libc::_PC_PATH_MAX) else {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "Unix _PC_PATH_MAX is unavailable".to_owned(),
+        ));
+    };
+    let Some(name_max) = pathconf_limit(workspace, libc::_PC_NAME_MAX) else {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "Unix _PC_NAME_MAX is unavailable for the temporary workspace".to_owned(),
+        ));
+    };
+    let component_limit = stress.safe_component_bytes.min(name_max);
+    if component_limit == 0 || !static_files_relative_components_fit(request_path, component_limit)
+    {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "the request path cannot fit the declared safe component limit".to_owned(),
+        ));
+    }
+
+    let mut later_candidate = None;
+    for package_root in package_roots {
+        let joined_candidate = package_root.join(relative_path);
+        let metadata = match fs::metadata(&joined_candidate) {
+            Ok(metadata) => metadata,
+            Err(error)
+                if error.kind() == io::ErrorKind::NotFound
+                    || error.kind() == io::ErrorKind::NotADirectory =>
+            {
+                continue;
+            }
+            Err(error) => {
+                return Err(format!(
+                    "cannot inspect later StaticFiles package candidate: {error}"
+                ));
+            }
+        };
+        if !metadata.is_file() {
+            continue;
+        }
+        let candidate =
+            match static_files_path_candidate(package_root, relative_path, follow_symlink) {
+                Ok(candidate) => candidate,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error) => {
+                    return Err(format!(
+                        "cannot resolve later StaticFiles package candidate: {error}"
+                    ));
+                }
+            };
+        later_candidate = Some(candidate);
+        break;
+    }
+    let Some(later_candidate) = later_candidate else {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "no later package root contains the requested regular file".to_owned(),
+        ));
+    };
+    if !static_files_path_components_fit(&later_candidate, component_limit) {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "a later package path component exceeds the declared safe component limit".to_owned(),
+        ));
+    }
+    let later_candidate_bytes = later_candidate.as_os_str().as_bytes().len();
+    if path_max
+        .checked_sub(stress.later_root_margin_bytes)
+        .is_none_or(|limit| later_candidate_bytes > limit)
+    {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "later package-root candidate is too close to _PC_PATH_MAX".to_owned(),
+        ));
+    }
+
+    let requested_candidate_bytes = path_max
+        .checked_add(stress.overflow_bytes)
+        .ok_or_else(|| String::from("StaticFiles path limit calculation overflowed"))?;
+    let lexical_first_root = match static_files_absolute_path(root) {
+        Ok(candidate) => candidate,
+        Err(error) => {
+            return Err(format!(
+                "cannot make initial StaticFiles root absolute: {error}"
+            ));
+        }
+    };
+    let resolved_first_root = if follow_symlink {
+        lexical_first_root.clone()
+    } else {
+        match fs::canonicalize(root) {
+            Ok(candidate) => candidate,
+            Err(error) => {
+                return Err(format!("cannot resolve initial StaticFiles root: {error}"));
+            }
+        }
+    };
+    let lexical_first_candidate = lexical_first_root.join(relative_path);
+    let resolved_first_candidate = resolved_first_root.join(relative_path);
+    if !static_files_path_components_fit(&lexical_first_candidate, component_limit)
+        || !static_files_path_components_fit(&resolved_first_candidate, component_limit)
+    {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "the configured first-root path exceeds the declared safe component limit".to_owned(),
+        ));
+    }
+    let first_candidate_bytes = lexical_first_candidate
+        .as_os_str()
+        .as_bytes()
+        .len()
+        .min(resolved_first_candidate.as_os_str().as_bytes().len());
+    let Some(padding_bytes) = requested_candidate_bytes.checked_sub(first_candidate_bytes) else {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "the unpadded first-root candidate already exceeds the overflow target".to_owned(),
+        ));
+    };
+    let Some(padding) = static_files_path_padding(padding_bytes, component_limit) else {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "the first-root overflow cannot be represented with safe path components".to_owned(),
+        ));
+    };
+    let padded_root = if padding_bytes == 0 {
+        root.to_path_buf()
+    } else {
+        root.join(&padding)
+    };
+    let padded_lexical_root = match static_files_absolute_path(&padded_root) {
+        Ok(candidate) => candidate,
+        Err(error) => {
+            return Err(format!(
+                "cannot make padded StaticFiles root absolute: {error}"
+            ));
+        }
+    };
+    let padded_resolved_root = if follow_symlink {
+        padded_lexical_root.clone()
+    } else if padding_bytes == 0 {
+        resolved_first_root
+    } else {
+        resolved_first_root.join(&padding)
+    };
+    let padded_lexical_candidate = padded_lexical_root.join(relative_path);
+    let padded_resolved_candidate = padded_resolved_root.join(relative_path);
+    let lexical_candidate_bytes = padded_lexical_candidate.as_os_str().as_bytes().len();
+    let resolved_candidate_bytes = padded_resolved_candidate.as_os_str().as_bytes().len();
+    if lexical_candidate_bytes.min(resolved_candidate_bytes) != requested_candidate_bytes
+        || lexical_candidate_bytes <= path_max
+        || resolved_candidate_bytes <= path_max
+    {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "the lexical and resolved first-root candidates cannot both exceed _PC_PATH_MAX at the declared margin".to_owned(),
+        ));
+    }
+    if !static_files_path_components_fit(&padded_lexical_candidate, component_limit)
+        || !static_files_path_components_fit(&padded_resolved_candidate, component_limit)
+    {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "the padded first-root candidate exceeds the declared safe component limit".to_owned(),
+        ));
+    }
+    let lexical_root_bytes = padded_lexical_root.as_os_str().as_bytes().len();
+    let resolved_root_bytes = padded_resolved_root.as_os_str().as_bytes().len();
+    if lexical_root_bytes > path_max || resolved_root_bytes > path_max {
+        return Ok(StaticFilesPathLimitStressSetup::Skipped(
+            "the lexical or resolved padded first root itself exceeds _PC_PATH_MAX".to_owned(),
+        ));
+    }
+
+    if let Err(error) = fs::create_dir_all(&padded_root) {
+        if error.raw_os_error() == Some(libc::ENAMETOOLONG) {
+            return Ok(StaticFilesPathLimitStressSetup::Skipped(
+                "the padded first root cannot be created within the workspace path limit"
+                    .to_owned(),
+            ));
+        }
+        return Err(format!("cannot create StaticFiles padded root: {error}"));
+    }
+
+    Ok(StaticFilesPathLimitStressSetup::Ready(padded_root))
+}
+
+#[cfg(not(unix))]
+fn prepare_static_files_path_limit_stress(
+    _root: &Path,
+    _package_roots: &[PathBuf],
+    _request_path: &str,
+    _follow_symlink: bool,
+    _stress: StaticFilesPathLimitStress,
+) -> Result<StaticFilesPathLimitStressSetup, String> {
+    Ok(StaticFilesPathLimitStressSetup::Skipped(
+        "path_limit_stress requires Unix pathconf support".to_owned(),
+    ))
+}
+
+#[cfg(unix)]
+fn static_files_relative_components_fit(path: &str, component_limit: usize) -> bool {
+    !path.is_empty()
+        && path.split('/').all(|component| {
+            !component.is_empty()
+                && !matches!(component, "." | "..")
+                && component.len() <= component_limit
+        })
+}
+
+#[cfg(unix)]
+fn static_files_path_components_fit(path: &Path, component_limit: usize) -> bool {
+    path.components().all(|component| match component {
+        std::path::Component::RootDir => true,
+        std::path::Component::Normal(name) => name.as_bytes().len() <= component_limit,
+        std::path::Component::CurDir
+        | std::path::Component::ParentDir
+        | std::path::Component::Prefix(_) => false,
+    })
+}
+
+#[cfg(unix)]
+fn static_files_path_candidate(
+    root: &Path,
+    relative_path: &Path,
+    follow_symlink: bool,
+) -> io::Result<PathBuf> {
+    let joined_path = root.join(relative_path);
+    if follow_symlink {
+        return static_files_absolute_path(&joined_path);
+    }
+    fs::canonicalize(joined_path)
+}
+
+#[cfg(unix)]
+fn static_files_absolute_path(path: &Path) -> io::Result<PathBuf> {
+    let absolute_path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        env::current_dir()?.join(path)
+    };
+    let mut normalized_path = PathBuf::new();
+    for component in absolute_path.components() {
+        match component {
+            std::path::Component::RootDir => normalized_path.push(component.as_os_str()),
+            std::path::Component::Normal(name) => normalized_path.push(name),
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                normalized_path.pop();
+            }
+            std::path::Component::Prefix(_) => {}
+        }
+    }
+    Ok(normalized_path)
+}
+
+#[cfg(unix)]
+#[allow(unsafe_code)]
+fn pathconf_limit(path: &Path, name: libc::c_int) -> Option<usize> {
+    let path = CString::new(path.as_os_str().as_bytes()).ok()?;
+    // SAFETY: `path` is a live NUL-terminated CString for the immediate call;
+    // pathconf reads the borrowed path synchronously and retains no pointer.
+    let value = unsafe { libc::pathconf(path.as_ptr(), name) };
+    usize::try_from(value).ok().filter(|limit| *limit > 0)
+}
+
+fn static_files_path_padding(byte_length: usize, component_limit: usize) -> Option<PathBuf> {
+    if byte_length == 0 {
+        return Some(PathBuf::new());
+    }
+    if component_limit == 0 {
+        return None;
+    }
+    let maximum_component_cost = component_limit.checked_add(1)?;
+    let mut remaining = byte_length;
+    let mut padding = PathBuf::new();
+    while remaining > 0 {
+        if remaining == 1 {
+            return None;
+        }
+        let mut component_cost = remaining.min(maximum_component_cost);
+        if remaining > component_cost && remaining - component_cost == 1 {
+            if component_cost <= 2 {
+                return None;
+            }
+            component_cost -= 1;
+        }
+        let component_bytes = component_cost - 1;
+        padding.push("p".repeat(component_bytes));
+        remaining -= component_cost;
+    }
+    Some(padding)
+}
+
+fn static_files_skipped_result(case_id: &str, reason: &str) -> Value {
+    json!({
+        "case_id": case_id,
+        "status": "skipped",
+        "observations": [{
+            "step_id": RESPONSE_OPERATION,
+            "status": "skipped",
+            "reason": reason,
+        }],
+    })
 }
 
 fn static_files_error_result(case_id: &str, status_code: u16, detail: &str) -> Value {

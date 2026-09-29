@@ -10,6 +10,7 @@
 //! parity.
 
 // These package dependencies are used by the companion parity-adapter binary.
+use libc as _;
 use serde_json as _;
 use sha2 as _;
 

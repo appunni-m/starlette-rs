@@ -8,11 +8,11 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 270 input-only cases across 36 files, covering 54
-operations and 335 requirements. Run `818ae9f4-801b-4748-a561-a5f2755d2f42`
-selected 378 comparisons: 374 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 268 applicable cases;
-Rust-native passed 106 of 110 selected cases. The four unsupported Rust-native
+The active contract has 272 input-only cases across 36 files, covering 54
+operations and 336 requirements. Run `1739af39-2f0f-4ad5-9605-64327a80ca59`
+selected 382 comparisons: 378 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 270 applicable cases;
+Rust-native passed 108 of 112 selected cases. The four unsupported Rust-native
 rows require arbitrary Python callables. See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
 

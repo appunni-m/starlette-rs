@@ -12,6 +12,7 @@ import base64
 import builtins
 import contextlib
 import contextvars
+import errno
 import functools
 import hashlib
 import importlib.metadata
@@ -2933,6 +2934,127 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _static_files_path_limit_candidate(
+    root: Path, relative_path: str, follow_symlink: bool
+) -> Path:
+    joined_path = os.path.join(os.fspath(root), relative_path)
+    full_path = os.path.abspath(joined_path) if follow_symlink else os.path.realpath(joined_path)
+    return Path(full_path)
+
+
+def _static_files_path_limit_components_fit(path: Path, component_limit: int) -> bool:
+    return all(
+        len(os.fsencode(component)) <= component_limit
+        for component in path.parts
+        if component not in {path.anchor, "", "."}
+    )
+
+
+def _static_files_path_limit_padding(padding_bytes: int, component_limit: int) -> list[str] | None:
+    components: list[str] = []
+    remaining = padding_bytes
+    while remaining > component_limit + 1:
+        component_bytes = component_limit + 1
+        if remaining - component_bytes == 1:
+            component_bytes -= 1
+        component_length = component_bytes - 1
+        if component_length < 1:
+            return None
+        components.append("p" * component_length)
+        remaining -= component_bytes
+    if remaining == 1:
+        return None
+    if remaining > 0:
+        component_length = remaining - 1
+        if component_length > component_limit:
+            return None
+        components.append("p" * component_length)
+    return components
+
+
+def _static_files_path_limit_skipped(case: dict[str, Any], reason: str) -> dict[str, Any]:
+    return {
+        "case_id": case["case_id"],
+        "status": "skipped",
+        "observations": [{"step_id": RESPONSE_OPERATION, "status": "skipped", "reason": reason}],
+    }
+
+
+def _static_files_path_limit_root(
+    case: dict[str, Any], workspace: Path, root: Path, package_source_root: Path
+) -> tuple[Path | None, str | None]:
+    if not hasattr(os, "pathconf"):
+        return None, "the temporary workspace does not support os.pathconf"
+    try:
+        path_limit = os.pathconf(workspace, "PC_PATH_MAX")
+        name_limit = os.pathconf(workspace, "PC_NAME_MAX")
+    except (OSError, ValueError, AttributeError):
+        return None, "the temporary workspace does not expose PC_PATH_MAX and PC_NAME_MAX"
+    if path_limit <= 0 or name_limit <= 0:
+        return None, "the temporary workspace has no positive PC_PATH_MAX or PC_NAME_MAX limit"
+
+    recipe = case["path_limit_stress"]
+    component_limit = min(recipe["safe_component_bytes"], name_limit)
+    relative_path = case["scope"]["path"].lstrip("/")
+    if (
+        component_limit < 1
+        or not relative_path
+        or os.path.normpath(relative_path) != relative_path
+        or any(
+            len(os.fsencode(component)) > component_limit
+            for component in relative_path.split(os.sep)
+        )
+    ):
+        return None, "the request path cannot fit the declared safe component limit"
+
+    package = case["packages"][0]
+    package_root = package_source_root.joinpath(*package["name"].split("."))
+    package_static_root = package_root.joinpath(*package["statics_dir"].split("/"))
+    later_candidate = _static_files_path_limit_candidate(
+        package_static_root, relative_path, case["follow_symlink"]
+    )
+    if not _static_files_path_limit_components_fit(later_candidate, component_limit):
+        return None, "a later package path component exceeds the declared safe component limit"
+    if len(os.fsencode(os.fspath(later_candidate))) > (
+        path_limit - recipe["later_root_margin_bytes"]
+    ):
+        return None, "the later package candidate cannot fit below the declared path-limit margin"
+
+    first_candidate = _static_files_path_limit_candidate(
+        root, relative_path, case["follow_symlink"]
+    )
+    if not _static_files_path_limit_components_fit(first_candidate, component_limit):
+        return None, "the configured first-root path exceeds the declared safe component limit"
+    target_length = path_limit + recipe["overflow_bytes"]
+    padding_bytes = target_length - len(os.fsencode(os.fspath(first_candidate)))
+    if padding_bytes < 0:
+        return None, "the unpadded first-root candidate already exceeds the overflow target"
+    padding_components = _static_files_path_limit_padding(padding_bytes, component_limit)
+    if padding_components is None:
+        return None, "the first-root overflow cannot be represented with safe path components"
+
+    padded_root = root.joinpath(*padding_components)
+    padded_candidate = _static_files_path_limit_candidate(
+        padded_root, relative_path, case["follow_symlink"]
+    )
+    if len(os.fsencode(os.fspath(padded_candidate))) != target_length:
+        return None, "the padded first-root candidate cannot match the declared overflow geometry"
+    if not _static_files_path_limit_components_fit(padded_candidate, component_limit):
+        return None, "the padded first-root candidate exceeds the declared safe component limit"
+    root_candidate = Path(
+        os.path.abspath(padded_root) if case["follow_symlink"] else os.path.realpath(padded_root)
+    )
+    if len(os.fsencode(os.fspath(root_candidate))) > path_limit:
+        return None, "the padded first root itself exceeds PC_PATH_MAX"
+    try:
+        padded_root.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        if exc.errno == errno.ENAMETOOLONG:
+            return None, "the padded first root cannot be created within the workspace path limit"
+        raise
+    return padded_root, None
+
+
 def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
     _exact_object(
         case,
@@ -2944,6 +3066,7 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             "target_profiles",
             "assets",
             "directory",
+            "path_limit_stress",
             "packages",
             "files",
             "html",
@@ -2964,18 +3087,29 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.exceptions import HTTPException
     from starlette.staticfiles import StaticFiles
 
-    with tempfile.TemporaryDirectory(
-        prefix="starlette-package-static-files-"
-    ) as temporary_directory:
-        root = Path(temporary_directory) / case["directory"]
-        root.mkdir(parents=True)
+    temporary_prefix = (
+        "starlette-static-path-limit-"
+        if case["path_limit_stress"] is not None
+        else "starlette-package-static-files-"
+    )
+    with tempfile.TemporaryDirectory(prefix=temporary_prefix) as temporary_directory:
+        workspace = Path(temporary_directory)
+        root = workspace / case["directory"]
+        package_source_root = workspace / "package-source"
+        package_source_root.mkdir()
+        if case["path_limit_stress"] is not None:
+            root, skip_reason = _static_files_path_limit_root(
+                case, workspace, root, package_source_root
+            )
+            if skip_reason is not None:
+                return _static_files_path_limit_skipped(case, skip_reason)
+        else:
+            root.mkdir(parents=True)
         for file_spec in case["files"]:
             path = root / file_spec["path"]
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(_decode_base64(file_spec["contents_base64"], "file.contents_base64"))
             os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
-        package_source_root = Path(temporary_directory) / "package-source"
-        package_source_root.mkdir()
         package_arguments = []
         for package in case["packages"]:
             package_path = package_source_root
@@ -3096,7 +3230,9 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
 
     from starlette.staticfiles import StaticFiles
 
-    with tempfile.TemporaryDirectory(prefix="starlette-package-static-lookup-") as temporary_directory:
+    with tempfile.TemporaryDirectory(
+        prefix="starlette-package-static-lookup-"
+    ) as temporary_directory:
         workspace = Path(temporary_directory)
         root = workspace / case["directory"]
         root_symlink_target = case["filesystem"]["root_symlink_target"]
@@ -3110,9 +3246,7 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
         for file_spec in case["files"]:
             path = root / file_spec["path"]
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(
-                _decode_base64(file_spec["contents_base64"], "file.contents_base64")
-            )
+            path.write_bytes(_decode_base64(file_spec["contents_base64"], "file.contents_base64"))
             os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
         for directory in case["filesystem"]["directories"]:
             (workspace / directory).mkdir(parents=True, exist_ok=True)
@@ -3285,9 +3419,7 @@ def _run_static_files_async_boundary_case(case: dict[str, Any]) -> dict[str, Any
             (event for event in events if event["type"] == "http.response.start"), None
         )
         response_body = b"".join(
-            message.get("body", b"")
-            for message in sent
-            if message["type"] == "http.response.body"
+            message.get("body", b"") for message in sent if message["type"] == "http.response.body"
         )
         observation = {
             "lookup_callback_paths": callback_paths,

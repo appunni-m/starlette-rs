@@ -214,6 +214,7 @@ STATIC_FILES_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "incoming",
     "send",
 }
+STATIC_FILES_ASGI_CALL_CASE_KEYS = STATIC_FILES_CASE_KEYS | {"path_limit_stress"}
 STATIC_FILES_LOOKUP_PATH_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "directory",
     "files",
@@ -1036,9 +1037,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     _string(support["reason"], f"{bctx}.support.reason")
                     _string(support["authority"], f"{bctx}.support.authority")
                     if binding["signature"] is not None:
-                        raise ContractError(
-                            f"{bctx} claims a signature while {support['status']}"
-                        )
+                        raise ContractError(f"{bctx} claims a signature while {support['status']}")
                 else:
                     raise ContractError(
                         f"{bctx}.support status is not currently modeled by this slice validator"
@@ -2535,7 +2534,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
-    _exact(case, STATIC_FILES_CASE_KEYS, "StaticFiles asgi-call case")
+    _exact(case, STATIC_FILES_ASGI_CALL_CASE_KEYS, "StaticFiles asgi-call case")
     if case["surface"] != STATIC_FILES_SURFACE or case["operation"] != RESPONSE_OPERATION:
         raise ContractError("case is outside the declared StaticFiles asgi-call operation")
     if case["observations"] != [RESPONSE_OPERATION]:
@@ -2550,6 +2549,26 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("StaticFiles.check_dir must be boolean")
     if type(case["follow_symlink"]) is not bool:
         raise ContractError("StaticFiles.follow_symlink must be boolean")
+
+    path_limit_stress = case["path_limit_stress"]
+    if path_limit_stress is not None:
+        path_limit_stress = _exact(
+            path_limit_stress,
+            {"kind", "overflow_bytes", "later_root_margin_bytes", "safe_component_bytes"},
+            "StaticFiles.path_limit_stress",
+        )
+        if path_limit_stress["kind"] != "ordered-root-path-overflow":
+            raise ContractError("StaticFiles.path_limit_stress.kind is unsupported")
+        for key, maximum in (
+            ("overflow_bytes", 128),
+            ("later_root_margin_bytes", 1024),
+            ("safe_component_bytes", 255),
+        ):
+            value = path_limit_stress[key]
+            if type(value) is not int or not 1 <= value <= maximum:
+                raise ContractError(
+                    f"StaticFiles.path_limit_stress.{key} must be a positive bounded integer"
+                )
 
     packages = case["packages"]
     if not isinstance(packages, list):
@@ -2647,6 +2666,29 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
             selected_files[file_input["path"]] = (float(file_input["mtime_seconds"]), True)
     method = scope["method"]
     derived: set[str] = set()
+    if path_limit_stress is not None:
+        package_asset_paths = {
+            file_input["path"] for package in packages for file_input in package["files"]
+        }
+        if (
+            method != "GET"
+            or case["html"]
+            or scope["root_path"] != ""
+            or path != f"/{normalized_path}"
+            or files
+            or len(packages) != 1
+            or len(packages[0]["files"]) != 1
+            or normalized_path not in package_asset_paths
+            or "rust-native-local" not in case["target_profiles"]
+            or "python-package-cpython312" not in case["target_profiles"]
+        ):
+            raise ContractError(
+                "StaticFiles path_limit_stress requires GET, one later package asset, both profiles, and no direct-root files"
+            )
+        if len(normalized_path.encode("utf-8")) <= path_limit_stress["overflow_bytes"]:
+            raise ContractError(
+                "StaticFiles path_limit_stress overflow_bytes must be shorter than the selected relative path"
+            )
     if method == "POST":
         derived.add("method-not-allowed-post")
     if method == "HEAD" and normalized_path in selected_files:
@@ -2657,6 +2699,8 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
     conditional_match = False
     request_headers: dict[str, str] = {}
     if method == "GET" and normalized_path in selected_files:
+        if path_limit_stress is not None:
+            derived.add("path-limit-overflow-preempts-later-root")
         for encoded_name, encoded_value in scope["headers_base64_pairs"]:
             try:
                 name = base64.b64decode(encoded_name, validate=True).decode("latin-1").lower()
@@ -2673,24 +2717,26 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
                     continue
                 if request_date.timestamp() >= selected_files[normalized_path][0]:
                     conditional_match = True
-        if request_headers.get("if-none-match") and request_headers.get("if-modified-since"):
-            derived.add("conditional-validator-precedence")
-        elif request_headers.get("if-none-match"):
-            if "W/" in request_headers["if-none-match"] and "," in request_headers[
-                "if-none-match"
-            ]:
-                derived.add("conditional-weak-etag-list")
+        if path_limit_stress is None:
+            if request_headers.get("if-none-match") and request_headers.get("if-modified-since"):
+                derived.add("conditional-validator-precedence")
+            elif request_headers.get("if-none-match"):
+                if (
+                    "W/" in request_headers["if-none-match"]
+                    and "," in request_headers["if-none-match"]
+                ):
+                    derived.add("conditional-weak-etag-list")
+                else:
+                    derived.add("conditional-etag-match")
+            elif conditional_match:
+                derived.add("conditional-date-match")
+            elif selected_files[normalized_path][1]:
+                if "python-package-cpython312" in case["target_profiles"]:
+                    derived.add("package-static-assets")
+                if "rust-native-local" in case["target_profiles"]:
+                    derived.add("rust-explicit-package-roots")
             else:
-                derived.add("conditional-etag-match")
-        elif conditional_match:
-            derived.add("conditional-date-match")
-        elif selected_files[normalized_path][1]:
-            if "python-package-cpython312" in case["target_profiles"]:
-                derived.add("package-static-assets")
-            if "rust-native-local" in case["target_profiles"]:
-                derived.add("rust-explicit-package-roots")
-        else:
-            derived.add("rooted-file-get")
+                derived.add("rooted-file-get")
     if (
         method == "GET"
         and case["html"]
@@ -2768,9 +2814,7 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
         raise ContractError("StaticFiles lookup-path files must be a non-empty array")
     file_paths: set[str] = set()
     for index, file_input in enumerate(files):
-        path, _ = _validate_static_asset_file(
-            file_input, f"StaticFiles lookup-path.files[{index}]"
-        )
+        path, _ = _validate_static_asset_file(file_input, f"StaticFiles lookup-path.files[{index}]")
         if path in file_paths:
             raise ContractError("StaticFiles lookup-path file paths must be unique")
         file_paths.add(path)
@@ -2848,17 +2892,15 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
     logical_root_file_paths = {f"{directory}/{path}" for path in file_paths}
     physical_root = root_symlink_target or directory
     physical_root_file_paths = {f"{physical_root}/{path}" for path in file_paths}
-    workspace_file_paths = (
-        logical_root_file_paths | physical_root_file_paths | outside_file_paths
-    )
+    workspace_file_paths = logical_root_file_paths | physical_root_file_paths | outside_file_paths
     for path in workspace_file_paths | directory_paths:
         parts = path.split("/")
-        workspace_directories.update(
-            "/".join(parts[:index]) for index in range(1, len(parts))
-        )
+        workspace_directories.update("/".join(parts[:index]) for index in range(1, len(parts)))
     for file_path in workspace_file_paths:
         if file_path in workspace_directories:
-            raise ContractError("StaticFiles lookup-path filesystem contains a file/directory collision")
+            raise ContractError(
+                "StaticFiles lookup-path filesystem contains a file/directory collision"
+            )
         if any(other.startswith(f"{file_path}/") for other in workspace_file_paths):
             raise ContractError("StaticFiles lookup-path filesystem contains nested file paths")
 
@@ -2875,16 +2917,12 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
         path
         for path in workspace_directories
         if root_symlink_target is not None
-        and (
-            path == root_symlink_target
-            or path.startswith(f"{root_symlink_target}/")
-        )
+        and (path == root_symlink_target or path.startswith(f"{root_symlink_target}/"))
     }
     external_directory_paths = {
         path
         for path in workspace_directories
-        if path not in internal_directory_paths
-        and path not in physical_internal_directory_paths
+        if path not in internal_directory_paths and path not in physical_internal_directory_paths
     }
     symlink_targets: dict[str, tuple[str, str, str]] = {}
     for index, symlink in enumerate(symlinks):
@@ -2919,8 +2957,14 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 f"{context}.target must resolve to an input-defined file or directory"
             )
-        if link_path in symlink_targets or link_path in workspace_file_paths or link_path in workspace_directories:
-            raise ContractError("StaticFiles lookup-path filesystem contains a symlink path collision")
+        if (
+            link_path in symlink_targets
+            or link_path in workspace_file_paths
+            or link_path in workspace_directories
+        ):
+            raise ContractError(
+                "StaticFiles lookup-path filesystem contains a symlink path collision"
+            )
         symlink_targets[link_path] = (target_path, target_kind, target_relation)
 
     for link_path in symlink_targets:
@@ -2931,7 +2975,9 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
         ):
             raise ContractError("StaticFiles lookup-path filesystem has overlapping symlink paths")
         if any(node.startswith(f"{link_path}/") for node in workspace_directories):
-            raise ContractError("StaticFiles lookup-path filesystem has a directory below a symlink")
+            raise ContractError(
+                "StaticFiles lookup-path filesystem has a directory below a symlink"
+            )
         if any(link_path.startswith(f"{file_path}/") for file_path in workspace_file_paths):
             raise ContractError("StaticFiles lookup-path filesystem has a file above a symlink")
 
@@ -2960,7 +3006,11 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
             matched_symlink = next(
                 (
                     (link_path, target_path, target_kind, target_relation)
-                    for link_path, (target_path, target_kind, target_relation) in symlink_targets.items()
+                    for link_path, (
+                        target_path,
+                        target_kind,
+                        target_relation,
+                    ) in symlink_targets.items()
                     if lookup_workspace_path == link_path
                     or lookup_workspace_path.startswith(f"{link_path}/")
                 ),
@@ -2973,17 +3023,20 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
             link_path, target_path, target_kind, target_relation = matched_symlink
             suffix = lookup_workspace_path[len(link_path) :].lstrip("/")
             target_lookup_path = f"{target_path}/{suffix}" if suffix else target_path
-            target_file_paths = (
-                outside_file_paths | internal_file_paths | physical_root_file_paths
-            )
+            target_file_paths = outside_file_paths | internal_file_paths | physical_root_file_paths
             target_directory_paths = (
                 external_directory_paths
                 | internal_directory_paths
                 | physical_internal_directory_paths
             )
             if target_kind == "file" and (suffix or target_lookup_path not in target_file_paths):
-                raise ContractError("StaticFiles lookup_path does not select the symlink file target")
-            if target_kind == "directory" and target_lookup_path not in target_file_paths | target_directory_paths:
+                raise ContractError(
+                    "StaticFiles lookup_path does not select the symlink file target"
+                )
+            if (
+                target_kind == "directory"
+                and target_lookup_path not in target_file_paths | target_directory_paths
+            ):
                 raise ContractError(
                     "StaticFiles lookup_path does not select an input-defined symlink directory entry"
                 )
@@ -2993,9 +3046,7 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
             else:
                 requirement = f"{target_relation}-{target_kind}-link.follow-symlink-{setting}"
 
-    expected_covers = {
-        f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.{requirement}"
-    }
+    expected_covers = {f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.{requirement}"}
     if set(case["covers"]) != expected_covers:
         raise ContractError("StaticFiles lookup-path covers must match the selected input path")
 
@@ -3121,8 +3172,7 @@ def _validate_static_files_async_boundary_case(case: dict[str, Any]) -> None:
     if scope["method"] == "GET" and request_path[1:] in file_paths:
         derived.add("asgi-response")
     expected_covers = {
-        f"{STATIC_FILES_SURFACE}.{STATIC_FILES_ASYNC_BOUNDARY_OPERATION}.{item}"
-        for item in derived
+        f"{STATIC_FILES_SURFACE}.{STATIC_FILES_ASYNC_BOUNDARY_OPERATION}.{item}" for item in derived
     }
     if set(case["covers"]) != expected_covers:
         raise ContractError(
@@ -4274,7 +4324,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_redirect_response
         else FILE_RESPONSE_CASE_KEYS
         if is_file_response
-        else STATIC_FILES_CASE_KEYS
+        else STATIC_FILES_ASGI_CALL_CASE_KEYS
         if is_static_files
         else STATIC_FILES_ASYNC_BOUNDARY_CASE_KEYS
         if is_static_files_async_boundary
@@ -4389,7 +4439,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             )
     elif is_static_files_lookup_path:
         if case["operation"] != STATIC_FILES_LOOKUP_PATH_OPERATION:
-            raise ContractError("StaticFiles lookup cases must use the declared lookup-path operation")
+            raise ContractError(
+                "StaticFiles lookup cases must use the declared lookup-path operation"
+            )
     elif is_response:
         if case["operation"] != RESPONSE_OPERATION:
             raise ContractError("Response cases must use the declared asgi-call operation")

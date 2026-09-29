@@ -32,15 +32,15 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 270 input-only cases, 54 operations, and 335
+The current parity contract has 272 input-only cases, 54 operations, and 336
 parity requirements across 36 indexed files. The latest integrated run is
-`818ae9f4-801b-4748-a561-a5f2755d2f42`, from
-`2026-09-29T05:54:28.558Z` to `2026-09-29T05:55:13.801Z`. It selected 378
-profile comparisons: 374 passed, zero failed, zero infrastructure errors, and
-four were `not_run`. The Python package passed all 268 selected comparisons;
-Rust-native passed 106 of 110, with four Python-callable rows `not_run`. Both
+`1739af39-2f0f-4ad5-9605-64327a80ca59`, from
+`2026-09-29T06:45:37.859Z` to `2026-09-29T06:46:21.159Z`. It selected 382
+profile comparisons: 378 passed, zero failed, zero infrastructure errors, and
+four were `not_run`. The Python package passed all 270 selected comparisons;
+Rust-native passed 108 of 112, with four Python-callable rows `not_run`. Both
 target trees were dirty when captured. Manifest SHA-256:
-`d6e4ae27125942739c8093d259b77939d8570bcd5bf8735dc1dcbc90a38dac28`.
+`bb7a722511b86843f71cd4282e5158e7005da2aa2b589c91945d7c6fc5e0f41f`.
 `make parity-run` exits with status 2 only for those four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 
@@ -51,15 +51,17 @@ policy, lookup, method selection, HTML index/fallback selection, redirects, and
 conditional 304 handling. The Python `starlette.staticfiles` module is a thin
 constructor and forwarding facade; package discovery calls Python's
 `importlib.util.find_spec` at the PyO3 boundary so custom importers and package
-origins remain visible. Thirty input-only cases are authored across three
+origins remain visible. Thirty-two input-only cases are authored across three
 StaticFiles inputs. Fourteen `lookup_path` cases run on both target profiles
-and all 28 comparisons pass. Across the StaticFiles slice, all 55 selected
-profile comparisons pass: 27 Rust-native and 28 Python-package comparisons.
-Python package discovery is profile-specific; Rust-native uses explicit
-package roots. The remaining gaps are ENAMETOOLONG behavior across multiple
-roots, Windows path normalization and path semantics, `check_config` scheduling,
-constructor and permission errors, 401 mapping, the remaining validators and
-subclass hooks, and the rest of the 36 upstream StaticFiles tests.
+and all 28 comparisons pass. Across the StaticFiles slice, all 59 selected
+profile comparisons pass: 29 Rust-native and 30 Python-package comparisons.
+The new path-limit inputs verify that an overlong first root maps to the
+source-compatible 404 before a later root can serve its matching asset, under
+both symlink settings. Python package discovery is profile-specific;
+Rust-native uses explicit package roots. Remaining gaps include Windows path
+normalization and path semantics, `check_config` scheduling, constructor and
+permission errors, 401 mapping, remaining validators and subclass hooks, and
+the rest of the 36 upstream StaticFiles tests.
 
 ## 1. Completed bounded goal: lifespan state and cancellation
 

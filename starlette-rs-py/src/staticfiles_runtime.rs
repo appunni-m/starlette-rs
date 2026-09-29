@@ -189,6 +189,8 @@ impl PyStaticFiles {
         )
     }
 
+    // PyO3 passes the ASGI scope, two callbacks, and three facade methods separately.
+    #[allow(clippy::too_many_arguments)]
     fn asgi_call(
         slf: Py<Self>,
         py: Python<'_>,
@@ -420,10 +422,7 @@ impl StaticFilesCallMachine {
     }
 
     fn resume_lookup_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
-        let native_error = match static_files_lookup_error(py, error) {
-            Ok(error) => error,
-            Err(error) => return Err(error),
-        };
+        let native_error = static_files_lookup_error(py, error)?;
         let owner = self.owner.borrow(py);
         let inner = owner.inner.clone();
         drop(owner);
@@ -750,7 +749,10 @@ fn static_files_error(error: StaticFilesError) -> PyErr {
         StaticFilesError::Io(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
             PyPermissionError::new_err(error.to_string())
         }
-        StaticFilesError::Io(error) => PyOSError::new_err(error.to_string()),
+        StaticFilesError::Io(error) => match error.raw_os_error() {
+            Some(errno) => PyOSError::new_err((errno, error.to_string())),
+            None => PyOSError::new_err(error.to_string()),
+        },
         StaticFilesError::FileResponse(error) => PyValueError::new_err(error.to_string()),
         StaticFilesError::MethodNotAllowed | StaticFilesError::NotFound => {
             PyRuntimeError::new_err("static-file HTTP error was not mapped")

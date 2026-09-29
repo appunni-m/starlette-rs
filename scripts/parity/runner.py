@@ -544,12 +544,12 @@ def _run_case(
             response["result"], case["case_id"], f"{subject_id} workflow"
         )
         if result["status"] != "completed":
-            return result, {
-                "scope": scope,
-                "id": f"{subject_id}:{case['case_id']}",
-                "kind": "non_completed_workflow",
-                "message": f"adapter returned terminal status {result['status']}; non-completed evidence cannot pass",
-            }
+            actual_observations = [item["step_id"] for item in result["observations"]]
+            if actual_observations != case["observations"]:
+                raise ContractError(
+                    "terminal adapter workflow observation step IDs do not exactly match the input selectors"
+                )
+            return result, None
         expected_observations = case["observations"]
         actual_observations = [item["step_id"] for item in result["observations"]]
         if actual_observations != expected_observations:
@@ -802,6 +802,13 @@ def run_parity(
                     "not run: target intentionally omitted by the explicit oracle-only command",
                 )
                 outcome, diffs = "not_run", []
+            elif source_result["status"] != "completed":
+                source_for_result = source_result
+                target_result = _skipped_result(
+                    case,
+                    f"not run: source workflow was {source_result['status']}",
+                )
+                outcome, diffs = "not_run", []
             elif profile_id in target_errors:
                 source_for_result = source_result
                 target_result = _skipped_result(
@@ -842,6 +849,8 @@ def run_parity(
                     elif error:
                         # Keep the adapter's terminal status and reason in evidence. The
                         # infrastructure error independently prevents this row from passing.
+                        outcome, diffs = "not_run", []
+                    elif target_result["status"] != "completed":
                         outcome, diffs = "not_run", []
                     else:
                         outcome, diffs = compare_workflows(

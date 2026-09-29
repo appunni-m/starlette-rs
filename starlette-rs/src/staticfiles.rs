@@ -46,6 +46,8 @@ impl StaticFile {
 }
 
 /// The response selected by the StaticFiles protocol policy.
+// Keep the public file payload by value; boxing it would change this consumer API.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StaticFilesResponse {
     /// Stream a regular file with the given status.
@@ -68,6 +70,8 @@ pub enum StaticFilesResponse {
 }
 
 /// The next operation in an asynchronous static-file response flow.
+// This short-lived public transition carries the response without changing its API to Box.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StaticFilesResponseStep {
     /// Look up this path and resume the flow with its result.
@@ -207,11 +211,13 @@ impl StaticFiles {
                     Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
                         return Err(StaticFilesError::PermissionDenied);
                     }
+                    Err(error) if is_name_too_long(&error) => {
+                        return Err(StaticFilesError::Io(error));
+                    }
                     Err(error)
                         if error.kind() == io::ErrorKind::NotFound
                             || error.kind() == io::ErrorKind::NotADirectory
-                            || error.kind() == io::ErrorKind::InvalidInput
-                            || is_name_too_long(&error) =>
+                            || error.kind() == io::ErrorKind::InvalidInput =>
                     {
                         continue;
                     }
@@ -245,9 +251,10 @@ impl StaticFiles {
                 {
                     continue;
                 }
-                Err(error)
-                    if is_name_too_long(&error) || error.kind() == io::ErrorKind::InvalidInput =>
-                {
+                Err(error) if is_name_too_long(&error) => {
+                    return Err(StaticFilesError::Io(error));
+                }
+                Err(error) if error.kind() == io::ErrorKind::InvalidInput => {
                     return Ok(None);
                 }
                 Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
@@ -353,8 +360,9 @@ impl StaticFilesResponseFlow {
     /// Supplies one lookup result and advances Rust response selection.
     ///
     /// Resume this flow once for each [`StaticFilesResponseStep::Lookup`]. A
-    /// filesystem error terminates the flow and is returned unchanged. Resuming
-    /// a completed flow returns an invalid-input I/O error.
+    /// filesystem error terminates the flow and is returned unchanged, except
+    /// `ENAMETOOLONG`, which Starlette maps to not found. Resuming a completed
+    /// flow returns an invalid-input I/O error.
     pub fn resume_lookup(
         &mut self,
         static_files: &StaticFiles,
@@ -366,6 +374,10 @@ impl StaticFilesResponseFlow {
 
         let lookup = match result {
             Ok(lookup) => lookup,
+            Err(StaticFilesError::Io(error)) if is_name_too_long(&error) => {
+                self.phase = ResponseFlowPhase::Complete;
+                return Err(StaticFilesError::NotFound);
+            }
             Err(error) => {
                 self.phase = ResponseFlowPhase::Complete;
                 return Err(error);
