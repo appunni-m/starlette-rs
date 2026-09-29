@@ -8,46 +8,53 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 324 input-only cases across 38 files, covering 56
-operations and 401 requirements. Run `2f83558f-12e1-4e81-ba47-75c855414644` from
-`2026-09-29T15:18:30.482Z` to `2026-09-29T15:19:28.422Z`; it selected 459
-comparisons: 455 passed, zero failed, zero infrastructure errors, and four
-`not_run`. The Python package passed all 322 applicable cases; Rust-native
+The active contract has 325 input-only cases across 38 files, covering 56
+operations and 402 requirements. Run `06b18382-67f5-4dff-94f8-bd179d11b7f0` from
+`2026-09-29T15:38:00.211Z` to `2026-09-29T15:39:22.667Z`; it selected 460
+comparisons: 456 passed, zero failed, zero infrastructure errors, and four
+`not_run`. The Python package passed all 323 applicable cases; Rust-native
 passed 133 of 137 selected cases. The four unsupported Rust-native rows require
 arbitrary Python callables. All 27 FileResponse cases passed on both profiles;
-all eight SessionMiddleware cases and all eleven BaseHTTPMiddleware cases
-passed on the Python package profile. The eleven BaseHTTPMiddleware cases
+all eight SessionMiddleware cases and all twelve BaseHTTPMiddleware cases
+passed on the Python package profile. The twelve BaseHTTPMiddleware cases
 cover configured-header mutation, awaited `call_next` response replacement,
-body-cache replay, response-completion unblocking downstream receive, and
+body-cache replay, response-completion unblocking downstream receive,
 exception-context propagation, caught downstream `ValueError` handling,
 partial-stream forwarding, downstream receive transformation, repeated
-disconnect polling with `send_body=True` and `False`, and stream consumption
-followed by a downstream body read. The caught-exception case matches
+disconnect polling with `send_body=True` and `False`, stream consumption
+followed by a downstream body read, and body buffering followed by a downstream
+stream read. The caught-exception case matches
 `tests/middleware/test_base.py:338-356`: dispatch catches `ValueError("TEST")`
 from `call_next` and returns status 400 with a body derived from `str(exc)`.
 Both polling variants observe two downstream polls, raw and downstream receive
 traces, drained requests and poll results, and the exact `200 b"good!"` response
-tape; see `tests/middleware/test_base.py:1168-1215`. The stream-consumption
-case matches `test_read_request_body_in_app_after_middleware_calls_stream` at
+tape; see `tests/middleware/test_base.py:1168-1215`. The body-buffer/stream case
+matches `test_read_request_stream_in_app_after_middleware_calls_body` at
+`tests/middleware/test_base.py:631-657`: dispatch reads `b"a"` before
+`call_next`, and downstream stream iteration reads `b"a"` then `b""` before
+returning `Homepage`. The stream-consumption case matches
+`test_read_request_body_in_app_after_middleware_calls_stream` at
 `tests/middleware/test_base.py:660-686`: dispatch exhausts `request.stream()`
 and downstream reads the cached empty body before returning `Homepage`. The
-partial stream case consumes `b"1"` in dispatch, forwards the next unread
-`b"2"` to the endpoint, then resumes dispatch to consume `b"3"` after
-`call_next`; see `tests/middleware/test_base.py:777-832`. The receive-
-transformation case maps `tests/middleware/test_base.py:979-1017`: dispatch
-observes `b"foo "`, the downstream wrapper doubles the request body, and the
-endpoint observes `b"foo foo "`. This bounded slice leaves other
-partial-stream/replay interleavings, disconnect ordering across stacked
-middleware, broader exception-group shapes beyond the observed TaskGroup
-context and caught `ValueError`, varied or malformed `http.response.debug`
-frames, broader cancellation and cleanup ordering, path-send responses, and
-additional streaming behaviors unproven. The Rust-native target was clean at
-revision `07391c79bef7bb5fc4d0a027d35dc54aa7a3a1de+source-fnv1a64-e5a0df1c1dca21b4`;
+source test-client fixture declares asyncio and trio backends; the active input
+selects the Python-package profile only. The partial-stream case consumes
+`b"1"` in dispatch, forwards the next unread `b"2"` to the endpoint, then
+resumes dispatch to consume `b"3"` after `call_next`; see
+`tests/middleware/test_base.py:777-832`. The receive-transformation case maps
+`tests/middleware/test_base.py:979-1017`: dispatch observes `b"foo "`, the
+downstream wrapper doubles the request body, and the endpoint observes
+`b"foo foo "`. This bounded slice leaves other partial-stream/replay
+interleavings, disconnect ordering across stacked middleware, broader
+exception-group shapes beyond the observed TaskGroup context and caught
+`ValueError`, varied or malformed `http.response.debug` frames, broader
+cancellation and cleanup ordering, path-send responses, and additional
+streaming behaviors unproven. The Rust-native target was clean at revision
+`a1e6f7090c1fbf159b1f4ff9d07abed65675238a+source-fnv1a64-e5a0df1c1dca21b4`;
 the Python-package target was dirty with tree SHA-256
-`b0d8e698be93323a36c63deded652f9f5832f333385a1c83755e28163a6f7a43`. Manifest
-SHA-256: `4e363422ec80832907f4701da24804477890aa9dbeb4951d090e6484a877123d`;
+`c6973ca47ecbebef47d20537c8a55a008842ce94453366f870efc840a5b2569b`. Manifest
+SHA-256: `ec04f15ac05c0c5bfd279eb7bb335b251e7f3e88d3a2f558610ba68cfe5a3175`;
 package wheel SHA-256:
-`2504965c5f2d0b308c9a254d94ac16cefe6b53cd6bd726726ee45583bb7eb84b`.
+`725b37f1cb0d6cf35882c91806cbdf23155964b81fec15528eddfa078153a4e7`.
 See [Migration parity contract and evidence](../PARITY.md) for current scope.
 
 ## P0 — Close the source-backed atlas (complete)
@@ -56,8 +63,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 791 mappings: 622 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 119 existing input mappings. It maps selected
+The current matrix has 791 mappings: 621 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 120 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

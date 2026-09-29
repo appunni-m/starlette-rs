@@ -32,16 +32,16 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 324 input-only cases, 56 operations, and 401
+The current parity contract has 325 input-only cases, 56 operations, and 402
 parity requirements across 38 indexed files, including bounded
 SessionMiddleware and BaseHTTPMiddleware workflow slices. Latest integrated
-run `2f83558f-12e1-4e81-ba47-75c855414644`, from
-`2026-09-29T15:18:30.482Z` to `2026-09-29T15:19:28.422Z`, selected 459 profile
-comparisons: 455 passed, zero failed, zero infrastructure errors, and four
-were `not_run`. The Python package passed all 322 applicable comparisons;
+run `06b18382-67f5-4dff-94f8-bd179d11b7f0`, from
+`2026-09-29T15:38:00.211Z` to `2026-09-29T15:39:22.667Z`, selected 460 profile
+comparisons: 456 passed, zero failed, zero infrastructure errors, and four
+were `not_run`. The Python package passed all 323 applicable comparisons;
 Rust-native passed 133 of 137, with four Python-callable rows `not_run`. All 27
 FileResponse cases passed on both profiles, all eight SessionMiddleware cases
-passed on the Python package profile, and all eleven BaseHTTPMiddleware cases
+passed on the Python package profile, and all twelve BaseHTTPMiddleware cases
 passed there: header mutation, replacement response, body-cache replay,
 response-completion receive racing, exception-context propagation, partial
 stream forwarding from `tests/middleware/test_base.py:777-832`, and receive
@@ -56,18 +56,23 @@ exact `200 b"good!"` response events; see
 `test_read_request_body_in_app_after_middleware_calls_stream` at
 `tests/middleware/test_base.py:660-686`: dispatch exhausts the stream containing
 `b"a"`, its terminal empty chunk, and iterator exhaustion; downstream reads the
-cached empty body and returns `Homepage`. The catch case covers
-`test_exception_can_be_caught` at `tests/middleware/test_base.py:338-356`:
-dispatch catches the endpoint's `ValueError("TEST")` from `call_next` and
-returns status 400 with body `TEST`. The Rust-native target reported clean at
-revision
-`07391c79bef7bb5fc4d0a027d35dc54aa7a3a1de+source-fnv1a64-e5a0df1c1dca21b4`;
+cached empty body and returns `Homepage`. The body-cache/stream-replay input
+maps to `test_read_request_stream_in_app_after_middleware_calls_body` at
+`tests/middleware/test_base.py:631-657`: dispatch buffers `b"a"`, then the
+endpoint's stream yields `b"a"` and `b""` before returning `Homepage`. Its
+source TestClient fixture declares asyncio and trio; the current case exercises
+the Python-package profile without establishing parity for both backends. The
+catch case covers `test_exception_can_be_caught` at
+`tests/middleware/test_base.py:338-356`: dispatch catches the endpoint's
+`ValueError("TEST")` from `call_next` and returns status 400 with body `TEST`.
+The Rust-native target reported clean at revision
+`a1e6f7090c1fbf159b1f4ff9d07abed65675238a+source-fnv1a64-e5a0df1c1dca21b4`;
 the installed Python-package target was dirty with tree SHA-256
-`b0d8e698be93323a36c63deded652f9f5832f333385a1c83755e28163a6f7a43`.
+`c6973ca47ecbebef47d20537c8a55a008842ce94453366f870efc840a5b2569b`.
 Manifest SHA-256:
-`4e363422ec80832907f4701da24804477890aa9dbeb4951d090e6484a877123d`.
+`ec04f15ac05c0c5bfd279eb7bb335b251e7f3e88d3a2f558610ba68cfe5a3175`.
 Package wheel artifact SHA-256:
-`2504965c5f2d0b308c9a254d94ac16cefe6b53cd6bd726726ee45583bb7eb84b`.
+`725b37f1cb0d6cf35882c91806cbdf23155964b81fec15528eddfa078153a4e7`.
 `make parity-run` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 
@@ -278,19 +283,19 @@ dependencies feature-gated and preserve unsupported coverage visibly.
 The pinned Starlette 1.6.0 Router/GZip workload catalog contains six Router
 and 68 GZip benchmark IDs. All 74 have input-only descriptors and exact
 source-versus-installed-package correctness gates. Latest run
-`c39eb247-118f-4be8-8d7d-ee3421e56f89` ran from
-`2026-09-29T15:19:47.239Z` to `2026-09-29T15:22:02.889Z` and measured all 74
+`eabc3da0-3c96-4726-a050-3f83c1baf984` ran from
+`2026-09-29T15:39:41.770Z` to `2026-09-29T15:42:01.399Z` and measured all 74
 source/package workloads with zero failures and zero not-run rows. Its
-correctness preflight, `676ecc17-2d09-4e91-9843-2b0766cdfb1f`, selected 459
-comparisons: 455 passed, zero failed, zero infrastructure errors, and four
-Rust-native Python-callable rows were `not_run` (package 322/322; Rust-native
+correctness preflight, `be997e05-bcbd-4ee9-bbe2-a67940d138a7`, selected 460
+comparisons: 456 passed, zero failed, zero infrastructure errors, and four
+Rust-native Python-callable rows were `not_run` (package 323/323; Rust-native
 133/137). Manifest SHA-256:
-`4e363422ec80832907f4701da24804477890aa9dbeb4951d090e6484a877123d`; the
+`ec04f15ac05c0c5bfd279eb7bb335b251e7f3e88d3a2f558610ba68cfe5a3175`; the
 benchmark wheel SHA-256 is
-`7b93eebfab33e8125456121f1cb803d4fe3db173d8c946fb0a01ef2d49d95075`, and the
+`7191d407bf21fc675ce027f3de6a8e030802c2db34c979a6790e702b4436aae0`, and the
 package target tree SHA-256 is
-`b0d8e698be93323a36c63deded652f9f5832f333385a1c83755e28163a6f7a43`. The
-median per-workload source/package ratios are 0.383 for Router and 0.975 for
+`c6973ca47ecbebef47d20537c8a55a008842ce94453366f870efc840a5b2569b`. The
+median per-workload source/package ratios are 0.380 for Router and 0.976 for
 GZip.
 
 Rust-native remains `not_run` for all 74 because its public API does not expose

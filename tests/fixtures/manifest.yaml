@@ -3850,6 +3850,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.downstream-stream-read-after-body-cache",
+              "dimension": "boundary",
+              "description": "Dispatch caches a non-empty POST body with request.body(), then the downstream endpoint exhausts request.stream() and returns an input-defined plain-text response. Compare dispatch body bytes, every yielded downstream stream chunk, response status/body, and ordered ASGI events. Upstream: tests/middleware/test_base.py:631-657; starlette/middleware/base.py:20-59,80-93,112-130; starlette/requests.py:234-260.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.downstream-middleware-receive-transformation",
               "dimension": "boundary",
               "description": "Dispatch consumes the original POST body, call_next enters an explicitly ordered downstream ASGI receive wrapper that repeats each http.request body, and the endpoint reads the transformed body before returning an empty response. Upstream: tests/middleware/test_base.py:979-1017; starlette/middleware/base.py:106-107,112-130; starlette/requests.py:254-260.",
