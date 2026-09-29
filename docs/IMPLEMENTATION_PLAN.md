@@ -32,14 +32,14 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 258 input-only cases, 53 operations, and 320
-parity requirements across 35 indexed files. The latest integrated run is
-`2df6e603-63d0-48ee-87d4-333fd07ab0fa`. It selected 355 profile comparisons:
-351 passed, zero failed, zero infrastructure errors, and four were `not_run`.
-The Python package passed all 256 applicable cases; Rust-native passed 95 of 99
+The current parity contract has 259 input-only cases, 54 operations, and 324
+parity requirements across 36 indexed files. The latest integrated run is
+`207e510e-651f-4bbf-910f-332ca07f7ddb`. It selected 356 profile comparisons:
+352 passed, zero failed, zero infrastructure errors, and four were `not_run`.
+The Python package passed all 257 applicable cases; Rust-native passed 95 of 99
 selected comparisons. The four remaining Rust-native rows require Python
 endpoint callables. Both target trees were dirty when captured. Manifest
-SHA-256: `65ce0b52c4b41cbdc7e971b608c0029216a90c7570626b9af7c617033d77b5ba`.
+SHA-256: `04dd974fd163d53091ebc0f586240e4108bbb74f7f9f662d23661e57f7b0db33`.
 `make parity-run` exits with status 2 for the four explicitly unsupported native
 callable rows; this is not release proof.
 
@@ -50,16 +50,18 @@ policy, lookup, method selection, HTML index/fallback selection, redirects, and
 conditional 304 handling. The Python `starlette.staticfiles` module is a thin
 constructor and forwarding facade; package discovery calls Python's
 `importlib.util.find_spec` at the PyO3 boundary so custom importers and package
-origins remain visible. Eighteen input-only cases are authored; 16 applicable
-cases per target profile compare rooted GET and HEAD, HTML index/404 behavior,
+origins remain visible. Nineteen input-only cases are authored. Sixteen cases
+per target profile compare rooted GET and HEAD, HTML index/404 behavior,
 404/405 outcomes, date and ETag validators, validator precedence, package
-roots, and direct `lookup_path` metadata/path behavior against the pinned
-source, installed package, and native target. All 32 selected StaticFiles
-comparisons passed. Python package discovery is profile-specific; Rust-native
-uses explicit package roots. This is a bounded slice; constructor errors,
-traversal and symlink edge cases, 401 mapping, override dispatch,
-event-loop-friendly filesystem work, complete cross-platform stat fields, and
-the remaining upstream StaticFiles tests are still open.
+roots, and direct `lookup_path` metadata/path behavior. A package-only case
+gates the bound `lookup_path` override, checks that it runs on an AnyIO worker
+while the event loop progresses, and compares the resulting ASGI response.
+All 33 selected StaticFiles comparisons passed. Python package discovery is
+profile-specific; Rust-native uses explicit package roots. This bounded slice
+still leaves constructor and permission errors, other subclass hooks,
+`check_config` worker-thread scheduling as a separately observed boundary,
+traversal and symlink edge cases, 401 mapping, cross-platform stat fields, and
+the remaining upstream StaticFiles tests open.
 ## 1. Completed bounded goal: lifespan state and cancellation
 
 Five input-only cases now exercise yielded state merge, missing
@@ -233,9 +235,9 @@ composition, authentication, background tasks, and concurrency.
 
 Configuration and schema generation now have seven package-only live parity
 cases across six Rust-backed public operations. The minimal package keeps
-PyYAML optional behind its `schemas` extra. Next implement FileResponse and
-its range/conditional-request behavior, then StaticFiles; forms/uploads,
-templates, WSGI, and TestClient remain open. Continue with broader streaming
+PyYAML optional behind its `schemas` extra. Continue FileResponse range and
+conditional-request behavior, then extend StaticFiles edge-case parity;
+forms/uploads, templates, WSGI, and TestClient remain open. Continue with broader streaming
 lifecycle, duplicate headers/cookies, failure propagation, cancellation, and
 platform-specific paths. Keep optional dependencies feature-gated and
 preserve unsupported coverage visibly.

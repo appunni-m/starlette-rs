@@ -8,10 +8,10 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 258 input-only cases across 35 files, covering 53
-operations and 320 requirements. Run `2df6e603-63d0-48ee-87d4-333fd07ab0fa`
-selected 355 comparisons: 351 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 256 applicable cases;
+The active contract has 259 input-only cases across 36 files, covering 54
+operations and 324 requirements. Run `207e510e-651f-4bbf-910f-332ca07f7ddb`
+selected 356 comparisons: 352 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 257 applicable cases;
 Rust-native passed 95 of 99 selected cases. The four unsupported Rust-native
 rows require arbitrary Python callables. See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
@@ -178,7 +178,7 @@ assert exact parity before the coordinated gate records that result.
 ## P3 — Expand by atlas requirements
 
 Implement routing, connections, requests/responses, middleware, authentication,
-background tasks, data structures, forms/uploads, static files, templates,
+background tasks, data structures, forms/uploads, remaining StaticFiles edge cases, templates,
 schemas, configuration, WSGI, and TestClient in dependency-aware groups.
 Promote remaining fixture-backlog entries into the single active manifest as
 independent inputs and keep unsupported behavior visible until implemented

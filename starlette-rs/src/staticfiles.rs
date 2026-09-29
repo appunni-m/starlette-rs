@@ -28,6 +28,23 @@ pub struct StaticFile {
     pub is_directory: bool,
 }
 
+impl StaticFile {
+    /// Creates a lookup result from an explicit filesystem stat result.
+    ///
+    /// The mode type bits use the values shared by POSIX `st_mode` and
+    /// Python's `stat.S_IFMT` helpers.
+    #[must_use]
+    pub fn from_path_and_metadata(path: PathBuf, metadata: FileMetadata, mode: u32) -> Self {
+        let file_type = mode & 0o170_000;
+        Self {
+            path,
+            metadata,
+            is_file: file_type == 0o100_000,
+            is_directory: file_type == 0o040_000,
+        }
+    }
+}
+
 /// The response selected by the StaticFiles protocol policy.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StaticFilesResponse {
@@ -48,6 +65,33 @@ pub enum StaticFilesResponse {
         /// Original ASGI path with a trailing slash.
         path: String,
     },
+}
+
+/// The next operation in an asynchronous static-file response flow.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum StaticFilesResponseStep {
+    /// Look up this path and resume the flow with its result.
+    Lookup(String),
+    /// The Rust response policy has selected its final response.
+    Complete(StaticFilesResponse),
+}
+
+/// Rust-owned state for response selection when filesystem lookups are supplied
+/// asynchronously by a caller such as the Python AnyIO boundary.
+#[derive(Debug)]
+pub struct StaticFilesResponseFlow {
+    path: String,
+    scope_path: String,
+    request_headers: Vec<(Vec<u8>, Vec<u8>)>,
+    phase: ResponseFlowPhase,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ResponseFlowPhase {
+    InitialLookup,
+    IndexLookup,
+    NotFoundLookup,
+    Complete,
 }
 
 /// A configuration, request, or filesystem failure while serving static files.
@@ -223,39 +267,43 @@ impl StaticFiles {
         method: &str,
         request_headers: &[(Vec<u8>, Vec<u8>)],
     ) -> Result<StaticFilesResponse, StaticFilesError> {
+        let (mut flow, mut step) =
+            self.start_response_flow(path, scope_path, method, request_headers)?;
+        loop {
+            match step {
+                StaticFilesResponseStep::Lookup(path) => {
+                    step = flow.resume_lookup(self, self.lookup_path(&path))?;
+                }
+                StaticFilesResponseStep::Complete(response) => return Ok(response),
+            }
+        }
+    }
+
+    /// Starts Rust response selection and returns the first filesystem lookup.
+    ///
+    /// The method check happens before the first lookup, matching
+    /// [`Self::get_response`]. Each subsequent lookup is requested by
+    /// [`StaticFilesResponseFlow::resume_lookup`].
+    pub fn start_response_flow(
+        &self,
+        path: &str,
+        scope_path: &str,
+        method: &str,
+        request_headers: &[(Vec<u8>, Vec<u8>)],
+    ) -> Result<(StaticFilesResponseFlow, StaticFilesResponseStep), StaticFilesError> {
         if method != "GET" && method != "HEAD" {
             return Err(StaticFilesError::MethodNotAllowed);
         }
 
-        if let Some(file) = self.lookup_path(path)? {
-            if file.is_file {
-                return self.file_response(file, 200, request_headers, true);
-            }
-            if file.is_directory && self.html {
-                let index_path = join_relative(path, "index.html");
-                if let Some(index) = self.lookup_path(&index_path)?
-                    && index.is_file
-                {
-                    if !scope_path.ends_with('/') {
-                        return Ok(StaticFilesResponse::Redirect {
-                            path: format!("{scope_path}/"),
-                        });
-                    }
-                    return self.file_response(index, 200, request_headers, true);
-                }
-            }
-        }
-
-        if self.html
-            && let Some(not_found) = self.lookup_path("404.html")?
-            && not_found.is_file
-        {
-            return Ok(StaticFilesResponse::File {
-                file: not_found,
-                status_code: 404,
-            });
-        }
-        Err(StaticFilesError::NotFound)
+        Ok((
+            StaticFilesResponseFlow {
+                path: path.to_owned(),
+                scope_path: scope_path.to_owned(),
+                request_headers: request_headers.to_vec(),
+                phase: ResponseFlowPhase::InitialLookup,
+            },
+            StaticFilesResponseStep::Lookup(path.to_owned()),
+        ))
     }
 
     fn file_response(
@@ -299,6 +347,118 @@ impl StaticFiles {
         }
         Ok(StaticFilesResponse::File { file, status_code })
     }
+}
+
+impl StaticFilesResponseFlow {
+    /// Supplies one lookup result and advances Rust response selection.
+    ///
+    /// Resume this flow once for each [`StaticFilesResponseStep::Lookup`]. A
+    /// filesystem error terminates the flow and is returned unchanged. Resuming
+    /// a completed flow returns an invalid-input I/O error.
+    pub fn resume_lookup(
+        &mut self,
+        static_files: &StaticFiles,
+        result: Result<Option<StaticFile>, StaticFilesError>,
+    ) -> Result<StaticFilesResponseStep, StaticFilesError> {
+        if self.phase == ResponseFlowPhase::Complete {
+            return Err(invalid_response_flow());
+        }
+
+        let lookup = match result {
+            Ok(lookup) => lookup,
+            Err(error) => {
+                self.phase = ResponseFlowPhase::Complete;
+                return Err(error);
+            }
+        };
+
+        match self.phase {
+            ResponseFlowPhase::InitialLookup => self.resume_initial_lookup(static_files, lookup),
+            ResponseFlowPhase::IndexLookup => self.resume_index_lookup(static_files, lookup),
+            ResponseFlowPhase::NotFoundLookup => self.resume_not_found_lookup(lookup),
+            ResponseFlowPhase::Complete => Err(invalid_response_flow()),
+        }
+    }
+
+    fn resume_initial_lookup(
+        &mut self,
+        static_files: &StaticFiles,
+        lookup: Option<StaticFile>,
+    ) -> Result<StaticFilesResponseStep, StaticFilesError> {
+        if let Some(file) = lookup {
+            if file.is_file {
+                let response =
+                    static_files.file_response(file, 200, &self.request_headers, true)?;
+                self.phase = ResponseFlowPhase::Complete;
+                return Ok(StaticFilesResponseStep::Complete(response));
+            }
+            if file.is_directory && static_files.html {
+                self.phase = ResponseFlowPhase::IndexLookup;
+                return Ok(StaticFilesResponseStep::Lookup(join_relative(
+                    &self.path,
+                    "index.html",
+                )));
+            }
+        }
+
+        self.start_not_found_lookup(static_files)
+    }
+
+    fn resume_index_lookup(
+        &mut self,
+        static_files: &StaticFiles,
+        lookup: Option<StaticFile>,
+    ) -> Result<StaticFilesResponseStep, StaticFilesError> {
+        if let Some(index) = lookup.filter(|file| file.is_file) {
+            let response = if self.scope_path.ends_with('/') {
+                static_files.file_response(index, 200, &self.request_headers, true)?
+            } else {
+                StaticFilesResponse::Redirect {
+                    path: format!("{}/", self.scope_path),
+                }
+            };
+            self.phase = ResponseFlowPhase::Complete;
+            return Ok(StaticFilesResponseStep::Complete(response));
+        }
+
+        self.start_not_found_lookup(static_files)
+    }
+
+    fn start_not_found_lookup(
+        &mut self,
+        static_files: &StaticFiles,
+    ) -> Result<StaticFilesResponseStep, StaticFilesError> {
+        if static_files.html {
+            self.phase = ResponseFlowPhase::NotFoundLookup;
+            Ok(StaticFilesResponseStep::Lookup("404.html".to_owned()))
+        } else {
+            self.phase = ResponseFlowPhase::Complete;
+            Err(StaticFilesError::NotFound)
+        }
+    }
+
+    fn resume_not_found_lookup(
+        &mut self,
+        lookup: Option<StaticFile>,
+    ) -> Result<StaticFilesResponseStep, StaticFilesError> {
+        self.phase = ResponseFlowPhase::Complete;
+        match lookup.filter(|file| file.is_file) {
+            Some(file) => Ok(StaticFilesResponseStep::Complete(
+                StaticFilesResponse::File {
+                    file,
+                    status_code: 404,
+                },
+            )),
+            None => Err(StaticFilesError::NotFound),
+        }
+    }
+}
+
+fn invalid_response_flow() -> StaticFilesError {
+    StaticFilesError::Io(io::Error::new(
+        io::ErrorKind::InvalidInput,
+        "static-file response flow has already completed",
+    ))
 }
 
 fn static_file(path: PathBuf, metadata: &Metadata) -> Result<StaticFile, StaticFilesError> {

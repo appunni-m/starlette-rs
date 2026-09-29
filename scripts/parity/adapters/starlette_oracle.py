@@ -52,6 +52,7 @@ STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
+STATIC_FILES_ASYNC_BOUNDARY_OPERATION = "asgi-call-async-boundary"
 RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 BODY_LIMIT_SURFACE = "starlette.middleware.body_limit.RequestBodyLimitMiddleware"
@@ -3005,6 +3006,165 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_static_files_async_boundary_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "directory",
+            "packages",
+            "files",
+            "html",
+            "check_dir",
+            "follow_symlink",
+            "lookup_path_override",
+            "event_loop_probe",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        },
+        "StaticFiles async-boundary case",
+    )
+    if (
+        case["surface"] != STATIC_FILES_SURFACE
+        or case["operation"] != STATIC_FILES_ASYNC_BOUNDARY_OPERATION
+        or case["observations"] != [STATIC_FILES_ASYNC_BOUNDARY_OPERATION]
+    ):
+        raise ValueError("workflow is outside the StaticFiles async-boundary operation")
+
+    from starlette.staticfiles import StaticFiles
+
+    gate_spec = case["lookup_path_override"]["gate"]
+    release_timeout_seconds = gate_spec["release_timeout_ms"] / 1000.0
+    callback_paths: list[str] = []
+    callback_bound_flags: list[bool] = []
+    callback_worker_flags: list[bool] = []
+    loop_progress_while_blocked: list[bool] = []
+    gate_started = threading.Event()
+    gate_waiting = threading.Event()
+    release_gate = threading.Event()
+    loop: asyncio.AbstractEventLoop | None = None
+    loop_thread_id = -1
+    async_gate_started: asyncio.Event | None = None
+
+    with tempfile.TemporaryDirectory(
+        prefix="starlette-static-async-boundary-"
+    ) as temporary_directory:
+        root = Path(temporary_directory) / case["directory"]
+        root.mkdir(parents=True)
+        for file_spec in case["files"]:
+            path = root / file_spec["path"]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(_decode_b64(file_spec["contents_base64"], "file.contents_base64"))
+            os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
+
+        class GatedStaticFiles(StaticFiles):
+            def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
+                callback_paths.append(path)
+                callback_bound_flags.append(
+                    self is application and application.lookup_path.__self__ is self
+                )
+                callback_worker_flags.append(threading.get_ident() != loop_thread_id)
+                if not gate_started.is_set():
+                    gate_started.set()
+                    gate_waiting.set()
+                    loop.call_soon_threadsafe(async_gate_started.set)
+                    released_by_probe = release_gate.wait(release_timeout_seconds)
+                    gate_waiting.clear()
+                    if not released_by_probe:
+                        release_gate.set()
+                return super().lookup_path(path)
+
+        application = GatedStaticFiles(
+            directory=root,
+            packages=case["packages"],
+            html=case["html"],
+            check_dir=case["check_dir"],
+            follow_symlink=case["follow_symlink"],
+        )
+        scope = _make_scope(case["scope"])
+        sent: list[dict[str, Any]] = []
+
+        async def receive() -> dict[str, Any]:
+            return {"type": "http.disconnect"}
+
+        async def send(message: dict[str, Any]) -> None:
+            sent.append(message)
+
+        async def dispatch() -> None:
+            nonlocal loop, loop_thread_id, async_gate_started
+            loop = asyncio.get_running_loop()
+            loop_thread_id = threading.get_ident()
+            async_gate_started = asyncio.Event()
+
+            async def probe_event_loop() -> None:
+                await async_gate_started.wait()
+                await asyncio.sleep(0)
+                loop_progress_while_blocked.append(gate_waiting.is_set())
+                if case["event_loop_probe"]["release_gate"]:
+                    release_gate.set()
+
+            probe = asyncio.create_task(probe_event_loop())
+            try:
+                await application(scope, receive, send)
+                if gate_started.is_set():
+                    await asyncio.wait_for(asyncio.shield(probe), timeout=release_timeout_seconds)
+            finally:
+                release_gate.set()
+                if not probe.done():
+                    probe.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await probe
+
+        asyncio.run(dispatch())
+        events = [_canonical_message(message) for message in sent]
+        response_start = next(
+            (message for message in sent if message["type"] == "http.response.start"), None
+        )
+        response_start_event = next(
+            (event for event in events if event["type"] == "http.response.start"), None
+        )
+        response_body = b"".join(
+            message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+        )
+        observation = {
+            "lookup_callback_paths": callback_paths,
+            "lookup_callback_bound_to_application": bool(callback_bound_flags)
+            and all(callback_bound_flags),
+            "lookup_callback_ran_on_worker_thread": bool(callback_worker_flags)
+            and all(callback_worker_flags),
+            "lookup_gate_started": gate_started.is_set(),
+            "event_loop_progress_while_lookup_blocked": any(loop_progress_while_blocked),
+            "response_status": response_start["status"] if response_start is not None else None,
+            "ordered_repeated_headers": (
+                response_start_event["headers"] if response_start_event is not None else []
+            ),
+            "response_bytes": {
+                "encoding": "base64",
+                "data": base64.b64encode(response_body).decode("ascii"),
+            },
+            "asgi_event_order": [event["type"] for event in events],
+            "asgi_events": events,
+        }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": STATIC_FILES_ASYNC_BOUNDARY_OPERATION,
+                "status": "ok",
+                "value": observation,
+            }
+        ],
+    }
+
+
 def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
     _strict_object(
         case,
@@ -4858,6 +5018,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == RESPONSE_OPERATION
     ):
         return _run_file_response_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == STATIC_FILES_SURFACE
+        and case.get("operation") == STATIC_FILES_ASYNC_BOUNDARY_OPERATION
+    ):
+        return _run_static_files_async_boundary_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == STATIC_FILES_SURFACE

@@ -2,14 +2,17 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::awaitable::{
+    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+};
 use pyo3::exceptions::{
     PyAssertionError, PyKeyError, PyOSError, PyPermissionError, PyRuntimeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
 use starlette_rs::{
-    FileStat, FileStatTimestamp, StaticFiles as NativeStaticFiles, StaticFilesError,
-    StaticFilesResponse,
+    FileMetadata, FileStat, FileStatTimestamp, StaticFile, StaticFiles as NativeStaticFiles,
+    StaticFilesError, StaticFilesResponse, StaticFilesResponseFlow, StaticFilesResponseStep,
 };
 
 /// Registers the native static-file runtime.
@@ -17,7 +20,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyStaticFiles>()
 }
 
-#[pyclass(name = "StaticFiles", unsendable)]
+#[pyclass(name = "StaticFiles")]
 struct PyStaticFiles {
     inner: NativeStaticFiles,
     config_checked: bool,
@@ -132,7 +135,12 @@ impl PyStaticFiles {
     }
 
     fn lookup_path(&self, py: Python<'_>, path: &str) -> PyResult<(String, Py<PyAny>)> {
-        match self.inner.lookup_path(path).map_err(static_files_error)? {
+        let inner = self.inner.clone();
+        let path = path.to_owned();
+        let lookup = py
+            .detach(move || inner.lookup_path(&path))
+            .map_err(static_files_error)?;
+        match lookup {
             Some(file) => Ok((
                 path_string(&file.path)?,
                 stat_result(py, &file.path, file.metadata.stat_result())?,
@@ -141,25 +149,55 @@ impl PyStaticFiles {
         }
     }
 
-    fn check_config(&self) -> PyResult<()> {
-        self.inner.check_config().map_err(static_files_error)
+    #[pyo3(name = "_check_config_sync")]
+    fn check_config_sync(&self, py: Python<'_>) -> PyResult<()> {
+        let inner = self.inner.clone();
+        py.detach(move || inner.check_config())
+            .map_err(static_files_error)
+    }
+
+    fn check_config(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let callback = slf.bind(py).getattr("_check_config_sync")?.unbind();
+        into_python_awaitable(
+            py,
+            StaticFilesCheckConfigMachine {
+                callback,
+                waiting: false,
+            },
+        )
     }
 
     fn get_response(
-        &self,
+        slf: Py<Self>,
         py: Python<'_>,
         path: &str,
         scope: &Bound<'_, PyDict>,
+        lookup_path: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        self.prepare_response(py, path, scope)
+        into_python_awaitable(
+            py,
+            StaticFilesCallMachine::new(
+                slf,
+                scope.clone().into_any().unbind(),
+                lookup_path,
+                None,
+                None,
+                None,
+                path.to_owned(),
+                StaticFilesCallPurpose::Response,
+            ),
+        )
     }
 
     fn asgi_call(
-        &mut self,
+        slf: Py<Self>,
         py: Python<'_>,
         scope: &Bound<'_, PyDict>,
         receive: Py<PyAny>,
         send: Py<PyAny>,
+        get_path: Py<PyAny>,
+        lookup_path: Py<PyAny>,
+        check_config: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         let scope_type = scope
             .get_item("type")?
@@ -168,51 +206,40 @@ impl PyStaticFiles {
         if scope_type != "http" {
             return Err(PyAssertionError::new_err(()));
         }
-        if !self.config_checked {
-            self.inner.check_config().map_err(static_files_error)?;
-            self.config_checked = true;
-        }
-        let path = self.get_path(scope)?;
-        let response = self.prepare_response(py, &path, scope)?;
-        let awaitable = response.bind(py).call1((scope, receive, send))?;
-        Ok(awaitable.unbind())
+        into_python_awaitable(
+            py,
+            StaticFilesCallMachine::new(
+                slf,
+                scope.clone().into_any().unbind(),
+                lookup_path,
+                Some(check_config),
+                Some(get_path),
+                Some((receive, send)),
+                String::new(),
+                StaticFilesCallPurpose::Asgi,
+            ),
+        )
     }
 }
 
 impl PyStaticFiles {
     fn prepare_response(
-        &self,
         py: Python<'_>,
-        path: &str,
+        response: StaticFilesResponse,
         scope: &Bound<'_, PyDict>,
+        selected_stat_result: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Py<PyAny>> {
-        let scope_path = scope
-            .get_item("path")?
-            .ok_or_else(|| PyValueError::new_err("ASGI scope is missing 'path'"))?
-            .extract::<String>()?;
-        let method = scope
-            .get_item("method")?
-            .ok_or_else(|| PyValueError::new_err("ASGI HTTP scope is missing 'method'"))?
-            .extract::<String>()?;
-        let request_headers = scope
-            .get_item("headers")?
-            .map(|value| value.extract::<Vec<(Vec<u8>, Vec<u8>)>>())
-            .transpose()?
-            .unwrap_or_default();
-        match self
-            .inner
-            .get_response(path, &scope_path, &method, &request_headers)
-            .map_err(|error| static_files_http_error(py, error))?
-        {
+        match response {
             StaticFilesResponse::File { file, status_code } => {
                 let response_type =
                     PyModule::import(py, "starlette.responses")?.getattr("FileResponse")?;
                 let kwargs = PyDict::new(py);
                 kwargs.set_item("status_code", status_code)?;
-                kwargs.set_item(
-                    "stat_result",
-                    stat_result(py, &file.path, file.metadata.stat_result())?,
-                )?;
+                let stat_result = match selected_stat_result {
+                    Some(stat_result) => stat_result.clone().unbind(),
+                    None => stat_result(py, &file.path, file.metadata.stat_result())?,
+                };
+                kwargs.set_item("stat_result", stat_result)?;
                 response_type
                     .call((path_string(&file.path)?,), Some(&kwargs))
                     .map(Bound::unbind)
@@ -243,6 +270,304 @@ impl PyStaticFiles {
             }
         }
     }
+}
+
+#[derive(Clone, Copy)]
+enum StaticFilesCallPurpose {
+    Response,
+    Asgi,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StaticFilesCallState {
+    Start,
+    AwaitCheckConfig,
+    AwaitLookup,
+    AwaitResponse,
+}
+
+struct StaticFilesCallMachine {
+    owner: Py<PyStaticFiles>,
+    scope: Py<PyAny>,
+    lookup_path: Py<PyAny>,
+    check_config: Option<Py<PyAny>>,
+    get_path: Option<Py<PyAny>>,
+    response_callbacks: Option<(Py<PyAny>, Py<PyAny>)>,
+    response_path: String,
+    purpose: StaticFilesCallPurpose,
+    state: StaticFilesCallState,
+    flow: Option<StaticFilesResponseFlow>,
+    selected_stat_result: Option<Py<PyAny>>,
+}
+
+impl StaticFilesCallMachine {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        owner: Py<PyStaticFiles>,
+        scope: Py<PyAny>,
+        lookup_path: Py<PyAny>,
+        check_config: Option<Py<PyAny>>,
+        get_path: Option<Py<PyAny>>,
+        response_callbacks: Option<(Py<PyAny>, Py<PyAny>)>,
+        response_path: String,
+        purpose: StaticFilesCallPurpose,
+    ) -> Self {
+        Self {
+            owner,
+            scope,
+            lookup_path,
+            check_config,
+            get_path,
+            response_callbacks,
+            response_path,
+            purpose,
+            state: StaticFilesCallState::Start,
+            flow: None,
+            selected_stat_result: None,
+        }
+    }
+
+    fn begin_response_flow(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let scope = self.scope.bind(py).cast::<PyDict>()?;
+        let path = match self.purpose {
+            StaticFilesCallPurpose::Response => self.response_path.clone(),
+            StaticFilesCallPurpose::Asgi => self
+                .get_path
+                .as_ref()
+                .ok_or_else(|| PyRuntimeError::new_err("StaticFiles get_path callback is missing"))?
+                .bind(py)
+                .call1((scope,))?
+                .extract::<String>()?,
+        };
+        let scope_path = scope
+            .get_item("path")?
+            .ok_or_else(|| PyValueError::new_err("ASGI scope is missing 'path'"))?
+            .extract::<String>()?;
+        let method = scope
+            .get_item("method")?
+            .ok_or_else(|| PyValueError::new_err("ASGI HTTP scope is missing 'method'"))?
+            .extract::<String>()?;
+        let request_headers = scope
+            .get_item("headers")?
+            .map(|value| value.extract::<Vec<(Vec<u8>, Vec<u8>)>>())
+            .transpose()?
+            .unwrap_or_default();
+        let (flow, step) = {
+            let owner = self.owner.borrow(py);
+            owner
+                .inner
+                .start_response_flow(&path, &scope_path, &method, &request_headers)
+                .map_err(|error| static_files_http_error(py, error))?
+        };
+        self.flow = Some(flow);
+        self.apply_response_step(py, step)
+    }
+
+    fn apply_response_step(
+        &mut self,
+        py: Python<'_>,
+        step: StaticFilesResponseStep,
+    ) -> PyResult<MachineAction> {
+        match step {
+            StaticFilesResponseStep::Lookup(path) => {
+                let awaitable = anyio_run_sync(py, &self.lookup_path, Some(path))?;
+                self.state = StaticFilesCallState::AwaitLookup;
+                Ok(MachineAction::Await(awaitable))
+            }
+            StaticFilesResponseStep::Complete(response) => {
+                let scope = self.scope.bind(py).cast::<PyDict>()?;
+                let response = PyStaticFiles::prepare_response(
+                    py,
+                    response,
+                    scope,
+                    self.selected_stat_result
+                        .as_ref()
+                        .map(|value| value.bind(py)),
+                )?;
+                match self.purpose {
+                    StaticFilesCallPurpose::Response => Ok(MachineAction::Complete(response)),
+                    StaticFilesCallPurpose::Asgi => {
+                        let (receive, send) =
+                            self.response_callbacks.as_ref().ok_or_else(|| {
+                                PyRuntimeError::new_err("StaticFiles ASGI callbacks are missing")
+                            })?;
+                        let awaitable =
+                            response
+                                .bind(py)
+                                .call1((scope, receive.bind(py), send.bind(py)))?;
+                        self.state = StaticFilesCallState::AwaitResponse;
+                        Ok(MachineAction::Await(awaitable.unbind()))
+                    }
+                }
+            }
+        }
+    }
+
+    fn resume_lookup(&mut self, py: Python<'_>, value: Py<PyAny>) -> PyResult<MachineAction> {
+        let (lookup, stat_result) = lookup_result_from_python(py, value)?;
+        self.selected_stat_result = stat_result;
+        let owner = self.owner.borrow(py);
+        let inner = owner.inner.clone();
+        drop(owner);
+        let flow = self
+            .flow
+            .as_mut()
+            .ok_or_else(|| PyRuntimeError::new_err("StaticFiles response flow is missing"))?;
+        let step = flow
+            .resume_lookup(&inner, Ok(lookup))
+            .map_err(|error| static_files_http_error(py, error))?;
+        self.apply_response_step(py, step)
+    }
+
+    fn resume_lookup_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        let native_error = match static_files_lookup_error(py, error) {
+            Ok(error) => error,
+            Err(error) => return Err(error),
+        };
+        let owner = self.owner.borrow(py);
+        let inner = owner.inner.clone();
+        drop(owner);
+        let flow = self
+            .flow
+            .as_mut()
+            .ok_or_else(|| PyRuntimeError::new_err("StaticFiles response flow is missing"))?;
+        match flow.resume_lookup(&inner, Err(native_error)) {
+            Ok(step) => self.apply_response_step(py, step),
+            Err(error) => Err(static_files_http_error(py, error)),
+        }
+    }
+}
+
+impl AwaitableStateMachine for StaticFilesCallMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match (self.state, input) {
+            (StaticFilesCallState::Start, MachineResume::Start) => {
+                let config_checked = self.owner.borrow(py).config_checked;
+                match (self.purpose, config_checked) {
+                    (StaticFilesCallPurpose::Asgi, false) => {
+                        let callback = self.check_config.as_ref().ok_or_else(|| {
+                            PyRuntimeError::new_err("StaticFiles check_config callback is missing")
+                        })?;
+                        let awaitable = callback.bind(py).call0()?.unbind();
+                        self.state = StaticFilesCallState::AwaitCheckConfig;
+                        Ok(MachineAction::Await(awaitable))
+                    }
+                    _ => self.begin_response_flow(py),
+                }
+            }
+            (StaticFilesCallState::AwaitCheckConfig, MachineResume::Value(_)) => {
+                self.owner.borrow_mut(py).config_checked = true;
+                self.begin_response_flow(py)
+            }
+            (StaticFilesCallState::AwaitCheckConfig, MachineResume::Error(error)) => Err(error),
+            (StaticFilesCallState::AwaitLookup, MachineResume::Value(value)) => {
+                self.resume_lookup(py, value)
+            }
+            (StaticFilesCallState::AwaitLookup, MachineResume::Error(error)) => {
+                self.resume_lookup_error(py, error)
+            }
+            (StaticFilesCallState::AwaitResponse, MachineResume::Value(_)) => {
+                Ok(MachineAction::Complete(py.None()))
+            }
+            (StaticFilesCallState::AwaitResponse, MachineResume::Error(error)) => Err(error),
+            (_, MachineResume::AsyncIterationComplete(error)) => Err(error),
+            (_, MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_)) => Err(
+                PyRuntimeError::new_err("invalid StaticFiles awaitable transition"),
+            ),
+        }
+    }
+}
+
+struct StaticFilesCheckConfigMachine {
+    callback: Py<PyAny>,
+    waiting: bool,
+}
+
+impl AwaitableStateMachine for StaticFilesCheckConfigMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start if !self.waiting => {
+                let awaitable = anyio_run_sync(py, &self.callback, None)?;
+                self.waiting = true;
+                Ok(MachineAction::Await(awaitable))
+            }
+            MachineResume::Value(_) if self.waiting => Ok(MachineAction::Complete(py.None())),
+            MachineResume::Error(error) if self.waiting => Err(error),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
+            _ => Err(PyRuntimeError::new_err(
+                "invalid StaticFiles check_config transition",
+            )),
+        }
+    }
+}
+
+fn anyio_run_sync(
+    py: Python<'_>,
+    callback: &Py<PyAny>,
+    argument: Option<String>,
+) -> PyResult<Py<PyAny>> {
+    let run_sync = PyModule::import(py, "anyio.to_thread")?.getattr("run_sync")?;
+    let awaitable = match argument {
+        Some(argument) => run_sync.call1((callback.bind(py), argument))?,
+        None => run_sync.call1((callback.bind(py),))?,
+    };
+    Ok(awaitable.unbind())
+}
+
+fn lookup_result_from_python(
+    py: Python<'_>,
+    value: Py<PyAny>,
+) -> PyResult<(Option<StaticFile>, Option<Py<PyAny>>)> {
+    let pair = value.bind(py).cast::<PyTuple>()?;
+    if pair.len() != 2 {
+        return Err(PyValueError::new_err(
+            "StaticFiles.lookup_path must return a pair",
+        ));
+    }
+    let full_path = pair.get_item(0)?;
+    let stat_result = pair.get_item(1)?;
+    if !stat_result.is_truthy()? {
+        return Ok((None, None));
+    }
+    let path = path_from_python(py, &full_path)?;
+    let mode = stat_result.getattr("st_mode")?.extract::<u32>()?;
+    let size = stat_result.getattr("st_size")?.extract::<u64>()?;
+    let modified_value = stat_result.getattr("st_mtime")?;
+    let modified = modified_value.extract::<f64>()?;
+    let modified_text = py
+        .import("builtins")?
+        .getattr("str")?
+        .call1((modified_value,))?
+        .extract::<String>()?;
+    let metadata = FileMetadata::from_unix_seconds(size, modified, modified_text)
+        .map_err(|error| static_files_error(StaticFilesError::FileResponse(error)))?;
+    let file = StaticFile::from_path_and_metadata(path, metadata, mode);
+    Ok((Some(file), Some(stat_result.unbind())))
+}
+
+fn static_files_lookup_error(py: Python<'_>, error: PyErr) -> Result<StaticFilesError, PyErr> {
+    if error.is_instance_of::<PyPermissionError>(py) {
+        return Ok(StaticFilesError::PermissionDenied);
+    }
+    if error.is_instance_of::<PyValueError>(py) {
+        return Ok(StaticFilesError::NotFound);
+    }
+    if error.is_instance_of::<PyOSError>(py) {
+        let errno = error
+            .value(py)
+            .getattr("errno")
+            .ok()
+            .and_then(|value| value.extract::<i32>().ok());
+        let too_long = py
+            .import("errno")
+            .and_then(|module| module.getattr("ENAMETOOLONG"))
+            .and_then(|value| value.extract::<i32>())
+            .ok();
+        if errno.is_some() && errno == too_long {
+            return Ok(StaticFilesError::NotFound);
+        }
+    }
+    Err(error)
 }
 
 fn resolve_directories(

@@ -60,13 +60,20 @@ class StaticFiles:
         return self._inner.get_path(scope)
 
     async def get_response(self, path: str, scope: dict[str, object]) -> object:
-        return self._inner.get_response(path, scope)
+        return await self._inner.get_response(path, scope, self.lookup_path)
 
     def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
         return self._inner.lookup_path(path)
 
     async def check_config(self) -> None:
-        return self._inner.check_config()
+        await self._inner.check_config()
 
     async def __call__(self, scope: dict[str, object], receive: object, send: object) -> None:
-        await self._inner.asgi_call(scope, receive, send)
+        await self._inner.asgi_call(
+            scope,
+            receive,
+            send,
+            self.get_path,
+            self.lookup_path,
+            self.check_config,
+        )

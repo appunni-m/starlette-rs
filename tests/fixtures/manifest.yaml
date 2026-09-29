@@ -269,7 +269,8 @@
       "build/parity/inputs/parity/lifespan-generators.json",
       "build/parity/inputs/parity/authentication-runtime.json",
       "build/parity/inputs/parity/static-files.json",
-      "build/parity/inputs/parity/static-files-lookup.json"
+      "build/parity/inputs/parity/static-files-lookup.json",
+      "build/parity/inputs/parity/static-files-async-boundary.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -9837,6 +9838,218 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "StaticFiles lookup helpers are outside active benchmark workloads."
+          }
+        },
+        {
+          "id": "asgi-call-async-boundary",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.staticfiles.StaticFiles.__call__",
+            "signature": "StaticFiles(*, directory=None, packages=None, html=False, check_dir=True, follow_symlink=False); async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "directory",
+                "style": "keyword",
+                "value_types": ["path", "null"],
+                "omission": {"kind": "literal", "value": null}
+              },
+              {
+                "id": "packages",
+                "style": "keyword",
+                "value_types": ["sequence", "null"],
+                "omission": {"kind": "literal", "value": null}
+              },
+              {
+                "id": "html",
+                "style": "keyword",
+                "value_types": ["boolean"],
+                "omission": {"kind": "literal", "value": false}
+              },
+              {
+                "id": "check_dir",
+                "style": "keyword",
+                "value_types": ["boolean"],
+                "omission": {"kind": "literal", "value": true}
+              },
+              {
+                "id": "follow_symlink",
+                "style": "keyword",
+                "value_types": ["boolean"],
+                "omission": {"kind": "literal", "value": false}
+              },
+              {
+                "id": "files",
+                "style": "input_asset",
+                "value_types": ["sequence"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "lookup_path_override",
+                "style": "option",
+                "value_types": ["mapping"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "event_loop_probe",
+                "style": "option",
+                "value_types": ["mapping"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "scope",
+                "style": "positional_or_keyword",
+                "value_types": ["mapping"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "receive",
+                "style": "positional_or_keyword",
+                "value_types": ["handle"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "send",
+                "style": "positional_or_keyword",
+                "value_types": ["handle"],
+                "omission": {"kind": "required"}
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "lookup_callback_paths",
+                  "value_types": ["sequence"],
+                  "comparison": {"kind": "ordered"}
+                },
+                {
+                  "path": "lookup_callback_bound_to_application",
+                  "value_types": ["boolean"],
+                  "comparison": {"kind": "exact"}
+                },
+                {
+                  "path": "lookup_callback_ran_on_worker_thread",
+                  "value_types": ["boolean"],
+                  "comparison": {"kind": "exact"}
+                },
+                {
+                  "path": "lookup_gate_started",
+                  "value_types": ["boolean"],
+                  "comparison": {"kind": "exact"}
+                },
+                {
+                  "path": "event_loop_progress_while_lookup_blocked",
+                  "value_types": ["boolean"],
+                  "comparison": {"kind": "exact"}
+                },
+                {
+                  "path": "response_status",
+                  "value_types": ["integer", "null"],
+                  "comparison": {"kind": "exact"}
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": ["sequence"],
+                  "comparison": {"kind": "ordered"}
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": ["record"],
+                  "comparison": {"kind": "bytes"}
+                },
+                {
+                  "path": "asgi_event_order",
+                  "value_types": ["sequence"],
+                  "comparison": {"kind": "ordered"}
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": ["sequence"],
+                  "comparison": {"kind": "ordered"}
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::StaticFiles::get_response",
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation observes Python event-loop progress and AnyIO worker scheduling, which are outside the synchronous Rust-native StaticFiles API.",
+                "authority": "The operation is scoped to the Python-package-cpython312 profile; upstream StaticFiles delegates lookup_path through anyio.to_thread.run_sync."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.staticfiles.StaticFiles.__call__",
+              "signature": "StaticFiles(*, directory=None, packages=None, html=False, check_dir=True, follow_symlink=False); async __call__(scope, receive, send)",
+              "support": {"status": "supported"}
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.lookup-path-thread-relation",
+              "dimension": "boundary",
+              "description": "Observe the path argument and bound-instance/thread relation for StaticFiles.lookup_path invoked by __call__. Upstream: starlette/staticfiles.py:87-99,109-118.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.lookup-gate-start",
+              "dimension": "boundary",
+              "description": "Observe entry into an input-described gate in the bound lookup_path override. Upstream delegation: starlette/staticfiles.py:117-118.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.event-loop-progress",
+              "dimension": "boundary",
+              "description": "Observe whether the event loop advances while the input-described lookup_path gate remains blocked. Upstream scheduling: starlette/staticfiles.py:117-118 and AnyIO's run_sync contract.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.asgi-response",
+              "dimension": "success_path",
+              "description": "Compare the live HTTP status, headers, response bytes, and ASGI event sequence after the gated lookup delegates to the parent implementation. Upstream: starlette/staticfiles.py:87-99,109-132.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": ["python-package-cpython312"]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only async boundary comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "StaticFiles AnyIO scheduling is outside active benchmark workloads."
           }
         }
       ]

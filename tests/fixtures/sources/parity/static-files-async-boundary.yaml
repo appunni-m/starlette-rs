@@ -1,0 +1,61 @@
+{
+  "schema": "migration-parity/parity-input@4",
+  "cases": [
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.gated-bound-lookup",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call-async-boundary",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.lookup-path-thread-relation",
+        "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.lookup-gate-start",
+        "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.event-loop-progress",
+        "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.asgi-response"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "directory": "public",
+      "packages": [],
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "Z2F0ZWQgbG9va3Vw",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "lookup_path_override": {
+        "kind": "bound-method",
+        "delegate": "super",
+        "gate": {
+          "kind": "threading-event",
+          "release_timeout_ms": 500,
+          "release_on": "event-loop-probe-or-timeout"
+        }
+      },
+      "event_loop_probe": {
+        "kind": "scheduled-checkpoint",
+        "trigger": "lookup-gate-started",
+        "release_gate": true
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/asset.txt",
+        "raw_path_base64": "L2Fzc2V0LnR4dA==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call-async-boundary"]
+    }
+  ]
+}

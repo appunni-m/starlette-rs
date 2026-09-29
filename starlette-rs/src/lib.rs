@@ -66,5 +66,8 @@ pub use route_table::{
 };
 pub use router_dispatch::{DispatchPlanError, HttpDispatchPlan, SupplementalRouteMatch};
 pub use server_error::{ServerErrorPlan, ServerErrorPolicy, ServerErrorState};
-pub use staticfiles::{StaticFile, StaticFiles, StaticFilesError, StaticFilesResponse};
+pub use staticfiles::{
+    StaticFile, StaticFiles, StaticFilesError, StaticFilesResponse, StaticFilesResponseFlow,
+    StaticFilesResponseStep,
+};
 pub use websocket::{WebSocketState, WebSocketStateError, WebSocketStateMachine};

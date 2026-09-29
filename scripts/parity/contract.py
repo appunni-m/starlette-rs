@@ -179,6 +179,7 @@ STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
+STATIC_FILES_ASYNC_BOUNDARY_OPERATION = "asgi-call-async-boundary"
 STREAMING_RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 RESPONSE_OPERATION = "asgi-call"
@@ -219,6 +220,10 @@ STATIC_FILES_LOOKUP_PATH_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"
     "lookup_path",
     "check_dir",
     "follow_symlink",
+}
+STATIC_FILES_ASYNC_BOUNDARY_CASE_KEYS = STATIC_FILES_CASE_KEYS | {
+    "lookup_path_override",
+    "event_loop_probe",
 }
 RESPONSE_OBSERVATIONS = [
     "response_status",
@@ -1025,6 +1030,14 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             f"{bctx} partial support requires a path, signature, and unique missing requirement IDs"
                         )
                     partial_support_gaps.append((binding["target_id"], missing_requirements))
+                elif support["status"] in {"intentionally_unsupported", "out_of_scope"}:
+                    _exact(support, {"status", "reason", "authority"}, f"{bctx}.support")
+                    _string(support["reason"], f"{bctx}.support.reason")
+                    _string(support["authority"], f"{bctx}.support.authority")
+                    if binding["signature"] is not None:
+                        raise ContractError(
+                            f"{bctx} claims a signature while {support['status']}"
+                        )
                 else:
                     raise ContractError(
                         f"{bctx}.support status is not currently modeled by this slice validator"
@@ -1108,6 +1121,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
                         or (surface["id"], operation["id"])
                         == (STREAMING_RESPONSE_SURFACE, STREAMING_RESPONSE_TRACE_OPERATION)
+                        or (surface["id"], operation["id"])
+                        == (STATIC_FILES_SURFACE, STATIC_FILES_ASYNC_BOUNDARY_OPERATION)
                         or surface["id"] == BODY_LIMIT_SURFACE
                         or surface["id"]
                         in {
@@ -2750,6 +2765,136 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
         raise ContractError("StaticFiles lookup-path covers must match the selected input path")
 
 
+def _validate_static_files_async_boundary_case(case: dict[str, Any]) -> None:
+    _exact(case, STATIC_FILES_ASYNC_BOUNDARY_CASE_KEYS, "StaticFiles async-boundary case")
+    if (
+        case["surface"] != STATIC_FILES_SURFACE
+        or case["operation"] != STATIC_FILES_ASYNC_BOUNDARY_OPERATION
+    ):
+        raise ContractError("case is outside the declared StaticFiles async-boundary operation")
+    if case["observations"] != [STATIC_FILES_ASYNC_BOUNDARY_OPERATION]:
+        raise ContractError("StaticFiles async-boundary observations must select the operation")
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError(
+            "StaticFiles async-boundary cases apply only to the Python package profile"
+        )
+
+    directory = _string(case["directory"], "StaticFiles async-boundary.directory")
+    if not directory or Path(directory).is_absolute() or Path(directory).name != directory:
+        raise ContractError("StaticFiles async-boundary.directory must be a relative basename")
+    if case["packages"] != []:
+        raise ContractError("StaticFiles async-boundary case uses only its direct input root")
+    if type(case["html"]) is not bool:
+        raise ContractError("StaticFiles async-boundary.html must be boolean")
+    if type(case["check_dir"]) is not bool:
+        raise ContractError("StaticFiles async-boundary.check_dir must be boolean")
+    if type(case["follow_symlink"]) is not bool:
+        raise ContractError("StaticFiles async-boundary.follow_symlink must be boolean")
+
+    files = case["files"]
+    if not isinstance(files, list) or not files:
+        raise ContractError("StaticFiles async-boundary files must be a non-empty array")
+    file_paths: set[str] = set()
+    for index, file_input in enumerate(files):
+        path, _mtime = _validate_static_asset_file(
+            file_input, f"StaticFiles async-boundary.files[{index}]"
+        )
+        if path in file_paths:
+            raise ContractError("StaticFiles async-boundary file paths must be unique")
+        file_paths.add(path)
+
+    lookup_override = _exact(
+        case["lookup_path_override"],
+        {"kind", "delegate", "gate"},
+        "StaticFiles async-boundary.lookup_path_override",
+    )
+    if lookup_override["kind"] != "bound-method" or lookup_override["delegate"] != "super":
+        raise ContractError(
+            "StaticFiles async-boundary requires a bound lookup_path override delegating to super"
+        )
+    gate = _exact(
+        lookup_override["gate"],
+        {"kind", "release_timeout_ms", "release_on"},
+        "StaticFiles async-boundary.lookup_path_override.gate",
+    )
+    if gate["kind"] != "threading-event" or gate["release_on"] != "event-loop-probe-or-timeout":
+        raise ContractError("StaticFiles async-boundary gate must be a bounded threading event")
+    if type(gate["release_timeout_ms"]) is not int or not 100 <= gate["release_timeout_ms"] <= 5000:
+        raise ContractError(
+            "StaticFiles async-boundary gate release_timeout_ms must be an integer from 100 to 5000"
+        )
+
+    event_loop_probe = _exact(
+        case["event_loop_probe"],
+        {"kind", "trigger", "release_gate"},
+        "StaticFiles async-boundary.event_loop_probe",
+    )
+    if (
+        event_loop_probe["kind"] != "scheduled-checkpoint"
+        or event_loop_probe["trigger"] != "lookup-gate-started"
+        or event_loop_probe["release_gate"] is not True
+    ):
+        raise ContractError(
+            "StaticFiles async-boundary probe must schedule a checkpoint after gate start and release the gate"
+        )
+
+    scope = _exact(
+        case["scope"],
+        {
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        },
+        "StaticFiles async-boundary HTTP scope",
+    )
+    if scope["type"] != "http" or scope["method"] != "GET":
+        raise ContractError("StaticFiles async-boundary requires an HTTP GET scope")
+    if scope["root_path"] != "" or not isinstance(scope["path"], str):
+        raise ContractError("StaticFiles async-boundary requires an unmounted HTTP path")
+    request_path = scope["path"]
+    if not request_path.startswith("/") or request_path[1:] not in file_paths:
+        raise ContractError(
+            "StaticFiles async-boundary request path must select an input-defined regular file"
+        )
+    if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
+        raise ContractError("StaticFiles async-boundary requires empty receive and captured send")
+    _validate_dispatch_stimulus(
+        {"scope": scope, "receive": case["incoming"], "send": case["send"]},
+        request_dispatch=True,
+        allow_headers=True,
+    )
+
+    derived: set[str] = set()
+    if lookup_override["kind"] == "bound-method" and lookup_override["delegate"] == "super":
+        derived.add("lookup-path-thread-relation")
+    if gate["kind"] == "threading-event":
+        derived.add("lookup-gate-start")
+    if (
+        event_loop_probe["kind"] == "scheduled-checkpoint"
+        and event_loop_probe["trigger"] == "lookup-gate-started"
+    ):
+        derived.add("event-loop-progress")
+    if scope["method"] == "GET" and request_path[1:] in file_paths:
+        derived.add("asgi-response")
+    expected_covers = {
+        f"{STATIC_FILES_SURFACE}.{STATIC_FILES_ASYNC_BOUNDARY_OPERATION}.{item}"
+        for item in derived
+    }
+    if set(case["covers"]) != expected_covers:
+        raise ContractError(
+            "StaticFiles async-boundary covers must match the input-described gate, callback, and response"
+        )
+
+
 def _validate_static_asset_file(value: Any, context: str) -> tuple[str, float]:
     file_input = _exact(value, {"path", "contents_base64", "mtime_seconds"}, context)
     path = _string(file_input["path"], f"{context}.path")
@@ -3829,6 +3974,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and case.get("surface") == STATIC_FILES_SURFACE
         and case.get("operation") == RESPONSE_OPERATION
     )
+    is_static_files_async_boundary = (
+        isinstance(case, dict)
+        and case.get("surface") == STATIC_FILES_SURFACE
+        and case.get("operation") == STATIC_FILES_ASYNC_BOUNDARY_OPERATION
+    )
     is_static_files_lookup_path = (
         isinstance(case, dict)
         and case.get("surface") == STATIC_FILES_SURFACE
@@ -3891,6 +4041,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_file_response
         else STATIC_FILES_CASE_KEYS
         if is_static_files
+        else STATIC_FILES_ASYNC_BOUNDARY_CASE_KEYS
+        if is_static_files_async_boundary
         else STATIC_FILES_LOOKUP_PATH_CASE_KEYS
         if is_static_files_lookup_path
         else RESPONSE_CASE_KEYS
@@ -3995,6 +4147,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_static_files:
         if case["operation"] != RESPONSE_OPERATION:
             raise ContractError("StaticFiles cases must use the declared asgi-call operation")
+    elif is_static_files_async_boundary:
+        if case["operation"] != STATIC_FILES_ASYNC_BOUNDARY_OPERATION:
+            raise ContractError(
+                "StaticFiles async-boundary cases must use the declared async-boundary operation"
+            )
     elif is_static_files_lookup_path:
         if case["operation"] != STATIC_FILES_LOOKUP_PATH_OPERATION:
             raise ContractError("StaticFiles lookup cases must use the declared lookup-path operation")
@@ -4164,6 +4321,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_static_files:
         _validate_static_files_case_stimulus(case)
+        return case
+    if is_static_files_async_boundary:
+        _validate_static_files_async_boundary_case(case)
         return case
     if is_static_files_lookup_path:
         _validate_static_files_lookup_path_case(case)
