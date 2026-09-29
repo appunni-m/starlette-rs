@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 346 input-only cases across 38 files,
-covering 56 operations and 415 parity requirements. The authored cases span
+The active parity manifest indexes 366 input-only cases across 39 files,
+covering 57 operations and 418 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The exact operation and profile
@@ -30,7 +30,9 @@ Integrated run `017ed223-e59a-491e-ad98-7121a35e3b8b` started at
 selected 493 profile comparisons: 489 passed, zero failed, zero infrastructure
 errors, and four were `not_run`. The Python package passed all 344 applicable
 comparisons; Rust-native passed 145 of 149, with four rows requiring Python
-callables marked `not_run`. All 28 FileResponse cases passed on both profiles,
+callables marked `not_run`. This run used the earlier 346-case manifest and
+does not include the 20 new URL scope-construction cases; those comparisons
+have not yet been run. All 28 FileResponse cases passed on both profiles,
 all eight SessionMiddleware cases passed on the Python package profile, and all
 twenty-one BaseHTTPMiddleware cases passed there. Those cases cover header
 mutation, replacement responses, body-cache replay, response-completion receive
@@ -266,18 +268,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 791 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 791 |
-| Existing input mappings in the atlas matrix | 130 |
+| Existing input mappings in the atlas matrix | 138 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 611 |
+| New input-only fixture backlog | 603 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 130 `existing` mappings point to authored YAML input
+crosswalk snapshot, 138 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest now contains 38 indexed files
-and 336 cases, including twenty-one BaseHTTPMiddleware cases and 28 FileResponse
+input files with 136 cases. The active manifest now contains 39 indexed files
+and 366 cases, including twenty URL scope-construction cases, twenty-one BaseHTTPMiddleware cases and 28 FileResponse
 cases, 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
@@ -393,7 +395,7 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 323 currently indexed cases and
+The backlog distinguishes that work from the 366 currently indexed cases and
 the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
 
 ## Generate the source candidate catalog

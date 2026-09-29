@@ -1,0 +1,568 @@
+{
+  "schema": "migration-parity/parity-input@9",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.from-scope-query-without-authority",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "path": "/path/to/somewhere",
+        "query_string_base64": "YWJjPTEyMw==",
+        "headers_base64_pairs": []
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.from-scope-empty-query-without-authority",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "path": "/path/to/somewhere",
+        "query_string_base64": "",
+        "headers_base64_pairs": []
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.from-scope-https-explicit-port",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "https",
+        "server": [
+          "example.org",
+          123
+        ],
+        "path": "/path/to/somewhere",
+        "query_string_base64": "YWJjPTEyMw==",
+        "headers_base64_pairs": []
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.from-scope-https-default-port",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "https",
+        "server": [
+          "example.org",
+          443
+        ],
+        "path": "/path/to/somewhere",
+        "query_string_base64": "YWJjPTEyMw==",
+        "headers_base64_pairs": []
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.from-scope-host-header-without-server",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "path": "/some/path",
+        "query_string_base64": "cXVlcnk9c3RyaW5n",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "dGV4dC9odG1s"
+          ],
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS5jb206ODAwMA=="
+          ],
+          [
+            "YWNjZXB0",
+            "dGV4dC9odG1s"
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.from-scope-empty-server-host-relative-path",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "",
+          80
+        ],
+        "path": "plain",
+        "query_string_base64": "",
+        "headers_base64_pairs": []
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.invalid-host-question-mark",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.invalid-host-fallback"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "example.com",
+          80
+        ],
+        "path": "/admin",
+        "query_string_base64": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "Zm9vLz94PQ=="
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.invalid-host-hash",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.invalid-host-fallback"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "example.com",
+          80
+        ],
+        "path": "/admin",
+        "query_string_base64": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "Zm9vLyM="
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.invalid-host-slash",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.invalid-host-fallback"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "example.com",
+          80
+        ],
+        "path": "/admin",
+        "query_string_base64": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "Zm9vL2Jhcg=="
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.invalid-host-at-sign",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.invalid-host-fallback"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "example.com",
+          80
+        ],
+        "path": "/admin",
+        "query_string_base64": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dXNlckBmb28="
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.invalid-host-backslash",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.invalid-host-fallback"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "example.com",
+          80
+        ],
+        "path": "/admin",
+        "query_string_base64": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "Zm9vXGJhcg=="
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.invalid-host-space",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.invalid-host-fallback"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "example.com",
+          80
+        ],
+        "path": "/admin",
+        "query_string_base64": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "Zm9vIGJhcg=="
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.authority-in-path-at-sign-host-header",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.authority-in-path-containment"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "localhost",
+          80
+        ],
+        "path": "@google.com",
+        "query_string_base64": "YT1i",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "bG9jYWxob3N0"
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.authority-in-path-at-sign-server-fallback",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.authority-in-path-containment"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "localhost",
+          80
+        ],
+        "path": "@google.com",
+        "query_string_base64": "YT1i",
+        "headers_base64_pairs": []
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.authority-in-path-userinfo-host-header",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.authority-in-path-containment"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "localhost",
+          80
+        ],
+        "path": "user:pass@google.com",
+        "query_string_base64": "YT1i",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "bG9jYWxob3N0"
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.authority-in-path-userinfo-server-fallback",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.authority-in-path-containment"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "localhost",
+          80
+        ],
+        "path": "user:pass@google.com",
+        "query_string_base64": "YT1i",
+        "headers_base64_pairs": []
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.authority-in-path-scheme-relative-host-header",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.authority-in-path-containment"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "localhost",
+          80
+        ],
+        "path": "//google.com/x",
+        "query_string_base64": "YT1i",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "bG9jYWxob3N0"
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.authority-in-path-scheme-relative-server-fallback",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.authority-in-path-containment"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "localhost",
+          80
+        ],
+        "path": "//google.com/x",
+        "query_string_base64": "YT1i",
+        "headers_base64_pairs": []
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.authority-in-path-absolute-host-header",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.authority-in-path-containment"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "localhost",
+          80
+        ],
+        "path": "http://google.com/x",
+        "query_string_base64": "YT1i",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "bG9jYWxob3N0"
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.authority-in-path-absolute-server-fallback",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.authority-in-path-containment"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "http",
+        "server": [
+          "localhost",
+          80
+        ],
+        "path": "http://google.com/x",
+        "query_string_base64": "YT1i",
+        "headers_base64_pairs": []
+      },
+      "observations": [
+        "url-record"
+      ]
+    }
+  ]
+}

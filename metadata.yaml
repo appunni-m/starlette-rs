@@ -86,6 +86,10 @@
       "source_path": "starlette/datastructures.py:28",
       "operations": [
         {
+          "operation_id": "scope-construction",
+          "source_path": "starlette.datastructures.URL.__init__"
+        },
+        {
           "operation_id": "query-parameter-operations",
           "source_path": "starlette.datastructures.URL.include_query_params, URL.replace_query_params, and URL.remove_query_params"
         }

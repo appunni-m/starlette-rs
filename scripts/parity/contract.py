@@ -149,6 +149,12 @@ SCHEMA_OPERATIONS = {
     ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
 }
 URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
+URL_SCOPE_OPERATION = ("starlette.datastructures.URL", "scope-construction")
+URL_SCOPE_REQUIREMENTS = {
+    "from-scope": "starlette.datastructures.URL.scope-construction",
+    "invalid-host-fallback": "starlette.datastructures.URL.invalid-host-fallback",
+    "authority-in-path-containment": "starlette.datastructures.URL.authority-in-path-containment",
+}
 QUERY_PARAMS_OPERATION = (
     "starlette.datastructures.QueryParams",
     "construction-and-mapping-sequence",
@@ -164,6 +170,7 @@ RUST_OWNED_PYTHON_OPERATIONS = (
     | SCHEMA_OPERATIONS
     | {
         URL_QUERY_OPERATION,
+        URL_SCOPE_OPERATION,
     }
 )
 WEBSOCKET_PROJECTED_ERROR_OPERATIONS = {
@@ -6294,6 +6301,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             },
             ("starlette.schemas.OpenAPIResponse", "openapi-response-render"): {"content"},
             URL_QUERY_OPERATION: {"url", "actions"},
+            URL_SCOPE_OPERATION: {"scope"},
         }[(case["surface"], case["operation"])]
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
     elif is_query_params:
@@ -6543,6 +6551,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             _validate_schema_case(case)
         elif (case["surface"], case["operation"]) == URL_QUERY_OPERATION:
             _validate_url_query_case(case)
+        elif (case["surface"], case["operation"]) == URL_SCOPE_OPERATION:
+            _validate_url_scope_case(case)
         else:
             _validate_url_query_case(case)
         return case
@@ -8580,6 +8590,96 @@ def _validate_url_query_case(case: dict[str, Any]) -> None:
     }
     if methods != expected_methods or set(case["covers"]) != expected_covers:
         raise ContractError("URL query actions and coverage must include all declared methods")
+
+
+def _url_scope_value(value: Any) -> dict[str, Any]:
+    allowed = {"scheme", "server", "path", "query_string_base64", "headers_base64_pairs"}
+    required = {"path", "headers_base64_pairs"}
+    if not isinstance(value, dict) or required - set(value) or set(value) - allowed:
+        raise ContractError("URL scope input must contain only the declared scope fields")
+    scope: dict[str, Any] = {"path": _string(value["path"], "URL scope path")}
+    if "scheme" in value:
+        scope["scheme"] = _string(value["scheme"], "URL scope scheme")
+    if "server" in value:
+        server = value["server"]
+        if (
+            not isinstance(server, list)
+            or len(server) != 2
+            or not isinstance(server[0], str)
+            or not isinstance(server[1], int)
+            or isinstance(server[1], bool)
+            or not 0 <= server[1] <= 65535
+        ):
+            raise ContractError("URL scope server must be a host and valid port pair")
+        scope["server"] = (server[0], server[1])
+    if "query_string_base64" in value:
+        try:
+            query_string = base64.b64decode(value["query_string_base64"], validate=True)
+            query_string.decode("utf-8")
+        except (ValueError, TypeError, UnicodeDecodeError) as exc:
+            raise ContractError(
+                "URL scope query string must be valid base64-encoded UTF-8"
+            ) from exc
+        scope["query_string"] = query_string
+    else:
+        scope["query_string"] = b""
+    headers = value["headers_base64_pairs"]
+    if not isinstance(headers, list):
+        raise ContractError("URL scope headers must be a base64 pair array")
+    decoded_headers = []
+    for index, pair in enumerate(headers):
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise ContractError(f"URL scope headers[{index}] must contain name and value")
+        try:
+            decoded_headers.append(
+                (
+                    base64.b64decode(pair[0], validate=True),
+                    base64.b64decode(pair[1], validate=True),
+                )
+            )
+        except (ValueError, TypeError) as exc:
+            raise ContractError(f"URL scope headers[{index}] must be valid base64") from exc
+    scope["headers"] = decoded_headers
+    return scope
+
+
+def _url_scope_semantic_coverage(scope: dict[str, Any]) -> set[str]:
+    coverage = {URL_SCOPE_REQUIREMENTS["from-scope"]}
+    host_header = next(
+        (value.decode("latin-1") for name, value in scope["headers"] if name == b"host"),
+        None,
+    )
+    valid_host = (
+        host_header is not None
+        and re.fullmatch(
+            r"([a-z0-9.-]+|\[[a-f0-9]*:[a-f0-9.:]+\])(?::[0-9]+)?",
+            host_header,
+            re.IGNORECASE,
+        )
+        is not None
+    )
+    if host_header is not None and not valid_host and scope.get("server") is not None:
+        coverage.add(URL_SCOPE_REQUIREMENTS["invalid-host-fallback"])
+
+    path = scope["path"]
+    path_contains_authority = (
+        path.startswith("//")
+        or "@" in path
+        or re.match(r"^[a-z][a-z0-9+.-]*://", path, re.IGNORECASE) is not None
+    )
+    if path_contains_authority and (valid_host or scope.get("server") is not None):
+        coverage.add(URL_SCOPE_REQUIREMENTS["authority-in-path-containment"])
+    return coverage
+
+
+def _validate_url_scope_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("URL scope parity currently targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["url-record"]:
+        raise ContractError("URL scope cases use no assets and select url-record")
+    scope = _url_scope_value(case["scope"])
+    if set(case["covers"]) != _url_scope_semantic_coverage(scope):
+        raise ContractError("URL scope coverage must be derived from the supplied scope")
 
 
 def _validate_query_params_source(value: Any, context: str) -> dict[str, Any]:

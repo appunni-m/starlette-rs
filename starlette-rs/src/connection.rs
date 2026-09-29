@@ -45,6 +45,8 @@ impl std::error::Error for ConnectionUrlError {
 /// default port omitted for `http`/`ws` (80) and `https`/`wss` (443). If the
 /// scope has no usable authority, the result contains only its path and
 /// optional UTF-8 query string.
+/// An empty server host follows CPython 3.12 `urlunsplit` serialization, which
+/// can retain the scheme without an authority delimiter for relative paths.
 ///
 /// The header list uses raw ASGI byte pairs. The server host is paired with
 /// its port, as in the ASGI `server` scope item.
@@ -107,12 +109,22 @@ pub fn connection_url(
         url.push_str(scheme);
         url.push(':');
     }
-    url.push_str("//");
-    url.push_str(&netloc);
-    if !path.is_empty() && !path.starts_with('/') {
-        url.push('/');
+    if netloc.is_empty() {
+        if path.starts_with("//")
+            || (matches!(scheme, "http" | "https" | "ws" | "wss")
+                && (path.is_empty() || path.starts_with('/')))
+        {
+            url.push_str("//");
+        }
+        url.push_str(path);
+    } else {
+        url.push_str("//");
+        url.push_str(&netloc);
+        if !path.is_empty() && !path.starts_with('/') {
+            url.push('/');
+        }
+        url.push_str(path);
     }
-    url.push_str(path);
     if !query.is_empty() {
         url.push('?');
         url.push_str(query);

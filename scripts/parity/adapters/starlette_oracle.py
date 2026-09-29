@@ -83,6 +83,7 @@ SCHEMA_OPERATIONS = {
     ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
 }
 URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
+URL_SCOPE_OPERATION = ("starlette.datastructures.URL", "scope-construction")
 _MISSING = object()
 
 
@@ -7307,6 +7308,79 @@ def _run_url_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_url_scope_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "scope",
+            "observations",
+        },
+        "URL scope case",
+    )
+    source_scope = case["scope"]
+    scope_fields = {
+        "scheme",
+        "server",
+        "path",
+        "query_string_base64",
+        "headers_base64_pairs",
+    }
+    if (
+        not isinstance(source_scope, dict)
+        or not {"path", "headers_base64_pairs"} <= set(source_scope)
+        or set(source_scope) - scope_fields
+    ):
+        raise ValueError("URL scope input has missing or unknown fields")
+    scope: dict[str, Any] = {
+        "path": source_scope["path"],
+        "query_string": base64.b64decode(
+            source_scope.get("query_string_base64", ""), validate=True
+        ),
+        "headers": [
+            (
+                base64.b64decode(pair[0], validate=True),
+                base64.b64decode(pair[1], validate=True),
+            )
+            for pair in source_scope["headers_base64_pairs"]
+        ],
+    }
+    if "scheme" in source_scope:
+        scope["scheme"] = source_scope["scheme"]
+    if "server" in source_scope:
+        scope["server"] = tuple(source_scope["server"])
+
+    from starlette.datastructures import URL
+
+    url = URL(scope=scope)
+    record = {
+        "url": str(url),
+        "repr": repr(url),
+        "scheme": url.scheme,
+        "netloc": url.netloc,
+        "path": url.path,
+        "query": url.query,
+        "fragment": url.fragment,
+        "username": url.username,
+        "password": url.password,
+        "hostname": url.hostname,
+        "port": url.port,
+        "is_secure": url.is_secure,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": "url-record", "status": "ok", "value": {"url-record": record}}
+        ],
+    }
+
+
 def _query_params_from_input(query_params_type: Any, source: dict[str, Any]) -> Any:
     kind = source["kind"]
     if kind == "string":
@@ -7625,6 +7699,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) == URL_QUERY_OPERATION
     ):
         return _run_url_query_params_case(case)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == URL_SCOPE_OPERATION
+    ):
+        return _run_url_scope_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         "starlette.datastructures.QueryParams",
         "construction-and-mapping-sequence",

@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -269,6 +269,7 @@
       "build/parity/inputs/parity/config-runtime.json",
       "build/parity/inputs/parity/schemas-runtime.json",
       "build/parity/inputs/parity/url-query-operations.json",
+      "build/parity/inputs/parity/url-scope.json",
       "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/lifespan-generators.json",
@@ -2967,6 +2968,122 @@
       "source_path": "starlette/datastructures.py:28",
       "storage_slug": "starlette-datastructures-URL",
       "operations": [
+        {
+          "id": "scope-construction",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.URL.__init__",
+            "signature": "URL(url: str = \"\", scope: Scope | None = None, **components: Any); URL(scope=scope)",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "keyword",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "url-record",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not expose the Python starlette.datastructures.URL compatibility facade.",
+                "blocker": "No Rust-native URL scope-construction operation is declared for this Python import surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.URL",
+              "signature": "URL(scope=scope)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.URL.scope-construction",
+              "dimension": "input_family",
+              "description": "Build the URL string and components from the supplied ASGI scope path, query, scheme, server tuple, and Host header, including empty server-host serialization. Pinned source: starlette/datastructures.py:28-67; tests/test_datastructures.py::test_url_from_scope; CPython 3.12 urllib.parse.urlunsplit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URL.invalid-host-fallback",
+              "dimension": "input_family",
+              "description": "Ignore Host values rejected by the upstream authority pattern and use the server tuple fallback. Pinned source: starlette/datastructures.py:24-25,43-62; tests/test_datastructures.py::test_url_from_scope_with_invalid_host.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URL.authority-in-path-containment",
+              "dimension": "input_family",
+              "description": "Keep authority-like text in scope.path within the path component while retaining the supplied Host/server authority. Pinned source: starlette/datastructures.py:43-67; tests/test_datastructures.py::test_url_from_scope_with_authority_in_path.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "URL scope construction is outside the declared benchmark workloads."
+          }
+        },
         {
           "id": "query-parameter-operations",
           "kind": "value_operation",

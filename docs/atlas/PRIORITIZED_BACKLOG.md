@@ -8,13 +8,15 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 346 input-only cases across 38 files, covering 56
-operations and 415 requirements. Run `017ed223-e59a-491e-ad98-7121a35e3b8b` from
+The active contract has 366 input-only cases across 39 files, covering 57
+operations and 418 requirements. Run `017ed223-e59a-491e-ad98-7121a35e3b8b` from
 `2026-09-29T19:22:14.371Z` to `2026-09-29T19:23:25.947Z`; it selected 493
 comparisons: 489 passed, zero failed, zero infrastructure errors, and four
 `not_run`. The Python package passed all 344 applicable cases; Rust-native
 passed 145 of 149 selected cases. The four unsupported Rust-native rows require
-arbitrary Python callables. All 28 FileResponse cases passed on both profiles;
+arbitrary Python callables. This run used the previous manifest and excludes
+the 20 newly authored URL scope cases, which do not yet have comparison
+evidence. All 28 FileResponse cases passed on both profiles;
 all eight SessionMiddleware cases and all twenty-one BaseHTTPMiddleware cases
 passed on the Python package profile. The twenty-one BaseHTTPMiddleware cases
 cover configured-header mutation, awaited `call_next` response replacement,
