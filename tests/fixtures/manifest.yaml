@@ -9620,6 +9620,30 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.file-as-directory-maps-404",
+              "dimension": "error_path",
+              "description": "Request a child path beneath an input-defined regular file and compare the live 404 HTTPException outcome and empty ASGI event trace. Upstream: tests/test_staticfiles.py::test_staticfiles_access_file_as_dir_returns_404; starlette/staticfiles.py:StaticFiles.lookup_path.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.missing-subdirectory-maps-404",
+              "dimension": "error_path",
+              "description": "Request an input-defined file beneath a subdirectory absent from the configured root and compare the live 404 HTTPException outcome and empty ASGI event trace. Upstream: tests/test_staticfiles.py::test_staticfiles_with_missing_dir_returns_404; starlette/staticfiles.py:StaticFiles.lookup_path.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.method-not-allowed-post",
               "dimension": "error_path",
               "description": "Request an input-defined static asset with POST and compare the live 405 HTTPException outcome and empty ASGI event trace. Upstream: tests/test_staticfiles.py::test_staticfiles_post.",

@@ -17,31 +17,32 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 275 input-only cases across 36 files,
-covering 54 operations and 338 parity requirements. The authored cases span
+The active parity manifest indexes 277 input-only cases across 36 files,
+covering 54 operations and 340 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware, configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-The latest integrated run `4ee4e0e8-328c-43ab-a31b-101f1f2bcc76` started at
-`2026-09-29T07:22:13.975Z` and finished at `2026-09-29T07:23:05.675Z`. It
-selected 388 profile comparisons: 384 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 273 of 273
-comparisons; Rust-native passed 111 of 115, with four rows requiring Python
-callables marked `not_run`. Thirty-five StaticFiles cases are authored across
+The latest integrated run `8c298e2a-0df2-4b93-a4d0-f0e6145e746f` started at
+`2026-09-29T07:32:14.746Z` and finished at `2026-09-29T07:33:04.630Z`. It
+selected 392 profile comparisons: 388 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 275 of 275
+comparisons; Rust-native passed 113 of 117, with four rows requiring Python
+callables marked `not_run`. Thirty-seven StaticFiles cases are authored across
 three inputs. Fourteen `lookup_path` cases run on both profiles and all 28
-comparisons pass; all 65 StaticFiles profile comparisons pass (32 Rust-native
-and 33 Python-package). The package-only async-boundary case checks bound
+comparisons pass; all 69 StaticFiles profile comparisons pass (34 Rust-native
+and 35 Python-package). The package-only async-boundary case checks bound
 `lookup_path` override dispatch on an AnyIO worker, event-loop progress while
 the callback blocks, and the resulting ASGI response. Other StaticFiles cases
-cover rooted GET and HEAD, HTML index redirects and fallback, 401/404/405 outcomes,
-date and ETag validators, validator precedence, package assets, NUL-path 404
-handling, and direct `lookup_path` metadata/path checks. Python package discovery is tested on the
-Python profile; Rust-native package serving uses explicit roots. Both target
+cover rooted GET and HEAD, HTML index redirects and fallback, 401/404/405
+outcomes, missing-subdirectory and file-as-directory 404 paths, date and ETag
+validators, validator precedence, package assets, NUL-path 404 handling, and
+direct `lookup_path` metadata/path checks. Python package discovery is tested on
+the Python profile; Rust-native package serving uses explicit roots. Both target
 trees were dirty when captured. Manifest SHA-256:
-`13b67f155b74cc8a0abba20dd690b73d3c8b8f1e8183def21918b91e6931c037`.
+`8af09d8882769b5724dcc3cf56adc9342d79e78b0a17cc95b51d9c249ae4f190`.
 `make parity-run` exits with status 2 only for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 
@@ -209,8 +210,8 @@ The five upstream HTTPException tests and
 the HTTPException documentation contract map to the two exception input files;
 `test_handled_exc_after_response` has a declared partial observation of its
 after-start behavior, while its `TestClient(raise_server_exceptions=False)`
-branch remains outside this slice. The remaining 681 backlog rows are atlas
-mapping status, not proof that those behaviors are absent from active inputs or
+branch remains outside this slice. The remaining backlog rows are atlas mapping
+status, not proof that those behaviors are absent from active inputs or
 untested.
 The merger validates the pinned upstream commit, all 999 API rows, evidence
 paths, test identities, support modules, docs navigation paths, and

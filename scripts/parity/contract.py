@@ -2686,6 +2686,20 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
     for package in packages:
         for file_input in package["files"]:
             selected_files[file_input["path"]] = (float(file_input["mtime_seconds"]), True)
+    selected_directories = {
+        "/".join(parts[:index])
+        for file_path in selected_files
+        for parts in [file_path.split("/")]
+        for index in range(1, len(parts))
+    }
+    file_as_directory = not packages and any(
+        normalized_path.startswith(f"{file_path}/") for file_path in direct_paths
+    )
+    requested_components = [] if normalized_path == "." else normalized_path.split("/")
+    missing_parent_directory = not packages and any(
+        "/".join(requested_components[:index]) not in selected_directories
+        for index in range(1, len(requested_components))
+    )
     method = scope["method"]
     derived: set[str] = set()
     if path_limit_stress is not None:
@@ -2789,7 +2803,14 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
         and normalized_path not in selected_files
         and not (case["html"] and index_path in selected_files)
     ):
-        derived.add("null-byte-path-maps-404" if "\x00" in path else "not-found-get")
+        if "\x00" in path:
+            derived.add("null-byte-path-maps-404")
+        elif file_as_directory:
+            derived.update({"file-as-directory-maps-404", "not-found-get"})
+        elif missing_parent_directory:
+            derived.update({"missing-subdirectory-maps-404", "not-found-get"})
+        else:
+            derived.add("not-found-get")
     if not derived:
         raise ContractError("StaticFiles input must select a declared live response behavior")
     expected_covers = {f"{STATIC_FILES_SURFACE}.asgi-call.{item}" for item in derived}

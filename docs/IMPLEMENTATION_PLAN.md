@@ -32,15 +32,15 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 275 input-only cases, 54 operations, and 338
+The current parity contract has 277 input-only cases, 54 operations, and 340
 parity requirements across 36 indexed files. The latest integrated run is
-`4ee4e0e8-328c-43ab-a31b-101f1f2bcc76`, from
-`2026-09-29T07:22:13.975Z` to `2026-09-29T07:23:05.675Z`. It selected 388
-profile comparisons: 384 passed, zero failed, zero infrastructure errors, and
-four were `not_run`. The Python package passed all 273 selected comparisons;
-Rust-native passed 111 of 115, with four Python-callable rows `not_run`. Both
+`8c298e2a-0df2-4b93-a4d0-f0e6145e746f`, from
+`2026-09-29T07:32:14.746Z` to `2026-09-29T07:33:04.630Z`. It selected 392
+profile comparisons: 388 passed, zero failed, zero infrastructure errors, and
+four were `not_run`. The Python package passed all 275 selected comparisons;
+Rust-native passed 113 of 117, with four Python-callable rows `not_run`. Both
 target trees were dirty when captured. Manifest SHA-256:
-`13b67f155b74cc8a0abba20dd690b73d3c8b8f1e8183def21918b91e6931c037`.
+`8af09d8882769b5724dcc3cf56adc9342d79e78b0a17cc95b51d9c249ae4f190`.
 `make parity-run` exits with status 2 only for those four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 
