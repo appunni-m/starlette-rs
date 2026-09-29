@@ -30,186 +30,64 @@
       ]
     },
     {
-      "surface_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
-      "source_path": "starlette/middleware/body_limit.py:30",
+      "surface_id": "starlette.authentication",
+      "source_path": "starlette/authentication.py:18",
       "operations": [
         {
-          "operation_id": "__init__",
-          "source_path": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__init__"
+          "operation_id": "value-operations",
+          "source_path": "starlette.authentication.AuthCredentials.__init__, BaseUser properties, SimpleUser properties, and UnauthenticatedUser properties"
         },
         {
-          "operation_id": "__call__",
-          "source_path": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__"
-        }
-      ]
-    },
-    {
-      "surface_id": "starlette.middleware.gzip.GZipMiddleware",
-      "source_path": "starlette/middleware/gzip.py:40",
-      "operations": [
-        {
-          "operation_id": "__init__",
-          "source_path": "starlette.middleware.gzip.GZipMiddleware.__init__"
+          "operation_id": "scope-check",
+          "source_path": "starlette.authentication.has_required_scope"
         },
         {
-          "operation_id": "__call__",
-          "source_path": "starlette.middleware.gzip.GZipMiddleware.__call__"
+          "operation_id": "decorator-dispatch",
+          "source_path": "starlette.authentication.requires"
         }
       ]
     },
     {
-      "surface_id": "starlette.websockets.WebSocket",
-      "source_path": "starlette/websockets.py:26",
+      "surface_id": "starlette.config.Config",
+      "source_path": "starlette/config.py:49",
       "operations": [
         {
-          "operation_id": "protocol-sequence",
-          "source_path": "starlette.websockets.WebSocket"
+          "operation_id": "value-resolution",
+          "source_path": "starlette.config.Config.__call__, Config.get, Config._read_file, and Config._perform_cast"
         },
         {
-          "operation_id": "state-sequence",
-          "source_path": "starlette.websockets.WebSocket"
-        },
-        {
-          "operation_id": "convenience-sequence",
-          "source_path": "starlette.websockets.WebSocket"
+          "operation_id": "constructor-warning",
+          "source_path": "starlette.config.Config.__init__"
         }
       ]
     },
     {
-      "surface_id": "starlette.routing.WebSocketRoute",
-      "source_path": "starlette/routing.py:297",
+      "surface_id": "starlette.config.Environ",
+      "source_path": "starlette/config.py:18",
       "operations": [
         {
-          "operation_id": "route-dispatch",
-          "source_path": "starlette.routing.WebSocketRoute"
-        },
-        {
-          "operation_id": "url_path_for",
-          "source_path": "starlette.routing.WebSocketRoute.url_path_for"
+          "operation_id": "mapping-sequence",
+          "source_path": "starlette.config.Environ.__getitem__, __setitem__, __delitem__, __iter__, and __len__"
         }
       ]
     },
     {
-      "surface_id": "starlette.routing.Router",
-      "source_path": "starlette/routing.py:573",
+      "surface_id": "starlette.datastructures.QueryParams",
+      "source_path": "starlette/datastructures.py:378",
       "operations": [
         {
-          "operation_id": "route-dispatch",
-          "source_path": "starlette.routing.Router.app"
-        },
-        {
-          "operation_id": "url_path_for",
-          "source_path": "starlette.routing.Router.url_path_for"
+          "operation_id": "construction-and-mapping-sequence",
+          "source_path": "starlette.datastructures.QueryParams.__init__, QueryParams.__getitem__, QueryParams.__eq__, QueryParams.__str__, and QueryParams.__repr__"
         }
       ]
     },
     {
-      "surface_id": "starlette.routing.Mount",
-      "source_path": "starlette/routing.py:363",
+      "surface_id": "starlette.datastructures.URL",
+      "source_path": "starlette/datastructures.py:28",
       "operations": [
         {
-          "operation_id": "route-dispatch",
-          "source_path": "starlette.routing.BaseRoute.__call__"
-        },
-        {
-          "operation_id": "url_path_for",
-          "source_path": "starlette.routing.Mount.url_path_for"
-        }
-      ]
-    },
-    {
-      "surface_id": "starlette.routing.Route",
-      "source_path": "starlette/routing.py:197",
-      "operations": [
-        {
-          "operation_id": "url_path_for",
-          "source_path": "starlette.routing.Route.url_path_for"
-        }
-      ]
-    },
-    {
-      "surface_id": "starlette.requests.Request",
-      "source_path": "starlette/requests.py:214",
-      "operations": [
-        {
-          "operation_id": "url_for",
-          "source_path": "starlette.requests.Request.url_for"
-        },
-        {
-          "operation_id": "default-receive",
-          "source_path": "starlette.requests.Request.__init__ and Request.receive"
-        },
-        {
-          "operation_id": "send-push-promise",
-          "source_path": "starlette.requests.Request.send_push_promise"
-        },
-        {
-          "operation_id": "is-disconnected",
-          "source_path": "starlette.requests.Request.is_disconnected"
-        }
-      ]
-    },
-    {
-      "surface_id": "starlette.responses.Response",
-      "source_path": "starlette/responses.py:29",
-      "operations": [
-        {
-          "operation_id": "asgi-call",
-          "source_path": "starlette.responses.Response.__call__"
-        }
-      ]
-    },
-    {
-      "surface_id": "starlette.responses.FileResponse",
-      "source_path": "starlette/responses.py:296",
-      "operations": [
-        {
-          "operation_id": "asgi-call",
-          "source_path": "starlette.responses.FileResponse.__call__"
-        }
-      ]
-    },
-    {
-      "surface_id": "starlette.responses.StreamingResponse",
-      "source_path": "starlette/responses.py:222",
-      "operations": [
-        {
-          "operation_id": "asgi-call",
-          "source_path": "starlette.responses.StreamingResponse.__call__"
-        },
-        {
-          "operation_id": "asgi-call-with-execution-trace",
-          "source_path": "starlette.responses.StreamingResponse.__call__"
-        }
-      ]
-    },
-    {
-      "surface_id": "starlette.responses.JSONResponse",
-      "source_path": "starlette/responses.py:181",
-      "operations": [
-        {
-          "operation_id": "asgi-call",
-          "source_path": "starlette.responses.Response.__call__"
-        }
-      ]
-    },
-    {
-      "surface_id": "starlette.responses.RedirectResponse",
-      "source_path": "starlette/responses.py:204",
-      "operations": [
-        {
-          "operation_id": "asgi-call",
-          "source_path": "starlette.responses.Response.__call__"
-        }
-      ]
-    },
-    {
-      "surface_id": "starlette.websockets.WebSocketClose",
-      "source_path": "starlette/websockets.py:190",
-      "operations": [
-        {
-          "operation_id": "call-sequence",
-          "source_path": "starlette.websockets.WebSocketClose.__call__"
+          "operation_id": "query-parameter-operations",
+          "source_path": "starlette.datastructures.URL.include_query_params, URL.replace_query_params, and URL.remove_query_params"
         }
       ]
     },
@@ -234,22 +112,26 @@
       ]
     },
     {
-      "surface_id": "starlette.routing.Host",
-      "source_path": "starlette/routing.py:466",
+      "surface_id": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "source_path": "starlette/middleware/authentication.py:16",
       "operations": [
         {
-          "operation_id": "url_path_for",
-          "source_path": "starlette.routing.Host.url_path_for"
+          "operation_id": "dispatch",
+          "source_path": "starlette.middleware.authentication.AuthenticationMiddleware.__call__"
         }
       ]
     },
     {
-      "surface_id": "starlette.status",
-      "source_path": "starlette/status.py:10",
+      "surface_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "source_path": "starlette/middleware/body_limit.py:30",
       "operations": [
         {
-          "operation_id": "module-symbol-sequence",
-          "source_path": "starlette.status.__all__, __getattr__, and __dir__"
+          "operation_id": "__init__",
+          "source_path": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__"
         }
       ]
     },
@@ -264,6 +146,20 @@
         {
           "operation_id": "__call__",
           "source_path": "starlette.middleware.cors.CORSMiddleware.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.middleware.gzip.GZipMiddleware",
+      "source_path": "starlette/middleware/gzip.py:40",
+      "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.middleware.gzip.GZipMiddleware.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.middleware.gzip.GZipMiddleware.__call__"
         }
       ]
     },
@@ -296,46 +192,140 @@
       ]
     },
     {
-      "surface_id": "starlette.config.Environ",
-      "source_path": "starlette/config.py:18",
+      "surface_id": "starlette.requests.Request",
+      "source_path": "starlette/requests.py:214",
       "operations": [
         {
-          "operation_id": "mapping-sequence",
-          "source_path": "starlette.config.Environ.__getitem__, __setitem__, __delitem__, __iter__, and __len__"
-        }
-      ]
-    },
-    {
-      "surface_id": "starlette.config.Config",
-      "source_path": "starlette/config.py:49",
-      "operations": [
-        {
-          "operation_id": "value-resolution",
-          "source_path": "starlette.config.Config.__call__, Config.get, Config._read_file, and Config._perform_cast"
+          "operation_id": "url_for",
+          "source_path": "starlette.requests.Request.url_for"
         },
         {
-          "operation_id": "constructor-warning",
-          "source_path": "starlette.config.Config.__init__"
+          "operation_id": "default-receive",
+          "source_path": "starlette.requests.Request.__init__ and Request.receive"
+        },
+        {
+          "operation_id": "send-push-promise",
+          "source_path": "starlette.requests.Request.send_push_promise"
+        },
+        {
+          "operation_id": "is-disconnected",
+          "source_path": "starlette.requests.Request.is_disconnected"
         }
       ]
     },
     {
-      "surface_id": "starlette.datastructures.QueryParams",
-      "source_path": "starlette/datastructures.py:378",
+      "surface_id": "starlette.responses.FileResponse",
+      "source_path": "starlette/responses.py:296",
       "operations": [
         {
-          "operation_id": "construction-and-mapping-sequence",
-          "source_path": "starlette.datastructures.QueryParams.__init__, QueryParams.__getitem__, QueryParams.__eq__, QueryParams.__str__, and QueryParams.__repr__"
+          "operation_id": "asgi-call",
+          "source_path": "starlette.responses.FileResponse.__call__"
         }
       ]
     },
     {
-      "surface_id": "starlette.datastructures.URL",
-      "source_path": "starlette/datastructures.py:28",
+      "surface_id": "starlette.responses.JSONResponse",
+      "source_path": "starlette/responses.py:181",
       "operations": [
         {
-          "operation_id": "query-parameter-operations",
-          "source_path": "starlette.datastructures.URL.include_query_params, URL.replace_query_params, and URL.remove_query_params"
+          "operation_id": "asgi-call",
+          "source_path": "starlette.responses.Response.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.responses.RedirectResponse",
+      "source_path": "starlette/responses.py:204",
+      "operations": [
+        {
+          "operation_id": "asgi-call",
+          "source_path": "starlette.responses.Response.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.responses.Response",
+      "source_path": "starlette/responses.py:29",
+      "operations": [
+        {
+          "operation_id": "asgi-call",
+          "source_path": "starlette.responses.Response.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.responses.StreamingResponse",
+      "source_path": "starlette/responses.py:222",
+      "operations": [
+        {
+          "operation_id": "asgi-call",
+          "source_path": "starlette.responses.StreamingResponse.__call__"
+        },
+        {
+          "operation_id": "asgi-call-with-execution-trace",
+          "source_path": "starlette.responses.StreamingResponse.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.routing.Host",
+      "source_path": "starlette/routing.py:466",
+      "operations": [
+        {
+          "operation_id": "url_path_for",
+          "source_path": "starlette.routing.Host.url_path_for"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.routing.Mount",
+      "source_path": "starlette/routing.py:363",
+      "operations": [
+        {
+          "operation_id": "route-dispatch",
+          "source_path": "starlette.routing.BaseRoute.__call__"
+        },
+        {
+          "operation_id": "url_path_for",
+          "source_path": "starlette.routing.Mount.url_path_for"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.routing.Route",
+      "source_path": "starlette/routing.py:197",
+      "operations": [
+        {
+          "operation_id": "url_path_for",
+          "source_path": "starlette.routing.Route.url_path_for"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.routing.Router",
+      "source_path": "starlette/routing.py:573",
+      "operations": [
+        {
+          "operation_id": "route-dispatch",
+          "source_path": "starlette.routing.Router.app"
+        },
+        {
+          "operation_id": "url_path_for",
+          "source_path": "starlette.routing.Router.url_path_for"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.routing.WebSocketRoute",
+      "source_path": "starlette/routing.py:297",
+      "operations": [
+        {
+          "operation_id": "route-dispatch",
+          "source_path": "starlette.routing.WebSocketRoute"
+        },
+        {
+          "operation_id": "url_path_for",
+          "source_path": "starlette.routing.WebSocketRoute.url_path_for"
         }
       ]
     },
@@ -350,16 +340,6 @@
       ]
     },
     {
-      "surface_id": "starlette.schemas.SchemaGenerator",
-      "source_path": "starlette/schemas.py:128",
-      "operations": [
-        {
-          "operation_id": "schema-generation",
-          "source_path": "starlette.schemas.SchemaGenerator.__init__, SchemaGenerator.get_schema, BaseSchemaGenerator.get_endpoints, _remove_converter, and parse_docstring"
-        }
-      ]
-    },
-    {
       "surface_id": "starlette.schemas.OpenAPIResponse",
       "source_path": "starlette/schemas.py:18",
       "operations": [
@@ -370,30 +350,60 @@
       ]
     },
     {
-      "surface_id": "starlette.authentication",
-      "source_path": "starlette/authentication.py:18",
+      "surface_id": "starlette.schemas.SchemaGenerator",
+      "source_path": "starlette/schemas.py:128",
       "operations": [
         {
-          "operation_id": "value-operations",
-          "source_path": "starlette.authentication.AuthCredentials.__init__, BaseUser properties, SimpleUser properties, and UnauthenticatedUser properties"
-        },
-        {
-          "operation_id": "scope-check",
-          "source_path": "starlette.authentication.has_required_scope"
-        },
-        {
-          "operation_id": "decorator-dispatch",
-          "source_path": "starlette.authentication.requires"
+          "operation_id": "schema-generation",
+          "source_path": "starlette.schemas.SchemaGenerator.__init__, SchemaGenerator.get_schema, BaseSchemaGenerator.get_endpoints, _remove_converter, and parse_docstring"
         }
       ]
     },
     {
-      "surface_id": "starlette.middleware.authentication.AuthenticationMiddleware",
-      "source_path": "starlette/middleware/authentication.py:16",
+      "surface_id": "starlette.staticfiles.StaticFiles",
+      "source_path": "starlette/staticfiles.py:39",
       "operations": [
         {
-          "operation_id": "dispatch",
-          "source_path": "starlette.middleware.authentication.AuthenticationMiddleware.__call__"
+          "operation_id": "asgi-call",
+          "source_path": "starlette.staticfiles.StaticFiles.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.status",
+      "source_path": "starlette/status.py:10",
+      "operations": [
+        {
+          "operation_id": "module-symbol-sequence",
+          "source_path": "starlette.status.__all__, __getattr__, and __dir__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.websockets.WebSocket",
+      "source_path": "starlette/websockets.py:26",
+      "operations": [
+        {
+          "operation_id": "protocol-sequence",
+          "source_path": "starlette.websockets.WebSocket"
+        },
+        {
+          "operation_id": "state-sequence",
+          "source_path": "starlette.websockets.WebSocket"
+        },
+        {
+          "operation_id": "convenience-sequence",
+          "source_path": "starlette.websockets.WebSocket"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.websockets.WebSocketClose",
+      "source_path": "starlette/websockets.py:190",
+      "operations": [
+        {
+          "operation_id": "call-sequence",
+          "source_path": "starlette.websockets.WebSocketClose.__call__"
         }
       ]
     }

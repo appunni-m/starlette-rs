@@ -51,6 +51,7 @@ RESPONSE_SURFACE = "starlette.responses.Response"
 JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
 STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
+STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 BODY_LIMIT_SURFACE = "starlette.middleware.body_limit.RequestBodyLimitMiddleware"
@@ -2930,6 +2931,120 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "directory",
+            "packages",
+            "files",
+            "html",
+            "check_dir",
+            "follow_symlink",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        },
+        "StaticFiles ASGI-call case",
+    )
+    if case["surface"] != STATIC_FILES_SURFACE or case["operation"] != RESPONSE_OPERATION:
+        raise ValueError("workflow is outside the declared StaticFiles ASGI-call operation")
+    if case["observations"] != [RESPONSE_OPERATION]:
+        raise ValueError("StaticFiles observations must select asgi-call")
+
+    from starlette.staticfiles import StaticFiles
+
+    with tempfile.TemporaryDirectory(
+        prefix="starlette-package-static-files-"
+    ) as temporary_directory:
+        root = Path(temporary_directory) / case["directory"]
+        root.mkdir(parents=True)
+        for file_spec in case["files"]:
+            path = root / file_spec["path"]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(_decode_base64(file_spec["contents_base64"], "file.contents_base64"))
+            os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
+        package_source_root = Path(temporary_directory) / "package-source"
+        package_source_root.mkdir()
+        package_arguments = []
+        for package in case["packages"]:
+            package_path = package_source_root
+            for component in package["name"].split("."):
+                package_path = package_path / component
+                package_path.mkdir(exist_ok=True)
+                (package_path / "__init__.py").touch()
+            static_root = package_path.joinpath(*package["statics_dir"].split("/"))
+            static_root.mkdir(parents=True, exist_ok=True)
+            for file_spec in package["files"]:
+                path = static_root / file_spec["path"]
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(
+                    _decode_base64(file_spec["contents_base64"], "package file.contents_base64")
+                )
+                os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
+            package_arguments.append(
+                package["name"]
+                if package["statics_dir"] == "statics"
+                else (package["name"], package["statics_dir"])
+            )
+        sys.path.insert(0, str(package_source_root))
+        try:
+            application = StaticFiles(
+                directory=root,
+                packages=package_arguments,
+                html=case["html"],
+                check_dir=case["check_dir"],
+                follow_symlink=case["follow_symlink"],
+            )
+            scope = _make_scope(case["scope"])
+            sent: list[dict[str, Any]] = []
+
+            async def receive() -> dict[str, Any]:
+                return {"type": "http.disconnect"}
+
+            async def send(message: dict[str, Any]) -> None:
+                sent.append(message)
+
+            asyncio.run(application(scope, receive, send))
+        finally:
+            sys.path.remove(str(package_source_root))
+        events = [_canonical_message(message) for message in sent]
+        response_start = next(
+            (message for message in sent if message["type"] == "http.response.start"), None
+        )
+        response_start_event = next(
+            (event for event in events if event["type"] == "http.response.start"), None
+        )
+        response_body = b"".join(
+            message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+        )
+        observation = {
+            "response_status": response_start["status"] if response_start is not None else None,
+            "ordered_repeated_headers": (
+                response_start_event["headers"] if response_start_event is not None else []
+            ),
+            "response_bytes": (
+                {"encoding": "base64", "data": base64.b64encode(response_body).decode("ascii")}
+                if response_start is not None
+                else None
+            ),
+            "asgi_event_order": [event["type"] for event in events],
+            "asgi_events": events,
+        }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}],
+    }
+
+
 def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     surface = case.get("surface")
     required_fields = {
@@ -4535,6 +4650,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == RESPONSE_OPERATION
     ):
         return _run_file_response_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == STATIC_FILES_SURFACE
+        and case.get("operation") == RESPONSE_OPERATION
+    ):
+        return _run_static_files_case(case)
     if isinstance(case, dict) and case.get("surface") in {
         RESPONSE_SURFACE,
         JSON_RESPONSE_SURFACE,

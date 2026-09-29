@@ -43,7 +43,7 @@ impl FileMetadata {
         })
     }
 
-    fn from_metadata(metadata: &Metadata) -> Result<Self, FileResponseError> {
+    pub(crate) fn from_metadata(metadata: &Metadata) -> Result<Self, FileResponseError> {
         let modified = metadata.modified().map_err(FileResponseError::StatIo)?;
         let seconds = unix_seconds(modified);
         Ok(Self {
@@ -51,6 +51,18 @@ impl FileMetadata {
             modified,
             modified_text: python_float_text(seconds),
         })
+    }
+
+    /// Returns the file length used to prepare response headers.
+    #[must_use]
+    pub fn size(&self) -> u64 {
+        self.size
+    }
+
+    /// Returns the modification time as Unix seconds.
+    #[must_use]
+    pub fn modified_unix_seconds(&self) -> f64 {
+        unix_seconds(self.modified)
     }
 }
 
@@ -336,6 +348,12 @@ impl FileResponse {
     #[must_use]
     pub fn media_type(&self) -> &str {
         &self.media_type
+    }
+
+    /// Returns the normalized response headers before request-specific ranges.
+    #[must_use]
+    pub fn headers(&self) -> &[(Vec<u8>, Vec<u8>)] {
+        &self.headers
     }
 
     /// Prepares one request-specific response call.

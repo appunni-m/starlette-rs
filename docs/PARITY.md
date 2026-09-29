@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 240 input-only cases in 33 indexed files, covering 51 operations and 304 parity requirements. The cases cover bounded Starlette application, routing, request and query parameters, response, WebSocket, exception, status, endpoint, authentication, middleware, configuration, and schema behavior. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 246 input-only cases in 34 indexed files, covering 52 operations and 309 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -141,15 +141,24 @@ facades forward to Rust-owned policy and middleware state handling. These
 cases cover 19 declared requirements and do not claim complete authentication
 API parity.
 
-The latest integrated run `965ead8d-0c34-42d3-a600-87da5ba3eb6e` started at
-`2026-09-29T03:33:48.512Z` and finished at `2026-09-29T03:34:25.523Z`. It
-selected 323 profile comparisons: 319 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed
-all 240 cases; Rust-native passed 79 of 83 selected cases. The four Rust-native
-rows require arbitrary Python endpoint callables. All four new authentication
-cases ran against the pinned source and installed package. The Python target
-tree was dirty when captured. Manifest SHA-256:
-`10788960501e0086d01f36364f50aed95ce3d53de16ffa1e37e2799507fd60f9`.
+[`static-files.yaml`](../tests/fixtures/sources/parity/static-files.yaml)
+adds six `StaticFiles` ASGI-call cases for rooted GET and HEAD, HTML index
+redirects, conditional 304 responses, and package assets found through both
+the default `statics` directory and an explicit package subdirectory. The
+pinned source, installed package, and Rust-native target receive the same
+temporary files, package definitions, scope, and request headers. These cases
+compare response events and do not cover the full 36-function upstream
+StaticFiles suite.
+
+The latest integrated run `1481bd4d-7fbe-414c-a79e-6223af1a6ced` started at
+`2026-09-29T04:05:10.316Z` and finished at `2026-09-29T04:05:51.425Z`. It
+selected 335 profile comparisons: 331 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 246 cases;
+Rust-native passed 85 of 89 selected cases. The four Rust-native rows require
+arbitrary Python endpoint callables. The six StaticFiles cases and four
+authentication cases ran against the pinned source and both applicable
+targets. Both target trees were dirty when captured. Manifest SHA-256:
+`d822a39b59fe300518443de3e631df07273c91a5352cd607407a4fac79f029c5`.
 `make parity-run` exits with status 2 for the four explicitly unsupported native
 callable rows; this is not release proof.
 
@@ -282,7 +291,7 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@4` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 240 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. Generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts workflows for all 246 indexed cases and fails closed when a target identity or workflow is unavailable. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. The latest run and its limitations are recorded in the parity evidence section above. Generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 

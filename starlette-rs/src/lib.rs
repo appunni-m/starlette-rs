@@ -26,6 +26,7 @@ mod response;
 mod route_table;
 mod router_dispatch;
 mod server_error;
+mod staticfiles;
 mod websocket;
 
 pub use application::{
@@ -64,4 +65,5 @@ pub use route_table::{
 };
 pub use router_dispatch::{DispatchPlanError, HttpDispatchPlan, SupplementalRouteMatch};
 pub use server_error::{ServerErrorPlan, ServerErrorPolicy, ServerErrorState};
+pub use staticfiles::{StaticFile, StaticFiles, StaticFilesError, StaticFilesResponse};
 pub use websocket::{WebSocketState, WebSocketStateError, WebSocketStateMachine};

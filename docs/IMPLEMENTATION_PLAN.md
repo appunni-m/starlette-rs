@@ -32,17 +32,29 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 240 input-only cases, 51 operations, and 304
-parity requirements across 33 indexed files. The latest integrated run is
-`965ead8d-0c34-42d3-a600-87da5ba3eb6e`. It selected 323 profile comparisons:
-319 passed, zero failed, zero infrastructure errors, and four were `not_run`.
-The Python package passed all
-240 cases; Rust-native passed 79 of 83 selected comparisons. The four remaining
-Rust-native rows require Python endpoint callables. The Python target tree was
-dirty when captured. Manifest SHA-256:
-`10788960501e0086d01f36364f50aed95ce3d53de16ffa1e37e2799507fd60f9`.
+The current parity contract has 246 input-only cases, 52 operations, and 309
+parity requirements across 34 indexed files. The latest integrated run is
+`1481bd4d-7fbe-414c-a79e-6223af1a6ced`. It selected 335 profile comparisons:
+331 passed, zero failed, zero infrastructure errors, and four were `not_run`.
+The Python package passed all 246 cases; Rust-native passed 85 of 89 selected
+comparisons. The four remaining Rust-native rows require Python endpoint
+callables. Both target trees were dirty when captured. Manifest SHA-256:
+`d822a39b59fe300518443de3e631df07273c91a5352cd607407a4fac79f029c5`.
 `make parity-run` exits with status 2 for the four explicitly unsupported native
 callable rows; this is not release proof.
+
+## Completed bounded goal: Rust-owned StaticFiles core
+
+The Rust core now owns StaticFiles path normalization, path containment, symlink
+policy, lookup, method selection, HTML index/fallback selection, redirects, and
+conditional 304 handling. The Python `starlette.staticfiles` module is a thin
+constructor and forwarding facade; package discovery calls Python's
+`importlib.util.find_spec` at the PyO3 boundary so custom importers and package
+origins remain visible. Six input-only cases compare rooted GET and HEAD, HTML
+redirects, conditional responses, and default and explicit package static roots
+against the pinned source, installed package, and native target. This is a
+bounded slice; constructor errors, traversal and symlink edge cases, other
+status mappings, and the remaining upstream StaticFiles tests are still open.
 ## 1. Completed bounded goal: lifespan state and cancellation
 
 Five input-only cases now exercise yielded state merge, missing

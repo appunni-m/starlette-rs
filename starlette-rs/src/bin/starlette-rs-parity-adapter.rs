@@ -24,8 +24,9 @@ use starlette_rs::{
     FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader, GzipResponseStart, HttpScope,
     LifespanAction, LifespanState, Mount as NativeMount, MountChild, MountScope, PathConverter,
     PathParameterCapture, QueryParams, RequestBodyAccumulator, RequestHeaders, Response,
-    ResponseEvent, RouteTable, Starlette as NativeApplication, StreamingResponse,
-    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope,
+    ResponseEvent, RouteTable, Starlette as NativeApplication, StaticFiles as NativeStaticFiles,
+    StaticFilesResponse, StreamingResponse, StreamingResponseEvent, WebSocketState,
+    WebSocketStateMachine, classify_scope, connection_url,
 };
 
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
@@ -37,6 +38,7 @@ const RESPONSE_SURFACE: &str = "starlette.responses.Response";
 const JSON_RESPONSE_SURFACE: &str = "starlette.responses.JSONResponse";
 const STREAMING_RESPONSE_SURFACE: &str = "starlette.responses.StreamingResponse";
 const FILE_RESPONSE_SURFACE: &str = "starlette.responses.FileResponse";
+const STATIC_FILES_SURFACE: &str = "starlette.staticfiles.StaticFiles";
 const RESPONSE_OPERATION: &str = "asgi-call";
 const QUERY_PARAMS_SURFACE: &str = "starlette.datastructures.QueryParams";
 const QUERY_PARAMS_OPERATION: &str = "construction-and-mapping-sequence";
@@ -332,6 +334,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         }
         (Some(FILE_RESPONSE_SURFACE), Some(RESPONSE_OPERATION)) => {
             return run_file_response_case(case);
+        }
+        (Some(STATIC_FILES_SURFACE), Some(RESPONSE_OPERATION)) => {
+            return run_static_files_case(case);
         }
         (Some("starlette.routing.Mount"), Some("route-dispatch")) => {
             return run_mount_case(case);
@@ -1849,6 +1854,388 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             },
         }],
     }))
+}
+
+fn run_static_files_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "directory",
+            "packages",
+            "files",
+            "html",
+            "check_dir",
+            "follow_symlink",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        ],
+        "StaticFiles asgi-call case",
+    )?;
+    let case_id = string_field(case, "case_id", "StaticFiles asgi-call case")?;
+    if string_field(case, "surface", "StaticFiles asgi-call case")? != STATIC_FILES_SURFACE
+        || string_field(case, "operation", "StaticFiles asgi-call case")? != RESPONSE_OPERATION
+        || case.get("observations") != Some(&json!([RESPONSE_OPERATION]))
+        || case.get("assets") != Some(&json!([]))
+        || case.get("incoming") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "case is outside the StaticFiles ASGI-call contract",
+        ));
+    }
+    validate_string_array(case, "covers", "StaticFiles covers", false)?;
+    validate_string_array(
+        case,
+        "target_profiles",
+        "StaticFiles target_profiles",
+        false,
+    )?;
+    validate_capture_send(
+        case.get("send")
+            .ok_or_else(|| String::from("StaticFiles ASGI-call send input is missing"))?,
+    )?;
+    let directory_name = string_field(case, "directory", "StaticFiles case")?;
+    if directory_name.is_empty()
+        || directory_name == "."
+        || directory_name == ".."
+        || directory_name.contains('/')
+        || directory_name.contains('\\')
+    {
+        return Err(String::from(
+            "StaticFiles directory must be a relative basename",
+        ));
+    }
+    let html = case
+        .get("html")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| String::from("StaticFiles html must be boolean"))?;
+    let check_dir = case
+        .get("check_dir")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| String::from("StaticFiles check_dir must be boolean"))?;
+    let follow_symlink = case
+        .get("follow_symlink")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| String::from("StaticFiles follow_symlink must be boolean"))?;
+    let file_inputs = case
+        .get("files")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("StaticFiles files must be an array"))?;
+    let package_inputs = case
+        .get("packages")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("StaticFiles packages must be an array"))?;
+    if file_inputs.is_empty() && package_inputs.is_empty() {
+        return Err(String::from(
+            "StaticFiles must configure at least one asset",
+        ));
+    }
+    let (temporary_directory, root, package_roots) =
+        create_static_files_input(directory_name, file_inputs, package_inputs)?;
+
+    let (scope, pathsend_extension) = validated_file_response_scope(
+        case.get("scope")
+            .ok_or_else(|| String::from("StaticFiles ASGI-call scope is missing"))?,
+    )?;
+    let scope_path = string_field(&scope, "path", "StaticFiles HTTP scope")?;
+    let root_path = string_field(&scope, "root_path", "StaticFiles HTTP scope")?;
+    let method = string_field(&scope, "method", "StaticFiles HTTP scope")?;
+    let request_headers = parse_scope_request_headers(&scope, "StaticFiles HTTP scope")?;
+    let path = NativeStaticFiles::get_path(scope_path, root_path);
+    let mut directories = vec![root.clone()];
+    directories.extend(package_roots);
+    let static_files =
+        NativeStaticFiles::new(Some(root), directories, html, check_dir, follow_symlink)
+            .map_err(|error| format!("StaticFiles construction failed: {error:?}"))?;
+    static_files
+        .check_config()
+        .map_err(|error| format!("StaticFiles configuration failed: {error:?}"))?;
+    let selected = static_files
+        .get_response(&path, scope_path, method, &request_headers)
+        .map_err(|error| format!("StaticFiles request failed: {error:?}"))?;
+
+    let (response_status, ordered_headers, response_bytes, events) = match selected {
+        StaticFilesResponse::File { file, status_code } => {
+            let response = NativeFileResponse::new(
+                file.path.clone(),
+                file.path.to_string_lossy().into_owned(),
+                status_code,
+                &[],
+                FileResponseOptions {
+                    stat_override: Some(file.metadata),
+                    ..FileResponseOptions::default()
+                },
+            )
+            .map_err(|error| format!("StaticFiles file response construction failed: {error}"))?;
+            let mut call = response
+                .call_state("http", method, &request_headers, pathsend_extension, false)
+                .map_err(|error| {
+                    format!("StaticFiles file response preparation failed: {error}")
+                })?;
+            let mut status = None;
+            let mut headers = Vec::new();
+            let mut body = Vec::new();
+            let mut events = Vec::new();
+            loop {
+                match call.step().map_err(|error| error.to_string())? {
+                    FileResponseCallStep::Send(event) => {
+                        match &event {
+                            FileResponseEvent::Start {
+                                status_code,
+                                headers: response_headers,
+                            } => {
+                                status = Some(*status_code);
+                                headers = canonical_headers(response_headers);
+                            }
+                            FileResponseEvent::Body { body: chunk, .. } => {
+                                body.extend_from_slice(chunk);
+                            }
+                            FileResponseEvent::Pathsend { .. } => {}
+                        }
+                        events.push(canonical_file_response_event(event));
+                        call.advance(FileResponseCallInput::<String>::Send(Ok(())))
+                            .map_err(|error| {
+                                format!("StaticFiles file response transition failed: {error:?}")
+                            })?;
+                    }
+                    FileResponseCallStep::RunBackground => {
+                        return Err(String::from(
+                            "StaticFiles adapter has no background callback to execute",
+                        ));
+                    }
+                    FileResponseCallStep::Complete => break,
+                    FileResponseCallStep::Failed => {
+                        return Err(String::from(
+                            "StaticFiles file response reached a failed state",
+                        ));
+                    }
+                }
+            }
+            (status, headers, body, events)
+        }
+        StaticFilesResponse::NotModified { headers } => {
+            let response = Response::from_parts(304, Vec::new(), headers);
+            let events = response
+                .asgi_events()
+                .into_iter()
+                .map(canonical_response_event)
+                .collect::<Vec<_>>();
+            (
+                Some(response.status_code()),
+                canonical_headers(response.headers()),
+                response.body().to_vec(),
+                events,
+            )
+        }
+        StaticFilesResponse::Redirect { path } => {
+            let query = decode_base64(
+                string_field(&scope, "query_string_base64", "StaticFiles HTTP scope")?,
+                "StaticFiles HTTP scope query_string_base64",
+            )?;
+            let headers = parse_scope_request_headers(&scope, "StaticFiles HTTP scope")?;
+            let server = scope.get("server").and_then(Value::as_array);
+            let server = server.and_then(|server| {
+                Some((server.first()?.as_str()?, server.get(1)?.as_u64()? as u16))
+            });
+            let url = connection_url(
+                scope.get("scheme").and_then(Value::as_str),
+                &path,
+                &query,
+                &headers,
+                server,
+            )
+            .map_err(|error| format!("StaticFiles redirect URL failed: {error}"))?;
+            let response = Response::redirect(&url, 307, &[])
+                .map_err(|error| format!("StaticFiles redirect response failed: {error}"))?;
+            let events = response
+                .asgi_events()
+                .into_iter()
+                .map(canonical_response_event)
+                .collect::<Vec<_>>();
+            (
+                Some(response.status_code()),
+                canonical_headers(response.headers()),
+                response.body().to_vec(),
+                events,
+            )
+        }
+    };
+    drop(temporary_directory);
+    let event_order = events
+        .iter()
+        .filter_map(|event| event.get("type").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": RESPONSE_OPERATION,
+            "status": "ok",
+            "value": {
+                "response_status": response_status,
+                "ordered_repeated_headers": ordered_headers,
+                "response_bytes": {"encoding": "base64", "data": encode_base64(&response_bytes)},
+                "asgi_event_order": event_order,
+                "asgi_events": events,
+            },
+        }],
+    }))
+}
+
+fn create_static_files_input(
+    directory_name: &str,
+    file_inputs: &[Value],
+    package_inputs: &[Value],
+) -> Result<(FileResponseTempDirectory, PathBuf, Vec<PathBuf>), String> {
+    let temporary_root = env::temp_dir();
+    for _ in 0..128 {
+        let sequence = NEXT_FILE_RESPONSE_TEMP.fetch_add(1, Ordering::Relaxed);
+        let directory = temporary_root.join(format!(
+            "starlette-rs-static-files-{}-{sequence}",
+            std::process::id()
+        ));
+        match fs::create_dir(&directory) {
+            Ok(()) => {
+                let guard = FileResponseTempDirectory(directory.clone());
+                let root = directory.join(directory_name);
+                fs::create_dir_all(&root)
+                    .map_err(|error| format!("cannot create StaticFiles root: {error}"))?;
+                for file_input in file_inputs {
+                    write_static_asset(&root, file_input, "StaticFiles file")?;
+                }
+                let package_source_root = directory.join("package-source");
+                fs::create_dir_all(&package_source_root).map_err(|error| {
+                    format!("cannot create StaticFiles package source root: {error}")
+                })?;
+                let mut package_roots = Vec::new();
+                for package_input in package_inputs {
+                    let package = exact_object(
+                        package_input,
+                        &["name", "statics_dir", "files"],
+                        "StaticFiles package input",
+                    )?;
+                    let package_name = string_field(package, "name", "StaticFiles package")?;
+                    let mut package_path = package_source_root.clone();
+                    for component in package_name.split('.') {
+                        if component.is_empty()
+                            || !component.chars().all(|character| {
+                                character.is_ascii_alphanumeric() || character == '_'
+                            })
+                        {
+                            return Err(String::from("StaticFiles package name is invalid"));
+                        }
+                        package_path.push(component);
+                        fs::create_dir_all(&package_path).map_err(|error| {
+                            format!("cannot create StaticFiles package directory: {error}")
+                        })?;
+                        fs::write(package_path.join("__init__.py"), b"").map_err(|error| {
+                            format!("cannot create StaticFiles package initializer: {error}")
+                        })?;
+                    }
+                    let statics_dir = string_field(package, "statics_dir", "StaticFiles package")?;
+                    let relative_statics = Path::new(statics_dir);
+                    if relative_statics.is_absolute()
+                        || relative_statics
+                            .components()
+                            .any(|component| matches!(component, std::path::Component::ParentDir))
+                    {
+                        return Err(String::from("StaticFiles package directory is invalid"));
+                    }
+                    let package_root = package_path.join(relative_statics);
+                    fs::create_dir_all(&package_root).map_err(|error| {
+                        format!("cannot create StaticFiles package asset root: {error}")
+                    })?;
+                    let package_files =
+                        package
+                            .get("files")
+                            .and_then(Value::as_array)
+                            .ok_or_else(|| {
+                                String::from("StaticFiles package files must be an array")
+                            })?;
+                    for file_input in package_files {
+                        write_static_asset(&package_root, file_input, "StaticFiles package file")?;
+                    }
+                    package_roots.push(package_root);
+                }
+                return Ok((guard, root, package_roots));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(format!(
+                    "cannot create isolated StaticFiles inputs: {error}"
+                ));
+            }
+        }
+    }
+    Err(String::from(
+        "cannot allocate an isolated StaticFiles input directory",
+    ))
+}
+
+fn write_static_asset(root: &Path, input: &Value, context: &str) -> Result<(), String> {
+    let file_input = exact_object(
+        input,
+        &["path", "contents_base64", "mtime_seconds"],
+        context,
+    )?;
+    let relative_path = string_field(file_input, "path", context)?;
+    let relative = Path::new(relative_path);
+    if relative.as_os_str().is_empty()
+        || relative.is_absolute()
+        || relative
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(format!("{context} path must remain below its root"));
+    }
+    let bytes = decode_base64(
+        string_field(file_input, "contents_base64", context)?,
+        "StaticFiles file contents_base64",
+    )?;
+    let modified_seconds = file_input
+        .get("mtime_seconds")
+        .and_then(Value::as_f64)
+        .filter(|value| value.is_finite())
+        .ok_or_else(|| String::from("StaticFiles mtime_seconds must be finite"))?;
+    let target = root.join(relative);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("cannot create StaticFiles asset parent: {error}"))?;
+    }
+    fs::write(&target, bytes)
+        .map_err(|error| format!("cannot write StaticFiles asset: {error}"))?;
+    let timestamp = system_time_from_unix_seconds(modified_seconds)
+        .ok_or_else(|| String::from("StaticFiles timestamp is out of range"))?;
+    let file = fs::OpenOptions::new()
+        .write(true)
+        .open(&target)
+        .map_err(|error| format!("cannot set StaticFiles asset time: {error}"))?;
+    file.set_times(
+        std::fs::FileTimes::new()
+            .set_accessed(timestamp)
+            .set_modified(timestamp),
+    )
+    .map_err(|error| format!("cannot set StaticFiles asset time: {error}"))
+}
+
+fn system_time_from_unix_seconds(seconds: f64) -> Option<std::time::SystemTime> {
+    if !seconds.is_finite() {
+        return None;
+    }
+    let duration = std::time::Duration::try_from_secs_f64(seconds.abs()).ok()?;
+    if seconds < 0.0 {
+        std::time::UNIX_EPOCH.checked_sub(duration)
+    } else {
+        std::time::UNIX_EPOCH.checked_add(duration)
+    }
 }
 
 fn create_file_response_input(

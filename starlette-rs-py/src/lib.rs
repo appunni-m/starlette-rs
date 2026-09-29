@@ -26,6 +26,7 @@ mod router_runtime;
 mod runtime_calls;
 mod schemas_runtime;
 mod server_error_runtime;
+mod staticfiles_runtime;
 mod status_runtime;
 mod websocket_calls;
 
@@ -1097,6 +1098,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     path_convertors_runtime::register(module)?;
     request_runtime::register(module)?;
     file_response_runtime::register(module)?;
+    staticfiles_runtime::register(module)?;
     router_runtime::register(module)?;
     gzip_runtime::register(module)?;
     server_error_runtime::register(module)?;

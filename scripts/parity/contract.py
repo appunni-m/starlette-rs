@@ -9,6 +9,7 @@ import math
 import re
 import statistics
 import sys
+from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
@@ -176,6 +177,7 @@ JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
 RESPONSE_SURFACES = {RESPONSE_SURFACE, JSON_RESPONSE_SURFACE}
 STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
+STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 STREAMING_RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 RESPONSE_OPERATION = "asgi-call"
@@ -195,6 +197,17 @@ FILE_RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "header_pairs",
     "media_type",
     "filename",
+    "scope",
+    "incoming",
+    "send",
+}
+STATIC_FILES_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "directory",
+    "packages",
+    "files",
+    "html",
+    "check_dir",
+    "follow_symlink",
     "scope",
     "incoming",
     "send",
@@ -2497,6 +2510,180 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     )
 
 
+def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
+    _exact(case, STATIC_FILES_CASE_KEYS, "StaticFiles asgi-call case")
+    if case["surface"] != STATIC_FILES_SURFACE or case["operation"] != RESPONSE_OPERATION:
+        raise ContractError("case is outside the declared StaticFiles asgi-call operation")
+    if case["observations"] != [RESPONSE_OPERATION]:
+        raise ContractError("StaticFiles observations must select asgi-call")
+
+    directory = _string(case["directory"], "StaticFiles.directory")
+    if not directory or Path(directory).is_absolute() or Path(directory).name != directory:
+        raise ContractError("StaticFiles.directory must be a relative basename")
+    if type(case["html"]) is not bool:
+        raise ContractError("StaticFiles.html must be boolean")
+    if type(case["check_dir"]) is not bool:
+        raise ContractError("StaticFiles.check_dir must be boolean")
+    if type(case["follow_symlink"]) is not bool:
+        raise ContractError("StaticFiles.follow_symlink must be boolean")
+
+    packages = case["packages"]
+    if not isinstance(packages, list):
+        raise ContractError("StaticFiles.packages must be an array")
+    package_paths: set[str] = set()
+    for index, package in enumerate(packages):
+        context = f"StaticFiles.packages[{index}]"
+        package = _exact(package, {"name", "statics_dir", "files"}, context)
+        name = _string(package["name"], f"{context}.name")
+        if not name or any(
+            not part.isascii() or not part.isidentifier() for part in name.split(".")
+        ):
+            raise ContractError(f"{context}.name must be a dotted Python package name")
+        statics_dir = _string(package["statics_dir"], f"{context}.statics_dir")
+        if (
+            not statics_dir
+            or Path(statics_dir).is_absolute()
+            or any(part in {"", ".", ".."} for part in statics_dir.split("/"))
+            or "\\" in statics_dir
+        ):
+            raise ContractError(f"{context}.statics_dir must be a relative normalized path")
+        package_files = package["files"]
+        if not isinstance(package_files, list) or not package_files:
+            raise ContractError(f"{context}.files must be a non-empty array")
+        for file_index, file_input in enumerate(package_files):
+            package_path = _validate_static_asset_file(file_input, f"{context}.files[{file_index}]")
+            if package_path in package_paths:
+                raise ContractError("StaticFiles package assets must not repeat relative paths")
+            package_paths.add(package_path)
+
+    files = case["files"]
+    if not isinstance(files, list) or (not files and not packages):
+        raise ContractError(
+            "StaticFiles.files must be non-empty unless package roots provide assets"
+        )
+    file_inputs = [
+        _validate_static_asset_file(file_input, f"StaticFiles.files[{index}]")
+        for index, file_input in enumerate(files)
+    ]
+    direct_paths = [path for path, _mtime in file_inputs]
+    if len(direct_paths) != len(set(direct_paths)):
+        raise ContractError("StaticFiles.files must not repeat asset paths")
+    if set(direct_paths) & package_paths:
+        raise ContractError("StaticFiles direct and package roots must not repeat relative paths")
+
+    scope = case["scope"]
+    scope_keys = {
+        "type",
+        "asgi",
+        "http_version",
+        "method",
+        "scheme",
+        "path",
+        "raw_path_base64",
+        "query_string_base64",
+        "root_path",
+        "headers_base64_pairs",
+        "client",
+        "server",
+    }
+    if isinstance(scope, dict) and "extensions" in scope:
+        scope_keys.add("extensions")
+    scope = _exact(scope, scope_keys, "StaticFiles HTTP scope")
+    if scope["type"] != "http":
+        raise ContractError("StaticFiles asgi-call requires an HTTP scope")
+    if "extensions" in scope:
+        extensions = scope["extensions"]
+        if not isinstance(extensions, dict) or any(
+            key != "http.response.pathsend" for key in extensions
+        ):
+            raise ContractError("StaticFiles scope.extensions may only declare pathsend")
+    if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
+        raise ContractError("StaticFiles asgi-call requires empty receive and captured send")
+    dispatch_scope = {key: value for key, value in scope.items() if key != "extensions"}
+    _validate_dispatch_stimulus(
+        {"scope": dispatch_scope, "receive": case["incoming"], "send": case["send"]},
+        request_dispatch=True,
+        allow_headers=True,
+    )
+
+    path = scope["path"]
+    root_path = scope["root_path"]
+    route_path = path
+    if root_path and path.startswith(root_path):
+        if path == root_path:
+            route_path = ""
+        elif path[len(root_path) :].startswith("/"):
+            route_path = path[len(root_path) :]
+    normalized_path = (
+        "/".join(part for part in route_path.split("/") if part not in {"", "."}) or "."
+    )
+    selected_files = {file_path: (mtime, False) for file_path, mtime in file_inputs}
+    for package in packages:
+        for file_input in package["files"]:
+            selected_files[file_input["path"]] = (float(file_input["mtime_seconds"]), True)
+    method = scope["method"]
+    derived: set[str] = set()
+    if method == "HEAD" and normalized_path in selected_files:
+        derived.add("head-file")
+    if (
+        case["html"]
+        and not path.endswith("/")
+        and selected_files.get(f"{normalized_path}/index.html") is not None
+    ):
+        derived.add("html-index-redirect")
+    conditional_match = False
+    if method == "GET" and normalized_path in selected_files:
+        for encoded_name, encoded_value in scope["headers_base64_pairs"]:
+            try:
+                name = base64.b64decode(encoded_name, validate=True).decode("latin-1").lower()
+                value = base64.b64decode(encoded_value, validate=True).decode("latin-1")
+            except (ValueError, TypeError, UnicodeDecodeError) as exc:
+                raise ContractError(
+                    "StaticFiles scope headers must use valid base64 bytes"
+                ) from exc
+            if name == "if-modified-since":
+                try:
+                    request_date = parsedate_to_datetime(value)
+                except (TypeError, ValueError, OverflowError):
+                    continue
+                if request_date.timestamp() >= selected_files[normalized_path][0]:
+                    conditional_match = True
+        if conditional_match:
+            derived.add("conditional-not-modified")
+        elif selected_files[normalized_path][1]:
+            derived.add("package-static-assets")
+        else:
+            derived.add("rooted-file-get")
+    if not derived:
+        raise ContractError("StaticFiles input must select a declared live response behavior")
+    expected_covers = {f"{STATIC_FILES_SURFACE}.asgi-call.{item}" for item in derived}
+    if set(case["covers"]) != expected_covers:
+        raise ContractError(
+            "StaticFiles case claims requirements not selected by its configured files and request"
+        )
+
+
+def _validate_static_asset_file(value: Any, context: str) -> tuple[str, float]:
+    file_input = _exact(value, {"path", "contents_base64", "mtime_seconds"}, context)
+    path = _string(file_input["path"], f"{context}.path")
+    if (
+        not path
+        or Path(path).is_absolute()
+        or any(part in {"", ".", ".."} for part in path.split("/"))
+        or "\\" in path
+    ):
+        raise ContractError(f"{context}.path must be a relative, normalized asset path")
+    contents = _string(file_input["contents_base64"], f"{context}.contents_base64")
+    try:
+        base64.b64decode(contents, validate=True)
+    except (ValueError, TypeError) as exc:
+        raise ContractError(f"{context}.contents_base64 must be valid base64") from exc
+    mtime = file_input["mtime_seconds"]
+    if type(mtime) not in {int, float} or not math.isfinite(mtime):
+        raise ContractError(f"{context}.mtime_seconds must be a finite number")
+    return path, float(mtime)
+
+
 def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     case_keys = STREAMING_RESPONSE_CASE_KEYS | ({"background"} if "background" in case else set())
     _exact(case, case_keys, "StreamingResponse asgi-call case")
@@ -3550,6 +3737,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and case.get("surface") == FILE_RESPONSE_SURFACE
         and case.get("operation") == RESPONSE_OPERATION
     )
+    is_static_files = (
+        isinstance(case, dict)
+        and case.get("surface") == STATIC_FILES_SURFACE
+        and case.get("operation") == RESPONSE_OPERATION
+    )
     is_response = isinstance(case, dict) and case.get("surface") in RESPONSE_SURFACES
     is_streaming_response = (
         isinstance(case, dict)
@@ -3605,6 +3797,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_redirect_response
         else FILE_RESPONSE_CASE_KEYS
         if is_file_response
+        else STATIC_FILES_CASE_KEYS
+        if is_static_files
         else RESPONSE_CASE_KEYS
         if is_response
         else STREAMING_RESPONSE_CASE_KEYS
@@ -3704,6 +3898,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_file_response:
         if case["operation"] != RESPONSE_OPERATION:
             raise ContractError("FileResponse cases must use the declared asgi-call operation")
+    elif is_static_files:
+        if case["operation"] != RESPONSE_OPERATION:
+            raise ContractError("StaticFiles cases must use the declared asgi-call operation")
     elif is_response:
         if case["operation"] != RESPONSE_OPERATION:
             raise ContractError("Response cases must use the declared asgi-call operation")
@@ -3867,6 +4064,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_file_response:
         _validate_file_response_case_stimulus(case)
+        return case
+    if is_static_files:
+        _validate_static_files_case_stimulus(case)
         return case
     if is_response:
         _validate_response_case_stimulus(case)
