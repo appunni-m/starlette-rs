@@ -3628,6 +3628,15 @@
                   }
                 },
                 {
+                  "path": "dispatch_disconnect_checks",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
                   "path": "execution_trace",
                   "value_types": [
                     "sequence"
@@ -3930,6 +3939,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.repeated-disconnect-polling",
               "dimension": "boundary",
               "description": "With and without a body stream, dispatch passes through call_next to an ASGI endpoint that drains request events and polls for disconnect twice before returning Response(b'good!'). Compare raw receive callback calls, every downstream receive, per-poll results, and ordered response events. Upstream: tests/middleware/test_base.py:1168-1215; starlette/middleware/base.py:28-59,80-93,112-130,171-197.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.request-disconnect-observation",
+              "dimension": "boundary",
+              "description": "Observe Request.is_disconnected() after a downstream ASGI app consumes http.disconnect, both directly and after dispatch caches a request body and polls the following disconnect. Compare the returned boolean, raw receive calls, downstream receive messages, and ordered response events. Upstream: tests/middleware/test_base.py:894-976; starlette/middleware/base.py:20-59,80-93,112-130; starlette/requests.py:234-260,313-328.",
               "lanes": [
                 "parity"
               ],

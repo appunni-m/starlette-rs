@@ -8,20 +8,22 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 330 input-only cases across 38 files, covering 56
-operations and 407 requirements. Run `a8d13bbb-c44a-47e1-9f78-f867e0ac9e53` from
-`2026-09-29T16:48:13.592Z` to `2026-09-29T16:49:14.415Z`; it selected 465
-comparisons: 461 passed, zero failed, zero infrastructure errors, and four
-`not_run`. The Python package passed all 328 applicable cases; Rust-native
+The active contract has 332 input-only cases across 38 files, covering 56
+operations and 408 requirements. Run `a3f3e4a1-b085-409d-a0f3-5a7ab47806fb` from
+`2026-09-29T17:04:29.897Z` to `2026-09-29T17:05:39.606Z`; it selected 467
+comparisons: 463 passed, zero failed, zero infrastructure errors, and four
+`not_run`. The Python package passed all 330 applicable cases; Rust-native
 passed 133 of 137 selected cases. The four unsupported Rust-native rows require
 arbitrary Python callables. All 27 FileResponse cases passed on both profiles;
-all eight SessionMiddleware cases and all seventeen BaseHTTPMiddleware cases
-passed on the Python package profile. The seventeen BaseHTTPMiddleware cases
+all eight SessionMiddleware cases and all nineteen BaseHTTPMiddleware cases
+passed on the Python package profile. The nineteen BaseHTTPMiddleware cases
 cover configured-header mutation, awaited `call_next` response replacement,
 body-cache replay, response-completion unblocking downstream receive,
 exception-context propagation, caught downstream `ValueError` handling,
 partial-stream forwarding, downstream receive transformation, repeated
-disconnect polling with `send_body=True` and `False`, stream consumption
+disconnect polling with `send_body=True` and `False`, downstream disconnect
+propagation followed by `Request.is_disconnected()`, body-cache/disconnect
+ordering, stream consumption
 followed by a downstream body read, body buffering followed by a downstream
 stream read, dispatch stream reads after downstream stream/body consumption,
 cached-stream replay after downstream body reading, a downstream body read
@@ -40,7 +42,13 @@ The caught-exception case matches
 from `call_next` and returns status 400 with a body derived from `str(exc)`.
 Both polling variants observe two downstream polls, raw and downstream receive
 traces, drained requests and poll results, and the exact `200 b"good!"` response
-tape; see `tests/middleware/test_base.py:1168-1215`. The body-buffer/stream case
+tape; see `tests/middleware/test_base.py:1168-1215`. The disconnect-observation
+cases map to `test_read_request_disconnected_client` and
+`test_read_request_disconnected_after_consuming_steam` at
+`tests/middleware/test_base.py:894-976`: one observes a downstream disconnect
+before dispatch checks `Request.is_disconnected()`, and the other caches `b"hi"`,
+checks for disconnect, then verifies the downstream body and disconnect
+sequence. Source and package observations match. The body-buffer/stream case
 matches `test_read_request_stream_in_app_after_middleware_calls_body` at
 `tests/middleware/test_base.py:631-657`: dispatch reads `b"a"` before
 `call_next`, and downstream stream iteration reads `b"a"` then `b""` before
@@ -67,12 +75,12 @@ exception-group shapes beyond the observed TaskGroup context and caught
 `ValueError`, varied or malformed `http.response.debug` frames, broader
 cancellation and cleanup ordering, path-send responses, and additional
 streaming behaviors unproven. The Rust-native target was clean at revision
-`58e5ce2d31177222ca42d4f67f0923811a012200+source-fnv1a64-e5a0df1c1dca21b4`;
-the Python-package target was dirty with tree SHA-256
-`10a7eb79050c975495749a2a7baf1645c793983b9821fe3a4f7fe9d310e48bb8`. Manifest
-SHA-256: `b29d85e2594540ec21fa51625d3230667fe6a94e022e16f9977b50b6da8b716a`;
+`067c191d1010aaafb2c8e34c01ac51bb63c1ee58+source-fnv1a64-e5a0df1c1dca21b4`;
+the Python-package target tree SHA-256 is
+`c087a7bf38872cf4942de94843775aa77ceb4f5904a85b0cd085bbb847d3b03f`. Manifest
+SHA-256: `405f83a94b2e0507981c338e9f9d1585cee7202c0ccd7e1f194ac57b1fd12f93`;
 package wheel SHA-256:
-`24ac6c6fe72aab4e9ad6290420a8df01cee6d3e8e910a88e99aebe1a2538cd88`.
+`f9c8434c43ddb3356b9d35866badf0e8cf7ca730f227e97af6914221a66cf12c`.
 See [Migration parity contract and evidence](../PARITY.md) for current scope.
 
 ## P0 — Close the source-backed atlas (complete)
@@ -81,8 +89,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 791 mappings: 616 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 125 existing input mappings. It maps selected
+The current matrix has 791 mappings: 614 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 127 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

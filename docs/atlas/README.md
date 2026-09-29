@@ -60,19 +60,21 @@ workloads; its evidence is summarized in
 files under `build/parity/`. These bounded results do not establish full
 compatibility.
 
-The current contract has 330 input-only cases across 38 files, covering 56
-operations and 407 requirements. Integrated run
-`a8d13bbb-c44a-47e1-9f78-f867e0ac9e53` selected 465 comparisons: 461 passed,
+The current contract has 332 input-only cases across 38 files, covering 56
+operations and 408 requirements. Integrated run
+`a3f3e4a1-b085-409d-a0f3-5a7ab47806fb` selected 467 comparisons: 463 passed,
 zero failed, zero infrastructure errors, and four were `not_run`. The Python
-package passed all 328 applicable cases; Rust-native passed 133 of 137 selected
+package passed all 330 applicable cases; Rust-native passed 133 of 137 selected
 cases. The four Rust-native rows require arbitrary Python callables. All 27
 FileResponse cases passed on both profiles; all eight SessionMiddleware cases
-and all seventeen BaseHTTPMiddleware cases passed on the Python package profile.
+and all nineteen BaseHTTPMiddleware cases passed on the Python package profile.
 The BaseHTTP cases cover configured-header mutation, awaited `call_next`
 response replacement, request-body cache replay, response-completion
 unblocking downstream receive, exception-context propagation, caught
 downstream ValueError handling, partial-stream forwarding, receive
-transformation, repeated disconnect polling, stream consumption followed by a
+transformation, repeated disconnect polling, downstream disconnect
+propagation followed by request disconnect observation, body-cache/disconnect
+ordering, stream consumption followed by a
 downstream body read, body buffering followed by a downstream stream read,
 dispatch stream reads after downstream stream/body consumption, cached stream
 replay after the endpoint reads a body cached by dispatch, a downstream body
@@ -90,7 +92,14 @@ body, and the endpoint reads `b"foo foo "`; this is pinned at
 cover `send_body=True` and `False`, poll downstream receive twice, and observe
 raw/downstream receive traces, drained requests, poll results, and the exact
 `200 b"good!"` response tape; see
-`tests/middleware/test_base.py:1168-1215`. The stream-consumption case maps to
+`tests/middleware/test_base.py:1168-1215`. The disconnect-observation cases map
+to `test_read_request_disconnected_client` and
+`test_read_request_disconnected_after_consuming_steam` at
+`tests/middleware/test_base.py:894-976`: one observes a downstream disconnect
+before dispatch checks `Request.is_disconnected()`, and the other caches
+`b"hi"`, checks for disconnect, then verifies the downstream body and
+disconnect sequence. Source and package observations match. The
+stream-consumption case maps to
 `test_read_request_body_in_app_after_middleware_calls_stream` at
 `tests/middleware/test_base.py:660-686`: dispatch exhausts the stream, then the
 downstream endpoint reads the cached empty body and returns `Homepage`. The
@@ -127,12 +136,12 @@ exception-group shapes beyond the observed TaskGroup context, varied or
 malformed `http.response.debug` frames, cancellation and cleanup ordering,
 path-send responses, and additional streaming behaviors remain unproven. The
 Rust-native target was clean at revision
-`58e5ce2d31177222ca42d4f67f0923811a012200+source-fnv1a64-e5a0df1c1dca21b4`;
-the Python-package target was dirty with tree SHA-256
-`10a7eb79050c975495749a2a7baf1645c793983b9821fe3a4f7fe9d310e48bb8`. Manifest
-SHA-256: `b29d85e2594540ec21fa51625d3230667fe6a94e022e16f9977b50b6da8b716a`;
+`067c191d1010aaafb2c8e34c01ac51bb63c1ee58+source-fnv1a64-e5a0df1c1dca21b4`;
+the Python-package target tree SHA-256 is
+`c087a7bf38872cf4942de94843775aa77ceb4f5904a85b0cd085bbb847d3b03f`. Manifest
+SHA-256: `405f83a94b2e0507981c338e9f9d1585cee7202c0ccd7e1f194ac57b1fd12f93`;
 package wheel SHA-256:
-`24ac6c6fe72aab4e9ad6290420a8df01cee6d3e8e910a88e99aebe1a2538cd88`. See
+`f9c8434c43ddb3356b9d35866badf0e8cf7ca730f227e97af6914221a66cf12c`. See
 [Migration parity contract and evidence](../PARITY.md) for current scope and
 the case breakdown; Rust-native parity remains incomplete.
 
@@ -204,7 +213,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 791 rows:
-125 `existing` mappings, 616 `backlog` rows, and 50 reasoned `not_applicable`
+127 `existing` mappings, 614 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -252,8 +261,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 514 `supported`, 286
 `private/internal`, and 199 `uncertain` candidates. The coverage matrix has 791
-source mappings: 125 existing input mappings, 50 reasoned `not_applicable`
-entries, and 616 input-only backlog rows. These counts describe the current
+source mappings: 127 existing input mappings, 50 reasoned `not_applicable`
+entries, and 614 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

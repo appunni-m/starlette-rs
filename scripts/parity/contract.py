@@ -90,6 +90,7 @@ BASE_HTTP_REQUIREMENTS = {
     "dispatch_stream_after_pre_call_next_body_cache": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-replay-after-pre-call-next-body-cache",
     "downstream_receive_transformation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-middleware-receive-transformation",
     "repeated_disconnect_polling": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.repeated-disconnect-polling",
+    "request_disconnect_observation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.request-disconnect-observation",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -5135,6 +5136,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     await_action_kind: str | None = None
     returned: str | None = None
     saw_header_mutation = False
+    saw_disconnect_check = False
     for index, raw_action in enumerate(actions):
         context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
         if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
@@ -5148,6 +5150,13 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             _exact(raw_action, {"kind"}, context)
             if returned is not None:
                 raise ContractError("request.stream() reads must precede the dispatch return")
+        elif kind == "check-request-is-disconnected":
+            _exact(raw_action, {"kind"}, context)
+            if returned is not None or saw_disconnect_check:
+                raise ContractError(
+                    "Request.is_disconnected() must be observed at most once before return"
+                )
+            saw_disconnect_check = True
         elif kind == "capture-request-stream-next":
             _exact(raw_action, {"kind"}, context)
             if not awaited or returned is not None:
@@ -5345,6 +5354,32 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 raise ContractError("downstream polling response body must be base64") from exc
             if not response_body:
                 raise ContractError("downstream polling response body must be non-empty")
+        elif raw_downstream["kind"] == "receive-sequence-app":
+            downstream = _exact(
+                raw_downstream,
+                {"kind", "steps", "response"},
+                "BaseHTTPMiddleware downstream receive-sequence app",
+            )
+            if routes:
+                raise ContractError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
+            steps = downstream["steps"]
+            if not isinstance(steps, list) or not steps:
+                raise ContractError("downstream receive-sequence app requires receive steps")
+            for index, raw_step in enumerate(steps):
+                step = _exact(raw_step, {"kind"}, f"downstream receive step[{index}]")
+                if step["kind"] != "receive":
+                    raise ContractError("downstream receive-sequence steps must call receive")
+            response = _exact(
+                downstream["response"],
+                {"kind", "status_code"},
+                "downstream receive-sequence response",
+            )
+            if (
+                response["kind"] != "empty-response"
+                or type(response["status_code"]) is not int
+                or not 100 <= response["status_code"] <= 599
+            ):
+                raise ContractError("downstream receive-sequence response input is invalid")
         else:
             raise ContractError("downstream ASGI input kind is unsupported")
     if returned == "call-next" and not routes and downstream is None:
@@ -5458,12 +5493,27 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         len(disconnect_events) != 1 or disconnect_events[0] != len(receive) - 1
     ):
         raise ContractError("BaseHTTPMiddleware request input may end with one disconnect event")
-    if disconnect_events and (downstream is None or downstream["kind"] != "disconnect-polling-app"):
-        raise ContractError("explicit http.disconnect input is scoped to disconnect-polling cases")
-    if not isinstance(request["receive_after_events"], str) or request[
-        "receive_after_events"
-    ] not in {"disconnect", "block"}:
-        raise ContractError("receive_after_events must be disconnect or block")
+    if disconnect_events and (
+        downstream is None
+        or downstream["kind"] not in {"disconnect-polling-app", "receive-sequence-app"}
+    ):
+        raise ContractError("explicit http.disconnect input requires a downstream disconnect case")
+    receive_after_events = request["receive_after_events"]
+    if isinstance(receive_after_events, str):
+        if receive_after_events not in {"disconnect", "block"}:
+            raise ContractError("receive_after_events must be disconnect, block, or a raise input")
+    else:
+        receive_after_events = _exact(
+            receive_after_events,
+            {"kind", "class", "message"},
+            "BaseHTTPMiddleware exhausted receive behavior",
+        )
+        if (
+            receive_after_events["kind"] != "raise"
+            or receive_after_events["class"] != "AssertionError"
+        ):
+            raise ContractError("exhausted receive may only raise an input-defined AssertionError")
+        _string(receive_after_events["message"], "exhausted receive exception message")
     send_checkpoints = request["send_checkpoints"]
     if (
         not isinstance(send_checkpoints, list)
@@ -5720,6 +5770,52 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 "repeated disconnect polling requires GET, two call_next polls, one disconnect, blocking exhausted receive, and either one body stream or no body"
             )
         requirements.add(BASE_HTTP_REQUIREMENTS["repeated_disconnect_polling"])
+    elif downstream is not None and downstream["kind"] == "receive-sequence-app":
+        receive_steps = downstream["steps"] if downstream is not None else []
+        no_body_case = (
+            receive == [{"type": "http.disconnect"}]
+            and len(receive_steps) == 1
+            and actions
+            == [
+                {"kind": "await-call-next"},
+                {"kind": "check-request-is-disconnected"},
+                {"kind": "return-call-next-response"},
+            ]
+        )
+        body_case = (
+            len(request_events) == 1
+            and bool(body)
+            and len(receive) == 2
+            and len(disconnect_events) == 1
+            and len(receive_steps) == 2
+            and actions
+            == [
+                {"kind": "read-request-body"},
+                {"kind": "check-request-is-disconnected"},
+                {"kind": "await-call-next"},
+                {"kind": "return-call-next-response"},
+            ]
+        )
+        if (
+            not saw_disconnect_check
+            or returned != "call-next"
+            or scope["method"] != "POST"
+            or not isinstance(request["receive_after_events"], dict)
+            or request["receive_after_events"].get("kind") != "raise"
+            or not disconnect_events
+            or send_checkpoints
+            or not (no_body_case or body_case)
+        ):
+            raise ContractError(
+                "Request.is_disconnected BaseHTTP cases require the source-backed one-message disconnect or cached-body-then-disconnect sequence"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["request_disconnect_observation"])
+    if saw_disconnect_check and (
+        downstream is None or downstream["kind"] != "receive-sequence-app"
+    ):
+        raise ContractError(
+            "Request.is_disconnected BaseHTTP input requires a receive-sequence app"
+        )
     if set(case["covers"]) != requirements:
         raise ContractError(
             "BaseHTTPMiddleware covers must match the input middleware, request, and dispatch actions: "

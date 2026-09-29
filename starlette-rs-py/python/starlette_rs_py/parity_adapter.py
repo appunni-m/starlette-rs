@@ -5521,6 +5521,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     await_action_kind = None
     returned = None
     saw_header_mutation = False
+    saw_disconnect_check = False
     for index, raw_action in enumerate(dispatch_actions):
         context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
         if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
@@ -5530,6 +5531,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             _exact_object(raw_action, {"kind"}, context)
         elif kind == "read-request-stream-next":
             _exact_object(raw_action, {"kind"}, context)
+        elif kind == "check-request-is-disconnected":
+            _exact_object(raw_action, {"kind"}, context)
+            if returned is not None or saw_disconnect_check:
+                raise ValueError(
+                    "Request.is_disconnected() must be observed at most once before return"
+                )
+            saw_disconnect_check = True
         elif kind == "capture-request-stream-next":
             _exact_object(raw_action, {"kind"}, context)
             if not awaited or returned is not None:
@@ -5705,6 +5713,32 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 or not _decode_base64(response["body_base64"], "downstream response body")
             ):
                 raise ValueError("downstream polling response input is invalid")
+        elif raw_downstream["kind"] == "receive-sequence-app":
+            downstream_spec = _exact_object(
+                raw_downstream,
+                {"kind", "steps", "response"},
+                "BaseHTTPMiddleware downstream receive-sequence app",
+            )
+            if route_spec is not None:
+                raise ValueError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
+            steps = downstream_spec["steps"]
+            if not isinstance(steps, list) or not steps:
+                raise ValueError("downstream receive-sequence app requires receive steps")
+            for index, raw_step in enumerate(steps):
+                step = _exact_object(raw_step, {"kind"}, f"downstream receive step[{index}]")
+                if step["kind"] != "receive":
+                    raise ValueError("downstream receive-sequence steps must call receive")
+            response = _exact_object(
+                downstream_spec["response"],
+                {"kind", "status_code"},
+                "downstream receive-sequence response",
+            )
+            if (
+                response["kind"] != "empty-response"
+                or type(response["status_code"]) is not int
+                or not 100 <= response["status_code"] <= 599
+            ):
+                raise ValueError("downstream receive-sequence response input is invalid")
         else:
             raise ValueError("downstream ASGI input kind is unsupported")
 
@@ -5820,13 +5854,27 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("BaseHTTPMiddleware request input may end with one disconnect event")
     if disconnect_event_indices and (
-        downstream_spec is None or downstream_spec["kind"] != "disconnect-polling-app"
+        downstream_spec is None
+        or downstream_spec["kind"] not in {"disconnect-polling-app", "receive-sequence-app"}
     ):
-        raise ValueError("explicit http.disconnect input is scoped to disconnect-polling cases")
-    if not isinstance(request["receive_after_events"], str) or request[
-        "receive_after_events"
-    ] not in {"disconnect", "block"}:
-        raise ValueError("receive_after_events must be disconnect or block")
+        raise ValueError("explicit http.disconnect input requires a downstream disconnect case")
+    receive_after_events = request["receive_after_events"]
+    if isinstance(receive_after_events, str):
+        if receive_after_events not in {"disconnect", "block"}:
+            raise ValueError("receive_after_events must be disconnect, block, or a raise input")
+    else:
+        receive_after_events = _exact_object(
+            receive_after_events,
+            {"kind", "class", "message"},
+            "BaseHTTPMiddleware exhausted receive behavior",
+        )
+        if (
+            receive_after_events["kind"] != "raise"
+            or receive_after_events["class"] != "AssertionError"
+        ):
+            raise ValueError("exhausted receive may only raise an input-defined AssertionError")
+        if not isinstance(receive_after_events["message"], str):
+            raise ValueError("exhausted receive exception message must be a string")
     send_checkpoints = request["send_checkpoints"]
     if (
         not isinstance(send_checkpoints, list)
@@ -6117,6 +6165,52 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.repeated-disconnect-polling"
         )
+    elif downstream_spec is not None and downstream_spec["kind"] == "receive-sequence-app":
+        receive_steps = downstream_spec["steps"]
+        no_body_case = (
+            receive_specs == [{"type": "http.disconnect"}]
+            and len(receive_steps) == 1
+            and dispatch_actions
+            == [
+                {"kind": "await-call-next"},
+                {"kind": "check-request-is-disconnected"},
+                {"kind": "return-call-next-response"},
+            ]
+        )
+        body_case = (
+            len(request_event_specs) == 1
+            and bool(request_body)
+            and len(receive_specs) == 2
+            and len(disconnect_event_indices) == 1
+            and len(receive_steps) == 2
+            and dispatch_actions
+            == [
+                {"kind": "read-request-body"},
+                {"kind": "check-request-is-disconnected"},
+                {"kind": "await-call-next"},
+                {"kind": "return-call-next-response"},
+            ]
+        )
+        if (
+            not saw_disconnect_check
+            or returned != "call-next"
+            or scope_spec["method"] != "POST"
+            or not isinstance(request["receive_after_events"], dict)
+            or request["receive_after_events"].get("kind") != "raise"
+            or not disconnect_event_indices
+            or send_checkpoints
+            or not (no_body_case or body_case)
+        ):
+            raise ValueError(
+                "Request.is_disconnected BaseHTTP cases require the source-backed one-message disconnect or cached-body-then-disconnect sequence"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.request-disconnect-observation"
+        )
+    if saw_disconnect_check and (
+        downstream_spec is None or downstream_spec["kind"] != "receive-sequence-app"
+    ):
+        raise ValueError("Request.is_disconnected BaseHTTP input requires a receive-sequence app")
     if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
         raise ValueError("BaseHTTPMiddleware covers differ from its input actions")
 
@@ -6136,6 +6230,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     downstream_receive_events: list[dict[str, Any]] = []
     downstream_poll_results: list[dict[str, Any]] = []
     dispatch_caught_exceptions: list[dict[str, Any]] = []
+    dispatch_disconnect_checks: list[dict[str, Any]] = []
 
     class InputDefinedBaseHTTPMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Any, call_next: Any) -> Any:
@@ -6150,6 +6245,11 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                             "action_index": action_index,
                             "body_base64": base64.b64encode(body).decode("ascii"),
                         }
+                    )
+                elif kind == "check-request-is-disconnected":
+                    disconnected = await request.is_disconnected()
+                    dispatch_disconnect_checks.append(
+                        {"action_index": action_index, "disconnected": disconnected}
                     )
                 elif kind == "read-request-stream-next":
                     if stream_iterator is None:
@@ -6432,6 +6532,25 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             )(scope, receive, send)
 
         app = InputDefinedBaseHTTPMiddleware(downstream_polling_app)
+    elif downstream_spec is not None and downstream_spec["kind"] == "receive-sequence-app":
+
+        async def downstream_receive_sequence_app(scope: Any, receive: Any, send: Any) -> None:
+            for receive_index, _step in enumerate(downstream_spec["steps"]):
+                execution_trace.append(
+                    {"event": "downstream-receive-enter", "index": receive_index}
+                )
+                message = await receive()
+                execution_trace.append(
+                    {
+                        "event": "downstream-receive-return",
+                        "index": receive_index,
+                        "message": _canonical_http_message(message),
+                    }
+                )
+            response_spec = downstream_spec["response"]
+            await Response(status_code=response_spec["status_code"])(scope, receive, send)
+
+        app = InputDefinedBaseHTTPMiddleware(downstream_receive_sequence_app)
     else:
         app = Starlette(
             debug=application["debug"],
@@ -6454,8 +6573,11 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             receive_index += 1
         elif request["receive_after_events"] == "block":
             await asyncio.Event().wait()
-        else:
+        elif request["receive_after_events"] == "disconnect":
             message = {"type": "http.disconnect"}
+        else:
+            exception_type = getattr(builtins, request["receive_after_events"]["class"])
+            raise exception_type(request["receive_after_events"]["message"])
         request_receive_events.append(_canonical_http_message(message))
         return message
 
@@ -6498,6 +6620,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "downstream_receive_events": downstream_receive_events,
         "downstream_poll_results": downstream_poll_results,
         "dispatch_caught_exceptions": dispatch_caught_exceptions,
+        "dispatch_disconnect_checks": dispatch_disconnect_checks,
         "request_receive_events": request_receive_events,
         "execution_trace": execution_trace,
         "propagated_exception": propagated_exception,

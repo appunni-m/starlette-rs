@@ -17,22 +17,22 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 330 input-only cases across 38 files,
-covering 56 operations and 407 parity requirements. The authored cases span
+The active parity manifest indexes 332 input-only cases across 38 files,
+covering 56 operations and 408 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `a8d13bbb-c44a-47e1-9f78-f867e0ac9e53` started at
-`2026-09-29T16:48:13.592Z` and finished at `2026-09-29T16:49:14.415Z`. It
-selected 465 profile comparisons: 461 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 328 applicable
+Integrated run `a3f3e4a1-b085-409d-a0f3-5a7ab47806fb` started at
+`2026-09-29T17:04:29.897Z` and finished at `2026-09-29T17:05:39.606Z`. It
+selected 467 profile comparisons: 463 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 330 applicable
 comparisons; Rust-native passed 133 of 137, with four rows requiring Python
 callables marked `not_run`. All 27 FileResponse cases passed on both profiles,
 all eight SessionMiddleware cases passed on the Python package profile, and all
-seventeen BaseHTTPMiddleware cases passed there. Those cases cover header
+nineteen BaseHTTPMiddleware cases passed there. Those cases cover header
 mutation, replacement responses, body-cache replay, response-completion receive
 racing, exception/context propagation (including cause, TaskGroup
 `ExceptionGroup` context, and suppression-state observations), partial-stream
@@ -42,7 +42,8 @@ followed by a downstream body read, dispatch body buffering followed by a
 downstream stream read, dispatch stream reads after downstream stream/body
 consumption, cached-stream replay after the downstream body read, a downstream body read
 after dispatch caches the request body, and a downstream stream read after
-dispatch exhausts `request.stream()`. The
+dispatch exhausts `request.stream()`, plus request-disconnect checks with and
+without a cached body. The
 `test_downstream_middleware_modifies_receive`
 wrapper case maps to `tests/middleware/test_base.py:979-1017`: dispatch
 observes `b"foo "`, the downstream wrapper doubles the body, and the endpoint
@@ -83,17 +84,23 @@ bytes. The source and package match exactly. The new replay case maps to
 at `tests/middleware/test_base.py:835-862`: dispatch buffers `b"a"`, the
 endpoint reads the cached body, and dispatch's stream yields `b"a"`, the empty
 terminal chunk, and exhaustion. Those observations, the response, and ASGI
-events match the source exactly. The catch case covers `test_exception_can_be_caught` at
+events match the source exactly. The two disconnect cases map to
+`tests/middleware/test_base.py:894-976`: one observes downstream receiving
+`http.disconnect` before dispatch checks `Request.is_disconnected()`; the other
+observes dispatch caching `b"hi"`, polling the following disconnect, then
+downstream receiving the cached body and disconnect. Both return `True` from
+the live request check and match the source exactly. The catch case covers
+`test_exception_can_be_caught` at
 `tests/middleware/test_base.py:338-356`: dispatch catches `ValueError("TEST")`
 from `call_next` and returns status 400 with body `TEST`. The Rust-native target
 was clean at revision
-`58e5ce2d31177222ca42d4f67f0923811a012200+source-fnv1a64-e5a0df1c1dca21b4`;
+`067c191d1010aaafb2c8e34c01ac51bb63c1ee58+source-fnv1a64-e5a0df1c1dca21b4`;
 the installed Python-package target was dirty with tree SHA-256
-`10a7eb79050c975495749a2a7baf1645c793983b9821fe3a4f7fe9d310e48bb8`.
+`c087a7bf38872cf4942de94843775aa77ceb4f5904a85b0cd085bbb847d3b03f`.
 Manifest SHA-256:
-`b29d85e2594540ec21fa51625d3230667fe6a94e022e16f9977b50b6da8b716a`.
+`405f83a94b2e0507981c338e9f9d1585cee7202c0ccd7e1f194ac57b1fd12f93`.
 Parity wheel artifact SHA-256:
-`24ac6c6fe72aab4e9ad6290420a8df01cee6d3e8e910a88e99aebe1a2538cd88`.
+`f9c8434c43ddb3356b9d35866badf0e8cf7ca730f227e97af6914221a66cf12c`.
 The four unsupported Rust-native Python-callable rows keep the overall gate
 incomplete; this run is not full parity or release proof.
 Thirty-seven StaticFiles cases are authored across
@@ -257,18 +264,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 791 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 791 |
-| Existing input mappings in the atlas matrix | 125 |
+| Existing input mappings in the atlas matrix | 127 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 616 |
+| New input-only fixture backlog | 614 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 125 `existing` mappings point to authored YAML input
+crosswalk snapshot, 127 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 38 indexed files
-and 330 cases, including seventeen BaseHTTPMiddleware cases, 37 authored StaticFiles cases, four authentication cases,
+and 332 cases, including nineteen BaseHTTPMiddleware cases, 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
