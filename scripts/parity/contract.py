@@ -82,6 +82,7 @@ BASE_HTTP_REQUIREMENTS = {
     "caught_exception_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.catch-call-next-exception",
     "partial_stream_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding",
     "downstream_body_after_stream_consumption": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-body-read-after-stream-consumption",
+    "downstream_stream_after_stream_consumption": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-stream-read-after-stream-consumption",
     "downstream_stream_after_body_cache": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-stream-read-after-body-cache",
     "dispatch_stream_after_downstream_stream_consumption": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-read-after-downstream-stream-consumption",
     "dispatch_stream_after_downstream_body_read": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-read-after-downstream-body-read",
@@ -5609,11 +5610,35 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             {"kind": "capture-request-stream-next"},
             {"kind": "return-call-next-response"},
         ]
+        stream_reads_before_call_next = (
+            [
+                action
+                for action in actions[:await_index]
+                if action["kind"] == "read-request-stream-next"
+            ]
+            if await_index is not None
+            else []
+        )
+        expected_stream_reads = (
+            sum(bool(base64.b64decode(event["body_base64"])) for event in request_events) + 2
+        )
+        reads_stream_before_call_next = (
+            await_index is not None
+            and actions[await_index + 1 :] == [{"kind": "return-call-next-response"}]
+            and len(stream_reads_before_call_next) == expected_stream_reads
+            and all(
+                action["kind"] == "read-request-stream-next" for action in actions[:await_index]
+            )
+        )
         if (
             returned != "call-next"
             or scope["method"] != "POST"
             or not body
-            or not (reads_stream_after_body_cache or reads_stream_after_downstream_stream)
+            or not (
+                reads_stream_after_body_cache
+                or reads_stream_after_downstream_stream
+                or reads_stream_before_call_next
+            )
             or disconnect_events
             or send_checkpoints
         ):
@@ -5622,6 +5647,8 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             )
         if reads_stream_after_body_cache:
             requirements.add(BASE_HTTP_REQUIREMENTS["downstream_stream_after_body_cache"])
+        elif reads_stream_before_call_next:
+            requirements.add(BASE_HTTP_REQUIREMENTS["downstream_stream_after_stream_consumption"])
         else:
             requirements.add(
                 BASE_HTTP_REQUIREMENTS["dispatch_stream_after_downstream_stream_consumption"]

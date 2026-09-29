@@ -5990,11 +5990,40 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             {"kind": "capture-request-stream-next"},
             {"kind": "return-call-next-response"},
         ]
+        stream_reads_before_call_next = (
+            [
+                action
+                for action in dispatch_actions[:await_index]
+                if action["kind"] == "read-request-stream-next"
+            ]
+            if await_index is not None
+            else []
+        )
+        expected_stream_reads = (
+            sum(
+                bool(_decode_base64(event["body_base64"], "BaseHTTPMiddleware request body"))
+                for event in request_event_specs
+            )
+            + 2
+        )
+        reads_stream_before_call_next = (
+            await_index is not None
+            and dispatch_actions[await_index + 1 :] == [{"kind": "return-call-next-response"}]
+            and len(stream_reads_before_call_next) == expected_stream_reads
+            and all(
+                action["kind"] == "read-request-stream-next"
+                for action in dispatch_actions[:await_index]
+            )
+        )
         if (
             returned != "call-next"
             or scope_spec["method"] != "POST"
             or not request_body
-            or not (reads_stream_after_body_cache or reads_stream_after_downstream_stream)
+            or not (
+                reads_stream_after_body_cache
+                or reads_stream_after_downstream_stream
+                or reads_stream_before_call_next
+            )
             or disconnect_event_indices
             or send_checkpoints
         ):
@@ -6004,6 +6033,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         if reads_stream_after_body_cache:
             required_covers.add(
                 f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-stream-read-after-body-cache"
+            )
+        elif reads_stream_before_call_next:
+            required_covers.add(
+                f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-stream-read-after-stream-consumption"
             )
         else:
             required_covers.add(
