@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 320 input-only cases in 38 indexed files, covering 56 operations and 398 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 322 input-only cases in 38 indexed files, covering 56 operations and 399 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, requests and query parameters, responses, StaticFiles, WebSockets, exceptions, status, endpoints, authentication, middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,7 +8,7 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest integrated run, `89c8651e-ad72-4607-bfa2-7fd08faf93d9`, started at `2026-09-29T14:13:18.144Z` and finished at `2026-09-29T14:14:17.464Z`. It selected 455 profile comparisons: 451 passed, zero failed, zero infrastructure errors, and four Rust-native rows were `not_run` because they require Python callables. The Python package passed all 318 applicable comparisons; Rust-native passed 133 of 137. Manifest SHA-256: `69c5d989b776171faa91abfa3b2b89b175e9e10edea08a85599521eb1ba8259b`. The installed package artifact SHA-256 is `0c0f881854710381b18d7f0284bdf442401761382727ff711fb55b7f3a9383ae`. The Rust-native target reported clean at revision `bad834d227544d59579eae7bd7213b3b1cadaa45+source-fnv1a64-e5a0df1c1dca21b4`; the installed Python-package target was dirty with tree SHA-256 `0fcc9d07728340b5e7e084afc06e3c0b0385413a8adcd85fe1f82e286f96f4a3`. `make parity-run` exits 2 for the four explicitly unsupported Rust-native rows; this run is not full parity or release proof.
+The latest integrated run, `2556891d-f0f3-44e2-842e-f467b102d02f`, started at `2026-09-29T14:36:23.956Z` and finished at `2026-09-29T14:37:32.098Z`. It selected 457 profile comparisons: 453 passed, zero failed, zero infrastructure errors, and four Rust-native rows were `not_run` because they require Python callables. The Python package passed all 320 applicable comparisons; Rust-native passed 133 of 137. Manifest SHA-256: `ba97826e0153671477717b7d1085be6b005b9502669e0f75e6123d1b90f3276a`. The installed package artifact SHA-256 is `c13e1a571214186fa3d82dfdfe0eaaeea91e29e6ea21dc502db9a5d7652aeb2b`. The Rust-native target reported clean at revision `c1dad22af7c85e5297fa9519733ef3917c55f22e+source-fnv1a64-e5a0df1c1dca21b4`; the installed Python-package target was dirty with tree SHA-256 `81afeba1c9802eae835b2cf9136b5935d0317e79c834a6adf6a71697c7a5464a`. `make parity-run` exits 2 for the four explicitly unsupported Rust-native rows; this run is not full parity or release proof.
 
 ## Input-only cases
 
@@ -41,14 +41,14 @@ pinned source and installed package exactly.
 The upstream basis is `starlette/requests.py` (`HTTPConnection.headers`, `query_params`, `path_params`, `cookies`, and `Request.stream`/`body`/`json`), `starlette/datastructures.py` (`ImmutableMultiDict` and `Headers`), and `starlette/routing.py` (`Route.matches` and `Router.app`). Related pinned tests include `tests/test_requests.py::test_request_query_params`, `test_request_headers`, `test_request_cookies`, `test_request_json`, `tests/test_routing.py::test_route_converters`, and `test_router`.
 
 [`base-http-middleware.yaml`](../tests/fixtures/sources/parity/base-http-middleware.yaml)
-now contains seven Python-package workflows, all passing exact comparison
+now contains nine Python-package workflows, all passing exact comparison
 against pinned Starlette 1.6.0 in the latest integrated run. They cover
 configured-middleware response-header mutation and replacement responses,
 request-body cache/replay across dispatch and the downstream endpoint, response
 completion waking a blocked downstream receive as `http.disconnect`, downstream
-exception propagation with cause, TaskGroup `ExceptionGroup` context and
-suppression observations, partial-stream forwarding, and downstream receive
-transformation. In the partial-stream case, dispatch consumes `b"1"`,
+exception/context propagation (including its cause, TaskGroup `ExceptionGroup`
+context, and suppression observations), partial-stream forwarding, and
+downstream receive transformation. In the partial-stream case, dispatch consumes `b"1"`,
 `call_next` exposes the next chunk `b"2"` to the endpoint, then dispatch resumes
 and consumes `b"3"`; the endpoint intentionally stops after `b"2"`. This
 matches `tests/middleware/test_base.py:777-832`. The receive-transformation
@@ -60,10 +60,15 @@ the BaseHTTP state machine, cached receive/replay decisions, response-completion
 race, and response sending. The downstream transformation is a
 caller-supplied Python ASGI middleware callable: the facade passes it through
 and awaits it at the Python boundary while Rust handles BaseHTTP protocol
-state. This is a bounded Python-package slice, not general `BaseHTTPMiddleware`
-parity.
+state. The repeated-disconnect cases match
+`tests/middleware/test_base.py:1168-1215`: one supplies a chunked body followed
+by disconnect and the other begins with disconnect; both poll downstream
+receive twice. Their observations include raw and downstream receive traces,
+each poll's drained request events and result, and the exact `200 b"good!"`
+response tape. This is a bounded Python-package slice, not general
+`BaseHTTPMiddleware` parity.
 
-Unverified BaseHTTP behavior still includes other receive-transformation and wrapper combinations, partial-stream/replay interleavings beyond the tested `b"1"`/`b"2"`/`b"3"` flow, repeated disconnect polling and disconnect ordering across stacked middleware, broader exception cause/context combinations and exception-group shapes beyond the observed TaskGroup context, varied and malformed `http.response.debug` frame sequences, cancellation and ContextVar behavior, background-task and context-manager cleanup ordering, path-send responses, the full `MutableHeaders` API and live `raw_headers` mutation, and other streaming paths. The atlas backlog retains the remaining upstream middleware cases.
+Unverified BaseHTTP behavior still includes other receive-transformation and wrapper combinations, partial-stream/replay interleavings beyond the tested `b"1"`/`b"2"`/`b"3"` flow, disconnect ordering across stacked middleware, broader exception cause/context combinations and exception-group shapes beyond the observed TaskGroup context, varied and malformed `http.response.debug` frame sequences, cancellation and ContextVar behavior, background-task and context-manager cleanup ordering, path-send responses, the full `MutableHeaders` API and live `raw_headers` mutation, and other streaming paths. The atlas backlog retains the remaining upstream middleware cases.
 
 [`router-converter-dispatch.yaml`](../tests/fixtures/sources/parity/router-converter-dispatch.yaml)
 adds 15 Router cases for built-in `str`, `int`, `float`, `uuid`, and `path`
@@ -382,7 +387,7 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@9` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every target-profile comparison declared for the 320 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 455 comparisons and its limitations are recorded in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every target-profile comparison declared for the 322 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 457 comparisons and its limitations are recorded in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 

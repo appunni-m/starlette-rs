@@ -3683,6 +3683,24 @@
                   }
                 },
                 {
+                  "path": "downstream_receive_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "downstream_poll_results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
                   "path": "request_receive_events",
                   "value_types": [
                     "sequence"
@@ -3804,6 +3822,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.downstream-middleware-receive-transformation",
               "dimension": "boundary",
               "description": "Dispatch consumes the original POST body, call_next enters an explicitly ordered downstream ASGI receive wrapper that repeats each http.request body, and the endpoint reads the transformed body before returning an empty response. Upstream: tests/middleware/test_base.py:979-1017; starlette/middleware/base.py:106-107,112-130; starlette/requests.py:254-260.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.repeated-disconnect-polling",
+              "dimension": "boundary",
+              "description": "With and without a body stream, dispatch passes through call_next to an ASGI endpoint that drains request events and polls for disconnect twice before returning Response(b'good!'). Compare raw receive callback calls, every downstream receive, per-poll results, and ordered response events. Upstream: tests/middleware/test_base.py:1168-1215; starlette/middleware/base.py:28-59,80-93,112-130,171-197.",
               "lanes": [
                 "parity"
               ],

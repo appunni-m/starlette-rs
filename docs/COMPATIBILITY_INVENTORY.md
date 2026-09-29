@@ -17,37 +17,41 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 320 input-only cases across 38 files,
-covering 56 operations and 398 parity requirements. The authored cases span
+The active parity manifest indexes 322 input-only cases across 38 files,
+covering 56 operations and 399 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, requests, responses,
 StaticFiles, WebSockets, exceptions, status constants, endpoints, authentication,
 middleware (including bounded SessionMiddleware and BaseHTTPMiddleware workflows), configuration, and schemas. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs.
 
-Integrated run `89c8651e-ad72-4607-bfa2-7fd08faf93d9` started at
-`2026-09-29T14:13:18.144Z` and finished at `2026-09-29T14:14:17.464Z`. It
-selected 455 profile comparisons: 451 passed, zero failed, zero infrastructure
-errors, and four were `not_run`. The Python package passed all 318 applicable
+Integrated run `2556891d-f0f3-44e2-842e-f467b102d02f` started at
+`2026-09-29T14:36:23.956Z` and finished at `2026-09-29T14:37:32.098Z`. It
+selected 457 profile comparisons: 453 passed, zero failed, zero infrastructure
+errors, and four were `not_run`. The Python package passed all 320 applicable
 comparisons; Rust-native passed 133 of 137, with four rows requiring Python
 callables marked `not_run`. All 27 FileResponse cases passed on both profiles,
 all eight SessionMiddleware cases passed on the Python package profile, and all
-seven BaseHTTPMiddleware cases passed on that profile. Those BaseHTTP cases
+nine BaseHTTPMiddleware cases passed on that profile. Those BaseHTTP cases
 cover header mutation, replacement responses, body-cache replay,
-response-completion receive racing, exception propagation with cause, TaskGroup
-`ExceptionGroup` context and suppression-state observations, partial-stream
-forwarding, and the `test_downstream_middleware_modifies_receive` wrapper case:
+response-completion receive racing, exception/context propagation (including
+cause, TaskGroup `ExceptionGroup` context, and suppression-state observations),
+partial-stream forwarding, and the `test_downstream_middleware_modifies_receive` wrapper case:
 dispatch observes `b"foo "`, the downstream receive wrapper doubles the body,
 and the endpoint observes `b"foo foo "` with the exact empty-200 response
-events. It maps to `tests/middleware/test_base.py:979-1017`. The Rust-native
-target reported clean at revision
-`bad834d227544d59579eae7bd7213b3b1cadaa45+source-fnv1a64-e5a0df1c1dca21b4`;
+events. It maps to `tests/middleware/test_base.py:979-1017`. The repeated-
+disconnect workflow has inputs for `send_body=True` and `False`; both poll
+downstream receive twice and observe raw/downstream receive traces, drained
+request events, poll results, and the exact `200 b"good!"` response tape. It
+maps to `tests/middleware/test_base.py:1168-1215`. The Rust-native target
+reported clean at revision
+`c1dad22af7c85e5297fa9519733ef3917c55f22e+source-fnv1a64-e5a0df1c1dca21b4`;
 the installed Python-package target was dirty with tree SHA-256
-`0fcc9d07728340b5e7e084afc06e3c0b0385413a8adcd85fe1f82e286f96f4a3`.
+`81afeba1c9802eae835b2cf9136b5935d0317e79c834a6adf6a71697c7a5464a`.
 Manifest SHA-256:
-`69c5d989b776171faa91abfa3b2b89b175e9e10edea08a85599521eb1ba8259b`.
+`ba97826e0153671477717b7d1085be6b005b9502669e0f75e6123d1b90f3276a`.
 Package wheel artifact SHA-256:
-`0c0f881854710381b18d7f0284bdf442401761382727ff711fb55b7f3a9383ae`.
+`c13e1a571214186fa3d82dfdfe0eaaeea91e29e6ea21dc502db9a5d7652aeb2b`.
 The four unsupported Rust-native Python-callable rows keep the overall gate
 incomplete; this run is not full parity or release proof.
 Thirty-seven StaticFiles cases are authored across
@@ -211,18 +215,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 791 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 791 |
-| Existing input mappings in the atlas matrix | 116 |
+| Existing input mappings in the atlas matrix | 117 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 625 |
+| New input-only fixture backlog | 624 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 116 `existing` mappings point to authored YAML input
+crosswalk snapshot, 117 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 38 indexed files
-and 320 cases, including seven BaseHTTPMiddleware cases, 37 authored StaticFiles cases, four authentication cases,
+and 322 cases, including nine BaseHTTPMiddleware cases, 37 authored StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
@@ -337,7 +341,7 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 320 currently indexed cases and
+The backlog distinguishes that work from the 322 currently indexed cases and
 the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
 
 ## Generate the source candidate catalog

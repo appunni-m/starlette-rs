@@ -80,6 +80,7 @@ BASE_HTTP_REQUIREMENTS = {
     "exception_context_propagation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation",
     "partial_stream_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding",
     "downstream_receive_transformation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-middleware-receive-transformation",
+    "repeated_disconnect_polling": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.repeated-disconnect-polling",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -5241,6 +5242,44 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "downstream endpoint must read the request body and return an empty response"
                 )
+        elif raw_downstream["kind"] == "disconnect-polling-app":
+            downstream = _exact(
+                raw_downstream,
+                {"kind", "polls", "response"},
+                "BaseHTTPMiddleware downstream disconnect-polling app",
+            )
+            if routes:
+                raise ContractError("direct BaseHTTPMiddleware ASGI input cannot declare routes")
+            polls = downstream["polls"]
+            if not isinstance(polls, list) or len(polls) != 2:
+                raise ContractError("disconnect-polling app requires two ordered polls")
+            for index, raw_poll in enumerate(polls):
+                poll = _exact(
+                    raw_poll,
+                    {"kind"},
+                    f"downstream disconnect poll[{index}]",
+                )
+                if poll["kind"] != "drain-requests-until-disconnect":
+                    raise ContractError(
+                        "downstream polls must drain request messages to disconnect"
+                    )
+            response = _exact(
+                downstream["response"],
+                {"kind", "body_base64", "status_code"},
+                "downstream disconnect-polling response",
+            )
+            if (
+                response["kind"] != "bytes-response"
+                or type(response["status_code"]) is not int
+                or not 100 <= response["status_code"] <= 599
+            ):
+                raise ContractError("downstream polling response input is invalid")
+            try:
+                response_body = base64.b64decode(response["body_base64"], validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError("downstream polling response body must be base64") from exc
+            if not response_body:
+                raise ContractError("downstream polling response body must be non-empty")
         else:
             raise ContractError("downstream ASGI input kind is unsupported")
     if returned == "call-next" and not routes and downstream is None:
@@ -5320,26 +5359,42 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     receive = request["receive"]
     if not isinstance(receive, list) or not receive:
         raise ContractError("BaseHTTPMiddleware request requires HTTP body event inputs")
+    request_events: list[dict[str, Any]] = []
+    disconnect_events: list[int] = []
     for index, raw_event in enumerate(receive):
-        event = _exact(
-            raw_event,
-            {"type", "body_base64", "more_body"},
-            f"BaseHTTPMiddleware HTTP request event[{index}]",
-        )
-        if (
-            event["type"] != "http.request"
-            or type(event["more_body"]) is not bool
-            or event["more_body"] is not (index < len(receive) - 1)
-        ):
+        if not isinstance(raw_event, dict) or not isinstance(raw_event.get("type"), str):
+            raise ContractError(f"BaseHTTPMiddleware receive event[{index}] must be tagged")
+        if raw_event["type"] == "http.request":
+            event = _exact(
+                raw_event,
+                {"type", "body_base64", "more_body"},
+                f"BaseHTTPMiddleware HTTP request event[{index}]",
+            )
+            if type(event["more_body"]) is not bool:
+                raise ContractError("BaseHTTPMiddleware request more_body must be boolean")
+            try:
+                base64.b64decode(event["body_base64"], validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError(
+                    f"BaseHTTPMiddleware request body event[{index}] must contain base64"
+                ) from exc
+            request_events.append(event)
+        elif raw_event["type"] == "http.disconnect":
+            _exact(raw_event, {"type"}, f"BaseHTTPMiddleware disconnect event[{index}]")
+            disconnect_events.append(index)
+        else:
+            raise ContractError(f"BaseHTTPMiddleware receive event[{index}] has unsupported type")
+    for index, event in enumerate(request_events):
+        if event["more_body"] is not (index < len(request_events) - 1):
             raise ContractError(
                 "BaseHTTPMiddleware request events must end with exactly one final body event"
             )
-        try:
-            base64.b64decode(event["body_base64"], validate=True)
-        except (ValueError, TypeError) as exc:
-            raise ContractError(
-                f"BaseHTTPMiddleware request body event[{index}] must contain base64"
-            ) from exc
+    if disconnect_events and (
+        len(disconnect_events) != 1 or disconnect_events[0] != len(receive) - 1
+    ):
+        raise ContractError("BaseHTTPMiddleware request input may end with one disconnect event")
+    if disconnect_events and (downstream is None or downstream["kind"] != "disconnect-polling-app"):
+        raise ContractError("explicit http.disconnect input is scoped to disconnect-polling cases")
     if not isinstance(request["receive_after_events"], str) or request[
         "receive_after_events"
     ] not in {"disconnect", "block"}:
@@ -5357,7 +5412,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         requirements.add(BASE_HTTP_REQUIREMENTS["header_mutation"])
     if returned == "replacement":
         requirements.add(BASE_HTTP_REQUIREMENTS["replacement_response"])
-    body = b"".join(base64.b64decode(event["body_base64"]) for event in receive)
+    body = b"".join(base64.b64decode(event["body_base64"]) for event in request_events)
     if (
         route_kind == "request-body-response"
         and body
@@ -5383,7 +5438,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         and index > await_index
     ]
     if route_kind == "request-stream-response":
-        chunks = [base64.b64decode(event["body_base64"]) for event in receive]
+        chunks = [base64.b64decode(event["body_base64"]) for event in request_events]
         if (
             returned != "call-next"
             or not stream_reads_before_call_next
@@ -5426,6 +5481,33 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 "downstream receive transformation requires a consumed non-empty POST body, one terminal request event, call_next, and no send checkpoints"
             )
         requirements.add(BASE_HTTP_REQUIREMENTS["downstream_receive_transformation"])
+    elif downstream is not None and downstream["kind"] == "disconnect-polling-app":
+        request_bodies = [
+            base64.b64decode(event["body_base64"], validate=True) for event in request_events
+        ]
+        send_body_variant = (
+            len(receive) == 3
+            and len(request_events) == 2
+            and request_bodies[0]
+            and not request_bodies[1]
+            and len(disconnect_events) == 1
+        )
+        no_body_variant = (
+            receive == [{"type": "http.disconnect"}]
+            and not request_events
+            and len(disconnect_events) == 1
+        )
+        if (
+            returned != "call-next"
+            or scope["method"] != "GET"
+            or request["receive_after_events"] != "block"
+            or send_checkpoints
+            or not (send_body_variant or no_body_variant)
+        ):
+            raise ContractError(
+                "repeated disconnect polling requires GET, two call_next polls, one disconnect, blocking exhausted receive, and either one body stream or no body"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["repeated_disconnect_polling"])
     if set(case["covers"]) != requirements:
         raise ContractError(
             "BaseHTTPMiddleware covers must match the input middleware, request, and dispatch actions: "
