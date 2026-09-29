@@ -14,6 +14,8 @@ use std::task::{Context, Poll, Waker};
 use std::ffi::CString;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 // The workspace's flate2 dependency is used by the companion library target.
 use flate2 as _;
@@ -63,8 +65,29 @@ struct StaticFilesPathLimitStress {
     safe_component_bytes: usize,
 }
 
+#[derive(Clone, Copy)]
+struct StaticFilesPermissionDenialStress {
+    mode: u32,
+}
+
+struct StaticFilesPermissionDenialGuard {
+    path: PathBuf,
+    original_permissions: fs::Permissions,
+}
+
+impl Drop for StaticFilesPermissionDenialGuard {
+    fn drop(&mut self) {
+        let _ = fs::set_permissions(&self.path, self.original_permissions.clone());
+    }
+}
+
 enum StaticFilesPathLimitStressSetup {
     Ready(PathBuf),
+    Skipped(String),
+}
+
+enum StaticFilesPermissionDenialStressSetup {
+    Ready(StaticFilesPermissionDenialGuard),
     Skipped(String),
 }
 
@@ -2027,6 +2050,7 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
             "assets",
             "directory",
             "path_limit_stress",
+            "permission_denial_stress",
             "packages",
             "files",
             "html",
@@ -2085,6 +2109,12 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
         .and_then(Value::as_bool)
         .ok_or_else(|| String::from("StaticFiles follow_symlink must be boolean"))?;
     let path_limit_stress = parse_static_files_path_limit_stress(case)?;
+    let permission_denial_stress = parse_static_files_permission_denial_stress(case)?;
+    if path_limit_stress.is_some() && permission_denial_stress.is_some() {
+        return Err(String::from(
+            "StaticFiles path-limit and permission stress are mutually exclusive",
+        ));
+    }
     let file_inputs = case
         .get("files")
         .and_then(Value::as_array)
@@ -2129,13 +2159,30 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
     };
     let mut directories = vec![root.clone()];
     directories.extend(package_roots);
-    let static_files =
-        NativeStaticFiles::new(Some(root), directories, html, check_dir, follow_symlink)
-            .map_err(|error| format!("StaticFiles construction failed: {error:?}"))?;
+    let static_files = NativeStaticFiles::new(
+        Some(root.clone()),
+        directories,
+        html,
+        check_dir,
+        follow_symlink,
+    )
+    .map_err(|error| format!("StaticFiles construction failed: {error:?}"))?;
     static_files
         .check_config()
         .map_err(|error| format!("StaticFiles configuration failed: {error:?}"))?;
-    let selected = match static_files.get_response(&path, scope_path, method, &request_headers) {
+    let permission_guard = if let Some(stress) = permission_denial_stress {
+        match prepare_static_files_permission_denial_stress(&root, &path, stress)? {
+            StaticFilesPermissionDenialStressSetup::Ready(guard) => Some(guard),
+            StaticFilesPermissionDenialStressSetup::Skipped(reason) => {
+                return Ok(static_files_skipped_result(case_id, &reason));
+            }
+        }
+    } else {
+        None
+    };
+    let selected_result = static_files.get_response(&path, scope_path, method, &request_headers);
+    drop(permission_guard);
+    let selected = match selected_result {
         Ok(selected) => selected,
         Err(StaticFilesError::MethodNotAllowed) => {
             return Ok(static_files_error_result(
@@ -2146,6 +2193,9 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
         }
         Err(StaticFilesError::NotFound) => {
             return Ok(static_files_error_result(case_id, 404, "Not Found"));
+        }
+        Err(StaticFilesError::PermissionDenied) => {
+            return Ok(static_files_error_result(case_id, 401, "Unauthorized"));
         }
         Err(error) => return Err(format!("StaticFiles request failed: {error:?}")),
     };
@@ -2321,6 +2371,89 @@ fn parse_static_files_path_limit_stress(
         later_root_margin_bytes: positive_usize("later_root_margin_bytes", 1024)?,
         safe_component_bytes: positive_usize("safe_component_bytes", 255)?,
     }))
+}
+
+fn parse_static_files_permission_denial_stress(
+    case: &Map<String, Value>,
+) -> Result<Option<StaticFilesPermissionDenialStress>, String> {
+    let Some(value) = case.get("permission_denial_stress") else {
+        return Err(String::from(
+            "StaticFiles permission_denial_stress field is missing",
+        ));
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let stress = exact_object(
+        value,
+        &["kind", "mode"],
+        "StaticFiles permission_denial_stress",
+    )?;
+    if string_field(stress, "kind", "StaticFiles permission_denial_stress")?
+        != "permission-denied-root"
+    {
+        return Err(String::from(
+            "StaticFiles permission_denial_stress kind is unsupported",
+        ));
+    }
+    let mode = stress
+        .get("mode")
+        .and_then(Value::as_u64)
+        .filter(|mode| *mode <= 0o777 && *mode & 0o100 == 0)
+        .and_then(|mode| u32::try_from(mode).ok())
+        .ok_or_else(|| String::from("StaticFiles permission_denial_stress.mode is invalid"))?;
+    Ok(Some(StaticFilesPermissionDenialStress { mode }))
+}
+
+#[cfg(unix)]
+fn prepare_static_files_permission_denial_stress(
+    root: &Path,
+    request_path: &str,
+    stress: StaticFilesPermissionDenialStress,
+) -> Result<StaticFilesPermissionDenialStressSetup, String> {
+    let original_permissions = fs::metadata(root)
+        .map_err(|error| format!("cannot read StaticFiles root permissions: {error}"))?
+        .permissions();
+    let guard = StaticFilesPermissionDenialGuard {
+        path: root.to_path_buf(),
+        original_permissions,
+    };
+    if let Err(error) = fs::set_permissions(root, fs::Permissions::from_mode(stress.mode)) {
+        drop(guard);
+        return Ok(StaticFilesPermissionDenialStressSetup::Skipped(format!(
+            "the temporary filesystem cannot apply the declared directory mode: {error}"
+        )));
+    }
+
+    match fs::metadata(root.join(request_path)) {
+        Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+            Ok(StaticFilesPermissionDenialStressSetup::Ready(guard))
+        }
+        Ok(_) => {
+            drop(guard);
+            Ok(StaticFilesPermissionDenialStressSetup::Skipped(
+                "the current process can still traverse the permission-restricted root".to_owned(),
+            ))
+        }
+        Err(error) => {
+            drop(guard);
+            Err(format!(
+                "cannot verify StaticFiles permission fixture: {error}"
+            ))
+        }
+    }
+}
+
+#[cfg(not(unix))]
+fn prepare_static_files_permission_denial_stress(
+    _root: &Path,
+    _request_path: &str,
+    stress: StaticFilesPermissionDenialStress,
+) -> Result<StaticFilesPermissionDenialStressSetup, String> {
+    let _mode = stress.mode;
+    Ok(StaticFilesPermissionDenialStressSetup::Skipped(
+        "permission_denial_stress requires Unix permission bits".to_owned(),
+    ))
 }
 
 #[cfg(unix)]

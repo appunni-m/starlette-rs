@@ -15,6 +15,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [],
       "files": [
         {
@@ -58,6 +59,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [],
       "files": [
         {
@@ -101,6 +103,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [],
       "files": [
         {
@@ -144,6 +147,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [],
       "files": [
         {
@@ -188,6 +192,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [
         {
           "name": "static_fixture_custom_pkg",
@@ -236,6 +241,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [
         {
           "name": "static_fixture_default_pkg",
@@ -285,6 +291,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [],
       "files": [
         {
@@ -328,6 +335,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [],
       "files": [
         {
@@ -371,6 +379,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [],
       "files": [
         {
@@ -416,6 +425,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [],
       "files": [
         {
@@ -461,6 +471,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [],
       "files": [
         {
@@ -504,6 +515,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [
         {
           "name": "static_fixture_custom_pkg",
@@ -550,6 +562,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [
         {
           "name": "static_fixture_default_pkg",
@@ -599,6 +612,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [],
       "files": [
         {
@@ -642,6 +656,7 @@
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
+      "permission_denial_stress": null,
       "packages": [],
       "files": [
         {
@@ -690,6 +705,7 @@
         "later_root_margin_bytes": 128,
         "safe_component_bytes": 96
       },
+      "permission_denial_stress": null,
       "packages": [
         {
           "name": "parity_staticfiles_overflow",
@@ -744,6 +760,7 @@
         "later_root_margin_bytes": 128,
         "safe_component_bytes": 96
       },
+      "permission_denial_stress": null,
       "packages": [
         {
           "name": "parity_staticfiles_overflow",
@@ -778,6 +795,126 @@
       "incoming": [],
       "send": {"kind": "capture-asgi-send"},
       "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.permission-denied-returns-401-follow-symlink-disabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.permission-denied-maps-401"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "path_limit_stress": null,
+      "permission_denial_stress": {
+        "kind": "permission-denied-root",
+        "mode": 7
+      },
+      "packages": [],
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/asset.txt",
+        "raw_path_base64": "L2Fzc2V0LnR4dA==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.permission-denied-returns-401-follow-symlink-enabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.permission-denied-maps-401"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "path_limit_stress": null,
+      "permission_denial_stress": {
+        "kind": "permission-denied-root",
+        "mode": 7
+      },
+      "packages": [],
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": true,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/asset.txt",
+        "raw_path_base64": "L2Fzc2V0LnR4dA==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
     }
   ]
 }

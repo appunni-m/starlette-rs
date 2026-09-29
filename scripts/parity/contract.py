@@ -214,7 +214,10 @@ STATIC_FILES_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "incoming",
     "send",
 }
-STATIC_FILES_ASGI_CALL_CASE_KEYS = STATIC_FILES_CASE_KEYS | {"path_limit_stress"}
+STATIC_FILES_ASGI_CALL_CASE_KEYS = STATIC_FILES_CASE_KEYS | {
+    "path_limit_stress",
+    "permission_denial_stress",
+}
 STATIC_FILES_LOOKUP_PATH_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "directory",
     "files",
@@ -2570,6 +2573,23 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
                     f"StaticFiles.path_limit_stress.{key} must be a positive bounded integer"
                 )
 
+    permission_denial_stress = case["permission_denial_stress"]
+    if permission_denial_stress is not None:
+        permission_denial_stress = _exact(
+            permission_denial_stress,
+            {"kind", "mode"},
+            "StaticFiles.permission_denial_stress",
+        )
+        if permission_denial_stress["kind"] != "permission-denied-root":
+            raise ContractError("StaticFiles.permission_denial_stress.kind is unsupported")
+        mode = permission_denial_stress["mode"]
+        if type(mode) is not int or not 0 <= mode <= 0o777 or mode & 0o100:
+            raise ContractError(
+                "StaticFiles.permission_denial_stress.mode must be an integer permission mode without owner search permission"
+            )
+    if path_limit_stress is not None and permission_denial_stress is not None:
+        raise ContractError("StaticFiles path-limit and permission stress are mutually exclusive")
+
     packages = case["packages"]
     if not isinstance(packages, list):
         raise ContractError("StaticFiles.packages must be an array")
@@ -2689,6 +2709,22 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "StaticFiles path_limit_stress overflow_bytes must be shorter than the selected relative path"
             )
+    if permission_denial_stress is not None:
+        if (
+            method != "GET"
+            or case["html"]
+            or not case["check_dir"]
+            or scope["root_path"] != ""
+            or path != f"/{normalized_path}"
+            or len(files) != 1
+            or packages
+            or normalized_path not in direct_paths
+            or set(case["target_profiles"]) != {"rust-native-local", "python-package-cpython312"}
+            or scope["headers_base64_pairs"]
+        ):
+            raise ContractError(
+                "StaticFiles permission_denial_stress requires a direct GET asset, checked root, both profiles, and no packages or request headers"
+            )
     if method == "POST":
         derived.add("method-not-allowed-post")
     if method == "HEAD" and normalized_path in selected_files:
@@ -2699,7 +2735,9 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
     conditional_match = False
     request_headers: dict[str, str] = {}
     if method == "GET" and normalized_path in selected_files:
-        if path_limit_stress is not None:
+        if permission_denial_stress is not None:
+            derived.add("permission-denied-maps-401")
+        elif path_limit_stress is not None:
             derived.add("path-limit-overflow-preempts-later-root")
         for encoded_name, encoded_value in scope["headers_base64_pairs"]:
             try:
@@ -2717,7 +2755,7 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
                     continue
                 if request_date.timestamp() >= selected_files[normalized_path][0]:
                     conditional_match = True
-        if path_limit_stress is None:
+        if path_limit_stress is None and permission_denial_stress is None:
             if request_headers.get("if-none-match") and request_headers.get("if-modified-since"):
                 derived.add("conditional-validator-precedence")
             elif request_headers.get("if-none-match"):

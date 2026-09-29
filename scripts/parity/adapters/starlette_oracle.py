@@ -2921,6 +2921,39 @@ def _static_files_path_limit_skipped(case: dict[str, Any], reason: str) -> dict[
     }
 
 
+def _static_files_permission_denial_skipped(case: dict[str, Any], reason: str) -> dict[str, Any]:
+    return {
+        "case_id": case["case_id"],
+        "status": "skipped",
+        "observations": [{"step_id": RESPONSE_OPERATION, "status": "skipped", "reason": reason}],
+    }
+
+
+def _static_files_permission_denial_mode(
+    case: dict[str, Any], root: Path
+) -> tuple[int | None, str | None]:
+    recipe = case["permission_denial_stress"]
+    if recipe is None:
+        return None, None
+    if os.name != "posix":
+        return None, "permission-denial fixture requires POSIX directory permissions"
+
+    original_mode = root.stat().st_mode & 0o7777
+    try:
+        root.chmod(recipe["mode"])
+    except OSError as exc:
+        return None, f"the temporary filesystem cannot apply the declared directory mode: {exc}"
+    try:
+        (root / case["scope"]["path"].lstrip("/")).stat()
+    except PermissionError:
+        return original_mode, None
+    except OSError:
+        root.chmod(original_mode)
+        raise
+    root.chmod(original_mode)
+    return None, "the current process can still traverse the permission-restricted root"
+
+
 def _static_files_path_limit_root(
     case: dict[str, Any], workspace: Path, root: Path, package_source_root: Path
 ) -> tuple[Path | None, str | None]:
@@ -3008,6 +3041,7 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             "assets",
             "directory",
             "path_limit_stress",
+            "permission_denial_stress",
             "packages",
             "files",
             "html",
@@ -3091,12 +3125,20 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                 sent.append(message)
 
             captured_error: Exception | None = None
+            permission_original_mode, permission_skip_reason = _static_files_permission_denial_mode(
+                case, root
+            )
+            if permission_skip_reason is not None:
+                return _static_files_permission_denial_skipped(case, permission_skip_reason)
             try:
                 asyncio.run(application(scope, receive, send))
             except Exception as exc:
-                if not isinstance(exc, HTTPException) or exc.status_code not in {404, 405}:
+                if not isinstance(exc, HTTPException):
                     raise
                 captured_error = exc
+            finally:
+                if permission_original_mode is not None:
+                    root.chmod(permission_original_mode)
         finally:
             sys.path.remove(str(package_source_root))
         events = [_canonical_message(message) for message in sent]
