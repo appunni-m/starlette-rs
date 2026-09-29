@@ -5530,6 +5530,12 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             _exact_object(raw_action, {"kind"}, context)
         elif kind == "read-request-stream-next":
             _exact_object(raw_action, {"kind"}, context)
+        elif kind == "capture-request-stream-next":
+            _exact_object(raw_action, {"kind"}, context)
+            if not awaited or returned is not None:
+                raise ValueError(
+                    "captured request.stream() reads must follow call_next and precede the dispatch return"
+                )
         elif kind == "await-call-next":
             _exact_object(raw_action, {"kind"}, context)
             if awaited or returned is not None:
@@ -5863,6 +5869,15 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation"
         )
+    if any(
+        action["kind"] == "capture-request-stream-next" for action in dispatch_actions
+    ) and route_kind not in {
+        "request-body-plain-text-response",
+        "request-stream-plain-text-response",
+    }:
+        raise ValueError(
+            "captured post-call-next stream reads require a body- or stream-reading plain-text endpoint"
+        )
     stream_reads_before_call_next = [
         index
         for index, action in enumerate(dispatch_actions)
@@ -5913,47 +5928,71 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             )
             + 2
         )
+        reads_body_after_stream = (
+            await_index is not None
+            and dispatch_actions[await_index + 1 :] == [{"kind": "return-call-next-response"}]
+            and len(stream_body_reads) == expected_stream_reads
+            and all(
+                action["kind"] == "read-request-stream-next"
+                for action in dispatch_actions[:await_index]
+            )
+        )
+        reads_stream_after_downstream_body = dispatch_actions == [
+            {"kind": "await-call-next"},
+            {"kind": "capture-request-stream-next"},
+            {"kind": "return-call-next-response"},
+        ]
         if (
             returned != "call-next"
             or scope_spec["method"] != "POST"
             or not request_body
             or await_index is None
-            or len(stream_body_reads) != expected_stream_reads
-            or any(
-                action["kind"] != "read-request-stream-next"
-                for action in dispatch_actions[:await_index]
-            )
-            or dispatch_actions[await_index + 1 :] != [{"kind": "return-call-next-response"}]
+            or not (reads_body_after_stream or reads_stream_after_downstream_body)
             or request["receive_after_events"] != "disconnect"
             or disconnect_event_indices
             or send_checkpoints
         ):
             raise ValueError(
-                "downstream body-after-stream-consumption requires a non-empty POST stream fully exhausted in dispatch before call_next, an input-defined plain-text response, and disconnect after the supplied request events"
+                "request-body plain-text cases require a non-empty POST body, a supported body/stream read ordering around call_next, an input-defined plain-text response, and disconnect after the supplied request events"
             )
-        required_covers.add(
-            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-body-read-after-stream-consumption"
-        )
+        if reads_body_after_stream:
+            required_covers.add(
+                f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-body-read-after-stream-consumption"
+            )
+        else:
+            required_covers.add(
+                f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-read-after-downstream-body-read"
+            )
     if route_kind == "request-stream-plain-text-response":
+        reads_stream_after_body_cache = dispatch_actions == [
+            {"kind": "read-request-body"},
+            {"kind": "await-call-next"},
+            {"kind": "return-call-next-response"},
+        ]
+        reads_stream_after_downstream_stream = dispatch_actions == [
+            {"kind": "await-call-next"},
+            {"kind": "capture-request-stream-next"},
+            {"kind": "return-call-next-response"},
+        ]
         if (
             returned != "call-next"
             or scope_spec["method"] != "POST"
             or not request_body
-            or dispatch_actions
-            != [
-                {"kind": "read-request-body"},
-                {"kind": "await-call-next"},
-                {"kind": "return-call-next-response"},
-            ]
+            or not (reads_stream_after_body_cache or reads_stream_after_downstream_stream)
             or disconnect_event_indices
             or send_checkpoints
         ):
             raise ValueError(
-                "downstream stream-after-body-cache requires a non-empty POST body read in dispatch before call_next, an input-defined plain-text response, and a direct returned call_next response"
+                "request-stream plain-text cases require a non-empty POST body, a supported body/stream read ordering around call_next, and a direct returned call_next response"
             )
-        required_covers.add(
-            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-stream-read-after-body-cache"
-        )
+        if reads_stream_after_body_cache:
+            required_covers.add(
+                f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-stream-read-after-body-cache"
+            )
+        else:
+            required_covers.add(
+                f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-read-after-downstream-stream-consumption"
+            )
     if downstream_spec is not None and downstream_spec["kind"] == "asgi-sequence":
         if (
             request["receive_after_events"] != "block"
@@ -6072,6 +6111,31 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                                 if chunk is not None
                                 else None
                             ),
+                        }
+                    )
+                elif kind == "capture-request-stream-next":
+                    if stream_iterator is None:
+                        stream_iterator = request.stream()
+                    try:
+                        chunk = await stream_iterator.__anext__()
+                    except StopAsyncIteration:
+                        outcome = {"kind": "exhausted"}
+                    except Exception as exc:
+                        outcome = {
+                            "kind": "exception",
+                            "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                            "message": str(exc),
+                        }
+                    else:
+                        outcome = {
+                            "kind": "yielded",
+                            "body_base64": base64.b64encode(chunk).decode("ascii"),
+                        }
+                    dispatch_stream_reads.append(
+                        {
+                            "action_index": action_index,
+                            "phase": "after-call-next",
+                            "outcome": outcome,
                         }
                     )
                 elif kind == "await-call-next":
