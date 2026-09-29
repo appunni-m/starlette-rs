@@ -8,20 +8,23 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 322 input-only cases across 38 files, covering 56
-operations and 399 requirements. Run `2556891d-f0f3-44e2-842e-f467b102d02f` from
-`2026-09-29T14:36:23.956Z` to `2026-09-29T14:37:32.098Z`; it selected 457
-comparisons: 453 passed, zero failed, zero infrastructure errors,
-and four `not_run`. The Python package passed all 320 applicable cases;
+The active contract has 323 input-only cases across 38 files, covering 56
+operations and 400 requirements. Run `48a198e6-ac28-4a11-ab1e-6443411e3486` from
+`2026-09-29T14:55:44.047Z` to `2026-09-29T14:56:43.430Z`; it selected 458
+comparisons: 454 passed, zero failed, zero infrastructure errors,
+and four `not_run`. The Python package passed all 321 applicable cases;
 Rust-native passed 133 of 137 selected cases. The four unsupported Rust-native
 rows require arbitrary Python callables. All 27 FileResponse cases passed on
-both profiles; all eight SessionMiddleware cases and all nine BaseHTTPMiddleware
-cases passed on the Python package profile. The nine BaseHTTPMiddleware cases
+both profiles; all eight SessionMiddleware cases and all ten BaseHTTPMiddleware
+cases passed on the Python package profile. The ten BaseHTTPMiddleware cases
 cover configured-header mutation, awaited `call_next` response replacement,
 body-cache replay, response-completion unblocking downstream receive, and
-exception-context propagation, partial-stream forwarding, and downstream
-receive transformation, and repeated disconnect polling with `send_body=True`
-and `False`. Both polling variants observe two downstream polls, raw and
+exception-context propagation, caught downstream `ValueError` handling,
+partial-stream forwarding, downstream receive transformation, and repeated
+disconnect polling with `send_body=True` and `False`. The caught-exception case
+matches `tests/middleware/test_base.py:338-356`: dispatch catches
+`ValueError("TEST")` from `call_next` and returns status 400 with a body derived
+from `str(exc)`. Both polling variants observe two downstream polls, raw and
 downstream receive traces, drained requests and poll results, and the exact
 `200 b"good!"` response tape; see
 `tests/middleware/test_base.py:1168-1215`. The partial
@@ -34,15 +37,16 @@ downstream wrapper doubles the request body, and the endpoint observes
 partial-stream/replay interleavings, disconnect ordering across stacked
 middleware, broader
 exception-group shapes beyond the observed
-TaskGroup context, varied or malformed `http.response.debug` frames, broader
+TaskGroup context and caught `ValueError`, varied or malformed
+`http.response.debug` frames, broader
 cancellation and cleanup ordering, path-send responses, and additional
 streaming behaviors unproven. The Rust-native target was clean at
-revision `c1dad22af7c85e5297fa9519733ef3917c55f22e+source-fnv1a64-e5a0df1c1dca21b4`;
+revision `0a39bd1fc3bb235a6b50f4c416abd2d983cfa135+source-fnv1a64-e5a0df1c1dca21b4`;
 the Python-package target was dirty with tree SHA-256
-`81afeba1c9802eae835b2cf9136b5935d0317e79c834a6adf6a71697c7a5464a`. Manifest
-SHA-256: `ba97826e0153671477717b7d1085be6b005b9502669e0f75e6123d1b90f3276a`;
+`a964d60151a11ed7b68bd72bd28fa6577bdd29d87ce51c6d0e26f86155798643`. Manifest
+SHA-256: `6fcc1783dfc3c76d48e3222b77c272a8643d00a2a87249d7da9535334c4b6b85`;
 package wheel SHA-256:
-`c13e1a571214186fa3d82dfdfe0eaaeea91e29e6ea21dc502db9a5d7652aeb2b`.
+`b073a572bd7d28b4a1796b78df4a8924c18479187cd5332a2632ab58d470143f`.
 See
 [Migration parity contract and evidence](../PARITY.md) for current scope.
 
@@ -52,8 +56,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The matrix has 791 mappings: 624 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 117 existing input mappings. It maps selected
+The current matrix has 791 mappings: 623 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 118 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

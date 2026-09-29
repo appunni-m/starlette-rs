@@ -3647,6 +3647,15 @@
                   }
                 },
                 {
+                  "path": "dispatch_caught_exceptions",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
                   "path": "dispatch_stream_reads",
                   "value_types": [
                     "sequence"
@@ -3800,6 +3809,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.exception-context-propagation",
               "dimension": "error_path",
               "description": "Propagate a context-free exception raised by a route while dispatch awaits call_next, and observe its exception relationships. Upstream: tests/middleware/test_base.py:1296-1319; starlette/middleware/base.py:150-168.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.catch-call-next-exception",
+              "dimension": "error_path",
+              "description": "Catch the ValueError raised by the endpoint through call_next and return a PlainTextResponse whose body is str(exc) and whose status comes from the dispatch input. Compare caught exception class, message, response status, and ordered ASGI events. Upstream: tests/middleware/test_base.py:338-356; starlette/middleware/base.py:112-168.",
               "lanes": [
                 "parity"
               ],

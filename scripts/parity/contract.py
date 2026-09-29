@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import builtins
 import hashlib
 import json
 import math
@@ -78,6 +79,7 @@ BASE_HTTP_REQUIREMENTS = {
     "body_cache_replay": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-cache-replay",
     "response_completion_unblocks_receive": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive",
     "exception_context_propagation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation",
+    "caught_exception_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.catch-call-next-exception",
     "partial_stream_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding",
     "downstream_receive_transformation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-middleware-receive-transformation",
     "repeated_disconnect_polling": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.repeated-disconnect-polling",
@@ -5061,8 +5063,10 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 {"class", "message"},
                 "BaseHTTPMiddleware endpoint exception",
             )
-            if exception["class"] != "Exception":
-                raise ContractError("BaseHTTPMiddleware endpoint exception class must be Exception")
+            if exception["class"] not in {"Exception", "ValueError"}:
+                raise ContractError(
+                    "BaseHTTPMiddleware endpoint exception class must be Exception or ValueError"
+                )
             _string(exception["message"], "BaseHTTPMiddleware endpoint exception.message")
         elif route_kind == "request-stream-response":
             endpoint = _exact(
@@ -5095,6 +5099,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
 
     awaited = False
     await_index: int | None = None
+    await_action_kind: str | None = None
     returned: str | None = None
     saw_header_mutation = False
     for index, raw_action in enumerate(actions):
@@ -5116,6 +5121,27 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 raise ContractError("BaseHTTPMiddleware dispatch must await call_next once")
             awaited = True
             await_index = index
+            await_action_kind = kind
+        elif kind == "await-call-next-catching-exception":
+            action = _exact(
+                raw_action,
+                {"kind", "exception_class", "response_status_code"},
+                context,
+            )
+            if action["exception_class"] not in {"Exception", "ValueError"}:
+                raise ContractError(
+                    "BaseHTTPMiddleware caught exception class must be Exception or ValueError"
+                )
+            if (
+                type(action["response_status_code"]) is not int
+                or not 100 <= action["response_status_code"] <= 599
+            ):
+                raise ContractError("caught-exception response status must be between 100 and 599")
+            if awaited or returned is not None:
+                raise ContractError("BaseHTTPMiddleware dispatch must await call_next once")
+            awaited = True
+            await_index = index
+            await_action_kind = kind
         elif kind == "set-call-next-response-header":
             action = _exact(raw_action, {"kind", "name", "value"}, context)
             if not awaited or returned is not None or saw_header_mutation:
@@ -5421,7 +5447,23 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         and any(action["kind"] == "read-request-body" for action in actions[await_index + 1 :])
     ):
         requirements.add(BASE_HTTP_REQUIREMENTS["body_cache_replay"])
-    if route_kind == "raise-exception" and returned == "call-next":
+    if await_action_kind == "await-call-next-catching-exception":
+        if route_kind != "raise-exception":
+            raise ContractError(
+                "call_next exception handling requires a declared raising route endpoint"
+            )
+        if returned != "call-next":
+            raise ContractError(
+                "caught call_next exception response must be returned from dispatch"
+            )
+        endpoint_exception_type = getattr(builtins, exception["class"])
+        caught_exception_type = getattr(builtins, actions[await_index]["exception_class"])
+        if not issubclass(endpoint_exception_type, caught_exception_type):
+            raise ContractError(
+                "call_next exception handler cannot catch the declared endpoint exception"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["caught_exception_response"])
+    elif route_kind == "raise-exception" and returned == "call-next":
         requirements.add(BASE_HTTP_REQUIREMENTS["exception_context_propagation"])
     stream_reads_before_call_next = [
         index

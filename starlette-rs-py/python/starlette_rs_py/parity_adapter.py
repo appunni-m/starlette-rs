@@ -5470,7 +5470,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 {"class", "message"},
                 "BaseHTTPMiddleware endpoint exception",
             )
-            if exception_spec["class"] != "Exception" or not isinstance(
+            if exception_spec["class"] not in {"Exception", "ValueError"} or not isinstance(
                 exception_spec["message"], str
             ):
                 raise ValueError("BaseHTTPMiddleware endpoint exception input is invalid")
@@ -5492,6 +5492,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("BaseHTTPMiddleware dispatch_actions must be non-empty")
     awaited = False
     await_index = None
+    await_action_kind = None
     returned = None
     saw_header_mutation = False
     for index, raw_action in enumerate(dispatch_actions):
@@ -5509,6 +5510,27 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("BaseHTTPMiddleware dispatch must await call_next once")
             awaited = True
             await_index = index
+            await_action_kind = kind
+        elif kind == "await-call-next-catching-exception":
+            action = _exact_object(
+                raw_action,
+                {"kind", "exception_class", "response_status_code"},
+                context,
+            )
+            if action["exception_class"] not in {"Exception", "ValueError"}:
+                raise ValueError(
+                    "BaseHTTPMiddleware caught exception class must be Exception or ValueError"
+                )
+            if (
+                type(action["response_status_code"]) is not int
+                or not 100 <= action["response_status_code"] <= 599
+            ):
+                raise ValueError("caught-exception response status must be between 100 and 599")
+            if awaited or returned is not None:
+                raise ValueError("BaseHTTPMiddleware dispatch must await call_next once")
+            awaited = True
+            await_index = index
+            await_action_kind = kind
         elif kind == "set-call-next-response-header":
             action = _exact_object(raw_action, {"kind", "name", "value"}, context)
             if not awaited or returned is not None or saw_header_mutation:
@@ -5795,7 +5817,23 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         )
     ):
         required_covers.add(f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-cache-replay")
-    if route_kind == "raise-exception" and returned == "call-next":
+    if await_action_kind == "await-call-next-catching-exception":
+        if route_kind != "raise-exception":
+            raise ValueError(
+                "call_next exception handling requires a declared raising route endpoint"
+            )
+        if returned != "call-next":
+            raise ValueError("caught call_next exception response must be returned from dispatch")
+        endpoint_exception_type = getattr(builtins, exception_spec["class"])
+        caught_exception_type = getattr(builtins, dispatch_actions[await_index]["exception_class"])
+        if not issubclass(endpoint_exception_type, caught_exception_type):
+            raise ValueError(
+                "call_next exception handler cannot catch the declared endpoint exception"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.catch-call-next-exception"
+        )
+    elif route_kind == "raise-exception" and returned == "call-next":
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation"
         )
@@ -5914,6 +5952,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     downstream_receive_transformations: list[dict[str, Any]] = []
     downstream_receive_events: list[dict[str, Any]] = []
     downstream_poll_results: list[dict[str, Any]] = []
+    dispatch_caught_exceptions: list[dict[str, Any]] = []
 
     class InputDefinedBaseHTTPMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Any, call_next: Any) -> Any:
@@ -5953,6 +5992,24 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     )
                 elif kind == "await-call-next":
                     response = await call_next(request)
+                elif kind == "await-call-next-catching-exception":
+                    action = dispatch_actions[action_index]
+                    exception_type = getattr(builtins, action["exception_class"])
+                    try:
+                        response = await call_next(request)
+                    except exception_type as exc:
+                        response = PlainTextResponse(
+                            content=str(exc),
+                            status_code=action["response_status_code"],
+                        )
+                        dispatch_caught_exceptions.append(
+                            {
+                                "action_index": action_index,
+                                "exception_class": type(exc).__name__,
+                                "message": str(exc),
+                                "response_status_code": action["response_status_code"],
+                            }
+                        )
                 elif kind == "set-call-next-response-header":
                     response.headers[action["name"]] = action["value"]
                 elif kind == "return-call-next-response":
@@ -6205,6 +6262,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "downstream_receive_transformations": downstream_receive_transformations,
         "downstream_receive_events": downstream_receive_events,
         "downstream_poll_results": downstream_poll_results,
+        "dispatch_caught_exceptions": dispatch_caught_exceptions,
         "request_receive_events": request_receive_events,
         "execution_trace": execution_trace,
         "propagated_exception": propagated_exception,
