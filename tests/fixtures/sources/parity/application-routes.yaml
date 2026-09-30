@@ -1,0 +1,73 @@
+{
+  "schema": "migration-parity/parity-input@17",
+  "cases": [
+    {
+      "case_id": "starlette.applications.Starlette.routes.application-route-order-and-shape",
+      "surface": "starlette.applications.Starlette",
+      "operation": "routes",
+      "covers": [
+        "starlette.applications.Starlette.routes.route-order-and-shape"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "route",
+          "path": "/func",
+          "methods": ["GET"],
+          "endpoint": {"kind": "function", "name": "func_homepage", "async": false}
+        },
+        {
+          "kind": "route",
+          "path": "/async",
+          "methods": ["GET"],
+          "endpoint": {"kind": "function", "name": "async_homepage", "async": true}
+        },
+        {
+          "kind": "route",
+          "path": "/class",
+          "endpoint": {"kind": "class", "name": "Homepage"}
+        },
+        {
+          "kind": "route",
+          "path": "/state",
+          "methods": ["GET"],
+          "endpoint": {"kind": "function", "name": "state_count", "async": true}
+        },
+        {
+          "kind": "websocket-route",
+          "path": "/ws",
+          "endpoint": {"kind": "function", "name": "websocket_endpoint", "async": true}
+        },
+        {
+          "kind": "mount",
+          "path": "/users",
+          "routes": [
+            {
+              "kind": "route",
+              "path": "/",
+              "endpoint": {"kind": "function", "name": "all_users_page", "async": false}
+            },
+            {
+              "kind": "route",
+              "path": "/{username}",
+              "endpoint": {"kind": "function", "name": "user_page", "async": false}
+            }
+          ]
+        },
+        {
+          "kind": "host",
+          "host": "{subdomain}.example.org",
+          "routes": [
+            {
+              "kind": "route",
+              "path": "/",
+              "endpoint": {"kind": "function", "name": "custom_subdomain", "async": false}
+            }
+          ]
+        }
+      ],
+      "observations": ["route-inventory"]
+    }
+  ]
+}

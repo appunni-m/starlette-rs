@@ -37,6 +37,8 @@ PROTOCOL_RESPONSE = "migration-parity/adapter-response@1"
 ORACLE_ID = "starlette-python"
 ORACLE_VERSION = "1.6.0"
 ORACLE_COMMIT = "4f250d6b814587e20c5365f0a5f0c4d42bcb929f"
+APPLICATION_SURFACE = "starlette.applications.Starlette"
+APPLICATION_ROUTES_OPERATION = "routes"
 WEBSOCKET_SURFACE = "starlette.websockets.WebSocket"
 WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
@@ -9215,6 +9217,166 @@ def _schema_routes(specs: list[dict[str, Any]]) -> list[Any]:
     return routes
 
 
+def _application_route_endpoint(spec: dict[str, Any]) -> Any:
+    if spec["kind"] == "function":
+        _strict_object(spec, {"kind", "name", "async"}, "application route function endpoint")
+        if spec["async"]:
+
+            async def endpoint(*_args: Any, **_kwargs: Any) -> None:
+                return None
+
+        else:
+
+            def endpoint(*_args: Any, **_kwargs: Any) -> None:
+                return None
+
+        endpoint.__name__ = spec["name"]
+        return endpoint
+    if spec["kind"] == "class":
+        _strict_object(spec, {"kind", "name"}, "application route class endpoint")
+        return type(spec["name"], (), {})
+    raise ValueError("application route endpoint uses an unsupported input kind")
+
+
+def _application_route_object(
+    value: Any, required: set[str], allowed: set[str], context: str
+) -> dict[str, Any]:
+    if not isinstance(value, dict) or not required <= set(value) or not set(value) <= allowed:
+        raise ValueError(f"{context} must contain required fields {sorted(required)} only")
+    return value
+
+
+def _application_routes(specs: list[dict[str, Any]]) -> list[Any]:
+    from starlette.routing import Host, Mount, Route, Router, WebSocketRoute
+
+    routes = []
+    for spec in specs:
+        kind = spec.get("kind") if isinstance(spec, dict) else None
+        if kind == "route":
+            _application_route_object(
+                spec,
+                {"kind", "path", "endpoint"},
+                {"kind", "path", "endpoint", "methods", "route_name"},
+                "application HTTP route",
+            )
+            kwargs: dict[str, Any] = {}
+            if "methods" in spec:
+                kwargs["methods"] = spec["methods"]
+            if "route_name" in spec:
+                kwargs["name"] = spec["route_name"]
+            routes.append(
+                Route(spec["path"], _application_route_endpoint(spec["endpoint"]), **kwargs)
+            )
+        elif kind == "websocket-route":
+            _application_route_object(
+                spec,
+                {"kind", "path", "endpoint"},
+                {"kind", "path", "endpoint", "route_name"},
+                "application WebSocket route",
+            )
+            kwargs = {"name": spec["route_name"]} if "route_name" in spec else {}
+            routes.append(
+                WebSocketRoute(
+                    spec["path"], _application_route_endpoint(spec["endpoint"]), **kwargs
+                )
+            )
+        elif kind == "mount":
+            _application_route_object(
+                spec,
+                {"kind", "path", "routes"},
+                {"kind", "path", "routes", "route_name"},
+                "application Mount route",
+            )
+            kwargs = {"name": spec["route_name"]} if "route_name" in spec else {}
+            routes.append(Mount(spec["path"], routes=_application_routes(spec["routes"]), **kwargs))
+        elif kind == "host":
+            _application_route_object(
+                spec,
+                {"kind", "host", "routes"},
+                {"kind", "host", "routes", "route_name"},
+                "application Host route",
+            )
+            kwargs = {"name": spec["route_name"]} if "route_name" in spec else {}
+            child_router = Router(routes=_application_routes(spec["routes"]))
+            routes.append(Host(spec["host"], child_router, **kwargs))
+        else:
+            raise ValueError(f"unsupported application route kind: {kind!r}")
+    return routes
+
+
+def _application_route_observation(route: Any) -> dict[str, Any]:
+    from starlette.routing import Host, Mount, Route, WebSocketRoute
+
+    value: dict[str, Any] = {
+        "type": type(route).__name__,
+        "path": getattr(route, "path", None),
+        "host": getattr(route, "host", None),
+        "name": route.name,
+        "methods": sorted(route.methods) if getattr(route, "methods", None) is not None else None,
+    }
+    if isinstance(route, (Route, WebSocketRoute)):
+        endpoint = route.endpoint
+        endpoint_name = getattr(endpoint, "__name__", type(endpoint).__name__)
+        if inspect.isclass(endpoint):
+            endpoint_shape = "class"
+        elif inspect.iscoroutinefunction(endpoint):
+            endpoint_shape = "async-function"
+        elif inspect.isfunction(endpoint):
+            endpoint_shape = "function"
+        else:
+            endpoint_shape = "callable-instance"
+        value["endpoint"] = {"shape": endpoint_shape, "name": endpoint_name}
+    else:
+        value["endpoint"] = None
+    if isinstance(route, (Host, Mount)):
+        value["child_routes"] = [_application_route_observation(child) for child in route.routes]
+    else:
+        value["child_routes"] = None
+    return value
+
+
+def _run_application_routes_property_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "routes",
+            "observations",
+        },
+        "Starlette.routes property case",
+    )
+    if (
+        case["surface"] != APPLICATION_SURFACE
+        or case["operation"] != APPLICATION_ROUTES_OPERATION
+        or case["observations"] != ["route-inventory"]
+    ):
+        raise ValueError("workflow is outside the Starlette.routes property operation")
+
+    from starlette.applications import Starlette
+
+    constructor_routes = _application_routes(case["routes"])
+    application = Starlette(routes=constructor_routes)
+    public_routes = application.routes
+    value = {
+        "routes": [_application_route_observation(route) for route in public_routes],
+        "same_list_as_router": public_routes is application.router.routes,
+        "constructor_route_identity": [
+            route is original
+            for route, original in zip(public_routes, constructor_routes, strict=True)
+        ],
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "route-inventory", "status": "ok", "value": value}],
+    }
+
+
 def _endpoint_observation(endpoint: Any) -> dict[str, Any]:
     return {
         "path": endpoint.path,
@@ -9430,6 +9592,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         return _run_status_symbols_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in CONFIG_OPERATIONS:
         return _run_config_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        APPLICATION_SURFACE,
+        APPLICATION_ROUTES_OPERATION,
+    ):
+        return _run_application_routes_property_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in SCHEMA_OPERATIONS:
         return _run_schema_case(case)
     if (

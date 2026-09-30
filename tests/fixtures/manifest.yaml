@@ -301,7 +301,8 @@
       "build/parity/inputs/parity/testclient-http.json",
       "build/parity/inputs/parity/testclient-websocket.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
-      "build/parity/inputs/parity/testclient-lifespan-context.json"
+      "build/parity/inputs/parity/testclient-lifespan-context.json",
+      "build/parity/inputs/parity/application-routes.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -2138,6 +2139,118 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
+          }
+        },
+        {
+          "id": "routes",
+          "kind": "property_get",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.applications.Starlette.routes",
+            "signature": "@property routes(self) -> list[BaseRoute]",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "sequence",
+              "observations": [
+                {
+                  "path": "routes",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "same_list_as_router",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "constructor_route_identity",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": ["class", "kind", "message", "stage", "code", "cause", "suppress_context"],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose Python Starlette route objects or the Starlette.routes compatibility property.",
+                "blocker": "No Rust-native public route-object collection is declared for this compatibility operation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.applications.Starlette.routes",
+              "signature": "@property routes(self) -> list[BaseRoute]",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.applications.Starlette.routes.route-order-and-shape",
+              "dimension": "success_path",
+              "description": "Return the configured HTTP routes, WebSocket routes, nested Mount, and Host in input order, preserving route type, path or host, name, methods, endpoint callable shape, child routes, and the original route objects. Upstream: starlette/applications.py:78-79; tests/test_applications.py:288-313.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded contract adds input-only parity evidence; it makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Application route-object inspection is outside the declared benchmark workloads."
           }
         }
       ]

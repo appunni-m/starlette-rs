@@ -611,6 +611,7 @@ STARLETTE_ADD_ROUTE_WORKFLOW_REQUIREMENTS = {
     "method_miss": "starlette.applications.Starlette.add_route.method-miss-405",
 }
 STARLETTE_ADD_ROUTE_OPERATION_KEY = ("starlette.applications.Starlette", "add_route")
+STARLETTE_ROUTES_OPERATION_KEY = ("starlette.applications.Starlette", "routes")
 ROUTE_CONSTRUCTOR_OPERATION_KEY = ("starlette.routing.Route", "__init__")
 ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS = {
     "application_default": "starlette.routing.Route.max_body_size.application-default",
@@ -1653,6 +1654,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             TESTCLIENT_WEBSOCKET_OPERATION_KEY,
                             TESTCLIENT_LIFESPAN_OPERATION_KEY,
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
+                            STARLETTE_ROUTES_OPERATION_KEY,
                             ROUTE_CONSTRUCTOR_OPERATION_KEY,
                         }
                         or (
@@ -9194,6 +9196,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and case.get("surface") == MOUNT_SURFACE
         and case.get("operation") == MOUNT_OPERATION
     )
+    is_application_routes = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == STARLETTE_ROUTES_OPERATION_KEY
+    )
     is_reverse_url = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) in REVERSE_URL_OPERATIONS
@@ -9354,6 +9360,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_request_form
         else REQUEST_BODY_STREAM_JSON_CASE_KEYS
         if is_request_body_stream_json
+        else (CASE_KEYS - {"steps", "execution_schedule"}) | {"routes"}
+        if is_application_routes
         else SESSION_WORKFLOW_CASE_KEYS
         if is_session_workflow
         else BASE_HTTP_CONTEXTVARS_CASE_KEYS
@@ -9653,6 +9661,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_request_body_stream_json:
         if case["observations"] != ["request-consumption"]:
             raise ContractError("Request body/stream/json cases must select request-consumption")
+    elif is_application_routes:
+        if (case["surface"], case["operation"]) != STARLETTE_ROUTES_OPERATION_KEY:
+            raise ContractError("Starlette.routes cases must use the declared property operation")
+        _validate_application_routes_property_case(case)
     elif is_status_symbols:
         if (case["surface"], case["operation"]) != STATUS_OPERATION:
             raise ContractError(
@@ -9882,6 +9894,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_authentication:
         _validate_authentication_case(case)
+        return case
+    if is_application_routes:
         return case
 
     if is_body_limit:
@@ -13018,6 +13032,78 @@ def _validate_schema_route_input(route: Any, context: str) -> tuple[set[str], bo
             selected.add("starlette.schemas.BaseSchemaGenerator._remove_converter")
         return selected, has_child
     raise ContractError(f"{context}.kind is unsupported")
+
+
+def _validate_application_route_endpoint(endpoint: Any, context: str) -> None:
+    if not isinstance(endpoint, dict) or endpoint.get("kind") not in {"function", "class"}:
+        raise ContractError(f"{context} must describe a function or class")
+    if endpoint["kind"] == "function":
+        endpoint = _exact(endpoint, {"kind", "name", "async"}, context)
+        _string(endpoint["name"], f"{context}.name")
+        if type(endpoint["async"]) is not bool:
+            raise ContractError(f"{context}.async must be boolean")
+    else:
+        endpoint = _exact(endpoint, {"kind", "name"}, context)
+        _string(endpoint["name"], f"{context}.name")
+
+
+def _validate_application_route_input(route: Any, context: str) -> None:
+    if not isinstance(route, dict) or not isinstance(route.get("kind"), str):
+        raise ContractError(f"{context} must be an application route record")
+    kind = route["kind"]
+    if kind in {"route", "websocket-route"}:
+        required = {"kind", "path", "endpoint"}
+        allowed = required | {"route_name"}
+        if kind == "route":
+            allowed |= {"methods"}
+        if not required <= route.keys() or route.keys() - allowed:
+            raise ContractError(f"{context} fields are invalid")
+        item = route
+        path = _string(item["path"], f"{context}.path")
+        if not path.startswith("/"):
+            raise ContractError(f"{context}.path must be an absolute route path")
+        if "route_name" in item and item["route_name"] is not None:
+            _string(item["route_name"], f"{context}.route_name")
+        if "methods" in item and (
+            not isinstance(item["methods"], list)
+            or not item["methods"]
+            or any(not isinstance(method, str) or not method for method in item["methods"])
+            or len(item["methods"]) != len(set(item["methods"]))
+        ):
+            raise ContractError(f"{context}.methods must be a unique string array")
+        _validate_application_route_endpoint(item["endpoint"], f"{context}.endpoint")
+        return
+    if kind in {"mount", "host"}:
+        path_field = "path" if kind == "mount" else "host"
+        required = {"kind", path_field, "routes"}
+        allowed = required | {"route_name"}
+        if not required <= route.keys() or route.keys() - allowed:
+            raise ContractError(f"{context} fields are invalid")
+        item = route
+        path = _string(item[path_field], f"{context}.{path_field}")
+        if kind == "mount" and path and not path.startswith("/"):
+            raise ContractError(f"{context}.path must be empty or absolute")
+        if kind == "host" and path.startswith("/"):
+            raise ContractError(f"{context}.host must not start with a slash")
+        if "route_name" in item and item["route_name"] is not None:
+            _string(item["route_name"], f"{context}.route_name")
+        if not isinstance(item["routes"], list):
+            raise ContractError(f"{context}.routes must be an array")
+        for index, child in enumerate(item["routes"]):
+            _validate_application_route_input(child, f"{context}.routes[{index}]")
+        return
+    raise ContractError(f"{context}.kind is unsupported")
+
+
+def _validate_application_routes_property_case(case: dict[str, Any]) -> None:
+    if case["observations"] != ["route-inventory"]:
+        raise ContractError("Starlette.routes cases must select route-inventory")
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Starlette.routes cases select only the Python-package profile")
+    if not isinstance(case["routes"], list) or not case["routes"]:
+        raise ContractError("Starlette.routes cases require a non-empty input route list")
+    for index, route in enumerate(case["routes"]):
+        _validate_application_route_input(route, f"Starlette.routes[{index}]")
 
 
 def _validate_schema_case(case: dict[str, Any]) -> None:

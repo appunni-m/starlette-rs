@@ -9235,6 +9235,15 @@ def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if (
+        case.get("surface") == "starlette.applications.Starlette"
+        and case.get("operation") == "routes"
+    ):
+        from scripts.parity.adapters.starlette_oracle import (
+            _run_application_routes_property_case,
+        )
+
+        return _run_application_routes_property_case(case)
     if case.get("surface") == TESTCLIENT_SURFACE and case.get("operation") in {
         TESTCLIENT_OPERATION,
         TESTCLIENT_WEBSOCKET_OPERATION,

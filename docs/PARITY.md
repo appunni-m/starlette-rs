@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 551 input-only cases in 62 indexed files, covering 78 operations and 588 parity requirements. The cases cover Starlette applications, routing and reverse URLs, async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including background-task cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 552 input-only cases in 63 indexed files, covering 79 operations and 589 parity requirements. The cases cover Starlette applications and route inventory, routing and reverse URLs, async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including background-task cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,25 +8,24 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice run, `b230945c-2b95-41b0-8872-151a618ea13c`, ran from
-`2026-09-30T20:19:56.270Z` to `2026-09-30T20:21:47.493Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 709 profile
-comparisons: 705 passed, zero failed, zero infrastructure errors, and four
+The latest full-slice run, `e47ec421-d41c-4127-aa32-1a499aeb46c7`, ran from
+`2026-09-30T21:01:34.949Z` to `2026-09-30T21:03:35.378Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 710 profile
+comparisons: 706 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-549 selected comparisons; Rust-native passed 156 of 160. The package identity
-was clean at repository commit `7feab5f418ef3d3e8dbd4cda5e0632a672754256`;
-its installed wheel SHA-256 is
-`c6777248a74152870f1f86db8f4936a4764d2af322da109e5fae5dd2f40f74ad` and its
-installed package tree SHA-256 is
-`e4000d2c128abd4f1f233739c34f6bd549d01e983637cb6102142f6c718c5962`. The run
-includes the new `dict(websocket.query_params)` app observation and exact JSON
-return through TestClient, along with the documented `Request.app` identity,
-lazy `Request.state` initialization, StaticFiles traversal, and Mount
-reverse-URL cases. The four Rust-native `not_run` rows are sync endpoint,
-bound-method, partial, and callable-instance Request dispatch cases. The
-all-target runner exits with status 2 for those declared Python-callable
-boundaries. Manifest SHA-256:
-`97490357f4bb7137aed5881d67a526b2c07b6bdcb03e8857558893d10b23e2e7`. This is
+550 selected comparisons; Rust-native passed 156 of 160. This was a
+pre-commit working-tree run: the package tree was marked dirty at base commit
+`7cd74784b0c66203dd5bdd071ffaed697b97a769`, with package-tree SHA-256
+`de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`. The new
+`Starlette.routes` case passed exact comparison for route order and shape,
+nested Mount/Host contents, list aliasing, and original route identity. The
+run also covers the documented `Request.app` identity, lazy `Request.state`
+initialization, TestClient state/exception-policy, WebSocket query behavior,
+background-task cancellation, StaticFiles traversal, and Mount reverse URLs.
+The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
+and callable-instance Request dispatch cases. The all-target runner exits with
+status 2 for those declared Python-callable boundaries. Manifest SHA-256:
+`69170b135d947ac35185c0e43362a63d20591cc64aefba1c175dfb7ffd8ef575`. This is
 bounded local evidence, not full parity or release proof.
 
 ## Input-only cases

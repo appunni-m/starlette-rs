@@ -30,6 +30,10 @@
         {
           "operation_id": "url_path_for",
           "source_path": "starlette.applications.Starlette.url_path_for"
+        },
+        {
+          "operation_id": "routes",
+          "source_path": "starlette.applications.Starlette.routes"
         }
       ]
     },

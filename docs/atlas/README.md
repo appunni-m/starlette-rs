@@ -25,18 +25,21 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 551 input-only cases across
-62 indexed files, 78 operations, and 588 requirements. Run
-`b230945c-2b95-41b0-8872-151a618ea13c` selected 709 comparisons: 705 passed,
+active and incomplete. The current contract has 552 input-only cases across
+63 indexed files, 79 operations, and 589 requirements. Run
+`e47ec421-d41c-4127-aa32-1a499aeb46c7` selected 710 comparisons: 706 passed,
 zero failed, zero infrastructure errors, and four Rust-native Python-callable
-comparisons were `not_run`. The Python package passed 549/549; Rust-native
-passed 156/160. The package identity was clean at commit
-`7feab5f418ef3d3e8dbd4cda5e0632a672754256`. This run includes TestClient
-exception-policy and lifespan state-propagation cases, Request.app identity and
-lazy Request.state initialization, WebSocket lifecycle, JSON text/binary, raw
-query projection and parsed query parameters, async background-task cancellation
-and finalization, and StaticFiles traversal and symlink serving plus Mount
-reverse-URL inputs. The latest direct Request
+comparisons were `not_run`. The Python package passed 550/550; Rust-native
+passed 156/160. This pre-commit run used base commit
+`7cd74784b0c66203dd5bdd071ffaed697b97a769` with a dirty package tree at
+SHA-256 `de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`.
+It includes the new `Starlette.routes` inventory comparison for ordered route
+shapes, nested Mount/Host contents, list aliasing, and route-object identity,
+along with TestClient exception-policy and lifespan state-propagation cases,
+Request.app identity and lazy Request.state initialization, WebSocket lifecycle,
+JSON text/binary, raw query projection and parsed query parameters, async
+background-task cancellation and finalization, and StaticFiles traversal and
+symlink serving plus Mount reverse-URL inputs. The latest direct Request
 inputs cover body, stream, and
 JSON consumption, including interleaved streams and an overlapping body/stream
 receive. Two TestClient inputs cover streamed WebSocket denial responses, and
@@ -44,11 +47,11 @@ one FileResponse input observes event-loop progress during FIFO-backed file
 opening. The all-target runner exits 2 for the four unsupported native callable
 cases; full parity is not claimed.
 
-The latest Router/GZip run `ecbe79cf-538f-48cb-945c-94a7a570fd9f` measured all
+The latest Router/GZip run `9f7518bc-cf46-4d84-a890-7ab4c19644f3` measured all
 74 source/package workloads after parity preflight
-`88ee607c-1d14-4489-a43b-ec1669973bcb`. Median source/package ratios were
-0.760 for Router and 0.976 for GZip; source was faster on all six Router
-workloads and 56 of 68 GZip workloads. See
+`8a1f0e0b-e3d7-4241-a7b6-6b809638ae2c`. Median source/package ratios were
+0.761 for Router and 0.978 for GZip; source was faster on five of six Router
+workloads and 60 of 68 GZip workloads. See
 [Benchmark mapping](../BENCHMARKS.md)
 for the timing summary and limits. These bounded results do not establish full
 compatibility.
@@ -285,8 +288,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 516 `supported`, 285
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 799
-source rows: 277 existing input mappings, 50 reasoned `not_applicable`
-entries, and 472 input-only backlog rows. These counts describe the current
+source rows: 278 existing input mappings, 50 reasoned `not_applicable`
+entries, and 471 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

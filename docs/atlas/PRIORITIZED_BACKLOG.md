@@ -8,23 +8,25 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 551 input-only cases in 62 indexed files,
-covering 78 operations and 588 parity requirements. The latest integrated run,
-`b230945c-2b95-41b0-8872-151a618ea13c`, selected 709 comparisons: 705 passed,
+The active contract contains 552 input-only cases in 63 indexed files,
+covering 79 operations and 589 parity requirements. The latest integrated run,
+`e47ec421-d41c-4127-aa32-1a499aeb46c7`, selected 710 comparisons: 706 passed,
 zero failed, zero infrastructure errors, and four Rust-native Python-callable
-comparisons were `not_run`. The Python package passed all 549 comparisons;
-Rust-native passed 156 of 160. The Python package identity was clean at commit
-`7feab5f418ef3d3e8dbd4cda5e0632a672754256`. The run includes TestClient
-exception-policy inputs for propagation, 500 synthesis, and completed-response
-preservation, lifespan state-propagation, Request.app identity and lazy
-Request.state initialization, WebSocket lifecycle, JSON text/binary, raw query
-projection, parsed query parameters, async response-background-task cancellation
-and finalization, StaticFiles traversal and symlink serving, and Mount
-reverse-URL inputs. The target remains `scope.mode: slice`; this does not claim
-full compatibility.
+comparisons were `not_run`. The Python package passed all 550 comparisons;
+Rust-native passed 156 of 160. This pre-commit run used base commit
+`7cd74784b0c66203dd5bdd071ffaed697b97a769` with package-tree SHA-256
+`de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff` marked
+dirty. The new `Starlette.routes` case compares ordered route shapes, nested
+Mount/Host contents, list aliasing, and original route identity. The run also
+includes TestClient exception-policy and lifespan state-propagation inputs,
+Request.app identity and lazy Request.state initialization, WebSocket lifecycle,
+JSON text/binary, raw query projection and parsed query parameters, async
+response-background-task cancellation and finalization, StaticFiles traversal
+and symlink serving, and Mount reverse-URL inputs. The target remains
+`scope.mode: slice`; this does not claim full compatibility.
 
-The current coverage matrix has 799 source rows: 277 existing input mappings,
-50 reasoned `not_applicable` rows, and 472 rows in the fixture backlog. These
+The current coverage matrix has 799 source rows: 278 existing input mappings,
+50 reasoned `not_applicable` rows, and 471 rows in the fixture backlog. These
 figures are derived from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
@@ -38,8 +40,8 @@ direct/Mount unique and mixed 1,001-file count failures. The fixture source is
 [`request-form-multipart.yaml`](../../tests/fixtures/sources/parity/request-form-multipart.yaml).
 Each output comes from the pinned Starlette 1.6.0 oracle and installed package.
 
-The atlas currently has 799 source rows: 472 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 277 existing input mappings.
+The atlas currently has 799 source rows: 471 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 278 existing input mappings.
 The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for the run evidence.
 
@@ -49,8 +51,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 799 source rows: 277 existing input mappings, 50 reasoned
-`not_applicable` entries, and 472 fixture backlog rows. It maps selected
+The current matrix has 799 source rows: 278 existing input mappings, 50 reasoned
+`not_applicable` entries, and 471 fixture backlog rows. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
