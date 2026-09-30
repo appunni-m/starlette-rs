@@ -286,6 +286,7 @@
       "build/parity/inputs/parity/static-files-lookup.json",
       "build/parity/inputs/parity/static-files-async-boundary.json",
       "build/parity/inputs/parity/wsgi-middleware.json",
+      "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
       "build/parity/inputs/parity/base-http-middleware.json",
       "build/parity/inputs/parity/templating-runtime.json",
@@ -7041,6 +7042,300 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only compatibility slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.wsgi",
+      "kind": "module",
+      "source_path": "starlette/middleware/wsgi.py",
+      "storage_slug": "starlette-middleware-wsgi-module-boundaries",
+      "operations": [
+        {
+          "id": "build-environ",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.wsgi.build_environ",
+            "signature": "build_environ(scope, body) -> dict[str, Any]",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "body",
+                "style": "positional",
+                "value_types": [
+                  "bytes"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "environ-results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "This helper consumes Python ASGI scope mappings and is exposed through the Python compatibility module.",
+                "blocker": "No Rust-native starlette.middleware.wsgi compatibility-module import surface is exposed."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.wsgi.build_environ",
+              "signature": "build_environ(scope, body) -> dict[str, Any]",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.wsgi.build-environ.scope-projection",
+              "dimension": "success_path",
+              "description": "Project the WSGI request method, URL fields, protocol, and WSGI version from the supplied scope; source: tests/middleware/test_wsgi.py::test_build_environ.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.build-environ.root-path-stripping",
+              "dimension": "parameter_combination",
+              "description": "Remove the supplied root_path prefix from PATH_INFO while preserving SCRIPT_NAME; source: tests/middleware/test_wsgi.py::test_build_environ.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.build-environ.header-projection",
+              "dimension": "parameter_combination",
+              "description": "Map content-type, content-length, and ordinary ASGI headers to WSGI environ keys; source: tests/middleware/test_wsgi.py::test_build_environ.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.build-environ.duplicate-header-joining",
+              "dimension": "parameter_combination",
+              "description": "Join repeated raw headers in their supplied order using the WSGI comma form; source: tests/middleware/test_wsgi.py::test_build_environ.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.build-environ.input-stream",
+              "dimension": "boundary",
+              "description": "Expose the complete input bytes through a readable wsgi.input stream; source: tests/middleware/test_wsgi.py::test_build_environ.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.build-environ.latin1-path-encoding",
+              "dimension": "input_family",
+              "description": "Preserve Unicode scope paths and root paths through the WSGI UTF-8-to-Latin-1 byte mapping; source: tests/middleware/test_wsgi.py::test_build_environ_encoding.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.build-environ.server-default",
+              "dimension": "parameter_combination",
+              "description": "Use localhost and port 80 when the server scope field is absent; source: starlette/middleware/wsgi.py::build_environ.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.build-environ.scheme-default",
+              "dimension": "parameter",
+              "description": "Use the default http WSGI URL scheme when the scope omits scheme; source: starlette/middleware/wsgi.py::build_environ.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.build-environ.client-omission",
+              "dimension": "parameter_combination",
+              "description": "Omit REMOTE_ADDR when the client scope field is absent; source: starlette/middleware/wsgi.py::build_environ.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Input-only helper comparisons make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This WSGI compatibility helper is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "module-import-warning",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.wsgi module import",
+            "signature": "Import starlette.middleware.wsgi and observe the emitted deprecation warning.",
+            "parameters": [
+              {
+                "id": "module_name",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "import-results",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Module import warnings are part of the Python compatibility package boundary.",
+                "blocker": "The Rust-native API has no Python module-import warning interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.wsgi",
+              "signature": "module import emits StarletteDeprecationWarning",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.wsgi.module-import-warning.deprecation-warning",
+              "dimension": "error_path",
+              "description": "Emit StarletteDeprecationWarning on the caller import site when this deprecated module is imported. Upstream: starlette/middleware/wsgi.py:17-22; docs/release-notes.md:909-910.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Input-only module-import comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Module-import warning behavior is outside the declared benchmark workloads."
           }
         }
       ]

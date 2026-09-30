@@ -186,6 +186,22 @@ REQUEST_FORM_OPTIONAL_KEYS = {
     "file_write_error",
 }
 UPLOAD_FILE_OPERATION = ("starlette.datastructures.UploadFile", "file-operations")
+WSGI_BOUNDARY_SURFACE = "starlette.middleware.wsgi"
+WSGI_BUILD_ENVIRON_OPERATION = (WSGI_BOUNDARY_SURFACE, "build-environ")
+WSGI_MODULE_IMPORT_OPERATION = (WSGI_BOUNDARY_SURFACE, "module-import-warning")
+WSGI_BOUNDARY_OPERATIONS = {WSGI_BUILD_ENVIRON_OPERATION, WSGI_MODULE_IMPORT_OPERATION}
+WSGI_BOUNDARY_REQUIREMENTS = {
+    "scope-projection": f"{WSGI_BOUNDARY_SURFACE}.build-environ.scope-projection",
+    "root-path-stripping": f"{WSGI_BOUNDARY_SURFACE}.build-environ.root-path-stripping",
+    "header-projection": f"{WSGI_BOUNDARY_SURFACE}.build-environ.header-projection",
+    "duplicate-header-joining": f"{WSGI_BOUNDARY_SURFACE}.build-environ.duplicate-header-joining",
+    "input-stream": f"{WSGI_BOUNDARY_SURFACE}.build-environ.input-stream",
+    "latin1-path-encoding": f"{WSGI_BOUNDARY_SURFACE}.build-environ.latin1-path-encoding",
+    "server-default": f"{WSGI_BOUNDARY_SURFACE}.build-environ.server-default",
+    "scheme-default": f"{WSGI_BOUNDARY_SURFACE}.build-environ.scheme-default",
+    "client-omission": f"{WSGI_BOUNDARY_SURFACE}.build-environ.client-omission",
+    "module-import-warning": f"{WSGI_BOUNDARY_SURFACE}.module-import-warning.deprecation-warning",
+}
 STATUS_OPERATION = ("starlette.status", "module-symbol-sequence")
 CONFIG_OPERATIONS = {
     ("starlette.config.Config", "value-resolution"),
@@ -272,6 +288,7 @@ RUST_OWNED_PYTHON_OPERATIONS = (
         URL_SCOPE_OPERATION,
         URL_COMPONENTS_OPERATION,
         *HEADERS_OPERATIONS,
+        *WSGI_BOUNDARY_OPERATIONS,
     }
 )
 WEBSOCKET_PROJECTED_ERROR_OPERATIONS = {
@@ -7555,6 +7572,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             URL_COMPONENTS_OPERATION: {"url", "actions"},
             (HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION): {"instances"},
             (MUTABLE_HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION): {"instances"},
+            WSGI_BUILD_ENVIRON_OPERATION: {"scope", "body_base64", "environ_probes"},
+            WSGI_MODULE_IMPORT_OPERATION: {"module_name"},
         }[(case["surface"], case["operation"])]
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
         if is_headers_consumer_sequence and "actions" in case:
@@ -7833,6 +7852,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             _validate_url_components_case(case)
         elif (case["surface"], case["operation"]) in HEADERS_OPERATIONS:
             _validate_headers_case(case)
+        elif (case["surface"], case["operation"]) in WSGI_BOUNDARY_OPERATIONS:
+            _validate_wsgi_boundary_case(case)
         else:
             _validate_url_query_case(case)
         return case
@@ -10243,6 +10264,161 @@ def _validate_status_symbols_case(case: dict[str, Any]) -> None:
         exercised.add("starlette.status.module-symbol-sequence.directory-listing")
     if set(case["covers"]) != exercised:
         raise ContractError("status module coverage must match the requested input behaviors")
+
+
+def _wsgi_build_environ_semantic_coverage(case: dict[str, Any]) -> set[str]:
+    scope = case["scope"]
+    probes = {probe["key"]: probe["kind"] for probe in case["environ_probes"]}
+    covered: set[str] = set()
+    core_fields = {
+        "REQUEST_METHOD",
+        "SCRIPT_NAME",
+        "PATH_INFO",
+        "QUERY_STRING",
+        "SERVER_PROTOCOL",
+        "wsgi.url_scheme",
+        "wsgi.version",
+    }
+    if core_fields <= set(probes):
+        covered.add(WSGI_BOUNDARY_REQUIREMENTS["scope-projection"])
+    headers = [
+        (
+            base64.b64decode(name, validate=True).decode("latin-1").lower(),
+            base64.b64decode(value, validate=True).decode("latin-1"),
+        )
+        for name, value in scope.get("headers_base64_pairs", [])
+    ]
+    if headers and any(
+        key.startswith("HTTP_") or key in {"CONTENT_LENGTH", "CONTENT_TYPE"} for key in probes
+    ):
+        covered.add(WSGI_BOUNDARY_REQUIREMENTS["header-projection"])
+    header_names = [name for name, _ in headers]
+    if len(header_names) != len(set(header_names)) and any(
+        key.startswith("HTTP_") for key in probes
+    ):
+        covered.add(WSGI_BOUNDARY_REQUIREMENTS["duplicate-header-joining"])
+    path = scope["path"]
+    root_path = scope.get("root_path", "")
+    if root_path and path.startswith(root_path) and {"SCRIPT_NAME", "PATH_INFO"} <= set(probes):
+        covered.add(WSGI_BOUNDARY_REQUIREMENTS["root-path-stripping"])
+    if probes.get("wsgi.input") == "read-bytes":
+        covered.add(WSGI_BOUNDARY_REQUIREMENTS["input-stream"])
+    if any(ord(character) > 127 for character in path + root_path) and {
+        "SCRIPT_NAME",
+        "PATH_INFO",
+    } <= set(probes):
+        covered.add(WSGI_BOUNDARY_REQUIREMENTS["latin1-path-encoding"])
+    if not scope.get("server") and {"SERVER_NAME", "SERVER_PORT"} <= set(probes):
+        covered.add(WSGI_BOUNDARY_REQUIREMENTS["server-default"])
+    if "scheme" not in scope and "wsgi.url_scheme" in probes:
+        covered.add(WSGI_BOUNDARY_REQUIREMENTS["scheme-default"])
+    if "client" not in scope and probes.get("REMOTE_ADDR") == "presence":
+        covered.add(WSGI_BOUNDARY_REQUIREMENTS["client-omission"])
+    return covered
+
+
+def _validate_wsgi_boundary_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("WSGI helper and import parity cases select the Python package profile")
+    if case["assets"] != []:
+        raise ContractError("WSGI helper and import parity cases do not use external assets")
+    operation = (case["surface"], case["operation"])
+    if operation == WSGI_BUILD_ENVIRON_OPERATION:
+        if case["observations"] != ["environ-results"]:
+            raise ContractError("build_environ cases must select environ-results")
+        scope = _exact(
+            case["scope"],
+            {
+                "type",
+                "http_version",
+                "method",
+                "scheme",
+                "path",
+                "root_path",
+                "query_string_base64",
+                "headers_base64_pairs",
+                "client",
+                "server",
+            }
+            & set(case["scope"])
+            | {"http_version", "method", "path", "query_string_base64"},
+            "build_environ scope",
+        )
+        if "type" in scope and scope["type"] != "http":
+            raise ContractError("build_environ scope type must be HTTP when supplied")
+        for name in ("http_version", "method", "path"):
+            _string(scope[name], f"build_environ scope.{name}")
+        if "scheme" in scope:
+            _string(scope["scheme"], "build_environ scope.scheme")
+        if "root_path" in scope:
+            _string(scope["root_path"], "build_environ scope.root_path")
+        try:
+            base64.b64decode(scope["query_string_base64"], validate=True).decode("ascii")
+            base64.b64decode(case["body_base64"], validate=True)
+        except (ValueError, TypeError, UnicodeDecodeError) as exc:
+            raise ContractError(
+                "build_environ body and query must be valid ASCII/base64 input"
+            ) from exc
+        raw_headers = scope.get("headers_base64_pairs", [])
+        if not isinstance(raw_headers, list):
+            raise ContractError("build_environ scope headers must be an array")
+        for index, pair in enumerate(raw_headers):
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or any(not isinstance(value, str) for value in pair)
+            ):
+                raise ContractError(f"build_environ scope header[{index}] must be a base64 pair")
+            try:
+                base64.b64decode(pair[0], validate=True)
+                base64.b64decode(pair[1], validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError(
+                    f"build_environ scope header[{index}] is invalid base64"
+                ) from exc
+        for name in ("server", "client"):
+            value = scope.get(name)
+            if value is not None and (
+                not isinstance(value, list)
+                or len(value) != 2
+                or not isinstance(value[0], str)
+                or type(value[1]) is not int
+            ):
+                raise ContractError(f"build_environ scope.{name} must be null or a two-item tuple")
+        probes = case["environ_probes"]
+        if not isinstance(probes, list) or not probes:
+            raise ContractError("build_environ requires at least one environ probe")
+        seen_keys: set[str] = set()
+        for index, raw_probe in enumerate(probes):
+            probe = _exact(raw_probe, {"key", "kind"}, f"build_environ probe[{index}]")
+            key = _string(probe["key"], f"build_environ probe[{index}].key")
+            if key in seen_keys:
+                raise ContractError("build_environ probe keys must be unique")
+            seen_keys.add(key)
+            if probe["kind"] not in {"value", "read-bytes", "is-stdout", "presence"}:
+                raise ContractError(f"build_environ probe[{index}].kind is unsupported")
+            if probe["kind"] == "read-bytes" and key != "wsgi.input":
+                raise ContractError("only wsgi.input probes may read bytes")
+            if probe["kind"] == "is-stdout" and key != "wsgi.errors":
+                raise ContractError("only wsgi.errors probes may compare stdout identity")
+            if key == "wsgi.input" and probe["kind"] != "read-bytes":
+                raise ContractError("wsgi.input must use the read-bytes probe")
+            if key == "wsgi.errors" and probe["kind"] != "is-stdout":
+                raise ContractError("wsgi.errors must use the is-stdout probe")
+        exercised = _wsgi_build_environ_semantic_coverage(case)
+    elif operation == WSGI_MODULE_IMPORT_OPERATION:
+        if case["observations"] != ["import-results"]:
+            raise ContractError("WSGI module import must select import-results")
+        if case["module_name"] != "starlette.middleware.wsgi":
+            raise ContractError("WSGI import input must name the declared compatibility module")
+        exercised = {WSGI_BOUNDARY_REQUIREMENTS["module-import-warning"]}
+    else:
+        raise ContractError("unsupported WSGI boundary operation")
+    if set(case["covers"]) != exercised:
+        raise ContractError(
+            "WSGI boundary covers must match the scope probes or module import input: "
+            f"expected={sorted(exercised)}, actual={sorted(case['covers'])}"
+        )
 
 
 def _validate_config_case(case: dict[str, Any]) -> None:

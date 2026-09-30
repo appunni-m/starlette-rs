@@ -8696,6 +8696,13 @@ def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if case.get("surface") == "starlette.middleware.wsgi" and case.get("operation") in {
+        "build-environ",
+        "module-import-warning",
+    }:
+        from scripts.parity.adapters.wsgi_boundary import run_wsgi_boundary_case
+
+        return run_wsgi_boundary_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == "starlette.applications.Starlette"

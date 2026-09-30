@@ -246,6 +246,20 @@
       ]
     },
     {
+      "surface_id": "starlette.middleware.wsgi",
+      "source_path": "starlette/middleware/wsgi.py",
+      "operations": [
+        {
+          "operation_id": "build-environ",
+          "source_path": "starlette.middleware.wsgi.build_environ"
+        },
+        {
+          "operation_id": "module-import-warning",
+          "source_path": "starlette.middleware.wsgi module import"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.middleware.wsgi.WSGIMiddleware",
       "source_path": "starlette/middleware/wsgi.py:77",
       "operations": [

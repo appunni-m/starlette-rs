@@ -8,20 +8,22 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 456 input-only cases across 53 files, covering 70
-operations and 517 requirements. Latest run
-`44d778af-f2f8-429c-9d37-db5f14f7d5a9` selected 608 comparisons: 604 passed,
+The active contract has 459 input-only cases across 54 files, covering 72
+operations and 527 requirements. Latest run
+`70c9102e-b87e-4f2c-8f58-1af59889d960` selected 611 comparisons: 607 passed,
 zero failed, zero infrastructure errors, and four Rust-native rows were
-`not_run`. The Python package passed all 454 selected cases; Rust-native
-passed 150 of 154. Those four rows require Python endpoint or ASGI callables.
+`not_run`. The Python package passed all 457 selected cases; Rust-native
+passed 150 of 154. Those four native rows require Python endpoint or ASGI
+callables.
 The latest slice adds six WSGIMiddleware cases for response order, request
 buffering, environment conversion, worker-thread execution, and errors, plus
 an asyncio endpoint boundary case for caller
 event-loop/task/thread ownership and request cancellation, plus native flat
 `Router.url_path_for` success and miss comparisons, three route-level request-body limit combinations, an application
 Router-miss 404 handler input, direct Host reverse-URL formatting through
-`{tenant}.example.test:3600`, post-construction `Starlette.add_route`, and
-multipart cleanup and rollover inputs. The parameterized Host-route input
+`{tenant}.example.test:3600`, post-construction `Starlette.add_route`, two
+direct `build_environ` cases, a module-import deprecation warning comparison,
+and multipart cleanup and rollover inputs. The parameterized Host-route input
 matches `{tenant}.example.test` against `Host: acme.example.test:5600`, ignores
 the port for matching, and records `tenant=acme` in route scope. Nested
 child-route lookup remains outside this bounded slice. It does not establish
@@ -109,8 +111,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 797 mappings: 547 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 200 existing input mappings. It maps selected
+The current matrix has 797 mappings: 546 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 201 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
@@ -270,8 +272,10 @@ assert exact parity before the coordinated gate records that result.
 Implement routing, connections, requests/responses, middleware, authentication,
 remaining background-task cancellation behavior, data structures,
 forms/uploads, remaining StaticFiles edge cases, templates,
-schemas, configuration, remaining WSGI helper/deprecation details, and
-TestClient in dependency-aware groups.
+schemas, configuration, and TestClient in dependency-aware groups. The mapped
+WSGI middleware, `build_environ`, and import-deprecation behaviors now have
+input-only comparisons; keep any additional WSGI source rows in the backlog
+until directly mapped.
 Promote remaining fixture-backlog entries into the single active manifest as
 independent inputs and keep unsupported behavior visible until implemented
 and compared.

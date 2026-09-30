@@ -1,0 +1,109 @@
+{
+  "schema": "migration-parity/parity-input@9",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.wsgi.build-environ.pinned-scope-and-body",
+      "surface": "starlette.middleware.wsgi",
+      "operation": "build-environ",
+      "covers": [
+        "starlette.middleware.wsgi.build-environ.scope-projection",
+        "starlette.middleware.wsgi.build-environ.root-path-stripping",
+        "starlette.middleware.wsgi.build-environ.header-projection",
+        "starlette.middleware.wsgi.build-environ.duplicate-header-joining",
+        "starlette.middleware.wsgi.build-environ.input-stream"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/sub/",
+        "root_path": "/sub",
+        "query_string_base64": "YT0xMjMmYj00NTY=",
+        "headers_base64_pairs": [
+          ["aG9zdA==", "d3d3LmV4YW1wbGUub3Jn"],
+          ["Y29udGVudC10eXBl", "YXBwbGljYXRpb24vanNvbg=="],
+          ["Y29udGVudC1sZW5ndGg=", "MTg="],
+          ["YWNjZXB0", "YXBwbGljYXRpb24vanNvbg=="],
+          ["YWNjZXB0", "dGV4dC9wbGFpbg=="]
+        ],
+        "client": ["134.56.78.4", 1453],
+        "server": ["www.example.org", 443]
+      },
+      "body_base64": "eyJleGFtcGxlIjoiYm9keSJ9",
+      "environ_probes": [
+        {"key": "REQUEST_METHOD", "kind": "value"},
+        {"key": "SCRIPT_NAME", "kind": "value"},
+        {"key": "PATH_INFO", "kind": "value"},
+        {"key": "QUERY_STRING", "kind": "value"},
+        {"key": "SERVER_PROTOCOL", "kind": "value"},
+        {"key": "wsgi.version", "kind": "value"},
+        {"key": "wsgi.url_scheme", "kind": "value"},
+        {"key": "wsgi.input", "kind": "read-bytes"},
+        {"key": "wsgi.errors", "kind": "is-stdout"},
+        {"key": "wsgi.multithread", "kind": "value"},
+        {"key": "wsgi.multiprocess", "kind": "value"},
+        {"key": "wsgi.run_once", "kind": "value"},
+        {"key": "SERVER_NAME", "kind": "value"},
+        {"key": "SERVER_PORT", "kind": "value"},
+        {"key": "REMOTE_ADDR", "kind": "value"},
+        {"key": "CONTENT_LENGTH", "kind": "value"},
+        {"key": "CONTENT_TYPE", "kind": "value"},
+        {"key": "HTTP_HOST", "kind": "value"},
+        {"key": "HTTP_ACCEPT", "kind": "value"}
+      ],
+      "observations": ["environ-results"]
+    },
+    {
+      "case_id": "starlette.middleware.wsgi.build-environ.unicode-path-and-optional-scope-fields",
+      "surface": "starlette.middleware.wsgi",
+      "operation": "build-environ",
+      "covers": [
+        "starlette.middleware.wsgi.build-environ.scope-projection",
+        "starlette.middleware.wsgi.build-environ.latin1-path-encoding",
+        "starlette.middleware.wsgi.build-environ.server-default",
+        "starlette.middleware.wsgi.build-environ.scheme-default",
+        "starlette.middleware.wsgi.build-environ.client-omission"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "http_version": "1.1",
+        "method": "GET",
+        "path": "/小星",
+        "root_path": "/中国",
+        "query_string_base64": "YT0xMjMmYj00NTY=",
+        "headers_base64_pairs": []
+      },
+      "body_base64": "",
+      "environ_probes": [
+        {"key": "REQUEST_METHOD", "kind": "value"},
+        {"key": "SCRIPT_NAME", "kind": "value"},
+        {"key": "PATH_INFO", "kind": "value"},
+        {"key": "QUERY_STRING", "kind": "value"},
+        {"key": "SERVER_PROTOCOL", "kind": "value"},
+        {"key": "wsgi.version", "kind": "value"},
+        {"key": "wsgi.url_scheme", "kind": "value"},
+        {"key": "SERVER_NAME", "kind": "value"},
+        {"key": "SERVER_PORT", "kind": "value"},
+        {"key": "REMOTE_ADDR", "kind": "presence"}
+      ],
+      "observations": ["environ-results"]
+    },
+    {
+      "case_id": "starlette.middleware.wsgi.module-import-warning.deprecation",
+      "surface": "starlette.middleware.wsgi",
+      "operation": "module-import-warning",
+      "covers": [
+        "starlette.middleware.wsgi.module-import-warning.deprecation-warning"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "module_name": "starlette.middleware.wsgi",
+      "observations": ["import-results"]
+    }
+  ]
+}
