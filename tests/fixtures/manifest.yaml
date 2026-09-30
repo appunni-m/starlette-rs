@@ -11265,7 +11265,8 @@
                   "starlette.routing.Router.route-dispatch.http-endpoint-async-handler",
                   "starlette.routing.Router.route-dispatch.http-endpoint-path-parameter",
                   "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed",
-                  "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected"
+                  "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected",
+                  "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler"
                 ]
               }
             },
@@ -11595,6 +11596,17 @@
               "id": "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected",
               "dimension": "error_path",
               "description": "HTTPEndpoint does not dispatch an underscore-prefixed helper for a non-verb request method.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
+              "dimension": "boundary",
+              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette\u2019s worker-thread boundary.",
               "lanes": [
                 "parity"
               ],

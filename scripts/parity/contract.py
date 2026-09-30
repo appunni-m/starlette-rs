@@ -308,6 +308,7 @@ ROUTER_OPERATION = "route-dispatch"
 ROUTER_HTTP_ENDPOINT_REQUIREMENTS = {
     "class_route": "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
     "async_handler": "starlette.routing.Router.route-dispatch.http-endpoint-async-handler",
+    "sync_handler": "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
     "path_parameter": "starlette.routing.Router.route-dispatch.http-endpoint-path-parameter",
     "method_not_allowed": "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed",
     "non_verb_helper": "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected",
@@ -4878,6 +4879,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
                 if selected_handler is not None:
                     if selected_handler["call_style"] == "async":
                         derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["async_handler"])
+                    else:
+                        derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["sync_handler"])
                     if selected_handler["response"]["kind"] == "path-parameter-text-response":
                         derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["path_parameter"])
             else:
