@@ -487,6 +487,12 @@ STARLETTE_ADD_ROUTE_WORKFLOW_REQUIREMENTS = {
     "method_miss": "starlette.applications.Starlette.add_route.method-miss-405",
 }
 STARLETTE_ADD_ROUTE_OPERATION_KEY = ("starlette.applications.Starlette", "add_route")
+ROUTE_CONSTRUCTOR_OPERATION_KEY = ("starlette.routing.Route", "__init__")
+ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS = {
+    "application_default": "starlette.routing.Route.max_body_size.application-default",
+    "raise_application": "starlette.routing.Route.max_body_size.raise-application-limit",
+    "lower_application": "starlette.routing.Route.max_body_size.lower-application-limit",
+}
 VALUE_TYPES = {
     "null",
     "boolean",
@@ -1455,6 +1461,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             SESSION_WORKFLOW_OPERATION_KEY,
                             BASE_HTTP_WORKFLOW_OPERATION_KEY,
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
+                            ROUTE_CONSTRUCTOR_OPERATION_KEY,
                         }
                         or (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
                         or (surface["id"], operation["id"])
@@ -7299,6 +7306,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             for step in case["steps"]
         )
     )
+    is_route_body_limit_workflow = _is_route_body_limit_workflow(case)
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
@@ -7950,13 +7958,15 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             _validate_dispatch_stimulus(
                 step_args,
                 case["operation"] == "request-dispatch",
-                allow_nonempty_body=body_reuse,
-                allow_headers=server_error_case,
+                allow_nonempty_body=body_reuse or is_route_body_limit_workflow,
+                allow_headers=server_error_case or is_route_body_limit_workflow,
                 allow_query=case["operation"] == "__call__",
                 allow_lifespan_callback_failures=lifespan_only,
             )
     dispatch = case["steps"][-1]
     dispatch_args = {key: descriptor["value"] for key, descriptor in dispatch["arguments"].items()}
+    if is_route_body_limit_workflow:
+        _validate_route_body_limit_workflow(case)
     if not is_protocol_middleware and app_args["routes"][0]["kind"] == "websocket-route":
         _validate_websocket_exception_dispatch(app_args, dispatch_args)
     elif not is_protocol_middleware and (
@@ -8486,6 +8496,9 @@ def _validate_application_stimulus(
     if not request_dispatch and _is_server_error_stimulus(args):
         _validate_server_error_application(args)
         return
+    if _is_route_body_limit_application(args):
+        _validate_route_body_limit_application(args)
+        return
     if args["debug"] is not False or args["middleware"] != [] or args["max_body_size"] is not None:
         raise ContractError("GET /hello application inputs differ from the declared baseline")
     handlers = args["exception_handlers"]
@@ -8726,6 +8739,162 @@ def _validate_starlette_add_route_workflow(case: dict[str, Any]) -> None:
             raise ContractError("Starlette.add_route dispatch must request the registered path")
         if scope["method"] != expected_methods[step["step_id"]]:
             raise ContractError("Starlette.add_route dispatch methods must exercise GET and POST")
+
+
+def _is_route_body_limit_workflow(case: Any) -> bool:
+    if (
+        not isinstance(case, dict)
+        or case.get("surface") != "starlette.applications.Starlette"
+        or case.get("operation") != "__call__"
+        or not isinstance(case.get("steps"), list)
+        or len(case["steps"]) != 2
+    ):
+        return False
+    construction_arguments = case["steps"][0].get("arguments")
+    if not isinstance(construction_arguments, dict):
+        return False
+    routes_input = construction_arguments.get("routes")
+    limit_input = construction_arguments.get("max_body_size")
+    if (
+        not isinstance(routes_input, dict)
+        or routes_input.get("kind") != "literal"
+        or not isinstance(routes_input.get("value"), list)
+        or len(routes_input["value"]) != 1
+        or not isinstance(limit_input, dict)
+        or limit_input.get("kind") != "literal"
+        or type(limit_input.get("value")) is not int
+    ):
+        return False
+    route = routes_input["value"][0]
+    return (
+        isinstance(route, dict)
+        and route.get("kind") == "http-route"
+        and "max_body_size" in route
+        and route.get("endpoint") == {"kind": "request-body-echo"}
+    )
+
+
+def _is_route_body_limit_application(arguments: Any) -> bool:
+    if not isinstance(arguments, dict) or type(arguments.get("max_body_size")) is not int:
+        return False
+    routes = arguments.get("routes")
+    if not isinstance(routes, list) or len(routes) != 1 or not isinstance(routes[0], dict):
+        return False
+    route = routes[0]
+    return (
+        route.get("kind") == "http-route"
+        and "max_body_size" in route
+        and route.get("endpoint") == {"kind": "request-body-echo"}
+    )
+
+
+def _validate_route_body_limit_application(arguments: dict[str, Any]) -> None:
+    arguments = _exact(
+        arguments,
+        {"debug", "routes", "middleware", "exception_handlers", "lifespan", "max_body_size"},
+        "route body-limit application input",
+    )
+    if (
+        arguments["debug"] is not False
+        or arguments["middleware"] != []
+        or arguments["exception_handlers"] != []
+        or type(arguments["max_body_size"]) is not int
+        or arguments["max_body_size"] <= 0
+        or _validate_lifespan_marker(arguments["lifespan"]) != "async-context-manager"
+    ):
+        raise ContractError("route body-limit application must use the declared bounded setup")
+    routes = arguments["routes"]
+    if not isinstance(routes, list) or len(routes) != 1:
+        raise ContractError("route body-limit application must contain one HTTP route")
+    route = _exact(
+        routes[0],
+        {"kind", "path", "methods", "endpoint", "max_body_size"},
+        "route body-limit route input",
+    )
+    if (
+        route["kind"] != "http-route"
+        or not isinstance(route["path"], str)
+        or not route["path"].startswith("/")
+        or route["methods"] != ["POST"]
+        or route["endpoint"] != {"kind": "request-body-echo"}
+        or (
+            route["max_body_size"] is not None
+            and (type(route["max_body_size"]) is not int or route["max_body_size"] <= 0)
+        )
+    ):
+        raise ContractError("route body-limit route must echo one POST body with an optional limit")
+
+
+def _route_body_limit_requirement_from_input(case: dict[str, Any]) -> str | None:
+    construction = {
+        key: descriptor["value"] for key, descriptor in case["steps"][0]["arguments"].items()
+    }
+    dispatch = {
+        key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
+    }
+    route = construction["routes"][0]
+    app_limit = construction["max_body_size"]
+    route_limit = route["max_body_size"]
+    body_size = sum(
+        len(base64.b64decode(message["body_base64"], validate=True))
+        for message in dispatch["receive"]
+    )
+    if route_limit is None and body_size > app_limit:
+        return ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS["application_default"]
+    if route_limit is None:
+        return None
+    if app_limit < body_size <= route_limit and route_limit > app_limit:
+        return ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS["raise_application"]
+    if route_limit < body_size <= app_limit and route_limit < app_limit:
+        return ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS["lower_application"]
+    return None
+
+
+def _validate_route_body_limit_workflow(case: dict[str, Any]) -> None:
+    if (
+        case["target_profiles"] != ["python-package-cpython312"]
+        or case["observations"] != ["dispatch"]
+        or case["execution_schedule"] != ["dispatch"]
+    ):
+        raise ContractError("route body-limit dispatch selects one Python-package comparison")
+    construction = {
+        key: descriptor["value"] for key, descriptor in case["steps"][0]["arguments"].items()
+    }
+    route = construction["routes"][0]
+    dispatch = {
+        key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
+    }
+    scope = dispatch["scope"]
+    if (
+        scope.get("type") != "http"
+        or scope.get("path") != route["path"]
+        or scope.get("method") != "POST"
+    ):
+        raise ContractError("route body-limit dispatch must POST to its configured route")
+    headers = [
+        (
+            base64.b64decode(name, validate=True).lower(),
+            base64.b64decode(value, validate=True),
+        )
+        for name, value in scope["headers_base64_pairs"]
+    ]
+    content_lengths = [value for name, value in headers if name == b"content-length"]
+    messages = dispatch["receive"]
+    body_size = sum(
+        len(base64.b64decode(message["body_base64"], validate=True)) for message in messages
+    )
+    if (
+        len(content_lengths) != 1
+        or not content_lengths[0].isdigit()
+        or int(content_lengths[0]) != body_size
+        or body_size == 0
+    ):
+        raise ContractError(
+            "route body-limit request must declare its complete non-empty body length"
+        )
+    requirement = _route_body_limit_requirement_from_input(case)
+    if requirement is None or case["covers"] != [requirement]:
+        raise ContractError("route body-limit case must cover its input-derived limit relationship")
 
 
 def _validate_exception_handler_registry(value: Any) -> None:
@@ -9138,16 +9307,14 @@ def _validate_dispatch_stimulus(
         if allow_nonempty_body:
             messages = args["receive"]
             if (
-                len(messages) < 2
+                not messages
                 or not all(message["more_body"] for message in messages[:-1])
                 or messages[-1]["more_body"]
                 or not b"".join(
                     base64.b64decode(message["body_base64"], validate=True) for message in messages
                 )
             ):
-                raise ContractError(
-                    "body-reuse input must contain a non-empty chunked request body"
-                )
+                raise ContractError("input must contain a non-empty request body")
     elif scope.get("type") == "websocket":
         _validate_websocket_scope(scope)
         messages = args["receive"]
@@ -12151,6 +12318,9 @@ def _starlette_add_route_semantic_coverage(case: dict[str, Any]) -> set[str]:
 def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     if case["surface"] == GZIP_SURFACE:
         return _gzip_semantic_coverage(case)
+    if _is_route_body_limit_workflow(case):
+        requirement = _route_body_limit_requirement_from_input(case)
+        return set() if requirement is None else {requirement}
     if any(step.get("operation") == "add_route" for step in case["steps"]):
         return _starlette_add_route_semantic_coverage(case)
     app_arguments = {

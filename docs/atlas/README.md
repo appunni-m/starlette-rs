@@ -25,14 +25,16 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The latest contract has 444 input-only cases across 49
-files, 67 operations, and 503 requirements. Run
-`c1dddd42-fa0c-4a64-b07b-31f9d46b79e0` selected 592 comparisons: 588 passed,
+active and incomplete. The latest contract has 447 input-only cases across 50
+files, 68 operations, and 506 requirements. Run
+`23b654ef-4f7c-43e3-a1a5-bd6cfe2b315a` selected 595 comparisons: 591 passed,
 zero failed, zero infrastructure errors, and four Rust-native callable
-boundaries were `not_run`. The Python package passed all 442 selected cases;
-Rust-native passed 146 of 150. The new `Starlette.add_route` workflow verifies
-post-construction registration through matching GET and 405 observations.
-The multipart inputs compare incremental text limits, file write/seek ordering
+boundaries were `not_run`. The Python package passed all 445 selected cases;
+Rust-native passed 146 of 150. Three route-level `max_body_size` inputs verify
+inherited application limits and higher and lower route overrides. The
+`Starlette.add_route` workflow verifies post-construction registration through
+matching GET and 405 observations. The multipart inputs compare incremental
+text limits, file write/seek ordering
 across receives, receive and `UploadFile.write` error cleanup, and worker-thread
 rollover beyond 1 MiB. The Router live-mutation sequence passed all three
 dispatches. Twelve BackgroundTask/BackgroundTasks cases and
@@ -40,12 +42,11 @@ one Jinja2 template workflow passed on the Python package. The 20 URL-scope,
 14 URL-component, and ten Headers/MutableHeaders cases also passed there. Six
 package-only header probes passed exact source/package comparison, including
 `Response.headers` aliasing and FileResponse range isolation. The latest
-Router/GZip run `7c05f648-8d59-4b0a-a1f0-5001e37c491d` measured all 74
+Router/GZip run `36df112a-9bf4-479a-b079-7b2407472b34` measured all 74
 source/package workloads after parity preflight
-`96a4315c-6641-42b9-9e4d-8dc0df9d15fb`, before the Router live-mutation case
-was added. Router's median source/package ratio
-improved from 0.377 through 0.524 to 0.715 under the same manifest, though the
-package stays slower on five of six Router workloads. See
+`5dd03910-48e6-45e0-888c-3b7a0413f071`. Median source/package ratios were 0.758
+for Router and 0.971 for GZip; source was faster on five of six Router
+workloads and 57 of 68 GZip workloads. See
 [Benchmark mapping](../BENCHMARKS.md)
 for the timing summary and limits. These
 bounded results do not establish full compatibility.

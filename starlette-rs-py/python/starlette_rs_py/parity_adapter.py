@@ -1000,7 +1000,7 @@ def _materialize_application(
 ) -> tuple[Any, list[str], list[dict[str, Any]], Any, list[dict[str, Any]]]:
     from starlette.applications import Starlette
     from starlette.exceptions import HTTPException, WebSocketException
-    from starlette.responses import JSONResponse, PlainTextResponse
+    from starlette.responses import JSONResponse, PlainTextResponse, Response
     from starlette.routing import Route, WebSocketRoute
 
     required_arguments = {
@@ -1210,7 +1210,11 @@ def _materialize_application(
             routes.append(WebSocketRoute(route_spec["path"], websocket_endpoint))
             continue
         if (
-            set(route_spec) != {"kind", "path", "methods", "endpoint"}
+            frozenset(route_spec)
+            not in {
+                frozenset({"kind", "path", "methods", "endpoint"}),
+                frozenset({"kind", "path", "methods", "endpoint", "max_body_size"}),
+            }
             or route_spec["kind"] != "http-route"
         ):
             raise ValueError("route input must be a declared http-route record")
@@ -1237,6 +1241,11 @@ def _materialize_application(
                 return endpoint
 
             route_endpoint = make_endpoint(response_spec)
+        elif response_spec["kind"] == "request-body-echo":
+            _exact_object(response_spec, {"kind"}, "request-body echo endpoint")
+
+            async def route_endpoint(request: Any) -> Any:
+                return Response(await request.body())
         elif response_spec["kind"] == "raise-runtime-error":
             _exact_object(
                 response_spec,
@@ -1506,7 +1515,14 @@ def _materialize_application(
             route_endpoint = ASGICallableActionSequence(response_spec["actions"])
         else:
             raise ValueError(f"unsupported endpoint kind: {response_spec['kind']!r}")
-        routes.append(Route(route_spec["path"], route_endpoint, methods=route_spec["methods"]))
+        routes.append(
+            Route(
+                route_spec["path"],
+                route_endpoint,
+                methods=route_spec["methods"],
+                max_body_size=route_spec.get("max_body_size"),
+            )
+        )
 
     with warnings.catch_warnings(record=True) as recorded_warnings:
         warnings.simplefilter("always")

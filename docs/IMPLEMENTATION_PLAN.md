@@ -32,16 +32,19 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 408 input-only cases, 61 operations, and 462
-parity requirements across 44 indexed files, including URL scope and component
-construction, Headers and MutableHeaders, bounded SessionMiddleware and
-BaseHTTPMiddleware workflow slices, twelve BackgroundTask/BackgroundTasks
-cases, one Jinja2 template workflow, and six header alias/view probes. Latest
-integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a`, from
-`2026-09-29T23:48:10.322Z` to `2026-09-29T23:49:31.637Z`, selected 556 profile
-comparisons: 552 passed, zero failed, zero infrastructure errors, and four
-were `not_run`. The Python package passed all 406 selected comparisons;
+The current parity contract has 447 input-only cases, 68 operations, and 506
+parity requirements across 50 indexed files, including route-level request
+body limits, URL scope and component construction, Headers and MutableHeaders,
+bounded SessionMiddleware and BaseHTTPMiddleware workflow slices, twelve
+BackgroundTask/BackgroundTasks cases, one Jinja2 template workflow, and six
+header alias/view probes. Latest integrated run
+`23b654ef-4f7c-43e3-a1a5-bd6cfe2b315a`, from
+`2026-09-30T05:25:16.663Z` to `2026-09-30T05:26:47.462Z`, selected 595 profile
+comparisons: 591 passed, zero failed, zero infrastructure errors, and four
+were `not_run`. The Python package passed all 445 selected comparisons;
 Rust-native passed 146 of 150, with four Python-callable rows `not_run`. The
+three route body-limit cases pass exact source/package comparison for inherited
+application limits and higher and lower route overrides. The
 Router live-mutation sequence passed on all three dispatches, and all twelve
 background-task cases passed against the pinned source. All 20 URL scope, 14
 URL component, and ten Headers/MutableHeaders cases passed on the Python
@@ -307,21 +310,19 @@ dependencies feature-gated and preserve unsupported coverage visibly.
 The pinned Starlette 1.6.0 Router/GZip workload catalog contains six Router
 and 68 GZip benchmark IDs. All 74 have input-only descriptors and exact
 source-versus-installed-package correctness gates. Latest run
-`7c05f648-8d59-4b0a-a1f0-5001e37c491d` ran from
-`2026-09-29T22:06:37.031Z` to `2026-09-29T22:09:26.394Z` and measured all 74
+`36df112a-9bf4-479a-b079-7b2407472b34` ran from
+`2026-09-30T05:27:01.110Z` to `2026-09-30T05:29:44.728Z` and measured all 74
 source/package workloads with zero failures and zero not-run rows. Its
-correctness preflight, `96a4315c-6641-42b9-9e4d-8dc0df9d15fb`, used the
-then-current 389-case manifest (SHA-256
-`44e45ddbf67daa09a23ce54a3f0d43e83b8b77e00fa704ceac904374c2661766`) and selected 537 comparisons: 533 passed, zero failed, zero
-infrastructure errors, and four Rust-native Python-callable rows were
-`not_run` (package 387/387; Rust-native 146 passed, 4 not_run). Current
-manifest SHA-256 is
-`2bd87689e23dac17e4e3e89d260b11642adec31779451637ca7ec05194e62628`.
-Benchmark wheel SHA-256:
-`3d4a006c5478e5708a2774b73837f13a4ff9f942689e60c97975a69e8fdadbca`.
-The median per-workload source/package ratios are 0.715 for Router and 0.979
-for GZip. The previous Router ratios were 0.524 and 0.377; the package remains
-slower on five of six Router workloads.
+correctness preflight, `5dd03910-48e6-45e0-888c-3b7a0413f071`, used the current
+447-case manifest (SHA-256
+`4096118ba1f57210007ab438f4a3f9472bccfdda6172ae1a491baf95d5ceb9ef`) and
+selected 595 comparisons: 591 passed, zero failed, zero infrastructure errors,
+and four Rust-native Python-callable rows were `not_run` (package 445/445;
+Rust-native 146 passed, 4 not_run). Benchmark wheel SHA-256:
+`60215dcf916ca39b3239830635f66f4288bea382c7acab8139348f49dd29146d`.
+The median per-workload source/package ratios are 0.758 for Router and 0.971
+for GZip; the source median was lower in five of six Router workloads and 57
+of 68 GZip workloads.
 
 Rust-native remains `not_run` for all 74 because its public API does not expose
 the same Starlette Router/GZip dispatch boundary. The result is accepted by the

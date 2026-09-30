@@ -8,14 +8,16 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 408 input-only cases across 44 files, covering 61
-operations and 462 requirements. Latest run
-`af914b8c-5933-4ced-9e1d-c60b23263e1a` ran from `2026-09-29T23:48:10.322Z` to
-`2026-09-29T23:49:31.637Z` and selected 556 comparisons: 552 passed, zero
+The active contract has 447 input-only cases across 50 files, covering 68
+operations and 506 requirements. Latest run
+`23b654ef-4f7c-43e3-a1a5-bd6cfe2b315a` ran from `2026-09-30T05:25:16.663Z` to
+`2026-09-30T05:26:47.462Z` and selected 595 comparisons: 591 passed, zero
 failed, zero infrastructure errors, and four Rust-native rows were `not_run`.
-The Python package passed all 406 selected cases; Rust-native passed 146 of
-150. Those four rows require Python endpoint or ASGI callables. The Router
-live-mutation sequence passed on all three dispatches. Twelve BackgroundTask
+The Python package passed all 445 selected cases; Rust-native passed 146 of
+150. Those four rows require Python endpoint or ASGI callables. Three
+route-level request-body limit cases compare inherited application limits and
+higher and lower route overrides exactly. The Router live-mutation sequence
+passed on all three dispatches. Twelve BackgroundTask
 and BackgroundTasks cases and the Python-package Jinja2 template workflow also
 passed. The run
 includes the 20 URL scope, 14 URL component, and ten Headers/MutableHeaders
@@ -99,8 +101,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 792 mappings: 578 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 164 existing input mappings. It maps selected
+The current matrix has 796 mappings: 556 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 190 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
