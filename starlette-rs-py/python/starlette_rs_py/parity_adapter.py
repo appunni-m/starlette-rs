@@ -9245,6 +9245,134 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _input_defined_middleware_callback(marker: dict[str, Any], trace: list[dict[str, Any]]) -> Any:
+    callable_kind = marker["callable_kind"]
+    name = marker["name"]
+    if callable_kind == "class":
+
+        class InputDefinedMiddleware:
+            def __init__(self, app: Any, *args: Any, **kwargs: Any) -> None:
+                self.app = app
+                trace.append(
+                    {
+                        "event": "construct",
+                        "callable_kind": callable_kind,
+                        "name": name,
+                        "args": args,
+                        "kwargs": kwargs,
+                    }
+                )
+
+            async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+                trace.append(
+                    {
+                        "event": "call",
+                        "callable_kind": callable_kind,
+                        "name": name,
+                        "args": (),
+                        "kwargs": {},
+                        "scope_type": scope["type"],
+                    }
+                )
+                await self.app(scope, receive, send)
+
+        InputDefinedMiddleware.__name__ = name
+        return InputDefinedMiddleware
+
+    def middleware_factory(app: Any, *args: Any, **kwargs: Any) -> Any:
+        trace.append(
+            {
+                "event": "construct",
+                "callable_kind": callable_kind,
+                "name": name,
+                "args": args,
+                "kwargs": kwargs,
+            }
+        )
+
+        async def middleware(scope: Any, receive: Any, send: Any) -> None:
+            trace.append(
+                {
+                    "event": "call",
+                    "callable_kind": callable_kind,
+                    "name": name,
+                    "args": (),
+                    "kwargs": {},
+                    "scope_type": scope["type"],
+                }
+            )
+            await app(scope, receive, send)
+
+        return middleware
+
+    return middleware_factory
+
+
+def _run_starlette_add_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
+    steps = case["steps"]
+    application_arguments = {
+        name: descriptor["value"] for name, descriptor in steps[0]["arguments"].items()
+    }
+    app, lifecycle_trace, request_observations, route_endpoint, sync_endpoint_states = (
+        _materialize_application(application_arguments)
+    )
+    middleware_trace: list[dict[str, Any]] = []
+    callbacks: dict[tuple[str, str], Any] = {}
+
+    async def run_steps() -> list[dict[str, Any]]:
+        observations: list[dict[str, Any]] = []
+        for step in steps[1:]:
+            arguments = {
+                name: descriptor["value"] for name, descriptor in step["arguments"].items()
+            }
+            if step["operation"] == "__call__":
+                dispatch = await _invoke(
+                    app,
+                    arguments,
+                    lifecycle_trace,
+                    request_observations,
+                    route_endpoint,
+                    False,
+                    sync_endpoint_states=sync_endpoint_states,
+                )
+                value = {
+                    "workflow_observation": {
+                        "dispatch": dispatch,
+                        "middleware_trace": _json_safe(middleware_trace),
+                    }
+                }
+            else:
+                try:
+                    marker = arguments["middleware_class"]
+                    key = (marker["callable_kind"], marker["name"])
+                    callback = callbacks.setdefault(
+                        key, _input_defined_middleware_callback(marker, middleware_trace)
+                    )
+                    app.add_middleware(callback, *arguments["args"], **arguments["kwargs"])
+                except Exception as exc:
+                    value = {
+                        "workflow_observation": {
+                            "error": _error_snapshot(exc),
+                            "middleware_trace": _json_safe(middleware_trace),
+                        }
+                    }
+                else:
+                    value = {
+                        "workflow_observation": {
+                            "return": None,
+                            "middleware_trace": _json_safe(middleware_trace),
+                        }
+                    }
+            observations.append(_workflow_observation(step["step_id"], value))
+        return observations
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": asyncio.run(run_steps()),
+    }
+
+
 def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
     steps = case["steps"]
     application_arguments = {
@@ -9327,6 +9455,13 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.wsgi_boundary import run_wsgi_boundary_case
 
         return run_wsgi_boundary_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == "starlette.applications.Starlette"
+        and isinstance(case.get("steps"), list)
+        and any(step.get("operation") == "add_middleware" for step in case["steps"])
+    ):
+        return _run_starlette_add_middleware_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == "starlette.applications.Starlette"

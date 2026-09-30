@@ -25,25 +25,23 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 553 input-only cases across
-63 indexed files, 79 operations, and 590 requirements. The latest clean full-slice run `c328ff95-646a-4c09-bbda-130c452eb9f1` ran
-from `2026-09-30T21:27:01.518Z` to `2026-09-30T21:28:53.356Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 711 profile
-comparisons: 707 passed, zero failed, zero infrastructure errors, and four
+active and incomplete. The current contract has 556 input-only cases across
+64 indexed files, 80 operations, and 593 requirements. The latest full-slice run `47e84033-64e5-4ebf-a214-c92e3fa5e4e2` ran from
+`2026-09-30T21:57:40.515Z` to `2026-09-30T21:59:34.460Z` against Starlette 1.6.0
+at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 714 profile
+comparisons: 710 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-551 selected comparisons; Rust-native passed 156 of 160. The package was clean
-at repository commit `fff3d7365762984248c8fd32aa123286ed4d572a`, with installed
-package tree SHA-256
-`98ea5971108b068d2e555011056a7f0b3509608f05da0230eddb582ac0e0b391` and wheel
-SHA-256 `22bdd283f3a1e24045630589ac5c7cd913896054402dbcfa87cb831e8178dc85`.
-The run includes exact `Starlette.routes` comparisons and the synchronous
-background-callback cancellation case, which matches the ordered response
-send, worker entry/release/completion, and propagated `CancelledError`. The four
-Rust-native `not_run` rows are sync endpoint, bound-method, partial, and
-callable-instance Request dispatch cases. `make parity-run` exits with status 2
-for those declared Python-callable boundaries. Manifest SHA-256:
-`305823fe8de905c2972886a84ea2ff2c3d1c1a0b9ee85b1f23be554d5d9a0729`. This
-bounded evidence does not establish full Starlette parity or release readiness.
+554 selected comparisons; Rust-native passed 156 of 160. All three
+`Starlette.add_middleware` workflows passed exact comparison. The target used a
+dirty working tree, with package tree SHA-256
+`a56a4eaa803faaed6870bd1759f5660b76eadf8aa6a3e3b24a7dfd75ce32e2d1` and wheel
+SHA-256 `dc3450c375d6c03b504138a4a150a7a8bd909f7aa9c0060cf77f6f56d2b33a00`.
+The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
+and callable-instance Request dispatch cases. `make parity-run` exits with
+status 2 for those declared Python-callable boundaries. Manifest SHA-256:
+`49f1a335065713814bfea854e35e3f66cefd49025cc8e93837f0295e75a1c38a`. This
+bounded, dirty-tree evidence does not establish full Starlette parity or release
+readiness.
 
 The latest Router/GZip run `9f7518bc-cf46-4d84-a890-7ab4c19644f3` measured all
 74 source/package workloads after parity preflight
@@ -238,7 +236,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 799 source rows:
-277 `existing` mappings, 472 `backlog` rows, and 50 reasoned `not_applicable`
+281 `existing` mappings, 468 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -286,8 +284,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 516 `supported`, 285
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 799
-source rows: 278 existing input mappings, 50 reasoned `not_applicable`
-entries, and 471 input-only backlog rows. These counts describe the current
+source rows: 281 existing input mappings, 50 reasoned `not_applicable`
+entries, and 468 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

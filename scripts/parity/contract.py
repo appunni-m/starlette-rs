@@ -612,6 +612,15 @@ STARLETTE_ADD_ROUTE_WORKFLOW_REQUIREMENTS = {
     "method_miss": "starlette.applications.Starlette.add_route.method-miss-405",
 }
 STARLETTE_ADD_ROUTE_OPERATION_KEY = ("starlette.applications.Starlette", "add_route")
+STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS = {
+    "positional_order_and_cache": "starlette.applications.Starlette.add_middleware.positional-order-and-cache",
+    "factory_keyword_arguments": "starlette.applications.Starlette.add_middleware.factory-keyword-arguments",
+    "after_start_error": "starlette.applications.Starlette.add_middleware.after-start-error",
+}
+STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY = (
+    "starlette.applications.Starlette",
+    "add_middleware",
+)
 STARLETTE_ROUTES_OPERATION_KEY = ("starlette.applications.Starlette", "routes")
 ROUTE_CONSTRUCTOR_OPERATION_KEY = ("starlette.routing.Route", "__init__")
 ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS = {
@@ -1655,6 +1664,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             TESTCLIENT_WEBSOCKET_OPERATION_KEY,
                             TESTCLIENT_LIFESPAN_OPERATION_KEY,
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
+                            STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY,
                             STARLETTE_ROUTES_OPERATION_KEY,
                             ROUTE_CONSTRUCTOR_OPERATION_KEY,
                         }
@@ -9322,6 +9332,16 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             for step in case["steps"]
         )
     )
+    is_starlette_add_middleware_workflow = (
+        isinstance(case, dict)
+        and case.get("surface") == "starlette.applications.Starlette"
+        and case.get("operation") == "add_middleware"
+        and isinstance(case.get("steps"), list)
+        and any(
+            isinstance(step, dict) and step.get("operation") == "add_middleware"
+            for step in case["steps"]
+        )
+    )
     is_route_body_limit_workflow = _is_route_body_limit_workflow(case)
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
@@ -9697,6 +9717,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif case["surface"] != "starlette.applications.Starlette" or case["operation"] not in {
         "__call__",
         "request-dispatch",
+        "add_middleware",
     }:
         raise ContractError(
             "only the declared Starlette and WebSocket protocol profiles are in scope"
@@ -9961,9 +9982,18 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(case["steps"], list) or (
         len(case["steps"]) not in {2, 3}
         and not (is_starlette_add_route_workflow and len(case["steps"]) == 4)
+        and not (is_starlette_add_middleware_workflow and len(case["steps"]) in {4, 5})
         and not (is_middleware_construction and len(case["steps"]) == 1)
     ):
         raise ContractError("case must contain construction and dispatch steps")
+    if not all(isinstance(step, dict) for step in case["steps"]):
+        raise ContractError("case steps must be objects")
+    if (
+        case["surface"] == "starlette.applications.Starlette"
+        and case["operation"] == "add_middleware"
+        and not is_starlette_add_middleware_workflow
+    ):
+        raise ContractError("Starlette.add_middleware cases must declare a middleware workflow")
     step_ids = [step.get("step_id") for step in case["steps"]]
     allowed_step_sequences = (
         (
@@ -9985,7 +10015,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             ["application", "lifecycle"],
         )
     )
-    if step_ids not in allowed_step_sequences:
+    if not is_starlette_add_middleware_workflow and step_ids not in allowed_step_sequences:
         raise ContractError("case steps must follow the declared construction and dispatch order")
     expected_observations = (
         step_ids
@@ -10026,6 +10056,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         not is_protocol_middleware
         and case["operation"] == "__call__"
         and not is_starlette_add_route_workflow
+        and not is_starlette_add_middleware_workflow
         and any(
             step.get("surface") != case["surface"] or step.get("operation") != "__call__"
             for step in case["steps"][1:]
@@ -10111,6 +10142,16 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                     and name == "route"
                     and decoded == {"kind": "route-endpoint-reference", "route_index": 0}
                 )
+                # Middleware callables are input-defined so source and package
+                # adapters construct independent user callbacks at this Python
+                # boundary instead of serializing a callable into fixture data.
+                and not (
+                    step["surface"] == "starlette.applications.Starlette"
+                    and step["operation"] == "add_middleware"
+                    and name == "middleware_class"
+                    and isinstance(decoded, dict)
+                    and decoded.get("kind") == "input-defined-middleware"
+                )
             ):
                 raise ContractError(
                     f"{context}.arguments.{name} has type {actual_type}, expected {sorted(allowed_types)}"
@@ -10125,6 +10166,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         elif receiver is not None:
             raise ContractError(f"{context}.receiver must be null for this operation")
         previous.add(step_id)
+
+    if is_starlette_add_middleware_workflow:
+        _validate_starlette_add_middleware_workflow(case)
 
     app_args = {
         key: descriptor["value"] for key, descriptor in case["steps"][0]["arguments"].items()
@@ -10153,6 +10197,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         _validate_starlette_add_route_workflow(case)
     for step in case["steps"][1:]:
         step_args = {key: descriptor["value"] for key, descriptor in step["arguments"].items()}
+        if is_starlette_add_middleware_workflow and step["operation"] == "add_middleware":
+            continue
         if is_starlette_add_route_workflow and step["operation"] in {"add_route", "url_path_for"}:
             continue
         if is_protocol_middleware:
@@ -10169,7 +10215,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 allow_query=case["operation"] == "__call__",
                 allow_lifespan_callback_failures=lifespan_only,
             )
-    dispatch = case["steps"][-1]
+    dispatch = (
+        next(step for step in reversed(case["steps"]) if step["operation"] == "__call__")
+        if is_starlette_add_middleware_workflow
+        else case["steps"][-1]
+    )
     dispatch_args = {key: descriptor["value"] for key, descriptor in dispatch["arguments"].items()}
     if is_route_body_limit_workflow:
         _validate_route_body_limit_workflow(case)
@@ -10208,6 +10258,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             "dispatch-get",
             "dispatch-wrong-method",
         ]
+    elif is_starlette_add_middleware_workflow:
+        expected_schedule = _starlette_add_middleware_expected_schedule(case)
     elif app_args["routes"][0]["endpoint"] == ASYNC_CALL_BOUNDARY_ENDPOINT:
         if step_ids != ["application", "dispatch"]:
             raise ContractError("async boundary cancellation uses one direct request dispatch")
@@ -10958,6 +11010,156 @@ def _validate_starlette_add_route_workflow(case: dict[str, Any]) -> None:
             raise ContractError("Starlette.add_route dispatch must request the registered path")
         if scope["method"] != expected_methods[step["step_id"]]:
             raise ContractError("Starlette.add_route dispatch methods must exercise GET and POST")
+
+
+def _starlette_add_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
+    dispatch_steps = [step for step in case["steps"] if step.get("operation") == "__call__"]
+    first_dispatch_index = next(
+        index for index, step in enumerate(case["steps"]) if step.get("operation") == "__call__"
+    )
+    before_start = [
+        step
+        for index, step in enumerate(case["steps"])
+        if step.get("operation") == "add_middleware" and index < first_dispatch_index
+    ]
+    after_start = [
+        step
+        for index, step in enumerate(case["steps"])
+        if step.get("operation") == "add_middleware" and index > first_dispatch_index
+    ]
+    coverage: set[str] = set()
+
+    def input_for(step: dict[str, Any]) -> dict[str, Any]:
+        return {name: descriptor["value"] for name, descriptor in step["arguments"].items()}
+
+    definitions = [input_for(step) for step in before_start]
+    if (
+        len(definitions) >= 2
+        and all(item["middleware_class"]["callable_kind"] == "class" for item in definitions)
+        and len({item["middleware_class"]["name"] for item in definitions}) == 1
+        and all(item["args"] for item in definitions[:2])
+        and definitions[0]["args"] != definitions[1]["args"]
+        and len(dispatch_steps) >= 2
+        and dispatch_steps[0]["arguments"]["scope"]["value"]["type"] == "lifespan"
+        and dispatch_steps[1]["arguments"]["scope"]["value"]["type"] == "http"
+    ):
+        coverage.add(STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["positional_order_and_cache"])
+    if (
+        len(definitions) >= 2
+        and all(item["middleware_class"]["callable_kind"] == "factory" for item in definitions)
+        and len({item["middleware_class"]["name"] for item in definitions}) == 1
+        and any(item["args"] for item in definitions)
+        and any(item["kwargs"] for item in definitions)
+        and dispatch_steps[0]["arguments"]["scope"]["value"]["type"] == "lifespan"
+    ):
+        coverage.add(STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["factory_keyword_arguments"])
+    if after_start:
+        coverage.add(STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["after_start_error"])
+    return coverage
+
+
+def _starlette_add_middleware_expected_schedule(case: dict[str, Any]) -> list[str]:
+    schedule: list[str] = []
+    first_dispatch_index = next(
+        index for index, step in enumerate(case["steps"]) if step.get("operation") == "__call__"
+    )
+    if any(
+        step.get("operation") == "add_middleware" for step in case["steps"][:first_dispatch_index]
+    ):
+        schedule.append("middleware-registration")
+    for step in case["steps"]:
+        if step.get("operation") != "__call__":
+            continue
+        arguments = {name: descriptor["value"] for name, descriptor in step["arguments"].items()}
+        if arguments["scope"]["type"] == "lifespan":
+            schedule.extend(["lifespan.startup", "lifespan.shutdown"])
+        else:
+            schedule.append("dispatch")
+    if any(
+        step.get("operation") == "add_middleware"
+        for step in case["steps"][first_dispatch_index + 1 :]
+    ):
+        schedule.append("middleware-add-after-start")
+    return schedule
+
+
+def _validate_starlette_add_middleware_workflow(case: dict[str, Any]) -> None:
+    steps = case["steps"]
+    operations = [step.get("operation") for step in steps]
+    if (
+        case["target_profiles"] != ["python-package-cpython312"]
+        or len(steps) < 4
+        or operations[0] != "__init__"
+        or operations.count("add_middleware") < 1
+        or operations.count("__call__") < 1
+        or any(
+            operation not in {"__init__", "add_middleware", "__call__"} for operation in operations
+        )
+        or any(step.get("surface") != "starlette.applications.Starlette" for step in steps)
+    ):
+        raise ContractError("Starlette.add_middleware workflow has an invalid operation sequence")
+    first_dispatch_index = operations.index("__call__")
+    if any(operation == "__init__" for operation in operations[1:]):
+        raise ContractError("Starlette.add_middleware workflow uses one application instance")
+    for index, step in enumerate(steps):
+        if step.get("operation") != "add_middleware":
+            continue
+        arguments = step.get("arguments")
+        if not isinstance(arguments, dict) or set(arguments) != {
+            "middleware_class",
+            "args",
+            "kwargs",
+        }:
+            raise ContractError(
+                "Starlette.add_middleware requires callable, args, and kwargs inputs"
+            )
+        marker = arguments["middleware_class"].get("value")
+        if (
+            arguments["middleware_class"].get("kind") != "literal"
+            or not isinstance(marker, dict)
+            or set(marker) != {"kind", "callable_kind", "name"}
+            or marker["kind"] != "input-defined-middleware"
+            or marker["callable_kind"] not in {"class", "factory"}
+            or not isinstance(marker["name"], str)
+            or not marker["name"]
+        ):
+            raise ContractError(
+                "middleware callable must use an input-defined class or factory marker"
+            )
+        args_descriptor = arguments["args"]
+        kwargs_descriptor = arguments["kwargs"]
+        if (
+            args_descriptor.get("kind") != "literal"
+            or not isinstance(args_descriptor.get("value"), list)
+            or kwargs_descriptor.get("kind") != "literal"
+            or not isinstance(kwargs_descriptor.get("value"), dict)
+        ):
+            raise ContractError("middleware variadic arguments must be literal arrays and objects")
+        if index < first_dispatch_index and step.get("receiver") != {
+            "kind": "binding",
+            "step_id": steps[0].get("step_id"),
+        }:
+            raise ContractError("Starlette.add_middleware must bind the constructed application")
+    if any(
+        step.get("operation") == "add_middleware" for step in steps[first_dispatch_index + 1 :]
+    ) and any(
+        step.get("operation") != "add_middleware" for step in steps[first_dispatch_index + 1 :]
+    ):
+        raise ContractError("post-start middleware registration must follow all ASGI dispatches")
+    expected_schedule = _starlette_add_middleware_expected_schedule(case)
+    if case["execution_schedule"] != expected_schedule:
+        raise ContractError(
+            "Starlette.add_middleware schedule must preserve registration and dispatch order"
+        )
+    exercised = _starlette_add_middleware_semantic_coverage(case)
+    if not exercised or set(case["covers"]) != exercised:
+        raise ContractError(
+            "Starlette.add_middleware covers must exactly match the callable and dispatch inputs"
+        )
+    if case["observations"] != [step["step_id"] for step in steps[1:]]:
+        raise ContractError(
+            "Starlette.add_middleware must observe every registration and dispatch step"
+        )
 
 
 def _is_route_body_limit_workflow(case: Any) -> bool:
@@ -15304,6 +15506,8 @@ def _starlette_add_route_semantic_coverage(case: dict[str, Any]) -> set[str]:
 def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     if case["surface"] == GZIP_SURFACE:
         return _gzip_semantic_coverage(case)
+    if any(step.get("operation") == "add_middleware" for step in case["steps"]):
+        return _starlette_add_middleware_semantic_coverage(case)
     if _is_route_body_limit_workflow(case):
         requirement = _route_body_limit_requirement_from_input(case)
         return set() if requirement is None else {requirement}

@@ -24,6 +24,10 @@
           "source_path": "starlette.applications.Starlette.__call__"
         },
         {
+          "operation_id": "add_middleware",
+          "source_path": "starlette.applications.Starlette.add_middleware"
+        },
+        {
           "operation_id": "add_route",
           "source_path": "starlette.applications.Starlette.add_route"
         },

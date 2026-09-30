@@ -32,32 +32,29 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 553 input-only cases, 79 operations, and 590
-parity requirements across 63 indexed files. The cases include the
+The current parity contract has 556 input-only cases, 80 operations, and 593
+parity requirements across 64 indexed files. The cases include the
 Starlette.routes property inventory, synchronous background-callback
 cancellation, and direct
 Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
 interleaved consumers, plus lazy Request.state initialization through a routed
-request. The latest clean full-slice run
-`c328ff95-646a-4c09-bbda-130c452eb9f1` ran
-from `2026-09-30T21:27:01.518Z` to `2026-09-30T21:28:53.356Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 711 profile
-comparisons: 707 passed, zero failed, zero infrastructure errors, and four
+request. The latest full-slice run `47e84033-64e5-4ebf-a214-c92e3fa5e4e2` ran from
+`2026-09-30T21:57:40.515Z` to `2026-09-30T21:59:34.460Z` against Starlette 1.6.0
+at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 714 profile
+comparisons: 710 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-551 selected comparisons; Rust-native passed 156 of 160. The package was clean
-at repository commit `fff3d7365762984248c8fd32aa123286ed4d572a`, with installed
-package tree SHA-256
-`98ea5971108b068d2e555011056a7f0b3509608f05da0230eddb582ac0e0b391` and wheel
-SHA-256 `22bdd283f3a1e24045630589ac5c7cd913896054402dbcfa87cb831e8178dc85`.
-The run includes exact `Starlette.routes` comparisons and the synchronous
-background-callback cancellation case, which matches the ordered response
-send, worker entry/release/completion, and propagated `CancelledError`. The four
-Rust-native `not_run` rows are sync endpoint, bound-method, partial, and
-callable-instance Request dispatch cases. `make parity-run` exits with status 2
-for those declared Python-callable boundaries. Manifest SHA-256:
-`305823fe8de905c2972886a84ea2ff2c3d1c1a0b9ee85b1f23be554d5d9a0729`. This
-bounded evidence does not establish full Starlette parity or release readiness.
+554 selected comparisons; Rust-native passed 156 of 160. All three
+`Starlette.add_middleware` workflows passed exact comparison. The target used a
+dirty working tree, with package tree SHA-256
+`a56a4eaa803faaed6870bd1759f5660b76eadf8aa6a3e3b24a7dfd75ce32e2d1` and wheel
+SHA-256 `dc3450c375d6c03b504138a4a150a7a8bd909f7aa9c0060cf77f6f56d2b33a00`.
+The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
+and callable-instance Request dispatch cases. `make parity-run` exits with
+status 2 for those declared Python-callable boundaries. Manifest SHA-256:
+`49f1a335065713814bfea854e35e3f66cefd49025cc8e93837f0295e75a1c38a`. This
+bounded, dirty-tree evidence does not establish full Starlette parity or release
+readiness.
 
 Six WSGIMiddleware cases, two direct
 `build_environ` cases, and the module-import deprecation warning case passed

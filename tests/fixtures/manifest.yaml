@@ -241,6 +241,7 @@
   "input_index": {
     "parity": [
       "build/parity/inputs/parity/asgi-http-get-text.json",
+      "build/parity/inputs/parity/application-middleware.json",
       "build/parity/inputs/parity/asgi-request-items.json",
       "build/parity/inputs/parity/asgi-call-boundary.json",
       "build/parity/inputs/parity/request-runtime.json",
@@ -412,7 +413,7 @@
                 }
               }
             ],
-            "result": {
+          "result": {
               "shape": "none",
               "observations": [],
               "error": {
@@ -1866,6 +1867,112 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Request semantic observations are outside the direct GET /hello smoke benchmark."
+          }
+        },
+        {
+          "id": "add_middleware",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.applications.Starlette.add_middleware",
+            "signature": "add_middleware(self, middleware_class, *args, **kwargs) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": ["handle"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "middleware_class",
+                "style": "positional_or_keyword",
+                "value_types": ["handle"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "args",
+                "style": "variadic_positional",
+                "value_types": ["sequence"],
+                "omission": {"kind": "literal", "value": []}
+              },
+              {
+                "id": "kwargs",
+                "style": "variadic_keyword",
+                "value_types": ["mapping"],
+                "omission": {"kind": "literal", "value": {}}
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "workflow_observation",
+                  "value_types": ["record"],
+                  "comparison": {"kind": "exact"}
+                }
+              ],
+              "error": {
+                "fields": ["class", "kind", "message", "stage", "code", "cause", "suppress_context"],
+                "message": {"mode": "exact", "transforms": [], "reason": null}
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native application API does not declare the Python Starlette.add_middleware method.",
+                "blocker": "No public Rust-native Starlette.add_middleware method is declared."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.applications.Starlette.add_middleware",
+              "signature": "add_middleware(self, middleware_class, *args, **kwargs) -> None",
+              "support": {"status": "supported"}
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.applications.Starlette.add_middleware.positional-order-and-cache",
+              "dimension": "success_path",
+              "description": "Forward positional middleware arguments and preserve Starlette's insertion order while lazily building and reusing one middleware stack for an application. Upstream: starlette/applications.py:55-63,92-96; tests/test_applications.py:465-526.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.applications.Starlette.add_middleware.factory-keyword-arguments",
+              "dimension": "success_path",
+              "description": "Invoke middleware factory callables with the supplied positional and keyword arguments and preserve registration order. Upstream: starlette/applications.py:92-96; tests/test_applications.py:529-549.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.applications.Starlette.add_middleware.after-start-error",
+              "dimension": "error_path",
+              "description": "Raise the exact RuntimeError when middleware is added after the application has built its middleware stack. Upstream: starlette/applications.py:103-107; docs/applications.md.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": ["python-package-cpython312"]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded addition adds input-only parity evidence; it makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Middleware registration and stack construction are outside the direct ASGI dispatch smoke benchmark."
           }
         },
         {
