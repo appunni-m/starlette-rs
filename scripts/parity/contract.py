@@ -12795,8 +12795,12 @@ def _validate_upstream_first_difference(value: Any, context: str) -> None:
         raise ContractError(f"{context} has an unsupported difference shape")
 
 
-def _validate_upstream_benchmark_result_artifact(value: Any) -> dict[str, Any]:
-    from .upstream_benchmark_contract import ROUTER_WORKLOAD_IDS, UPSTREAM_WORKLOAD_IDS
+def _validate_upstream_benchmark_result_artifact(value: Any, root: Path) -> dict[str, Any]:
+    from .upstream_benchmark_contract import (
+        INPUT_KIND_CATEGORIES,
+        UPSTREAM_WORKLOAD_IDS,
+        validate_upstream_workloads,
+    )
 
     result = _exact(
         value,
@@ -12840,6 +12844,23 @@ def _validate_upstream_benchmark_result_artifact(value: Any) -> dict[str, Any]:
             "upstream benchmark result input differs from the active indexed catalog"
         )
     _validate_sha256(input_identity["sha256"], "upstream benchmark identity.input.sha256")
+    active_root = root.resolve()
+    active_input_path = (active_root / input_identity["path"]).resolve()
+    try:
+        active_input_path.relative_to(active_root)
+    except ValueError as exc:
+        raise ContractError(
+            "upstream benchmark input path must remain inside the active root"
+        ) from exc
+    if not active_input_path.is_file():
+        raise ContractError("active upstream benchmark input catalog is missing")
+    if sha256_file(active_input_path) != input_identity["sha256"]:
+        raise ContractError(
+            "upstream benchmark result input digest differs from the active catalog"
+        )
+    active_input_catalog = load_json(active_input_path)
+    validate_upstream_workloads(active_input_catalog)
+    active_workloads = active_input_catalog["workloads"]
     manifest = _exact(
         identity["manifest"],
         {"path", "schema", "sha256"},
@@ -12848,6 +12869,25 @@ def _validate_upstream_benchmark_result_artifact(value: Any) -> dict[str, Any]:
     if manifest["path"] != "tests/fixtures/manifest.yaml" or manifest["schema"] != MANIFEST_SCHEMA:
         raise ContractError("upstream benchmark result manifest differs from the active contract")
     _validate_sha256(manifest["sha256"], "upstream benchmark identity.manifest.sha256")
+    active_manifest_path = (active_root / manifest["path"]).resolve()
+    try:
+        active_manifest_path.relative_to(active_root)
+    except ValueError as exc:
+        raise ContractError(
+            "upstream benchmark manifest path must remain inside the active root"
+        ) from exc
+    if not active_manifest_path.is_file():
+        raise ContractError("active upstream benchmark manifest is missing")
+    if sha256_file(active_manifest_path) != manifest["sha256"]:
+        raise ContractError(
+            "upstream benchmark result manifest digest differs from the active manifest"
+        )
+    active_manifest = load_manifest(active_manifest_path)
+    validate_manifest(active_manifest)
+    if input_identity["path"] not in active_manifest["input_index"]["benchmark"]:
+        raise ContractError(
+            "upstream benchmark result catalog is not indexed by the active manifest"
+        )
     if identity["source_revision"] != ORACLE_COMMIT:
         raise ContractError("upstream benchmark result source revision differs from the pin")
 
@@ -12980,7 +13020,11 @@ def _validate_upstream_benchmark_result_artifact(value: Any) -> dict[str, Any]:
         if not isinstance(row_value, dict):
             raise ContractError(f"{context} must be an object")
         workload_id = UPSTREAM_WORKLOAD_IDS[index]
-        category = "router" if workload_id in ROUTER_WORKLOAD_IDS else "gzip"
+        catalog_row = active_workloads[index]
+        if catalog_row["workload_id"] != workload_id:
+            raise ContractError(f"{context} workload ID differs from its active catalog row")
+        input_kind = catalog_row["input"]["kind"]
+        category = INPUT_KIND_CATEGORIES[input_kind]
         status = row_value.get("status")
         if status == "measured":
             row = _exact(
@@ -13050,7 +13094,7 @@ def _validate_upstream_benchmark_result_artifact(value: Any) -> dict[str, Any]:
         else:
             raise ContractError(f"{context}.status is invalid")
         if row["workload_id"] != workload_id or row["category"] != category:
-            raise ContractError(f"{context} workload ID/category differs from the pinned inventory")
+            raise ContractError(f"{context} workload category differs from the active input")
         counts[status] += 1
 
         if "measurement_policy" in row:
@@ -13403,7 +13447,11 @@ def validate_result_artifact(
     manifest_path: Path | None = None,
 ) -> dict[str, Any]:
     if isinstance(value, dict) and value.get("schema") == UPSTREAM_BENCHMARK_RESULT_SCHEMA:
-        return _validate_upstream_benchmark_result_artifact(value)
+        if root is None:
+            raise ContractError(
+                "validating an upstream benchmark result requires the active repository root"
+            )
+        return _validate_upstream_benchmark_result_artifact(value, root)
     if isinstance(value, dict) and value.get("schema") == BENCHMARK_RESULT_SCHEMA:
         return _validate_benchmark_result_artifact(value)
     _exact(

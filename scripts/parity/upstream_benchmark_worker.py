@@ -52,8 +52,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from scripts.parity.upstream_benchmark_contract import live_relation_kinds
-
 REQUEST_SCHEMA = "starlette-rs-upstream-benchmark-worker-request@1"
 RESULT_SCHEMA = "starlette-rs-upstream-benchmark-worker-result@1"
 SOURCE_REVISION = "4f250d6b814587e20c5365f0a5f0c4d42bcb929f"
@@ -70,16 +68,13 @@ def _strict_object(value: Any, expected: set[str], context: str) -> dict[str, An
     return value
 
 
-def _validate_observation_declaration(workload: dict[str, Any], input_kind: str) -> None:
+def _validate_observation_declaration(workload: dict[str, Any], input_spec: dict[str, Any]) -> None:
     observations = workload["observations"]
-    expected_keys = {"events", "input_relations"}
-    if input_kind == "gzip_responsiveness":
-        expected_keys.add("no_pending_large_task_assertion")
-    if not isinstance(observations, dict) or set(observations) != expected_keys:
-        raise ValueError(f"observations must contain exactly {sorted(expected_keys)}")
+    if not isinstance(observations, dict) or set(observations) != {"events", "input_relations"}:
+        raise ValueError("observations must contain events and input_relations")
     event_spec = observations["events"]
     event_keys = {"selector", "ordering", "comparison", "unordered_header_token_order"}
-    if input_kind == "gzip_responsiveness":
+    if isinstance(event_spec, dict) and "streams" in event_spec:
         event_keys.add("streams")
     if not isinstance(event_spec, dict) or set(event_spec) != event_keys:
         raise ValueError(f"observations.events must contain exactly {sorted(event_keys)}")
@@ -88,19 +83,37 @@ def _validate_observation_declaration(workload: dict[str, Any], input_kind: str)
         or event_spec["ordering"] != "exact"
         or event_spec["comparison"] != "exact"
         or not isinstance(event_spec["unordered_header_token_order"], list)
-        or any(not isinstance(item, str) for item in event_spec["unordered_header_token_order"])
+        or any(
+            not isinstance(item, str) or not item or not item.isascii() or item != item.lower()
+            for item in event_spec["unordered_header_token_order"]
+        )
     ):
         raise ValueError("worker supports exact ordered ASGI send-event observations only")
-    if any(item.lower() != "allow" for item in event_spec["unordered_header_token_order"]):
-        raise ValueError("only the reusable Allow-header token-order normalization is supported")
-    if input_kind == "gzip_responsiveness":
+    if len(event_spec["unordered_header_token_order"]) != len(
+        set(event_spec["unordered_header_token_order"])
+    ):
+        raise ValueError("header token-order normalization names must be unique")
+    if input_spec.get("kind") == "gzip_responsiveness" and "streams" not in event_spec:
+        raise ValueError("multi-stream workloads must declare observation output paths")
+    if "streams" in event_spec:
+        streams = event_spec["streams"]
         if (
-            event_spec["streams"] != ["large", "tiny"]
-            or observations["no_pending_large_task_assertion"] is not True
-        ):
-            raise ValueError(
-                "responsiveness observations must select large and tiny streams without a pending assertion"
+            not isinstance(streams, dict)
+            or not streams
+            or any(
+                not isinstance(name, str)
+                or not name
+                or not isinstance(path, str)
+                or not path.endswith("_events")
+                for name, path in streams.items()
             )
+            or len(streams.values()) != len(set(streams.values()))
+        ):
+            raise ValueError("observation streams must map names to unique output paths")
+        if input_spec.get("kind") != "gzip_responsiveness" or set(streams) != set(
+            input_spec.get("task_schedule", {}).get("create_order", [])
+        ):
+            raise ValueError("observation streams differ from the input task schedule")
     if not isinstance(observations["input_relations"], list):
         raise ValueError("observations.input_relations must be an array")
 
@@ -947,9 +960,9 @@ def _router_expected_status(input_spec: dict[str, Any]) -> int:
     return 405 if path_matched else 404
 
 
-def _check_router_status_and_shape(input_spec: dict[str, Any], observation: dict[str, Any]) -> bool:
+def _check_router_status_and_shape(input_spec: dict[str, Any], events: Any) -> bool:
     try:
-        status, _headers, body = _http_response_shape(observation.get("events"), "Router response")
+        status, _headers, body = _http_response_shape(events, "Router response")
         expected_status = _router_expected_status(input_spec)
         if status != expected_status:
             return False
@@ -975,34 +988,110 @@ def _input_response_status(response_messages: dict[str, list[dict[str, Any]]], k
     return status
 
 
-def _check_gzip_compression_shape(
+def _resolve_input_path(input_spec: dict[str, Any], path: str) -> Any:
+    if not isinstance(path, str) or not path.startswith("input."):
+        raise ValueError("relation input path must start with input.")
+    value: Any = input_spec
+    for component in path.removeprefix("input.").split("."):
+        if not isinstance(value, dict) or component not in value:
+            raise ValueError(f"relation input path does not resolve: {path}")
+        value = value[component]
+    return value
+
+
+def _gzip_would_compress(
+    input_spec: dict[str, Any],
+    response_app_path: str,
+    middleware_path: str,
+    response_messages: dict[str, list[dict[str, Any]]],
+) -> bool:
+    try:
+        middleware_spec = _resolve_input_path(input_spec, middleware_path)
+        app_name = response_app_path.removeprefix("input.")
+        if middleware_spec["effective_parameters"]["app_ref"] != app_name:
+            return False
+        messages = response_messages[app_name]
+        if len(messages) < 2 or messages[0].get("type") != "http.response.start":
+            return False
+        if any(message.get("type") == "http.response.pathsend" for message in messages):
+            return False
+        body_message = next(
+            (message for message in messages if message.get("type") == "http.response.body"),
+            None,
+        )
+        if body_message is None:
+            return False
+        body = body_message.get("body", b"")
+        if not isinstance(body, bytes):
+            return False
+
+        parameters = middleware_spec["effective_parameters"]
+        if len(body) < parameters["minimum_size"]:
+            return False
+        headers = messages[0]["headers"]
+        content_encoding = _header_values(headers, b"content-encoding")
+        if content_encoding:
+            return False
+        content_types = _header_values(headers, b"content-type")
+        excluded_items = parameters["exclude_content_types"]["items"]
+        for raw_content_type in content_types:
+            content_type = raw_content_type.decode("latin-1").split(";", 1)[0].strip().lower()
+            if any(
+                content_type == item.lower()
+                or (item.endswith("/*") and content_type.startswith(item[:-1].lower()))
+                for item in excluded_items
+            ):
+                return False
+
+        scope = input_spec["scope"]
+        request_headers = [
+            _header_bytes(header, f"scope.headers[{index}]")
+            for index, header in enumerate(scope["headers"])
+        ]
+        for name, value in request_headers:
+            if name.lower() != b"accept-encoding":
+                continue
+            for item in value.split(b","):
+                token, *parameters = item.strip().lower().split(b";", 1)
+                if token != b"gzip":
+                    continue
+                if parameters and parameters[0].strip().replace(b" ", b"") in {
+                    b"q=0",
+                    b"q=0.0",
+                    b"q=0.00",
+                    b"q=0.000",
+                }:
+                    continue
+                return True
+        return False
+    except (KeyError, TypeError, ValueError, UnicodeError):
+        return False
+
+
+def _check_gzip_response_shape(
+    input_spec: dict[str, Any],
+    response_spec: dict[str, str],
     observation: dict[str, Any],
     response_messages: dict[str, list[dict[str, Any]]],
 ) -> bool:
     try:
-        status, headers, _body = _http_response_shape(observation.get("events"), "GZip response")
-        return status == _input_response_status(
-            response_messages, "response_app"
-        ) and b"gzip" in _header_values(headers, b"content-encoding")
-    except (KeyError, TypeError, ValueError):
-        return False
-
-
-def _check_gzip_responsiveness_shape(
-    observation: dict[str, Any], response_messages: dict[str, list[dict[str, Any]]]
-) -> bool:
-    try:
-        large_status, large_headers, _large_body = _http_response_shape(
-            observation.get("large_events"), "GZip responsiveness large response"
+        output_path = response_spec["output_path"]
+        events = observation.get(output_path)
+        status, headers, _body = _http_response_shape(events, f"GZip response at {output_path}")
+        app_spec = _resolve_input_path(input_spec, response_spec["response_app_path"])
+        app_name = response_spec["response_app_path"].removeprefix("input.")
+        input_status = _input_response_status(response_messages, app_name)
+        should_compress = _gzip_would_compress(
+            input_spec,
+            response_spec["response_app_path"],
+            response_spec["middleware_path"],
+            response_messages,
         )
-        tiny_status, tiny_headers, _tiny_body = _http_response_shape(
-            observation.get("tiny_events"), "GZip responsiveness tiny response"
-        )
+        is_compressed = b"gzip" in _header_values(headers, b"content-encoding")
         return (
-            large_status == _input_response_status(response_messages, "large_response_app")
-            and b"gzip" in _header_values(large_headers, b"content-encoding")
-            and tiny_status == _input_response_status(response_messages, "tiny_response_app")
-            and b"gzip" not in _header_values(tiny_headers, b"content-encoding")
+            isinstance(app_spec, dict)
+            and status == input_status
+            and is_compressed == should_compress
         )
     except (KeyError, TypeError, ValueError):
         return False
@@ -1025,9 +1114,7 @@ def _validate_relations(
             raise ValueError("each input relation must declare a kind")
         kind = relation["kind"]
         if kind == "gzip_decompress_output_body_equals_input_body":
-            stream = relation.get("stream")
-            default_output = {"large": "large_events", "tiny": "tiny_events"}.get(stream, "events")
-            output_path = relation.get("output_path", default_output)
+            output_path = relation["output_path"]
             if output_path not in observation or not isinstance(observation[output_path], list):
                 raise ValueError(f"relation {kind} output_path is absent from observation")
             compressed = _events_body(
@@ -1036,33 +1123,24 @@ def _validate_relations(
             expected = _body_from_input_path(input_spec, relation["input_path"])
             passed = gzip.decompress(compressed) == expected
         elif kind == "output_events_equal_input_response_messages":
-            stream = relation.get("stream")
-            default_output = {"large": "large_events", "tiny": "tiny_events"}.get(stream, "events")
-            actual_path = relation.get("output_path", default_output)
+            actual_path = relation["output_path"]
             actual = observation.get(actual_path)
             expected = _events_from_input_path(
                 relation["input_path"], input_spec, response_messages
             )
             passed = actual == expected
+        elif kind == "router_response_status_and_shape_matches_input":
+            passed = _check_router_status_and_shape(
+                input_spec, observation.get(relation["output_path"])
+            )
+        elif kind == "gzip_response_shape_matches_input":
+            response_checks = [
+                _check_gzip_response_shape(input_spec, response, observation, response_messages)
+                for response in relation["responses"]
+            ]
+            passed = all(response_checks)
         else:
             raise ValueError(f"unsupported input relation kind: {kind!r}")
-        results.append({"relation": kind, "status": "pass" if passed else "failed"})
-    live_checks = {
-        "router_status_and_response_shape_matches_input": lambda: _check_router_status_and_shape(
-            input_spec, observation
-        ),
-        "gzip_compression_headers_and_event_shape": lambda: _check_gzip_compression_shape(
-            observation, response_messages
-        ),
-        "gzip_responsiveness_headers_and_event_shape": lambda: _check_gzip_responsiveness_shape(
-            observation, response_messages
-        ),
-    }
-    for kind in live_relation_kinds(input_spec["kind"]):
-        try:
-            passed = live_checks[kind]()
-        except KeyError as exc:
-            raise ValueError(f"unsupported live relation kind: {kind!r}") from exc
         results.append({"relation": kind, "status": "pass" if passed else "failed"})
     return results
 
@@ -1100,7 +1178,8 @@ def _expected_observation(value: Any) -> dict[str, Any]:
 
 def _normalize_observation(observation: dict[str, Any], workload: dict[str, Any]) -> dict[str, Any]:
     token_headers = {
-        item.lower() for item in workload["observations"]["events"]["unordered_header_token_order"]
+        item.lower().encode("ascii")
+        for item in workload["observations"]["events"]["unordered_header_token_order"]
     }
     if not token_headers:
         return observation
@@ -1122,11 +1201,11 @@ def _normalize_observation(observation: dict[str, Any], workload: dict[str, Any]
                     value_bytes = base64.b64decode(pair[1], validate=True)
                 except (ValueError, TypeError):
                     continue
-                if name.decode("ascii", errors="ignore").lower() not in token_headers:
+                if name not in token_headers:
                     continue
                 tokens = [token.strip(b" \t") for token in value_bytes.split(b",")]
                 if tokens and all(tokens):
-                    pair[1] = _b64(b", ".join(sorted(set(tokens))))
+                    pair[1] = _b64(b", ".join(sorted(tokens)))
     return normalized
 
 
@@ -1206,8 +1285,9 @@ def _run_gzip_workload(
         if (
             not isinstance(create_order, list)
             or sorted(create_order) != ["large", "tiny"]
-            or schedule["await_before_timer_stops"] != "tiny"
-            or schedule["drain_after_timer"] != "large"
+            or schedule["await_before_timer_stops"] not in {"large", "tiny"}
+            or schedule["drain_after_timer"] not in {"large", "tiny"}
+            or schedule["await_before_timer_stops"] == schedule["drain_after_timer"]
             or not isinstance(schedule["scope_is_shared"], bool)
         ):
             raise ValueError("responsiveness task_schedule uses an unsupported ASGI schedule")
@@ -1215,7 +1295,10 @@ def _run_gzip_workload(
         calls = {"large": large_app, "tiny": tiny_app}
         state: dict[str, Any] = {}
 
-        async def start_until_tiny() -> None:
+        await_before_timer_stops = schedule["await_before_timer_stops"]
+        drain_after_timer = schedule["drain_after_timer"]
+
+        async def start_until_selected_stream() -> None:
             scopes = {
                 "large": shared_scope,
                 "tiny": shared_scope,
@@ -1228,36 +1311,41 @@ def _run_gzip_workload(
                     _run_asgi(calls[name], scopes[name], receive), name=f"gzip-{name}"
                 )
             state["tasks"] = tasks
-            state["tiny_messages"] = await tasks["tiny"]
+            state["messages"] = {await_before_timer_stops: await tasks[await_before_timer_stops]}
 
-        async def drain_large() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        async def drain_remaining_stream() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             tasks = state.get("tasks")
-            if not isinstance(tasks, dict) or "large" not in tasks or "tiny_messages" not in state:
+            messages = state.get("messages")
+            if not isinstance(tasks, dict) or not isinstance(messages, dict):
                 raise RuntimeError("responsiveness operation was not started")
-            large_messages = await tasks["large"]
-            return large_messages, state["tiny_messages"]
+            messages[drain_after_timer] = await tasks[drain_after_timer]
+            if set(messages) != {"large", "tiny"}:
+                raise RuntimeError("responsiveness schedule did not collect both streams")
+            return messages["large"], messages["tiny"]
 
         async def invoke() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-            await start_until_tiny()
-            return await drain_large()
+            await start_until_selected_stream()
+            return await drain_remaining_stream()
+
+        stream_paths = workload["observations"]["events"]["streams"]
 
         def observe(raw: Any) -> dict[str, Any]:
             large_messages, tiny_messages = raw
             # Deliberately do not assert whether the large response task was still
             # pending when the tiny response completed; that is not a source
             # contract of the responsiveness benchmark.
+            messages_by_stream = {"large": large_messages, "tiny": tiny_messages}
             return {
-                "large_events": _canonical_events(large_messages),
-                "tiny_events": _canonical_events(tiny_messages),
+                output_path: _canonical_events(messages_by_stream[stream_name])
+                for stream_name, output_path in stream_paths.items()
             }
 
         def timed_call(loop: asyncio.AbstractEventLoop) -> tuple[Any, int]:
             started = time.perf_counter_ns()
-            loop.run_until_complete(start_until_tiny())
+            loop.run_until_complete(start_until_selected_stream())
             elapsed = time.perf_counter_ns() - started
-            # The upstream teardown drains and validates the large response
-            # after CodSpeed stops its timer.
-            raw = loop.run_until_complete(drain_large())
+            # The input schedule selects the stream drained after timing stops.
+            raw = loop.run_until_complete(drain_remaining_stream())
             return raw, elapsed
 
     else:
@@ -1402,7 +1490,7 @@ def _run_worker(request: Any) -> dict[str, Any]:
         "gzip_responsiveness",
     }:
         raise ValueError("workload input kind is unsupported")
-    _validate_observation_declaration(workload, input_spec["kind"])
+    _validate_observation_declaration(workload, input_spec)
     if mode == "probe" and request["expected_observation"] is not None:
         raise ValueError("probe mode requires expected_observation=null")
 

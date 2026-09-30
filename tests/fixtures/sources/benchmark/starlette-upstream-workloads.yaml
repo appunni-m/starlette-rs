@@ -70,7 +70,12 @@
           "comparison": "exact",
           "unordered_header_token_order": []
         },
-        "input_relations": []
+        "input_relations": [
+          {
+            "kind": "router_response_status_and_shape_matches_input",
+            "output_path": "events"
+          }
+        ]
       },
       "measurement": {
         "setup_outside_timer": [
@@ -171,7 +176,12 @@
           "comparison": "exact",
           "unordered_header_token_order": []
         },
-        "input_relations": []
+        "input_relations": [
+          {
+            "kind": "router_response_status_and_shape_matches_input",
+            "output_path": "events"
+          }
+        ]
       },
       "measurement": {
         "setup_outside_timer": [
@@ -272,7 +282,12 @@
           "comparison": "exact",
           "unordered_header_token_order": []
         },
-        "input_relations": []
+        "input_relations": [
+          {
+            "kind": "router_response_status_and_shape_matches_input",
+            "output_path": "events"
+          }
+        ]
       },
       "measurement": {
         "setup_outside_timer": [
@@ -373,7 +388,12 @@
           "comparison": "exact",
           "unordered_header_token_order": []
         },
-        "input_relations": []
+        "input_relations": [
+          {
+            "kind": "router_response_status_and_shape_matches_input",
+            "output_path": "events"
+          }
+        ]
       },
       "measurement": {
         "setup_outside_timer": [
@@ -476,7 +496,12 @@
             "allow"
           ]
         },
-        "input_relations": []
+        "input_relations": [
+          {
+            "kind": "router_response_status_and_shape_matches_input",
+            "output_path": "events"
+          }
+        ]
       },
       "measurement": {
         "setup_outside_timer": [
@@ -577,7 +602,12 @@
           "comparison": "exact",
           "unordered_header_token_order": []
         },
-        "input_relations": []
+        "input_relations": [
+          {
+            "kind": "router_response_status_and_shape_matches_input",
+            "output_path": "events"
+          }
+        ]
       },
       "measurement": {
         "setup_outside_timer": [
@@ -715,7 +745,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -859,7 +900,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -1003,7 +1055,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -1147,7 +1210,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -1291,7 +1365,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -1435,7 +1520,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -1579,7 +1675,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -1723,7 +1830,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -1867,7 +1985,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -2017,7 +2146,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -2167,7 +2307,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -2317,7 +2468,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -2467,7 +2629,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -2617,7 +2790,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -2767,7 +2951,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -2917,7 +3112,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -3067,7 +3273,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -3217,7 +3434,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -3363,7 +3591,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -3509,7 +3748,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -3655,7 +3905,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -3801,7 +4062,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -3947,7 +4219,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -4093,7 +4376,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -4239,7 +4533,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -4385,7 +4690,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -4531,7 +4847,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -4675,7 +5002,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -4819,7 +5157,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -4963,7 +5312,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -5107,7 +5467,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -5251,7 +5622,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -5395,7 +5777,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -5539,7 +5932,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -5683,7 +6087,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -5827,7 +6242,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -5971,7 +6397,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -6115,7 +6552,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -6259,7 +6707,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -6409,7 +6868,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -6559,7 +7029,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -6709,7 +7190,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -6859,7 +7351,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -7009,7 +7512,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -7159,7 +7673,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -7309,7 +7834,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -7459,7 +7995,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -7609,7 +8156,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -7759,7 +8317,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -7909,7 +8478,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -8059,7 +8639,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -8205,7 +8796,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -8351,7 +8953,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -8497,7 +9110,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -8643,7 +9267,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -8789,7 +9424,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -8935,7 +9581,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -9081,7 +9738,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -9227,7 +9895,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -9373,7 +10052,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -9519,7 +10209,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -9665,7 +10366,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -9811,7 +10523,18 @@
             "kind": "gzip_decompress_output_body_equals_input_body",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "events"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "events",
+                "response_app_path": "input.response_app",
+                "middleware_path": "input.middleware"
+              }
+            ]
           }
         ]
       },
@@ -10024,27 +10747,40 @@
           "ordering": "exact",
           "comparison": "exact",
           "unordered_header_token_order": [],
-          "streams": [
-            "large",
-            "tiny"
-          ]
+          "streams": {
+            "large": "large_events",
+            "tiny": "tiny_events"
+          }
         },
         "input_relations": [
           {
             "kind": "gzip_decompress_output_body_equals_input_body",
-            "stream": "large",
             "output_event_index": 1,
             "output_field": "body",
-            "input_path": "input.payload_generator"
+            "input_path": "input.payload_generator",
+            "output_path": "large_events"
           },
           {
             "kind": "output_events_equal_input_response_messages",
-            "stream": "tiny",
             "output_path": "tiny_events",
             "input_path": "input.tiny_response_app.messages"
+          },
+          {
+            "kind": "gzip_response_shape_matches_input",
+            "responses": [
+              {
+                "output_path": "large_events",
+                "response_app_path": "input.large_response_app",
+                "middleware_path": "input.large_middleware"
+              },
+              {
+                "output_path": "tiny_events",
+                "response_app_path": "input.tiny_response_app",
+                "middleware_path": "input.tiny_middleware"
+              }
+            ]
           }
-        ],
-        "no_pending_large_task_assertion": true
+        ]
       },
       "measurement": {
         "setup_outside_timer": [

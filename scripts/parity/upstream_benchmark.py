@@ -26,7 +26,6 @@ from .contract import (
 )
 from .envs import ENVIRONMENT_IDS, load_prepared_environments
 from .runner import _base_environment, run_parity
-from .upstream_benchmark_contract import live_relation_kinds
 
 UPSTREAM_INPUT_SCHEMA = "migration-parity/upstream-benchmark-input@1"
 UPSTREAM_RESULT_SCHEMA = "migration-parity/upstream-benchmark-result@1"
@@ -197,8 +196,8 @@ def _run_worker(
     return result
 
 
-def _normalize_allow_tokens(observation: Any, unordered_headers: list[str] | None = None) -> Any:
-    """Apply only the descriptor-declared header-token ordering exceptions."""
+def _normalize_header_tokens(observation: Any, unordered_headers: list[str] | None = None) -> Any:
+    """Apply the header-token ordering normalization declared by this input."""
     names = {item.lower().encode("ascii") for item in (unordered_headers or [])}
 
     def normalize(value: Any) -> Any:
@@ -207,8 +206,9 @@ def _normalize_allow_tokens(observation: Any, unordered_headers: list[str] | Non
         if not isinstance(value, dict):
             return value
         normalized = {key: normalize(item) for key, item in value.items()}
-        events = normalized.get("events")
-        if isinstance(events, list):
+        for events in normalized.values():
+            if not isinstance(events, list):
+                continue
             for event in events:
                 if not isinstance(event, dict) or event.get("type") != "http.response.start":
                     continue
@@ -224,8 +224,9 @@ def _normalize_allow_tokens(observation: Any, unordered_headers: list[str] | Non
                     except (TypeError, ValueError):
                         continue
                     if name in names:
-                        tokens = sorted(part.strip() for part in raw_value.split(b","))
-                        header[1] = base64.b64encode(b", ".join(tokens)).decode("ascii")
+                        tokens = [part.strip(b" \t") for part in raw_value.split(b",")]
+                        if tokens and all(tokens):
+                            header[1] = base64.b64encode(b", ".join(sorted(tokens))).decode("ascii")
         return normalized
 
     return normalize(observation)
@@ -351,7 +352,6 @@ def _validate_worker_relations(
 ) -> list[dict[str, str]]:
     actual = result.get("input_relations")
     expected_kinds = [relation["kind"] for relation in workload["observations"]["input_relations"]]
-    expected_kinds.extend(live_relation_kinds(workload["input"]["kind"]))
     if not isinstance(actual, list):
         raise ContractError(f"{context} omitted input-relation evidence")
     kinds = [row.get("relation") for row in actual if isinstance(row, dict)]
@@ -697,8 +697,8 @@ def run_upstream_benchmark(
                 if unordered_headers
                 else "none"
             )
-            normalized_source = _normalize_allow_tokens(source_observation, unordered_headers)
-            normalized_target = _normalize_allow_tokens(target_observation, unordered_headers)
+            normalized_source = _normalize_header_tokens(source_observation, unordered_headers)
+            normalized_target = _normalize_header_tokens(target_observation, unordered_headers)
             if normalized_source != normalized_target:
                 records.append(
                     {
@@ -764,10 +764,10 @@ def run_upstream_benchmark(
                     raise ContractError(
                         f"{subject_id} identity changed between probe and measurement"
                     )
-                normalized_measurement_observation = _normalize_allow_tokens(
+                normalized_measurement_observation = _normalize_header_tokens(
                     measurement.get("observation"), unordered_headers
                 )
-                normalized_probe_observation = _normalize_allow_tokens(
+                normalized_probe_observation = _normalize_header_tokens(
                     probes[subject_id]["observation"], unordered_headers
                 )
                 if normalized_measurement_observation != normalized_probe_observation:

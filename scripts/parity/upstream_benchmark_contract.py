@@ -47,19 +47,14 @@ UPSTREAM_WORKLOAD_IDS = (
     *GZIP_BYPASS_WORKLOAD_IDS,
 )
 
-WORKLOAD_CATEGORIES = {"router", "gzip"}
-INPUT_KINDS = {
-    "router_dispatch",
-    "gzip_compression",
-    "gzip_bypass",
-    "gzip_responsiveness",
+INPUT_KIND_CATEGORIES = {
+    "router_dispatch": "router",
+    "gzip_compression": "gzip",
+    "gzip_bypass": "gzip",
+    "gzip_responsiveness": "gzip",
 }
-_LIVE_RELATION_KINDS = {
-    "router_dispatch": ("router_status_and_response_shape_matches_input",),
-    "gzip_compression": ("gzip_compression_headers_and_event_shape",),
-    "gzip_bypass": (),
-    "gzip_responsiveness": ("gzip_responsiveness_headers_and_event_shape",),
-}
+INPUT_KINDS = set(INPUT_KIND_CATEGORIES)
+WORKLOAD_CATEGORIES = set(INPUT_KIND_CATEGORIES.values())
 
 _NON_INPUT_KEY = re.compile(
     r"^(?:expected(?:_|$)|expect(?:_|$)|assert(?:_|$)|assertions(?:_|$)|"
@@ -71,44 +66,10 @@ _EXECUTION_KEY = re.compile(
     r"source_(?:code|callable|expression|command))$",
     re.IGNORECASE,
 )
-_COMPRESSION_ID = re.compile(
-    r"^test_gzip\[(json|text|incompressible)-(1MiB|32KiB|256KiB|5MiB|10MiB)-level-([1-9])\]$"
-)
-
-_DEFAULT_EXCLUDED_CONTENT_TYPES = (
-    "application/gzip",
-    "application/x-gzip",
-    "application/zip",
-    "audio/*",
-    "font/woff",
-    "font/woff2",
-    "image/avif",
-    "image/gif",
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "text/event-stream",
-    "video/*",
-)
 
 
 class UpstreamBenchmarkContractError(ValueError):
     """A malformed or incompatible upstream benchmark input catalog."""
-
-
-def live_relation_kinds(input_kind: str) -> tuple[str, ...]:
-    """Return runtime relations implied by an input kind, without fixture outputs.
-
-    These checks make the pinned benchmark's post-timer response assertions
-    executable. Their expected values are derived from the supplied request,
-    route, middleware, and response inputs or from the live source observation.
-    """
-    try:
-        return _LIVE_RELATION_KINDS[input_kind]
-    except KeyError as exc:
-        raise UpstreamBenchmarkContractError(
-            f"no live response relations are declared for input kind {input_kind!r}"
-        ) from exc
 
 
 def _exact(value: Any, keys: set[str], context: str) -> dict[str, Any]:
@@ -169,22 +130,6 @@ def _reject_non_input_fields(value: Any, context: str = "catalog") -> None:
         raise UpstreamBenchmarkContractError(f"{context} contains a non-JSON value")
 
 
-def _expected_category(workload_id: str) -> str:
-    return "router" if workload_id in ROUTER_WORKLOAD_IDS else "gzip"
-
-
-def _expected_input_kind(workload_id: str) -> str:
-    if workload_id in ROUTER_WORKLOAD_IDS:
-        return "router_dispatch"
-    if workload_id in GZIP_COMPRESSION_WORKLOAD_IDS:
-        return "gzip_compression"
-    if workload_id in GZIP_BYPASS_WORKLOAD_IDS:
-        return "gzip_bypass"
-    if workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
-        return "gzip_responsiveness"
-    raise UpstreamBenchmarkContractError(f"unknown pinned workload ID: {workload_id}")
-
-
 def _same_json(value: Any, expected: Any) -> bool:
     """Compare JSON values without Python's bool/int equality shortcut."""
     if isinstance(expected, dict):
@@ -219,7 +164,346 @@ def _require_equal(value: Any, expected: Any, context: str) -> None:
         )
 
 
-def _validate_router_input(workload_id: str, value: dict[str, Any], context: str) -> None:
+def _integer(value: Any, context: str, *, minimum: int = 0) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < minimum:
+        raise UpstreamBenchmarkContractError(
+            f"{context} must be an integer greater than or equal to {minimum}"
+        )
+    return value
+
+
+def _nonempty_string(value: Any, context: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise UpstreamBenchmarkContractError(f"{context} must be a non-empty string")
+    return value
+
+
+def _validate_receive(value: Any, context: str) -> None:
+    receive = _exact(value, {"behavior", "message"}, context)
+    if receive["behavior"] != "raise_assertion":
+        raise UpstreamBenchmarkContractError(f"{context}.behavior is unsupported")
+    _nonempty_string(receive["message"], f"{context}.message")
+
+
+def _validate_generator(value: Any, context: str) -> None:
+    if not isinstance(value, dict) or set(value) not in (
+        {"name", "parameters"},
+        {"name", "parameters", "source_constants"},
+    ):
+        raise UpstreamBenchmarkContractError(
+            f"{context} must contain a supported declarative generator"
+        )
+    name = _nonempty_string(value["name"], f"{context}.name")
+    parameters = value["parameters"]
+    if not isinstance(parameters, dict):
+        raise UpstreamBenchmarkContractError(f"{context}.parameters must be an object")
+    if name == "literal_ascii":
+        parameters = _exact(parameters, {"value_ascii"}, f"{context}.parameters")
+        if not isinstance(parameters["value_ascii"], str):
+            raise UpstreamBenchmarkContractError(f"{context}.parameters.value_ascii must be text")
+        try:
+            parameters["value_ascii"].encode("ascii")
+        except UnicodeEncodeError as exc:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.parameters.value_ascii must be ASCII"
+            ) from exc
+        if "source_constants" in value:
+            raise UpstreamBenchmarkContractError(f"{context} literal generator has extra constants")
+        return
+    if name not in {
+        "make_json_payload",
+        "make_text_payload",
+        "shake_256_digest",
+        "repeat_byte",
+    }:
+        raise UpstreamBenchmarkContractError(f"{context}.name is unsupported: {name!r}")
+    parameter_keys = {"size_bytes"}
+    if name == "shake_256_digest":
+        parameter_keys.add("seed_ascii")
+    if name == "repeat_byte":
+        parameter_keys.add("byte_ascii")
+    parameters = _exact(parameters, parameter_keys, f"{context}.parameters")
+    _integer(parameters["size_bytes"], f"{context}.parameters.size_bytes")
+    if name == "shake_256_digest":
+        _nonempty_string(parameters["seed_ascii"], f"{context}.parameters.seed_ascii")
+    if name == "repeat_byte":
+        byte = _nonempty_string(parameters["byte_ascii"], f"{context}.parameters.byte_ascii")
+        try:
+            byte.encode("ascii")
+        except UnicodeEncodeError as exc:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.parameters.byte_ascii must be ASCII"
+            ) from exc
+        if len(byte.encode("ascii")) != 1:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.parameters.byte_ascii must encode to one byte"
+            )
+    if name == "make_text_payload":
+        constants = _exact(
+            value.get("source_constants"),
+            {"paragraph_ascii"},
+            f"{context}.source_constants",
+        )
+        paragraph = _nonempty_string(
+            constants["paragraph_ascii"], f"{context}.source_constants.paragraph_ascii"
+        )
+        try:
+            paragraph.encode("ascii")
+        except UnicodeEncodeError as exc:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.source_constants.paragraph_ascii must be ASCII"
+            ) from exc
+    elif "source_constants" in value:
+        raise UpstreamBenchmarkContractError(f"{context} has unsupported source_constants")
+
+
+def _validate_input_headers(value: Any, context: str) -> None:
+    if not isinstance(value, list):
+        raise UpstreamBenchmarkContractError(f"{context} must be an array")
+    for index, raw_header in enumerate(value):
+        header_context = f"{context}[{index}]"
+        if not isinstance(raw_header, dict):
+            raise UpstreamBenchmarkContractError(f"{header_context} must be an object")
+        keys = set(raw_header)
+        if keys not in (
+            {"name_ascii", "value_ascii"},
+            {"name_ascii", "value_from_body_size_bytes"},
+            {"name_ascii", "value_from_case_body_size_bytes"},
+        ):
+            raise UpstreamBenchmarkContractError(f"{header_context} has an unsupported shape")
+        name = _nonempty_string(raw_header["name_ascii"], f"{header_context}.name_ascii")
+        try:
+            name.encode("ascii")
+        except UnicodeEncodeError as exc:
+            raise UpstreamBenchmarkContractError(
+                f"{header_context}.name_ascii must be ASCII"
+            ) from exc
+        if "value_ascii" in raw_header:
+            if not isinstance(raw_header["value_ascii"], str):
+                raise UpstreamBenchmarkContractError(f"{header_context}.value_ascii must be text")
+            try:
+                raw_header["value_ascii"].encode("ascii")
+            except UnicodeEncodeError as exc:
+                raise UpstreamBenchmarkContractError(
+                    f"{header_context}.value_ascii must be ASCII"
+                ) from exc
+        elif raw_header[next(iter(keys - {"name_ascii"}))] is not True:
+            raise UpstreamBenchmarkContractError(f"{header_context} size reference must be true")
+
+
+def _validate_response_app(value: Any, context: str) -> None:
+    app = _exact(value, {"kind", "messages"}, context)
+    if app["kind"] != "static_response" or not isinstance(app["messages"], list):
+        raise UpstreamBenchmarkContractError(
+            f"{context} must be a static response with a message array"
+        )
+    if not app["messages"]:
+        raise UpstreamBenchmarkContractError(f"{context}.messages must not be empty")
+    for index, raw_message in enumerate(app["messages"]):
+        message_context = f"{context}.messages[{index}]"
+        if not isinstance(raw_message, dict) or "type" not in raw_message:
+            raise UpstreamBenchmarkContractError(f"{message_context} must declare a type")
+        message_type = raw_message["type"]
+        if message_type == "http.response.start":
+            message = _exact(raw_message, {"type", "status", "headers"}, message_context)
+            _integer(message["status"], f"{message_context}.status", minimum=100)
+            _validate_input_headers(message["headers"], f"{message_context}.headers")
+        elif message_type == "http.response.body":
+            message = _exact(raw_message, {"type", "body"}, message_context)
+            body = _exact(message["body"], {"generator"}, f"{message_context}.body")
+            _validate_generator(body["generator"], f"{message_context}.body.generator")
+        elif message_type == "http.response.pathsend":
+            message = _exact(raw_message, {"type", "path_utf8"}, message_context)
+            _nonempty_string(message["path_utf8"], f"{message_context}.path_utf8")
+        else:
+            raise UpstreamBenchmarkContractError(
+                f"{message_context}.type is unsupported: {message_type!r}"
+            )
+
+
+def _validate_gzip_scope(value: Any, context: str) -> None:
+    if not isinstance(value, dict):
+        raise UpstreamBenchmarkContractError(f"{context} must be an object")
+    expected = {"type", "headers"}
+    if "extensions" in value:
+        expected.add("extensions")
+    scope = _exact(value, expected, context)
+    if scope["type"] != "http":
+        raise UpstreamBenchmarkContractError(f"{context}.type must be 'http'")
+    _validate_input_headers(scope["headers"], f"{context}.headers")
+    if "extensions" in scope:
+        extensions = _exact(
+            scope["extensions"], {"http.response.pathsend"}, f"{context}.extensions"
+        )
+        if extensions["http.response.pathsend"] != {}:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.extensions.http.response.pathsend must be an empty object"
+            )
+
+
+def _validate_middleware(value: Any, app_names: set[str], context: str) -> None:
+    middleware = _exact(
+        value,
+        {"class", "call_arguments", "effective_parameters"},
+        context,
+    )
+    if middleware["class"] != "starlette.middleware.gzip.GZipMiddleware":
+        raise UpstreamBenchmarkContractError(f"{context}.class is unsupported")
+    call = _exact(
+        middleware["call_arguments"], {"positional", "keyword"}, f"{context}.call_arguments"
+    )
+    positional = call["positional"]
+    if not isinstance(positional, list) or len(positional) != 1:
+        raise UpstreamBenchmarkContractError(f"{context}.call_arguments.positional is malformed")
+    app_ref = _exact(positional[0], {"app_ref"}, f"{context}.call_arguments.positional[0]")
+    app_name = _nonempty_string(app_ref["app_ref"], f"{context}.app_ref")
+    if app_name not in app_names:
+        raise UpstreamBenchmarkContractError(f"{context}.app_ref does not name an input app")
+    keyword = call["keyword"]
+    if not isinstance(keyword, dict) or not set(keyword) <= {"minimum_size", "compresslevel"}:
+        raise UpstreamBenchmarkContractError(f"{context}.call_arguments.keyword is malformed")
+    effective = _exact(
+        middleware["effective_parameters"],
+        {
+            "app_ref",
+            "minimum_size",
+            "compresslevel",
+            "thread_minimum_size",
+            "exclude_content_types",
+        },
+        f"{context}.effective_parameters",
+    )
+    if effective["app_ref"] != app_name:
+        raise UpstreamBenchmarkContractError(f"{context}.effective_parameters.app_ref differs")
+    _integer(effective["minimum_size"], f"{context}.effective_parameters.minimum_size")
+    compresslevel = _integer(
+        effective["compresslevel"], f"{context}.effective_parameters.compresslevel"
+    )
+    if compresslevel > 9:
+        raise UpstreamBenchmarkContractError(
+            f"{context}.effective_parameters.compresslevel must be at most 9"
+        )
+    _integer(
+        effective["thread_minimum_size"],
+        f"{context}.effective_parameters.thread_minimum_size",
+    )
+    excluded = _exact(
+        effective["exclude_content_types"],
+        {"type", "items"},
+        f"{context}.effective_parameters.exclude_content_types",
+    )
+    if excluded["type"] != "tuple":
+        raise UpstreamBenchmarkContractError(
+            f"{context}.effective_parameters.exclude_content_types.type must be tuple"
+        )
+    _string_list(
+        excluded["items"],
+        f"{context}.effective_parameters.exclude_content_types.items",
+    )
+    for name, argument in keyword.items():
+        if argument != effective[name]:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.call_arguments.keyword.{name} differs from effective parameters"
+            )
+
+
+def _validate_input_path(value: Any, context: str) -> str:
+    path = _nonempty_string(value, context)
+    if not path.startswith("input.") or any(not part for part in path.split(".")):
+        raise UpstreamBenchmarkContractError(f"{context} must be a dotted input path")
+    return path
+
+
+def _validate_input_relations(value: Any, context: str, output_paths: set[str]) -> None:
+    if not isinstance(value, list):
+        raise UpstreamBenchmarkContractError(f"{context} must be an array")
+    relation_kinds: set[str] = set()
+    for index, raw_relation in enumerate(value):
+        relation_context = f"{context}[{index}]"
+        if not isinstance(raw_relation, dict):
+            raise UpstreamBenchmarkContractError(f"{relation_context} must be an object")
+        kind = _nonempty_string(raw_relation.get("kind"), f"{relation_context}.kind")
+        if kind in relation_kinds:
+            raise UpstreamBenchmarkContractError(f"{relation_context}.kind must be unique")
+        relation_kinds.add(kind)
+        if kind == "gzip_decompress_output_body_equals_input_body":
+            relation = _exact(
+                raw_relation,
+                {"kind", "output_path", "output_event_index", "output_field", "input_path"},
+                relation_context,
+            )
+            output_path = _nonempty_string(
+                relation["output_path"], f"{relation_context}.output_path"
+            )
+            if output_path not in output_paths:
+                raise UpstreamBenchmarkContractError(
+                    f"{relation_context}.output_path is not selected by observations.events"
+                )
+            _integer(relation["output_event_index"], f"{relation_context}.output_event_index")
+            if relation["output_field"] != "body":
+                raise UpstreamBenchmarkContractError(
+                    f"{relation_context}.output_field must select the response body"
+                )
+            _validate_input_path(relation["input_path"], f"{relation_context}.input_path")
+        elif kind == "output_events_equal_input_response_messages":
+            relation = _exact(raw_relation, {"kind", "output_path", "input_path"}, relation_context)
+            output_path = _nonempty_string(
+                relation["output_path"], f"{relation_context}.output_path"
+            )
+            if output_path not in output_paths:
+                raise UpstreamBenchmarkContractError(
+                    f"{relation_context}.output_path is not selected by observations.events"
+                )
+            _validate_input_path(relation["input_path"], f"{relation_context}.input_path")
+        elif kind == "router_response_status_and_shape_matches_input":
+            relation = _exact(raw_relation, {"kind", "output_path"}, relation_context)
+            output_path = _nonempty_string(
+                relation["output_path"], f"{relation_context}.output_path"
+            )
+            if output_path not in output_paths:
+                raise UpstreamBenchmarkContractError(
+                    f"{relation_context}.output_path is not selected by observations.events"
+                )
+        elif kind == "gzip_response_shape_matches_input":
+            relation = _exact(raw_relation, {"kind", "responses"}, relation_context)
+            responses = relation["responses"]
+            if not isinstance(responses, list) or not responses:
+                raise UpstreamBenchmarkContractError(
+                    f"{relation_context}.responses must be a non-empty array"
+                )
+            seen_response_outputs: set[str] = set()
+            for response_index, raw_response in enumerate(responses):
+                response_context = f"{relation_context}.responses[{response_index}]"
+                response = _exact(
+                    raw_response,
+                    {"output_path", "response_app_path", "middleware_path"},
+                    response_context,
+                )
+                output_path = _nonempty_string(
+                    response["output_path"], f"{response_context}.output_path"
+                )
+                if output_path not in output_paths:
+                    raise UpstreamBenchmarkContractError(
+                        f"{response_context}.output_path is not selected by observations.events"
+                    )
+                if output_path in seen_response_outputs:
+                    raise UpstreamBenchmarkContractError(
+                        f"{response_context}.output_path must be unique"
+                    )
+                seen_response_outputs.add(output_path)
+                _validate_input_path(
+                    response["response_app_path"], f"{response_context}.response_app_path"
+                )
+                _validate_input_path(
+                    response["middleware_path"], f"{response_context}.middleware_path"
+                )
+        else:
+            raise UpstreamBenchmarkContractError(
+                f"{relation_context}.kind is unsupported: {kind!r}"
+            )
+
+
+def _validate_router_input(value: dict[str, Any], context: str) -> None:
     row = _exact(value, {"kind", "router", "scope", "receive"}, context)
     _require_equal(row["kind"], "router_dispatch", f"{context}.kind")
     router = _exact(
@@ -230,233 +514,134 @@ def _validate_router_input(workload_id: str, value: dict[str, Any], context: str
         {"variable", "start", "count"},
         f"{context}.router.group_expansion",
     )
-    expected_group_count = 5 if workload_id == "test_routing_small_app" else 30
-    _require_equal(expansion["variable"], "i", f"{context}.router.group_expansion.variable")
-    _require_equal(expansion["start"], 0, f"{context}.router.group_expansion.start")
-    _require_equal(
-        expansion["count"], expected_group_count, f"{context}.router.group_expansion.count"
+    variable = _nonempty_string(expansion["variable"], f"{context}.router.group_expansion.variable")
+    _integer(expansion["start"], f"{context}.router.group_expansion.start")
+    _integer(expansion["count"], f"{context}.router.group_expansion.count", minimum=1)
+    route_templates = router["route_templates"]
+    if not isinstance(route_templates, list) or not route_templates:
+        raise UpstreamBenchmarkContractError(f"{context}.router.route_templates must be non-empty")
+    for index, route in enumerate(route_templates):
+        route_context = f"{context}.router.route_templates[{index}]"
+        route = _exact(route, {"path", "methods"}, route_context)
+        path = _nonempty_string(route["path"], f"{route_context}.path")
+        if "{" + variable + "}" not in path:
+            raise UpstreamBenchmarkContractError(
+                f"{route_context}.path must use the declared expansion variable"
+            )
+        methods = _string_list(route["methods"], f"{route_context}.methods")
+        if len(methods) != len(set(methods)):
+            raise UpstreamBenchmarkContractError(f"{route_context}.methods must be unique")
+    endpoint = _exact(
+        router["endpoint"], {"response_class", "body_utf8"}, f"{context}.router.endpoint"
     )
-    route_templates = [
-        {"path": "/resources{i}", "methods": ["GET", "POST"]},
-        {"path": "/resources{i}/{id:int}", "methods": ["GET", "PUT", "DELETE"]},
-        {"path": "/resources{i}/{id:int}/items", "methods": ["GET", "POST"]},
-        {"path": "/resources{i}/{id:int}/items/{item}", "methods": ["GET"]},
-    ]
-    _require_equal(router["route_templates"], route_templates, f"{context}.router.route_templates")
-    # Expansion is represented compactly, but its effective source route count
-    # is fixed at 120 (large) or 20 (small).
-    expected_route_count = 20 if expected_group_count == 5 else 120
-    if expected_group_count * len(route_templates) != expected_route_count:
-        raise UpstreamBenchmarkContractError(f"{context} has an invalid effective route count")
-    _require_equal(
-        router["endpoint"],
-        {"response_class": "starlette.responses.PlainTextResponse", "body_utf8": "ok"},
-        f"{context}.router.endpoint",
-    )
+    if endpoint["response_class"] != "starlette.responses.PlainTextResponse":
+        raise UpstreamBenchmarkContractError(
+            f"{context}.router.endpoint.response_class is unsupported"
+        )
+    if not isinstance(endpoint["body_utf8"], str):
+        raise UpstreamBenchmarkContractError(
+            f"{context}.router.endpoint.body_utf8 must be a string"
+        )
 
-    expected_request = {
-        "test_routing_static_early": ("GET", "/resources0"),
-        "test_routing_static_late": ("GET", "/resources29"),
-        "test_routing_param_late": ("GET", "/resources29/123/items/first"),
-        "test_routing_miss": ("GET", "/no/such/path"),
-        "test_routing_method_not_allowed": ("DELETE", "/resources29"),
-        "test_routing_small_app": ("GET", "/resources4/7"),
-    }[workload_id]
-    _require_equal(
+    scope = _exact(
         row["scope"],
-        {
-            "type": "http",
-            "method": expected_request[0],
-            "path": expected_request[1],
-            "root_path": "",
-            "headers": [],
-            "query_string": {"bytes_hex": ""},
-        },
+        {"type", "method", "path", "root_path", "headers", "query_string"},
         f"{context}.scope",
     )
-    _require_equal(
-        row["receive"],
-        {
-            "behavior": "raise_assertion",
-            "message": "The benchmark app must not receive a request body",
-        },
-        f"{context}.receive",
-    )
+    if scope["type"] != "http":
+        raise UpstreamBenchmarkContractError(f"{context}.scope.type must be 'http'")
+    _nonempty_string(scope["method"], f"{context}.scope.method")
+    _nonempty_string(scope["path"], f"{context}.scope.path")
+    if not isinstance(scope["root_path"], str) or not isinstance(scope["headers"], list):
+        raise UpstreamBenchmarkContractError(f"{context}.scope root_path or headers are malformed")
+    query = _exact(scope["query_string"], {"bytes_hex"}, f"{context}.scope.query_string")
+    if not isinstance(query["bytes_hex"], str):
+        raise UpstreamBenchmarkContractError(f"{context}.scope.query_string.bytes_hex must be text")
+    try:
+        bytes.fromhex(query["bytes_hex"])
+    except ValueError as exc:
+        raise UpstreamBenchmarkContractError(
+            f"{context}.scope.query_string.bytes_hex is invalid"
+        ) from exc
+    _validate_receive(row["receive"], f"{context}.receive")
 
 
-def _expected_relations(workload_id: str) -> list[dict[str, Any]]:
-    if workload_id in GZIP_COMPRESSION_WORKLOAD_IDS:
-        return [
-            {
-                "kind": "gzip_decompress_output_body_equals_input_body",
-                "output_event_index": 1,
-                "output_field": "body",
-                "input_path": "input.payload_generator",
-            }
-        ]
-    if workload_id in GZIP_BYPASS_WORKLOAD_IDS:
-        return [
-            {
-                "kind": "output_events_equal_input_response_messages",
-                "output_path": "events",
-                "input_path": "input.response_app.messages",
-            }
-        ]
-    if workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
-        return [
-            {
-                "kind": "gzip_decompress_output_body_equals_input_body",
-                "stream": "large",
-                "output_event_index": 1,
-                "output_field": "body",
-                "input_path": "input.payload_generator",
-            },
-            {
-                "kind": "output_events_equal_input_response_messages",
-                "stream": "tiny",
-                "output_path": "tiny_events",
-                "input_path": "input.tiny_response_app.messages",
-            },
-        ]
-    return []
-
-
-def _validate_observations(workload_id: str, value: Any, context: str) -> None:
-    expected_keys = {"events", "input_relations"}
-    if workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
-        expected_keys.add("no_pending_large_task_assertion")
-    observations = _exact(value, expected_keys, context)
+def _validate_observations(value: Any, input_spec: dict[str, Any], context: str) -> dict[str, Any]:
+    observations = _exact(value, {"events", "input_relations"}, context)
     event_keys = {"selector", "ordering", "comparison", "unordered_header_token_order"}
-    if workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
+    if isinstance(observations["events"], dict) and "streams" in observations["events"]:
         event_keys.add("streams")
     events = _exact(observations["events"], event_keys, f"{context}.events")
     _require_equal(events["selector"], "all_asgi_send_events", f"{context}.events.selector")
     _require_equal(events["ordering"], "exact", f"{context}.events.ordering")
     _require_equal(events["comparison"], "exact", f"{context}.events.comparison")
-    _require_equal(
-        events["unordered_header_token_order"],
-        ["allow"] if workload_id == "test_routing_method_not_allowed" else [],
-        f"{context}.events.unordered_header_token_order",
-    )
-    if workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
-        _require_equal(events["streams"], ["large", "tiny"], f"{context}.events.streams")
-    _require_equal(
-        observations["input_relations"],
-        _expected_relations(workload_id),
-        f"{context}.input_relations",
-    )
-    if workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
-        _require_equal(
-            observations["no_pending_large_task_assertion"],
-            True,
-            f"{context}.no_pending_large_task_assertion",
+    headers = (
+        _string_list(
+            events["unordered_header_token_order"],
+            f"{context}.events.unordered_header_token_order",
         )
+        if events["unordered_header_token_order"]
+        else []
+    )
+    if any(not header.isascii() or header != header.lower() for header in headers):
+        raise UpstreamBenchmarkContractError(
+            f"{context}.events.unordered_header_token_order must contain lowercase ASCII names"
+        )
+    if len(headers) != len(set(headers)):
+        raise UpstreamBenchmarkContractError(
+            f"{context}.events.unordered_header_token_order must not contain duplicates"
+        )
+    is_responsiveness = input_spec.get("kind") == "gzip_responsiveness"
+    if is_responsiveness and "streams" not in events:
+        raise UpstreamBenchmarkContractError(
+            f"{context}.events.streams is required for multi-stream input"
+        )
+    output_paths = set() if is_responsiveness else {"events"}
+    if "streams" in events:
+        streams = events["streams"]
+        if not isinstance(streams, dict) or not streams:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.events.streams must map stream names to output paths"
+            )
+        stream_names = _string_list(list(streams), f"{context}.events.streams names")
+        stream_paths = _string_list(
+            list(streams.values()), f"{context}.events.streams output paths"
+        )
+        if len(stream_names) != len(set(stream_names)) or len(stream_paths) != len(
+            set(stream_paths)
+        ):
+            raise UpstreamBenchmarkContractError(f"{context}.events.streams must be unique")
+        if any(not path.endswith("_events") for path in stream_paths):
+            raise UpstreamBenchmarkContractError(
+                f"{context}.events.streams output paths must end with '_events'"
+            )
+        if input_spec.get("kind") != "gzip_responsiveness":
+            raise UpstreamBenchmarkContractError(
+                f"{context}.events.streams is supported only for multi-stream input"
+            )
+        schedule = input_spec["task_schedule"]
+        if set(stream_names) != set(schedule["create_order"]):
+            raise UpstreamBenchmarkContractError(
+                f"{context}.events.streams names must match the declared task schedule"
+            )
+        output_paths.update(stream_paths)
+    _validate_input_relations(
+        observations["input_relations"],
+        f"{context}.input_relations",
+        output_paths,
+    )
+    return observations
 
 
-def _string_list(value: Any, context: str) -> list[str]:
-    if not isinstance(value, list) or not value:
-        raise UpstreamBenchmarkContractError(f"{context} must be a non-empty array of strings")
+def _string_list(value: Any, context: str, *, allow_empty: bool = False) -> list[str]:
+    if not isinstance(value, list) or (not allow_empty and not value):
+        raise UpstreamBenchmarkContractError(f"{context} must be an array of strings")
     if any(not isinstance(item, str) or not item.strip() for item in value):
         raise UpstreamBenchmarkContractError(f"{context} must contain only non-empty strings")
     return value
 
 
-def _expected_timer_setup(workload_id: str) -> list[str]:
-    if workload_id in ROUTER_WORKLOAD_IDS:
-        groups = 5 if workload_id == "test_routing_small_app" else 30
-        return [
-            f"Build the router with {groups} resource groups (four routes per group) before timing.",
-            "Construct the module-scoped ASGIRunner and its asyncio event loop before timing.",
-        ]
-    if workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
-        return [
-            "Generate the large JSON payload; build both response message tuples, middleware apps, shared scope, and ResponsivenessBenchmark before timing.",
-            "In benchmark setup, create the event loop and warm the AnyIO worker before timing.",
-        ]
-    if workload_id.startswith("test_gzip_bypass["):
-        return [
-            "Generate the bypass response input and inner message tuple before timing.",
-            "Build GZipMiddleware, scope, and ASGIRunner/event loop before timing.",
-        ]
-    return [
-        "Generate the deterministic response payload before timing.",
-        "Build the response message tuple, GZipMiddleware instance, scope, and ASGIRunner/event loop before timing.",
-    ]
-
-
-def _expected_post_timer_checks(workload_id: str) -> list[str]:
-    if workload_id in ROUTER_WORKLOAD_IDS:
-        return [
-            "The upstream assertion reads the status field of the first sent event after the benchmark call."
-        ]
-    if workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
-        return [
-            "In teardown after the timer stops, drain and await the large task.",
-            "Select both complete sent event sequences; decompress the large response body and compare it with the generated input body.",
-            "Compare the tiny response events with the supplied tiny inner response messages.",
-            "No pending-large-task assertion is made.",
-            "Record the upstream extra-info fields after the timer stops.",
-        ]
-    if workload_id.startswith("test_gzip_bypass["):
-        return [
-            "Select the complete sent event sequence and compare it with the supplied inner response messages.",
-            "Record the upstream extra-info fields after the timer stops.",
-        ]
-    return [
-        "Select the full sent event sequence, all response headers, and response body bytes.",
-        "Decompress the output body and compare it with the generated input body.",
-        "Record the upstream extra-info metrics after the timer stops.",
-    ]
-
-
-def _expected_timed_call_includes(workload_id: str) -> list[str]:
-    if workload_id in ROUTER_WORKLOAD_IDS:
-        return [
-            "runner.run(app, method, path)",
-            "Fresh http_scope(method, path) creation for this dispatch",
-            "loop.run_until_complete(run_asgi(app, scope))",
-            "ASGI receive/send callback setup and sent-event collection",
-        ]
-    if workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
-        return [
-            "The run_until_tiny_response call",
-            "loop.run_until_complete of the coroutine that starts the large task, then the tiny task, and awaits the tiny task",
-            "Concurrent GZipMiddleware processing until the tiny response completes",
-        ]
-    return [
-        "The full runner.run(app, scope) ASGI call",
-        "loop.run_until_complete(run_asgi(app, scope))",
-        "GZipMiddleware response handling, fresh outgoing message containers, and send-event collection",
-    ]
-
-
-def _expected_measurement(workload_id: str) -> dict[str, Any]:
-    if workload_id in ROUTER_WORKLOAD_IDS:
-        return {
-            "boundary_id": "router_runner_dispatch",
-            "package": "pytest-codspeed",
-            "method": "benchmark",
-            "marker": None,
-            "rounds": None,
-        }
-    if workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
-        return {
-            "boundary_id": "gzip_tiny_response_latency",
-            "package": "pytest-codspeed",
-            "method": "benchmark.pedantic",
-            "marker": {"max_time_seconds": 0.5, "max_rounds": 1},
-            "rounds": 1,
-        }
-    return {
-        "boundary_id": "gzip_middleware_asgi_call",
-        "package": "pytest-codspeed",
-        "method": "benchmark.pedantic",
-        "marker": {"max_time_seconds": 0.5, "max_rounds": 10},
-        "rounds": 1,
-    }
-
-
-def _validate_measurement(workload_id: str, value: Any, context: str) -> None:
+def _validate_measurement(value: Any, context: str) -> None:
     measurement = _exact(
         value,
         {
@@ -468,401 +653,260 @@ def _validate_measurement(workload_id: str, value: Any, context: str) -> None:
         },
         context,
     )
-    _require_equal(
-        _string_list(measurement["setup_outside_timer"], f"{context}.setup_outside_timer"),
-        _expected_timer_setup(workload_id),
-        f"{context}.setup_outside_timer",
-    )
-    _require_equal(
-        _string_list(measurement["post_timer_checks"], f"{context}.post_timer_checks"),
-        _expected_post_timer_checks(workload_id),
-        f"{context}.post_timer_checks",
-    )
+    _string_list(measurement["setup_outside_timer"], f"{context}.setup_outside_timer")
+    _string_list(measurement["post_timer_checks"], f"{context}.post_timer_checks")
     timed_call = _exact(
         measurement["timed_call"],
         {"boundary_id", "includes"},
         f"{context}.timed_call",
     )
-    expected = _expected_measurement(workload_id)
-    _require_equal(
-        timed_call["boundary_id"],
-        expected["boundary_id"],
-        f"{context}.timed_call.boundary_id",
-    )
-    includes = _string_list(timed_call["includes"], f"{context}.timed_call.includes")
-    _require_equal(
-        includes,
-        _expected_timed_call_includes(workload_id),
-        f"{context}.timed_call.includes",
-    )
-    # The timed boundary is part of this catalog's contract: route timing calls
-    # through the source runner, GZip timing encloses one complete middleware
-    # call, and responsiveness timing ends as soon as the tiny response arrives.
-    joined_includes = " ".join(includes).lower()
-    if workload_id in ROUTER_WORKLOAD_IDS:
-        required_terms = ("scope", "run_until_complete", "dispatch", "send")
-    elif workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
-        required_terms = ("starts the large task", "tiny response")
-    else:
-        required_terms = ("gzipmiddleware", "asgi", "send")
-    missing_terms = [term for term in required_terms if term not in joined_includes]
-    if missing_terms:
-        raise UpstreamBenchmarkContractError(
-            f"{context}.timed_call.includes omits boundary terms: {missing_terms}"
-        )
+    _nonempty_string(timed_call["boundary_id"], f"{context}.timed_call.boundary_id")
+    _string_list(timed_call["includes"], f"{context}.timed_call.includes")
 
     harness = _exact(
         measurement["source_harness"],
         {"package", "method", "marker", "rounds"},
         f"{context}.source_harness",
     )
-    for field in ("package", "method", "marker", "rounds"):
-        _require_equal(harness[field], expected[field], f"{context}.source_harness.{field}")
-    expected_runner_policy = {
-        "warmup_iterations": 1,
-        "samples": 7,
-        "iterations_per_sample": 100 if workload_id in ROUTER_WORKLOAD_IDS else 1,
-        "sample_statistic": "mean_call_duration",
-    }
-    _require_equal(
-        _exact(
-            measurement["runner_policy"],
-            {"warmup_iterations", "samples", "iterations_per_sample", "sample_statistic"},
-            f"{context}.runner_policy",
-        ),
-        expected_runner_policy,
+    _nonempty_string(harness["package"], f"{context}.source_harness.package")
+    _nonempty_string(harness["method"], f"{context}.source_harness.method")
+    marker = harness["marker"]
+    if marker is not None:
+        marker = _exact(
+            marker, {"max_time_seconds", "max_rounds"}, f"{context}.source_harness.marker"
+        )
+        if (
+            not isinstance(marker["max_time_seconds"], (int, float))
+            or isinstance(marker["max_time_seconds"], bool)
+            or marker["max_time_seconds"] <= 0
+        ):
+            raise UpstreamBenchmarkContractError(
+                f"{context}.source_harness.marker.max_time_seconds must be positive"
+            )
+        _integer(marker["max_rounds"], f"{context}.source_harness.marker.max_rounds", minimum=1)
+    if harness["rounds"] is not None:
+        _integer(harness["rounds"], f"{context}.source_harness.rounds", minimum=1)
+    policy = _exact(
+        measurement["runner_policy"],
+        {"warmup_iterations", "samples", "iterations_per_sample", "sample_statistic"},
         f"{context}.runner_policy",
     )
-    setup_joined = " ".join(measurement["setup_outside_timer"]).lower()
-    post_joined = " ".join(measurement["post_timer_checks"]).lower()
-    if workload_id in ROUTER_WORKLOAD_IDS:
-        if "route" not in setup_joined or "runner" not in setup_joined:
-            raise UpstreamBenchmarkContractError(
-                f"{context}.setup_outside_timer must keep route and runner construction outside timing"
-            )
-        if "status" not in post_joined:
-            raise UpstreamBenchmarkContractError(
-                f"{context}.post_timer_checks must retain the upstream status check"
-            )
-    elif workload_id == GZIP_RESPONSIVENESS_WORKLOAD_ID:
-        if "worker" not in setup_joined or "warm" not in setup_joined:
-            raise UpstreamBenchmarkContractError(
-                f"{context}.setup_outside_timer must warm the AnyIO worker before timing"
-            )
-        if "drain" not in post_joined or "select" not in post_joined:
-            raise UpstreamBenchmarkContractError(
-                f"{context}.post_timer_checks must drain and validate both response streams"
-            )
-    else:
-        payload_term = "input" if workload_id in GZIP_BYPASS_WORKLOAD_IDS else "payload"
-        if payload_term not in setup_joined or "middleware" not in setup_joined:
-            raise UpstreamBenchmarkContractError(
-                f"{context}.setup_outside_timer must construct payload and middleware outside timing"
-            )
-        if "decompress" not in post_joined and workload_id in GZIP_COMPRESSION_WORKLOAD_IDS:
-            raise UpstreamBenchmarkContractError(
-                f"{context}.post_timer_checks must validate decompression outside timing"
-            )
-        if workload_id in GZIP_BYPASS_WORKLOAD_IDS and "compare" not in post_joined:
-            raise UpstreamBenchmarkContractError(
-                f"{context}.post_timer_checks must compare bypass events outside timing"
-            )
+    _integer(policy["warmup_iterations"], f"{context}.runner_policy.warmup_iterations")
+    _integer(policy["samples"], f"{context}.runner_policy.samples", minimum=1)
+    _integer(
+        policy["iterations_per_sample"],
+        f"{context}.runner_policy.iterations_per_sample",
+        minimum=1,
+    )
+    if policy["sample_statistic"] != "mean_call_duration":
+        raise UpstreamBenchmarkContractError(
+            f"{context}.runner_policy.sample_statistic is unsupported"
+        )
 
 
-def _size_bytes(size_label: str) -> int:
-    return {
-        "32KiB": 32 * 1024,
-        "256KiB": 256 * 1024,
-        "1MiB": 1024 * 1024,
-        "5MiB": 5 * 1024 * 1024,
-        "10MiB": 10 * 1024 * 1024,
-    }[size_label]
-
-
-def _payload_descriptor(payload_kind: str, size_bytes: int) -> dict[str, Any]:
-    if payload_kind == "json":
-        return {"name": "make_json_payload", "parameters": {"size_bytes": size_bytes}}
-    if payload_kind == "text":
-        return {
-            "name": "make_text_payload",
-            "parameters": {"size_bytes": size_bytes},
-            "source_constants": {"paragraph_ascii": _TEXT_PARAGRAPH_ASCII},
-        }
-    if payload_kind == "incompressible":
-        return {
-            "name": "shake_256_digest",
-            "parameters": {
-                "seed_ascii": "starlette-gzip-benchmark-v1",
-                "size_bytes": size_bytes,
-            },
-        }
-    raise UpstreamBenchmarkContractError(f"unsupported payload kind: {payload_kind}")
-
-
-_TEXT_PARAGRAPH_ASCII = (
-    "Starlette is a lightweight ASGI framework/toolkit, which is ideal for building async web services in Python. "
-    "It is production-ready and gives you the following: seriously impressive performance, WebSocket support, "
-    "in-process background tasks, startup and shutdown events, and a test client built on HTTPX.\n"
-)
-_BODY_REQUEST_RECEIVE = {
-    "behavior": "raise_assertion",
-    "message": "The benchmark app must not receive a request body",
-}
-_HTTP_GZIP_SCOPE = {
-    "type": "http",
-    "headers": [{"name_ascii": "accept-encoding", "value_ascii": "gzip"}],
-}
 _GZIP_MIDDLEWARE_CLASS = "starlette.middleware.gzip.GZipMiddleware"
 
 
-def _headers_for_response(
-    content_type: str,
-    *,
-    length_key: str = "value_from_body_size_bytes",
-    content_encoding: str | None = None,
-) -> list[dict[str, Any]]:
-    headers: list[dict[str, Any]] = [
-        {"name_ascii": "content-type", "value_ascii": content_type},
-        {"name_ascii": "content-length", length_key: True},
+def _body_generators(app: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        message["body"]["generator"]
+        for message in app["messages"]
+        if message.get("type") == "http.response.body"
     ]
-    if content_encoding is not None:
-        headers.append({"name_ascii": "content-encoding", "value_ascii": content_encoding})
-    return headers
 
 
-def _static_response(messages: list[dict[str, Any]]) -> dict[str, Any]:
-    return {"kind": "static_response", "messages": messages}
-
-
-def _response_start(headers: list[dict[str, Any]]) -> dict[str, Any]:
-    return {"type": "http.response.start", "status": 200, "headers": headers}
-
-
-def _body_message(descriptor: dict[str, Any]) -> dict[str, Any]:
-    return {"type": "http.response.body", "body": {"generator": descriptor}}
-
-
-def _middleware(
-    app_ref: str,
-    keyword: dict[str, Any],
-    minimum_size: int,
-    compresslevel: int,
-) -> dict[str, Any]:
-    return {
-        "class": _GZIP_MIDDLEWARE_CLASS,
-        "call_arguments": {
-            "positional": [{"app_ref": app_ref}],
-            "keyword": keyword,
-        },
-        "effective_parameters": {
-            "app_ref": app_ref,
-            "minimum_size": minimum_size,
-            "compresslevel": compresslevel,
-            "thread_minimum_size": 131072,
-            "exclude_content_types": {
-                "type": "tuple",
-                "items": list(_DEFAULT_EXCLUDED_CONTENT_TYPES),
-            },
-        },
-    }
-
-
-def _validate_gzip_common(
-    value: dict[str, Any], context: str, *, pathsend_extension: bool = False
-) -> None:
-    expected_scope = _HTTP_GZIP_SCOPE
-    if pathsend_extension:
-        expected_scope = {**_HTTP_GZIP_SCOPE, "extensions": {"http.response.pathsend": {}}}
-    _require_equal(value["scope"], expected_scope, f"{context}.scope")
-    _require_equal(value["receive"], _BODY_REQUEST_RECEIVE, f"{context}.receive")
-
-
-def _validate_compression_input(workload_id: str, value: dict[str, Any], context: str) -> None:
-    match = _COMPRESSION_ID.fullmatch(workload_id)
-    if match is None:
-        raise UpstreamBenchmarkContractError(f"{context} is not a compression workload")
-    payload_kind, size_label, level_text = match.groups()
-    size_bytes = _size_bytes(size_label)
-    level = int(level_text)
-    row = _exact(
-        value,
-        {"kind", "payload_generator", "scope", "receive", "response_app", "middleware"},
-        context,
-    )
-    _validate_gzip_common(row, context)
-    descriptor = _payload_descriptor(payload_kind, size_bytes)
-    _require_equal(row["payload_generator"], descriptor, f"{context}.payload_generator")
-    _require_equal(
-        row["response_app"],
-        _static_response(
-            [
-                _response_start(_headers_for_response("application/json")),
-                _body_message(descriptor),
-            ]
-        ),
-        f"{context}.response_app",
-    )
-    _require_equal(
-        row["middleware"],
-        _middleware(
-            "response_app",
-            {"minimum_size": 0, "compresslevel": level},
-            minimum_size=0,
-            compresslevel=level,
-        ),
-        f"{context}.middleware",
-    )
-
-
-def _bypass_body_size(workload_id: str) -> int:
-    return 499 if workload_id == "test_gzip_bypass[below-minimum-size]" else 1024 * 1024
-
-
-def _validate_bypass_input(workload_id: str, value: dict[str, Any], context: str) -> None:
-    reason = workload_id.removeprefix("test_gzip_bypass[").removesuffix("]")
-    size_bytes = _bypass_body_size(workload_id)
-    expected_keys = {
-        "kind",
-        "case_body_size_bytes",
-        "scope",
-        "receive",
-        "response_app",
-        "middleware",
-    }
-    has_payload = reason != "pathsend"
-    if has_payload:
-        expected_keys.add("payload_generator")
-    row = _exact(value, expected_keys, context)
-    _validate_gzip_common(row, context, pathsend_extension=reason == "pathsend")
-    _require_equal(row["case_body_size_bytes"], size_bytes, f"{context}.case_body_size_bytes")
-
-    content_type = "text/event-stream" if reason == "event-stream" else "application/json"
-    content_encoding = "br" if reason == "content-encoding" else None
-    if reason == "pathsend":
-        response_messages = [
-            _response_start(
-                _headers_for_response(
-                    content_type,
-                    length_key="value_from_case_body_size_bytes",
-                    content_encoding=content_encoding,
-                )
-            ),
-            {"type": "http.response.pathsend", "path_utf8": "/tmp/starlette-benchmark"},
-        ]
-    else:
-        descriptor = {
-            "name": "repeat_byte",
-            "parameters": {"byte_ascii": "x", "size_bytes": size_bytes},
-        }
-        _require_equal(row["payload_generator"], descriptor, f"{context}.payload_generator")
-        response_messages = [
-            _response_start(
-                _headers_for_response(
-                    content_type,
-                    content_encoding=content_encoding,
-                )
-            ),
-            _body_message(descriptor),
-        ]
-    _require_equal(
-        row["response_app"], _static_response(response_messages), f"{context}.response_app"
-    )
-    _require_equal(
-        row["middleware"],
-        _middleware(
-            "response_app",
-            {"minimum_size": 500},
-            minimum_size=500,
-            compresslevel=9,
-        ),
-        f"{context}.middleware",
-    )
-
-
-def _validate_responsiveness_input(value: dict[str, Any], context: str) -> None:
-    row = _exact(
-        value,
-        {
-            "kind",
-            "payload_generator",
-            "scope",
-            "receive",
-            "large_response_app",
-            "tiny_response_app",
-            "large_middleware",
-            "tiny_middleware",
-            "task_schedule",
-        },
-        context,
-    )
-    _validate_gzip_common(row, context)
-    payload = _payload_descriptor("json", 10 * 1024 * 1024)
-    _require_equal(row["payload_generator"], payload, f"{context}.payload_generator")
-    large_messages = [
-        _response_start(_headers_for_response("application/json")),
-        _body_message(payload),
-    ]
-    tiny_messages = [
-        _response_start(
-            [
-                {"name_ascii": "content-type", "value_ascii": "application/json"},
-                {"name_ascii": "content-length", "value_ascii": "2"},
-            ]
-        ),
-        _body_message({"name": "literal_ascii", "parameters": {"value_ascii": "{}"}}),
-    ]
-    _require_equal(
-        row["large_response_app"],
-        _static_response(large_messages),
-        f"{context}.large_response_app",
-    )
-    _require_equal(
-        row["tiny_response_app"],
-        _static_response(tiny_messages),
-        f"{context}.tiny_response_app",
-    )
-    _require_equal(
-        row["large_middleware"],
-        _middleware("large_response_app", {"compresslevel": 9}, 500, 9),
-        f"{context}.large_middleware",
-    )
-    _require_equal(
-        row["tiny_middleware"],
-        _middleware("tiny_response_app", {"compresslevel": 9}, 500, 9),
-        f"{context}.tiny_middleware",
-    )
-    _require_equal(
-        row["task_schedule"],
-        {
-            "create_order": ["large", "tiny"],
-            "await_before_timer_stops": "tiny",
-            "drain_after_timer": "large",
-            "scope_is_shared": True,
-        },
-        f"{context}.task_schedule",
-    )
-
-
-def _validate_gzip_input(workload_id: str, value: Any, context: str) -> None:
+def _validate_gzip_input(value: Any, context: str) -> None:
     if not isinstance(value, dict):
         raise UpstreamBenchmarkContractError(f"{context} must be an object")
-    kind = _expected_input_kind(workload_id)
+    kind = value.get("kind")
     if kind == "gzip_compression":
-        _validate_compression_input(workload_id, value, context)
-    elif kind == "gzip_bypass":
-        _validate_bypass_input(workload_id, value, context)
-    elif kind == "gzip_responsiveness":
-        _validate_responsiveness_input(value, context)
-    else:
-        raise UpstreamBenchmarkContractError(f"{context} has a non-GZip workload kind")
+        row = _exact(
+            value,
+            {"kind", "payload_generator", "scope", "receive", "response_app", "middleware"},
+            context,
+        )
+        _validate_generator(row["payload_generator"], f"{context}.payload_generator")
+        app_names = {"response_app"}
+        _validate_gzip_scope(row["scope"], f"{context}.scope")
+        _validate_receive(row["receive"], f"{context}.receive")
+        _validate_response_app(row["response_app"], f"{context}.response_app")
+        bodies = _body_generators(row["response_app"])
+        if len(bodies) != 1 or not _same_json(bodies[0], row["payload_generator"]):
+            raise UpstreamBenchmarkContractError(
+                f"{context}.response_app body must use the declared payload_generator"
+            )
+        _validate_middleware(row["middleware"], app_names, f"{context}.middleware")
+        return
+    if kind == "gzip_bypass":
+        base_keys = {
+            "kind",
+            "case_body_size_bytes",
+            "scope",
+            "receive",
+            "response_app",
+            "middleware",
+        }
+        has_payload = "payload_generator" in value
+        keys = base_keys | ({"payload_generator"} if has_payload else set())
+        row = _exact(value, keys, context)
+        _integer(row["case_body_size_bytes"], f"{context}.case_body_size_bytes")
+        _validate_gzip_scope(row["scope"], f"{context}.scope")
+        _validate_receive(row["receive"], f"{context}.receive")
+        _validate_response_app(row["response_app"], f"{context}.response_app")
+        bodies = _body_generators(row["response_app"])
+        if has_payload:
+            _validate_generator(row["payload_generator"], f"{context}.payload_generator")
+            if len(bodies) != 1 or not _same_json(bodies[0], row["payload_generator"]):
+                raise UpstreamBenchmarkContractError(
+                    f"{context}.response_app body must use the declared payload_generator"
+                )
+        elif bodies:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.response_app body requires a declared payload_generator"
+            )
+        _validate_middleware(row["middleware"], {"response_app"}, f"{context}.middleware")
+        return
+    if kind == "gzip_responsiveness":
+        row = _exact(
+            value,
+            {
+                "kind",
+                "payload_generator",
+                "scope",
+                "receive",
+                "large_response_app",
+                "tiny_response_app",
+                "large_middleware",
+                "tiny_middleware",
+                "task_schedule",
+            },
+            context,
+        )
+        _validate_generator(row["payload_generator"], f"{context}.payload_generator")
+        _validate_gzip_scope(row["scope"], f"{context}.scope")
+        _validate_receive(row["receive"], f"{context}.receive")
+        app_names = {"large_response_app", "tiny_response_app"}
+        for app_name in sorted(app_names):
+            _validate_response_app(row[app_name], f"{context}.{app_name}")
+        large_bodies = _body_generators(row["large_response_app"])
+        if len(large_bodies) != 1 or not _same_json(large_bodies[0], row["payload_generator"]):
+            raise UpstreamBenchmarkContractError(
+                f"{context}.large_response_app body must use the declared payload_generator"
+            )
+        _validate_middleware(row["large_middleware"], app_names, f"{context}.large_middleware")
+        _validate_middleware(row["tiny_middleware"], app_names, f"{context}.tiny_middleware")
+        schedule = _exact(
+            row["task_schedule"],
+            {"create_order", "await_before_timer_stops", "drain_after_timer", "scope_is_shared"},
+            f"{context}.task_schedule",
+        )
+        order = _string_list(schedule["create_order"], f"{context}.task_schedule.create_order")
+        if len(order) != 2 or set(order) != {"large", "tiny"}:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.task_schedule.create_order must name both response streams"
+            )
+        if schedule["await_before_timer_stops"] not in {"large", "tiny"}:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.task_schedule.await_before_timer_stops is unsupported"
+            )
+        if schedule["drain_after_timer"] not in {"large", "tiny"}:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.task_schedule.drain_after_timer is unsupported"
+            )
+        if schedule["await_before_timer_stops"] == schedule["drain_after_timer"]:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.task_schedule must await a different stream after the timer"
+            )
+        if not isinstance(schedule["scope_is_shared"], bool):
+            raise UpstreamBenchmarkContractError(
+                f"{context}.task_schedule.scope_is_shared must be boolean"
+            )
+        return
+    raise UpstreamBenchmarkContractError(f"{context}.kind is unsupported: {kind!r}")
+
+
+def _resolve_input_path(input_spec: dict[str, Any], path: str, context: str) -> Any:
+    value: Any = input_spec
+    for component in path.removeprefix("input.").split("."):
+        if not isinstance(value, dict) or component not in value:
+            raise UpstreamBenchmarkContractError(f"{context} does not resolve: {path}")
+        value = value[component]
+    return value
+
+
+def _validate_relation_references(input_spec: dict[str, Any], observations: dict[str, Any]) -> None:
+    for index, relation in enumerate(observations["input_relations"]):
+        context = f"observations.input_relations[{index}]"
+        kind = relation["kind"]
+        if kind == "gzip_decompress_output_body_equals_input_body":
+            path = relation["input_path"]
+            if len(path.split(".")) != 2:
+                raise UpstreamBenchmarkContractError(
+                    f"{context}.input_path must select one input payload generator"
+                )
+            generator = _resolve_input_path(input_spec, path, f"{context}.input_path")
+            _validate_generator(generator, f"{context}.input_path")
+        elif kind == "output_events_equal_input_response_messages":
+            path = relation["input_path"]
+            pieces = path.removeprefix("input.").split(".")
+            if len(pieces) != 2 or pieces[1] != "messages":
+                raise UpstreamBenchmarkContractError(
+                    f"{context}.input_path must select a response app message array"
+                )
+            app = _resolve_input_path(input_spec, f"input.{pieces[0]}", f"{context}.input_path")
+            if (
+                not isinstance(app, dict)
+                or app.get("kind") != "static_response"
+                or not (pieces[0] == "response_app" or pieces[0].endswith("_response_app"))
+            ):
+                raise UpstreamBenchmarkContractError(
+                    f"{context}.input_path must reference a worker-loadable static response app"
+                )
+            _resolve_input_path(input_spec, path, f"{context}.input_path")
+        elif kind == "gzip_response_shape_matches_input":
+            for response_index, response in enumerate(relation["responses"]):
+                response_context = f"{context}.responses[{response_index}]"
+                app_path = response["response_app_path"]
+                middleware_path = response["middleware_path"]
+                app_pieces = app_path.removeprefix("input.").split(".")
+                middleware_pieces = middleware_path.removeprefix("input.").split(".")
+                if (
+                    len(app_pieces) != 1
+                    or len(middleware_pieces) != 1
+                    or not (
+                        app_pieces[0] == "response_app" or app_pieces[0].endswith("_response_app")
+                    )
+                    or not (
+                        middleware_pieces[0] == "middleware"
+                        or middleware_pieces[0].endswith("_middleware")
+                    )
+                ):
+                    raise UpstreamBenchmarkContractError(
+                        f"{response_context} must reference a top-level app and middleware"
+                    )
+                app = _resolve_input_path(
+                    input_spec, app_path, f"{response_context}.response_app_path"
+                )
+                middleware = _resolve_input_path(
+                    input_spec, middleware_path, f"{response_context}.middleware_path"
+                )
+                if (
+                    not isinstance(app, dict)
+                    or app.get("kind") != "static_response"
+                    or not isinstance(middleware, dict)
+                    or middleware.get("effective_parameters", {}).get("app_ref") != app_pieces[0]
+                ):
+                    raise UpstreamBenchmarkContractError(
+                        f"{response_context} does not bind the middleware to its response app"
+                    )
 
 
 def validate_upstream_workloads(document: Any) -> dict[str, Any]:
     """Validate the pinned input-only catalog and return a compact inventory summary.
 
-    The expected inventory is derived from the benchmark definitions, never from
-    row-provided metadata. Observation values are restricted separately by the
-    per-workload schema to selectors and boundary descriptions only.
+    Workload IDs are source-lineage keys only. Each input kind selects a generic
+    input validator; stimulus values, observation relations, and measurement
+    policy are read from the row itself.
     """
     _reject_non_input_fields(document)
     catalog = _exact(
@@ -909,30 +953,35 @@ def validate_upstream_workloads(document: Any) -> dict[str, Any]:
             raise UpstreamBenchmarkContractError(f"duplicate upstream workload ID: {workload_id}")
         seen.add(workload_id)
 
-        category = row["category"]
-        expected_category = _expected_category(workload_id)
-        if category not in WORKLOAD_CATEGORIES or category != expected_category:
-            raise UpstreamBenchmarkContractError(
-                f"{context}.category must be {expected_category!r} for {workload_id}"
-            )
-        category_counts[category] += 1
-
         workload_input = row["input"]
         if not isinstance(workload_input, dict):
             raise UpstreamBenchmarkContractError(f"{context}.input must be an object")
         input_kind = workload_input.get("kind")
-        expected_kind = _expected_input_kind(workload_id)
-        if input_kind not in INPUT_KINDS or input_kind != expected_kind:
+        if input_kind not in INPUT_KINDS:
             raise UpstreamBenchmarkContractError(
-                f"{context}.input.kind must be {expected_kind!r} for {workload_id}"
+                f"{context}.input.kind is unsupported: {input_kind!r}"
             )
+        category = row["category"]
+        expected_category = INPUT_KIND_CATEGORIES[input_kind]
+        if category not in WORKLOAD_CATEGORIES or category != expected_category:
+            raise UpstreamBenchmarkContractError(
+                f"{context}.category must match input kind {input_kind!r}"
+            )
+        category_counts[category] += 1
+
         input_kind_counts[input_kind] += 1
         if input_kind == "router_dispatch":
-            _validate_router_input(workload_id, workload_input, f"{context}.input")
+            _validate_router_input(workload_input, f"{context}.input")
         else:
-            _validate_gzip_input(workload_id, workload_input, f"{context}.input")
-        _validate_observations(workload_id, row["observations"], f"{context}.observations")
-        _validate_measurement(workload_id, row["measurement"], f"{context}.measurement")
+            _validate_gzip_input(workload_input, f"{context}.input")
+        observations = _exact(
+            row["observations"], {"events", "input_relations"}, f"{context}.observations"
+        )
+        observations = _validate_observations(
+            observations, workload_input, f"{context}.observations"
+        )
+        _validate_relation_references(workload_input, observations)
+        _validate_measurement(row["measurement"], f"{context}.measurement")
 
     missing = set(UPSTREAM_WORKLOAD_IDS) - seen
     if missing:
