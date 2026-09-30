@@ -8,26 +8,26 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run `ca5a9e4f-4d65-4dd7-b187-b1357ec7ab51`
-ran from `2026-09-30T23:43:32.051Z` to `2026-09-30T23:45:36.290Z` against
+The latest full-slice parity run `290b5adf-821d-4e6c-bd9d-bb66b340eef3`
+ran from `2026-09-30T23:48:30.279Z` to `2026-09-30T23:50:35.661Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 718
 profile comparisons: 714 passed, zero failed, zero infrastructure errors, and
 four Rust-native Python-callable rows were `not_run`. The Python package passed
 all 557 selected comparisons; Rust-native passed 157 of 161. The new
 FileResponse unsorted-range insertion case passed on both profiles. The Python
-package was built from a dirty working tree at source revision
-`127e3b21d1e4d3c6d4c37885574a933c953fa810`; the adapter verified its installed
+package was built from clean source revision
+`f98b5d5df35ea2af6a3513ac182c658b8edfcfd3`; the adapter verified its installed
 package tree before and after each workflow. Its package tree SHA-256 was
 `a1f6617731f5d75dd7b119a29ca7f04fa8d6fcd48448ce96575f873a811385a3` and wheel
-SHA-256 `9120c210e2352d5f92b5c3b8ffed3c3eb0b26d029e453a8a4effd89c9a039d5c`.
+SHA-256 `ef6ac7cef2fd713184123627ba0832a86bf19fcd99cccdbff4e10a51a971a243`.
 The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
 and callable-instance Request dispatch cases. `make parity-run` exits with
 status 2 for those declared `not_run` rows. Manifest SHA-256:
 `ea4d37adc555528218be5b6b01b5c95e115cb25fac50f7e043cb9dbf2a7f3208`. This
-working-tree comparison is useful development evidence but is not a clean
-release proof; it also does not establish full Starlette parity. Strict
-aggregation accepts the parity and benchmark artifacts and reports
-`not_proven` because the full compatibility denominator remains incomplete.
+clean bounded comparison does not establish full Starlette parity or release
+readiness. Strict aggregation accepts the parity and benchmark artifacts and
+reports `not_proven` because the full compatibility denominator remains
+incomplete.
 
 ## Input-only cases
 
