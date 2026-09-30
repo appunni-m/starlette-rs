@@ -489,7 +489,10 @@ def _profile_parity_gate_passes(
     comparisons = result.get("comparisons")
     if not isinstance(comparisons, list):
         return False
-    targets = result.get("targets")
+    identity = result.get("identity")
+    if not isinstance(identity, dict):
+        return False
+    targets = identity.get("targets")
     if not isinstance(targets, list):
         return False
     profile_targets = [
