@@ -111,8 +111,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 797 mappings: 546 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 201 existing input mappings. It maps selected
+The current matrix has 797 mappings: 523 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 224 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

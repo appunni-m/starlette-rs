@@ -238,7 +238,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 797 rows:
-201 `existing` mappings, 546 `backlog` rows, and 50 reasoned `not_applicable`
+224 `existing` mappings, 523 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -286,8 +286,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 515 `supported`, 286
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 797
-source mappings: 201 existing input mappings, 50 reasoned `not_applicable`
-entries, and 546 input-only backlog rows. These counts describe the current
+source mappings: 224 existing input mappings, 50 reasoned `not_applicable`
+entries, and 523 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

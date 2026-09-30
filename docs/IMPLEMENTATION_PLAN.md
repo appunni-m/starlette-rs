@@ -32,7 +32,7 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 468 input-only cases, 72 operations, and 530
+The current parity contract has 490 input-only cases, 72 operations, and 530
 parity requirements across 54 indexed files, including WSGIMiddleware
 response, request-body, environment, and error-boundary workflows, async endpoint
 loop/task/thread ownership and request cancellation, route-level request
@@ -47,13 +47,13 @@ port for matching, and records `tenant=acme` in route scope for one fixed
 `GET /health` response route. A separate input exercises the direct Host
 reverse-URL branch with a configured port. The inputs do not establish full
 Host Router dispatch, nested Host reverse lookup, IPv6, or overall parity.
-Latest integrated run `eb43fde4-8371-4299-af04-ce4b3e8aa933` selected 620
-profile comparisons: 616 passed, zero failed, zero infrastructure errors, and
-four were `not_run`. The Python package passed all 466 selected comparisons;
+Latest integrated run `aa571946-b652-4e05-ba4f-6032b1cabe72` selected 642
+profile comparisons: 638 passed, zero failed, zero infrastructure errors, and
+four were `not_run`. The Python package passed all 488 selected comparisons;
 Rust-native passed 150 of 154, with four unsupported Python-callable rows
-`not_run`. The new Request.form inputs compare default URL-encoded field/size
-limits and early receive termination, multipart framing and count errors, and
-UTF-8 field/filename decoding. Six WSGIMiddleware cases, two direct
+`not_run`. New Request.form inputs compare ASGI app and body-cache behavior, file
+metadata and headers, UTF-8 values and filenames, URL-encoded limits, and
+bare-app versus Mount error handling. Six WSGIMiddleware cases, two direct
 `build_environ` cases, and the module-import deprecation warning case passed
 exact source/package comparison. The new async boundary comparison confirms
 source/package parity for caller event-loop/task/thread ownership, cancellation

@@ -184,6 +184,8 @@ REQUEST_FORM_OPTIONAL_KEYS = {
     "form_io_trace",
     "receive_error",
     "file_write_error",
+    "form_app",
+    "form_read_body",
 }
 UPLOAD_FILE_OPERATION = ("starlette.datastructures.UploadFile", "file-operations")
 WSGI_BOUNDARY_SURFACE = "starlette.middleware.wsgi"
@@ -10124,6 +10126,15 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     form_access = case.get("form_access", "await")
     if form_access not in {"await", "context-manager"}:
         raise ContractError("Request.form form_access must be await or context-manager")
+    form_app = case.get("form_app")
+    if form_app is not None and form_app not in {"direct", "mount"}:
+        raise ContractError("Request.form form_app must be direct or mount")
+    if form_app is not None and form_access != "await":
+        raise ContractError("Request.form ASGI application cases use await access")
+    if "form_read_body" in case and type(case["form_read_body"]) is not bool:
+        raise ContractError("Request.form form_read_body must be a boolean")
+    if case.get("form_read_body", False) and form_app is None:
+        raise ContractError("Request.form form_read_body requires an ASGI application case")
 
     content_type = None
     content_type_header = None

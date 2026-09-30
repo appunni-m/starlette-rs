@@ -7659,6 +7659,8 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         "form_io_trace",
         "receive_error",
         "file_write_error",
+        "form_app",
+        "form_read_body",
     ):
         if key in case:
             case_fields.add(key)
@@ -7732,6 +7734,101 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         if "form_file_probe_keys" in case:
             value["files"] = file_observations
         value["receive_calls"] = received
+        if case.get("form_io_trace", False):
+            value["io_trace"] = io_trace
+            value["temp_files_closed"] = [file.closed for file in tracked_tempfiles]
+        return {"form": value}
+
+    async def observe_application() -> dict[str, Any]:
+        from starlette.responses import JSONResponse
+
+        response_messages: list[dict[str, Any]] = []
+        application_form: dict[str, Any] | None = None
+        application_error: dict[str, Any] | None = None
+        cached_body: bytes | None = None
+
+        async def request_form_app(
+            app_scope: dict[str, Any],
+            app_receive: Any,
+            app_send: Any,
+        ) -> None:
+            nonlocal application_error, application_form, cached_body
+            request = Request(app_scope, app_receive)
+            if case.get("form_read_body", False):
+                cached_body = await request.body()
+            try:
+                form = await request.form(**case.get("form_options", {}))
+            except Exception as exc:
+                application_error = {
+                    "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                    "message": str(exc),
+                    "fields": {
+                        name: _json_safe(getattr(exc, name))
+                        for name in ("status_code", "detail", "headers", "message")
+                        if hasattr(exc, name)
+                    },
+                }
+                raise
+
+            value, observed_files = await inspect_form(form)
+            if case.get("form_close", False):
+                await request.close()
+            file_observations = []
+            for key, upload, observation in observed_files:
+                observation["closed_after_form_scope"] = upload.file.closed
+                file_observations.append([key, observation])
+            if "form_file_probe_keys" in case:
+                value["files"] = file_observations
+            value["receive_calls"] = received
+            if case.get("form_io_trace", False):
+                value["io_trace"] = io_trace
+                value["temp_files_closed"] = [file.closed for file in tracked_tempfiles]
+            application_form = value
+            content = {"form": value}
+            if cached_body is not None:
+                content["body_base64"] = base64.b64encode(cached_body).decode("ascii")
+            await JSONResponse(content)(app_scope, app_receive, app_send)
+
+        async def send(message: dict[str, Any]) -> None:
+            response_messages.append(_canonical_message(message))
+
+        app: Any = request_form_app
+        if case["form_app"] == "mount":
+            from starlette.applications import Starlette
+            from starlette.routing import Mount
+
+            app = Starlette(routes=[Mount("/", app=request_form_app)])
+
+        try:
+            await app(scope, receive, send)
+        except Exception as exc:
+            if application_error is None:
+                application_error = {
+                    "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                    "message": str(exc),
+                    "fields": {
+                        name: _json_safe(getattr(exc, name))
+                        for name in ("status_code", "detail", "headers", "message")
+                        if hasattr(exc, name)
+                    },
+                }
+
+        if application_error is None:
+            outcome = "response"
+        elif response_messages:
+            outcome = "handled-error"
+        else:
+            outcome = "raised-error"
+        value: dict[str, Any] = {
+            "outcome": outcome,
+            "form": application_form,
+            "error": application_error,
+            "body_read_base64": (
+                base64.b64encode(cached_body).decode("ascii") if cached_body is not None else None
+            ),
+            "response_events": response_messages,
+            "receive_calls": received,
+        }
         if case.get("form_io_trace", False):
             value["io_trace"] = io_trace
             value["temp_files_closed"] = [file.closed for file in tracked_tempfiles]
@@ -7835,7 +7932,8 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         UploadFile.write = observed_upload_write
         UploadFile.seek = observed_upload_seek
     try:
-        result = asyncio.run(observe())
+        observer = observe_application if case.get("form_app") is not None else observe
+        result = asyncio.run(observer())
     finally:
         if case.get("form_io_trace", False):
             tempfile.SpooledTemporaryFile = original_spooled_tempfile
