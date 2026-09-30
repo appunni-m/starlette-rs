@@ -9,24 +9,25 @@ incomplete.
 ## Current parity snapshot
 
 The active contract contains 553 input-only cases in 63 indexed files,
-covering 79 operations and 590 parity requirements. The latest clean full run
-covers the previous 552-case contract:
-`80e14fcd-ac09-4cd9-aea5-299cb4d6300e`, selected 710 comparisons: 706 passed,
-zero failed, zero infrastructure errors, and four Rust-native Python-callable
-comparisons were `not_run`. The Python package passed all 550 comparisons;
-Rust-native passed 156 of 160. This clean run used commit
-`cb3fdb1128bb2d6d99ad93dfe51f93c86a2c2ce9` and package-tree SHA-256
-`de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`. The new
-`Starlette.routes` case compares ordered route shapes, nested
-Mount/Host contents, list aliasing, and original route identity. The run also
-includes TestClient exception-policy and lifespan state-propagation inputs,
-Request.app identity and lazy Request.state initialization, WebSocket lifecycle,
-JSON text/binary, raw query projection and parsed query parameters, async
-response-background-task cancellation and finalization, StaticFiles traversal
-and symlink serving, and Mount reverse-URL inputs. A synchronous
-background-callback cancellation case now passes focused source/package parity
-and awaits inclusion in the next full run. The target remains
-`scope.mode: slice`; this does not claim full compatibility.
+covering 79 operations and 590 parity requirements. The latest clean full-slice
+run `c328ff95-646a-4c09-bbda-130c452eb9f1` ran
+from `2026-09-30T21:27:01.518Z` to `2026-09-30T21:28:53.356Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 711 profile
+comparisons: 707 passed, zero failed, zero infrastructure errors, and four
+Rust-native Python-callable rows were `not_run`. The Python package passed all
+551 selected comparisons; Rust-native passed 156 of 160. The package was clean
+at repository commit `fff3d7365762984248c8fd32aa123286ed4d572a`, with installed
+package tree SHA-256
+`98ea5971108b068d2e555011056a7f0b3509608f05da0230eddb582ac0e0b391` and wheel
+SHA-256 `22bdd283f3a1e24045630589ac5c7cd913896054402dbcfa87cb831e8178dc85`.
+The run includes exact `Starlette.routes` comparisons and the synchronous
+background-callback cancellation case, which matches the ordered response
+send, worker entry/release/completion, and propagated `CancelledError`. The four
+Rust-native `not_run` rows are sync endpoint, bound-method, partial, and
+callable-instance Request dispatch cases. `make parity-run` exits with status 2
+for those declared Python-callable boundaries. Manifest SHA-256:
+`305823fe8de905c2972886a84ea2ff2c3d1c1a0b9ee85b1f23be554d5d9a0729`. This
+bounded evidence does not establish full Starlette parity or release readiness.
 
 The current coverage matrix has 799 source rows: 278 existing input mappings,
 50 reasoned `not_applicable` rows, and 471 rows in the fixture backlog. These
@@ -91,10 +92,10 @@ endpoints, synchronous functions, bound methods and partials through AnyIO,
 callable-instance routes invoked as ASGI apps, and basic BackgroundTask and
 BackgroundTasks execution. Response-attached tasks also cover bound-method,
 callable-object, and partial callable shapes, plus async cancellation after the
-callback starts with cancellation and finalizer observations. The new
-synchronous background cancellation input holds the worker callback until
-cancellation reaches the response task, then compares worker completion and
-propagated cancellation; its focused source/package comparison passes.
+callback starts with cancellation and finalizer observations. The synchronous
+background cancellation input holds the worker callback until cancellation
+reaches the response task, then compares worker completion and propagated
+cancellation; it passes in the latest full source/package run.
 Remaining boundary work includes broader exception identity/chaining,
 streaming backpressure, broader lifespan state and concurrency, and other
 Python/Rust ownership decisions. The new bounded generator-lifespan slice

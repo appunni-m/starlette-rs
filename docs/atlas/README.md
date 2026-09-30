@@ -26,29 +26,24 @@ with no conventional Python or Rust unit-test suite.
 
 The source atlas is complete, while the full Starlette replacement remains
 active and incomplete. The current contract has 553 input-only cases across
-63 indexed files, 79 operations, and 590 requirements. The latest clean full
-run covers the previous contract:
-`80e14fcd-ac09-4cd9-aea5-299cb4d6300e` selected 710 comparisons: 706 passed,
-zero failed, zero infrastructure errors, and four Rust-native Python-callable
-comparisons were `not_run`. The Python package passed 550/550; Rust-native
-passed 156/160. This clean run used commit
-`cb3fdb1128bb2d6d99ad93dfe51f93c86a2c2ce9` and package-tree SHA-256
-`de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`. It
-includes the new `Starlette.routes` inventory comparison for ordered route
-shapes, nested Mount/Host contents, list aliasing, and route-object identity,
-along with TestClient exception-policy and lifespan state-propagation cases,
-Request.app identity and lazy Request.state initialization, WebSocket lifecycle,
-JSON text/binary, raw query projection and parsed query parameters, async
-background-task cancellation and finalization, and StaticFiles traversal and
-symlink serving plus Mount reverse-URL inputs. A new synchronous
-background-callback cancellation case passes a focused source/package
-comparison and is pending inclusion in the next full run. The latest direct
-Request inputs cover body, stream, and
-JSON consumption, including interleaved streams and an overlapping body/stream
-receive. Two TestClient inputs cover streamed WebSocket denial responses, and
-one FileResponse input observes event-loop progress during FIFO-backed file
-opening. The all-target runner exits 2 for the four unsupported native callable
-cases; full parity is not claimed.
+63 indexed files, 79 operations, and 590 requirements. The latest clean full-slice run `c328ff95-646a-4c09-bbda-130c452eb9f1` ran
+from `2026-09-30T21:27:01.518Z` to `2026-09-30T21:28:53.356Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 711 profile
+comparisons: 707 passed, zero failed, zero infrastructure errors, and four
+Rust-native Python-callable rows were `not_run`. The Python package passed all
+551 selected comparisons; Rust-native passed 156 of 160. The package was clean
+at repository commit `fff3d7365762984248c8fd32aa123286ed4d572a`, with installed
+package tree SHA-256
+`98ea5971108b068d2e555011056a7f0b3509608f05da0230eddb582ac0e0b391` and wheel
+SHA-256 `22bdd283f3a1e24045630589ac5c7cd913896054402dbcfa87cb831e8178dc85`.
+The run includes exact `Starlette.routes` comparisons and the synchronous
+background-callback cancellation case, which matches the ordered response
+send, worker entry/release/completion, and propagated `CancelledError`. The four
+Rust-native `not_run` rows are sync endpoint, bound-method, partial, and
+callable-instance Request dispatch cases. `make parity-run` exits with status 2
+for those declared Python-callable boundaries. Manifest SHA-256:
+`305823fe8de905c2972886a84ea2ff2c3d1c1a0b9ee85b1f23be554d5d9a0729`. This
+bounded evidence does not establish full Starlette parity or release readiness.
 
 The latest Router/GZip run `9f7518bc-cf46-4d84-a890-7ab4c19644f3` measured all
 74 source/package workloads after parity preflight

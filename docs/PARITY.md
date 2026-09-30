@@ -8,30 +8,24 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest clean full-slice run for the previous 552-case manifest,
-`80e14fcd-ac09-4cd9-aea5-299cb4d6300e`, ran from
-`2026-09-30T21:08:44.515Z` to `2026-09-30T21:10:38.274Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 710 profile
-comparisons: 706 passed, zero failed, zero infrastructure errors, and four
+The latest clean full-slice run `c328ff95-646a-4c09-bbda-130c452eb9f1` ran
+from `2026-09-30T21:27:01.518Z` to `2026-09-30T21:28:53.356Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 711 profile
+comparisons: 707 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-550 selected comparisons; Rust-native passed 156 of 160. The package was
-clean at repository commit `cb3fdb1128bb2d6d99ad93dfe51f93c86a2c2ce9`, with
-installed package tree SHA-256
-`de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`. The new
-`Starlette.routes` case passed exact comparison for route order and shape,
-nested Mount/Host contents, list aliasing, and original route identity. The
-run also covers the documented `Request.app` identity, lazy `Request.state`
-initialization, TestClient state/exception-policy, WebSocket query behavior,
-background-task cancellation, StaticFiles traversal, and Mount reverse URLs.
-The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
-and callable-instance Request dispatch cases. The all-target runner exits with
-status 2 for those declared Python-callable boundaries. Manifest SHA-256:
-`a8ed9b924274628820b8bc3e23d013b01829d6ab82bd20def0753db8d85929d2`. Since
-that run, one synchronous BackgroundTask cancellation case was added. Its
-focused source/package comparison passes exactly, including worker completion
-after cancellation is requested and propagation of `CancelledError`; this case
-is not part of the 710-comparison artifact above. This remains bounded local
-evidence, not full parity or release proof.
+551 selected comparisons; Rust-native passed 156 of 160. The package was clean
+at repository commit `fff3d7365762984248c8fd32aa123286ed4d572a`, with installed
+package tree SHA-256
+`98ea5971108b068d2e555011056a7f0b3509608f05da0230eddb582ac0e0b391` and wheel
+SHA-256 `22bdd283f3a1e24045630589ac5c7cd913896054402dbcfa87cb831e8178dc85`.
+The run includes exact `Starlette.routes` comparisons and the synchronous
+background-callback cancellation case, which matches the ordered response
+send, worker entry/release/completion, and propagated `CancelledError`. The four
+Rust-native `not_run` rows are sync endpoint, bound-method, partial, and
+callable-instance Request dispatch cases. `make parity-run` exits with status 2
+for those declared Python-callable boundaries. Manifest SHA-256:
+`305823fe8de905c2972886a84ea2ff2c3d1c1a0b9ee85b1f23be554d5d9a0729`. This
+bounded evidence does not establish full Starlette parity or release readiness.
 
 ## Input-only cases
 
@@ -62,10 +56,30 @@ boundaries and do not establish complete multipart parser parity.
 
 [`background-tasks.yaml`](../tests/fixtures/sources/parity/background-tasks.yaml)
 holds an input-defined synchronous callback in the AnyIO worker thread until the
-response task has received cancellation. The focused source/package comparison
+response task has received cancellation. The latest clean full-profile run
 matches the ordered ASGI send, worker entry and release, worker completion, and
-propagated `CancelledError` exactly. The full active parity profile has not yet
-been rerun with this added case.
+propagated `CancelledError` exactly.
+
+### Response background tasks: bounded parity
+
+[`background-tasks.yaml`](../tests/fixtures/sources/parity/background-tasks.yaml)
+contains fourteen package-profile cases with callback mode, arguments, failure,
+callable shape, and task-list construction supplied by each input. They cover
+async and sync functions, bound methods, callable objects, partials, nested
+partials, sequential ordering, both task-list construction paths, and failure
+propagation that prevents later callbacks from running. The response send tape
+and background callback trace are observed from both pinned source and installed
+package; no output values are encoded in the fixture. All fourteen cases pass
+exact source/package comparison in the latest integrated run. The async
+cancellation case records propagated `CancelledError`, callback cancellation,
+finalization, and response events. The synchronous cancellation case holds its
+worker callback until cancellation reaches the response task, then compares
+worker completion and propagated `CancelledError`. Rust owns callback
+classification, task sequencing, and dispatch in the installed package; the
+Python adapter supplies and observes user callbacks at the Python boundary.
+Additional synchronous cancellation schedules, context variables, concurrency,
+and broader middleware/error interactions with background failures remain
+unproven.
 
 ### Async endpoint event-loop ownership and cancellation
 
@@ -75,9 +89,9 @@ schedule. The source and installed package observations match exactly: the
 endpoint enters on the caller's event loop, request task, and thread; receives
 `asyncio.CancelledError`; runs its finalizer; and propagates cancellation with
 no response events. This is an asyncio-only package-profile probe of the
-Python-callable boundary. It does not establish Trio behavior, cancellation of
-synchronous worker functions, or every server's task ownership. The Rust-native
-profile is not selected because this input intentionally invokes a Python ASGI
+Python-callable boundary. It does not establish Trio behavior or cancellation
+propagation for synchronous Request endpoints. The Rust-native profile is not
+selected because this input intentionally invokes a Python ASGI
 callable.
 
 ### Route-level request-body limits
@@ -130,25 +144,6 @@ Host matching, IPv6 authority parsing, or nested Host reverse lookup.
 The BaseHTTP body/stream parity cases map to `tests/middleware/test_base.py:599-712,715-773,835-862`. At `599-628`, dispatch exhausts `request.stream()` before `call_next`, then downstream stream iteration yields only the cached empty chunk. At `689-712`, adapters record the `b"a"` body read in dispatch and again in the endpoint; the endpoint response carries those observed bytes. The two cases at `715-773` record dispatch reads after the endpoint exhausts its stream or reads `request.body()`. The case at `835-862` caches the body before `call_next`, then records dispatch stream replay after the endpoint reads the cached body. These inputs contain no expected exceptions or chunks: source and installed package report the live reads and exact response events. The selected profiles run through asyncio and do not establish Trio behavior from the upstream test-client fixture.
 
 The two disconnect cases map to `tests/middleware/test_base.py:894-976`. One records the downstream app receiving `http.disconnect` before dispatch checks `Request.is_disconnected()`; the other records dispatch caching `b"hi"`, observing the following disconnect, then downstream receiving the cached body and disconnect. Both report `True` from the live request check and match source/package receive and response traces exactly. These direct ASGI cases select the Python package profile and exercise asyncio.
-
-### Response background tasks: bounded parity
-
-[`background-tasks.yaml`](../tests/fixtures/sources/parity/background-tasks.yaml)
-contains fourteen package-profile cases with callback mode, arguments, failure,
-callable shape, and task-list construction supplied by each input. They cover
-async and sync functions, bound methods, callable objects, partials, nested
-partials, sequential ordering, both task-list construction paths, and failure
-propagation that prevents later callbacks from running. The response send
-tape and background callback trace are observed from both pinned source and
-installed package; no output values are encoded in the fixture. The previous integrated run covered thirteen cases. The added synchronous cancellation case
-passes a focused source/package comparison: the callback waits in its AnyIO
-worker thread until cancellation reaches the response task, then the adapters
-compare worker completion and propagated `CancelledError`. Rust owns callback
-classification, task sequencing, and dispatch in the installed package; the
-Python adapter supplies and observes user callbacks at the Python boundary.
-Additional synchronous cancellation schedules, context variables, concurrency,
-and broader middleware/error interactions with background failures remain
-unproven.
 
 [`templating-runtime.yaml`](../tests/fixtures/sources/parity/templating-runtime.yaml)
 adds one Python-package case for `Jinja2Templates`. Its input supplies a
@@ -642,4 +637,4 @@ The one-case `benchmark` command runs its exact parity gate before the source/pa
 
 The current boundary has Rust own built-in path matching and path formatting, response framing, middleware compression policy, and WebSocket protocol state. Python keeps Starlette's public route objects and ASGI dispatch layer, calls registered Python converters and application endpoints, and preserves the event-loop, threadpool, exception, and lifetime behavior at those boundaries. The route matcher falls back to Python only for custom converters, which cannot be represented by the current Rust converter set. For GZip, AnyIO owns the task-local worker limiter and thread scheduling, while Rust owns compression and response policy. The upstream-internal `GZipResponder` import is not yet implemented; the parity cases exercise the public `GZipMiddleware` boundary.
 
-The parity lifecycle step covers one successful async-context enter/exit separately from its HTTP dispatch. The Request-style synchronous endpoint inputs cover functions, bound methods, and `functools.partial`; a separate callable-instance case covers ASGI dispatch through `(scope, receive, send)`. The previous integrated run includes six slash-redirect cases, four direct RedirectResponse cases, ten direct Response/JSONResponse cases, thirteen Response background-task cases, and four finite synchronous StreamingResponse cases, all passing on both target profiles where selected. The active contract adds one synchronous background-cancellation input that passes focused source/package parity but is not part of that full-run artifact; the background-task and header-view probes select the Python-package profile only. The async background-task cancellation case compares cancellation after callback start, propagated `CancelledError`, callback cancellation and finalization, and the response event tape against the pinned source. The finite async iterator, memoryview chunk, and custom async iterable cases pass on the Python package. The pre-ASGI-2.4 disconnect-cancellation input passes exact source/package comparison in run `f4df4b18-8c74-46a4-9d33-96a0f684a9b6`: the three emitted chunks, receive-disconnect ordering, generator cancellation and finalizer, and background completion match. Router inputs cover built-in converters, misses, route order, root paths, slash redirects, a package-only custom override, and one bounded parameterized Host-route port match. Reverse-URL inputs cover named Python route surfaces and `Request.url_for`, plus Rust-native direct Host path formatting and two flat Router `url_path_for` cases. Nested Host child-route lookup remains Python-package only; direct `Route.url_path_for`, nested Router graphs, and custom converters remain outside the native slice. Request inputs cover typed path parameters and CPython's integer-digit limit; Mount inputs cover child-scope extension, standalone and child misses, method mismatches, inherited path-parameter collisions, nested scope composition, and inner Mount misses. The HTTPException, registered-handler, server-error, and WebSocket slices remain bounded to their declared inputs. Route/router/mount-local middleware is present in the Python compatibility layer but has not yet been selected by input cases, so its parity remains unproven. Broader TestClient HTTP/session coverage, direct `ServerErrorMiddleware` invocation, arbitrary middleware ordering, and denial-response variants beyond the streamed 401 and multi-chunk 404 cases remain open. The 30 FileResponse response-behavior cases cover deterministic GET and HEAD, single and multipart ranges, If-Range matching, malformed and unsatisfiable inputs, suffix and single-byte ranges, ignored range elements, overlap merging, the range-count threshold and fallback, mutable chunk-size and max-range settings, Unicode filenames, and header-view isolation across range responses. All 59 selected FileResponse source-to-target comparisons passed in the latest integrated run recorded above, including one Python-package-only FIFO scheduling probe that confirms event-loop progress while file opening blocks. Multipart comparison replaces only the live random boundary in Content-Type and MIME delimiter lines; file-part bytes, headers, event order, and chunk boundaries remain exact. The direct FileResponse `http.response.pathsend` case passes on both target profiles. The separate BaseHTTPMiddleware forwarding case passes on the Python package profile. The comparator validates each declared input basename and harness-specific temporary parent before normalizing that parent only, in ASGI events and the middleware execution trace. The Response, StreamingResponse, and FileResponse facades expose Rust-backed header views. The ten Headers/MutableHeaders cases cover selected construction, ordering, raw-input and view aliasing, copy and pair identities, and mutation behaviors. Raw-header rebinding order and broader response mutation sequences remain unproven. Changing FileResponse public `path`, `status_code`, or `stat_result` after construction does not update the Rust snapshot. FileResponse filesystem stat, open, read, seek, and close operations now cross an AnyIO worker-thread boundary; Python-package parity directly observes event-loop progress during a FIFO-blocked open. The general replacement goal remains incomplete; broad Starlette parity and the native benchmark boundary remain unproven. The Router/GZip benchmark lane is documented in [Benchmark mapping](BENCHMARKS.md).
+The parity lifecycle step covers one successful async-context enter/exit separately from its HTTP dispatch. The Request-style synchronous endpoint inputs cover functions, bound methods, and `functools.partial`; a separate callable-instance case covers ASGI dispatch through `(scope, receive, send)`. The latest integrated run includes six slash-redirect cases, four direct RedirectResponse cases, ten direct Response/JSONResponse cases, fourteen Response background-task cases, and four finite synchronous StreamingResponse cases, all passing on both target profiles where selected. The synchronous background-cancellation input passes exact source/package parity in the latest run; the background-task and header-view probes select the Python-package profile only. The async background-task cancellation case compares cancellation after callback start, propagated `CancelledError`, callback cancellation and finalization, and the response event tape against the pinned source. The finite async iterator, memoryview chunk, and custom async iterable cases pass on the Python package. The pre-ASGI-2.4 disconnect-cancellation input passes exact source/package comparison in run `f4df4b18-8c74-46a4-9d33-96a0f684a9b6`: the three emitted chunks, receive-disconnect ordering, generator cancellation and finalizer, and background completion match. Router inputs cover built-in converters, misses, route order, root paths, slash redirects, a package-only custom override, and one bounded parameterized Host-route port match. Reverse-URL inputs cover named Python route surfaces and `Request.url_for`, plus Rust-native direct Host path formatting and two flat Router `url_path_for` cases. Nested Host child-route lookup remains Python-package only; direct `Route.url_path_for`, nested Router graphs, and custom converters remain outside the native slice. Request inputs cover typed path parameters and CPython's integer-digit limit; Mount inputs cover child-scope extension, standalone and child misses, method mismatches, inherited path-parameter collisions, nested scope composition, and inner Mount misses. The HTTPException, registered-handler, server-error, and WebSocket slices remain bounded to their declared inputs. Route/router/mount-local middleware is present in the Python compatibility layer but has not yet been selected by input cases, so its parity remains unproven. Broader TestClient HTTP/session coverage, direct `ServerErrorMiddleware` invocation, arbitrary middleware ordering, and denial-response variants beyond the streamed 401 and multi-chunk 404 cases remain open. The 30 FileResponse response-behavior cases cover deterministic GET and HEAD, single and multipart ranges, If-Range matching, malformed and unsatisfiable inputs, suffix and single-byte ranges, ignored range elements, overlap merging, the range-count threshold and fallback, mutable chunk-size and max-range settings, Unicode filenames, and header-view isolation across range responses. All 59 selected FileResponse source-to-target comparisons passed in the latest integrated run recorded above, including one Python-package-only FIFO scheduling probe that confirms event-loop progress while file opening blocks. Multipart comparison replaces only the live random boundary in Content-Type and MIME delimiter lines; file-part bytes, headers, event order, and chunk boundaries remain exact. The direct FileResponse `http.response.pathsend` case passes on both target profiles. The separate BaseHTTPMiddleware forwarding case passes on the Python package profile. The comparator validates each declared input basename and harness-specific temporary parent before normalizing that parent only, in ASGI events and the middleware execution trace. The Response, StreamingResponse, and FileResponse facades expose Rust-backed header views. The ten Headers/MutableHeaders cases cover selected construction, ordering, raw-input and view aliasing, copy and pair identities, and mutation behaviors. Raw-header rebinding order and broader response mutation sequences remain unproven. Changing FileResponse public `path`, `status_code`, or `stat_result` after construction does not update the Rust snapshot. FileResponse filesystem stat, open, read, seek, and close operations now cross an AnyIO worker-thread boundary; Python-package parity directly observes event-loop progress during a FIFO-blocked open. The general replacement goal remains incomplete; broad Starlette parity and the native benchmark boundary remain unproven. The Router/GZip benchmark lane is documented in [Benchmark mapping](BENCHMARKS.md).

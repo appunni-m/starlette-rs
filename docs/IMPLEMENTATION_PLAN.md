@@ -39,22 +39,25 @@ cancellation, and direct
 Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
 interleaved consumers, plus lazy Request.state initialization through a routed
-request. The latest clean live source/package/native run for the previous
-552-case manifest
-`80e14fcd-ac09-4cd9-aea5-299cb4d6300e` ran from
-`2026-09-30T21:08:44.515Z` to `2026-09-30T21:10:38.274Z` and selected 710
-profile comparisons: 706 passed, zero failed, zero infrastructure errors, and
-four unsupported Rust-native Python-callable comparisons were `not_run`. The
-Python package passed 550/550; Rust-native passed 156/160. This was a
-clean run at commit `cb3fdb1128bb2d6d99ad93dfe51f93c86a2c2ce9`; installed
-package tree SHA-256 was
-`de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`. The new
-routes case compares ordered HTTP, WebSocket, Mount, and Host route shapes,
-list aliasing, and original route identity. The additional synchronous
-background cancellation case passes a focused source/package comparison; its
-full-profile comparison is pending. Manifest SHA-256 is
-`a8ed9b924274628820b8bc3e23d013b01829d6ab82bd20def0753db8d85929d2`. This
-bounded evidence does not establish full parity.
+request. The latest clean full-slice run
+`c328ff95-646a-4c09-bbda-130c452eb9f1` ran
+from `2026-09-30T21:27:01.518Z` to `2026-09-30T21:28:53.356Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 711 profile
+comparisons: 707 passed, zero failed, zero infrastructure errors, and four
+Rust-native Python-callable rows were `not_run`. The Python package passed all
+551 selected comparisons; Rust-native passed 156 of 160. The package was clean
+at repository commit `fff3d7365762984248c8fd32aa123286ed4d572a`, with installed
+package tree SHA-256
+`98ea5971108b068d2e555011056a7f0b3509608f05da0230eddb582ac0e0b391` and wheel
+SHA-256 `22bdd283f3a1e24045630589ac5c7cd913896054402dbcfa87cb831e8178dc85`.
+The run includes exact `Starlette.routes` comparisons and the synchronous
+background-callback cancellation case, which matches the ordered response
+send, worker entry/release/completion, and propagated `CancelledError`. The four
+Rust-native `not_run` rows are sync endpoint, bound-method, partial, and
+callable-instance Request dispatch cases. `make parity-run` exits with status 2
+for those declared Python-callable boundaries. Manifest SHA-256:
+`305823fe8de905c2972886a84ea2ff2c3d1c1a0b9ee85b1f23be554d5d9a0729`. This
+bounded evidence does not establish full Starlette parity or release readiness.
 
 Six WSGIMiddleware cases, two direct
 `build_environ` cases, and the module-import deprecation warning case passed
@@ -467,17 +470,18 @@ for synchronous callbacks, both `BackgroundTasks` construction paths,
 sequential execution, and propagation that stops later tasks after the first
 failure. The cancellation case cancels a response after its async callback
 starts and compares the propagated `CancelledError`, callback cancellation,
-finalizer, and response event tape. The previous integrated run covered and passed thirteen cases. The added
-synchronous cancellation case passes a focused source/package comparison; the
-updated full profile is pending. The active fixture crosswalk promotes the
+finalizer, and response event tape. The latest integrated run covers all
+fourteen cases, and each passes exact source/package comparison. The
+synchronous cancellation case is included in that full profile. The active
+fixture crosswalk promotes the
 callable-shape behavior alongside the previously mapped BackgroundTask
 behaviors.
 
 This remains a bounded slice. Additional synchronous cancellation schedules,
 context variables, concurrency, and broader middleware/error interactions with
-background failures remain unproven. The previous 552-case full run recorded
-four Rust-native Request-dispatch callable rows as `not_run`; the Python package
-passed 550/550 comparisons and Rust-native passed 156/160.
+background failures remain unproven. The latest full run records four
+Rust-native Request-dispatch callable rows as `not_run`; the Python package
+passed 551/551 comparisons and Rust-native passed 156/160.
 
 ### HTTPException default-response slice: bounded parity verified
 

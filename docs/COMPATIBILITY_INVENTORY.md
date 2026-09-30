@@ -29,28 +29,24 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest clean full-slice parity run for the previous 552-case manifest,
-`80e14fcd-ac09-4cd9-aea5-299cb4d6300e`, ran against
-the pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T21:08:44.515Z` to `2026-09-30T21:10:38.274Z`. It selected 710
-profile comparisons: 706 passed, zero failed, zero infrastructure errors, and
-four unsupported Rust-native Python-callable comparisons were `not_run`. The
-installed Python package passed all 550 selected comparisons; Rust-native
-passed 156 of 160. The package was clean at repository commit
-`cb3fdb1128bb2d6d99ad93dfe51f93c86a2c2ce9`, with installed package tree
-SHA-256 `de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`.
-The new Starlette.routes input compares route order and shape, nested Mount/Host
-contents, list aliasing, and original route identity. The run also includes
-Request.app identity, lazy Request.state initialization, TestClient state and
-exception-policy, WebSocket query/raw-path projection and parsed
-query-parameter inputs, async background-task cancellation and finalization,
-StaticFiles traversal, and Mount reverse-URL cases. The manifest SHA-256 is
-`a8ed9b924274628820b8bc3e23d013b01829d6ab82bd20def0753db8d85929d2`. The
-all-target command exits 2 because of the four unsupported Rust-native callable
-cases. Since that run, one synchronous background-callback cancellation case
-was added; its focused source/package comparison passes exactly, while a full
-profile run for the updated contract remains pending. This bounded run is not
-full Starlette parity.
+The latest clean full-slice run `c328ff95-646a-4c09-bbda-130c452eb9f1` ran
+from `2026-09-30T21:27:01.518Z` to `2026-09-30T21:28:53.356Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 711 profile
+comparisons: 707 passed, zero failed, zero infrastructure errors, and four
+Rust-native Python-callable rows were `not_run`. The Python package passed all
+551 selected comparisons; Rust-native passed 156 of 160. The package was clean
+at repository commit `fff3d7365762984248c8fd32aa123286ed4d572a`, with installed
+package tree SHA-256
+`98ea5971108b068d2e555011056a7f0b3509608f05da0230eddb582ac0e0b391` and wheel
+SHA-256 `22bdd283f3a1e24045630589ac5c7cd913896054402dbcfa87cb831e8178dc85`.
+The run includes exact `Starlette.routes` comparisons and the synchronous
+background-callback cancellation case, which matches the ordered response
+send, worker entry/release/completion, and propagated `CancelledError`. The four
+Rust-native `not_run` rows are sync endpoint, bound-method, partial, and
+callable-instance Request dispatch cases. `make parity-run` exits with status 2
+for those declared Python-callable boundaries. Manifest SHA-256:
+`305823fe8de905c2972886a84ea2ff2c3d1c1a0b9ee85b1f23be554d5d9a0729`. This
+bounded evidence does not establish full Starlette parity or release readiness.
 
 The latest correctness-gated Router/GZip benchmark run,
 `9f7518bc-cf46-4d84-a890-7ab4c19644f3`, measured all 74 declared source/package
@@ -348,7 +344,7 @@ application-level Router-miss 404 handler input,
 post-construction `Starlette.add_route` coverage, Request.form URL-encoded
 limit and multipart boundary/count/charset inputs,
 one bounded native `HostPattern` port-and-capture input,
-thirteen Response background-task workflows, six
+fourteen Response background-task workflows, six
 header-view and raw-pair probes, and a Router sequence that verifies live
 route-method and route-list mutations across
 dispatches, twenty URL scope-construction cases,
