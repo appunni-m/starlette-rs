@@ -582,6 +582,7 @@ impl PyRequestBody {
             multipart_input_finished: false,
             multipart_parse_succeeded: false,
             body: Vec::new(),
+            urlencoded_limits: UrlEncodedFormLimits::default(),
             pending_receive: false,
             pending_multipart_operation: false,
         };
@@ -1266,8 +1267,66 @@ struct FormMachine {
     multipart_input_finished: bool,
     multipart_parse_succeeded: bool,
     body: Vec<u8>,
+    urlencoded_limits: UrlEncodedFormLimits,
     pending_receive: bool,
     pending_multipart_operation: bool,
+}
+
+#[derive(Default)]
+struct UrlEncodedFormLimits {
+    field_size: usize,
+    field_count: usize,
+    field_started: bool,
+    has_equals: bool,
+}
+
+impl UrlEncodedFormLimits {
+    fn push_chunk(
+        &mut self,
+        chunk: &[u8],
+        max_fields: f64,
+        max_part_size: i64,
+    ) -> Result<(), FormDataParseError> {
+        for byte in chunk {
+            if *byte == b'&' {
+                self.finish_field(max_fields)?;
+                continue;
+            }
+
+            self.field_started = true;
+            if *byte == b'=' && !self.has_equals {
+                self.has_equals = true;
+                continue;
+            }
+
+            self.field_size += 1;
+            if self.field_size as i128 > i128::from(max_part_size) {
+                return Err(FormDataParseError::FieldTooLarge {
+                    max_part_size_kb: max_part_size / 1024,
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn finish(&mut self, max_fields: f64) -> Result<(), FormDataParseError> {
+        self.finish_field(max_fields)
+    }
+
+    fn finish_field(&mut self, max_fields: f64) -> Result<(), FormDataParseError> {
+        if !self.field_started {
+            return Ok(());
+        }
+
+        self.field_count += 1;
+        self.field_size = 0;
+        self.field_started = false;
+        self.has_equals = false;
+        if self.field_count as f64 > max_fields {
+            return Err(FormDataParseError::TooManyFields);
+        }
+        Ok(())
+    }
 }
 
 struct MultipartUpload {
@@ -1404,6 +1463,9 @@ impl FormMachine {
                             return Ok(action);
                         }
                     } else {
+                        self.urlencoded_limits
+                            .push_chunk(&body, self.max_fields, self.max_part_size)
+                            .map_err(|error| self.parse_error(py, error))?;
                         self.body.extend_from_slice(&body);
                     }
                     progress = {
@@ -1450,6 +1512,9 @@ impl FormMachine {
                 .prepare_multipart_events(py)?
                 .ok_or_else(|| PyRuntimeError::new_err("multipart parsing did not complete"));
         }
+        self.urlencoded_limits
+            .finish(self.max_fields)
+            .map_err(|error| self.parse_error(py, error))?;
         let form =
             NativeFormData::parse_urlencoded(&self.body, self.max_fields, self.max_part_size)
                 .map_err(|error| self.parse_error(py, error))?;

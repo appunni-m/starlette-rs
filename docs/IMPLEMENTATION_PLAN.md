@@ -32,25 +32,28 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 459 input-only cases, 72 operations, and 527
+The current parity contract has 468 input-only cases, 72 operations, and 530
 parity requirements across 54 indexed files, including WSGIMiddleware
 response, request-body, environment, and error-boundary workflows, async endpoint
 loop/task/thread ownership and request cancellation, route-level request
 body limits, application Router-miss 404 handling, flat Router reverse URL
 selection, URL scope and component construction, Headers and MutableHeaders,
 bounded SessionMiddleware and BaseHTTPMiddleware workflow slices, twelve
-BackgroundTask/BackgroundTasks cases, one Jinja2 template workflow, and six
-header alias/view probes. The additive HostPattern/Host-route slice matches
+BackgroundTask/BackgroundTasks cases, one Jinja2 template workflow, six
+header alias/view probes, and Request.form URL-encoded limit plus multipart
+multipart boundary errors, field/file limits, and character decoding. The additive HostPattern/Host-route slice matches
 `{tenant}.example.test` against `Host: acme.example.test:5600`, ignores the
 port for matching, and records `tenant=acme` in route scope for one fixed
 `GET /health` response route. A separate input exercises the direct Host
 reverse-URL branch with a configured port. The inputs do not establish full
 Host Router dispatch, nested Host reverse lookup, IPv6, or overall parity.
-Latest integrated run `70c9102e-b87e-4f2c-8f58-1af59889d960` selected 611
-profile comparisons: 607 passed, zero failed, zero infrastructure errors, and
-four were `not_run`. The Python package passed 457 selected comparisons;
-Rust-native passed 150 of 154, with four pre-existing unsupported
-Python-callable rows `not_run`. Six WSGIMiddleware cases, two direct
+Latest integrated run `eb43fde4-8371-4299-af04-ce4b3e8aa933` selected 620
+profile comparisons: 616 passed, zero failed, zero infrastructure errors, and
+four were `not_run`. The Python package passed all 466 selected comparisons;
+Rust-native passed 150 of 154, with four unsupported Python-callable rows
+`not_run`. The new Request.form inputs compare default URL-encoded field/size
+limits and early receive termination, multipart framing and count errors, and
+UTF-8 field/filename decoding. Six WSGIMiddleware cases, two direct
 `build_environ` cases, and the module-import deprecation warning case passed
 exact source/package comparison. The new async boundary comparison confirms
 source/package parity for caller event-loop/task/thread ownership, cancellation

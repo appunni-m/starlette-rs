@@ -17,9 +17,9 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 459 input-only cases across 54 files,
-covering 72 operations and 527 parity requirements. Its SHA-256 is
-`425c0448c9a06837bdabfc041422330c3e1920d23402089dfcf6f42ddf7a07d3`. The
+The active parity manifest indexes 468 input-only cases across 54 files,
+covering 72 operations and 530 parity requirements. Its SHA-256 is
+`20bd2bfd264f272bbf06c441b43c16ef8fd251f3f1016b1405e235822956b787`. The
 authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
@@ -31,41 +31,27 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `70c9102e-b87e-4f2c-8f58-1af59889d960` ran against the
+Latest live parity run `eb43fde4-8371-4299-af04-ce4b3e8aa933` ran against the
 pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T09:02:34.472Z` to `2026-09-30T09:04:17.476Z`. It selected 611
-comparisons: 607 passed, zero failed, zero infrastructure errors, and four
-unsupported Rust-native Python-callable comparisons were `not_run`. The installed
-Python package passed all 457 selected comparisons, including six
-WSGIMiddleware cases, two direct `build_environ` cases, and the module-import
-deprecation warning; Rust-native passed 150 of 154,
-including both flat Router reverse-URL cases: first-success returned `/objects/7`
-with HTTP protocol metadata, and a complete miss matched
-the source `NoMatchFound` class and message. Three route-level
-`max_body_size` inputs compare the inherited application limit and higher and
-lower route overrides against exact response and ASGI event observations. A
-new application Router-miss input matches the source's registered async
-HTTPException handler response exactly. The `Starlette.add_route` input
-confirms post-construction registration and matching GET/405 dispatch
-observations. Multipart inputs compare the text-limit short circuit, file
-write/seek ordering across request chunks, cleanup after receive-callback and
-`UploadFile.write` errors, and rollover of a file larger than 1 MiB in a worker
-thread. The async boundary input also confirms the endpoint runs on the same
-event loop, task, and thread as its ASGI caller, receives cancellation, and
-runs its finalizer before cancellation propagates. A Host-pattern input matches
-`{tenant}.example.test:3600` against
-`Host: acme.example.test:5600` and observes the `tenant` capture in route scope
-on source, Python-package, and Rust-native profiles. A separate Host
-reverse-URL input compares the direct named path and retains `:3600` in the
-formatted host across source, package, and Rust. The direct `build_environ`
-inputs cover complete scope/body projection and Unicode path handling with
-optional scope defaults; the import case compares the deprecation warning
-category, message, and source location. The helper candidate remains uncertain
-in the API inventory. The all-target command still exits 2 for the four
-unsupported Rust-native callable cases; this bounded run is not full Starlette
-parity. Rust-native
-named URL support is limited to flat
-direct HTTP routes with built-in converters and converter-formatted strings;
+`2026-09-30T09:34:58.515Z` to `2026-09-30T09:36:51.832Z`. It selected 620
+comparisons: 616 passed, zero failed, zero infrastructure errors, and four
+unsupported Rust-native Python-callable comparisons were `not_run`. The
+installed Python package passed all 466 selected comparisons; Rust-native
+passed 150 of 154. New Request.form inputs compare default URL-encoded field
+and size limits, early receive termination, multipart boundary/name failures,
+default field-count and lower field/file-count limits, and UTF-8 field/filename decoding.
+The Rust-backed package now stops URL-encoded parsing before requesting the
+next body message when a limit is exceeded. Existing WSGI, Host routing,
+reverse-URL, route body-limit, Router-miss, async cancellation, multipart file
+streaming/cleanup, and rollover comparisons also pass. The manifest SHA-256 is
+`20bd2bfd264f272bbf06c441b43c16ef8fd251f3f1016b1405e235822956b787`; the
+installed package source-tree SHA-256 is
+`951ecebd2e5dc563cd9276539461e4877942d28e9f2a2736ce28e41586dda87d`, and its
+wheel artifact SHA-256 is
+`eaa775a0a7167174bba55dc958f89a49a763e7f952a6d6297615fc5507d68007`. The
+all-target command still exits 2 for the four unsupported Rust-native callable
+cases. This bounded run is not full Starlette parity. Rust-native named URL
+support remains limited to flat direct HTTP routes with built-in converters;
 nested Mount/Host, WebSocket, custom-converter lookup, and Python exception
 mapping for converter failures remain open.
 
@@ -352,12 +338,13 @@ crosswalk snapshot, 201 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 54 indexed files
-and 459 cases, including six WSGIMiddleware cases, two direct `build_environ`
+and 468 cases, including six WSGIMiddleware cases, two direct `build_environ`
 cases, a module-import deprecation warning case, and an async caller
 event-loop/task/thread and cancellation
 boundary input, route-level request-body limit inputs, and an
 application-level Router-miss 404 handler input,
-post-construction `Starlette.add_route` coverage,
+post-construction `Starlette.add_route` coverage, Request.form URL-encoded
+limit and multipart boundary/count/charset inputs,
 one bounded native `HostPattern` port-and-capture input,
 twelve Response background-task workflows, six
 header-view and raw-pair probes, and a Router sequence that verifies live
@@ -418,6 +405,14 @@ lookups, UploadFile metadata, partial and full reads, append/write/readback,
 seek, and explicit FormData.close. The cases map to this documented parser
 scenario and UploadFile attributes and async methods. They do not claim broad
 multipart parity.
+
+Additional cases compare missing multipart boundaries and field names, the
+default multipart field-count limit, explicitly lowered field and file limits,
+and UTF-8 decoding with and without a declared charset. The URL-encoded cases
+exercise default field-count and part-size limits and verify that parsing stops
+before another ASGI receive. These workflows observe the direct `Request.form`
+result and exception boundary; they do not capture TestClient response status
+or body, so source rows requiring those selectors remain backlog.
 
 Multipart boundaries, disposition parsing, and part values are selected in
 Rust through the locked `multer` parser. Python holds the standard

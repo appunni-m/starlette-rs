@@ -9849,13 +9849,11 @@ def _validate_request_is_disconnected_case(case: dict[str, Any]) -> None:
 
 def _request_form_limits_exceeded(body: bytes, form_options: dict[str, Any]) -> bool:
     fields = parse_qsl(body.decode("latin-1"), keep_blank_values=True)
-    max_fields = form_options.get("max_fields")
-    if max_fields is not None and len(fields) > max_fields:
+    max_fields = form_options.get("max_fields", 1000)
+    if len(fields) > max_fields:
         return True
 
-    max_part_size = form_options.get("max_part_size")
-    if max_part_size is None:
-        return False
+    max_part_size = form_options.get("max_part_size", 1024 * 1024)
     for field in body.split(b"&"):
         name, separator, value = field.partition(b"=")
         if not separator:
@@ -9866,18 +9864,70 @@ def _request_form_limits_exceeded(body: bytes, form_options: dict[str, Any]) -> 
 
 
 def _first_multipart_text_part(content_type: str, body: bytes) -> bytes | None:
+    text_parts = _multipart_text_parts(content_type, body)
+    return text_parts[0] if text_parts else None
+
+
+def _multipart_parts(content_type: str, body: bytes) -> list[Any]:
     envelope = f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("latin-1") + body
     message = BytesParser(policy=email_policy.default).parsebytes(envelope)
-    if not message.is_multipart():
-        return None
     parts = message.get_payload()
-    if not isinstance(parts, list) or not parts:
-        return None
-    first = parts[0]
-    if first.get_filename() is not None:
-        return None
-    payload = first.get_payload(decode=True)
-    return payload if isinstance(payload, bytes) else None
+    return parts if message.is_multipart() and isinstance(parts, list) else []
+
+
+def _multipart_text_parts(content_type: str, body: bytes) -> list[bytes]:
+    result = []
+    for part in _multipart_parts(content_type, body):
+        if part.get_filename() is not None:
+            continue
+        payload = part.get_payload(decode=True)
+        if isinstance(payload, bytes):
+            result.append(payload)
+    return result
+
+
+def _multipart_part_counts(content_type: str, body: bytes) -> tuple[int, int]:
+    fields = 0
+    files = 0
+    for part in _multipart_parts(content_type, body):
+        if part.get_filename() is None:
+            fields += 1
+        else:
+            files += 1
+    return fields, files
+
+
+def _multipart_has_missing_name(content_type: str, body: bytes) -> bool:
+    return any(
+        part.get("Content-Disposition") is not None
+        and part.get_param("name", header="content-disposition") is None
+        for part in _multipart_parts(content_type, body)
+    )
+
+
+def _multipart_count_limit_exceeded(
+    content_type: str, body: bytes, form_options: dict[str, Any]
+) -> bool:
+    fields, files = _multipart_part_counts(content_type, body)
+    return fields > form_options.get("max_fields", 1000) or files > form_options.get(
+        "max_files", 1000
+    )
+
+
+def _multipart_count_limit_boundary(
+    content_type: str, body: bytes, form_options: dict[str, Any]
+) -> bool:
+    fields, files = _multipart_part_counts(content_type, body)
+    return ("max_fields" in form_options and fields >= form_options["max_fields"]) or (
+        "max_files" in form_options and files >= form_options["max_files"]
+    )
+
+
+def _multipart_part_limit_exceeded(
+    content_type: str, body: bytes, form_options: dict[str, Any]
+) -> bool:
+    max_part_size = form_options.get("max_part_size", 1024 * 1024)
+    return any(len(part) > max_part_size for part in _multipart_text_parts(content_type, body))
 
 
 def _multipart_boundary(content_type: str) -> bytes | None:
@@ -10094,6 +10144,56 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             ]
             if form_access == "context-manager":
                 expected_covers.append("starlette.request.form.context-manager-lifecycle")
+    elif (
+        content_type == b"multipart/form-data"
+        and body
+        and (
+            _multipart_boundary(content_type_header or "") is None
+            or _multipart_has_missing_name(content_type_header or "", body)
+        )
+    ):
+        if form_options or form_file_probe_keys or form_access != "await":
+            raise ContractError("multipart framing-error cases only observe the parser error")
+        expected_covers = ["starlette.request.form.multipart-input-errors"]
+    elif (
+        content_type == b"multipart/form-data"
+        and body
+        and _multipart_part_limit_exceeded(content_type_header or "", body, form_options)
+    ):
+        if set(form_options) - {"max_part_size"}:
+            raise ContractError("multipart part-limit cases select max_part_size alone")
+        if len(messages) < 2 or form_file_probe_keys or form_access != "await":
+            raise ContractError(
+                "multipart part-limit cases must stop before a later receive and cannot probe files"
+            )
+        oversized_parts = [
+            part
+            for part in _multipart_text_parts(content_type_header or "", body)
+            if len(part) > form_options.get("max_part_size", 1024 * 1024)
+        ]
+        first_chunk = base64.b64decode(messages[0]["body_base64"], validate=True)
+        if (
+            not oversized_parts
+            or not any(part and part in first_chunk for part in oversized_parts)
+            or any(
+                base64.b64decode(message["body_base64"], validate=True) == b""
+                for message in messages
+            )
+        ):
+            raise ContractError(
+                "multipart part-limit input must put oversized text bytes in the first chunk"
+            )
+        expected_covers = ["starlette.request.form.multipart-incremental-part-limits"]
+    elif (
+        content_type == b"multipart/form-data"
+        and body
+        and _multipart_count_limit_exceeded(content_type_header or "", body, form_options)
+    ):
+        if set(form_options) - {"max_files", "max_fields"}:
+            raise ContractError("multipart count-limit cases select max_files or max_fields")
+        if form_file_probe_keys or case.get("form_close", False) or form_access != "await":
+            raise ContractError("multipart count-limit errors cannot inspect or close form values")
+        expected_covers = ["starlette.request.form.multipart-count-limits"]
     elif content_type == b"multipart/form-data" and body:
         if not case["scope"]["headers_base64_pairs"]:
             raise ContractError("Request.form multipart cases require Content-Type")
@@ -10133,46 +10233,23 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                     "Request.form receive-error cleanup cases must fail after file bytes arrive"
                 )
             expected_covers = ["starlette.request.form.multipart-error-file-cleanup"]
-        elif "max_part_size" in form_options:
-            if set(form_options) != {"max_part_size"}:
-                raise ContractError(
-                    "Request.form multipart limit cases currently select max_part_size alone"
-                )
-            if len(messages) < 2:
-                raise ContractError(
-                    "Request.form multipart incremental-limit cases require a later receive chunk"
-                )
-            if any(
-                base64.b64decode(message["body_base64"], validate=True) == b""
-                for message in messages
-            ):
-                raise ContractError(
-                    "Request.form multipart incremental-limit chunks must carry request bytes"
-                )
-            first_part = _first_multipart_text_part(content_type_header or "", body)
-            first_chunk = base64.b64decode(messages[0]["body_base64"], validate=True)
-            max_part_size = form_options["max_part_size"]
-            if (
-                first_part is None
-                or len(first_part) <= max_part_size
-                or first_part not in first_chunk
-                or form_file_probe_keys
-                or case.get("form_access", "await") != "await"
-            ):
-                raise ContractError(
-                    "Request.form multipart limit cases must put an oversized text part in "
-                    "the first chunk before a later receive chunk"
-                )
-            expected_covers = ["starlette.request.form.multipart-incremental-part-limits"]
         else:
-            if form_options:
-                raise ContractError(
-                    "Request.form multipart parity currently selects max_part_size only"
-                )
+            if set(form_options) - {"max_fields", "max_files"}:
+                raise ContractError("multipart success cases select only file/field limits")
+            if form_options and not _multipart_count_limit_boundary(
+                content_type_header or "", body, form_options
+            ):
+                raise ContractError("multipart count-limit options must reach the supplied limit")
             expected_covers = [
                 "starlette.request.form.multipart-form-data",
                 "starlette.datastructures.FormData.multidict-lookups",
             ]
+            if form_options:
+                expected_covers.append("starlette.request.form.multipart-count-limits")
+            if re.search(r"(?:^|;)\s*charset\s*=", content_type_header or "", re.IGNORECASE) or any(
+                value > 127 for value in body
+            ):
+                expected_covers.append("starlette.request.form.multipart-charset-decoding")
             if form_file_probe_keys:
                 expected_covers.extend(
                     [

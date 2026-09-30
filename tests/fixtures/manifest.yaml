@@ -8935,7 +8935,7 @@
             {
               "id": "starlette.request.form.parser-limits",
               "dimension": "parameter_combination",
-              "description": "Forward supplied max_fields and max_part_size options into URL-encoded parsing and preserve the upstream exception boundary: MultiPartException without scope.app and HTTPException when scope.app is present. Pinned source: starlette/requests.py:268-308; starlette/formparsers.py:57-100; tests/test_formparsers.py::test_urlencoded_max_fields_is_customizable and ::test_urlencoded_max_part_size_is_customizable; docs/requests.md:116-126.",
+              "description": "Enforce URL-encoded max_fields and max_part_size options at both defaults and supplied limits, preserve the upstream MultiPartException versus HTTPException boundary, and stop before requesting a later body chunk after a limit is exceeded. Pinned source: starlette/requests.py:268-308; starlette/formparsers.py:57-100; tests/test_formparsers.py::test_urlencoded_too_many_fields_raise, ::test_urlencoded_field_exceeds_max_part_size_raise, ::test_urlencoded_max_fields_is_customizable, and ::test_urlencoded_max_part_size_is_customizable; docs/requests.md:116-126.",
               "lanes": [
                 "parity"
               ],
@@ -8969,6 +8969,39 @@
               "id": "starlette.request.form.multipart-incremental-part-limits",
               "dimension": "error_path",
               "description": "When an oversized multipart text part arrives in an ASGI request chunk, enforce max_part_size during parsing and stop requesting subsequent body chunks. Pinned source: starlette/formparsers.py:181-297; starlette/requests.py:268-308; tests/test_formparsers.py::test_max_part_size_exceeds_custom_limit and ::test_max_part_size_exceeds_limit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-input-errors",
+              "dimension": "error_path",
+              "description": "Report missing multipart boundary and missing Content-Disposition name parameters through the documented Request.form error boundary, including MultiPartException without scope.app and HTTPException when the application marker is present. Pinned source: starlette/formparsers.py:247-276; starlette/requests.py:268-308; tests/test_formparsers.py::test_missing_boundary_parameter and ::test_missing_name_parameter_on_content_disposition.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-count-limits",
+              "dimension": "parameter_combination",
+              "description": "Exercise the default multipart max_fields overflow and explicitly lowered max_fields and max_files limits through Request.form, comparing exception class, message and detail, plus receive progress. Pinned source: starlette/formparsers.py:181-297; starlette/requests.py:268-308; tests/test_formparsers.py::test_too_many_fields_raise, ::test_max_fields_is_customizable_low_raises, and ::test_max_files_is_customizable_low_raises.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-charset-decoding",
+              "dimension": "input_family",
+              "description": "Decode non-ASCII multipart field values and filenames using the declared charset or the UTF-8 default when the charset parameter is absent. Pinned source: starlette/formparsers.py:212-275; tests/test_formparsers.py::test_multipart_request_with_charset_for_filename, ::test_multipart_request_without_charset_for_filename, and ::test_multipart_request_with_encoded_value.",
               "lanes": [
                 "parity"
               ],
