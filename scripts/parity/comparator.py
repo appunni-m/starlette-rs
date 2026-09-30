@@ -661,6 +661,15 @@ def compare_workflows(
         return "fail", differences
 
     selectors = operation["source"]["result"]["observations"]
+
+    def input_path_present(input_path: str) -> bool:
+        value: Any = case
+        for component in input_path.split("."):
+            if not isinstance(value, dict) or component not in value:
+                return False
+            value = value[component]
+        return True
+
     for step_id in selected:
         left = source_observations[step_id]
         right = target_observations[step_id]
@@ -720,7 +729,7 @@ def compare_workflows(
         expected_paths = {
             selector["path"]
             for selector in selectors
-            if "condition" not in selector or selector["condition"]["input_key"] in case
+            if "condition" not in selector or input_path_present(selector["condition"]["input_key"])
         }
         if set(left_value) != expected_paths or set(right_value) != expected_paths:
             differences.append(
@@ -737,7 +746,9 @@ def compare_workflows(
         left_has_debug_traceback = _observation_has_debug_traceback(left_value)
         right_has_debug_traceback = _observation_has_debug_traceback(right_value)
         for selector in selectors:
-            if "condition" in selector and selector["condition"]["input_key"] not in case:
+            if "condition" in selector and not input_path_present(
+                selector["condition"]["input_key"]
+            ):
                 continue
             path = selector["path"]
             left_field = left_value[path]

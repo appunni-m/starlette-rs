@@ -133,6 +133,7 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "shallow_copy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.request-state-shallow-copy",
     "app_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.app-state-separation",
     "websocket_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.websocket-lifespan-state",
+    "application_callback": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.application-callback-entry-exit",
 }
 TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "testclient",
@@ -1363,10 +1364,20 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             "route_scope.path_params",
                         }
                     )
+                    testclient_lifespan_callback_trace = (
+                        condition["input_key"] == "asgi_app.callback"
+                        and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
+                        and observation["path"]
+                        in {
+                            "lifespan_trace_before_actions",
+                            "lifespan_trace_after_actions",
+                        }
+                    )
                     if (
                         not response_header_probe
                         and not file_response_scheduling_probe
                         and not router_scope_probe
+                        and not testclient_lifespan_callback_trace
                     ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
@@ -8792,6 +8803,44 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             raise ContractError("TestClient WebSocket subprotocols must be strings")
 
     asgi_app_value = case["asgi_app"]
+    if isinstance(asgi_app_value, dict) and asgi_app_value.get("kind") == "starlette-lifespan":
+        asgi_app = _exact(
+            asgi_app_value,
+            {"kind", "scope_fields", "callback"},
+            "TestClient Starlette lifespan app",
+        )
+        if client_operations != ["enter", "exit"]:
+            raise ContractError("Starlette lifespan callback case must enter then exit TestClient")
+        scope_fields = asgi_app["scope_fields"]
+        if (
+            not isinstance(scope_fields, list)
+            or "type" not in scope_fields
+            or any(field not in {"type", "state"} for field in scope_fields)
+            or len(scope_fields) != len(set(scope_fields))
+        ):
+            raise ContractError(
+                "Starlette lifespan scope_fields must select type and optional state"
+            )
+        callback = _exact(
+            asgi_app["callback"], {"entry_effect", "exit_effect"}, "Lifespan callback"
+        )
+        for key in ("entry_effect", "exit_effect"):
+            _string(callback[key], f"Lifespan callback {key}")
+        expected_covers = {
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["application_callback"],
+        }
+        covers = case["covers"]
+        if (
+            not isinstance(covers, list)
+            or any(not isinstance(requirement, str) for requirement in covers)
+            or len(covers) != len(set(covers))
+            or set(covers) != expected_covers
+        ):
+            raise ContractError("Starlette lifespan covers must match callback lifecycle behavior")
+        return
+
     if isinstance(asgi_app_value, dict) and asgi_app_value.get("kind") == "starlette-state":
         asgi_app = _exact(
             asgi_app_value,
@@ -9132,6 +9181,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["shallow_copy"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["app_state"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["websocket_state"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["application_callback"],
         }
     elif (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
         expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"]}

@@ -17525,6 +17525,30 @@
                   "comparison": {
                     "kind": "exact"
                   }
+                },
+                {
+                  "path": "lifespan_trace_before_actions",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.callback"
+                  }
+                },
+                {
+                  "path": "lifespan_trace_after_actions",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.callback"
+                  }
                 }
               ],
               "error": {
@@ -17669,6 +17693,17 @@
               "id": "starlette.testclient.TestClient.lifespan-context.websocket-lifespan-state",
               "dimension": "input_family",
               "description": "Expose lifespan-provided state to a WebSocket consumer using both attribute and mapping access and preserve the shallow-copy relationship. Pinned source: starlette/testclient.py:250-274; docs/lifespan.md:117-129; tests/test_applications.py:94-110,257-261.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.application-callback-entry-exit",
+              "dimension": "boundary",
+              "description": "A Starlette async-context-manager lifespan callback runs its entry effect before TestClient context entry returns and its exit effect during context teardown. Pinned source: tests/test_applications.py::test_app_async_cm_lifespan; docs/lifespan.md:142-158.",
               "lanes": [
                 "parity"
               ],

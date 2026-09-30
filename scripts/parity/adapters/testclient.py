@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import builtins
+import contextlib
 import threading
 import warnings
 from typing import Any
@@ -367,7 +368,108 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.applications import Starlette
+    from starlette.testclient import TestClient
+
+    settings = case["testclient"]
+    app_input = case["asgi_app"]
+    lifecycle_trace: list[str] = []
+    lifespan_scopes: list[dict[str, Any]] = []
+    lifespan_receive_messages: list[dict[str, Any]] = []
+    lifespan_send_messages: list[dict[str, Any]] = []
+    action_errors: list[dict[str, Any]] = []
+
+    @contextlib.asynccontextmanager
+    async def lifespan(_app: Any) -> Any:
+        lifecycle_trace.append(app_input["callback"]["entry_effect"])
+        try:
+            yield
+        finally:
+            lifecycle_trace.append(app_input["callback"]["exit_effect"])
+
+    starlette_app = Starlette(lifespan=lifespan)
+
+    def record_scope(scope: dict[str, Any]) -> dict[str, Any]:
+        return {field: _safe(scope.get(field)) for field in app_input["scope_fields"]}
+
+    async def instrumented_app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        async def observed_receive() -> dict[str, Any]:
+            message = await receive()
+            lifespan_receive_messages.append(_safe(message))
+            return message
+
+        async def observed_send(message: dict[str, Any]) -> None:
+            lifespan_send_messages.append(_safe(message))
+            await send(message)
+
+        await starlette_app(scope, observed_receive, observed_send)
+        lifespan_scopes.append(record_scope(scope))
+
+    client = TestClient(
+        instrumented_app,
+        base_url=settings["base_url"],
+        raise_server_exceptions=settings["raise_server_exceptions"],
+        root_path=settings["root_path"],
+        client=tuple(settings["client"]),
+        headers=dict(settings["headers"]),
+        backend=settings["backend"],
+        backend_options=settings["backend_options"],
+    )
+    lifecycle_trace_before_actions = list(lifecycle_trace)
+    lifecycle_trace_after_actions: list[dict[str, Any]] = []
+    for action_index, action in enumerate(case["client_actions"]):
+        try:
+            if action["operation"] == "enter":
+                client.__enter__()
+            else:
+                client.__exit__(None, None, None)
+            lifecycle_trace_after_actions.append(
+                {
+                    "action_index": action_index,
+                    "operation": action["operation"],
+                    "trace": list(lifecycle_trace),
+                }
+            )
+        except Exception as error:
+            error_type = type(error)
+            action_errors.append(
+                {
+                    "action_index": action_index,
+                    "operation": action["operation"],
+                    "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
+                    "message": str(error),
+                }
+            )
+            break
+    client.close()
+    result = {
+        "lifespan_scope": lifespan_scopes[0],
+        "lifespan_receive_messages": lifespan_receive_messages,
+        "lifespan_send_messages": lifespan_send_messages,
+        "http_scopes": [],
+        "http_receive_messages": [],
+        "http_send_messages": [],
+        "request_results": [],
+        "websocket_scopes": [],
+        "websocket_receive_messages": [],
+        "websocket_send_messages": [],
+        "websocket_results": [],
+        "action_errors": action_errors,
+        "loop_relations": {"active_lifespan": [], "previous_http_request": []},
+        "lifespan_trace_before_actions": lifecycle_trace_before_actions,
+        "lifespan_trace_after_actions": lifecycle_trace_after_actions,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "lifespan-context", "status": "ok", "value": result}],
+    }
+
+
 def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
+    if case["asgi_app"]["kind"] == "starlette-lifespan":
+        return _run_starlette_lifespan_case(case)
     if case["asgi_app"]["kind"] == "starlette-state":
         from scripts.parity.adapters.testclient_state import (
             run_testclient_stateful_lifespan_case,

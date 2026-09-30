@@ -640,6 +640,54 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.application-async-context-manager",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.startup-handshake",
+        "starlette.testclient.TestClient.lifespan-context.shutdown-handshake",
+        "starlette.testclient.TestClient.lifespan-context.application-callback-entry-exit"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "exit"
+        }
+      ],
+      "asgi_app": {
+        "kind": "starlette-lifespan",
+        "scope_fields": [
+          "type",
+          "state"
+        ],
+        "callback": {
+          "entry_effect": "startup-entry",
+          "exit_effect": "shutdown-cleanup"
+        }
+      }
     }
   ]
 }

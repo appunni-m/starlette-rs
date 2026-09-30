@@ -8,27 +8,26 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 557 input-only cases in 64 indexed files,
-covering 80 operations and 594 parity requirements. The latest full-slice run `410877e9-85c4-4a6e-9af8-316adbe88763` ran from
-`2026-09-30T22:38:19.189Z` to `2026-09-30T22:40:14.041Z` against Starlette 1.6.0
-at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 715 profile
-comparisons: 711 passed, zero failed, zero infrastructure errors, and four
+The active contract contains 558 input-only cases in 64 indexed files,
+covering 80 operations and 595 parity requirements. The latest full-slice run `7f206580-beaf-4a47-bcc8-e7b6b214cadb` ran from
+`2026-09-30T23:08:35.230Z` to `2026-09-30T23:10:29.319Z` against Starlette 1.6.0
+at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 716 profile
+comparisons: 712 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-555 selected comparisons; Rust-native passed 156 of 160. All four
-`Starlette.add_middleware` workflows passed exact comparison, including
-per-application stack caching. The target was clean at revision
-`730040d05514c82d1a6e214a5d2b23764501ac96`, with package tree SHA-256
+556 selected comparisons; Rust-native passed 156 of 160. The new Starlette
+async-context-manager lifespan callback case passed exact comparison. The
+package tree SHA-256 was
 `213a1d934b3d565dcad327138b3238418d42902978053d4e6a458ad773e76cb3` and wheel
-SHA-256 `f6aad2ea591cec1c2d5c2a346871d565cc3d1f14ec9a01680af693f537e7e268`.
+SHA-256 `97ef7b5a23869d2fa72b2b6c0c905f96223e03945cc1adc6b2384ee54cc39c14`.
 The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
 and callable-instance Request dispatch cases. `make parity-run` exits with
 status 2 for those declared Python-callable boundaries. Manifest SHA-256:
-`0487c7dcd3404bde6f6eb425fe8135b869e35b81a2672e0d6ca34b4d7ba246a6`. This
+`7ca4d6595ee842e6c19586683f76ddb74990530df36d822ca6c2322d5d34321e`. This
 bounded evidence does not establish full Starlette parity or release
 readiness.
 
-The current coverage matrix has 799 source rows: 282 existing input mappings,
-50 reasoned `not_applicable` rows, and 467 rows in the fixture backlog. These
+The current coverage matrix has 799 source rows: 284 existing input mappings,
+50 reasoned `not_applicable` rows, and 465 rows in the fixture backlog. These
 figures are derived from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
@@ -42,8 +41,8 @@ direct/Mount unique and mixed 1,001-file count failures. The fixture source is
 [`request-form-multipart.yaml`](../../tests/fixtures/sources/parity/request-form-multipart.yaml).
 Each output comes from the pinned Starlette 1.6.0 oracle and installed package.
 
-The atlas currently has 799 source rows: 467 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 282 existing input mappings.
+The atlas currently has 799 source rows: 465 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 284 existing input mappings.
 The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for the run evidence.
 
