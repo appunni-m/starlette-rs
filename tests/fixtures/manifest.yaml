@@ -1790,6 +1790,164 @@
           }
         },
         {
+          "id": "add_route",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.applications.Starlette.add_route",
+            "signature": "add_route(self, path, route, methods=None, name=None, include_in_schema=True) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "path",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "route",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "methods",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "sequence",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "name",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "include_in_schema",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": true
+                }
+              }
+            ],
+            "result": {
+              "shape": "none",
+              "observations": [],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API builds route tables at application construction and does not expose the Python Starlette.add_route compatibility method.",
+                "blocker": "No public Rust-native Starlette.add_route method is declared."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.applications.Starlette.add_route",
+              "signature": "add_route(self, path, route, methods=None, name=None, include_in_schema=True) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.applications.Starlette.add_route.success-dispatch",
+              "dimension": "success_path",
+              "description": "Register an HTTP route through Starlette.add_route and dispatch a matching request through the application. Upstream: starlette/applications.py:116-124; tests/test_applications.py:356-370.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.add_route.method-miss-405",
+              "dimension": "error_path",
+              "description": "A POST request to the GET-only route added by Starlette.add_route follows the route method-miss path and sends the observed 405 response. Upstream: starlette/routing.py::Route.matches; tests/test_applications.py:356-370.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This bounded addition adds input-only parity evidence; it makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Dynamic route registration is outside the direct ASGI dispatch smoke benchmark."
+          }
+        },
+        {
           "id": "url_path_for",
           "kind": "method",
           "classification": "endpoint",

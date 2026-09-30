@@ -482,6 +482,11 @@ REVERSE_URL_SURFACE_KINDS = {
 }
 REVERSE_URL_OBSERVATION = "reverse-url"
 STEP_KEYS = {"step_id", "surface", "operation", "receiver", "arguments"}
+STARLETTE_ADD_ROUTE_WORKFLOW_REQUIREMENTS = {
+    "success": "starlette.applications.Starlette.add_route.success-dispatch",
+    "method_miss": "starlette.applications.Starlette.add_route.method-miss-405",
+}
+STARLETTE_ADD_ROUTE_OPERATION_KEY = ("starlette.applications.Starlette", "add_route")
 VALUE_TYPES = {
     "null",
     "boolean",
@@ -1449,6 +1454,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             HTTP_ENDPOINT_OPERATION_KEY,
                             SESSION_WORKFLOW_OPERATION_KEY,
                             BASE_HTTP_WORKFLOW_OPERATION_KEY,
+                            STARLETTE_ADD_ROUTE_OPERATION_KEY,
                         }
                         or (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
                         or (surface["id"], operation["id"])
@@ -7283,6 +7289,16 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == BASE_HTTP_WORKFLOW_OPERATION_KEY
     )
+    is_starlette_add_route_workflow = (
+        isinstance(case, dict)
+        and case.get("surface") == "starlette.applications.Starlette"
+        and case.get("operation") == "__call__"
+        and isinstance(case.get("steps"), list)
+        and any(
+            isinstance(step, dict) and step.get("operation") == "add_route"
+            for step in case["steps"]
+        )
+    )
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
@@ -7730,12 +7746,22 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
 
     if not isinstance(case["steps"], list) or (
         len(case["steps"]) not in {2, 3}
+        and not (is_starlette_add_route_workflow and len(case["steps"]) == 4)
         and not (is_middleware_construction and len(case["steps"]) == 1)
     ):
         raise ContractError("case must contain construction and dispatch steps")
     step_ids = [step.get("step_id") for step in case["steps"]]
     allowed_step_sequences = (
-        (["construct"],)
+        (
+            [
+                "application",
+                "route-registration",
+                "dispatch-get",
+                "dispatch-wrong-method",
+            ],
+        )
+        if is_starlette_add_route_workflow
+        else (["construct"],)
         if is_middleware_construction
         else (["middleware", "dispatch"],)
         if is_protocol_middleware
@@ -7747,7 +7773,13 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     )
     if step_ids not in allowed_step_sequences:
         raise ContractError("case steps must follow the declared construction and dispatch order")
-    expected_observations = step_ids if is_middleware_construction else step_ids[1:]
+    expected_observations = (
+        step_ids
+        if is_middleware_construction
+        else ["dispatch-get", "dispatch-wrong-method"]
+        if is_starlette_add_route_workflow
+        else step_ids[1:]
+    )
     if case["observations"] != expected_observations:
         raise ContractError(
             "case observations must select each non-construction workflow step in order"
@@ -7779,6 +7811,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     if (
         not is_protocol_middleware
         and case["operation"] == "__call__"
+        and not is_starlette_add_route_workflow
         and any(
             step.get("surface") != case["surface"] or step.get("operation") != "__call__"
             for step in case["steps"][1:]
@@ -7787,6 +7820,15 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError(
             "Starlette.__call__ workflows must dispatch every protocol step through __call__"
         )
+    if is_starlette_add_route_workflow and [
+        (step.get("surface"), step.get("operation")) for step in case["steps"]
+    ] != [
+        ("starlette.applications.Starlette", "__init__"),
+        ("starlette.applications.Starlette", "add_route"),
+        ("starlette.applications.Starlette", "__call__"),
+        ("starlette.applications.Starlette", "__call__"),
+    ]:
+        raise ContractError("Starlette.add_route workflow must register then dispatch")
     if case["operation"] == "request-dispatch" and (
         case["steps"][1].get("surface") != case["surface"]
         or case["steps"][1].get("operation") != "request-dispatch"
@@ -7845,6 +7887,16 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                     and isinstance(decoded, list)
                     and "mapping" in allowed_types
                 )
+                # A public endpoint is a Python callable, which cannot be
+                # serialized in parity-input@9. The declared route handle is
+                # supplied by this input-defined reference and materialized
+                # independently by the source and package adapters.
+                and not (
+                    step["surface"] == "starlette.applications.Starlette"
+                    and step["operation"] == "add_route"
+                    and name == "route"
+                    and decoded == {"kind": "route-endpoint-reference", "route_index": 0}
+                )
             ):
                 raise ContractError(
                     f"{context}.arguments.{name} has type {actual_type}, expected {sorted(allowed_types)}"
@@ -7883,8 +7935,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             isinstance(app_args["routes"][0]["endpoint"], dict)
             and app_args["routes"][0]["endpoint"].get("kind") == "http-exception-after-body"
         )
+    if is_starlette_add_route_workflow:
+        _validate_starlette_add_route_workflow(case)
     for step in case["steps"][1:]:
         step_args = {key: descriptor["value"] for key, descriptor in step["arguments"].items()}
+        if is_starlette_add_route_workflow and step["operation"] in {"add_route", "url_path_for"}:
+            continue
         if is_protocol_middleware:
             if is_gzip:
                 _validate_dispatch_stimulus(step_args, request_dispatch=True)
@@ -7930,6 +7986,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         ):
             raise ContractError("interleaved workflow must pair lifespan and HTTP scopes")
         expected_schedule = ["lifespan.startup", "dispatch", "lifespan.shutdown"]
+    elif is_starlette_add_route_workflow:
+        expected_schedule = [
+            "route-registration",
+            "dispatch-get",
+            "dispatch-wrong-method",
+        ]
     else:
         expected_scope = (
             "websocket" if app_args["routes"][0]["kind"] == "websocket-route" else "http"
@@ -8594,6 +8656,76 @@ def _validate_application_stimulus(
         _exact(cookie, {"key", "value"}, f"cookie input[{index}]")
         _string(cookie["key"], f"cookie input[{index}].key")
         _string(cookie["value"], f"cookie input[{index}].value")
+
+
+def _validate_starlette_add_route_registration(
+    arguments: dict[str, Any], app_arguments: dict[str, Any]
+) -> None:
+    arguments = _exact(
+        arguments,
+        {"path", "route", "methods", "name", "include_in_schema"},
+        "Starlette.add_route arguments",
+    )
+    path = _string(arguments["path"], "Starlette.add_route.path")
+    route_reference = _exact(
+        arguments["route"],
+        {"kind", "route_index"},
+        "Starlette.add_route route callable reference",
+    )
+    if route_reference != {"kind": "route-endpoint-reference", "route_index": 0}:
+        raise ContractError("Starlette.add_route must use the input-defined first route endpoint")
+    methods = arguments["methods"]
+    if (
+        not isinstance(methods, list)
+        or not methods
+        or any(
+            not isinstance(method, str) or not method or method != method.upper()
+            for method in methods
+        )
+        or len(methods) != len(set(methods))
+    ):
+        raise ContractError("Starlette.add_route.methods must be unique uppercase method strings")
+    name = _string(arguments["name"], "Starlette.add_route.name")
+    if type(arguments["include_in_schema"]) is not bool:
+        raise ContractError("Starlette.add_route.include_in_schema must be boolean")
+    if (
+        not path.startswith("/")
+        or "{" in path
+        or "}" in path
+        or path == app_arguments["routes"][0]["path"]
+        or methods != ["GET"]
+        or name != "registered"
+    ):
+        raise ContractError("Starlette.add_route input must add the declared static named route")
+
+
+def _validate_starlette_add_route_workflow(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Starlette.add_route workflow selects only the Python-package profile")
+    if case["observations"] != ["dispatch-get", "dispatch-wrong-method"]:
+        raise ContractError("Starlette.add_route workflow must observe both dispatch outcomes")
+    if case["execution_schedule"] != [
+        "route-registration",
+        "dispatch-get",
+        "dispatch-wrong-method",
+    ]:
+        raise ContractError(
+            "Starlette.add_route schedule must preserve mutation and dispatch order"
+        )
+    route_step = case["steps"][1]
+    route_arguments = {key: value["value"] for key, value in route_step["arguments"].items()}
+    app_arguments = {key: value["value"] for key, value in case["steps"][0]["arguments"].items()}
+    _validate_starlette_add_route_registration(route_arguments, app_arguments)
+    route_path = route_arguments["path"]
+    expected_methods = {"dispatch-get": "GET", "dispatch-wrong-method": "POST"}
+    for step in case["steps"][2:]:
+        arguments = {key: value["value"] for key, value in step["arguments"].items()}
+        scope = arguments["scope"]
+        _validate_dispatch_stimulus(arguments, request_dispatch=False)
+        if scope["type"] != "http" or scope["path"] != route_path:
+            raise ContractError("Starlette.add_route dispatch must request the registered path")
+        if scope["method"] != expected_methods[step["step_id"]]:
+            raise ContractError("Starlette.add_route dispatch methods must exercise GET and POST")
 
 
 def _validate_exception_handler_registry(value: Any) -> None:
@@ -11988,9 +12120,39 @@ def _route_path_matches(route_path: str, request_path: str) -> bool:
     return _route_template_matches(route_path, request_path)
 
 
+def _starlette_add_route_semantic_coverage(case: dict[str, Any]) -> set[str]:
+    registration = case["steps"][1]
+    route_arguments = {key: item["value"] for key, item in registration["arguments"].items()}
+    route_path = route_arguments["path"]
+    methods = set(route_arguments["methods"])
+    effective_methods = methods | ({"HEAD"} if "GET" in methods else set())
+    dispatches = {
+        step["step_id"]: {key: item["value"] for key, item in step["arguments"].items()}
+        for step in case["steps"][2:]
+    }
+    coverage: set[str] = set()
+    successful_dispatches = [
+        dispatch["scope"]
+        for dispatch in dispatches.values()
+        if dispatch["scope"]["path"] == route_path
+        and dispatch["scope"]["method"] in effective_methods
+    ]
+    if {scope["method"] for scope in successful_dispatches} >= {"GET"}:
+        coverage.add(STARLETTE_ADD_ROUTE_WORKFLOW_REQUIREMENTS["success"])
+    wrong_method = dispatches.get("dispatch-wrong-method", {}).get("scope", {})
+    if (
+        wrong_method.get("path") == route_path
+        and wrong_method.get("method") not in effective_methods
+    ):
+        coverage.add(STARLETTE_ADD_ROUTE_WORKFLOW_REQUIREMENTS["method_miss"])
+    return coverage
+
+
 def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     if case["surface"] == GZIP_SURFACE:
         return _gzip_semantic_coverage(case)
+    if any(step.get("operation") == "add_route" for step in case["steps"]):
+        return _starlette_add_route_semantic_coverage(case)
     app_arguments = {
         key: descriptor["value"] for key, descriptor in case["steps"][0]["arguments"].items()
     }

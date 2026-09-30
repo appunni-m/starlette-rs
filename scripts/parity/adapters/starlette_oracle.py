@@ -8568,7 +8568,63 @@ def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
+    steps = case["steps"]
+    application_arguments = {
+        name: descriptor["value"] for name, descriptor in steps[0]["arguments"].items()
+    }
+    app, lifecycle_trace, request_observations, route_endpoint, sync_endpoint_states = (
+        _materialize_application(application_arguments)
+    )
+
+    async def run_steps() -> list[dict[str, Any]]:
+        observations: list[dict[str, Any]] = []
+        for step in steps[1:]:
+            arguments = {
+                name: descriptor["value"] for name, descriptor in step["arguments"].items()
+            }
+            if step["operation"] == "add_route":
+                endpoint_reference = arguments["route"]
+                if endpoint_reference["kind"] != "route-endpoint-reference":
+                    raise ValueError(
+                        "Starlette.add_route requires an input-defined endpoint reference"
+                    )
+                app.add_route(
+                    arguments["path"],
+                    route_endpoint,
+                    methods=arguments["methods"],
+                    name=arguments["name"],
+                    include_in_schema=arguments["include_in_schema"],
+                )
+                continue
+            else:
+                value = await _invoke(
+                    app,
+                    arguments,
+                    lifecycle_trace,
+                    request_observations,
+                    route_endpoint,
+                    False,
+                    sync_endpoint_states=sync_endpoint_states,
+                )
+            observations.append(_workflow_observation(step["step_id"], value))
+        return observations
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": asyncio.run(run_steps()),
+    }
+
+
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == "starlette.applications.Starlette"
+        and isinstance(case.get("steps"), list)
+        and any(step.get("operation") == "add_route" for step in case["steps"])
+    ):
+        return _run_starlette_add_route_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == "starlette.templating.Jinja2Templates"

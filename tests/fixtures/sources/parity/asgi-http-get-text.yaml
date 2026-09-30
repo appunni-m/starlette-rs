@@ -445,6 +445,232 @@
       "observations": [
         "dispatch"
       ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.post-construction-add-route",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.applications.Starlette.add_route.success-dispatch",
+        "starlette.applications.Starlette.add_route.method-miss-405"
+      ],
+      "execution_schedule": [
+        "route-registration",
+        "dispatch-get",
+        "dispatch-wrong-method"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "route-registration",
+          "surface": "starlette.applications.Starlette",
+          "operation": "add_route",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "path": {
+              "kind": "literal",
+              "value": "/registered"
+            },
+            "route": {
+              "kind": "literal",
+              "value": {
+                "kind": "route-endpoint-reference",
+                "route_index": 0
+              }
+            },
+            "methods": {
+              "kind": "literal",
+              "value": [
+                "GET"
+              ]
+            },
+            "name": {
+              "kind": "literal",
+              "value": "registered"
+            },
+            "include_in_schema": {
+              "kind": "literal",
+              "value": true
+            }
+          }
+        },
+        {
+          "step_id": "dispatch-get",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/registered",
+                "raw_path_base64": "L3JlZ2lzdGVyZWQ=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch-wrong-method",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/registered",
+                "raw_path_base64": "L3JlZ2lzdGVyZWQ=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch-get",
+        "dispatch-wrong-method"
+      ]
     }
   ]
 }

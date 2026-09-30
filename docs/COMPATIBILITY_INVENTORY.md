@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 443 input-only cases across 49 files,
-covering 66 operations and 501 parity requirements. The authored cases span
+The active parity manifest indexes 444 input-only cases across 49 files,
+covering 67 operations and 503 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 StaticFiles, WebSockets, exceptions, status constants, endpoints,
@@ -28,17 +28,18 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `ed42eea2-3040-4b5b-bea5-9a80599c518a` ran against the
-pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 591 comparisons:
-587 passed, zero failed, zero infrastructure errors, and four Rust-native
-comparisons were `not_run`. The installed Python package passed all 441 of its
+Latest live parity run `c1dddd42-fa0c-4a64-b07b-31f9d46b79e0` ran against the
+pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 592 comparisons:
+588 passed, zero failed, zero infrastructure errors, and four Rust-native
+comparisons were `not_run`. The installed Python package passed all 442 of its
 selected comparisons. Rust-native passed 146 of 150; the four unsupported
-inputs exercise sync request-dispatch callable forms. Multipart inputs compare
-the text-limit short circuit, file write/seek ordering across request chunks,
-cleanup after receive-callback and `UploadFile.write` errors, and rollover of a
-file larger than 1 MiB in a worker thread. The all-target command still exits
-2 for those four unsupported Rust-native cases; this bounded run is not full
-Starlette parity.
+inputs exercise sync request-dispatch callable forms. The new `Starlette.add_route`
+input confirms post-construction registration and matching GET/405 dispatch
+observations. Multipart inputs compare the text-limit short circuit, file
+write/seek ordering across request chunks, cleanup after receive-callback and
+`UploadFile.write` errors, and rollover of a file larger than 1 MiB in a worker
+thread. The all-target command still exits 2 for those four unsupported
+Rust-native cases; this bounded run is not full Starlette parity.
 
 The latest correctness-gated Router/GZip benchmark run,
 `07eb140d-a8d2-4964-9e33-2a408f4a171e`, measured 74 of 74 source/package
@@ -318,7 +319,8 @@ crosswalk snapshot, 190 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 49 indexed files
-and 443 cases, including twelve Response background-task workflows, six
+and 444 cases, including post-construction `Starlette.add_route` coverage,
+twelve Response background-task workflows, six
 header-view and raw-pair probes, and a Router sequence that verifies live
 route-method and route-list mutations across
 dispatches, twenty URL scope-construction cases,

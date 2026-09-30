@@ -316,7 +316,7 @@ then-current 389-case manifest (SHA-256
 infrastructure errors, and four Rust-native Python-callable rows were
 `not_run` (package 387/387; Rust-native 146 passed, 4 not_run). Current
 manifest SHA-256 is
-`44e45ddbf67daa09a23ce54a3f0d43e83b8b77e00fa704ceac904374c2661766`.
+`2bd87689e23dac17e4e3e89d260b11642adec31779451637ca7ec05194e62628`.
 Benchmark wheel SHA-256:
 `3d4a006c5478e5708a2774b73837f13a4ff9f942689e60c97975a69e8fdadbca`.
 The median per-workload source/package ratios are 0.715 for Router and 0.979
