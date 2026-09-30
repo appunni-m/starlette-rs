@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 550 input-only cases across 62 files,
-covering 78 operations and 587 parity requirements. The authored cases span
+The active parity manifest indexes 551 input-only cases across 62 files,
+covering 78 operations and 588 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
@@ -29,21 +29,23 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest full-slice parity run `c52fbe37-433e-47f2-84e0-292850256f04` ran against
+Latest full-slice parity run `b230945c-2b95-41b0-8872-151a618ea13c` ran against
 the pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T19:54:22.992Z` to `2026-09-30T19:56:14.155Z`. It selected 708
-profile comparisons: 704 passed, zero failed, zero infrastructure errors, and
+`2026-09-30T20:19:56.270Z` to `2026-09-30T20:21:47.493Z`. It selected 709
+profile comparisons: 705 passed, zero failed, zero infrastructure errors, and
 four unsupported Rust-native Python-callable comparisons were `not_run`. The
-installed Python package passed all 548 selected comparisons; Rust-native
-passed 156 of 160. The run includes Request.app identity, lazy Request.state
-initialization, TestClient state, exception-policy, and WebSocket query/raw-path
-inputs, plus exact async background-task cancellation and finalization,
-StaticFiles traversal, and Mount reverse-URL cases. The manifest SHA-256 is
-`8cc888ad84fe4a498e822d17d6d89d2cf557b6732033f8a113487fc04d02a13f`; the
-installed package wheel SHA-256 is
-`2c5b15346318f7a93bdb0eb60d7269c11c6aafcd74e595049ab4122352ed9c9d`, and its
-installed-file tree SHA-256 is
-`8bd2b967d51f69aacc05e5775c381512daec2416a54dd3ec42ea7d36a176d78d`. The
+installed Python package passed all 549 selected comparisons; Rust-native
+passed 156 of 160. The package identity was clean at repository commit
+`7feab5f418ef3d3e8dbd4cda5e0632a672754256`. The run includes Request.app
+identity, lazy Request.state initialization, TestClient state and
+exception-policy, separate WebSocket query/raw-path projection and parsed
+query-parameter inputs, exact async background-task cancellation and
+finalization, StaticFiles traversal, and Mount reverse-URL cases. The manifest
+SHA-256 is `97490357f4bb7137aed5881d67a526b2c07b6bdcb03e8857558893d10b23e2e7`;
+the installed package wheel SHA-256 is
+`c6777248a74152870f1f86db8f4936a4764d2af322da109e5fae5dd2f40f74ad`, and its
+installed package tree SHA-256 is
+`e4000d2c128abd4f1f233739c34f6bd549d01e983637cb6102142f6c718c5962`. The
 all-target command exits 2 because of the four unsupported Rust-native callable
 cases. This bounded run is not full Starlette parity.
 
@@ -63,8 +65,8 @@ package wheel SHA-256 was
 `badc85e17febe7dabcc38538fb6e695c63b49d74875841fa16ed649d2688b033`. This is
 benchmark evidence for that lane only; the full compatibility denominator
 remains incomplete. The latest source inventory check dispositioned all 999
-API candidate rows. The generated coverage matrix has 799 source rows: 275
-existing input mappings, 50 reasoned `not_applicable` rows, and 474 fixture
+API candidate rows. The generated coverage matrix has 799 source rows: 277
+existing input mappings, 50 reasoned `not_applicable` rows, and 472 fixture
 backlog rows.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -206,7 +208,7 @@ cases cover the built-in `WebSocketException` close path, an `HTTPException`
 denial response, and a registered synchronous WebSocket close handler. These
 map to the pinned `test_websocket_raise_*` workflows. Direct
 `ServerErrorMiddleware` invocation and arbitrary middleware ordering remain
-outside the active contract. The active TestClient contract compares seven input-driven HTTP request/response cases over six requirements, one context-managed lifespan case over four requirements, and eight WebSocket session inputs. Those inputs cover text and binary exchange, compact JSON text and UTF-8 binary JSON frames, streamed denial responses, concurrent JSON receive progress while the app is blocked, disconnect exception fields, close-triggered cancellation, app completion, and portal thread cleanup. The two lifecycle inputs map to `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close`; their authored input and exact output observations are described in [the parity contract](PARITY.md#testclient-websocket-blocking-receive-and-close-teardown). The JSON text and binary cases are input-mapped to the documented `WebSocketTestSession.send_json()` and `receive_json()` methods. All eight active WebSocket inputs are included in the latest full-slice run, and the Python-package comparisons pass. TestClient streaming bodies, lifespan re-entry behavior, close-message errors, and explicit close reasons remain in the fixture backlog.
+outside the active contract. The active TestClient contract compares seven input-driven HTTP request/response cases over six requirements, one context-managed lifespan case over four requirements, and nine WebSocket session inputs. Those inputs cover text and binary exchange, compact JSON text and UTF-8 binary JSON frames, streamed denial responses, concurrent JSON receive progress while the app is blocked, disconnect exception fields, close-triggered cancellation, app completion, portal thread cleanup, and parsed query parameters. The two lifecycle inputs map to `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close`; their authored input and exact output observations are described in [the parity contract](PARITY.md#testclient-websocket-blocking-receive-and-close-teardown). The JSON text and binary cases are input-mapped to the documented `WebSocketTestSession.send_json()` and `receive_json()` methods. All nine active WebSocket inputs are included in the latest full-slice run, and the Python-package comparisons pass. TestClient streaming bodies, lifespan re-entry behavior, close-message errors, and explicit close reasons remain in the fixture backlog.
 `asgi-core.app.test_app_debug` stays in backlog because its input constructs
 the app with debug enabled rather than setting debug after construction. The
 parity artifact status for that historical run was `completed`; the four

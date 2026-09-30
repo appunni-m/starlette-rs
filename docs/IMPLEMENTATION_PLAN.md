@@ -32,25 +32,27 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 550 input-only cases, 78 operations, and 587
+The current parity contract has 551 input-only cases, 78 operations, and 588
 parity requirements across 62 indexed files. The cases include direct
 Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
 interleaved consumers, plus lazy Request.state initialization through a routed
 request. The latest live source/package/native run
-`c52fbe37-433e-47f2-84e0-292850256f04` selected 708 profile comparisons:
-704 passed, zero failed, zero infrastructure errors, and four unsupported
+`b230945c-2b95-41b0-8872-151a618ea13c` selected 709 profile comparisons:
+705 passed, zero failed, zero infrastructure errors, and four unsupported
 Rust-native Python-callable comparisons were `not_run`. The Python package
-passed 548/548; Rust-native passed 156/160. This run includes the documented
-Request.app identity and lazy Request.state initialization, TestClient
-exception-policy, lifespan state propagation, and WebSocket query/raw-path
-inputs; exact async response-background-task cancellation and finalization; and
-StaticFiles traversal plus Mount reverse-URL inputs. The manifest SHA-256 is
-`8cc888ad84fe4a498e822d17d6d89d2cf557b6732033f8a113487fc04d02a13f`; the
+passed 549/549; Rust-native passed 156/160. The package identity was clean at
+repository commit `7feab5f418ef3d3e8dbd4cda5e0632a672754256`. This run includes
+the documented Request.app identity and lazy Request.state initialization,
+TestClient exception-policy, lifespan state propagation, parsed WebSocket
+query_params, and separate query/raw-path inputs; exact async
+response-background-task cancellation and finalization; and StaticFiles
+traversal plus Mount reverse-URL inputs. The manifest SHA-256 is
+`97490357f4bb7137aed5881d67a526b2c07b6bdcb03e8857558893d10b23e2e7`; the
 installed package wheel SHA-256 is
-`2c5b15346318f7a93bdb0eb60d7269c11c6aafcd74e595049ab4122352ed9c9d`; its
-installed-file tree SHA-256 is
-`8bd2b967d51f69aacc05e5775c381512daec2416a54dd3ec42ea7d36a176d78d`. The
+`c6777248a74152870f1f86db8f4936a4764d2af322da109e5fae5dd2f40f74ad`; its
+installed package tree SHA-256 is
+`e4000d2c128abd4f1f233739c34f6bd549d01e983637cb6102142f6c718c5962`. The
 all-target command exits 2 for those four unsupported native callable cases.
 This bounded evidence does not establish full parity.
 
