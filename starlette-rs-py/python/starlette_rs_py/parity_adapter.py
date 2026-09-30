@@ -589,12 +589,16 @@ def _installed_package_tree_sha256(
     files: dict[str, bytes] = {}
     for package in package_roots:
         package_path = Path(distribution.locate_file(package))
+        if package_path.is_symlink():
+            raise RuntimeError(f"installed target package root is a symlink: {package_path}")
         if not package_path.is_dir():
             continue
         for path in sorted(package_path.rglob("*")):
+            if path.is_symlink():
+                raise RuntimeError(f"installed target package contains a non-file entry: {path}")
             if path.is_dir() or path.suffix in {".pyc", ".pyo"}:
                 continue
-            if path.is_symlink() or not path.is_file():
+            if not path.is_file():
                 raise RuntimeError(f"installed target package contains a non-file entry: {path}")
             relative = f"{package}/{path.relative_to(package_path).as_posix()}"
             files[relative] = path.read_bytes()
@@ -9901,11 +9905,19 @@ def main() -> int:
         elif request["mode"] == "workflow":
             if not isinstance(request["case"], dict):
                 raise ValueError("workflow request case must be an object")
+            expected_tree_sha256 = os.environ["STARLETTE_PARITY_TARGET_TREE_SHA256"]
+            identity_before = _identity(distribution)
+            if identity_before["target_tree_sha256"] != expected_tree_sha256:
+                raise RuntimeError("installed target package changed after environment preparation")
+            result = _run_case(request["case"])
+            identity_after = _identity(distribution)
+            if identity_after["target_tree_sha256"] != expected_tree_sha256:
+                raise RuntimeError("installed target package changed during workflow execution")
             output = {
                 "schema": RESPONSE_SCHEMA,
                 "mode": "workflow",
                 "subject_id": SUBJECT_ID,
-                "result": _run_case(request["case"]),
+                "result": result,
             }
         else:
             raise ValueError("adapter request mode must be identity or workflow")

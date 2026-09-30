@@ -10239,6 +10239,18 @@
               ]
             },
             {
+              "id": "starlette.responses.FileResponse.asgi-call.range-unsorted-insertion",
+              "dimension": "parameter_combination",
+              "description": "Submit disjoint intervals in descending start order and compare the emitted multipart order. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_insert_ranges.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.FileResponse.asgi-call.range-count-limit",
               "dimension": "parameter_combination",
               "description": "Submit exactly 100 valid ranges and compare multipart status, metadata, framing, and all body events. The random MIME boundary is normalized only in its header and framing occurrences. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit.",
