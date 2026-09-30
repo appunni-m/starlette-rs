@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@13",
+      "input_schema": "migration-parity/parity-input@14",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -16904,7 +16904,18 @@
             {
               "id": "starlette.testclient.TestClient.websocket-session.scope-projection",
               "dimension": "boundary",
-              "description": "Project the supplied ws URL, root path, client, request headers, and offered subprotocols into the WebSocket ASGI scope. Pinned source: starlette/testclient.py:254-282; tests/test_testclient.py::test_websocket_raw_path_without_params.",
+              "description": "Project the supplied ws URL, query parameters, root path, client, request headers, and offered subprotocols into the WebSocket ASGI scope, including raw_path and query_string. Pinned source: starlette/testclient.py:225-282; tests/test_testclient.py::test_websocket_raw_path_without_params.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.query-params-raw-path",
+              "dimension": "input_family",
+              "description": "Compare inline URL query text with an input-defined params mapping and observe scope.query_string, scope.raw_path, and the received raw-path byte frame. Pinned source: starlette/testclient.py:656-677; tests/test_testclient.py::test_websocket_raw_path_without_params; docs/testclient.md:209-215.",
               "lanes": [
                 "parity"
               ],

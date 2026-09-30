@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@13",
+  "schema": "migration-parity/parity-input@14",
   "cases": [
     {
       "case_id": "starlette.requests.Request.body-stream-json.receive-default-final-empty",

@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@13"
+INPUT_SCHEMA = "migration-parity/parity-input@14"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -141,6 +141,7 @@ TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | 
 }
 TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
+    "query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.query-params-raw-path",
     "handshake": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accept-handshake",
     "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
     "binary_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.binary-message-exchange",
@@ -8104,6 +8105,12 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                     and type(action["capture_disconnect"]) is not bool
                 ):
                     raise ContractError(f"{item_context}.capture_disconnect must be boolean")
+            elif operation == "send_scope_bytes":
+                action = _exact(value, {"operation", "field"}, item_context)
+                if action["field"] != "raw_path":
+                    raise ContractError(
+                        f"{item_context}.field must select the WebSocket raw_path bytes"
+                    )
             elif operation == "parallel":
                 action = _exact(value, {"operation", "tasks"}, item_context)
                 tasks = action["tasks"]
@@ -8143,6 +8150,11 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
         return "json-exchange"
     if len(actions) == 2 and actions[1].get("operation") == "wait_forever":
         return "cancellation"
+    if len(actions) == 2 and [action.get("operation") for action in actions] == [
+        "accept",
+        "send_scope_bytes",
+    ]:
+        return "scope-bytes"
     raise ContractError(
         "TestClient WebSocket flow must model concurrent send/receive or close-triggered cancellation"
     )
@@ -8194,12 +8206,23 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         if base64.b64encode(decoded).decode("ascii") != value:
             raise ContractError(f"{context} must use canonical base64")
 
-    websocket = _exact(
-        case["websocket"],
-        {"url", "subprotocols", "headers", "actions"},
-        "TestClient WebSocket input",
-    )
-    _string(websocket["url"], "TestClient WebSocket url")
+    websocket_keys = {"url", "subprotocols", "headers", "actions"}
+    if isinstance(case["websocket"], dict) and "params" in case["websocket"]:
+        websocket_keys.add("params")
+    websocket = _exact(case["websocket"], websocket_keys, "TestClient WebSocket input")
+    websocket_url = _string(websocket["url"], "TestClient WebSocket url")
+    if "params" in websocket:
+        params = websocket["params"]
+        if (
+            not isinstance(params, dict)
+            or not params
+            or any(type(key) is not str or type(value) is not str for key, value in params.items())
+        ):
+            raise ContractError("TestClient WebSocket params must be a non-empty string mapping")
+        if "?" in websocket_url:
+            raise ContractError(
+                "TestClient WebSocket params cases must keep query text in the params input"
+            )
     subprotocols = websocket["subprotocols"]
     if not isinstance(subprotocols, list) or any(
         not isinstance(item, str) for item in subprotocols
@@ -8212,6 +8235,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     no_client_actions = not session_actions
     denial_workflow = no_client_actions
     client_json_workflow = False
+    client_binary_receive_workflow = False
     client_json_exchange = False
     client_json_send_mode: str | None = None
     client_json_receive_mode: str | None = None
@@ -8285,22 +8309,28 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     f"TestClient WebSocket must use {receive_operation} after {send_operation}"
                 )
     elif len(session_actions) == 1 and isinstance(session_actions[0], dict):
-        receive_action = _exact(
-            session_actions[0],
-            {"operation", "mode"} & session_actions[0].keys(),
-            "TestClient WebSocket JSON receive action",
-        )
-        if receive_action["operation"] != "receive_json":
-            raise ContractError("TestClient WebSocket single action must call receive_json")
-        client_json_receive_mode = _string(
-            receive_action.get("mode", "text"), "TestClient WebSocket receive_json mode"
-        )
-        if client_json_receive_mode not in {"text", "binary"}:
-            raise ContractError("TestClient WebSocket receive_json mode must be text or binary")
-        client_json_workflow = True
+        if session_actions[0].get("operation") == "receive_bytes":
+            _exact(session_actions[0], {"operation"}, "TestClient WebSocket bytes receive action")
+            client_binary_receive_workflow = True
+        else:
+            receive_action = _exact(
+                session_actions[0],
+                {"operation", "mode"} & session_actions[0].keys(),
+                "TestClient WebSocket JSON receive action",
+            )
+            if receive_action["operation"] != "receive_json":
+                raise ContractError(
+                    "TestClient WebSocket single action must call receive_json or receive_bytes"
+                )
+            client_json_receive_mode = _string(
+                receive_action.get("mode", "text"), "TestClient WebSocket receive_json mode"
+            )
+            if client_json_receive_mode not in {"text", "binary"}:
+                raise ContractError("TestClient WebSocket receive_json mode must be text or binary")
+            client_json_workflow = True
     else:
         raise ContractError(
-            "TestClient WebSocket actions must be empty, receive one JSON frame, send and receive one JSON frame, or send one text/byte frame and receive one frame"
+            "TestClient WebSocket actions must be empty, receive one JSON/binary frame, send and receive one JSON frame, or send one text/byte frame and receive one frame"
         )
 
     asgi_app = _exact(
@@ -8421,12 +8451,22 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["denial_response"],
         }
+        if "params" in websocket:
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["query_params"])
         if set(case["covers"]) != expected_covers:
             raise ContractError("TestClient WebSocket covers must match the denial workflow")
         return
 
     if accepted_flow_workflow:
         flow_kind = _validate_testclient_websocket_flow(app_actions)
+        if flow_kind == "scope-bytes" and (
+            not client_binary_receive_workflow
+            or not ("params" in websocket or "?" in websocket_url)
+            or not {"raw_path", "query_string"} <= set(scope_fields)
+        ):
+            raise ContractError(
+                "TestClient raw-path flow requires receive_bytes, params, and both scope observations"
+            )
         if flow_kind == "blocking-receive" and not client_json_workflow:
             raise ContractError(
                 "TestClient blocking-receive flow must observe its server JSON frame through receive_json"
@@ -8478,6 +8518,8 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             )
         elif flow_kind == "cancellation":
             expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["cancellation"])
+        elif flow_kind == "scope-bytes":
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["query_params"])
         else:
             expected_covers.update(
                 {
@@ -8567,6 +8609,8 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         exchange_requirement,
         TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"],
     }
+    if "params" in websocket:
+        expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["query_params"])
     if set(case["covers"]) != expected_covers:
         raise ContractError("TestClient WebSocket covers must match the input frame workflow")
 

@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 541 input-only cases across 62 files,
-covering 78 operations and 582 parity requirements. The authored cases span
+The active parity manifest indexes 548 input-only cases across 62 files,
+covering 78 operations and 585 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
@@ -29,19 +29,19 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest full-slice parity run `9f5696e1-a457-4850-b86c-de84191d8572` ran against
+Latest full-slice parity run `cbedb8db-f884-4471-8e5a-3e5b55308fe4` ran against
 the pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T18:29:54.820Z` to `2026-09-30T18:32:01.153Z`. It selected 695
-profile comparisons: 691 passed, zero failed, zero infrastructure errors, and
+`2026-09-30T19:14:21.063Z` to `2026-09-30T19:16:09.626Z`. It selected 706
+profile comparisons: 702 passed, zero failed, zero infrastructure errors, and
 four unsupported Rust-native Python-callable comparisons were `not_run`. The
-installed Python package passed all 539 selected comparisons; Rust-native
-passed 152 of 156. The run includes the TestClient state and exception-policy
-inputs, exact async background-task cancellation and finalization, and external
-file and directory symlink serving through StaticFiles ASGI calls. The manifest
-SHA-256 is
-`f1524beda48d49143fd934263620c998588f61dd512b6302fdd3da9c62a34c2e`; the
+installed Python package passed all 546 selected comparisons; Rust-native
+passed 156 of 160. The run includes TestClient state, exception-policy, and
+WebSocket query/raw-path inputs, plus exact async background-task cancellation
+and finalization, StaticFiles traversal, and Mount reverse-URL cases. The
+manifest SHA-256 is
+`efa39b9c35c4e4dad5f85fb640d18c68449fbe35d8f69dbce6a71eb2dd80e0c2`; the
 installed package wheel SHA-256 is
-`a96575e11ff91bb486ea569daa31a3f968bc0bba694d08c5a736cd6a09f9bc94`, and its
+`91a7bda6a4d94b57350cfb09e495b9de4c5cff922e8b8f4a4ccff9238a40cf7e`, and its
 installed-file tree SHA-256 is
 `87dd452fc4d062c8ecc18af80274bdcb963eec34f13596eae883acdc6f54b130`. The
 all-target command exits 2 because of the four unsupported Rust-native callable
@@ -63,8 +63,8 @@ package wheel SHA-256 was
 `badc85e17febe7dabcc38538fb6e695c63b49d74875841fa16ed649d2688b033`. This is
 benchmark evidence for that lane only; the full compatibility denominator
 remains incomplete. The latest source inventory check dispositioned all 999
-API candidate rows. The generated coverage matrix has 799 source rows: 265
-existing input mappings, 50 reasoned `not_applicable` rows, and 484 fixture
+API candidate rows. The generated coverage matrix has 799 source rows: 271
+existing input mappings, 50 reasoned `not_applicable` rows, and 478 fixture
 backlog rows.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

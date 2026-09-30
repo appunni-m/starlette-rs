@@ -32,22 +32,21 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 541 input-only cases, 78 operations, and 582
+The current parity contract has 548 input-only cases, 78 operations, and 585
 parity requirements across 62 indexed files. The cases include direct
 Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
 interleaved consumers. The latest live source/package/native run
-`9f5696e1-a457-4850-b86c-de84191d8572` selected 695 profile comparisons:
-691 passed, zero failed, zero infrastructure errors, and four unsupported
+`cbedb8db-f884-4471-8e5a-3e5b55308fe4` selected 706 profile comparisons:
+702 passed, zero failed, zero infrastructure errors, and four unsupported
 Rust-native Python-callable comparisons were `not_run`. The Python package
-passed 539/539; Rust-native passed 152/156. This run includes TestClient
-exception-policy and lifespan state-propagation inputs, WebSocket lifecycle and
-JSON text/binary inputs, exact async response-background-task cancellation and
-finalization, and external file and directory symlink serving through
-StaticFiles ASGI calls. The manifest SHA-256 is
-`f1524beda48d49143fd934263620c998588f61dd512b6302fdd3da9c62a34c2e`; the
+passed 546/546; Rust-native passed 156/160. This run includes TestClient
+exception-policy, lifespan state propagation, and WebSocket query/raw-path
+inputs; exact async response-background-task cancellation and finalization; and
+StaticFiles traversal plus Mount reverse-URL inputs. The manifest SHA-256 is
+`efa39b9c35c4e4dad5f85fb640d18c68449fbe35d8f69dbce6a71eb2dd80e0c2`; the
 installed package wheel SHA-256 is
-`a96575e11ff91bb486ea569daa31a3f968bc0bba694d08c5a736cd6a09f9bc94`; its
+`91a7bda6a4d94b57350cfb09e495b9de4c5cff922e8b8f4a4ccff9238a40cf7e`; its
 installed-file tree SHA-256 is
 `87dd452fc4d062c8ecc18af80274bdcb963eec34f13596eae883acdc6f54b130`. The
 all-target command exits 2 for those four unsupported native callable cases.

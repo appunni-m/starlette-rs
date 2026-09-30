@@ -228,6 +228,8 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                     )
                 elif operation == "send_json":
                     await websocket.send_json(action["value"], action.get("mode", "text"))
+                elif operation == "send_scope_bytes":
+                    await websocket.send_bytes(scope[action["field"]])
                 elif operation == "receive_json":
                     try:
                         value = await websocket.receive_json(action.get("mode", "text"))
@@ -287,11 +289,14 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     action_results: list[dict[str, Any]] = []
     accepted_subprotocol = None
     denial_response = None
+    websocket_kwargs = {"headers": request_headers}
+    if "params" in websocket_input:
+        websocket_kwargs["params"] = websocket_input["params"]
     try:
         with client.websocket_connect(
             websocket_input["url"],
             subprotocols=session_input,
-            headers=request_headers,
+            **websocket_kwargs,
         ) as session:
             accepted_subprotocol = session.accepted_subprotocol
             for action in websocket_input["actions"]:
