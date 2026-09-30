@@ -50,8 +50,13 @@ The implementation boundary is:
   operations, and context-exit disconnect and task cleanup. Rust invokes
   Python's standard JSON encoder and decoder through PyO3 with the pinned
   compact/non-ASCII options and forwards their exceptions unchanged. Binary
-  JSON mode uses Python string UTF-8 encoding at the same boundary. HTTPX
-  constructs the request and continues to own its URL and request-header types.
+  JSON mode uses Python string UTF-8 encoding at the same boundary. Keeping the
+  standard-library calls at this boundary is necessary to preserve Python's
+  JSON value conversion, serialized text, and decoder behavior; a Rust JSON
+  crate would not provide the same Python semantics. The text and binary
+  exchange inputs compare the emitted frames and decoded values against the
+  pinned source. HTTPX constructs the request and continues to own its URL and
+  request-header types.
 - HTTPX continues to own its client semantics, cookies, redirects, URL types,
   and response types. The selected implementation and its optional dependency
   requirements match the pinned Starlette source lock in parity runs.

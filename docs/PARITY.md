@@ -8,22 +8,21 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest previously integrated run, `3888440a-16e6-4d20-9a77-8a6af72268d4`, ran from
-`2026-09-30T15:28:16.511Z` to `2026-09-30T15:30:07.379Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 682 profile
-comparisons: 678 passed, zero failed, zero infrastructure errors, and four
+The latest full-slice run, `117fef0a-84e6-4cf4-90c4-daf715c3a218`, ran from
+`2026-09-30T16:19:21.165Z` to `2026-09-30T16:21:14.345Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 686 profile
+comparisons: 682 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-528 selected comparisons; Rust-native passed 150 of 154. New cases compare
-streamed TestClient WebSocket denial responses and event-loop progress during
-FIFO-backed FileResponse opening. The Request body/stream/JSON inputs compare
-receive defaults, chunk concatenation, caching, stream replay and consumption,
-JSON caching and decode errors, interleaved iterators, disconnect, and the
-overlapping body/stream receive race. The all-target runner exits with status
-2 for the four unsupported Rust-native callable boundaries. Manifest
-SHA-256:
-`45e3e478790e0f00a53360586f441cbce3e7236ad1ce227ac769802baada10b5`; installed
+532 selected comparisons; Rust-native passed 150 of 154. This run includes the
+four new TestClient WebSocket lifecycle and JSON text/binary inputs. The
+all-target runner exits with status 2 for the four unsupported Rust-native
+callable boundaries. Manifest SHA-256:
+`09b20d6eabed78b28433284c8f45673835bc708b4293f5b6424fb9d5ea269fe4`; installed
 package wheel SHA-256:
-`ddd4ad9db178f4fe41fc87dbef5bdab8fc9f3046f2d86dfc600c0af262e17b7b`. This historical full-slice artifact predates the four TestClient WebSocket lifecycle and JSON text/binary inputs documented below; it is bounded local evidence, not full parity or release proof.
+`303536f8f2fa471d64e1a221aaa662679a9255bfd6533d57ad9abcda6a81eb26`; installed
+package tree SHA-256:
+`134db3c20658b529771b956835104b29f1e01c4dc68955fea5cc9d7f39edd79d`. This is
+bounded local evidence, not full parity or release proof.
 
 ## Input-only cases
 
@@ -558,13 +557,13 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@10` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every target-profile comparison declared for the 500 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 652 comparisons; its four Rust-native callable boundaries are recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every supported target-profile comparison declared for the 534 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 686 comparisons; its four Rust-native callable boundaries are recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
 
 ### TestClient WebSocket blocking receive and close teardown
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. These are focused source/package comparisons; the latest previously integrated full-slice result above predates them.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 532 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 

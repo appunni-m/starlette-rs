@@ -10,12 +10,12 @@ incomplete.
 
 The active contract contains 534 input-only cases in 61 indexed files,
 covering 78 operations and 574 parity requirements. The latest integrated run,
-`3888440a-16e6-4d20-9a77-8a6af72268d4`, selected 682 comparisons: 678 passed,
+`117fef0a-84e6-4cf4-90c4-daf715c3a218`, selected 686 comparisons: 682 passed,
 zero failed, zero infrastructure errors, and four Rust-native Python-callable
-comparisons were `not_run`. The Python package passed all 528 comparisons;
-Rust-native passed 150 of 154. That run predates the four current TestClient
-WebSocket lifecycle and JSON text/binary inputs. Other recent inputs cover
-streamed WebSocket denial responses and event-loop progress during FIFO-backed
+comparisons were `not_run`. The Python package passed all 532 comparisons;
+Rust-native passed 150 of 154. The run includes the four TestClient WebSocket
+lifecycle and JSON text/binary inputs. Other recent inputs cover streamed
+WebSocket denial responses and event-loop progress during FIFO-backed
 FileResponse opening. The target remains `scope.mode: slice`; this does not
 claim full compatibility.
 
@@ -34,8 +34,8 @@ direct/Mount unique and mixed 1,001-file count failures. The fixture source is
 [`request-form-multipart.yaml`](../../tests/fixtures/sources/parity/request-form-multipart.yaml).
 Each output comes from the pinned Starlette 1.6.0 oracle and installed package.
 
-The atlas currently has 798 source rows: 496 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 252 existing input mappings.
+The atlas currently has 798 source rows: 493 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 255 existing input mappings.
 The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for the run evidence.
 
@@ -45,8 +45,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 798 source rows: 252 existing input mappings, 50 reasoned
-`not_applicable` entries, and 496 fixture backlog rows. It maps selected
+The current matrix has 798 source rows: 255 existing input mappings, 50 reasoned
+`not_applicable` entries, and 493 fixture backlog rows. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

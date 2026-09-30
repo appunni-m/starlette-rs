@@ -29,44 +29,41 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `3888440a-16e6-4d20-9a77-8a6af72268d4` ran against the
-pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T15:28:16.511Z` to `2026-09-30T15:30:07.379Z`. It selected 682
-profile comparisons: 678 passed, zero failed, zero infrastructure errors, and
+Latest full-slice parity run `117fef0a-84e6-4cf4-90c4-daf715c3a218` ran against
+the pinned Starlette 1.6.0 source on CPython 3.12.13, from
+`2026-09-30T16:19:21.165Z` to `2026-09-30T16:21:14.345Z`. It selected 686
+profile comparisons: 682 passed, zero failed, zero infrastructure errors, and
 four unsupported Rust-native Python-callable comparisons were `not_run`. The
-installed Python package passed all 528 selected comparisons; Rust-native
-passed 150 of 154. Two TestClient WebSocket denial cases match a streamed 401
-response and the pinned multi-chunk 404 denial response, including response
-class identity and both exception/response base classes. One FileResponse
-input verifies event-loop progress during FIFO-backed file opening while
-comparing the complete ASGI response. New Request body/stream/JSON inputs cover receive defaults,
-chunk concatenation, body caching and stream replay/consumption, JSON caching
-and decode errors, interleaved streams, disconnect, and an overlapping body
-and stream receive race. Eight upstream Request test rows now point to these
-input definitions. The latest Request.form inputs cover default/custom
-multipart part-size short-circuiting, duplicate text/file values, high custom
-field/file limits, tempfile cleanup after stream and OSError failures,
-worker-thread rollover and cleanup, and direct/Mount unique and mixed file-count
-failures. The manifest SHA-256 is
-`45e3e478790e0f00a53360586f441cbce3e7236ad1ce227ac769802baada10b5`; the
+installed Python package passed all 532 selected comparisons; Rust-native
+passed 150 of 154. This run includes the four new TestClient WebSocket
+lifecycle and JSON text/binary cases. The manifest SHA-256 is
+`09b20d6eabed78b28433284c8f45673835bc708b4293f5b6424fb9d5ea269fe4`; the
 installed package wheel SHA-256 is
-`ddd4ad9db178f4fe41fc87dbef5bdab8fc9f3046f2d86dfc600c0af262e17b7b`. The
-all-target command still exits 2 for the four unsupported Rust-native callable
+`303536f8f2fa471d64e1a221aaa662679a9255bfd6533d57ad9abcda6a81eb26`, and its
+installed-file tree SHA-256 is
+`134db3c20658b529771b956835104b29f1e01c4dc68955fea5cc9d7f39edd79d`. The
+all-target command exits 2 because of the four unsupported Rust-native callable
 cases. This bounded run is not full Starlette parity.
 
 The latest correctness-gated Router/GZip benchmark run,
-`a14932cb-4c65-42f6-8cbe-da1df5e8dcff`, measured all 74 declared
-source/package workloads with zero failures or skipped workloads after
-preflight `7649c925-c388-4074-a34c-04ff049cdd26`. That preflight selected 656
-comparisons: 652 passed, with all 502 Python-package comparisons passing and
-four Rust-native Python-callable comparisons `not_run`. Rust-native remains
-separately `not_run` for all 74 workload boundaries. The measured
-source/package median ratios were 0.771 for Router and 0.975 for GZip; source
-was faster in five of six Router workloads and 57 of 68 GZip workloads. This
-is benchmark evidence for that lane only; the full compatibility denominator
-remains incomplete. The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 798 source rows: 252 existing input
-mappings, 50 reasoned `not_applicable` rows, and 496 fixture backlog rows.
+`ecbe79cf-538f-48cb-945c-94a7a570fd9f`, measured all 74 declared source/package
+workloads with zero failures or skipped workloads after preflight
+`88ee607c-1d14-4489-a43b-ec1669973bcb`. The preflight selected 686 comparisons:
+682 passed, zero failed or hit infrastructure errors, and four Rust-native
+Python-callable comparisons were `not_run`; the Python-package profile passed
+all 532 comparisons. Rust-native remains separately `not_run` for all 74
+workload boundaries. The measured source/package median ratios were 0.760 for
+Router and 0.976 for GZip; source was faster in all six Router workloads and
+56 of 68 GZip workloads. The clean target checkout was commit
+`38fc4917ea988f02ddd8cdb66c9e6af9390fd955`, with working-tree SHA-256
+`da06bda08019641f141c048c1ea78dbb806151124f233ddd4ddd9c00e19de976`; the
+package wheel SHA-256 was
+`badc85e17febe7dabcc38538fb6e695c63b49d74875841fa16ed649d2688b033`. This is
+benchmark evidence for that lane only; the full compatibility denominator
+remains incomplete. The latest source inventory check dispositioned all 999
+API candidate rows. The generated coverage matrix has 798 source rows: 255
+existing input mappings, 50 reasoned `not_applicable` rows, and 493 fixture
+backlog rows.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
 `2026-09-29T23:48:10.322Z` and finished at `2026-09-29T23:49:31.637Z`. It
@@ -207,7 +204,7 @@ cases cover the built-in `WebSocketException` close path, an `HTTPException`
 denial response, and a registered synchronous WebSocket close handler. These
 map to the pinned `test_websocket_raise_*` workflows. Direct
 `ServerErrorMiddleware` invocation and arbitrary middleware ordering remain
-outside the active contract. The active TestClient contract compares four input-driven HTTP request/response cases over five requirements, one context-managed lifespan case over four requirements, and eight WebSocket session inputs. Those inputs cover text and binary exchange, compact JSON text and UTF-8 binary JSON frames, streamed denial responses, concurrent JSON receive progress while the app is blocked, disconnect exception fields, close-triggered cancellation, app completion, and portal thread cleanup. The two lifecycle inputs map to `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close`; their authored input and exact output observations are described in [the parity contract](PARITY.md#testclient-websocket-blocking-receive-and-close-teardown). The JSON text and binary cases are input-mapped to the documented `WebSocketTestSession.send_json()` and `receive_json()` methods. The latest previously integrated full-slice artifact predates these four new inputs. TestClient exception policy, streaming bodies, lifespan re-entry behavior, close-message errors, and explicit close reasons remain in the fixture backlog.
+outside the active contract. The active TestClient contract compares four input-driven HTTP request/response cases over five requirements, one context-managed lifespan case over four requirements, and eight WebSocket session inputs. Those inputs cover text and binary exchange, compact JSON text and UTF-8 binary JSON frames, streamed denial responses, concurrent JSON receive progress while the app is blocked, disconnect exception fields, close-triggered cancellation, app completion, and portal thread cleanup. The two lifecycle inputs map to `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close`; their authored input and exact output observations are described in [the parity contract](PARITY.md#testclient-websocket-blocking-receive-and-close-teardown). The JSON text and binary cases are input-mapped to the documented `WebSocketTestSession.send_json()` and `receive_json()` methods. All eight active WebSocket inputs are included in the latest full-slice run, and the Python-package comparisons pass. TestClient exception policy, streaming bodies, lifespan re-entry behavior, close-message errors, and explicit close reasons remain in the fixture backlog.
 `asgi-core.app.test_app_debug` stays in backlog because its input constructs
 the app with debug enabled rather than setting debug after construction. The
 parity artifact status for that historical run was `completed`; the four
