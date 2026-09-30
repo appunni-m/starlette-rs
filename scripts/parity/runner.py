@@ -383,12 +383,15 @@ def _target_identity(
     target_env = dict(env)
     target_env["STARLETTE_PARITY_DEPENDENCY_LOCK_SHA256"] = dependency_lock
     if target_environment is not None:
-        target_env["STARLETTE_PARITY_TARGET_TREE_SHA256"] = target_environment["target_tree_sha256"]
-        target_env["STARLETTE_PARITY_TARGET_SOURCE_REVISION"] = target_environment[
-            "target_source_revision"
+        prepared_target_identity = target_environment["target_identity"]
+        target_env["STARLETTE_PARITY_TARGET_TREE_SHA256"] = prepared_target_identity[
+            "target_tree_sha256"
+        ]
+        target_env["STARLETTE_PARITY_TARGET_SOURCE_REVISION"] = prepared_target_identity[
+            "source_revision"
         ]
         target_env["STARLETTE_PARITY_TARGET_SOURCE_DIRTY"] = (
-            "1" if target_environment["target_dirty"] else "0"
+            "1" if prepared_target_identity["dirty"] else "0"
         )
     try:
         cmd = _resolve_command(commands[target["identity_command_id"]], prepared, root)
@@ -483,13 +486,14 @@ def _target_identity(
         ):
             tree_sha = identity["revision"].removeprefix("dirty-tree:")
         if target_environment is not None:
-            expected_dirty = target_environment["target_dirty"] or (
-                tree_sha != target_environment["target_tree_sha256"]
+            prepared_target_identity = target_environment["target_identity"]
+            expected_dirty = prepared_target_identity["dirty"] or (
+                tree_sha != prepared_target_identity["target_tree_sha256"]
             )
             expected_revision = (
                 f"dirty-tree:{tree_sha}"
                 if expected_dirty
-                else target_environment["target_source_revision"]
+                else prepared_target_identity["source_revision"]
             )
             if identity["dirty"] is not expected_dirty or identity["revision"] != expected_revision:
                 raise ContractError(
@@ -618,12 +622,11 @@ def _adapter_environment(
     env = dict(base)
     env["STARLETTE_PARITY_DEPENDENCY_LOCK_SHA256"] = dependency_lock_sha256
     if target_environment is not None:
-        env["STARLETTE_PARITY_TARGET_TREE_SHA256"] = target_environment["target_tree_sha256"]
-        env["STARLETTE_PARITY_TARGET_SOURCE_REVISION"] = target_environment[
-            "target_source_revision"
-        ]
+        prepared_target_identity = target_environment["target_identity"]
+        env["STARLETTE_PARITY_TARGET_TREE_SHA256"] = prepared_target_identity["target_tree_sha256"]
+        env["STARLETTE_PARITY_TARGET_SOURCE_REVISION"] = prepared_target_identity["source_revision"]
         env["STARLETTE_PARITY_TARGET_SOURCE_DIRTY"] = (
-            "1" if target_environment["target_dirty"] else "0"
+            "1" if prepared_target_identity["dirty"] else "0"
         )
     return env
 
@@ -742,7 +745,11 @@ def run_parity(
                     target_errors[profile["id"]] = errors[0]
 
     command = commands[mode]
-    python_environments = [prepared[key] for key in ENVIRONMENT_IDS if key in prepared]
+    python_environments = [
+        {key: value for key, value in prepared[environment_id].items() if key != "target_identity"}
+        for environment_id in ENVIRONMENT_IDS
+        if environment_id in prepared
+    ]
     environment_records = list(python_environments)
     native_profile_id = next(
         (profile["id"] for profile in profiles.values() if profile["target_id"] == "rust-native"),

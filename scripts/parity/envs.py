@@ -705,12 +705,11 @@ def load_prepared_environments(
         output[row["id"]] = row
     target = output[ENVIRONMENT_IDS[1]]
     target_tree_sha256 = target_wheel["target_tree_sha256"]
-    target["target_tree_sha256"] = target_tree_sha256
-    target["target_revision"] = (
-        f"dirty-tree:{target_tree_sha256}" if target_source["dirty"] else target_source["revision"]
-    )
-    target["target_dirty"] = target_source["dirty"]
-    target["target_source_revision"] = target_source["revision"]
+    target["target_identity"] = {
+        "target_tree_sha256": target_tree_sha256,
+        "dirty": target_source["dirty"],
+        "source_revision": target_source["revision"],
+    }
     if not require_target:
         output.pop(ENVIRONMENT_IDS[1], None)
     return output
