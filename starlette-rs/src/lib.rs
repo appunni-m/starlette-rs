@@ -52,7 +52,7 @@ pub use gzip::{
     GzipConfig, GzipHeader, GzipResponder, GzipResponseStart,
 };
 pub use headers::{Headers, MutableHeaders};
-pub use host::{HostPattern, HostPatternError};
+pub use host::{HostPattern, HostPatternError, HostUrlPath};
 pub use lifespan::{
     LifespanAction, LifespanError, LifespanOperation, LifespanPhase, LifespanState,
 };

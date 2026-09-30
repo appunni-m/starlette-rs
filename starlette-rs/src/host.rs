@@ -13,6 +13,43 @@ use crate::{DetailedRouteMatch, RouteError, RouteTable};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HostPattern {
     routes: RouteTable,
+    format_routes: RouteTable,
+}
+
+/// A path returned by the direct-name branch of Host reverse lookup.
+///
+/// The path is preserved verbatim, `protocol` is empty, and `host` is
+/// formatted from the configured Host pattern, including any configured port.
+/// This result does not resolve a nested child route or assemble an absolute
+/// URL.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HostUrlPath {
+    /// The supplied path, unchanged.
+    pub path: String,
+    /// The URL protocol; empty for a Host route's direct-name branch.
+    pub protocol: String,
+    /// The formatted Host pattern, including a configured port suffix.
+    pub host: String,
+}
+
+impl HostUrlPath {
+    /// Returns the path without normalization or percent-encoding.
+    #[must_use]
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    /// Returns the protocol metadata, which is empty for this direct branch.
+    #[must_use]
+    pub fn protocol(&self) -> &str {
+        &self.protocol
+    }
+
+    /// Returns the formatted host, retaining any configured port suffix.
+    #[must_use]
+    pub fn host(&self) -> &str {
+        &self.host
+    }
 }
 
 impl HostPattern {
@@ -35,7 +72,14 @@ impl HostPattern {
         routes
             .add_route(format!("/{hostname}"), ["GET"])
             .map_err(HostPatternError::RouteRegistration)?;
-        Ok(Self { routes })
+        let mut format_routes = RouteTable::new();
+        format_routes
+            .add_route(format!("/{pattern}"), ["GET"])
+            .map_err(HostPatternError::RouteRegistration)?;
+        Ok(Self {
+            routes,
+            format_routes,
+        })
     }
 
     /// Matches a Host header value and returns named captures in pattern
@@ -54,6 +98,58 @@ impl HostPattern {
             DetailedRouteMatch::Matched { path_params, .. } => Some(path_params),
             DetailedRouteMatch::MethodNotAllowed { .. } | DetailedRouteMatch::NotFound => None,
         }
+    }
+
+    /// Formats this Host pattern with converter-formatted parameter values.
+    ///
+    /// The complete parameter set is required, as with
+    /// [`RouteTable::build_path`]. Formatting follows the built-in converter
+    /// rules, and the output preserves any configured port suffix. Values are
+    /// not percent-escaped.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`HostPatternError::HostFormatting`] when parameter names are
+    /// missing, extra, or duplicated, or when a value violates its built-in
+    /// converter's formatting contract.
+    pub fn format_host(
+        &self,
+        path_params: &[(String, String)],
+    ) -> Result<String, HostPatternError> {
+        let path = self
+            .format_routes
+            .build_path(0, path_params)
+            .map_err(HostPatternError::HostFormatting)?;
+        Ok(path
+            .strip_prefix('/')
+            .map_or(path.as_str(), |host| host)
+            .to_owned())
+    }
+
+    /// Builds the direct-name Host reverse-lookup result from a supplied path
+    /// and Host parameters.
+    ///
+    /// The path is copied verbatim, `protocol` is empty, and `host` is
+    /// produced by [`Self::format_host`], including any configured port
+    /// suffix. This represents only the Host route's own-name/direct-path
+    /// branch; it does not resolve a nested child route, normalize the path,
+    /// percent-encode values, or assemble an absolute URL.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`HostPatternError::HostFormatting`] when the supplied host
+    /// parameters are missing, extra, duplicated, or invalid for their
+    /// built-in converter.
+    pub fn format_url_path(
+        &self,
+        path: impl Into<String>,
+        host_params: &[(String, String)],
+    ) -> Result<HostUrlPath, HostPatternError> {
+        Ok(HostUrlPath {
+            path: path.into(),
+            protocol: String::new(),
+            host: self.format_host(host_params)?,
+        })
     }
 }
 
@@ -118,6 +214,8 @@ pub enum HostPatternError {
     StartsWithSlash,
     /// The pattern contains invalid or unsupported route parameter syntax.
     RouteRegistration(RouteError),
+    /// Host formatting failed because the parameter set or values were invalid.
+    HostFormatting(RouteError),
 }
 
 impl Display for HostPatternError {
@@ -127,6 +225,7 @@ impl Display for HostPatternError {
             Self::RouteRegistration(error) => {
                 write!(formatter, "Host pattern registration failed: {error}")
             }
+            Self::HostFormatting(error) => write!(formatter, "Host formatting failed: {error}"),
         }
     }
 }
@@ -134,7 +233,7 @@ impl Display for HostPatternError {
 impl Error for HostPatternError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Self::RouteRegistration(error) => Some(error),
+            Self::RouteRegistration(error) | Self::HostFormatting(error) => Some(error),
             Self::StartsWithSlash => None,
         }
     }

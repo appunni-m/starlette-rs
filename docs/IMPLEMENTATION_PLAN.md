@@ -41,12 +41,13 @@ BackgroundTask/BackgroundTasks cases, one Jinja2 template workflow, and six
 header alias/view probes. The additive HostPattern/Host-route slice matches
 `{tenant}.example.test` against `Host: acme.example.test:5600`, ignores the
 port for matching, and records `tenant=acme` in route scope for one fixed
-`GET /health` response route. It does not establish full Host Router dispatch,
-IPv6, reverse lookup, or overall parity. Latest integrated run
-`68a60d80-a1d1-42f6-9dc5-e888719773c8` selected 598 profile comparisons:
-594 passed, zero failed, zero infrastructure errors, and four were `not_run`.
-The Python package passed 447 selected comparisons; Rust-native passed 147 of
-151, with four pre-existing unsupported Python-callable rows `not_run`. The
+`GET /health` response route. A separate input exercises the direct Host
+reverse-URL branch with a configured port. The inputs do not establish full
+Host Router dispatch, nested Host reverse lookup, IPv6, or overall parity.
+Latest integrated run `076ce730-4a2b-4016-8d5d-439f034af022` selected 599
+profile comparisons: 595 passed, zero failed, zero infrastructure errors, and
+four were `not_run`. The Python package passed 447 selected comparisons;
+Rust-native passed 148 of 152, with four pre-existing unsupported Python-callable rows `not_run`. The
 three route body-limit
 cases and the new application Router-miss 404 handler pass exact source/package
 comparison. The three body-limit cases cover inherited application limits and
@@ -270,8 +271,19 @@ converter override, first-success router selection, direct and nested mounts,
 `app_root_path`, provider fallback, missing context, and the top-level
 application forwarder. All 21 source/package comparisons passed. Rust owns the
 built-in path substitution primitive used by the Python package; the
-Rust-native named URL API is still unimplemented and is excluded from these
-comparisons.
+Rust-native named Route/Router URL API and Rust custom converter registration
+remain open and are excluded from these comparisons. A separate bounded Host
+case is recorded below.
+
+### Completed bounded goal: direct Host reverse URL formatting
+
+The existing Host reverse-URL input now includes a configured `:3600` port
+and selects both the Python package and Rust-native profiles. Rust exposes
+`HostPattern::format_url_path` and `HostUrlPath` for the Host route's own-name
+branch: the supplied path is preserved, the protocol is empty, and the
+formatted host retains its configured port. Nested child-route lookup remains
+Python-package only. This slice does not claim full named-route lookup or
+absolute URL construction.
 
 ### Completed bounded goal: run HTTP inside an active lifespan
 
@@ -292,7 +304,7 @@ pass source/package parity; the synchronous cases also pass against Rust-native.
 Four Rust-native observations remain explicitly `not_run`; the full Starlette
 replacement is still incomplete. Later work includes broader HTTP/WebSocket
 connection and request-body behavior, streaming backpressure and iterator
-lifecycle, route-local middleware, Host reverse lookup,
+lifecycle, route-local middleware, nested Host reverse lookup,
 direct `ServerErrorMiddleware` call-boundary
 parity, broader WebSocket exception flows beyond the three declared cases,
 remaining TestClient exception-propagation modes, arbitrary middleware

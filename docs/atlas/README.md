@@ -27,14 +27,16 @@ with no conventional Python or Rust unit-test suite.
 The source atlas is complete, while the full Starlette replacement remains
 active and incomplete. The latest contract has 449 input-only cases across 51
 files, 68 operations, and 508 requirements. Run
-`68a60d80-a1d1-42f6-9dc5-e888719773c8` selected 598 comparisons: 594 passed,
+`076ce730-4a2b-4016-8d5d-439f034af022` selected 599 comparisons: 595 passed,
 zero failed, zero infrastructure errors, and four pre-existing Rust-native
 callable boundaries were `not_run`. The Python package passed 447 selected
-cases; Rust-native passed 147 of 151. The additive HostPattern/Host-route
+cases; Rust-native passed 148 of 152. The additive HostPattern/Host-route
 input matches `{tenant}.example.test` against `Host: acme.example.test:5600`,
 ignores the port for matching, and records `tenant=acme` in route scope for a
-single fixed-response `GET /health` route. This does not establish full Host
-Router dispatch, IPv6 behavior, reverse lookup, or overall parity. Three route-level
+single fixed-response `GET /health` route. A separate direct Host reverse-URL
+input preserves the path and configured port on both target profiles. This
+does not establish full Host Router dispatch, nested Host reverse lookup, IPv6
+behavior, or overall parity. Three route-level
 `max_body_size` inputs verify
 inherited application limits and higher and lower route overrides. A fourth
 input compares the application Router-miss 404 and its async HTTPException

@@ -212,12 +212,13 @@
         "starlette.routing.Host.url_path_for.direct-path"
       ],
       "target_profiles": [
+        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
       "route_graph": {
         "kind": "host-route",
-        "host": "{tenant}.example.test",
+        "host": "{tenant}.example.test:3600",
         "name": "tenant",
         "routes": []
       },

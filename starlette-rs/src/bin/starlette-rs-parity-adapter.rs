@@ -57,6 +57,8 @@ const STATIC_FILES_LOOKUP_PATH_OPERATION: &str = "lookup-path";
 const RESPONSE_OPERATION: &str = "asgi-call";
 const QUERY_PARAMS_SURFACE: &str = "starlette.datastructures.QueryParams";
 const QUERY_PARAMS_OPERATION: &str = "construction-and-mapping-sequence";
+const HOST_SURFACE: &str = "starlette.routing.Host";
+const HOST_URL_PATH_OPERATION: &str = "url_path_for";
 const WEBSOCKET_SURFACE: &str = "starlette.websockets.WebSocket";
 const WEBSOCKET_OPERATION: &str = "protocol-sequence";
 const WEBSOCKET_STATE_OPERATION: &str = "state-sequence";
@@ -399,6 +401,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         }
         (Some("starlette.routing.Router"), Some("route-dispatch")) => {
             return run_router_case(case);
+        }
+        (Some(HOST_SURFACE), Some(HOST_URL_PATH_OPERATION)) => {
+            return run_host_reverse_url_case(case);
         }
         (Some(REDIRECT_RESPONSE_SURFACE), Some(REDIRECT_RESPONSE_OPERATION)) => {
             return run_redirect_response_case(case);
@@ -945,6 +950,108 @@ fn run_router_host_case(
             "step_id": "route-dispatch",
             "status": "ok",
             "value": observation,
+        }],
+    }))
+}
+
+fn run_host_reverse_url_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "observations",
+            "route_graph",
+            "lookup",
+            "request_scope",
+            "custom_convertors",
+        ],
+        "Host URLPath case",
+    )?;
+    let case_id = string_field(case, "case_id", "Host URLPath case")?;
+    if string_field(case, "surface", "Host URLPath case")? != HOST_SURFACE
+        || string_field(case, "operation", "Host URLPath case")? != HOST_URL_PATH_OPERATION
+        || case.get("observations") != Some(&json!(["reverse-url"]))
+        || case.get("assets") != Some(&json!([]))
+        || case.get("request_scope") != Some(&Value::Null)
+        || case.get("custom_convertors") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "Rust-native Host URLPath requires the declared direct reverse-lookup input",
+        ));
+    }
+
+    let route = exact_object(
+        case.get("route_graph")
+            .ok_or_else(|| String::from("Host URLPath route graph is missing"))?,
+        &["kind", "host", "name", "routes"],
+        "Host URLPath route graph",
+    )?;
+    if string_field(route, "kind", "Host URLPath route graph")? != "host-route"
+        || route
+            .get("routes")
+            .and_then(Value::as_array)
+            .is_none_or(|routes| !routes.is_empty())
+    {
+        return Err(String::from(
+            "Rust-native Host URLPath supports a named Host route without child routes",
+        ));
+    }
+    let route_name = string_field(route, "name", "Host URLPath route graph")?;
+    let lookup = exact_object(
+        case.get("lookup")
+            .ok_or_else(|| String::from("Host URLPath lookup is missing"))?,
+        &["name", "path_params"],
+        "Host URLPath lookup",
+    )?;
+    if string_field(lookup, "name", "Host URLPath lookup")? != route_name {
+        return Err(String::from(
+            "Rust-native Host URLPath requires the lookup name to match the Host name",
+        ));
+    }
+    let path_params = lookup
+        .get("path_params")
+        .and_then(Value::as_object)
+        .ok_or_else(|| String::from("Host URLPath lookup.path_params must be an object"))?;
+    let path = path_params
+        .get("path")
+        .and_then(Value::as_str)
+        .ok_or_else(|| String::from("Host URLPath direct lookup requires a string path"))?;
+    let host_params = path_params
+        .iter()
+        .filter(|(name, _)| name.as_str() != "path")
+        .map(|(name, value)| {
+            value
+                .as_str()
+                .map(|value| (name.clone(), value.to_owned()))
+                .ok_or_else(|| {
+                    format!("Rust-native Host URLPath requires string host parameter {name:?}")
+                })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let host_pattern = HostPattern::new(string_field(route, "host", "Host URLPath route graph")?)
+        .map_err(|error| error.to_string())?;
+    let url_path = host_pattern
+        .format_url_path(path, &host_params)
+        .map_err(|error| error.to_string())?;
+
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": "reverse-url",
+            "status": "ok",
+            "value": {
+                "reverse-url": {
+                    "path": url_path.path,
+                    "protocol": url_path.protocol,
+                    "host": url_path.host,
+                },
+            },
         }],
     }))
 }

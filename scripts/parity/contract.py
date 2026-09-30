@@ -1465,7 +1465,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
                             ROUTE_CONSTRUCTOR_OPERATION_KEY,
                         }
-                        or (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
+                        or (
+                            (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
+                            and (surface["id"], operation["id"])
+                            != (HOST_SURFACE, HOST_REVERSE_OPERATION)
+                        )
                         or (surface["id"], operation["id"])
                         == (STREAMING_RESPONSE_SURFACE, STREAMING_RESPONSE_TRACE_OPERATION)
                         or (surface["id"], operation["id"])
@@ -5789,6 +5793,25 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError("Request scope does not select its request-url-for observer route")
     if custom and key[0] != "starlette.routing.Route":
         raise ContractError("custom URL convertors are scoped to direct Route.url_path_for cases")
+    if (
+        key == (HOST_SURFACE, HOST_REVERSE_OPERATION)
+        and "rust-native-local" in case["target_profiles"]
+    ):
+        host_route = case["route_graph"]
+        path_params = lookup["path_params"]
+        if (
+            host_route["name"] is None
+            or lookup["name"] != host_route["name"]
+            or host_route["routes"]
+            or custom
+            or not isinstance(path_params.get("path"), str)
+            or any(
+                name != "path" and not isinstance(value, str) for name, value in path_params.items()
+            )
+        ):
+            raise ContractError(
+                "Rust-native Host URLPath cases require a named direct-path lookup with string host parameters"
+            )
     derived = _reverse_input_requirements(case)
     if not set(case["covers"]) <= derived:
         raise ContractError(

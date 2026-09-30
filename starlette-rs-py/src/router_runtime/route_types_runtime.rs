@@ -1447,7 +1447,7 @@ fn initialize_host_route(
     let app = app.unwrap_or_else(|| py.None());
     let (regex, host_format, convertors, custom) =
         compile_path_parts(py, host, convertor_types, Some(builtin_convertors))?;
-    let route_table_path = format!("/{host_format}");
+    let route_table_path = format!("/{}", host_format_without_port(&host_format));
     let route_table = make_route_table(py, route_table_type, &route_table_path, custom, None)?;
     Ok((
         PyString::new(py, host).into_any().unbind(),
@@ -1604,13 +1604,20 @@ fn compile_path_parts<'py>(
         path_regex.push_str(&escape_regex_text(tail));
     }
     path_regex.push('$');
-    path_format.push_str(if is_host {
-        tail.split(':').next().unwrap_or_default()
-    } else {
-        tail
-    });
+    path_format.push_str(tail);
     let pattern = py.import("re")?.getattr("compile")?.call1((path_regex,))?;
     Ok((pattern, path_format, convertors, has_custom))
+}
+
+fn host_format_without_port(host_format: &str) -> &str {
+    let suffix_start = host_format
+        .rfind('}')
+        .map_or(0, |index| index.saturating_add(1));
+    let suffix = &host_format[suffix_start..];
+    let suffix_end = suffix
+        .find(':')
+        .map_or(host_format.len(), |index| suffix_start + index);
+    &host_format[..suffix_end]
 }
 
 fn path_parameters(path: &str) -> Vec<PathParameter> {

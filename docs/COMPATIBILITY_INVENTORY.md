@@ -19,7 +19,7 @@ checked in; the run IDs and counts below describe their recorded executions.
 
 The active parity manifest indexes 449 input-only cases across 51 files,
 covering 68 operations and 508 parity requirements. Its SHA-256 is
-`63a853e8902fb9f59e184d0fb6e32280cd5811175427ed4101fe1a23b84485c8`. The
+`b07baf042e4a3716cfe4f6b670e41913ae385fc7b5c3b586dbce247be299a5ae`. The
 authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
@@ -30,12 +30,12 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `68a60d80-a1d1-42f6-9dc5-e888719773c8` ran against the
-pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 598 comparisons:
-594 passed, zero failed, zero infrastructure errors, and four pre-existing
+Latest live parity run `076ce730-4a2b-4016-8d5d-439f034af022` ran against the
+pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 599 comparisons:
+595 passed, zero failed, zero infrastructure errors, and four pre-existing
 unsupported Rust-native Python-callable comparisons were `not_run`. The
 installed Python package passed 447 of 447 selected comparisons. Rust-native
-passed 147 of 151. Three route-level
+passed 148 of 152. Three route-level
 `max_body_size` inputs compare the inherited application limit and higher and
 lower route overrides against exact response and ASGI event observations. A
 new application Router-miss input matches the source's registered async
@@ -46,7 +46,9 @@ write/seek ordering across request chunks, cleanup after receive-callback and
 `UploadFile.write` errors, and rollover of a file larger than 1 MiB in a worker
 thread. A Host-pattern input matches `{tenant}.example.test:3600` against
 `Host: acme.example.test:5600` and observes the `tenant` capture in route scope
-on source, Python-package, and Rust-native profiles. The all-target command
+on source, Python-package, and Rust-native profiles. A separate Host
+reverse-URL input compares the direct named path and retains `:3600` in the
+formatted host across source, package, and Rust. The all-target command
 still exits 2 for those four unsupported Rust-native cases; this bounded run
 is not full Starlette parity.
 
@@ -434,12 +436,17 @@ capture `tenant = "acme"` in the route scope. The capture is a string. Exact
 source/package/Rust observations passed in parity run
 `68a60d80-a1d1-42f6-9dc5-e888719773c8`.
 
-The additive Rust API exports `HostPattern` and `HostPatternError` from the
-crate root. `HostPattern::new(pattern)` compiles one host pattern, and
-`match_host(host_header)` returns optional named capture pairs in pattern
-order. This is a bounded matcher slice, not complete native `Router` Host
-registration, ordering, or ASGI dispatch. It does not claim IPv6 authority
-parsing or Host reverse-URL lookup; those behaviors remain outside this input.
+The additive Rust API exports `HostPattern`, `HostPatternError`, and
+`HostUrlPath` from the crate root. `HostPattern::new(pattern)` compiles one
+host pattern, `match_host(host_header)` returns optional named capture pairs
+in pattern order, and `format_url_path(path, host_params)` preserves the
+direct Host path while formatting the host and retaining a configured port.
+The input-only Host reverse-URL case selects both target profiles for this
+direct branch; the source, Python package, and Rust-native observations match
+in run `076ce730-4a2b-4016-8d5d-439f034af022`. Nested child lookup remains
+Python-package only. This is still a bounded slice, not complete native
+`Router` Host registration, ordering, or ASGI dispatch. It does not claim IPv6
+authority parsing or nested Host reverse-URL lookup.
 
 ## WebSocketEndpoint dispatch slice
 

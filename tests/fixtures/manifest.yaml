@@ -10592,12 +10592,14 @@
           "targets": [
             {
               "target_id": "rust-native",
-              "path": null,
-              "signature": null,
+              "path": "starlette_rs::HostPattern::format_url_path",
+              "signature": "format_url_path(&self, path, host_params) -> Result<HostUrlPath, HostPatternError>",
               "support": {
-                "status": "unimplemented",
-                "reason": "The Rust-native public API does not expose the Python Host named-URL lookup interface.",
-                "blocker": "No Rust-native Host route URLPath compatibility API is declared."
+                "status": "partial",
+                "reason": "Rust-native HostPattern formats a named direct Host path and preserves configured ports.",
+                "missing_requirements": [
+                  "starlette.routing.Host.url_path_for.nested-route"
+                ]
               }
             },
             {
@@ -10613,11 +10615,12 @@
             {
               "id": "starlette.routing.Host.url_path_for.direct-path",
               "dimension": "success_path",
-              "description": "Generate a Host URLPath with no nested route parameters. Upstream: starlette/routing.py:493.",
+              "description": "Generate a direct Host URLPath with a configured port and no nested child route. Upstream: starlette/routing.py:493.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -10636,6 +10639,7 @@
           "parity": {
             "applicability": "required",
             "target_profiles": [
+              "rust-native-local",
               "python-package-cpython312"
             ]
           },
