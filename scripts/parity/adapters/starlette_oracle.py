@@ -61,6 +61,7 @@ STATIC_FILES_ASYNC_BOUNDARY_OPERATION = "asgi-call-async-boundary"
 RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 BODY_LIMIT_SURFACE = "starlette.middleware.body_limit.RequestBodyLimitMiddleware"
+WSGI_SURFACE = "starlette.middleware.wsgi.WSGIMiddleware"
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
@@ -1857,6 +1858,109 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [{"step_id": "dispatch", "status": "ok", "value": selected}],
+    }
+
+
+def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
+    caller_thread_id = threading.get_ident()
+    kind = spec["kind"]
+
+    def app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
+        if kind == "wsgi-response":
+            start_response(spec["status"], [tuple(pair) for pair in spec["headers"]])
+            return [base64.b64decode(chunk, validate=True) for chunk in spec["chunks_base64"]]
+        if kind == "wsgi-echo-body":
+            start_response(spec["status"], [tuple(pair) for pair in spec["headers"]])
+            return [environ["wsgi.input"].read()]
+        if kind == "wsgi-environ-report":
+            values: dict[str, Any] = {}
+            for key in spec["keys"]:
+                if key == "wsgi.input":
+                    values[key] = base64.b64encode(environ[key].read()).decode("ascii")
+                elif key == "wsgi.errors":
+                    values[key] = environ[key] is sys.stdout
+                else:
+                    values[key] = environ[key]
+            if spec["include_worker_thread"]:
+                values["worker_thread"] = threading.get_ident() != caller_thread_id
+            start_response(spec["status"], [tuple(pair) for pair in spec["headers"]])
+            return [json.dumps(values, sort_keys=True, separators=(",", ":")).encode("utf-8")]
+        if kind == "wsgi-raise-before-start":
+            raise RuntimeError(spec["message"])
+        if kind == "wsgi-exc-info-rethrow":
+            try:
+                raise RuntimeError(spec["message"])
+            except RuntimeError:
+                start_response(
+                    spec["status"],
+                    [tuple(pair) for pair in spec["headers"]],
+                    sys.exc_info(),
+                )
+            return [base64.b64decode(spec["body_base64"], validate=True)]
+        raise ValueError(f"unsupported input-defined WSGI app kind: {kind!r}")
+
+    return app
+
+
+def _run_wsgi_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.middleware.wsgi import WSGIMiddleware
+
+    steps = case["steps"]
+    if (
+        len(steps) != 2
+        or [step.get("step_id") for step in steps] != ["middleware", "dispatch"]
+        or [step.get("operation") for step in steps] != ["__init__", "__call__"]
+        or any(step.get("surface") != case["surface"] for step in steps)
+        or steps[0].get("receiver") is not None
+        or steps[1].get("receiver") != {"kind": "binding", "step_id": "middleware"}
+    ):
+        raise ValueError("WSGIMiddleware cases must construct then dispatch the public middleware")
+    if case["execution_schedule"] != ["dispatch"] or case["observations"] != ["dispatch"]:
+        raise ValueError("WSGIMiddleware cases must observe one dispatch step")
+
+    constructor_arguments = _literal_arguments(steps[0], {"app"}, "WSGIMiddleware constructor")
+    dispatch_arguments = _literal_arguments(
+        steps[1], {"scope", "receive", "send"}, "WSGIMiddleware dispatch"
+    )
+    middleware = WSGIMiddleware(_materialize_wsgi_app(constructor_arguments["app"]))
+    scope = _make_scope(dispatch_arguments["scope"])
+    incoming = [_message(message) for message in dispatch_arguments["receive"]]
+    received = 0
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        nonlocal received
+        if received < len(incoming):
+            message = incoming[received]
+            received += 1
+            return message
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    captured_error: dict[str, Any] | None = None
+    try:
+        asyncio.run(middleware(scope, receive, send))
+    except Exception as exc:
+        captured_error = _dispatch_error(exc)
+
+    events = [_canonical_message(message) for message in sent]
+    body = b"".join(
+        base64.b64decode(event["body"]["data"])
+        for event in events
+        if event["type"] == "http.response.body"
+    )
+    value = {
+        "response_bytes": {"encoding": "base64", "data": base64.b64encode(body).decode("ascii")},
+        "asgi_events": events,
+        "received_message_count": received,
+        "dispatch_error": captured_error,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "dispatch", "status": "ok", "value": value}],
     }
 
 
@@ -8909,6 +9013,10 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         },
         "parity case",
     )
+    if case["surface"] == WSGI_SURFACE:
+        if case["operation"] != "__call__":
+            raise ValueError("WSGIMiddleware cases must call its public ASGI interface")
+        return _run_wsgi_case(case)
     if case["surface"] == "starlette.middleware.gzip.GZipMiddleware":
         if case["operation"] != "__call__":
             raise ValueError("GZipMiddleware cases must call its public ASGI interface")

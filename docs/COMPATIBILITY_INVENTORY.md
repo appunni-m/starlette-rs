@@ -17,26 +17,26 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 450 input-only cases across 52 files,
-covering 68 operations and 510 parity requirements. Its SHA-256 is
-`4e51eb17b8a45cfe068284cb0692ffcdbfc04306167bd80c6b6970dc9943b13f`. The
+The active parity manifest indexes 456 input-only cases across 53 files,
+covering 70 operations and 517 parity requirements. Its SHA-256 is
+`2c3037141763fab91e1f0a7e659af9a71f21fd47c8c7cde616192a6f73f0b8b9`. The
 authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
 WebSockets, exceptions, status constants, endpoints,
-authentication, middleware (including bounded SessionMiddleware and
-BaseHTTPMiddleware workflows), configuration,
+authentication, middleware (including bounded WSGIMiddleware,
+SessionMiddleware, and BaseHTTPMiddleware workflows), configuration,
 schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `77c299b2-08be-4a7f-972d-066c539ec5bc` ran against the
-pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 602 comparisons:
-598 passed, zero failed, zero infrastructure errors, and four pre-existing
-unsupported Rust-native Python-callable comparisons were `not_run`. The
-installed Python package passed 448 of 448 selected comparisons, including the
-new async request-cancellation boundary. Rust-native passed 150 of 154,
+Latest live parity run `44d778af-f2f8-429c-9d37-db5f14f7d5a9` ran against the
+pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 608 comparisons:
+604 passed, zero failed, zero infrastructure errors, and four unsupported
+Rust-native Python-callable comparisons were `not_run`. The installed Python
+package passed all 454 selected comparisons, including six WSGIMiddleware
+cases; Rust-native passed 150 of 154,
 including both flat Router reverse-URL cases: first-success returned `/objects/7`
 with HTTP protocol metadata, and a complete miss matched
 the source `NoMatchFound` class and message. Three route-level
@@ -55,9 +55,11 @@ runs its finalizer before cancellation propagates. A Host-pattern input matches
 `Host: acme.example.test:5600` and observes the `tenant` capture in route scope
 on source, Python-package, and Rust-native profiles. A separate Host
 reverse-URL input compares the direct named path and retains `:3600` in the
-formatted host across source, package, and Rust. The all-target command
-still exits 2 for those four unsupported Rust-native cases; this bounded run
-is not full Starlette parity. Rust-native named URL support is limited to flat
+formatted host across source, package, and Rust. Direct standalone
+`build_environ` comparison and the module-import deprecation warning remain
+unproven. The all-target command still exits 2 for those four unsupported
+Rust-native cases; this bounded run is not full Starlette parity. Rust-native
+named URL support is limited to flat
 direct HTTP routes with built-in converters and converter-formatted strings;
 nested Mount/Host, WebSocket, custom-converter lookup, and Python exception
 mapping for converter failures remain open.
@@ -73,8 +75,8 @@ source/package median ratios were 0.749 for Router and 0.965 for GZip; source
 was faster in all six Router workloads and 55 of 68 GZip workloads. This
 is benchmark evidence for that lane only;
 the full compatibility denominator remains incomplete. The latest source
-inventory check dispositioned all 999 API candidate rows and reported 796
-coverage mappings and 555 new fixture-backlog items; those changing counts
+inventory check dispositioned all 999 API candidate rows and reported 797
+coverage mappings and 547 new fixture-backlog items; those changing counts
 come from the generated atlas, not this policy text.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -326,7 +328,7 @@ re-exports or `__all__`.
 
 ## Completed atlas coverage
 
-The [`coverage matrix`](atlas/coverage-matrix.csv) contains 796 mappings:
+The [`coverage matrix`](atlas/coverage-matrix.csv) contains 797 mappings:
 
 | Mapping | Count |
 | --- | ---: |
@@ -334,18 +336,19 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 796 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 797 |
-| Existing input mappings in the atlas matrix | 193 |
+| Existing input mappings in the atlas matrix | 200 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 554 |
+| New input-only fixture backlog | 547 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 193 `existing` mappings point to authored YAML input
+crosswalk snapshot, 200 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest now contains 52 indexed files
-and 450 cases, including an async caller event-loop/task/thread and cancellation
+input files with 136 cases. The active manifest now contains 53 indexed files
+and 456 cases, including six WSGIMiddleware cases and an async caller
+event-loop/task/thread and cancellation
 boundary input, route-level request-body limit inputs, and an
 application-level Router-miss 404 handler input,
 post-construction `Starlette.add_route` coverage,
@@ -532,7 +535,7 @@ stack level from the pinned source.
 
 ## Unresolved points carried into implementation
 
-- The 199 `uncertain` API candidates remain deliberately unresolved where the
+- The 198 `uncertain` API candidates remain deliberately unresolved where the
   pinned docs, source, and release history do not establish public intent.
 - The WebSocket guide says query parameters are unsupported while a pinned test
   exercises them; both inputs remain separate in

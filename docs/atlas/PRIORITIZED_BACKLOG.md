@@ -8,13 +8,15 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 450 input-only cases across 52 files, covering 68
-operations and 510 requirements. Latest run
-`77c299b2-08be-4a7f-972d-066c539ec5bc` selected 602 comparisons: 598 passed,
-zero failed, zero infrastructure errors, and four existing Rust-native rows
-were `not_run`. The Python package passed all 448 selected cases; Rust-native
+The active contract has 456 input-only cases across 53 files, covering 70
+operations and 517 requirements. Latest run
+`44d778af-f2f8-429c-9d37-db5f14f7d5a9` selected 608 comparisons: 604 passed,
+zero failed, zero infrastructure errors, and four Rust-native rows were
+`not_run`. The Python package passed all 454 selected cases; Rust-native
 passed 150 of 154. Those four rows require Python endpoint or ASGI callables.
-The latest slice adds an asyncio endpoint boundary case for caller
+The latest slice adds six WSGIMiddleware cases for response order, request
+buffering, environment conversion, worker-thread execution, and errors, plus
+an asyncio endpoint boundary case for caller
 event-loop/task/thread ownership and request cancellation, plus native flat
 `Router.url_path_for` success and miss comparisons, three route-level request-body limit combinations, an application
 Router-miss 404 handler input, direct Host reverse-URL formatting through
@@ -107,8 +109,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 796 mappings: 555 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 191 existing input mappings. It maps selected
+The current matrix has 797 mappings: 547 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 200 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is
@@ -268,7 +270,8 @@ assert exact parity before the coordinated gate records that result.
 Implement routing, connections, requests/responses, middleware, authentication,
 remaining background-task cancellation behavior, data structures,
 forms/uploads, remaining StaticFiles edge cases, templates,
-schemas, configuration, WSGI, and TestClient in dependency-aware groups.
+schemas, configuration, remaining WSGI helper/deprecation details, and
+TestClient in dependency-aware groups.
 Promote remaining fixture-backlog entries into the single active manifest as
 independent inputs and keep unsupported behavior visible until implemented
 and compared.

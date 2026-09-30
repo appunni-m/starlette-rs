@@ -246,6 +246,20 @@
       ]
     },
     {
+      "surface_id": "starlette.middleware.wsgi.WSGIMiddleware",
+      "source_path": "starlette/middleware/wsgi.py:77",
+      "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.middleware.wsgi.WSGIMiddleware.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.middleware.wsgi.WSGIMiddleware.__call__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.middleware.sessions.SessionMiddleware",
       "source_path": "starlette/middleware/sessions.py:16",
       "operations": [

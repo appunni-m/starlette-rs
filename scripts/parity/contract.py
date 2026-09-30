@@ -663,14 +663,25 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
     ): frozenset({"starlette.datastructures.UploadFile.spooled-file-rollover"}),
 }
 GZIP_SURFACE = "starlette.middleware.gzip.GZipMiddleware"
+WSGI_SURFACE = "starlette.middleware.wsgi.WSGIMiddleware"
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
 ASGI_MIDDLEWARE_SURFACES = {
     GZIP_SURFACE,
+    WSGI_SURFACE,
     CORS_SURFACE,
     HTTPS_REDIRECT_SURFACE,
     TRUSTED_HOST_SURFACE,
+}
+WSGI_REQUIREMENTS = {
+    "construct": f"{WSGI_SURFACE}.construct",
+    "request-body-buffering": f"{WSGI_SURFACE}.request-body-buffering",
+    "build-environ": f"{WSGI_SURFACE}.build-environ",
+    "response-order": f"{WSGI_SURFACE}.response-order",
+    "worker-thread-boundary": f"{WSGI_SURFACE}.worker-thread-boundary",
+    "exception-before-start": f"{WSGI_SURFACE}.exception-before-start",
+    "exc-info-rethrow": f"{WSGI_SURFACE}.exc-info-rethrow",
 }
 BODY_LIMIT_SURFACE = "starlette.middleware.body_limit.RequestBodyLimitMiddleware"
 BODY_LIMIT_REQUIREMENT_CONSTRUCTION = (
@@ -1497,6 +1508,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             CORS_SURFACE,
                             HTTPS_REDIRECT_SURFACE,
                             TRUSTED_HOST_SURFACE,
+                            WSGI_SURFACE,
                         }
                         or (surface["id"], operation["id"]) in VALUE_FORMATTING_OPERATIONS
                         or (surface["id"], operation["id"]) in RUST_OWNED_PYTHON_OPERATIONS
@@ -9284,11 +9296,13 @@ def _validate_dispatch_stimulus(
     args: dict[str, Any],
     request_dispatch: bool,
     allow_nonempty_body: bool = False,
+    allow_body_stream: bool = False,
     allow_headers: bool = False,
     allow_root_path: bool = False,
     allow_query: bool = False,
     allow_oserror_send: bool = False,
     allow_host: bool = False,
+    allow_client: bool = False,
     allow_lifespan_callback_failures: bool = False,
     allow_inherited_mount_scope: bool = False,
     allow_http_disconnect: bool = False,
@@ -9388,10 +9402,22 @@ def _validate_dispatch_stimulus(
             or not isinstance(scope["root_path"], str)
         ):
             raise ContractError("HTTP scope differs from the declared direct-ASGI baseline")
-        if scope["client"] != ["127.0.0.1", 12345] or (
+        if (not allow_client and scope["client"] != ["127.0.0.1", 12345]) or (
             not allow_host and scope["server"] != ["testserver", 80]
         ):
             raise ContractError("HTTP scope client/server differ from the declared baseline")
+        if (
+            allow_client
+            and scope["client"] is not None
+            and (
+                not isinstance(scope["client"], list)
+                or len(scope["client"]) != 2
+                or not isinstance(scope["client"][0], str)
+                or type(scope["client"][1]) is not int
+                or not 0 <= scope["client"][1] <= 65535
+            )
+        ):
+            raise ContractError("HTTP scope client is invalid for this dispatch")
         if allow_host and (
             not isinstance(scope["server"], list)
             or len(scope["server"]) != 2
@@ -9440,10 +9466,19 @@ def _validate_dispatch_stimulus(
                 raise ContractError("HTTP request body must be valid base64") from exc
         if (
             not request_dispatch
+            and not allow_body_stream
             and not allow_nonempty_body
             and args["receive"] != [{"type": "http.request", "body_base64": "", "more_body": False}]
         ):
             raise ContractError("legacy HTTP inputs must contain one empty request event")
+        if allow_body_stream:
+            messages = args["receive"]
+            if (
+                not messages
+                or any(message["more_body"] is False for message in messages[:-1])
+                or messages[-1]["more_body"] is not False
+            ):
+                raise ContractError("HTTP request body stream must end with one final event")
         if allow_nonempty_body:
             messages = args["receive"]
             if (
@@ -11919,6 +11954,10 @@ def _body_limit_semantic_coverage(case: dict[str, Any]) -> set[str]:
 
 
 def _validate_asgi_middleware_constructor(surface: str, args: dict[str, Any]) -> None:
+    if surface == WSGI_SURFACE:
+        args = _exact(args, {"app"}, "WSGIMiddleware constructor")
+        _validate_wsgi_app(args["app"])
+        return
     if surface == CORS_SURFACE:
         expected = {
             "app",
@@ -12015,9 +12054,90 @@ def _validate_asgi_middleware_app(value: Any) -> None:
         raise ContractError("ASGI middleware response body sequence must end with more_body=false")
 
 
+def _validate_wsgi_app(value: Any) -> None:
+    if not isinstance(value, dict) or value.get("kind") not in {
+        "wsgi-response",
+        "wsgi-echo-body",
+        "wsgi-environ-report",
+        "wsgi-raise-before-start",
+        "wsgi-exc-info-rethrow",
+    }:
+        raise ContractError("WSGIMiddleware app must use a declared input-defined WSGI app kind")
+    kind = value["kind"]
+    fields = {
+        "wsgi-response": {"kind", "status", "headers", "chunks_base64"},
+        "wsgi-echo-body": {"kind", "status", "headers"},
+        "wsgi-environ-report": {
+            "kind",
+            "status",
+            "headers",
+            "keys",
+            "include_worker_thread",
+        },
+        "wsgi-raise-before-start": {"kind", "message"},
+        "wsgi-exc-info-rethrow": {"kind", "status", "headers", "body_base64", "message"},
+    }[kind]
+    _exact(value, fields, "WSGIMiddleware WSGI app input")
+    if kind == "wsgi-raise-before-start":
+        _string(value["message"], "WSGIMiddleware exception message")
+        return
+    if kind == "wsgi-exc-info-rethrow":
+        _string(value["message"], "WSGIMiddleware exception message")
+        try:
+            base64.b64decode(value["body_base64"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError("WSGIMiddleware exception response body is invalid base64") from exc
+    if not isinstance(value["status"], str) or " " not in value["status"]:
+        raise ContractError("WSGIMiddleware status must contain a code and reason phrase")
+    headers = value["headers"]
+    if not isinstance(headers, list):
+        raise ContractError("WSGIMiddleware response headers must be an array")
+    for index, pair in enumerate(headers):
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(item, str) for item in pair)
+        ):
+            raise ContractError(f"WSGIMiddleware response header[{index}] must be a string pair")
+        try:
+            pair[0].encode("ascii")
+            pair[1].encode("ascii")
+        except UnicodeEncodeError as exc:
+            raise ContractError("WSGIMiddleware response headers must be ASCII encodable") from exc
+    if kind == "wsgi-response":
+        chunks = value["chunks_base64"]
+        if not isinstance(chunks, list):
+            raise ContractError("WSGIMiddleware response chunks must be a base64 array")
+        for chunk in chunks:
+            try:
+                base64.b64decode(chunk, validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError("WSGIMiddleware response chunk is invalid base64") from exc
+    if kind == "wsgi-environ-report":
+        keys = value["keys"]
+        if not isinstance(keys, list) or not keys or any(not isinstance(key, str) for key in keys):
+            raise ContractError("WSGIMiddleware report keys must be a non-empty string array")
+        if len(keys) != len(set(keys)) or type(value["include_worker_thread"]) is not bool:
+            raise ContractError("WSGIMiddleware report selectors must be unique and boolean")
+
+
 def _validate_asgi_middleware_dispatch(surface: str, args: dict[str, Any]) -> None:
     args = _exact(args, {"scope", "receive", "send"}, f"{surface} dispatch")
     scope = args["scope"]
+    if surface == WSGI_SURFACE:
+        if not isinstance(scope, dict) or scope.get("type") != "http":
+            raise ContractError("WSGIMiddleware dispatch must use an HTTP scope")
+        _validate_dispatch_stimulus(
+            args,
+            request_dispatch=False,
+            allow_body_stream=True,
+            allow_headers=True,
+            allow_root_path=True,
+            allow_query=True,
+            allow_host=True,
+            allow_client=True,
+        )
+        return
     if isinstance(scope, dict) and scope.get("type") == "http":
         _validate_dispatch_stimulus(
             args,
@@ -12098,6 +12218,31 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
         return f"{surface}.{value}"
 
     covered = {suffix("construct")}
+
+    if surface == WSGI_SURFACE:
+        app = constructor["app"]
+        kind = app["kind"]
+        receive = dispatch["receive"]
+        if kind in {"wsgi-environ-report", "wsgi-echo-body"}:
+            covered.add(WSGI_REQUIREMENTS["request-body-buffering"])
+        if kind == "wsgi-environ-report":
+            covered.add(WSGI_REQUIREMENTS["build-environ"])
+            if app["include_worker_thread"]:
+                covered.add(WSGI_REQUIREMENTS["worker-thread-boundary"])
+        if kind in {
+            "wsgi-response",
+            "wsgi-environ-report",
+            "wsgi-echo-body",
+            "wsgi-exc-info-rethrow",
+        }:
+            covered.add(WSGI_REQUIREMENTS["response-order"])
+        if kind == "wsgi-raise-before-start":
+            covered.add(WSGI_REQUIREMENTS["exception-before-start"])
+        if kind == "wsgi-exc-info-rethrow":
+            covered.add(WSGI_REQUIREMENTS["exc-info-rethrow"])
+        if not receive:
+            covered.discard(WSGI_REQUIREMENTS["request-body-buffering"])
+        return covered
 
     def decoded_headers(scope_value: dict[str, Any]) -> dict[str, str]:
         return {

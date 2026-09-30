@@ -285,6 +285,7 @@
       "build/parity/inputs/parity/static-files.json",
       "build/parity/inputs/parity/static-files-lookup.json",
       "build/parity/inputs/parity/static-files-async-boundary.json",
+      "build/parity/inputs/parity/wsgi-middleware.json",
       "build/parity/inputs/parity/session-middleware.json",
       "build/parity/inputs/parity/base-http-middleware.json",
       "build/parity/inputs/parity/templating-runtime.json",
@@ -6713,6 +6714,333 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only correctness slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.wsgi.WSGIMiddleware",
+      "kind": "type",
+      "source_path": "starlette/middleware/wsgi.py:77",
+      "storage_slug": "starlette-middleware-wsgi-WSGIMiddleware",
+      "operations": [
+        {
+          "id": "__init__",
+          "kind": "constructor",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.wsgi.WSGIMiddleware.__init__",
+            "signature": "WSGIMiddleware(app)",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "app",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "handle",
+              "observations": [],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native target does not expose the Python WSGI callable or ASGI middleware boundary.",
+                "blocker": "python-asgi-middleware-surface"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.wsgi.WSGIMiddleware",
+              "signature": "WSGIMiddleware(app)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.wsgi.WSGIMiddleware.construct",
+              "dimension": "parameter_combination",
+              "description": "Construct WSGIMiddleware with an input-defined synchronous WSGI application.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only middleware slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice does not declare a benchmark workload."
+          }
+        },
+        {
+          "id": "__call__",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.wsgi.WSGIMiddleware.__call__",
+            "signature": "async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "record",
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                },
+                {
+                  "path": "received_message_count",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "dispatch_error",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native target does not expose the Python WSGI callable or ASGI middleware boundary.",
+                "blocker": "python-asgi-middleware-surface"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.wsgi.WSGIMiddleware.__call__",
+              "signature": "async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.wsgi.WSGIMiddleware.request-body-buffering",
+              "dimension": "protocol_variant",
+              "description": "Buffer ordered ASGI request chunks before exposing the complete WSGI wsgi.input stream; source: tests/middleware/test_wsgi.py::test_wsgi_post.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.WSGIMiddleware.build-environ",
+              "dimension": "parameter_combination",
+              "description": "Map ASGI scope fields and repeated raw headers into the WSGI environ, including byte-preserving path and Latin-1 header conversions; source: tests/middleware/test_wsgi.py::test_build_environ and test_build_environ_encoding.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.WSGIMiddleware.response-order",
+              "dimension": "success_path",
+              "description": "Convert WSGI start_response headers and iterable chunks to ordered ASGI response events; source: tests/middleware/test_wsgi.py::test_wsgi_get.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.WSGIMiddleware.worker-thread-boundary",
+              "dimension": "boundary",
+              "description": "Run the synchronous WSGI callable on an AnyIO worker thread and return ASGI sends to the active event loop.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.WSGIMiddleware.exception-before-start",
+              "dimension": "error_path",
+              "description": "Propagate an exception from a WSGI callable that fails before start_response; source: tests/middleware/test_wsgi.py::test_wsgi_exception.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.WSGIMiddleware.exc-info-rethrow",
+              "dimension": "error_path",
+              "description": "Send an exc_info response then re-raise the original WSGI exception with its traceback; source: tests/middleware/test_wsgi.py::test_wsgi_exc_info.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only middleware slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice does not declare a benchmark workload."
           }
         }
       ]

@@ -35,6 +35,7 @@ mod staticfiles_runtime;
 mod status_runtime;
 mod templating_runtime;
 mod websocket_calls;
+mod wsgi_runtime;
 
 use pyo3::exceptions::{PyAssertionError, PyKeyError};
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
@@ -1250,6 +1251,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     status_runtime::register(module)?;
     templating_runtime::register(module)?;
     websocket_calls::register(module)?;
+    wsgi_runtime::register(module)?;
     module.add_class::<PyLifespanState>()?;
     module.add_class::<PyGzipConfig>()?;
     module.add_class::<PyGzipResponder>()?;

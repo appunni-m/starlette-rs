@@ -32,8 +32,9 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 450 input-only cases, 68 operations, and 510
-parity requirements across 52 indexed files, including async endpoint
+The current parity contract has 456 input-only cases, 70 operations, and 517
+parity requirements across 53 indexed files, including WSGIMiddleware
+response, request-body, environment, and error-boundary workflows, async endpoint
 loop/task/thread ownership and request cancellation, route-level request
 body limits, application Router-miss 404 handling, flat Router reverse URL
 selection, URL scope and component construction, Headers and MutableHeaders,
@@ -45,11 +46,13 @@ port for matching, and records `tenant=acme` in route scope for one fixed
 `GET /health` response route. A separate input exercises the direct Host
 reverse-URL branch with a configured port. The inputs do not establish full
 Host Router dispatch, nested Host reverse lookup, IPv6, or overall parity.
-Latest integrated run `77c299b2-08be-4a7f-972d-066c539ec5bc` selected 602
-profile comparisons: 598 passed, zero failed, zero infrastructure errors, and
-four were `not_run`. The Python package passed 448 selected comparisons;
+Latest integrated run `44d778af-f2f8-429c-9d37-db5f14f7d5a9` selected 608
+profile comparisons: 604 passed, zero failed, zero infrastructure errors, and
+four were `not_run`. The Python package passed 454 selected comparisons;
 Rust-native passed 150 of 154, with four pre-existing unsupported
-Python-callable rows `not_run`. The new async boundary comparison confirms
+Python-callable rows `not_run`. Six WSGIMiddleware cases passed exact
+source/package comparison; direct `build_environ` and import-warning cases
+remain open. The new async boundary comparison confirms
 source/package parity for caller event-loop/task/thread ownership, cancellation
 delivery, and endpoint finalization. Both Rust-native flat Router reverse-URL
 comparisons passed exactly. The
@@ -337,7 +340,8 @@ Configuration and schema generation now have seven package-only live parity
 cases across six Rust-backed public operations. The minimal package keeps
 PyYAML optional behind its `schemas` extra. FileResponse range, multipart, and
 chunk-size parity now pass the selected inputs. Next extend StaticFiles
-edge-case parity; forms/uploads, templates, WSGI, and TestClient remain open.
+edge-case parity; forms/uploads, templates, remaining WSGI helper/deprecation
+coverage, and TestClient remain open.
 Continue with broader streaming lifecycle, duplicate headers/cookies, failure
 propagation, cancellation, and platform-specific paths. Keep optional
 dependencies feature-gated and preserve unsupported coverage visibly.
