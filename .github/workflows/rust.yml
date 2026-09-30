@@ -40,10 +40,15 @@ jobs:
           rustc +"${{ matrix.toolchain }}" --version
           cargo +"${{ matrix.toolchain }}" --version
           python --version
-      - name: Check formatting, lints, and compilation
+      - name: Check formatting, lints, and documentation with the pinned current toolchain
+        if: matrix.toolchain == '1.96.1'
         env:
           PYO3_PYTHON: python
-        run: make CARGO="cargo +${{ matrix.toolchain }}" fmt clippy rustdoc-check check build
+        run: make CARGO="cargo +${{ matrix.toolchain }}" fmt clippy rustdoc-check
+      - name: Check workspace compilation with each supported toolchain
+        env:
+          PYO3_PYTHON: python
+        run: make CARGO="cargo +${{ matrix.toolchain }}" check build
 
   python-quality:
     name: Python package, style, and documentation

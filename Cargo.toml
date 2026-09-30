@@ -25,6 +25,10 @@ future_incompatible = { level = "deny", priority = -1 }
 nonstandard_style = { level = "deny", priority = -1 }
 unused = { level = "deny", priority = -1 }
 dead_code = "deny"
+# Keep public declarations reachable and their signatures usable downstream.
+private_bounds = "deny"
+private_interfaces = "deny"
+unreachable_pub = "deny"
 unused_crate_dependencies = "warn"
 unsafe_code = "deny"
 deprecated = "deny"
