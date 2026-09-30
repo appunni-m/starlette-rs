@@ -25,14 +25,16 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The latest contract has 496 input-only cases across 54
-files, 72 operations, and 530 requirements. Run `39a54b13-1e6b-44ac-893f-45df290841a2` selected 648
-comparisons: 644 passed, zero failed, zero infrastructure errors, and four
+active and incomplete. The latest contract has 500 input-only cases across 54
+files, 72 operations, and 530 requirements. Run
+`a3baca57-a4bf-4304-98ad-21947b114005` selected 652 comparisons: 648 passed,
+zero failed, zero infrastructure errors, and four
 Rust-native callable boundaries were `not_run`. The Python package passed all
-494 selected cases; Rust-native passed 150 of 154. New Request.form cases
+498 selected cases; Rust-native passed 150 of 154. New Request.form cases
 compare default/custom multipart size limits, duplicate text/file values, high
-field/file limits, tempfile cleanup after stream and OSError failures, and
-worker-thread rollover followed by request cleanup. Full parity is not claimed.
+field/file limits, tempfile cleanup after stream and OSError failures,
+worker-thread rollover cleanup, and direct/Mount unique and mixed 1,001-file
+count failures. Full parity is not claimed.
 The latest Router/GZip run `5056413b-deae-4264-9f2b-80da0699e005` measured all 74
 source/package workloads after parity preflight
 `7b514f0a-b065-45cc-9fc9-f8a828504ba7`. Median source/package ratios were
@@ -274,8 +276,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 515 `supported`, 286
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 797
-source mappings: 231 existing input mappings, 50 reasoned `not_applicable`
-entries, and 516 input-only backlog rows. These counts describe the current
+source mappings: 233 existing input mappings, 50 reasoned `not_applicable`
+entries, and 514 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

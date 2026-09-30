@@ -290,6 +290,242 @@
       "form_app": "direct"
     },
     {
+      "case_id": "starlette.requests.Request.form.multipart-unique-file-count-limit-direct",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-count-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9dG9vLW1hbnktZmlsZXMtdjEw"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_segments": [
+            {
+              "kind": "indexed_repeat",
+              "template_base64": "LS10b28tbWFueS1maWxlcy12MTANCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iTnt7e3tpbmRleH19fX0iOyBmaWxlbmFtZT0iRnt7e3tpbmRleH19fX0iDQoNCg0K",
+              "count": 1001
+            }
+          ],
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_io_trace": true,
+      "form_app": "direct"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-unique-file-count-limit-mount",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-count-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9dG9vLW1hbnktZmlsZXMtdjEw"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_segments": [
+            {
+              "kind": "indexed_repeat",
+              "template_base64": "LS10b28tbWFueS1maWxlcy12MTANCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iTnt7e3tpbmRleH19fX0iOyBmaWxlbmFtZT0iRnt7e3tpbmRleH19fX0iDQoNCg0K",
+              "count": 1001
+            }
+          ],
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_io_trace": true,
+      "form_app": "mount"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-mixed-file-field-count-limit-direct",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-count-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9dG9vLW1hbnktZmlsZXMtYW5kLWZpZWxkcy12MTA="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_segments": [
+            {
+              "kind": "indexed_repeat",
+              "template_base64": "LS10b28tbWFueS1maWxlcy1hbmQtZmllbGRzLXYxMA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJGe3t7e2luZGV4fX19fSI7IGZpbGVuYW1lPSJGe3t7e2luZGV4fX19fSINCg0KDQotLXRvby1tYW55LWZpbGVzLWFuZC1maWVsZHMtdjEwDQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9Ik57e3t7aW5kZXh9fX19Ig0KDQoNCg==",
+              "count": 1001
+            }
+          ],
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_io_trace": true,
+      "form_app": "direct"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-mixed-file-field-count-limit-mount",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-count-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9dG9vLW1hbnktZmlsZXMtYW5kLWZpZWxkcy12MTA="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_segments": [
+            {
+              "kind": "indexed_repeat",
+              "template_base64": "LS10b28tbWFueS1maWxlcy1hbmQtZmllbGRzLXYxMA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJGe3t7e2luZGV4fX19fSI7IGZpbGVuYW1lPSJGe3t7e2luZGV4fX19fSINCg0KDQotLXRvby1tYW55LWZpbGVzLWFuZC1maWVsZHMtdjEwDQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9Ik57e3t7aW5kZXh9fX19Ig0KDQoNCg==",
+              "count": 1001
+            }
+          ],
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_io_trace": true,
+      "form_app": "mount"
+    },
+    {
       "case_id": "starlette.requests.Request.form.multipart-default-part-limit-mount",
       "surface": "starlette.requests.Request",
       "operation": "form",

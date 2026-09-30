@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 496 input-only cases across 54 files,
+The active parity manifest indexes 500 input-only cases across 54 files,
 covering 72 operations and 530 parity requirements. Its SHA-256 is
 `99a50f34d1f79707d7d0a300b6ff9bdd3ad3168eb5e83be3ab37915408ed0922`. The
 authored cases span
@@ -31,17 +31,23 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `39a54b13-1e6b-44ac-893f-45df290841a2` ran against the pinned Starlette 1.6.0 source
-on CPython 3.12.13, from `2026-09-30T10:48:11.799Z` to
-`2026-09-30T10:49:58.072Z`. It selected 648 profile comparisons: 644 passed,
+Latest live parity run `a3baca57-a4bf-4304-98ad-21947b114005` ran against the
+pinned Starlette 1.6.0 source on CPython 3.12.13, from
+`2026-09-30T10:58:24.458Z` to
+`2026-09-30T11:00:13.611Z`. It selected 652 profile comparisons: 648 passed,
 zero failed, zero infrastructure errors, and four unsupported Rust-native
 Python-callable comparisons were `not_run`. The installed Python package
-passed all 494 selected comparisons; Rust-native passed 150 of 154. New
+passed all 498 selected comparisons; Rust-native passed 150 of 154. New
 Request.form inputs cover default/custom multipart part-size short-circuiting,
 duplicate text/file values, high custom field/file limits, tempfile cleanup
-after stream and OSError failures, and worker-thread rollover and cleanup.
-The manifest SHA-256 is `99a50f34d1f79707d7d0a300b6ff9bdd3ad3168eb5e83be3ab37915408ed0922`; the installed package source-tree
-SHA-256 is `785c7c716ff51360d0c8b3b39dd702bd76c70c23cf287fbc09709fd003c171c8`, and its wheel artifact SHA-256 is `bea6cde3efb020af6e58a38b65ed0a45b0f6e327183884003918c52bbb64166c`.
+after stream and OSError failures, worker-thread rollover and cleanup, and
+direct/Mount unique and mixed file-count failures.
+The manifest SHA-256 is
+`99a50f34d1f79707d7d0a300b6ff9bdd3ad3168eb5e83be3ab37915408ed0922`; the
+installed package source-tree SHA-256 is
+`785c7c716ff51360d0c8b3b39dd702bd76c70c23cf287fbc09709fd003c171c8`, and its
+wheel artifact SHA-256 is
+`51e3e208d992c43027867d789eb88d5ab0c0154b3bb6bf34c4196fab81527167`.
 The all-target command still exits 2 for the four unsupported Rust-native
 callable cases. This bounded run is not full Starlette parity.
 
@@ -317,18 +323,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 797 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 797 |
-| Existing input mappings in the atlas matrix | 231 |
+| Existing input mappings in the atlas matrix | 233 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 516 |
+| New input-only fixture backlog | 514 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 231 `existing` mappings point to authored YAML input
+crosswalk snapshot, 233 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 54 indexed files
-and 496 cases, including six WSGIMiddleware cases, two direct `build_environ`
+and 500 cases, including six WSGIMiddleware cases, two direct `build_environ`
 cases, a module-import deprecation warning case, and an async caller
 event-loop/task/thread and cancellation
 boundary input, route-level request-body limit inputs, and an
