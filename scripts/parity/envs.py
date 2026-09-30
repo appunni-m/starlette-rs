@@ -21,6 +21,11 @@ ENVIRONMENTS_RELATIVE = Path("build/parity/python-environments.json")
 RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/asgi-runtime-cpython312.txt")
 ORACLE_RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/starlette-oracle-cpython312.txt")
 ENVIRONMENT_IDS = ("starlette-oracle-cpython312", "starlette-rs-py-cpython312")
+_PROCESS_ENVIRONMENT_POLICY = {
+    "PYTHONHASHSEED": "0",
+    "PYTHONOPTIMIZE": None,
+    "PYTHONWARNINGS": None,
+}
 _PROBE = r"""
 import importlib.metadata as metadata
 import json, platform, sys
@@ -43,12 +48,25 @@ def _canonical_sha256(value: Any) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def _base_env() -> dict[str, str]:
+def base_environment() -> dict[str, str]:
     env = os.environ.copy()
-    for key in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "PIP_TARGET", "PIP_PREFIX", "PIP_USER"):
+    for key in (
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "PYTHONUSERBASE",
+        "PYTHONSTARTUP",
+        "PYTHONOPTIMIZE",
+        "PYTHONWARNINGS",
+        "PYTHONHASHSEED",
+        "VIRTUAL_ENV",
+        "PIP_TARGET",
+        "PIP_PREFIX",
+        "PIP_USER",
+    ):
         env.pop(key, None)
     env["PYTHONNOUSERSITE"] = "1"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["PYTHONHASHSEED"] = "0"
     env["PIP_NO_INPUT"] = "1"
     env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
     return env
@@ -83,7 +101,7 @@ def _venv_python(environment: Path) -> Path:
 
 
 def _probe(python: Path, root: Path) -> dict[str, Any]:
-    process = _run([str(python), "-c", _PROBE], cwd=root, env=_base_env(), timeout=30)
+    process = _run([str(python), "-c", _PROBE], cwd=root, env=base_environment(), timeout=30)
     try:
         value = json.loads(process.stdout)
     except json.JSONDecodeError as exc:
@@ -139,7 +157,12 @@ def _environment_fingerprints(
         "installed_lock_sha256": installed_digest,
         "artifact_sha256": artifact_sha256,
     }
-    fingerprint["environment_sha256"] = _canonical_sha256(fingerprint)
+    fingerprint["environment_sha256"] = _canonical_sha256(
+        {
+            "environment": fingerprint,
+            "process_environment_policy": _PROCESS_ENVIRONMENT_POLICY,
+        }
+    )
     return fingerprint
 
 
@@ -147,7 +170,10 @@ def _source_revision(upstream: Path) -> tuple[str, str]:
     if not (upstream / "starlette" / "__init__.py").is_file():
         raise ContractError(f"Starlette source package not found under {upstream}")
     process = _run(
-        ["git", "-C", str(upstream), "rev-parse", "HEAD"], cwd=upstream, env=_base_env(), timeout=10
+        ["git", "-C", str(upstream), "rev-parse", "HEAD"],
+        cwd=upstream,
+        env=base_environment(),
+        timeout=10,
     )
     revision = process.stdout.strip()
     if revision != ORACLE_COMMIT:
@@ -351,7 +377,7 @@ def prepare_environments(
         if environment_lock_path.exists():
             environment_lock_path.unlink()
     build_root.mkdir(parents=True, exist_ok=True)
-    env = _base_env()
+    env = base_environment()
     wheel = _target_wheel(root, wheelhouse, host_python, env)
     wheel_digest = sha256_file(wheel)
     env_root.mkdir(parents=True)

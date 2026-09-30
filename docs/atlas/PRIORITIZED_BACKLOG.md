@@ -10,26 +10,24 @@ incomplete.
 
 The active contract has 449 input-only cases across 51 files, covering 68
 operations and 508 requirements. Latest run
-`076ce730-4a2b-4016-8d5d-439f034af022` selected 599 comparisons: 595 passed,
+`d112000d-7b32-468c-b17d-447c89f80f9e` selected 601 comparisons: 597 passed,
 zero failed, zero infrastructure errors, and four pre-existing Rust-native
 rows were `not_run`. The Python package passed 447 selected cases; Rust-native
-passed 148 of 152. Those four rows require Python endpoint or ASGI callables.
-The additive HostPattern/Host-route input matches `{tenant}.example.test`
-against `Host: acme.example.test:5600`, ignores the port for matching, and
-records `tenant=acme` in route scope for a single fixed-response `GET /health`
-route. A separate direct Host reverse-URL case preserves the configured port
-on both target profiles. Nested child-route lookup remains outside this
-bounded slice. It does not establish full Host Router dispatch, IPv6 behavior,
-or overall parity. Three
-route-level request-body limit cases compare inherited application limits and
-higher and lower route overrides exactly. The application Router-miss 404
-case also passed with its registered async HTTPException handler. The
-Router live-mutation sequence passed on all three dispatches. Twelve BackgroundTask
+passed 150 of 154. Those four rows require Python endpoint or ASGI callables.
+The latest slice adds native flat `Router.url_path_for` success and miss
+comparisons, three route-level request-body limit combinations, an application
+Router-miss 404 handler input, direct Host reverse-URL formatting through
+`{tenant}.example.test:3600`, post-construction `Starlette.add_route`, and
+multipart cleanup and rollover inputs. The parameterized Host-route input
+matches `{tenant}.example.test` against `Host: acme.example.test:5600`, ignores
+the port for matching, and records `tenant=acme` in route scope. Nested
+child-route lookup remains outside this bounded slice. It does not establish
+full Host Router dispatch, IPv6 behavior, or overall parity. The Router
+live-mutation sequence passed on all three dispatches. Twelve BackgroundTask
 and BackgroundTasks cases and the Python-package Jinja2 template workflow also
-passed. The run
-includes the 20 URL scope, 14 URL component, and ten Headers/MutableHeaders
-cases. Six new package-only header-view probes passed exact source/package
-comparison. All 30 FileResponse cases passed on the selected profiles;
+passed. The run includes the 20 URL scope, 14 URL component, and ten
+Headers/MutableHeaders cases. Six package-only header-view probes passed exact
+source/package comparison. All 30 FileResponse cases passed on the selected profiles;
 all eight SessionMiddleware cases and all twenty-one BaseHTTPMiddleware cases
 passed on the Python package profile. The twenty-one BaseHTTPMiddleware cases
 cover configured-header mutation, awaited `call_next` response replacement,

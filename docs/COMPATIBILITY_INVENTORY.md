@@ -313,7 +313,7 @@ The candidate rows, source line numbers, signatures, defaults, constructors,
 special methods, candidate re-exports, and documentary evidence are in
 [`api-surface.csv`](api-surface.csv). The merged
 [`API review`](atlas/api-review.csv) dispositions each of its 999 rows with
-evidence: 514 `supported`, 286 `private/internal`, and 199 `uncertain`. The
+evidence: 515 `supported`, 286 `private/internal`, and 198 `uncertain`. The
 catalog's original `audit_status` field records inventory provenance; use the
 merged disposition and rationale for the compatibility classification. The
 root package defines only `__version__ = "1.6.0"`; it has no convenience

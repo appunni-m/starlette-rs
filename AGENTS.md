@@ -56,6 +56,10 @@
   `scripts/check_project_policy.py` enforces the absence of conventional
   Python/Rust test sources and test-framework imports; keep `make test` bound
   to the live parity runner.
+- Preserve the workspace Rust lint levels, `rustfmt.toml`, pinned Ruff
+  configuration, and CI quality gates. Do not weaken or blanket-disable them
+  to clear a failure. Any necessary lint exception must be narrowly scoped and
+  carry a code comment explaining the specific compatibility or safety reason.
 - Adapters dispatch by the manifest operation and derive every stimulus from
   the supplied input. A `case_id`, workload ID, requirement ID, or result
   artifact must never select hard-coded inputs, outputs, expected status, or a

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import platform
 import shutil
 import subprocess
@@ -28,6 +27,7 @@ from .contract import (
 )
 from .envs import (
     ENVIRONMENT_IDS,
+    base_environment,
     load_prepared_environments,
 )
 
@@ -596,22 +596,7 @@ def _adapter_environment(base: dict[str, str], dependency_lock_sha256: str) -> d
 
 
 def _base_environment() -> dict[str, str]:
-    env = os.environ.copy()
-    for key in (
-        "PYTHONPATH",
-        "PYTHONHOME",
-        "PYTHONUSERBASE",
-        "PYTHONSTARTUP",
-        "VIRTUAL_ENV",
-        "PIP_TARGET",
-        "PIP_PREFIX",
-        "PIP_USER",
-    ):
-        env.pop(key, None)
-    env["PYTHONNOUSERSITE"] = "1"
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
-    env["PIP_NO_INPUT"] = "1"
-    env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+    env = base_environment()
     if not env.get("STARLETTE_ORACLE_ROOT") and ORACLE_ROOT_DEFAULT.exists():
         env["STARLETTE_ORACLE_ROOT"] = str(ORACLE_ROOT_DEFAULT)
     return env

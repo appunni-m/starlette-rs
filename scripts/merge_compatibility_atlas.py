@@ -350,7 +350,7 @@ def main() -> int:
     authority = metadata["authority"]
     inventory = metadata["api_inventory"]
     try:
-        generate_inputs(target_root)
+        generate_inputs(target_root, check=args.check)
     except ContractError as error:
         raise AtlasError(f"authored parity inputs are invalid: {error}") from error
     manifest = load_manifest(target_root / "tests/fixtures/manifest.yaml")

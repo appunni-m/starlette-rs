@@ -12965,6 +12965,34 @@ def validate_inputs(
         raise ContractError(
             f"indexed parity inputs do not cover declared parity requirements: {sorted(missing_requirements)}"
         )
+    required_profiles_by_requirement = {
+        requirement["id"]: set(requirement["target_profiles"])
+        for surface in manifest["surfaces"]
+        for operation in surface["operations"]
+        for requirement in operation["requirements"]
+        if "parity" in requirement["lanes"]
+    }
+    covered_profiles_by_requirement: dict[str, set[str]] = {
+        requirement_id: set() for requirement_id in required_profiles_by_requirement
+    }
+    for case in all_cases:
+        for requirement_id in case["covers"]:
+            covered_profiles_by_requirement[requirement_id].update(case["target_profiles"])
+    missing_requirement_profiles = {
+        requirement_id: sorted(required_profiles - covered_profiles_by_requirement[requirement_id])
+        for requirement_id, required_profiles in required_profiles_by_requirement.items()
+        if required_profiles - covered_profiles_by_requirement[requirement_id]
+    }
+    if missing_requirement_profiles:
+        missing_pairs = [
+            (requirement_id, profile_id)
+            for requirement_id, profile_ids in sorted(missing_requirement_profiles.items())
+            for profile_id in profile_ids
+        ]
+        raise ContractError(
+            "indexed parity inputs do not cover declared parity requirement/profile pairs: "
+            f"{missing_pairs}"
+        )
     if index["coverage"]:
         raise ContractError(
             "coverage inputs are outside this slice; full replacement coverage remains required"

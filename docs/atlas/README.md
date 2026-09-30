@@ -27,31 +27,20 @@ with no conventional Python or Rust unit-test suite.
 The source atlas is complete, while the full Starlette replacement remains
 active and incomplete. The latest contract has 449 input-only cases across 51
 files, 68 operations, and 508 requirements. Run
-`076ce730-4a2b-4016-8d5d-439f034af022` selected 599 comparisons: 595 passed,
+`d112000d-7b32-468c-b17d-447c89f80f9e` selected 601 comparisons: 597 passed,
 zero failed, zero infrastructure errors, and four pre-existing Rust-native
 callable boundaries were `not_run`. The Python package passed 447 selected
-cases; Rust-native passed 148 of 152. The additive HostPattern/Host-route
-input matches `{tenant}.example.test` against `Host: acme.example.test:5600`,
-ignores the port for matching, and records `tenant=acme` in route scope for a
-single fixed-response `GET /health` route. A separate direct Host reverse-URL
-input preserves the path and configured port on both target profiles. This
-does not establish full Host Router dispatch, nested Host reverse lookup, IPv6
-behavior, or overall parity. Three route-level
-`max_body_size` inputs verify
-inherited application limits and higher and lower route overrides. A fourth
-input compares the application Router-miss 404 and its async HTTPException
-handler. The
-`Starlette.add_route` workflow verifies post-construction registration through
-matching GET and 405 observations. The multipart inputs compare incremental
-text limits, file write/seek ordering
-across receives, receive and `UploadFile.write` error cleanup, and worker-thread
-rollover beyond 1 MiB. The Router live-mutation sequence passed all three
-dispatches. Twelve BackgroundTask/BackgroundTasks cases and
-one Jinja2 template workflow passed on the Python package. The 20 URL-scope,
-14 URL-component, and ten Headers/MutableHeaders cases also passed there. Six
-package-only header probes passed exact source/package comparison, including
-`Response.headers` aliasing and FileResponse range isolation. The latest
-Router/GZip run `5056413b-deae-4264-9f2b-80da0699e005` measured all 74
+cases; Rust-native passed 150 of 154. This run adds native flat
+`Router.url_path_for` success and miss comparisons, three route-level
+`max_body_size` combinations, an application Router-miss 404 handler case,
+direct Host reverse-URL formatting through `{tenant}.example.test:3600`,
+post-construction `Starlette.add_route`, and multipart cleanup and rollover
+cases. It also includes the parameterized Host-route port comparison, the
+Router live-mutation sequence, twelve BackgroundTask/BackgroundTasks cases,
+and the Python-package Jinja2 workflow. The 20 URL-scope, 14 URL-component, and ten
+Headers/MutableHeaders cases passed on the Python package; six package-only
+header probes cover `Response.headers` aliasing and FileResponse range
+isolation. The latest Router/GZip run `5056413b-deae-4264-9f2b-80da0699e005` measured all 74
 source/package workloads after parity preflight
 `7b514f0a-b065-45cc-9fc9-f8a828504ba7`. Median source/package ratios were
 0.749 for Router and 0.965 for GZip; source was faster on all six Router
