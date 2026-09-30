@@ -25,13 +25,15 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The latest contract has 447 input-only cases across 50
-files, 68 operations, and 506 requirements. Run
-`23b654ef-4f7c-43e3-a1a5-bd6cfe2b315a` selected 595 comparisons: 591 passed,
+active and incomplete. The latest contract has 448 input-only cases across 50
+files, 68 operations, and 507 requirements. Run
+`16ba93fe-b03f-4c04-94e2-115390d1dbd9` selected 596 comparisons: 592 passed,
 zero failed, zero infrastructure errors, and four Rust-native callable
-boundaries were `not_run`. The Python package passed all 445 selected cases;
+boundaries were `not_run`. The Python package passed all 446 selected cases;
 Rust-native passed 146 of 150. Three route-level `max_body_size` inputs verify
-inherited application limits and higher and lower route overrides. The
+inherited application limits and higher and lower route overrides. A fourth
+input compares the application Router-miss 404 and its async HTTPException
+handler. The
 `Starlette.add_route` workflow verifies post-construction registration through
 matching GET and 405 observations. The multipart inputs compare incremental
 text limits, file write/seek ordering
@@ -42,11 +44,11 @@ one Jinja2 template workflow passed on the Python package. The 20 URL-scope,
 14 URL-component, and ten Headers/MutableHeaders cases also passed there. Six
 package-only header probes passed exact source/package comparison, including
 `Response.headers` aliasing and FileResponse range isolation. The latest
-Router/GZip run `36df112a-9bf4-479a-b079-7b2407472b34` measured all 74
+Router/GZip run `10fc39eb-b268-441b-aa91-d8cfa6f051d9` measured all 74
 source/package workloads after parity preflight
-`5dd03910-48e6-45e0-888c-3b7a0413f071`. Median source/package ratios were 0.758
-for Router and 0.971 for GZip; source was faster on five of six Router
-workloads and 57 of 68 GZip workloads. See
+`ed4e7d54-9fab-4d53-b913-68480255bdf1`. Median source/package ratios were
+0.749 for Router and 0.972 for GZip; source was faster on five of six Router
+workloads and 58 of 68 GZip workloads. See
 [Benchmark mapping](../BENCHMARKS.md)
 for the timing summary and limits. These
 bounded results do not establish full compatibility.
@@ -235,7 +237,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 796 rows:
-190 `existing` mappings, 556 `backlog` rows, and 50 reasoned `not_applicable`
+191 `existing` mappings, 555 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -283,8 +285,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 514 `supported`, 286
 `private/internal`, and 199 `uncertain` candidates. The coverage matrix has 796
-source mappings: 190 existing input mappings, 50 reasoned `not_applicable`
-entries, and 556 input-only backlog rows. These counts describe the current
+source mappings: 191 existing input mappings, 50 reasoned `not_applicable`
+entries, and 555 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

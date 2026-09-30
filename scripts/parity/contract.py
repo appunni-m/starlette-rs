@@ -493,6 +493,7 @@ ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS = {
     "raise_application": "starlette.routing.Route.max_body_size.raise-application-limit",
     "lower_application": "starlette.routing.Route.max_body_size.lower-application-limit",
 }
+ROUTER_MISS_EXCEPTION_HANDLER_REQUIREMENT = "starlette.asgi.exception-handler.router-miss-404"
 VALUE_TYPES = {
     "null",
     "boolean",
@@ -9349,6 +9350,8 @@ def _validate_exception_handler_dispatch(
     route = app_arguments["routes"][0]
     scope = dispatch_arguments["scope"]
     endpoint = route["endpoint"]
+    if _is_router_miss_http_exception_handler_workflow(app_arguments, dispatch_arguments):
+        return
     if scope.get("type") != "http" or scope["path"] != route["path"]:
         raise ContractError("exception-handler input must dispatch to its declared route path")
     if _is_server_error_stimulus(app_arguments):
@@ -9376,6 +9379,51 @@ def _validate_exception_handler_dispatch(
             raise ContractError("body-reuse input must dispatch a POST request")
     elif scope["method"] != "POST" or route["methods"] != ["GET"]:
         raise ContractError("status-code precedence input must POST to its GET-only route")
+
+
+def _is_router_miss_http_exception_handler_workflow(
+    app_arguments: Any, dispatch_arguments: Any
+) -> bool:
+    if (
+        not isinstance(app_arguments, dict)
+        or not isinstance(dispatch_arguments, dict)
+        or _is_server_error_stimulus(app_arguments)
+    ):
+        return False
+    routes = app_arguments.get("routes")
+    handlers = app_arguments.get("exception_handlers")
+    scope = dispatch_arguments.get("scope")
+    if (
+        not isinstance(routes, list)
+        or len(routes) != 1
+        or not isinstance(routes[0], dict)
+        or not isinstance(handlers, list)
+        or not isinstance(scope, dict)
+    ):
+        return False
+    route = routes[0]
+    if (
+        route.get("kind") != "http-route"
+        or route.get("methods") != ["GET"]
+        or not isinstance(route.get("path"), str)
+        or scope.get("type") != "http"
+        or scope.get("method") != "GET"
+        or not isinstance(scope.get("path"), str)
+        or _route_path_matches(route["path"], scope["path"])
+    ):
+        return False
+    http_exception_handler = {
+        "key": {"kind": "exception-class", "name": "HTTPException"},
+        "handler": {
+            "kind": "json-exception-detail-response",
+            "status_from_exception": True,
+        },
+    }
+    return http_exception_handler in handlers and not any(
+        entry.get("key") == {"kind": "status-code", "status_code": 404}
+        for entry in handlers
+        if isinstance(entry, dict)
+    )
 
 
 def _validate_websocket_exception_dispatch(
@@ -12394,7 +12442,14 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                 ): entry
                 for entry in handlers
             }
-            if endpoint["kind"] == "http-exception-after-body":
+            if _is_router_miss_http_exception_handler_workflow(app_arguments, dispatch_arguments):
+                coverage.update(
+                    {
+                        ROUTER_MISS_EXCEPTION_HANDLER_REQUIREMENT,
+                        "starlette.asgi.exception-handler.async-callback",
+                    }
+                )
+            elif endpoint["kind"] == "http-exception-after-body":
                 subclass_key = ("exception-class", endpoint["exception_class"])
                 handler_entry = entries_by_key.get(subclass_key)
                 if path_matches and method_matches and handler_entry is not None:

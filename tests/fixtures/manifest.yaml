@@ -959,6 +959,17 @@
               ]
             },
             {
+              "id": "starlette.asgi.exception-handler.router-miss-404",
+              "dimension": "error_path",
+              "description": "A Router miss raises HTTPException(404) in the application scope and selects the registered HTTPException JSON handler. Upstream: starlette/routing.py::Router.not_found; tests/test_applications.py::test_400.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.asgi.exception-handler.request-body-cache-reuse",
               "dimension": "parameter_combination",
               "description": "An exception handler can reread request-body bytes already consumed and cached by the route endpoint.",
