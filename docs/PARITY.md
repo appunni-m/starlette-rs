@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 539 input-only cases in 61 indexed files, covering 78 operations and 580 parity requirements. The cases cover Starlette applications, routing and reverse URLs, async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption; form parsing; responses and background tasks, including background-task cancellation; StaticFiles; WebSockets, including streamed denial responses and TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 541 input-only cases in 62 indexed files, covering 78 operations and 582 parity requirements. The cases cover Starlette applications, routing and reverse URLs, async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption; form parsing; responses and background tasks, including background-task cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including streamed denial responses and TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,22 +8,21 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice run, `143cd077-f5f7-4c7b-8506-039ea5cd4f3e`, ran from
-`2026-09-30T17:56:11.852Z` to `2026-09-30T17:57:58.236Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 691 profile
-comparisons: 687 passed, zero failed, zero infrastructure errors, and four
+The latest full-slice run, `9f5696e1-a457-4850-b86c-de84191d8572`, ran from
+`2026-09-30T18:29:54.820Z` to `2026-09-30T18:32:01.153Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 695 profile
+comparisons: 691 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-537 selected comparisons; Rust-native passed 150 of 154. In addition to the
-TestClient state and exception-policy workflows, the run contains an exact
-background-task cancellation comparison: cancel after the async callback
-starts, then compare `CancelledError`, callback cancellation/finally, and the
-completed response tape. The all-target runner exits with status 2 for the four
-unsupported Rust-native callable boundaries. Manifest SHA-256:
-`cd5c7d0494659d80d6c8293fd1eb853e05ff36ef30d651801bb4cf2b47df3acc`; installed
+539 selected comparisons; Rust-native passed 152 of 156. In addition to the
+TestClient state and exception-policy workflows, exact background-task
+cancellation and finalization, the run compares external file and directory
+symlink serving through StaticFiles ASGI calls. The all-target runner exits with
+status 2 for the four unsupported Rust-native callable boundaries. Manifest
+SHA-256: `f1524beda48d49143fd934263620c998588f61dd512b6302fdd3da9c62a34c2e`; installed
 package wheel SHA-256:
-`c4a42cbb4b924fee0821d2cfe1e1e19b4bb6b8d5c4b29cc439bc06183756c565`; installed
+`a96575e11ff91bb486ea569daa31a3f968bc0bba694d08c5a736cd6a09f9bc94`; installed
 package tree SHA-256:
-`5562c495eade138edde694e3b24c5f6cd0193b820f72cea1faf149dcb304789f`. This is
+`87dd452fc4d062c8ecc18af80274bdcb963eec34f13596eae883acdc6f54b130`. This is
 bounded local evidence, not full parity or release proof.
 
 ## Input-only cases
@@ -371,14 +370,14 @@ overlong first root with both `follow_symlink` settings and verify that its
 cases remove search permission from an existing asset's root and compare the
 401 exception with both symlink settings. Together
 with the 15 lookup cases on each profile and the package-only async-boundary
-case, they produce 71 profile comparisons: 35 Rust-native and 36 Python-package.
+case, they produce 75 profile comparisons: 37 Rust-native and 38 Python-package.
 They cover rooted GET and HEAD,
 HTML index redirects and 404 fallback, 401/404/405 outcomes, date and ETag
 validators, validator precedence, package assets, absolute-path rejection,
-file/directory metadata, path traversal and symlink containment, bound override
-dispatch, the resulting ASGI response, and path-limit error precedence. Python
+file/directory metadata, path traversal and symlink containment, external file
+and directory symlink serving, bound override dispatch, the resulting ASGI response, and path-limit error precedence. Python
 package discovery is exercised through `importlib` on the Python package
-profile; Rust-native package cases pass explicit roots. All 71 selected
+profile; Rust-native package cases pass explicit roots. All 75 selected
 StaticFiles comparisons passed in the latest run, including all 30 direct
 lookup comparisons. These cases do not
 cover the full 36-function upstream StaticFiles suite. Known gaps include
@@ -561,9 +560,9 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 [`url-components.yaml`](../tests/fixtures/sources/parity/url-components.yaml) adds 14 URL component access and ordered `replace(**components)` workflows. [`datastructures-headers.yaml`](../tests/fixtures/sources/parity/datastructures-headers.yaml) adds ten `Headers` and `MutableHeaders` construction and consumer workflows, including duplicate order, scope/raw-list aliasing, mutable-copy pair identity and independence, no-op mutation identity, and ordered mutation. [`responses-basic.yaml`](../tests/fixtures/sources/parity/responses-basic.yaml) observes the cached `Response.headers` object and its raw-list alias, while [`file-response.yaml`](../tests/fixtures/sources/parity/file-response.yaml) observes base header-view isolation across single and multiple range calls. These new package-only cases passed exact source/package comparison in the latest integrated run. The Python facades forward these operations to Rust; the public Python consumer interfaces remain the compatibility contract.
 
-The `parity-input@12` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
+The `parity-input@13` contract adds an explicit filesystem graph to StaticFiles ASGI cases. Its callable-ASGI `HTTPException` cases drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every supported target-profile comparison declared for the 539 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 691 comparisons; its four Rust-native callable boundaries are recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every supported target-profile comparison declared for the 541 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 695 comparisons; its four Rust-native callable boundaries are recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
 
 ### TestClient exception policy
 
@@ -580,7 +579,7 @@ and the Python `starlette.testclient` methods forward to it.
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 537 Python-package comparisons passed.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 539 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 

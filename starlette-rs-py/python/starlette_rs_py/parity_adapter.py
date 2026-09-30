@@ -4404,6 +4404,7 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             "directory",
             "path_limit_stress",
             "permission_denial_stress",
+            "filesystem",
             "packages",
             "files",
             "html",
@@ -4434,7 +4435,14 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
         root = workspace / case["directory"]
         package_source_root = workspace / "package-source"
         package_source_root.mkdir()
-        if case["path_limit_stress"] is not None:
+        filesystem = case["filesystem"]
+        if filesystem is not None and case["packages"]:
+            raise ValueError("StaticFiles filesystem scenarios cannot include package roots")
+        if filesystem is not None and filesystem["root_symlink_target"] is not None:
+            target_directory = workspace / filesystem["root_symlink_target"]
+            target_directory.mkdir(parents=True, exist_ok=True)
+            os.symlink(os.path.relpath(target_directory, root.parent), root)
+        elif case["path_limit_stress"] is not None:
             root, skip_reason = _static_files_path_limit_root(
                 case, workspace, root, package_source_root
             )
@@ -4447,6 +4455,20 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(_decode_base64(file_spec["contents_base64"], "file.contents_base64"))
             os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
+        if filesystem is not None:
+            for directory in filesystem["directories"]:
+                (workspace / directory).mkdir(parents=True, exist_ok=True)
+            for file_spec in filesystem["outside_files"]:
+                path = workspace / file_spec["path"]
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(
+                    _decode_base64(file_spec["contents_base64"], "StaticFiles outside file")
+                )
+                os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
+            for symlink_spec in filesystem["symlinks"]:
+                path = root / symlink_spec["path"]
+                path.parent.mkdir(parents=True, exist_ok=True)
+                os.symlink(symlink_spec["target"], path)
         package_arguments = []
         for package in case["packages"]:
             package_path = package_source_root

@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@12",
+      "input_schema": "migration-parity/parity-input@13",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -284,6 +284,7 @@
       "build/parity/inputs/parity/lifespan-generators.json",
       "build/parity/inputs/parity/authentication-runtime.json",
       "build/parity/inputs/parity/static-files.json",
+      "build/parity/inputs/parity/static-files-symlink-asgi.json",
       "build/parity/inputs/parity/static-files-lookup.json",
       "build/parity/inputs/parity/static-files-async-boundary.json",
       "build/parity/inputs/parity/static-files-config.json",
@@ -14372,6 +14373,30 @@
               "id": "starlette.staticfiles.StaticFiles.asgi-call.html-not-found-fallback",
               "dimension": "parameter_combination",
               "description": "Enable HTML mode with an input-defined 404.html asset and request a missing path to compare fallback selection. Upstream: tests/test_staticfiles.py::test_staticfiles_html_normal.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-file-served",
+              "dimension": "input_family",
+              "description": "With follow_symlink enabled, serve an input-defined external file through an in-root symbolic link and compare status, headers, bytes, and ASGI events. Upstream: tests/test_staticfiles.py::test_staticfiles_follows_symlinks.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-directory-served",
+              "dimension": "input_family",
+              "description": "With follow_symlink enabled, serve an input-defined external file through an in-root symbolic directory link and compare status, headers, bytes, and ASGI events. Upstream: tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories.",
               "lanes": [
                 "parity"
               ],

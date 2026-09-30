@@ -32,23 +32,24 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 539 input-only cases, 78 operations, and 580
-parity requirements across 61 indexed files. The cases include direct
+The current parity contract has 541 input-only cases, 78 operations, and 582
+parity requirements across 62 indexed files. The cases include direct
 Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
 interleaved consumers. The latest live source/package/native run
-`143cd077-f5f7-4c7b-8506-039ea5cd4f3e` selected 691 profile comparisons:
-687 passed, zero failed, zero infrastructure errors, and four unsupported
+`9f5696e1-a457-4850-b86c-de84191d8572` selected 695 profile comparisons:
+691 passed, zero failed, zero infrastructure errors, and four unsupported
 Rust-native Python-callable comparisons were `not_run`. The Python package
-passed 537/537; Rust-native passed 150/154. This run includes TestClient
+passed 539/539; Rust-native passed 152/156. This run includes TestClient
 exception-policy and lifespan state-propagation inputs, WebSocket lifecycle and
-JSON text/binary inputs, and exact async response-background-task cancellation
-and finalization. The manifest SHA-256 is
-`cd5c7d0494659d80d6c8293fd1eb853e05ff36ef30d651801bb4cf2b47df3acc`; the
+JSON text/binary inputs, exact async response-background-task cancellation and
+finalization, and external file and directory symlink serving through
+StaticFiles ASGI calls. The manifest SHA-256 is
+`f1524beda48d49143fd934263620c998588f61dd512b6302fdd3da9c62a34c2e`; the
 installed package wheel SHA-256 is
-`c4a42cbb4b924fee0821d2cfe1e1e19b4bb6b8d5c4b29cc439bc06183756c565`; its
+`a96575e11ff91bb486ea569daa31a3f968bc0bba694d08c5a736cd6a09f9bc94`; its
 installed-file tree SHA-256 is
-`5562c495eade138edde694e3b24c5f6cd0193b820f72cea1faf149dcb304789f`. The
+`87dd452fc4d062c8ecc18af80274bdcb963eec34f13596eae883acdc6f54b130`. The
 all-target command exits 2 for those four unsupported native callable cases.
 This bounded evidence does not establish full parity.
 
@@ -126,11 +127,11 @@ policy, lookup, method selection, HTML index/fallback selection, redirects, and
 conditional 304 handling. The Python `starlette.staticfiles` module is a thin
 constructor and forwarding facade; package discovery calls Python's
 `importlib.util.find_spec` at the PyO3 boundary so custom importers and package
-origins remain visible. Thirty-eight input-only cases are authored across
-three StaticFiles inputs. Fifteen `lookup_path` cases run on both target
+origins remain visible. Forty-four input-only cases are authored across
+five StaticFiles inputs. Fifteen `lookup_path` cases run on both target
 profiles and all 30 comparisons pass, including Unix and UNC-style absolute
-path rejection. Across the StaticFiles slice, all 71 selected profile
-comparisons pass: 35 Rust-native and 36 Python-package
+path rejection. Across the StaticFiles slice, all 75 selected profile
+comparisons pass: 37 Rust-native and 38 Python-package
 comparisons.
 The path-limit inputs verify that an overlong first root maps to the
 source-compatible 404 before a later root can serve its matching asset, under
@@ -469,7 +470,7 @@ This remains a bounded slice. Synchronous callback cancellation, context variabl
 concurrency, and broader middleware/error interactions with background
 failures remain unproven. Four Rust-native Request-dispatch callable rows still
 produce the expected `not_run` status, so the integrated `make test` command
-exits 2 despite all 687 executed comparisons passing.
+exits 2 despite all 691 executed comparisons passing.
 
 ### HTTPException default-response slice: bounded parity verified
 

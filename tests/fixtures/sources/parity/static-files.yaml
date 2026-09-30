@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@12",
+  "schema": "migration-parity/parity-input@13",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call.rooted-file-get",
@@ -16,6 +16,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -60,6 +61,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -104,6 +106,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -148,6 +151,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -193,6 +197,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [
         {
           "name": "static_fixture_custom_pkg",
@@ -242,6 +247,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [
         {
           "name": "static_fixture_default_pkg",
@@ -292,6 +298,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -336,6 +343,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -380,6 +388,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -426,6 +435,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -472,6 +482,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -516,6 +527,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [
         {
           "name": "static_fixture_custom_pkg",
@@ -563,6 +575,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [
         {
           "name": "static_fixture_default_pkg",
@@ -613,6 +626,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -657,6 +671,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -706,6 +721,7 @@
         "safe_component_bytes": 96
       },
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [
         {
           "name": "parity_staticfiles_overflow",
@@ -761,6 +777,7 @@
         "safe_component_bytes": 96
       },
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [
         {
           "name": "parity_staticfiles_overflow",
@@ -814,6 +831,7 @@
         "kind": "permission-denied-root",
         "mode": 7
       },
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -874,6 +892,7 @@
         "kind": "permission-denied-root",
         "mode": 7
       },
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -931,6 +950,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [],
       "html": false,
@@ -983,6 +1003,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {
@@ -1028,6 +1049,7 @@
       "directory": "public",
       "path_limit_stress": null,
       "permission_denial_stress": null,
+      "filesystem": null,
       "packages": [],
       "files": [
         {

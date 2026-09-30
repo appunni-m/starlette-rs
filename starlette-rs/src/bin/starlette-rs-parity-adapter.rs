@@ -2714,6 +2714,7 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
             "directory",
             "path_limit_stress",
             "permission_denial_stress",
+            "filesystem",
             "packages",
             "files",
             "html",
@@ -2786,18 +2787,31 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
         .get("packages")
         .and_then(Value::as_array)
         .ok_or_else(|| String::from("StaticFiles packages must be an array"))?;
+    let filesystem = case
+        .get("filesystem")
+        .ok_or_else(|| String::from("StaticFiles filesystem input is missing"))?;
     let null_path = case
         .get("scope")
         .and_then(|scope| scope.get("path"))
         .and_then(Value::as_str)
         .is_some_and(|path| path.contains('\0'));
-    if file_inputs.is_empty() && package_inputs.is_empty() && !null_path {
+    if file_inputs.is_empty() && package_inputs.is_empty() && filesystem.is_null() && !null_path {
         return Err(String::from(
-            "StaticFiles must configure at least one asset unless the input path contains a NUL byte",
+            "StaticFiles must configure an asset or filesystem input unless the input path contains a NUL byte",
         ));
     }
-    let (temporary_directory, root, package_roots) =
-        create_static_files_input(directory_name, file_inputs, package_inputs)?;
+    let (temporary_directory, root, package_roots) = if filesystem.is_null() {
+        create_static_files_input(directory_name, file_inputs, package_inputs)?
+    } else {
+        if !package_inputs.is_empty() {
+            return Err(String::from(
+                "StaticFiles filesystem input cannot be combined with package roots",
+            ));
+        }
+        let (temporary_directory, root) =
+            create_static_files_lookup_path_input(directory_name, file_inputs, filesystem)?;
+        (temporary_directory, root, Vec::new())
+    };
 
     let (scope, pathsend_extension) = validated_file_response_scope(
         case.get("scope")

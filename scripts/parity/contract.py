@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@12"
+INPUT_SCHEMA = "migration-parity/parity-input@13"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -548,6 +548,7 @@ STATIC_FILES_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
 STATIC_FILES_ASGI_CALL_CASE_KEYS = STATIC_FILES_CASE_KEYS | {
     "path_limit_stress",
     "permission_denial_stress",
+    "filesystem",
 }
 STATIC_FILES_LOOKUP_PATH_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "directory",
@@ -4155,9 +4156,9 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
 
     path = scope["path"]
     root_path = scope["root_path"]
-    if not files and not packages and "\x00" not in path:
+    if not files and not packages and case["filesystem"] is None and "\x00" not in path:
         raise ContractError(
-            "StaticFiles requires configured assets unless the input path contains a NUL byte"
+            "StaticFiles requires configured assets or filesystem inputs unless the input path contains a NUL byte"
         )
     route_path = path
     if root_path and path.startswith(root_path):
@@ -4165,6 +4166,39 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
             route_path = ""
         elif path[len(root_path) :].startswith("/"):
             route_path = path[len(root_path) :]
+    filesystem_lookup_requirement = None
+    if case["filesystem"] is not None:
+        if not isinstance(case["filesystem"], dict):
+            raise ContractError("StaticFiles.filesystem must be an object or null")
+        if (
+            scope["method"] != "GET"
+            or not case["follow_symlink"]
+            or case["html"]
+            or case["packages"]
+            or path_limit_stress is not None
+            or permission_denial_stress is not None
+        ):
+            raise ContractError(
+                "StaticFiles ASGI filesystem inputs require a plain GET with follow_symlink enabled"
+            )
+        filesystem_lookup_requirement = _validate_static_files_lookup_path_case(
+            {
+                "case_id": case["case_id"],
+                "surface": STATIC_FILES_SURFACE,
+                "operation": STATIC_FILES_LOOKUP_PATH_OPERATION,
+                "covers": [],
+                "target_profiles": case["target_profiles"],
+                "assets": [],
+                "directory": case["directory"],
+                "files": case["files"],
+                "filesystem": case["filesystem"],
+                "lookup_path": route_path.lstrip("/") or ".",
+                "check_dir": case["check_dir"],
+                "follow_symlink": case["follow_symlink"],
+                "observations": [STATIC_FILES_LOOKUP_PATH_OPERATION],
+            },
+            validate_covers=False,
+        )
     normalized_path = (
         "/".join(part for part in route_path.split("/") if part not in {"", "."}) or "."
     )
@@ -4188,6 +4222,17 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
     )
     method = scope["method"]
     derived: set[str] = set()
+    filesystem_requirement_by_lookup = {
+        "external-file-link.follow-symlink-enabled": "follow-symlink-file-served",
+        "external-directory-link.follow-symlink-enabled": "follow-symlink-directory-served",
+    }
+    if filesystem_lookup_requirement is not None:
+        try:
+            derived.add(filesystem_requirement_by_lookup[filesystem_lookup_requirement])
+        except KeyError as exc:
+            raise ContractError(
+                "StaticFiles ASGI filesystem inputs currently require one followed external symlink"
+            ) from exc
     if path_limit_stress is not None:
         package_asset_paths = {
             file_input["path"] for package in packages for file_input in package["files"]
@@ -4288,6 +4333,7 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
         method == "GET"
         and normalized_path not in selected_files
         and not (case["html"] and index_path in selected_files)
+        and filesystem_lookup_requirement is None
     ):
         if "\x00" in path:
             derived.add("null-byte-path-maps-404")
@@ -4334,7 +4380,9 @@ def _static_files_relative_components(value: Any, context: str, *, allow_parent:
     return components
 
 
-def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
+def _validate_static_files_lookup_path_case(
+    case: dict[str, Any], *, validate_covers: bool = True
+) -> str:
     _exact(case, STATIC_FILES_LOOKUP_PATH_CASE_KEYS, "StaticFiles lookup-path case")
     if (
         case["surface"] != STATIC_FILES_SURFACE
@@ -4357,8 +4405,8 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
         raise ContractError("StaticFiles lookup-path options must be boolean")
 
     files = case["files"]
-    if not isinstance(files, list) or not files:
-        raise ContractError("StaticFiles lookup-path files must be a non-empty array")
+    if not isinstance(files, list):
+        raise ContractError("StaticFiles lookup-path files must be an array")
     file_paths: set[str] = set()
     for index, file_input in enumerate(files):
         path, _ = _validate_static_asset_file(file_input, f"StaticFiles lookup-path.files[{index}]")
@@ -4593,9 +4641,13 @@ def _validate_static_files_lookup_path_case(case: dict[str, Any]) -> None:
             else:
                 requirement = f"{target_relation}-{target_kind}-link.follow-symlink-{setting}"
 
-    expected_covers = {f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.{requirement}"}
-    if set(case["covers"]) != expected_covers:
-        raise ContractError("StaticFiles lookup-path covers must match the selected input path")
+    if validate_covers:
+        expected_covers = {
+            f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.{requirement}"
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError("StaticFiles lookup-path covers must match the selected input path")
+    return requirement
 
 
 def _validate_static_files_async_boundary_case(case: dict[str, Any]) -> None:
