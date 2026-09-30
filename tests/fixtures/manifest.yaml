@@ -244,6 +244,7 @@
       "build/parity/inputs/parity/asgi-request-items.json",
       "build/parity/inputs/parity/asgi-call-boundary.json",
       "build/parity/inputs/parity/request-runtime.json",
+      "build/parity/inputs/parity/request-consumption.json",
       "build/parity/inputs/parity/gzip-middleware.json",
       "build/parity/inputs/parity/body-limit-middleware.json",
       "build/parity/inputs/parity/route-body-limits.json",
@@ -9228,6 +9229,220 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Request form parsing is outside the active benchmark workloads."
+          }
+        },
+        {
+          "id": "body-stream-json",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.Request.body, Request.stream, and Request.json",
+            "signature": "Drive body(), stream().__anext__(), and json() actions on one Request instance with an input-defined ASGI receive tape.",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "option",
+                "value_types": [
+                  "stream",
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "request-consumption",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not expose a Python Request object, Python ASGI receive callback, or Python JSON value boundary.",
+                "blocker": "This compatibility operation exercises Python Request and callback semantics through the installed package."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.body, Request.stream, and Request.json",
+              "signature": "The installed starlette-rs-py Request facade forwards body, stream, and JSON state to Rust.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.request.body-cache-reuse",
+              "dimension": "runtime",
+              "description": "Call Request.body() repeatedly on one Request and compare returned bytes and object identity. Pinned source: starlette/requests.py::Request.body; tests/test_requests.py::test_request_body and ::test_request_rcv.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.body-chunk-concatenation",
+              "dimension": "input_family",
+              "description": "Assemble body bytes from a complete sequence of fragmented ASGI request messages, including empty chunks. Pinned source: starlette/requests.py::Request.body and Request.stream; tests/test_requests.py::test_request_rcv and ::test_chunked_encoding; docs/requests.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.body-stream-cache-replay",
+              "dimension": "runtime",
+              "description": "Call Request.body() before Request.stream() and observe the cached body chunk, terminal empty chunk, and iterator exhaustion. Pinned source: starlette/requests.py::Request.body and Request.stream; tests/test_requests.py::test_request_body_then_stream; docs/requests.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-then-body-consumed",
+              "dimension": "error_path",
+              "description": "Exhaust Request.stream() before calling Request.body() and preserve the exact Stream consumed RuntimeError boundary. Pinned source: starlette/requests.py::Request.stream and Request.body; tests/test_requests.py::test_request_stream_then_body.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-interleaved-iterators",
+              "dimension": "runtime",
+              "description": "Create two Request.stream() iterators over one receive callback and interleave their next calls, observing each chunk, terminal empty chunk, and exhaustion. Pinned source: starlette/requests.py::Request.stream; tests/test_requests.py::test_request_stream_called_twice.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.json-body-cache",
+              "dimension": "runtime",
+              "description": "Call Request.json() repeatedly on one Request, compare parsed values and object identity, and read the cached raw body afterward. Pinned source: starlette/requests.py::Request.json and Request.body; tests/test_requests.py::test_request_json; docs/requests.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.json-decode-error-cache",
+              "dimension": "error_path",
+              "description": "Call Request.json() around reads of the cached malformed body and compare each decoder exception class and message. Pinned source: starlette/requests.py::Request.json; CPython json.loads boundary.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.receive-optional-body-fields",
+              "dimension": "boundary",
+              "description": "Omit ASGI http.request body and/or more_body fields and preserve Starlette defaults while collecting the body. Pinned source: starlette/requests.py::Request.stream; tests/test_requests.py::test_request_rcv.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.concurrent-body-stream-consumption",
+              "dimension": "boundary",
+              "description": "Overlap Request.body() with a second Request.stream() while the first receive callback is blocked, then compare completion, cached body, and receive ordering. Pinned source: starlette/requests.py::Request.body and Request.stream.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-client-disconnect",
+              "dimension": "error_path",
+              "description": "Return http.disconnect from the receive callback during Request.stream() and preserve ClientDisconnect and disconnect state. Pinned source: starlette/requests.py::Request.stream; tests/test_requests.py::test_request_disconnect.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request body consumption is outside the active Router/GZip benchmark workloads."
           }
         }
       ]

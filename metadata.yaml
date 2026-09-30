@@ -338,6 +338,10 @@
         {
           "operation_id": "form",
           "source_path": "starlette.requests.Request._get_form and Request.form"
+        },
+        {
+          "operation_id": "body-stream-json",
+          "source_path": "starlette.requests.Request.body, Request.stream, and Request.json"
         }
       ]
     },

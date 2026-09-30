@@ -87,6 +87,7 @@ REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-rece
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
+REQUEST_BODY_STREAM_JSON_OPERATION = ("starlette.requests.Request", "body-stream-json")
 STATUS_SURFACE = "starlette.status"
 STATUS_OPERATION = "module-symbol-sequence"
 CONFIG_OPERATIONS = {
@@ -8939,6 +8940,14 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) == REQUEST_FORM_OPERATION
     ):
         return _run_request_form_case(case)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_BODY_STREAM_JSON_OPERATION
+    ):
+        from scripts.parity.adapters.request_consumption import run_request_consumption_case
+        from starlette.requests import Request
+
+        return run_request_consumption_case(case, Request)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         STATUS_SURFACE,
         STATUS_OPERATION,

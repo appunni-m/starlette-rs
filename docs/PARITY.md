@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 500 input-only cases in 54 indexed files, covering 72 operations and 530 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, including post-construction `Starlette.add_route`, route-level request-body limits, Router-generated 404 handling, Router behavior after live route mutations, flat Router reverse-URL selection, a parameterized Host-route port comparison, and direct Host reverse-URL formatting; async endpoint loop/task/thread ownership and request cancellation; URL scope and component construction/replacement; Headers and MutableHeaders; Request.form URL-encoded limits, multipart file metadata and duplicate values, charset decoding, parser limits, tempfile cleanup, and bare-app/Mount failures; responses and background tasks; StaticFiles; WebSockets; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, direct WSGI `build_environ`, its module-import deprecation warning, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 527 input-only cases in 61 indexed files, covering 78 operations and 564 parity requirements. The cases cover Starlette applications, routing and reverse URLs, async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption; form parsing; responses and background tasks; StaticFiles; WebSockets; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,23 +8,21 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest integrated run, `a3baca57-a4bf-4304-98ad-21947b114005`, started at
-`2026-09-30T10:58:24.458Z` and finished at `2026-09-30T11:00:13.611Z`. It
-selected 652 profile comparisons: 648 passed, zero failed, zero infrastructure
-errors, and four Rust-native Python-callable rows were `not_run`. The Python
-package passed all 498 selected comparisons; Rust-native passed 150 of 154.
-New Request.form inputs cover direct and mounted default/custom multipart
-part-size limits with receive short-circuiting, duplicate text/file values,
-2,000 text fields and 2,000 files under raised limits, tempfile cleanup after
-stream and OSError failures, worker-thread rollover followed by cleanup, and
-unique/mixed 1,001-file count failures through direct and mounted consumers.
-The schema v10 input representation supports bounded literal, repeated, and
-indexed repeated body segments; generated JSON remains ignored under
-`build/parity/inputs/`. Manifest SHA-256: `99a50f34d1f79707d7d0a300b6ff9bdd3ad3168eb5e83be3ab37915408ed0922`. The installed
-package source-tree SHA-256 is `785c7c716ff51360d0c8b3b39dd702bd76c70c23cf287fbc09709fd003c171c8`; its wheel artifact SHA-256 is
-`51e3e208d992c43027867d789eb88d5ab0c0154b3bb6bf34c4196fab81527167`. `make parity-run` returns status 2 for the four unsupported
-Rust-native callable boundaries. This is bounded local evidence, not full
-parity or release proof.
+The latest integrated run, `e68c4c1c-7a79-4435-95d9-3fbfb0837f6f`, ran from
+`2026-09-30T14:36:11.202Z` to `2026-09-30T14:37:58.550Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 679 profile
+comparisons: 675 passed, zero failed, zero infrastructure errors, and four
+Rust-native Python-callable rows were `not_run`. The Python package passed all
+525 selected comparisons; Rust-native passed 150 of 154. The new Request
+body/stream/JSON inputs compare receive defaults, chunk concatenation, caching,
+stream replay and consumption, JSON caching and decode errors, interleaved
+iterators, disconnect, and the overlapping body/stream receive race. The
+all-target runner exits with status 2 for the four unsupported Rust-native
+callable boundaries. Manifest SHA-256:
+`39f582b91a11f209b99d0a1411259cffe79e972c10e2e43f8f24ada827f6ccdb`; installed
+package wheel SHA-256:
+`735ed64b0364410951774adf039115ad919d40f9fa471477940550cbb2e45cfa`. This is
+bounded local evidence, not full parity or release proof.
 
 ## Input-only cases
 

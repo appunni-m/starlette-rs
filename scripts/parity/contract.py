@@ -207,6 +207,7 @@ REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-rece
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
+REQUEST_BODY_STREAM_JSON_OPERATION = ("starlette.requests.Request", "body-stream-json")
 REQUEST_SEND_PUSH_PROMISE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
     "path",
@@ -221,6 +222,12 @@ REQUEST_FORM_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
     "receive",
     "form_probe_keys",
+}
+REQUEST_BODY_STREAM_JSON_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "scope",
+    "receive",
+    "blocked_receive_calls",
+    "actions",
 }
 REQUEST_FORM_OPTIONAL_KEYS = {
     "form_options",
@@ -662,6 +669,18 @@ REQUEST_STREAM_REQUIREMENTS = {
     "asend": "starlette.request.stream-asend",
     "athrow": "starlette.request.stream-athrow",
     "aclose": "starlette.request.stream-aclose",
+}
+REQUEST_CONSUMPTION_REQUIREMENTS = {
+    "body_cache": "starlette.request.body-cache-reuse",
+    "body_chunks": "starlette.request.body-chunk-concatenation",
+    "body_stream_replay": "starlette.request.body-stream-cache-replay",
+    "stream_body_consumed": "starlette.request.stream-then-body-consumed",
+    "stream_interleaving": "starlette.request.stream-interleaved-iterators",
+    "json_cache": "starlette.request.json-body-cache",
+    "json_decode_error": "starlette.request.json-decode-error-cache",
+    "optional_receive_fields": "starlette.request.receive-optional-body-fields",
+    "body_stream_overlap": "starlette.request.concurrent-body-stream-consumption",
+    "stream_client_disconnect": "starlette.request.stream-client-disconnect",
 }
 SYNC_REQUEST_RUNTIME_REQUIREMENTS = {
     "receive": "starlette.request.receive-worker-access",
@@ -1413,6 +1432,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
+                or key == REQUEST_BODY_STREAM_JSON_OPERATION
                 or key == BASE_HTTP_WORKFLOW_OPERATION_KEY
                 or key == BASE_HTTP_CONTEXTVARS_OPERATION_KEY
                 or key == STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY
@@ -1614,6 +1634,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) == REQUEST_SEND_PUSH_PROMISE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_IS_DISCONNECTED_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_FORM_OPERATION
+                        or (surface["id"], operation["id"])
+                        == REQUEST_BODY_STREAM_JSON_OPERATION
                         or (surface["id"], operation["id"]) == FORM_DATA_MULTIDICT_LOOKUPS_OPERATION
                         or (surface["id"], operation["id"]) == UPLOAD_FILE_OPERATION
                         or (surface["id"], operation["id"]) == STATUS_OPERATION
@@ -8369,6 +8391,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_FORM_OPERATION
     )
+    is_request_body_stream_json = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation"))
+        == REQUEST_BODY_STREAM_JSON_OPERATION
+    )
     is_status_symbols = (
         isinstance(case, dict) and (case.get("surface"), case.get("operation")) == STATUS_OPERATION
     )
@@ -8446,6 +8473,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_status_symbols
         else REQUEST_FORM_CASE_KEYS
         if is_request_form
+        else REQUEST_BODY_STREAM_JSON_CASE_KEYS
+        if is_request_body_stream_json
         else SESSION_WORKFLOW_CASE_KEYS
         if is_session_workflow
         else BASE_HTTP_CONTEXTVARS_CASE_KEYS
@@ -8620,6 +8649,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_request_form:
         expected_case_keys = REQUEST_FORM_CASE_KEYS
         expected_case_keys = expected_case_keys | (REQUEST_FORM_OPTIONAL_KEYS.intersection(case))
+    elif is_request_body_stream_json:
+        expected_case_keys = REQUEST_BODY_STREAM_JSON_CASE_KEYS
     elif is_status_symbols:
         expected_case_keys = STATUS_CASE_KEYS
     elif is_session_workflow:
@@ -8734,6 +8765,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_request_form:
         if case["observations"] != ["form"]:
             raise ContractError("Request.form cases must select the form observation")
+    elif is_request_body_stream_json:
+        if case["observations"] != ["request-consumption"]:
+            raise ContractError("Request body/stream/json cases must select request-consumption")
     elif is_status_symbols:
         if (case["surface"], case["operation"]) != STATUS_OPERATION:
             raise ContractError(
@@ -8756,6 +8790,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_testclient_lifespan:
         if (case["surface"], case["operation"]) != TESTCLIENT_LIFESPAN_OPERATION_KEY:
             raise ContractError("TestClient lifespan cases must use lifespan-context")
+    elif is_request_body_stream_json:
+        if (case["surface"], case["operation"]) != REQUEST_BODY_STREAM_JSON_OPERATION:
+            raise ContractError("Request body/stream/json cases must use body-stream-json")
     elif case["surface"] != "starlette.applications.Starlette" or case["operation"] not in {
         "__call__",
         "request-dispatch",
@@ -8800,6 +8837,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError("TestClient cases select only the Python-package profile")
     if is_testclient_lifespan and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("TestClient lifespan cases select only the Python-package profile")
+    if is_request_body_stream_json and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError("Request body/stream/json cases select only the Python-package profile")
     requirements: dict[str, dict[str, Any]] = {}
     operations: dict[tuple[str, str], dict[str, Any]] = {}
     for surface in manifest["surfaces"]:
@@ -8909,6 +8948,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_request_form:
         _validate_request_form_case(case)
+        return case
+    if is_request_body_stream_json:
+        _validate_request_body_stream_json_case(case)
         return case
     if is_status_symbols:
         _validate_status_symbols_case(case)
@@ -10941,6 +10983,161 @@ def _validate_request_is_disconnected_case(case: dict[str, Any]) -> None:
         expected_covers.append("starlette.request.is-disconnected.cancel-pending-receive")
     if case["covers"] != expected_covers:
         raise ContractError("disconnect case must cover detection and cached disconnect state")
+
+
+def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Request body/stream/json parity currently targets the Python package")
+    if case["assets"] != [] or case["observations"] != ["request-consumption"]:
+        raise ContractError("Request consumption cases select one observation without assets")
+    scope = _exact(case["scope"], {"type"}, "Request body/stream/json scope")
+    if scope["type"] != "http":
+        raise ContractError("Request body/stream/json requires an HTTP scope")
+
+    receive = case["receive"]
+    if not isinstance(receive, list) or not receive:
+        raise ContractError("Request body/stream/json receive tape must be non-empty")
+    optional_receive_fields = False
+    for index, raw_message in enumerate(receive):
+        context = f"Request body/stream/json receive[{index}]"
+        if not isinstance(raw_message, dict) or raw_message.get("type") not in {
+            "http.request",
+            "http.disconnect",
+        }:
+            raise ContractError(f"{context} must be an HTTP request or disconnect message")
+        if raw_message["type"] == "http.request":
+            allowed = {"type", "body_base64", "more_body"}
+            if set(raw_message) - allowed:
+                raise ContractError(f"{context} contains unsupported HTTP request fields")
+            if "body_base64" in raw_message:
+                try:
+                    base64.b64decode(raw_message["body_base64"], validate=True)
+                except (ValueError, TypeError, base64.binascii.Error) as exc:
+                    raise ContractError(f"{context}.body_base64 is invalid") from exc
+            else:
+                optional_receive_fields = True
+            if "more_body" in raw_message:
+                if type(raw_message["more_body"]) is not bool:
+                    raise ContractError(f"{context}.more_body must be boolean")
+            else:
+                optional_receive_fields = True
+        elif set(raw_message) != {"type"}:
+            raise ContractError(f"{context} disconnect message has unsupported fields")
+
+    blocked_receive_calls = case["blocked_receive_calls"]
+    if (
+        not isinstance(blocked_receive_calls, list)
+        or any(type(index) is not int or index < 0 or index >= len(receive) for index in blocked_receive_calls)
+        or len(blocked_receive_calls) != len(set(blocked_receive_calls))
+    ):
+        raise ContractError("blocked_receive_calls must select unique messages in the receive tape")
+
+    actions = case["actions"]
+    if not isinstance(actions, list) or not actions:
+        raise ContractError("Request body/stream/json actions must be a non-empty sequence")
+    started_tasks: set[str] = set()
+    awaited_tasks: set[str] = set()
+    released_calls: set[int] = set()
+    stream_ids: list[str] = []
+    action_operations: list[str] = []
+    for index, action in enumerate(actions):
+        context = f"Request body/stream/json action[{index}]"
+        if not isinstance(action, dict) or not isinstance(action.get("operation"), str):
+            raise ContractError(f"{context} must be an operation record")
+        operation = action["operation"]
+        action_operations.append(operation)
+        if operation in {"body", "json"}:
+            _exact(action, {"operation"}, context)
+        elif operation == "stream-next":
+            _exact(action, {"operation", "stream_id"}, context)
+            stream_ids.append(_string(action["stream_id"], f"{context}.stream_id"))
+        elif operation == "start-body":
+            _exact(action, {"operation", "task_id"}, context)
+            task_id = _string(action["task_id"], f"{context}.task_id")
+            if task_id in started_tasks:
+                raise ContractError(f"{context}.task_id must be unique")
+            started_tasks.add(task_id)
+        elif operation == "await-body":
+            _exact(action, {"operation", "task_id"}, context)
+            task_id = _string(action["task_id"], f"{context}.task_id")
+            if task_id not in started_tasks or task_id in awaited_tasks:
+                raise ContractError(f"{context}.task_id must name one earlier unawaited body task")
+            awaited_tasks.add(task_id)
+        elif operation == "release-receive":
+            _exact(action, {"operation", "receive_call"}, context)
+            receive_call = action["receive_call"]
+            if type(receive_call) is not int or receive_call not in blocked_receive_calls:
+                raise ContractError(f"{context}.receive_call must select a blocked callback")
+            if receive_call in released_calls:
+                raise ContractError(f"{context}.receive_call cannot be released twice")
+            released_calls.add(receive_call)
+        else:
+            raise ContractError(f"{context}.operation is unsupported")
+    if started_tasks != awaited_tasks:
+        raise ContractError("every started body task must be awaited exactly once")
+    if released_calls != set(blocked_receive_calls):
+        raise ContractError("every blocked receive callback must be released exactly once")
+
+    expected_covers: set[str] = set()
+    body_positions = [
+        index for index, operation in enumerate(action_operations) if operation in {"body", "await-body"}
+    ]
+    direct_body_positions = [
+        index for index, operation in enumerate(action_operations) if operation == "body"
+    ]
+    json_positions = [
+        index for index, operation in enumerate(action_operations) if operation == "json"
+    ]
+    stream_positions = [
+        index for index, operation in enumerate(action_operations) if operation == "stream-next"
+    ]
+    if optional_receive_fields:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["optional_receive_fields"])
+    if len(direct_body_positions) > 1:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_cache"])
+    request_messages = [message for message in receive if message["type"] == "http.request"]
+    if (
+        body_positions
+        and not blocked_receive_calls
+        and len(request_messages) > 1
+        and all(message.get("more_body", False) for message in request_messages[:-1])
+        and not request_messages[-1].get("more_body", False)
+        and all(message["type"] == "http.request" for message in receive)
+    ):
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_chunks"])
+    if direct_body_positions and stream_positions and direct_body_positions[0] < stream_positions[0]:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_replay"])
+    if direct_body_positions and stream_positions and stream_positions[0] < direct_body_positions[0]:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_body_consumed"])
+    if len(json_positions) > 1:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["json_cache"])
+        payload = b"".join(
+            base64.b64decode(message.get("body_base64", ""), validate=True)
+            for message in request_messages
+        )
+        try:
+            json.loads(payload)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["json_decode_error"])
+    if len(set(stream_ids)) > 1:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_interleaving"])
+    if stream_positions and any(message["type"] == "http.disconnect" for message in receive):
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_client_disconnect"])
+    if (
+        0 in blocked_receive_calls
+        and "start-body" in action_operations
+        and "stream-next" in action_operations
+        and "release-receive" in action_operations
+        and "await-body" in action_operations
+        and action_operations.index("start-body") < action_operations.index("stream-next")
+        < action_operations.index("release-receive") < action_operations.index("await-body")
+    ):
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_overlap"])
+    if set(case["covers"]) != expected_covers:
+        raise ContractError(
+            "Request body/stream/json covers must match the declared action and receive inputs: "
+            f"expected={sorted(expected_covers)}, actual={sorted(case['covers'])}"
+        )
 
 
 def _request_form_limits_exceeded(body: bytes, form_options: dict[str, Any]) -> bool:

@@ -538,6 +538,7 @@ impl PyRequestBody {
             BodyMachine {
                 shared: self.shared.clone(),
                 stream: RequestStreamState::default(),
+                body: Vec::new(),
                 pending_receive: false,
             },
         )
@@ -908,6 +909,7 @@ impl RequestDisconnectedMachine {
 struct BodyMachine {
     shared: SharedRequestBody,
     stream: RequestStreamState,
+    body: Vec<u8>,
     pending_receive: bool,
 }
 
@@ -935,8 +937,12 @@ impl AwaitableStateMachine for BodyMachine {
                     if message_type == "http.disconnect" {
                         runtime.request_disconnected = true;
                     }
-                    self.stream
-                        .accept(&mut runtime.accumulator, &message_type, &body, more_body)
+                    self.stream.accept_pending(
+                        &mut runtime.accumulator,
+                        &message_type,
+                        &body,
+                        more_body,
+                    )
                 };
                 match progress {
                     Ok(progress) => self.consume_progress(py, progress),
@@ -964,8 +970,8 @@ impl AwaitableStateMachine for BodyMachine {
 
 impl BodyMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        if cached_body_object(py, &self.shared)?.is_some() {
-            return complete_cached_body(py, &self.shared);
+        if let Some(body) = cached_body_object(py, &self.shared)? {
+            return Ok(MachineAction::Complete(body));
         }
 
         let result = {
@@ -989,7 +995,8 @@ impl BodyMachine {
         loop {
             match progress {
                 RequestStreamProgress::Receive => return self.await_receive(py),
-                RequestStreamProgress::Chunk(_) | RequestStreamProgress::CachedBody(_) => {
+                RequestStreamProgress::Chunk(chunk) | RequestStreamProgress::CachedBody(chunk) => {
+                    self.body.extend_from_slice(&chunk);
                     progress = {
                         let runtime = borrow_runtime(&self.shared)?;
                         self.stream.next(&runtime.accumulator)
@@ -999,7 +1006,9 @@ impl BodyMachine {
                         request_body_error(py, error)
                     })?;
                 }
-                RequestStreamProgress::Complete => return complete_cached_body(py, &self.shared),
+                RequestStreamProgress::Complete => {
+                    return complete_cached_body(py, &self.shared, &self.body);
+                }
             }
         }
     }
@@ -1069,7 +1078,7 @@ impl AwaitableStateMachine for StreamMachine {
                         runtime.request_disconnected = true;
                     }
                     let mut state = borrow_stream_mut(&self.state)?;
-                    state.accept(&mut runtime.accumulator, &message_type, &body, more_body)
+                    state.accept_pending(&mut runtime.accumulator, &message_type, &body, more_body)
                 };
                 match progress {
                     Ok(progress) => self.deliver(py, progress),
@@ -1370,7 +1379,7 @@ impl FormMachine {
                         if message_type == "http.disconnect" {
                             runtime.request_disconnected = true;
                         }
-                        self.stream.accept(
+                        self.stream.accept_pending(
                             &mut runtime.accumulator,
                             &message_type,
                             &body,
@@ -1925,6 +1934,7 @@ impl AwaitableStateMachine for JsonMachine {
                     BodyMachine {
                         shared: self.shared.clone(),
                         stream: RequestStreamState::default(),
+                        body: Vec::new(),
                         pending_receive: false,
                     },
                 )?;
@@ -1967,16 +1977,16 @@ fn request_message(py: Python<'_>, message: Py<PyAny>) -> PyResult<(String, Vec<
     Ok((message_type, body, more_body))
 }
 
-fn complete_cached_body(py: Python<'_>, shared: &SharedRequestBody) -> PyResult<MachineAction> {
-    if let Some(body) = cached_body_object(py, shared)? {
-        return Ok(MachineAction::Complete(body));
-    }
-
+fn complete_cached_body(
+    py: Python<'_>,
+    shared: &SharedRequestBody,
+    body: &[u8],
+) -> PyResult<MachineAction> {
     let body = {
         let mut runtime = borrow_runtime_mut(shared)?;
         runtime
             .accumulator
-            .cache_body()
+            .cache_body_from(body)
             .map_err(|error| request_body_error(py, error))?
             .to_vec()
     };

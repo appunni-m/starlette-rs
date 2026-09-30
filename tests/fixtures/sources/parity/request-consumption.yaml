@@ -1,0 +1,518 @@
+{
+  "schema": "migration-parity/parity-input@10",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.receive-default-final-empty",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.body-cache-reuse",
+        "starlette.request.body-chunk-concatenation",
+        "starlette.request.receive-optional-body-fields"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "MTIz",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": ""
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        },
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.receive-empty-leading-chunk",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.body-cache-reuse",
+        "starlette.request.body-chunk-concatenation",
+        "starlette.request.receive-optional-body-fields"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "MTIz"
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        },
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.receive-split-payload",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.body-cache-reuse",
+        "starlette.request.body-chunk-concatenation",
+        "starlette.request.receive-optional-body-fields"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "MTI=",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "Mw=="
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        },
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.receive-empty-intermediate-and-final",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.body-cache-reuse",
+        "starlette.request.body-chunk-concatenation",
+        "starlette.request.receive-optional-body-fields"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "MTIz",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": ""
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        },
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.empty-body-cache",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.body-cache-reuse"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        },
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.body-before-stream-replays-cache",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.body-stream-cache-replay"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "YWJj",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "after-body"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "after-body"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "after-body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.stream-before-body-is-consumed",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-then-body-consumed"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "YWJj",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "primary"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "primary"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "primary"
+        },
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.interleaved-stream-iterators",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-interleaved-iterators"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "MQ==",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "Mg==",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "Mw==",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "first"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "second"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "first"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "first"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "second"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "second"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "first"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.json-cache-from-chunked-body",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.json-body-cache",
+        "starlette.request.body-chunk-concatenation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "eyJhIjo=",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "IjEyMyJ9",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "json"
+        },
+        {
+          "operation": "json"
+        },
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.json-decode-error-keeps-body-cache",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.json-body-cache",
+        "starlette.request.json-decode-error-cache"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "ew==",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "json"
+        },
+        {
+          "operation": "body"
+        },
+        {
+          "operation": "json"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.stream-receives-client-disconnect",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-client-disconnect"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.disconnect"
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "disconnect"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.overlapping-body-and-stream-receives",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.concurrent-body-stream-consumption"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "Zmlyc3Q=",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "c2Vjb25k",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [
+        0
+      ],
+      "actions": [
+        {
+          "operation": "start-body",
+          "task_id": "body-task"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "sibling"
+        },
+        {
+          "operation": "release-receive",
+          "receive_call": 0
+        },
+        {
+          "operation": "await-body",
+          "task_id": "body-task"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    }
+  ]
+}

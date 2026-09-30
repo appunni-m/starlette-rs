@@ -522,6 +522,37 @@ impl RequestBodyAccumulator {
         }
     }
 
+    /// Applies a message returned by an already-pending ASGI receive call.
+    ///
+    /// Independent Starlette stream consumers can have receive calls in flight
+    /// at the same time. Another consumer may observe the final message first;
+    /// a receive call that was already pending still yields its own message,
+    /// while the shared stream remains complete.
+    pub fn accept_pending_message(
+        &mut self,
+        message_type: &str,
+        body: &[u8],
+        more_body: bool,
+    ) -> Result<BodyProgress, RequestBodyError> {
+        match message_type {
+            "http.request" => {
+                if self.disconnected {
+                    return Err(RequestBodyError::ClientDisconnect);
+                }
+                self.complete |= !more_body;
+                Ok(BodyProgress::RequestChunk {
+                    chunk_length: body.len(),
+                    complete: self.complete,
+                })
+            }
+            "http.disconnect" => {
+                self.disconnected = true;
+                Err(RequestBodyError::ClientDisconnect)
+            }
+            _ => Ok(BodyProgress::Ignored),
+        }
+    }
+
     /// Returns whether the final `http.request` message has been received.
     #[must_use]
     pub const fn is_complete(&self) -> bool {
@@ -580,6 +611,27 @@ impl RequestBodyAccumulator {
             }
             self.cached_body = Some(std::mem::take(&mut self.received));
         }
+        self.cached_body
+            .as_deref()
+            .ok_or(RequestBodyError::BodyNotComplete)
+    }
+
+    /// Stores bytes collected by one body consumer after its receive loop
+    /// finishes. The caller owns the local chunks because concurrent stream
+    /// consumers may have received other messages from the same callback.
+    pub fn cache_body_from(&mut self, body: &[u8]) -> Result<&[u8], RequestBodyError> {
+        if self.disconnected {
+            return Err(RequestBodyError::ClientDisconnect);
+        }
+        if !self.collecting_body && self.cached_body.is_none() {
+            return Err(RequestBodyError::BodyCollectionNotStarted);
+        }
+        if !self.complete {
+            return Err(RequestBodyError::BodyNotComplete);
+        }
+        self.cached_body = Some(body.to_vec());
+        self.received.clear();
+        self.collecting_body = false;
         self.cached_body
             .as_deref()
             .ok_or(RequestBodyError::BodyNotComplete)
@@ -697,6 +749,52 @@ impl RequestStreamState {
         };
 
         match progress {
+            BodyProgress::Ignored => Ok(RequestStreamProgress::Receive),
+            BodyProgress::RequestChunk { complete, .. } if chunk.is_empty() => {
+                if complete {
+                    self.phase = RequestStreamPhase::Complete;
+                    Ok(RequestStreamProgress::Chunk(Vec::new()))
+                } else {
+                    Ok(RequestStreamProgress::Receive)
+                }
+            }
+            BodyProgress::RequestChunk { complete, .. } => {
+                if complete {
+                    self.phase = RequestStreamPhase::FinalTail;
+                }
+                Ok(RequestStreamProgress::Chunk(chunk.to_vec()))
+            }
+        }
+    }
+
+    /// Applies a message returned by this iterator's already-pending receive.
+    ///
+    /// Unlike [`Self::accept`], this preserves pending receives across another
+    /// iterator completing the shared request stream first.
+    pub fn accept_pending(
+        &mut self,
+        body: &mut RequestBodyAccumulator,
+        message_type: &str,
+        chunk: &[u8],
+        more_body: bool,
+    ) -> Result<RequestStreamProgress, RequestBodyError> {
+        if self.phase != RequestStreamPhase::Receiving {
+            return Err(RequestBodyError::StreamConsumed);
+        }
+
+        let progress = match body.accept_pending_message(message_type, chunk, more_body) {
+            Ok(progress) => progress,
+            Err(error) => {
+                self.phase = RequestStreamPhase::Complete;
+                return Err(error);
+            }
+        };
+
+        match progress {
+            BodyProgress::Ignored if body.is_complete() => {
+                self.phase = RequestStreamPhase::Complete;
+                Ok(RequestStreamProgress::Chunk(Vec::new()))
+            }
             BodyProgress::Ignored => Ok(RequestStreamProgress::Receive),
             BodyProgress::RequestChunk { complete, .. } if chunk.is_empty() => {
                 if complete {

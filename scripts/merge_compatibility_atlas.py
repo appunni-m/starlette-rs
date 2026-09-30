@@ -380,6 +380,10 @@ def main() -> int:
         manifest,
     )
     backlog_rows = [row for row in fixture_rows if row["fixture_status"] == "backlog"]
+    fixture_mapping_count = sum(row["fixture_status"] == "existing" for row in fixture_rows)
+    not_applicable_count = sum(
+        row["fixture_status"] == "not_applicable" for row in fixture_rows
+    )
     outputs = [
         (args.output / "api-review.csv", API_REVIEW_FIELDS, api_rows),
         (args.output / "coverage-matrix.csv", FIXTURE_FIELDS, fixture_rows),
@@ -398,7 +402,9 @@ def main() -> int:
     nav_page_count = len(nav_pages(upstream, inventory["documentation_root"]))
     support_module_count = len(test_support_modules(upstream, inventory["test_source_root"]))
     print(
-        f"Coverage matrix: {len(fixture_rows)} mappings; "
+        f"Coverage matrix: {len(fixture_rows)} source rows; "
+        f"{fixture_mapping_count} input mappings; "
+        f"{not_applicable_count} reasoned not_applicable rows; "
         f"new fixture backlog: {sum(row['fixture_status'] == 'backlog' for row in fixture_rows)} items; "
         f"{test_module_count} upstream test modules and "
         f"{nav_page_count} docs nav pages fully mapped; "
