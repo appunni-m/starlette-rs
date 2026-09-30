@@ -8,14 +8,14 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice run, `e47ec421-d41c-4127-aa32-1a499aeb46c7`, ran from
-`2026-09-30T21:01:34.949Z` to `2026-09-30T21:03:35.378Z` against Starlette
+The latest full-slice run, `80e14fcd-ac09-4cd9-aea5-299cb4d6300e`, ran from
+`2026-09-30T21:08:44.515Z` to `2026-09-30T21:10:38.274Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 710 profile
 comparisons: 706 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-550 selected comparisons; Rust-native passed 156 of 160. This was a
-pre-commit working-tree run: the package tree was marked dirty at base commit
-`7cd74784b0c66203dd5bdd071ffaed697b97a769`, with package-tree SHA-256
+550 selected comparisons; Rust-native passed 156 of 160. The package was
+clean at repository commit `cb3fdb1128bb2d6d99ad93dfe51f93c86a2c2ce9`, with
+installed package tree SHA-256
 `de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`. The new
 `Starlette.routes` case passed exact comparison for route order and shape,
 nested Mount/Host contents, list aliasing, and original route identity. The
@@ -25,7 +25,7 @@ background-task cancellation, StaticFiles traversal, and Mount reverse URLs.
 The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
 and callable-instance Request dispatch cases. The all-target runner exits with
 status 2 for those declared Python-callable boundaries. Manifest SHA-256:
-`69170b135d947ac35185c0e43362a63d20591cc64aefba1c175dfb7ffd8ef575`. This is
+`a8ed9b924274628820b8bc3e23d013b01829d6ab82bd20def0753db8d85929d2`. This is
 bounded local evidence, not full parity or release proof.
 
 ## Input-only cases

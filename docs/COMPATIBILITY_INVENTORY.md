@@ -29,23 +29,22 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest full-slice parity run `e47ec421-d41c-4127-aa32-1a499aeb46c7` ran against
+Latest full-slice parity run `80e14fcd-ac09-4cd9-aea5-299cb4d6300e` ran against
 the pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T21:01:34.949Z` to `2026-09-30T21:03:35.378Z`. It selected 710
+`2026-09-30T21:08:44.515Z` to `2026-09-30T21:10:38.274Z`. It selected 710
 profile comparisons: 706 passed, zero failed, zero infrastructure errors, and
 four unsupported Rust-native Python-callable comparisons were `not_run`. The
 installed Python package passed all 550 selected comparisons; Rust-native
-passed 156 of 160. This was a pre-commit working-tree run against base commit
-`7cd74784b0c66203dd5bdd071ffaed697b97a769`; the installed package tree was
-marked dirty with SHA-256
-`de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`. The new
-Starlette.routes input compares route order and shape, nested Mount/Host
+passed 156 of 160. The package was clean at repository commit
+`cb3fdb1128bb2d6d99ad93dfe51f93c86a2c2ce9`, with installed package tree
+SHA-256 `de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`.
+The new Starlette.routes input compares route order and shape, nested Mount/Host
 contents, list aliasing, and original route identity. The run also includes
 Request.app identity, lazy Request.state initialization, TestClient state and
 exception-policy, WebSocket query/raw-path projection and parsed
 query-parameter inputs, async background-task cancellation and finalization,
 StaticFiles traversal, and Mount reverse-URL cases. The manifest SHA-256 is
-`69170b135d947ac35185c0e43362a63d20591cc64aefba1c175dfb7ffd8ef575`. The
+`a8ed9b924274628820b8bc3e23d013b01829d6ab82bd20def0753db8d85929d2`. The
 all-target command exits 2 because of the four unsupported Rust-native callable
 cases. This bounded run is not full Starlette parity.
 

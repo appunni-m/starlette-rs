@@ -10,13 +10,13 @@ incomplete.
 
 The active contract contains 552 input-only cases in 63 indexed files,
 covering 79 operations and 589 parity requirements. The latest integrated run,
-`e47ec421-d41c-4127-aa32-1a499aeb46c7`, selected 710 comparisons: 706 passed,
+`80e14fcd-ac09-4cd9-aea5-299cb4d6300e`, selected 710 comparisons: 706 passed,
 zero failed, zero infrastructure errors, and four Rust-native Python-callable
 comparisons were `not_run`. The Python package passed all 550 comparisons;
-Rust-native passed 156 of 160. This pre-commit run used base commit
-`7cd74784b0c66203dd5bdd071ffaed697b97a769` with package-tree SHA-256
-`de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff` marked
-dirty. The new `Starlette.routes` case compares ordered route shapes, nested
+Rust-native passed 156 of 160. This clean run used commit
+`cb3fdb1128bb2d6d99ad93dfe51f93c86a2c2ce9` and package-tree SHA-256
+`de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`. The new
+`Starlette.routes` case compares ordered route shapes, nested
 Mount/Host contents, list aliasing, and original route identity. The run also
 includes TestClient exception-policy and lifespan state-propagation inputs,
 Request.app identity and lazy Request.state initialization, WebSocket lifecycle,

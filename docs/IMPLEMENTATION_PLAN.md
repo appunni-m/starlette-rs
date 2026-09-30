@@ -39,18 +39,18 @@ Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
 interleaved consumers, plus lazy Request.state initialization through a routed
 request. The latest live source/package/native run
-`e47ec421-d41c-4127-aa32-1a499aeb46c7` ran from
-`2026-09-30T21:01:34.949Z` to `2026-09-30T21:03:35.378Z` and selected 710
+`80e14fcd-ac09-4cd9-aea5-299cb4d6300e` ran from
+`2026-09-30T21:08:44.515Z` to `2026-09-30T21:10:38.274Z` and selected 710
 profile comparisons: 706 passed, zero failed, zero infrastructure errors, and
 four unsupported Rust-native Python-callable comparisons were `not_run`. The
 Python package passed 550/550; Rust-native passed 156/160. This was a
-pre-commit working-tree run against base commit
-`7cd74784b0c66203dd5bdd071ffaed697b97a769`; the installed package tree was
-marked dirty at SHA-256
+clean run at commit `cb3fdb1128bb2d6d99ad93dfe51f93c86a2c2ce9`; installed
+package tree SHA-256 was
 `de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`. The new
 routes case compares ordered HTTP, WebSocket, Mount, and Host route shapes,
-list aliasing, and original route identity. This bounded evidence does not
-establish full parity.
+list aliasing, and original route identity. Manifest SHA-256 is
+`a8ed9b924274628820b8bc3e23d013b01829d6ab82bd20def0753db8d85929d2`. This
+bounded evidence does not establish full parity.
 
 Six WSGIMiddleware cases, two direct
 `build_environ` cases, and the module-import deprecation warning case passed
