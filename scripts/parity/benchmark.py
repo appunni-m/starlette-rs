@@ -158,7 +158,10 @@ def _artifact_identity(
         "source_validation": source_validation,
         "parity_gate": gate,
         "native_parity_adapter": native_adapter,
-        "prepared_environments": list(prepared.values()),
+        "prepared_environments": [
+            {key: value for key, value in environment.items() if key != "target_identity"}
+            for environment in prepared.values()
+        ],
         "machine": {
             "platform": platform.platform(),
             "architecture": platform.machine(),

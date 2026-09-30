@@ -998,7 +998,10 @@ def run_upstream_benchmark(
                 "sha256": sha256_file(gate_path),
                 "summary": gate["summary"],
             },
-            "prepared_environments": list(prepared.values()),
+            "prepared_environments": [
+                {key: value for key, value in environment.items() if key != "target_identity"}
+                for environment in prepared.values()
+            ],
             "machine": {
                 "platform": platform.platform(),
                 "architecture": platform.machine(),
