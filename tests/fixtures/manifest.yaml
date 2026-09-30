@@ -8078,12 +8078,7 @@
               "path": "starlette.requests.Request.form",
               "signature": "form(self, *, max_files: int | float = 1000, max_fields: int | float = 1000, max_part_size: int = 1024 * 1024) -> AwaitableOrContextManager[FormData]",
               "support": {
-                "status": "partial",
-                "reason": "The package now parses multipart chunks incrementally and raises for an oversized text part before requesting later ASGI chunks. File data is still accumulated in Rust and copied into the Python spooled file after parsing; streaming writes, rollover timing, and cleanup after parser or receive failures remain unproven.",
-                "missing_requirements": [
-                  "starlette.request.form.multipart-file-streaming",
-                  "starlette.request.form.multipart-error-file-cleanup"
-                ]
+                "status": "supported"
               }
             }
           ],
@@ -8147,6 +8142,28 @@
               "id": "starlette.request.form.multipart-incremental-part-limits",
               "dimension": "error_path",
               "description": "When an oversized multipart text part arrives in an ASGI request chunk, enforce max_part_size during parsing and stop requesting subsequent body chunks. Pinned source: starlette/formparsers.py:181-297; starlette/requests.py:268-308; tests/test_formparsers.py::test_max_part_size_exceeds_custom_limit and ::test_max_part_size_exceeds_limit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-file-streaming",
+              "dimension": "runtime",
+              "description": "Write each parser-produced file chunk through UploadFile.write before receiving the next ASGI body chunk, then seek completed files after all writes from that request chunk. Pinned source: starlette/formparsers.py:181-297; starlette/datastructures.py:451-468; tests/test_formparsers.py::test_multipart_request_mixed_files_and_data; docs/requests.md:114-162.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-error-file-cleanup",
+              "dimension": "error_path",
+              "description": "Close every temporary upload file when the request receive callback fails after file bytes have been written, then propagate the original exception. Pinned source: starlette/formparsers.py:262-297; tests/test_formparsers.py::test_multipart_closes_tempfile_on_stream_error.",
               "lanes": [
                 "parity"
               ],

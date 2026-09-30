@@ -5259,6 +5259,8 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         "form_file_read_size",
         "form_file_write_base64",
         "form_close",
+        "form_io_trace",
+        "receive_error",
     ):
         if key in case:
             case_fields.add(key)
@@ -5273,12 +5275,19 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
     scope = _make_scope(case["scope"])
     incoming = [_make_message(message) for message in case["receive"]]
     received = 0
+    io_trace: list[list[Any]] = []
+    tracked_tempfiles: list[Any] = []
 
     async def receive() -> dict[str, Any]:
         nonlocal received
-        message = incoming[received]
+        call_index = received
         received += 1
-        return message
+        if case.get("form_io_trace", False):
+            io_trace.append(["receive", call_index])
+        receive_error = case.get("receive_error")
+        if receive_error is not None and call_index == receive_error["at_call"]:
+            raise RuntimeError(receive_error["message"])
+        return incoming[call_index]
 
     async def observe() -> dict[str, Any]:
         request = Request(scope, receive)
@@ -5307,6 +5316,14 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
                         "fields": fields,
                     },
                     "receive_calls": received,
+                    **(
+                        {
+                            "io_trace": io_trace,
+                            "temp_files_closed": [file.closed for file in tracked_tempfiles],
+                        }
+                        if case.get("form_io_trace", False)
+                        else {}
+                    ),
                 },
             }
         file_observations = []
@@ -5316,6 +5333,9 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         if "form_file_probe_keys" in case:
             value["files"] = file_observations
         value["receive_calls"] = received
+        if case.get("form_io_trace", False):
+            value["io_trace"] = io_trace
+            value["temp_files_closed"] = [file.closed for file in tracked_tempfiles]
         return {"form": value}
 
     async def inspect_form(
@@ -5364,10 +5384,54 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             observed_files.append((key, upload, file_value))
         return value, observed_files
 
+    if case.get("form_io_trace", False):
+        import starlette.formparsers as formparsers
+
+        original_spooled_tempfile = tempfile.SpooledTemporaryFile
+        original_formparser_spooled_tempfile = getattr(formparsers, "SpooledTemporaryFile", None)
+        original_upload_write = UploadFile.write
+        original_upload_seek = UploadFile.seek
+
+        def observed_spooled_tempfile(*args: Any, **kwargs: Any) -> Any:
+            file = original_spooled_tempfile(*args, **kwargs)
+            tracked_tempfiles.append(file)
+            original_close = file.close
+
+            def observed_close() -> Any:
+                result = original_close()
+                io_trace.append(["spooled-file-close", bool(file.closed)])
+                return result
+
+            file.close = observed_close
+            return file
+
+        async def observed_upload_write(self: Any, data: bytes) -> None:
+            io_trace.append(["upload-write", self.filename, base64.b64encode(data).decode("ascii")])
+            await original_upload_write(self, data)
+
+        async def observed_upload_seek(self: Any, offset: int) -> None:
+            io_trace.append(["upload-seek", self.filename, offset])
+            await original_upload_seek(self, offset)
+
+        tempfile.SpooledTemporaryFile = observed_spooled_tempfile
+        formparsers.SpooledTemporaryFile = observed_spooled_tempfile
+        UploadFile.write = observed_upload_write
+        UploadFile.seek = observed_upload_seek
+    try:
+        result = asyncio.run(observe())
+    finally:
+        if case.get("form_io_trace", False):
+            tempfile.SpooledTemporaryFile = original_spooled_tempfile
+            if original_formparser_spooled_tempfile is None:
+                delattr(formparsers, "SpooledTemporaryFile")
+            else:
+                formparsers.SpooledTemporaryFile = original_formparser_spooled_tempfile
+            UploadFile.write = original_upload_write
+            UploadFile.seek = original_upload_seek
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [{"step_id": "form", "status": "ok", "value": asyncio.run(observe())}],
+        "observations": [{"step_id": "form", "status": "ok", "value": result}],
     }
 
 

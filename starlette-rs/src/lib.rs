@@ -59,8 +59,8 @@ pub use mount::{
     MountScopeExtension,
 };
 pub use multipart::{
-    MultipartFormParseError, MultipartFormParser, MultipartPart, multipart_boundary,
-    parse_multipart_form,
+    MultipartFormEvent, MultipartFormParseError, MultipartFormParser, MultipartPart,
+    multipart_boundary, parse_multipart_form,
 };
 pub use request::{
     BodyProgress, Cookies, QueryParams, RequestBodyAccumulator, RequestBodyError, RequestHeaders,

@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 439 input-only cases across 49 files,
-covering 66 operations and 498 parity requirements. The authored cases span
+The active parity manifest indexes 441 input-only cases across 49 files,
+covering 66 operations and 500 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 StaticFiles, WebSockets, exceptions, status constants, endpoints,
@@ -28,15 +28,16 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `9ece999c-4299-47ea-bcc7-49948bff3a36` ran against the
-pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 587 comparisons:
-583 passed, zero failed, zero infrastructure errors, and four Rust-native
-comparisons were `not_run`. The installed Python package passed all 437 of its
+Latest live parity run `4a3dde0f-ce5c-4ca4-8214-cc248190d71c` ran against the
+pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 589 comparisons:
+585 passed, zero failed, zero infrastructure errors, and four Rust-native
+comparisons were `not_run`. The installed Python package passed all 439 of its
 selected comparisons. Rust-native passed 146 of 150; the four unsupported
-inputs exercise sync request-dispatch callable forms. The new multipart
-oversized-text case matched the source error and stopped after one receive
-call. The all-target command still exits 2 for those four unsupported
-Rust-native cases; this bounded run is not full Starlette parity.
+inputs exercise sync request-dispatch callable forms. Multipart inputs compare
+the text-limit short circuit, file write/seek ordering across request chunks,
+and cleanup after a receive callback error. The all-target command still exits
+2 for those four unsupported Rust-native cases; this bounded run is not full
+Starlette parity.
 
 The latest correctness-gated Router/GZip benchmark run,
 `07eb140d-a8d2-4964-9e33-2a408f4a171e`, measured 74 of 74 source/package
@@ -316,7 +317,7 @@ crosswalk snapshot, 190 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 49 indexed files
-and 439 cases, including twelve Response background-task workflows, six
+and 441 cases, including twelve Response background-task workflows, six
 header-view and raw-pair probes, and a Router sequence that verifies live
 route-method and route-list mutations across
 dispatches, twenty URL scope-construction cases,
@@ -366,30 +367,39 @@ input-only fixture files.
 
 ## Multipart Request.form and UploadFile slice
 
-The input-only case in
+The input-only cases in
 [`request-form-multipart.yaml`](../tests/fixtures/sources/parity/request-form-multipart.yaml)
-compares a small, well-formed multipart body split across three ASGI request
-chunks. It contains text fields before and after one `file.txt` upload. The
-consumer observations cover FormData ordering and lookups, UploadFile metadata,
-partial and full reads, append/write/readback, seek, and explicit FormData.close.
-The case maps to the mixed-files-and-data parser scenario and the documented
-UploadFile attributes and async methods. It does not claim broad multipart
-parity.
+compare small, well-formed multipart bodies split across ASGI request
+chunks. The baseline mixed-files-and-data case contains text fields around one
+`file.txt` upload; its consumer observations cover FormData ordering and
+lookups, UploadFile metadata, partial and full reads, append/write/readback,
+seek, and explicit FormData.close. The cases map to this documented parser
+scenario and UploadFile attributes and async methods. They do not claim broad
+multipart parity.
 
 Multipart boundaries, disposition parsing, and part values are selected in
 Rust through the locked `multer` parser. Python holds the standard
 `SpooledTemporaryFile` object exposed by the public UploadFile API and performs
 the required PyO3 conversions and awaits the native UploadFile methods. The
-request state machine now feeds multipart request chunks to a Rust-owned
-`MultipartFormParser` as they arrive. The additional input-only case places an
-oversized text part in the first chunk and supplies a later sentinel chunk. It
-compares the parser error and number of `receive` calls against pinned
-Starlette, establishing incremental text-part limit enforcement and early
-termination of request consumption for that path. The Rust parser still
-accumulates each complete file part in a byte vector, then the boundary layer
-copies it into Python's `SpooledTemporaryFile` after parsing. Streaming file
-writes and rollover timing, cleanup after parser or receive errors, and
-large-file worker-thread behavior remain explicit backlog requirements.
+request state machine feeds chunks to a Rust-owned `MultipartFormParser` and
+processes its ordered file-start, file-data, and file-finished events. It does
+not retain a complete file part in a Rust byte vector. The bridge creates the
+standard spooled file when Rust signals `FileStarted`; the state machine awaits
+`UploadFile.write` for
+each file-data event before requesting another ASGI body chunk, writes all
+files from a request chunk before seeking completed files, and selects cleanup
+on errors.
+
+The oversized-text input puts the limit violation in the first request chunk
+and supplies a later sentinel chunk; source and package agree on the parser
+error and one `receive` call. The file-streaming input splits one file across
+two receives and puts a second file in the latter receive. Its observed trace
+matches Starlette: the first write occurs before the second receive, both
+writes from the latter chunk precede both seeks, and FormData closes both
+spooled files. A separate input makes the next receive callback raise after
+file bytes have been written; both implementations close the spooled file and
+propagate the same `RuntimeError`. Large-file rollover and worker-thread timing
+remain unproven.
 
 ## WebSocketEndpoint dispatch slice
 
@@ -485,7 +495,7 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 439 currently indexed cases and
+The backlog distinguishes that work from the 441 currently indexed cases and
 the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
 
 ## Generate the source candidate catalog

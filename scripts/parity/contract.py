@@ -181,6 +181,8 @@ REQUEST_FORM_OPTIONAL_KEYS = {
     "form_file_read_size",
     "form_file_write_base64",
     "form_close",
+    "form_io_trace",
+    "receive_error",
 }
 UPLOAD_FILE_OPERATION = ("starlette.datastructures.UploadFile", "file-operations")
 STATUS_OPERATION = ("starlette.status", "module-symbol-sequence")
@@ -620,16 +622,6 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
     ),
     (ROUTER_SURFACE, ROUTER_OPERATION, "rust-native"): frozenset(
         {"starlette.routing.Router.route-dispatch.python-callable-endpoint"}
-    ),
-    (
-        REQUEST_FORM_OPERATION[0],
-        REQUEST_FORM_OPERATION[1],
-        "python-package",
-    ): frozenset(
-        {
-            "starlette.request.form.multipart-file-streaming",
-            "starlette.request.form.multipart-error-file-cleanup",
-        }
     ),
     (
         FORM_DATA_MULTIDICT_LOOKUPS_OPERATION[0],
@@ -9345,6 +9337,42 @@ def _first_multipart_text_part(content_type: str, body: bytes) -> bytes | None:
     return payload if isinstance(payload, bytes) else None
 
 
+def _multipart_boundary(content_type: str) -> bytes | None:
+    match = re.search(
+        r'(?:^|;)\s*boundary\s*=\s*(?:"([^"]+)"|([^;\s]+))',
+        content_type,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    value = match.group(1) or match.group(2)
+    return value.encode("latin-1")
+
+
+def _first_multipart_file_data_range(content_type: str, body: bytes) -> tuple[int, int] | None:
+    boundary = _multipart_boundary(content_type)
+    if boundary is None:
+        return None
+    marker = b"--" + boundary
+    part_start = body.find(marker)
+    while part_start >= 0:
+        header_start = body.find(b"\r\n", part_start)
+        if header_start < 0:
+            return None
+        header_end = body.find(b"\r\n\r\n", header_start)
+        if header_end < 0:
+            return None
+        headers = body[header_start + 2 : header_end].lower()
+        if b"content-disposition:" in headers and b"filename=" in headers:
+            data_start = header_end + 4
+            data_end = body.find(b"\r\n" + marker, data_start)
+            if data_end < 0:
+                return None
+            return data_start, data_end
+        part_start = body.find(marker, header_end + 4)
+    return None
+
+
 def _validate_request_form_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("Request.form parity currently targets the Python package profile")
@@ -9410,6 +9438,22 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "Request.form file probes must exercise FormData's file-close lifecycle"
         )
+    if "form_io_trace" in case and type(case["form_io_trace"]) is not bool:
+        raise ContractError("Request.form form_io_trace must be a boolean")
+    receive_error = case.get("receive_error")
+    if receive_error is not None:
+        _exact(receive_error, {"at_call", "message"}, "Request.form receive_error")
+        if (
+            type(receive_error["at_call"]) is not int
+            or receive_error["at_call"] < 1
+            or receive_error["at_call"] >= len(messages)
+            or not isinstance(receive_error["message"], str)
+            or not receive_error["message"]
+            or not case.get("form_io_trace", False)
+        ):
+            raise ContractError(
+                "Request.form receive_error must fail after a traced multipart chunk"
+            )
 
     form_options = case.get("form_options", {})
     if not isinstance(form_options, dict) or set(form_options) - {
@@ -9451,7 +9495,26 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     elif content_type == b"multipart/form-data" and body:
         if not case["scope"]["headers_base64_pairs"]:
             raise ContractError("Request.form multipart cases require Content-Type")
-        if "max_part_size" in form_options:
+        if receive_error is not None:
+            if form_options or form_file_probe_keys or form_access != "await":
+                raise ContractError(
+                    "Request.form receive-error cleanup cases cannot include form options or probes"
+                )
+            file_data_range = _first_multipart_file_data_range(content_type_header or "", body)
+            prior_body = b"".join(
+                base64.b64decode(message["body_base64"], validate=True)
+                for message in messages[: receive_error["at_call"]]
+            )
+            if (
+                file_data_range is None
+                or len(prior_body) <= file_data_range[0]
+                or not all(message["more_body"] for message in messages[: receive_error["at_call"]])
+            ):
+                raise ContractError(
+                    "Request.form receive-error cleanup cases must fail after file bytes arrive"
+                )
+            expected_covers = ["starlette.request.form.multipart-error-file-cleanup"]
+        elif "max_part_size" in form_options:
             if set(form_options) != {"max_part_size"}:
                 raise ContractError(
                     "Request.form multipart limit cases currently select max_part_size alone"
@@ -9502,6 +9565,20 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 expected_covers.append("starlette.datastructures.FormData.close")
             if form_access == "context-manager":
                 expected_covers.append("starlette.request.form.context-manager-lifecycle")
+            if case.get("form_io_trace", False):
+                file_data_range = _first_multipart_file_data_range(content_type_header or "", body)
+                first_chunk_length = len(
+                    base64.b64decode(messages[0]["body_base64"], validate=True)
+                )
+                if (
+                    len(messages) < 2
+                    or file_data_range is None
+                    or not file_data_range[0] < first_chunk_length < file_data_range[1]
+                ):
+                    raise ContractError(
+                        "Request.form file streaming traces must split file bytes across receives"
+                    )
+                expected_covers.append("starlette.request.form.multipart-file-streaming")
     elif content_type is None and not body:
         expected_covers = ["starlette.request.form.empty"]
     else:

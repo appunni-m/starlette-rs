@@ -1,5 +1,6 @@
 //! Rust-owned multipart/form-data parsing for the Python request boundary.
 
+use std::collections::VecDeque;
 use std::convert::Infallible;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -22,6 +23,43 @@ pub struct MultipartPart {
     pub data: Vec<u8>,
     /// Decoded text value, or `None` for an uploaded file.
     pub text: Option<String>,
+}
+
+/// One ordered parser result, with uploaded file bytes kept outside Rust buffers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MultipartFormEvent {
+    /// A complete text field.
+    TextField {
+        /// Zero-based position of this part in the multipart body.
+        part_index: usize,
+        /// Parsed text field.
+        part: MultipartPart,
+    },
+    /// Headers for a file part have been parsed.
+    FileStarted {
+        /// Zero-based position of this part in the multipart body.
+        part_index: usize,
+        /// Decoded field name.
+        name: String,
+        /// Decoded filename.
+        filename: String,
+        /// Lowercase header names and original header value bytes.
+        headers: Vec<(Vec<u8>, Vec<u8>)>,
+    },
+    /// File bytes produced by the current request-body chunk.
+    FileChunk {
+        /// Zero-based position of this part in the multipart body.
+        part_index: usize,
+        /// Bytes belonging to this file part.
+        data: Vec<u8>,
+    },
+    /// The parser reached the end of a file part.
+    FileFinished {
+        /// Zero-based position of this part in the multipart body.
+        part_index: usize,
+        /// Total file size in bytes.
+        size: usize,
+    },
 }
 
 /// Multipart parser failures that have Starlette-compatible public messages.
@@ -53,8 +91,7 @@ pub enum MultipartFormParseError {
     },
 }
 
-/// Incrementally parses multipart/form-data chunks while retaining completed
-/// fields for construction of Starlette-compatible FormData values.
+/// Incrementally parses multipart/form-data chunks and emits ordered part events.
 ///
 /// Text-part size limits are enforced as bytes arrive, so callers can stop
 /// requesting the input stream immediately when a part exceeds its limit.
@@ -63,7 +100,7 @@ pub struct MultipartFormParser {
     multipart: Multipart<'static>,
     active_field: Option<Field<'static>>,
     active_part: Option<MultipartPartBuilder>,
-    parts: Vec<MultipartPart>,
+    events: VecDeque<MultipartFormEvent>,
     charset: String,
     max_files: f64,
     max_files_display: String,
@@ -72,14 +109,17 @@ pub struct MultipartFormParser {
     max_part_size: i64,
     files: usize,
     fields: usize,
+    parts_started: usize,
     complete: bool,
 }
 
 struct MultipartPartBuilder {
+    part_index: usize,
     name: String,
     filename: Option<String>,
     headers: Vec<(Vec<u8>, Vec<u8>)>,
     data: Vec<u8>,
+    size: usize,
 }
 
 impl MultipartFormParseError {
@@ -133,6 +173,48 @@ pub fn parse_multipart_form(
     parser.finish()
 }
 
+fn collect_multipart_parts(events: Vec<MultipartFormEvent>) -> Vec<MultipartPart> {
+    let mut parts = Vec::new();
+    for event in events {
+        match event {
+            MultipartFormEvent::TextField { part_index, part } => {
+                let index = part_index_slot(&mut parts, part_index);
+                *index = Some(part);
+            }
+            MultipartFormEvent::FileStarted {
+                part_index,
+                name,
+                filename,
+                headers,
+            } => {
+                let index = part_index_slot(&mut parts, part_index);
+                *index = Some(MultipartPart {
+                    name,
+                    filename: Some(filename),
+                    headers,
+                    data: Vec::new(),
+                    text: None,
+                });
+            }
+            MultipartFormEvent::FileChunk { part_index, data } => {
+                if let Some(Some(part)) = parts.get_mut(part_index) {
+                    part.data.extend_from_slice(&data);
+                }
+            }
+            MultipartFormEvent::FileFinished { .. } => {}
+        }
+    }
+    parts.into_iter().flatten().collect()
+}
+
+fn part_index_slot(
+    parts: &mut Vec<Option<MultipartPart>>,
+    part_index: usize,
+) -> &mut Option<MultipartPart> {
+    parts.resize_with(part_index + 1, || None);
+    &mut parts[part_index]
+}
+
 impl MultipartFormParser {
     /// Creates a parser with the supplied Starlette multipart limits.
     pub fn new(
@@ -150,7 +232,7 @@ impl MultipartFormParser {
             multipart: Multipart::new(receiver, boundary),
             active_field: None,
             active_part: None,
-            parts: Vec::new(),
+            events: VecDeque::new(),
             charset: request_charset(content_type),
             max_files,
             max_files_display: max_files_display.to_owned(),
@@ -159,6 +241,7 @@ impl MultipartFormParser {
             max_part_size,
             files: 0,
             fields: 0,
+            parts_started: 0,
             complete: false,
         })
     }
@@ -178,9 +261,19 @@ impl MultipartFormParser {
 
     /// Finishes the request-body stream and returns its parsed parts.
     pub fn finish(mut self) -> Result<Vec<MultipartPart>, MultipartFormParseError> {
+        self.finish_events()?;
+        Ok(collect_multipart_parts(self.drain_events()))
+    }
+
+    /// Finishes the request-body stream while retaining events for draining.
+    pub fn finish_events(&mut self) -> Result<(), MultipartFormParseError> {
         self.sender.close_channel();
-        self.process_available()?;
-        Ok(self.parts)
+        self.process_available()
+    }
+
+    /// Removes parser events produced since the previous drain.
+    pub fn drain_events(&mut self) -> Vec<MultipartFormEvent> {
+        self.events.drain(..).collect()
     }
 
     fn process_available(&mut self) -> Result<(), MultipartFormParseError> {
@@ -204,7 +297,15 @@ impl MultipartFormParser {
                                 max_part_size_kb: self.max_part_size / 1024,
                             });
                         }
-                        part.data.extend_from_slice(&chunk);
+                        if part.filename.is_none() {
+                            part.data.extend_from_slice(&chunk);
+                        } else {
+                            part.size = part.size.saturating_add(chunk.len());
+                            self.events.push_back(MultipartFormEvent::FileChunk {
+                                part_index: part.part_index,
+                                data: chunk.to_vec(),
+                            });
+                        }
                     }
                     Poll::Ready(Some(Err(error))) => {
                         return Err(MultipartFormParseError::Malformed {
@@ -268,12 +369,26 @@ impl MultipartFormParser {
                 )
             })
             .collect();
+        let part_index = self.parts_started;
+        self.parts_started += 1;
         self.active_part = Some(MultipartPartBuilder {
+            part_index,
             name,
             filename,
             headers,
             data: Vec::new(),
+            size: 0,
         });
+        if let Some(part) = self.active_part.as_ref()
+            && let Some(filename) = part.filename.as_ref()
+        {
+            self.events.push_back(MultipartFormEvent::FileStarted {
+                part_index,
+                name: part.name.clone(),
+                filename: filename.clone(),
+                headers: part.headers.clone(),
+            });
+        }
         self.active_field = Some(field);
         Ok(())
     }
@@ -284,17 +399,24 @@ impl MultipartFormParser {
                 message: "multipart parser lost the completed part".to_owned(),
             });
         };
-        let text = part
-            .filename
-            .is_none()
-            .then(|| user_safe_decode(&part.data, &self.charset));
-        self.parts.push(MultipartPart {
-            name: part.name,
-            filename: part.filename,
-            headers: part.headers,
-            data: part.data,
-            text,
-        });
+        if part.filename.is_none() {
+            let text = user_safe_decode(&part.data, &self.charset);
+            self.events.push_back(MultipartFormEvent::TextField {
+                part_index: part.part_index,
+                part: MultipartPart {
+                    name: part.name,
+                    filename: None,
+                    headers: part.headers,
+                    data: part.data,
+                    text: Some(text),
+                },
+            });
+        } else {
+            self.events.push_back(MultipartFormEvent::FileFinished {
+                part_index: part.part_index,
+                size: part.size,
+            });
+        }
         Ok(())
     }
 }

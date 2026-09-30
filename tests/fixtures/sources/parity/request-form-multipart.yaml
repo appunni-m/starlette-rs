@@ -136,6 +136,138 @@
       "form_options": {
         "max_part_size": 3
       }
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-streams-file-chunks",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.datastructures.FormData.file-values",
+        "starlette.datastructures.UploadFile.file-operations",
+        "starlette.datastructures.FormData.close",
+        "starlette.request.form.multipart-file-streaming"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9c3RyZWFtaW5nLWRlbW8tNDI="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1zdHJlYW1pbmctZGVtby00Mg0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJ1cGxvYWQtYSI7IGZpbGVuYW1lPSJhLmJpbiINCkNvbnRlbnQtVHlwZTogYXBwbGljYXRpb24vb2N0ZXQtc3RyZWFtDQoNCmE=",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "MQ0KLS1zdHJlYW1pbmctZGVtby00Mg0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJ1cGxvYWQtYiI7IGZpbGVuYW1lPSJiLmJpbiINCkNvbnRlbnQtVHlwZTogYXBwbGljYXRpb24vb2N0ZXQtc3RyZWFtDQoNCmIyDQotLXN0cmVhbWluZy1kZW1vLTQyLS0NCg==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "upload-a",
+        "upload-b"
+      ],
+      "form_file_probe_keys": [
+        "upload-a",
+        "upload-b"
+      ],
+      "form_file_read_size": 2,
+      "form_close": true,
+      "form_io_trace": true,
+      "observations": [
+        "form"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-cleans-files-after-receive-error",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-error-file-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9Y2xlYW51cC1kZW1vLTQz"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1jbGVhbnVwLWRlbW8tNDMNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0idXBsb2FkIjsgZmlsZW5hbWU9InBhcnRpYWwuYmluIg0KQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0NCg0KcGFydGlhbA==",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "DQotLWNsZWFudXAtZGVtby00My0tDQo=",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "form_io_trace": true,
+      "receive_error": {
+        "at_call": 1,
+        "message": "receive failed after multipart file data"
+      },
+      "observations": [
+        "form"
+      ]
     }
   ]
 }

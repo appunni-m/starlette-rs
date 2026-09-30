@@ -1,5 +1,6 @@
 //! Rust-owned `Request` body streaming and collection with Python receive callbacks.
 
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use pyo3::create_exception;
@@ -12,8 +13,8 @@ use pyo3::types::{
     PyBool, PyBytes, PyDict, PyList, PyModule, PyString, PyTraceback, PyTuple, PyType,
 };
 use starlette_rs::{
-    FormData as NativeFormData, FormDataParseError, MultipartFormParseError, MultipartFormParser,
-    MultipartPart, RequestBodyAccumulator as NativeRequestBodyAccumulator, RequestBodyError,
+    FormData as NativeFormData, FormDataParseError, MultipartFormEvent, MultipartFormParseError,
+    MultipartFormParser, RequestBodyAccumulator as NativeRequestBodyAccumulator, RequestBodyError,
     RequestStreamProgress, RequestStreamState,
 };
 
@@ -573,8 +574,16 @@ impl PyRequestBody {
             max_fields_display: max_fields.str()?.extract::<String>()?,
             max_part_size: max_part_size.extract::<i64>()?,
             multipart_parser: None,
+            multipart_events: VecDeque::new(),
+            multipart_operations: VecDeque::new(),
+            multipart_items: Vec::new(),
+            multipart_uploads: Vec::new(),
+            multipart_temp_files: Vec::new(),
+            multipart_input_finished: false,
+            multipart_parse_succeeded: false,
             body: Vec::new(),
             pending_receive: false,
+            pending_multipart_operation: false,
         };
         let awaitable = into_python_awaitable(py, machine)?;
         Py::new(
@@ -1249,59 +1258,84 @@ struct FormMachine {
     max_fields_display: String,
     max_part_size: i64,
     multipart_parser: Option<MultipartFormParser>,
+    multipart_events: VecDeque<MultipartFormEvent>,
+    multipart_operations: VecDeque<MultipartFileOperation>,
+    multipart_items: Vec<(String, Py<PyAny>)>,
+    multipart_uploads: Vec<MultipartUpload>,
+    multipart_temp_files: Vec<Py<PyAny>>,
+    multipart_input_finished: bool,
+    multipart_parse_succeeded: bool,
     body: Vec<u8>,
     pending_receive: bool,
+    pending_multipart_operation: bool,
+}
+
+struct MultipartUpload {
+    part_index: usize,
+    name: String,
+    upload: Py<PyAny>,
+}
+
+enum MultipartFileOperation {
+    Write { part_index: usize, data: Vec<u8> },
+    Seek { part_index: usize },
 }
 
 impl AwaitableStateMachine for FormMachine {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
-        match input {
-            MachineResume::Start => self.start(py),
-            MachineResume::Value(message) => {
-                if !self.pending_receive {
-                    return Err(PyRuntimeError::new_err(
-                        "request form parsing received an unexpected result",
-                    ));
-                }
-                self.pending_receive = false;
-                let (message_type, body, more_body) = match request_message(py, message) {
-                    Ok(message) => message,
-                    Err(error) => {
-                        self.stream.fail();
-                        return Err(error);
-                    }
+        let result = self.resume_inner(py, input);
+        if let Err(error) = result {
+            self.stream.fail();
+            if !self.multipart_parse_succeeded {
+                return match self.close_multipart_files(py) {
+                    Ok(()) => Err(error),
+                    Err(cleanup_error) => Err(cleanup_error),
                 };
-                let progress = {
-                    let mut runtime = borrow_runtime_mut(&self.shared)?;
-                    if message_type == "http.disconnect" {
-                        runtime.request_disconnected = true;
-                    }
-                    self.stream
-                        .accept(&mut runtime.accumulator, &message_type, &body, more_body)
-                };
-                match progress {
-                    Ok(progress) => self.consume_progress(py, progress),
-                    Err(error) => {
-                        self.stream.fail();
-                        Err(request_body_error(py, error))
-                    }
-                }
             }
-            MachineResume::AsyncIterationComplete(_) => {
-                self.stream.fail();
-                Err(PyRuntimeError::new_err(
-                    "async generator raised StopAsyncIteration",
-                ))
-            }
-            MachineResume::Error(error) => {
-                self.stream.fail();
-                Err(error)
-            }
+            return Err(error);
         }
+        result
     }
 }
 
 impl FormMachine {
+    fn resume_inner(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => self.start(py),
+            MachineResume::Value(message) => {
+                if self.pending_receive {
+                    self.pending_receive = false;
+                    let (message_type, body, more_body) = request_message(py, message)?;
+                    let progress = {
+                        let mut runtime = borrow_runtime_mut(&self.shared)?;
+                        if message_type == "http.disconnect" {
+                            runtime.request_disconnected = true;
+                        }
+                        self.stream.accept(
+                            &mut runtime.accumulator,
+                            &message_type,
+                            &body,
+                            more_body,
+                        )
+                    }
+                    .map_err(|error| request_body_error(py, error))?;
+                    self.consume_progress(py, progress)
+                } else if self.pending_multipart_operation {
+                    self.pending_multipart_operation = false;
+                    self.resume_multipart_operations(py)
+                } else {
+                    Err(PyRuntimeError::new_err(
+                        "request form parsing received an unexpected result",
+                    ))
+                }
+            }
+            MachineResume::AsyncIterationComplete(_) => Err(PyRuntimeError::new_err(
+                "async generator raised StopAsyncIteration",
+            )),
+            MachineResume::Error(error) => Err(error),
+        }
+    }
+
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         if let Some(form) = borrow_runtime(&self.shared)?.form_object.as_ref() {
             return Ok(MachineAction::Complete(form.clone_ref(py)));
@@ -1359,9 +1393,16 @@ impl FormMachine {
                                 "multipart form parser has not been initialized",
                             ));
                         };
-                        parser
-                            .push_chunk(body)
-                            .map_err(|error| self.multipart_parse_error(py, error))?;
+                        let result = parser.push_chunk(body);
+                        let events = parser.drain_events();
+                        if let Err(error) = result {
+                            self.create_multipart_files_from_error_events(py, events)?;
+                            return Err(self.multipart_parse_error(py, error));
+                        }
+                        self.multipart_events.extend(events);
+                        if let Some(action) = self.prepare_multipart_events(py)? {
+                            return Ok(action);
+                        }
                     } else {
                         self.body.extend_from_slice(&body);
                     }
@@ -1394,13 +1435,20 @@ impl FormMachine {
             request_form_media_type(self.content_type.as_deref()),
             FormMediaType::Multipart
         ) {
-            let parser = self.multipart_parser.take().ok_or_else(|| {
+            let parser = self.multipart_parser.as_mut().ok_or_else(|| {
                 PyRuntimeError::new_err("multipart form parser has not been initialized")
             })?;
-            let parts = parser
-                .finish()
-                .map_err(|error| self.multipart_parse_error(py, error))?;
-            return self.complete_multipart_form(py, parts);
+            let result = parser.finish_events();
+            let events = parser.drain_events();
+            if let Err(error) = result {
+                self.create_multipart_files_from_error_events(py, events)?;
+                return Err(self.multipart_parse_error(py, error));
+            }
+            self.multipart_events.extend(events);
+            self.multipart_input_finished = true;
+            return self
+                .prepare_multipart_events(py)?
+                .ok_or_else(|| PyRuntimeError::new_err("multipart parsing did not complete"));
         }
         let form =
             NativeFormData::parse_urlencoded(&self.body, self.max_fields, self.max_part_size)
@@ -1465,30 +1513,142 @@ impl FormMachine {
         self.complete_form_items(py, form_items)
     }
 
-    fn complete_multipart_form(
-        &self,
-        py: Python<'_>,
-        parts: Vec<MultipartPart>,
-    ) -> PyResult<MachineAction> {
-        let items = parts
-            .into_iter()
-            .map(|part| {
-                let MultipartPart {
+    fn prepare_multipart_events(&mut self, py: Python<'_>) -> PyResult<Option<MachineAction>> {
+        let mut writes = VecDeque::new();
+        let mut seeks = VecDeque::new();
+        while let Some(event) = self.multipart_events.pop_front() {
+            match event {
+                MultipartFormEvent::TextField { part, .. } => {
+                    let text = part.text.ok_or_else(|| {
+                        PyRuntimeError::new_err("multipart text field has no decoded value")
+                    })?;
+                    self.multipart_items
+                        .push((part.name, PyString::new(py, &text).into_any().unbind()));
+                }
+                MultipartFormEvent::FileStarted {
+                    part_index,
                     name,
                     filename,
                     headers,
-                    data,
-                    text,
-                } = part;
-                let value = if let Some(text) = text {
-                    PyString::new(py, &text).into_any().unbind()
-                } else {
-                    multipart_upload_file(py, filename, headers, data)?
-                };
-                Ok((name, value))
+                } => self.create_multipart_upload(py, part_index, name, filename, headers)?,
+                MultipartFormEvent::FileChunk { part_index, data } => {
+                    writes.push_back(MultipartFileOperation::Write { part_index, data });
+                }
+                MultipartFormEvent::FileFinished {
+                    part_index,
+                    size: _,
+                } => {
+                    let upload = self.multipart_upload(py, part_index)?;
+                    self.multipart_items.push((upload.name, upload.upload));
+                    seeks.push_back(MultipartFileOperation::Seek { part_index });
+                }
+            }
+        }
+        writes.append(&mut seeks);
+        self.multipart_operations.extend(writes);
+        self.start_next_multipart_operation(py)
+    }
+
+    fn resume_multipart_operations(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        if let Some(action) = self.start_next_multipart_operation(py)? {
+            return Ok(action);
+        }
+        let progress = {
+            let runtime = borrow_runtime(&self.shared)?;
+            self.stream.next(&runtime.accumulator)
+        }
+        .map_err(|error| request_body_error(py, error))?;
+        self.consume_progress(py, progress)
+    }
+
+    fn start_next_multipart_operation(
+        &mut self,
+        py: Python<'_>,
+    ) -> PyResult<Option<MachineAction>> {
+        if let Some(operation) = self.multipart_operations.pop_front() {
+            let awaitable = match operation {
+                MultipartFileOperation::Write { part_index, data } => self
+                    .multipart_upload(py, part_index)?
+                    .upload
+                    .bind(py)
+                    .call_method1("write", (PyBytes::new(py, &data),))?,
+                MultipartFileOperation::Seek { part_index } => self
+                    .multipart_upload(py, part_index)?
+                    .upload
+                    .bind(py)
+                    .call_method1("seek", (0,))?,
+            };
+            self.pending_multipart_operation = true;
+            return Ok(Some(MachineAction::Await(awaitable.unbind())));
+        }
+        if self.multipart_input_finished {
+            self.multipart_parse_succeeded = true;
+            let items = std::mem::take(&mut self.multipart_items);
+            return self.complete_form_items(py, items).map(Some);
+        }
+        Ok(None)
+    }
+
+    fn create_multipart_upload(
+        &mut self,
+        py: Python<'_>,
+        part_index: usize,
+        name: String,
+        filename: String,
+        headers: Vec<(Vec<u8>, Vec<u8>)>,
+    ) -> PyResult<()> {
+        let file = multipart_spooled_tempfile(py)?;
+        self.multipart_temp_files.push(file.clone_ref(py));
+        let upload = multipart_upload_file(py, file.bind(py), filename, headers)?;
+        self.multipart_uploads.push(MultipartUpload {
+            part_index,
+            name,
+            upload,
+        });
+        Ok(())
+    }
+
+    fn create_multipart_files_from_error_events(
+        &mut self,
+        py: Python<'_>,
+        events: Vec<MultipartFormEvent>,
+    ) -> PyResult<()> {
+        for event in events {
+            if let MultipartFormEvent::FileStarted {
+                part_index,
+                name,
+                filename,
+                headers,
+            } = event
+            {
+                self.create_multipart_upload(py, part_index, name, filename, headers)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn multipart_upload(&self, py: Python<'_>, part_index: usize) -> PyResult<MultipartUpload> {
+        self.multipart_uploads
+            .iter()
+            .find(|upload| upload.part_index == part_index)
+            .map(|upload| MultipartUpload {
+                part_index,
+                name: upload.name.clone(),
+                upload: upload.upload.clone_ref(py),
             })
-            .collect::<PyResult<Vec<_>>>()?;
-        self.complete_form_items(py, items)
+            .ok_or_else(|| PyRuntimeError::new_err("multipart parser lost an uploaded file"))
+    }
+
+    fn close_multipart_files(&mut self, py: Python<'_>) -> PyResult<()> {
+        for file in &self.multipart_temp_files {
+            file.bind(py).call_method0("close")?;
+        }
+        self.multipart_temp_files.clear();
+        self.multipart_uploads.clear();
+        self.multipart_operations.clear();
+        self.multipart_events.clear();
+        self.multipart_items.clear();
+        Ok(())
     }
 
     fn complete_form_items(
@@ -1513,24 +1673,24 @@ enum FormMediaType {
     Other,
 }
 
-fn multipart_upload_file(
-    py: Python<'_>,
-    filename: Option<String>,
-    headers: Vec<(Vec<u8>, Vec<u8>)>,
-    data: Vec<u8>,
-) -> PyResult<Py<PyAny>> {
+fn multipart_spooled_tempfile(py: Python<'_>) -> PyResult<Py<PyAny>> {
     // Python's SpooledTemporaryFile is the public `.file` representation in
     // Starlette's API. It remains a boundary object; Rust selects file parts,
     // sets the spool threshold, and constructs the UploadFile wrapper.
     let spool_kwargs = PyDict::new(py);
     spool_kwargs.set_item("max_size", 1024 * 1024)?;
-    let file = py
-        .import("tempfile")?
+    py.import("tempfile")?
         .getattr("SpooledTemporaryFile")?
-        .call((), Some(&spool_kwargs))?;
-    file.call_method1("write", (PyBytes::new(py, &data),))?;
-    file.call_method1("seek", (0,))?;
+        .call((), Some(&spool_kwargs))
+        .map(Bound::unbind)
+}
 
+fn multipart_upload_file(
+    py: Python<'_>,
+    file: &Bound<'_, PyAny>,
+    filename: String,
+    headers: Vec<(Vec<u8>, Vec<u8>)>,
+) -> PyResult<Py<PyAny>> {
     let raw_headers = PyList::empty(py);
     for (name, value) in headers {
         raw_headers.append((PyBytes::new(py, &name), PyBytes::new(py, &value)))?;
@@ -1543,7 +1703,7 @@ fn multipart_upload_file(
         .call((), Some(&headers_kwargs))?;
 
     let upload_kwargs = PyDict::new(py);
-    upload_kwargs.set_item("size", data.len())?;
+    upload_kwargs.set_item("size", 0)?;
     upload_kwargs.set_item("filename", filename)?;
     upload_kwargs.set_item("headers", headers)?;
     py.import("starlette.datastructures")?
