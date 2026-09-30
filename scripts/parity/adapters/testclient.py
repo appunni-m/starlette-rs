@@ -114,3 +114,71 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         "status": "completed",
         "observations": [{"step_id": "request-response", "status": "ok", "value": result}],
     }
+
+
+def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.testclient import TestClient
+
+    settings = case["testclient"]
+    websocket_input = case["websocket"]
+    app_input = case["asgi_app"]
+    scope_observations: list[dict[str, Any]] = []
+    receive_observations: list[dict[str, Any]] = []
+    send_observations: list[dict[str, Any]] = []
+
+    def record_scope(scope: dict[str, Any]) -> None:
+        scope_observations.append(
+            {field: _safe(scope[field]) for field in app_input["scope_fields"]}
+        )
+
+    async def run_app_body(receive: Any, send: Any) -> None:
+        for action in app_input["actions"]:
+            if action["operation"] == "receive":
+                receive_observations.append(_safe(await receive()))
+            else:
+                message = _message(action["message"])
+                send_observations.append(_safe(message))
+                await send(message)
+
+    async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        record_scope(scope)
+        await run_app_body(receive, send)
+
+    client = TestClient(
+        app,
+        base_url=settings["base_url"],
+        raise_server_exceptions=settings["raise_server_exceptions"],
+        root_path=settings["root_path"],
+        client=tuple(settings["client"]),
+        headers=dict(settings["headers"]),
+    )
+    session_input = websocket_input.get("subprotocols")
+    request_headers = dict(websocket_input["headers"])
+    action_results: list[dict[str, Any]] = []
+    with client.websocket_connect(
+        websocket_input["url"],
+        subprotocols=session_input,
+        headers=request_headers,
+    ) as session:
+        accepted_subprotocol = session.accepted_subprotocol
+        for action in websocket_input["actions"]:
+            if action["operation"] == "send_text":
+                value = session.send_text(action["text"])
+            else:
+                value = session.receive_text()
+            action_results.append({"operation": action["operation"], "value": _safe(value)})
+    result = {
+        "scope": scope_observations,
+        "receive_messages": receive_observations,
+        "send_messages": send_observations,
+        "session": {
+            "accepted_subprotocol": accepted_subprotocol,
+            "actions": action_results,
+        },
+    }
+    client.close()
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "websocket-session", "status": "ok", "value": result}],
+    }

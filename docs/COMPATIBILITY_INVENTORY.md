@@ -17,9 +17,9 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 504 input-only cases across 55 files,
-covering 73 operations and 535 parity requirements. Its SHA-256 is
-`471d05456524b834e6f6fc39682bcb367622ebc7948cd7cea3da6ca94a31b25a`. The
+The active parity manifest indexes 505 input-only cases across 56 files,
+covering 74 operations and 539 parity requirements. Its SHA-256 is
+`355120fa8b39dc0a20417b8a4ff1ec253310c4cf6ab55e08feb7897cb89c1124`. The
 authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
@@ -31,23 +31,23 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `0170f6a1-56b8-4012-8e47-e16c2d4e1fc6` ran against the
+Latest live parity run `cea5e6e7-b3c7-434d-a551-de9aa04dff08` ran against the
 pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T12:22:37.894Z` to
-`2026-09-30T12:24:30.167Z`. It selected 656 profile comparisons: 652 passed,
-zero failed, zero infrastructure errors, and four unsupported Rust-native
-Python-callable comparisons were `not_run`. The installed Python package
-passed all 502 selected comparisons; Rust-native passed 150 of 154. The new
-TestClient timeout input matched the warning category, message, caller file,
-and line between source and installed package. New
+`2026-09-30T12:50:54.271Z` to `2026-09-30T12:52:33.101Z`. It selected 657
+profile comparisons: 653 passed, zero failed, zero infrastructure errors, and
+four unsupported Rust-native Python-callable comparisons were `not_run`. The
+installed Python package passed all 503 selected comparisons; Rust-native
+passed 150 of 154. The TestClient timeout input matched the warning category,
+message, caller file, and line. The WebSocket session input matched scope,
+accepted subprotocol, ordered text exchange, and context-exit disconnect. New
 Request.form inputs cover default/custom multipart part-size short-circuiting,
 duplicate text/file values, high custom field/file limits, tempfile cleanup
 after stream and OSError failures, worker-thread rollover and cleanup, and
 direct/Mount unique and mixed file-count failures.
 The manifest SHA-256 is
-`471d05456524b834e6f6fc39682bcb367622ebc7948cd7cea3da6ca94a31b25a`; the
+`355120fa8b39dc0a20417b8a4ff1ec253310c4cf6ab55e08feb7897cb89c1124`; the
 installed package wheel SHA-256 is
-`a76ed14d3134a516c71816bfb5538f888af6a8a2353d2a43d472eb21e8f61217`.
+`a07afebe1070ad5ec4a2ed8cbfe6acbc21965673a45a7a2cb52b41f973340127`.
 The all-target command still exits 2 for the four unsupported Rust-native
 callable cases. This bounded run is not full Starlette parity.
 
@@ -202,12 +202,15 @@ cases cover the built-in `WebSocketException` close path, an `HTTPException`
 denial response, and a registered synchronous WebSocket close handler. These
 map to the pinned `test_websocket_raise_*` workflows. Direct
 `ServerErrorMiddleware` invocation and arbitrary middleware ordering remain
-outside the active contract. The active TestClient contract now compares four
-input-driven HTTP request/response cases over five requirements for ASGI2/ASGI3
-dispatch, scope projection, request-body delivery, response headers/body,
-debug extensions, and timeout deprecation warning details. TestClient exception
-policy, streaming bodies, lifespan management, and WebSocket sessions remain
-in the fixture backlog.
+outside the active contract. The active TestClient contract compares four
+input-driven HTTP request/response cases over five requirements and one
+accepted WebSocket text-session case over four requirements. It covers ASGI2/
+ASGI3 dispatch, HTTP and WebSocket scope projection, HTTP request-body delivery,
+response headers/body, debug extensions, timeout deprecation warning details,
+WebSocket subprotocol acceptance, text exchange, and context-exit disconnect.
+TestClient exception policy, streaming bodies, lifespan management, binary/JSON
+WebSocket frames, denial responses, close-message errors, and explicit close
+reasons remain in the fixture backlog.
 `asgi-core.app.test_app_debug` stays in backlog because its input constructs
 the app with debug enabled rather than setting debug after construction. The
 parity artifact status for that historical run was `completed`; the four

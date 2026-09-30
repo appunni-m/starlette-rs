@@ -28,6 +28,33 @@ class _TestClientTransport(_httpx.BaseTransport):
         self._runtime.close()
 
 
+class WebSocketTestSession:
+    """Synchronous facade over the Rust-owned TestClient WebSocket session."""
+
+    def __init__(self, runtime: Any) -> None:
+        self._runtime = runtime
+
+    @property
+    def accepted_subprotocol(self) -> str | None:
+        return self._runtime.accepted_subprotocol
+
+    def __enter__(self) -> WebSocketTestSession:
+        self._runtime.__enter__()
+        return self
+
+    def __exit__(self, *args: Any) -> bool:
+        return self._runtime.__exit__(*args)
+
+    def send_text(self, data: str) -> None:
+        self._runtime.send_text(data)
+
+    def receive_text(self) -> str:
+        return self._runtime.receive_text()
+
+    def close(self, code: int = 1000) -> None:
+        self._runtime.close(code)
+
+
 class TestClient(_httpx.Client):
     """Issue synchronous HTTP requests to an ASGI app."""
 
@@ -105,4 +132,19 @@ class TestClient(_httpx.Client):
                 "timeout": timeout,
                 "extensions": extensions,
             },
+        )
+
+    def websocket_connect(
+        self,
+        url: str,
+        subprotocols: Any = None,
+        **kwargs: Any,
+    ) -> WebSocketTestSession:
+        return WebSocketTestSession(
+            self._testclient_runtime.websocket_connect(
+                self,
+                url,
+                subprotocols,
+                kwargs,
+            )
         )

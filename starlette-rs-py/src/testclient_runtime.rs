@@ -2,13 +2,16 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use pyo3::exceptions::{PyAssertionError, PyImportError, PyKeyError, PyRuntimeError};
+use pyo3::create_exception;
+use pyo3::exceptions::{PyAssertionError, PyException, PyImportError, PyKeyError, PyRuntimeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
 };
+
+create_exception!(_core, WebSocketUpgrade, PyException);
 
 #[pyclass(name = "TestClientTransport")]
 pub(crate) struct PyTestClientTransport {
@@ -23,6 +26,271 @@ pub(crate) struct PyTestClientTransport {
     client_host: String,
     client_port: u16,
     app_state: Py<PyDict>,
+}
+
+/// Internal transport signal used to return a Rust-owned WebSocket session
+/// through HTTPX's synchronous request path.
+#[pyclass(name = "_WebSocketTestSession", unsendable)]
+struct PyWebSocketTestSession {
+    app: Py<PyAny>,
+    runner: Py<PyAny>,
+    scope: Py<PyDict>,
+    backend: String,
+    backend_options: Py<PyDict>,
+    portal_manager: Option<Py<PyAny>>,
+    portal: Option<Py<PyAny>>,
+    client_to_app_send: Option<Py<PyAny>>,
+    client_to_app_receive: Option<Py<PyAny>>,
+    app_to_client_send: Option<Py<PyAny>>,
+    app_to_client_receive: Option<Py<PyAny>>,
+    task: Option<Py<PyAny>>,
+    accepted_subprotocol: Option<String>,
+    client_closed: bool,
+}
+
+impl PyWebSocketTestSession {
+    fn new(
+        app: Py<PyAny>,
+        runner: Py<PyAny>,
+        scope: Py<PyDict>,
+        backend: String,
+        backend_options: Py<PyDict>,
+    ) -> Self {
+        Self {
+            app,
+            runner,
+            scope,
+            backend,
+            backend_options,
+            portal_manager: None,
+            portal: None,
+            client_to_app_send: None,
+            client_to_app_receive: None,
+            app_to_client_send: None,
+            app_to_client_receive: None,
+            task: None,
+            accepted_subprotocol: None,
+            client_closed: false,
+        }
+    }
+
+    fn start(&mut self, py: Python<'_>) -> PyResult<()> {
+        if self.portal.is_some() {
+            return Err(PyRuntimeError::new_err(
+                "WebSocketTestSession is already entered",
+            ));
+        }
+
+        let anyio = py.import("anyio")?;
+        let portal_kwargs = PyDict::new(py);
+        portal_kwargs.set_item("backend", &self.backend)?;
+        portal_kwargs.set_item("backend_options", self.backend_options.bind(py))?;
+        let manager = anyio
+            .getattr("from_thread")?
+            .getattr("start_blocking_portal")?
+            .call((), Some(&portal_kwargs))?;
+        let portal = manager.call_method0("__enter__")?;
+        self.portal_manager = Some(manager.unbind());
+        self.portal = Some(portal.clone().unbind());
+
+        let capacity = py.import("math")?.getattr("inf")?;
+        let stream_factory = anyio.getattr("create_memory_object_stream")?;
+        let client_to_app = stream_factory
+            .call1((capacity.clone(),))?
+            .cast_into::<PyTuple>()?;
+        let client_to_app_send = client_to_app.get_item(0)?.unbind();
+        let client_to_app_receive = client_to_app.get_item(1)?.unbind();
+        let app_to_client = stream_factory.call1((capacity,))?.cast_into::<PyTuple>()?;
+        let app_to_client_send = app_to_client.get_item(0)?.unbind();
+        let app_to_client_receive = app_to_client.get_item(1)?.unbind();
+
+        let receive = client_to_app_receive.bind(py).getattr("receive")?.unbind();
+        let send = app_to_client_send.bind(py).getattr("send")?.unbind();
+        let task_args = PyTuple::new(
+            py,
+            [
+                self.runner.bind(py),
+                self.app.bind(py),
+                self.scope.bind(py),
+                receive.bind(py),
+                send.bind(py),
+            ],
+        )?;
+        let task = portal.call_method1("start_task_soon", task_args)?;
+
+        self.client_to_app_send = Some(client_to_app_send);
+        self.client_to_app_receive = Some(client_to_app_receive);
+        self.app_to_client_send = Some(app_to_client_send);
+        self.app_to_client_receive = Some(app_to_client_receive);
+        self.task = Some(task.unbind());
+
+        self.send_client_message(py, websocket_connect_message(py)?)?;
+        let message = self.receive_app_message(py)?;
+        let message = message.bind(py).cast::<PyDict>()?;
+        let message_type = message
+            .get_item("type")?
+            .ok_or_else(|| PyKeyError::new_err("type"))?
+            .extract::<String>()?;
+        match message_type.as_str() {
+            "websocket.accept" => {
+                self.accepted_subprotocol = message
+                    .get_item("subprotocol")?
+                    .filter(|value| !value.is_none())
+                    .map(|value| value.extract::<String>())
+                    .transpose()?;
+                Ok(())
+            }
+            "websocket.close" => Err(websocket_disconnect(py, message)?),
+            _ => Err(PyRuntimeError::new_err(format!(
+                "expected a WebSocket accept message, got {message_type:?}"
+            ))),
+        }
+    }
+
+    fn send_client_message(&self, py: Python<'_>, message: Py<PyAny>) -> PyResult<()> {
+        let portal = self
+            .portal
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("WebSocketTestSession is not entered"))?;
+        let stream = self.client_to_app_send.as_ref().ok_or_else(|| {
+            PyRuntimeError::new_err("WebSocketTestSession client send stream is unavailable")
+        })?;
+        let args = PyTuple::new(
+            py,
+            [stream.bind(py).getattr("send")?, message.bind(py).into()],
+        )?;
+        portal.bind(py).call_method1("call", args)?;
+        Ok(())
+    }
+
+    fn receive_app_message(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let portal = self
+            .portal
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("WebSocketTestSession is not entered"))?;
+        let stream = self.app_to_client_receive.as_ref().ok_or_else(|| {
+            PyRuntimeError::new_err("WebSocketTestSession client receive stream is unavailable")
+        })?;
+        portal
+            .bind(py)
+            .call_method1("call", (stream.bind(py).getattr("receive")?,))
+            .map(Bound::unbind)
+    }
+
+    fn send_text_inner(&self, py: Python<'_>, data: &str) -> PyResult<()> {
+        let message = PyDict::new(py);
+        message.set_item("type", "websocket.receive")?;
+        message.set_item("text", data)?;
+        self.send_client_message(py, message.into_any().unbind())
+    }
+
+    fn close_inner(&mut self, py: Python<'_>, code: u16) -> PyResult<()> {
+        let message = websocket_disconnect_message(py, code)?;
+        self.send_client_message(py, message)?;
+        self.client_closed = true;
+        Ok(())
+    }
+
+    fn teardown(&mut self, py: Python<'_>) -> PyResult<()> {
+        let mut task_error = None;
+        if self.portal.is_some() && !self.client_closed {
+            if let Err(error) = self.close_inner(py, 1000) {
+                task_error = Some(error);
+            }
+        }
+
+        if let (Some(portal), Some(task)) = (self.portal.as_ref(), self.task.as_ref()) {
+            let _ = portal
+                .bind(py)
+                .call_method1("call", (py.import("anyio")?.getattr("sleep")?, 0));
+            let done = task.bind(py).call_method0("done")?.extract::<bool>()?;
+            if !done {
+                task.bind(py).call_method0("cancel")?;
+            }
+            if let Err(error) = task.bind(py).call_method0("result") {
+                if !is_cancelled_error(py, &error)? && task_error.is_none() {
+                    task_error = Some(error);
+                }
+            }
+        }
+
+        for stream in [
+            self.client_to_app_send.take(),
+            self.client_to_app_receive.take(),
+            self.app_to_client_send.take(),
+            self.app_to_client_receive.take(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            let _ = stream.bind(py).call_method0("close");
+        }
+
+        self.task = None;
+        self.portal = None;
+        let manager = self.portal_manager.take();
+        if let Some(manager) = manager {
+            exit_portal(py, manager.bind(py).clone(), task_error.as_ref())?;
+        }
+
+        match task_error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    }
+}
+
+#[pymethods]
+impl PyWebSocketTestSession {
+    #[getter]
+    fn accepted_subprotocol(&self) -> Option<String> {
+        self.accepted_subprotocol.clone()
+    }
+
+    fn __enter__(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<Self>> {
+        let result = slf.borrow_mut(py).start(py);
+        if let Err(error) = result {
+            let _ = slf.borrow_mut(py).teardown(py);
+            return Err(error);
+        }
+        Ok(slf)
+    }
+
+    fn __exit__(
+        slf: Py<Self>,
+        py: Python<'_>,
+        _exception_type: Py<PyAny>,
+        _exception_value: Py<PyAny>,
+        _traceback: Py<PyAny>,
+    ) -> PyResult<bool> {
+        slf.borrow_mut(py).teardown(py)?;
+        Ok(false)
+    }
+
+    fn send_text(&self, py: Python<'_>, data: &str) -> PyResult<()> {
+        self.send_text_inner(py, data)
+    }
+
+    fn receive_text(&self, py: Python<'_>) -> PyResult<String> {
+        let message = self.receive_app_message(py)?;
+        let message = message.bind(py).cast::<PyDict>()?;
+        let message_type = message
+            .get_item("type")?
+            .ok_or_else(|| PyKeyError::new_err("type"))?
+            .extract::<String>()?;
+        if message_type == "websocket.close" {
+            return Err(websocket_disconnect(py, message)?);
+        }
+        message
+            .get_item("text")?
+            .ok_or_else(|| PyKeyError::new_err("text"))?
+            .extract::<String>()
+    }
+
+    #[pyo3(signature = (code=1000))]
+    fn close(&mut self, py: Python<'_>, code: u16) -> PyResult<()> {
+        self.close_inner(py, code)
+    }
 }
 
 #[derive(Default)]
@@ -231,6 +499,37 @@ impl PyTestClientTransport {
 
     fn handle_request(&self, py: Python<'_>, request: Py<PyAny>) -> PyResult<Py<PyAny>> {
         let request = request.bind(py);
+        let scheme = request
+            .getattr("url")?
+            .getattr("scheme")?
+            .extract::<String>()?;
+        if scheme == "ws" || scheme == "wss" {
+            let scope = build_websocket_scope(
+                py,
+                request,
+                &self.root_path,
+                (&self.client_host, self.client_port),
+                self.app_state.bind(py),
+            )?;
+            let runner = if is_asgi3(py, self.app.bind(py))? {
+                self.asgi3_runner.clone_ref(py)
+            } else {
+                self.asgi2_runner.clone_ref(py)
+            };
+            let session = Py::new(
+                py,
+                PyWebSocketTestSession::new(
+                    self.app.clone_ref(py),
+                    runner,
+                    scope,
+                    self.backend.clone(),
+                    self.backend_options.clone_ref(py),
+                ),
+            )?;
+            let exception = py.get_type::<WebSocketUpgrade>().call0()?;
+            exception.setattr("session", session)?;
+            return Err(PyErr::from_value(exception));
+        }
         let (scope, method, request_body) = build_http_scope(
             py,
             request,
@@ -336,6 +635,54 @@ impl PyTestClientTransport {
         Ok(response.unbind())
     }
 
+    fn websocket_connect(
+        &self,
+        py: Python<'_>,
+        client: Py<PyAny>,
+        url: Py<PyAny>,
+        subprotocols: Option<Py<PyAny>>,
+        kwargs: Py<PyDict>,
+    ) -> PyResult<Py<PyAny>> {
+        let kwargs = kwargs.bind(py);
+        let headers = match kwargs.get_item("headers")? {
+            Some(headers) => headers,
+            None => PyDict::new(py).into_any(),
+        };
+        headers.call_method1("setdefault", ("connection", "upgrade"))?;
+        headers.call_method1("setdefault", ("sec-websocket-key", "testserver=="))?;
+        headers.call_method1("setdefault", ("sec-websocket-version", "13"))?;
+        if let Some(subprotocols) = subprotocols
+            .as_ref()
+            .filter(|value| !value.bind(py).is_none())
+        {
+            let protocol_header =
+                PyString::new(py, ", ").call_method1("join", (subprotocols.bind(py),))?;
+            headers.call_method1("setdefault", ("sec-websocket-protocol", protocol_header))?;
+        }
+        kwargs.set_item("headers", headers)?;
+
+        let url = py
+            .import("urllib.parse")?
+            .getattr("urljoin")?
+            .call1(("ws://testserver", url.bind(py)))?;
+        let client_request = self.httpx.bind(py).getattr("Client")?.getattr("request")?;
+        let request_args = PyTuple::new(
+            py,
+            [
+                client.bind(py),
+                PyString::new(py, "GET").as_any(),
+                url.as_any(),
+            ],
+        )?;
+        match client_request.call(request_args, Some(kwargs)) {
+            Ok(_) => Err(PyRuntimeError::new_err("Expected WebSocket upgrade")),
+            Err(error) if error.is_instance(py, &py.get_type::<WebSocketUpgrade>()) => {
+                error.value(py).getattr("session").map(Bound::unbind)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
     fn request(
         &self,
         py: Python<'_>,
@@ -398,7 +745,12 @@ pub(crate) fn testclient_httpx(py: Python<'_>) -> PyResult<Py<PyModule>> {
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add(
+        "_WebSocketUpgrade",
+        module.py().get_type::<WebSocketUpgrade>(),
+    )?;
     module.add_class::<PyTestClientTransport>()?;
+    module.add_class::<PyWebSocketTestSession>()?;
     module.add_function(pyo3::wrap_pyfunction!(testclient_httpx, module)?)?;
     Ok(())
 }
@@ -555,6 +907,146 @@ fn decode_response_headers(
         pairs.push((name, value));
     }
     Ok(pairs)
+}
+
+fn build_websocket_scope(
+    py: Python<'_>,
+    request: &Bound<'_, PyAny>,
+    root_path: &str,
+    client: (&str, u16),
+    app_state: &Bound<'_, PyDict>,
+) -> PyResult<Py<PyDict>> {
+    let url = request.getattr("url")?;
+    let scheme = url.getattr("scheme")?.extract::<String>()?;
+    let netloc = url
+        .getattr("netloc")?
+        .call_method1("decode", ("ascii",))?
+        .extract::<String>()?;
+    let default_port = match scheme.as_str() {
+        "ws" => 80,
+        "wss" => 443,
+        _ => return Err(PyKeyError::new_err(scheme)),
+    };
+    let (host, port) = if let Some((host, port)) = netloc.split_once(':') {
+        (
+            host.to_owned(),
+            port.parse::<u16>()
+                .map_err(|_| PyRuntimeError::new_err("invalid TestClient URL port"))?,
+        )
+    } else {
+        (netloc, default_port)
+    };
+
+    let path = url.getattr("path")?.extract::<String>()?;
+    let raw_path = url
+        .getattr("raw_path")?
+        .cast::<PyBytes>()?
+        .as_bytes()
+        .to_vec();
+    let query = url.getattr("query")?.call_method1("decode", ("ascii",))?;
+    let query_string = query.call_method0("encode")?.cast_into::<PyBytes>()?;
+    let path = py
+        .import("urllib.parse")?
+        .getattr("unquote")?
+        .call1((path,))?;
+
+    let request_headers = request.getattr("headers")?;
+    let has_host = request_headers
+        .call_method1("__contains__", ("host",))?
+        .extract::<bool>()?;
+    let headers = PyList::empty(py);
+    if !has_host {
+        let host_with_port = format!("{host}:{port}");
+        let host_value = if port == default_port {
+            host.as_str()
+        } else {
+            host_with_port.as_str()
+        };
+        headers.append((
+            PyBytes::new(py, b"host"),
+            PyBytes::new(py, host_value.as_bytes()),
+        ))?;
+    }
+    let items = request_headers.call_method0("multi_items")?;
+    for item in items.try_iter()? {
+        let pair = item?.cast_into::<PyTuple>()?;
+        let key = pair
+            .get_item(0)?
+            .call_method0("lower")?
+            .call_method0("encode")?;
+        let value = pair.get_item(1)?.call_method0("encode")?;
+        headers.append((key, value))?;
+    }
+
+    let subprotocols = PyList::empty(py);
+    let value = request_headers.call_method1("get", ("sec-websocket-protocol",))?;
+    if !value.is_none() {
+        let values = value.call_method1("split", (",",))?;
+        for value in values.try_iter()? {
+            subprotocols.append(value?.call_method0("strip")?)?;
+        }
+    }
+
+    let raw_path = raw_path
+        .split(|byte| *byte == b'?')
+        .next()
+        .unwrap_or_default();
+    let scope = PyDict::new(py);
+    scope.set_item("type", "websocket")?;
+    scope.set_item("path", path)?;
+    scope.set_item("raw_path", PyBytes::new(py, raw_path))?;
+    scope.set_item("root_path", root_path)?;
+    scope.set_item("scheme", scheme)?;
+    scope.set_item("query_string", query_string)?;
+    scope.set_item("headers", headers)?;
+    scope.set_item("client", (client.0, client.1))?;
+    let server = PyList::empty(py);
+    server.append(host)?;
+    server.append(port)?;
+    scope.set_item("server", server)?;
+    scope.set_item("subprotocols", subprotocols)?;
+    let extensions = PyDict::new(py);
+    extensions.set_item("websocket.http.response", PyDict::new(py))?;
+    scope.set_item("extensions", extensions)?;
+    scope.set_item("state", app_state.call_method0("copy")?)?;
+    Ok(scope.unbind())
+}
+
+fn websocket_connect_message(py: Python<'_>) -> PyResult<Py<PyAny>> {
+    let message = PyDict::new(py);
+    message.set_item("type", "websocket.connect")?;
+    Ok(message.into_any().unbind())
+}
+
+fn websocket_disconnect_message(py: Python<'_>, code: u16) -> PyResult<Py<PyAny>> {
+    let message = PyDict::new(py);
+    message.set_item("type", "websocket.disconnect")?;
+    message.set_item("code", code)?;
+    message.set_item("reason", py.None())?;
+    Ok(message.into_any().unbind())
+}
+
+fn websocket_disconnect(py: Python<'_>, message: &Bound<'_, PyDict>) -> PyResult<PyErr> {
+    let code = message
+        .get_item("code")?
+        .map(|value| value.extract::<u16>())
+        .transpose()?
+        .unwrap_or(1000);
+    let reason = message
+        .get_item("reason")?
+        .unwrap_or_else(|| PyString::new(py, "").into_any());
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("reason", reason)?;
+    let exception_type = py
+        .import("starlette.websockets")?
+        .getattr("WebSocketDisconnect")?;
+    let exception = exception_type.call((code,), Some(&kwargs))?;
+    Ok(PyErr::from_value(exception))
+}
+
+fn is_cancelled_error(py: Python<'_>, error: &PyErr) -> PyResult<bool> {
+    let error_type = py.import("concurrent.futures")?.getattr("CancelledError")?;
+    Ok(error.is_instance(py, &error_type))
 }
 
 fn build_http_scope(

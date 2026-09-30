@@ -1,0 +1,103 @@
+{
+  "schema": "migration-parity/parity-input@10",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.accepted-text-exchange",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.text-message-exchange",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "/tenant",
+        "client": [
+          "192.0.2.11",
+          4312
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/chat?room=blue",
+        "subprotocols": [
+          "chat.v1",
+          "chat.v2"
+        ],
+        "headers": [
+          [
+            "x-session",
+            "input"
+          ]
+        ],
+        "actions": [
+          {
+            "operation": "send_text",
+            "text": "ping"
+          },
+          {
+            "operation": "receive_text"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path",
+          "raw_path",
+          "root_path",
+          "scheme",
+          "query_string",
+          "headers",
+          "client",
+          "server",
+          "subprotocols",
+          "state",
+          "extensions"
+        ],
+        "actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.accept",
+              "subprotocol": "chat.v2",
+              "headers_base64_pairs": [
+                [
+                  "eC1hY2NlcHQ=",
+                  "YXV0aA=="
+                ]
+              ]
+            }
+          },
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.send",
+              "text": "pong"
+            }
+          },
+          {
+            "operation": "receive"
+          }
+        ]
+      }
+    }
+  ]
+}

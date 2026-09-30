@@ -532,6 +532,10 @@
         {
           "operation_id": "request-response",
           "source_path": "starlette.testclient.TestClient"
+        },
+        {
+          "operation_id": "websocket-session",
+          "source_path": "starlette.testclient.TestClient.websocket_connect"
         }
       ]
     },

@@ -294,7 +294,8 @@
       "build/parity/inputs/parity/request-form-multipart.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
-      "build/parity/inputs/parity/testclient-http.json"
+      "build/parity/inputs/parity/testclient-http.json",
+      "build/parity/inputs/parity/testclient-websocket.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -16020,6 +16021,198 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "The initial TestClient transport contract has no benchmark workload."
+          }
+        },
+        {
+          "id": "websocket-session",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.testclient.TestClient.websocket_connect",
+            "signature": "websocket_connect(url, subprotocols=None, **kwargs) -> WebSocketTestSession; synchronous session context manager with send_text and receive_text",
+            "parameters": [
+              {
+                "id": "app",
+                "style": "positional",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "client_options",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "websocket",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "asgi_app",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "scope",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "receive_messages",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "send_messages",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "session",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The additive Rust-native API does not expose the documented Python synchronous HTTPX TestClient WebSocket session interface.",
+                "blocker": "TestClient is a Python consumer API; the declared parity profile exercises Rust-owned semantics through the installed package."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.testclient.TestClient.websocket_connect",
+              "signature": "websocket_connect(url, subprotocols=None, **kwargs) -> WebSocketTestSession",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.scope-projection",
+              "dimension": "boundary",
+              "description": "Project the supplied ws URL, root path, client, request headers, and offered subprotocols into the WebSocket ASGI scope. Pinned source: starlette/testclient.py:254-282; tests/test_testclient.py::test_websocket_raw_path_without_params.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.accept-handshake",
+              "dimension": "success_path",
+              "description": "Send websocket.connect when the session context starts, accept the supplied app handshake, and expose its selected subprotocol through accepted_subprotocol. Pinned source: starlette/testclient.py:102-117,259-267,656-677; tests/test_testclient.py::test_websocket_blocking_receive.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.text-message-exchange",
+              "dimension": "success_path",
+              "description": "Forward the input text frame to the ASGI receive callback and return the app text frame from receive_text(). Pinned source: starlette/testclient.py:154-181; tests/test_testclient.py::test_websocket_blocking_receive.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.context-cleanup",
+              "dimension": "mode",
+              "description": "Exiting the synchronous WebSocket session context sends the default websocket.disconnect code 1000 to the app and completes session cleanup. Pinned source: starlette/testclient.py:117-125,169-171; tests/test_testclient.py::test_websocket_not_block_on_close.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Input-only TestClient WebSocket observations make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "The initial TestClient WebSocket session contract has no benchmark workload."
           }
         }
       ]

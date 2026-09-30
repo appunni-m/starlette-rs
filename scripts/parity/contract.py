@@ -102,12 +102,20 @@ BASE_HTTP_WORKFLOW_OPERATION_KEY = (BASE_HTTP_SURFACE, BASE_HTTP_WORKFLOW_OPERAT
 TESTCLIENT_SURFACE = "starlette.testclient.TestClient"
 TESTCLIENT_OPERATION = "request-response"
 TESTCLIENT_OPERATION_KEY = (TESTCLIENT_SURFACE, TESTCLIENT_OPERATION)
+TESTCLIENT_WEBSOCKET_OPERATION = "websocket-session"
+TESTCLIENT_WEBSOCKET_OPERATION_KEY = (TESTCLIENT_SURFACE, TESTCLIENT_WEBSOCKET_OPERATION)
 TESTCLIENT_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.scope-projection",
     "receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-message",
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
     "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
+}
+TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
+    "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
+    "handshake": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accept-handshake",
+    "messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
+    "cleanup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.context-cleanup",
 }
 BASE_HTTP_WORKFLOW_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "application",
@@ -1518,6 +1526,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             SESSION_WORKFLOW_OPERATION_KEY,
                             BASE_HTTP_WORKFLOW_OPERATION_KEY,
                             TESTCLIENT_OPERATION_KEY,
+                            TESTCLIENT_WEBSOCKET_OPERATION_KEY,
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
                             ROUTE_CONSTRUCTOR_OPERATION_KEY,
                         }
@@ -7459,7 +7468,10 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     if (
         not isinstance(scope_fields, list)
         or not scope_fields
-        or any(field not in allowed_scope_fields for field in scope_fields)
+        or any(
+            not isinstance(field, str) or field not in allowed_scope_fields
+            for field in scope_fields
+        )
         or len(scope_fields) != len(set(scope_fields))
     ):
         raise ContractError("TestClient ASGI app scope_fields must be unique supported scope keys")
@@ -7526,6 +7538,181 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 raise ContractError("TestClient response body message must be terminal")
         else:
             raise ContractError(f"TestClient response message[{index}] has an unsupported type")
+
+
+def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
+    settings = _exact(
+        case["testclient"],
+        {"base_url", "raise_server_exceptions", "root_path", "client", "headers"},
+        "TestClient settings",
+    )
+    base_url = _string(settings["base_url"], "TestClient.base_url")
+    if not base_url.startswith(("http://", "https://")):
+        raise ContractError("TestClient.base_url must use http or https")
+    if type(settings["raise_server_exceptions"]) is not bool:
+        raise ContractError("TestClient.raise_server_exceptions must be boolean")
+    if not isinstance(settings["root_path"], str):
+        raise ContractError("TestClient.root_path must be a string")
+    client = settings["client"]
+    if (
+        not isinstance(client, list)
+        or len(client) != 2
+        or not isinstance(client[0], str)
+        or type(client[1]) is not int
+        or not 0 <= client[1] <= 65535
+    ):
+        raise ContractError("TestClient.client must be [host, port]")
+
+    def validate_string_pairs(value: Any, context: str) -> None:
+        if not isinstance(value, list):
+            raise ContractError(f"{context} must be an array")
+        for index, pair in enumerate(value):
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or any(not isinstance(item, str) for item in pair)
+            ):
+                raise ContractError(f"{context}[{index}] must contain two strings")
+
+    validate_string_pairs(settings["headers"], "TestClient.headers")
+
+    websocket = _exact(
+        case["websocket"],
+        {"url", "subprotocols", "headers", "actions"},
+        "TestClient WebSocket input",
+    )
+    _string(websocket["url"], "TestClient WebSocket url")
+    subprotocols = websocket["subprotocols"]
+    if not isinstance(subprotocols, list) or any(
+        not isinstance(item, str) for item in subprotocols
+    ):
+        raise ContractError("TestClient WebSocket subprotocols must be strings")
+    validate_string_pairs(websocket["headers"], "TestClient WebSocket headers")
+    session_actions = websocket["actions"]
+    if (
+        not isinstance(session_actions, list)
+        or len(session_actions) != 2
+        or not isinstance(session_actions[0], dict)
+        or not isinstance(session_actions[1], dict)
+    ):
+        raise ContractError("TestClient WebSocket actions must send one text and receive one text")
+    send_action = _exact(
+        session_actions[0], {"operation", "text"}, "TestClient WebSocket send action"
+    )
+    if send_action["operation"] != "send_text":
+        raise ContractError("TestClient WebSocket must send_text before receive_text")
+    _string(send_action["text"], "TestClient WebSocket send_text.text")
+    receive_action = _exact(
+        session_actions[1], {"operation"}, "TestClient WebSocket receive action"
+    )
+    if receive_action["operation"] != "receive_text":
+        raise ContractError("TestClient WebSocket must receive_text after send_text")
+
+    asgi_app = _exact(
+        case["asgi_app"], {"kind", "scope_fields", "actions"}, "TestClient WebSocket ASGI app"
+    )
+    if asgi_app["kind"] != "asgi3":
+        raise ContractError("This TestClient WebSocket workflow accepts an ASGI3 callable")
+    scope_fields = asgi_app["scope_fields"]
+    allowed_scope_fields = {
+        "type",
+        "path",
+        "raw_path",
+        "root_path",
+        "scheme",
+        "query_string",
+        "headers",
+        "client",
+        "server",
+        "subprotocols",
+        "state",
+        "extensions",
+    }
+    if (
+        not isinstance(scope_fields, list)
+        or not scope_fields
+        or any(
+            not isinstance(field, str) or field not in allowed_scope_fields
+            for field in scope_fields
+        )
+        or len(scope_fields) != len(set(scope_fields))
+    ):
+        raise ContractError("TestClient WebSocket scope_fields must be unique supported scope keys")
+    app_actions = asgi_app["actions"]
+    if not isinstance(app_actions, list) or len(app_actions) != 5:
+        raise ContractError(
+            "TestClient WebSocket app must receive connect, accept, exchange text, then receive disconnect"
+        )
+    if [action.get("operation") for action in app_actions if isinstance(action, dict)] != [
+        "receive",
+        "send",
+        "receive",
+        "send",
+        "receive",
+    ]:
+        raise ContractError(
+            "TestClient WebSocket app actions must follow the supported session sequence"
+        )
+
+    accept_action = _exact(
+        app_actions[1], {"operation", "message"}, "TestClient WebSocket accept action"
+    )
+    accept_message = accept_action["message"]
+    accept_keys = {"type", "subprotocol", "headers_base64_pairs"}
+    if isinstance(accept_message, dict):
+        if "subprotocol" not in accept_message:
+            accept_keys.remove("subprotocol")
+        if "headers_base64_pairs" not in accept_message:
+            accept_keys.remove("headers_base64_pairs")
+    accept_message = _exact(accept_message, accept_keys, "TestClient WebSocket accept message")
+    if accept_message["type"] != "websocket.accept":
+        raise ContractError("TestClient WebSocket app must accept the connection")
+    if "subprotocol" in accept_message:
+        _string(accept_message["subprotocol"], "TestClient WebSocket accepted subprotocol")
+
+    def validate_base64(value: Any, context: str) -> None:
+        if not isinstance(value, str):
+            raise ContractError(f"{context} must be a base64 string")
+        try:
+            decoded = base64.b64decode(value, validate=True)
+        except (TypeError, ValueError) as exc:
+            raise ContractError(f"{context} is invalid base64") from exc
+        if base64.b64encode(decoded).decode("ascii") != value:
+            raise ContractError(f"{context} must use canonical base64")
+
+    if "headers_base64_pairs" in accept_message:
+        accept_headers = accept_message["headers_base64_pairs"]
+        if not isinstance(accept_headers, list):
+            raise ContractError("TestClient WebSocket accept headers must be an array")
+        for index, pair in enumerate(accept_headers):
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError(
+                    f"TestClient WebSocket accept headers[{index}] must contain two base64 strings"
+                )
+            for part, value in zip(("name", "value"), pair, strict=True):
+                validate_base64(value, f"TestClient WebSocket accept header {index} {part}")
+
+    response_action = _exact(
+        app_actions[3], {"operation", "message"}, "TestClient WebSocket response action"
+    )
+    response_message = _exact(
+        response_action["message"],
+        {"type", "text"},
+        "TestClient WebSocket response message",
+    )
+    if response_message["type"] != "websocket.send":
+        raise ContractError("TestClient WebSocket app must send a text frame")
+    _string(response_message["text"], "TestClient WebSocket response text")
+    for index in (0, 2, 4):
+        action = _exact(
+            app_actions[index], {"operation"}, f"TestClient WebSocket receive action[{index}]"
+        )
+        if action["operation"] != "receive":
+            raise ContractError("TestClient WebSocket app receive action is invalid")
+
+    expected_covers = set(TESTCLIENT_WEBSOCKET_REQUIREMENTS.values())
+    if set(case["covers"]) != expected_covers:
+        raise ContractError("TestClient WebSocket covers must match the input session workflow")
 
 
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
@@ -7641,6 +7828,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == TESTCLIENT_OPERATION_KEY
     )
+    is_testclient_websocket = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == TESTCLIENT_WEBSOCKET_OPERATION_KEY
+    )
     is_starlette_add_route_workflow = (
         isinstance(case, dict)
         and case.get("surface") == "starlette.applications.Starlette"
@@ -7693,6 +7884,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_session_workflow
         else BASE_HTTP_WORKFLOW_CASE_KEYS
         if is_base_http_workflow
+        else (CASE_KEYS - {"steps", "execution_schedule"}) | {"testclient", "websocket", "asgi_app"}
+        if is_testclient_websocket
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"testclient", "request", "asgi_app"}
         if is_testclient
         else CASE_KEYS
@@ -7725,6 +7918,55 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if case["observations"] != [TESTCLIENT_OPERATION]:
             raise ContractError("TestClient cases must select request-response")
         _validate_testclient_case(case)
+        return case
+    if is_testclient_websocket:
+        _exact(case, expected_case_keys, "case")
+        case_id = _string(case["case_id"], "case.case_id")
+        if not case_id.startswith(f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}."):
+            raise ContractError("TestClient WebSocket case ID must bind to its public operation")
+        if case["assets"] != []:
+            raise ContractError("TestClient WebSocket workflow does not use assets")
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError("TestClient WebSocket cases select only the Python-package profile")
+        if case["observations"] != [TESTCLIENT_WEBSOCKET_OPERATION]:
+            raise ContractError("TestClient WebSocket cases must select websocket-session")
+        websocket_operation = next(
+            (
+                operation
+                for surface in manifest["surfaces"]
+                for operation in surface["operations"]
+                if (surface["id"], operation["id"]) == TESTCLIENT_WEBSOCKET_OPERATION_KEY
+            ),
+            None,
+        )
+        declared_requirements = (
+            {item["id"] for item in websocket_operation["requirements"]}
+            if websocket_operation is not None
+            else set()
+        )
+        if declared_requirements != set(TESTCLIENT_WEBSOCKET_REQUIREMENTS.values()):
+            raise ContractError(
+                "TestClient websocket-session must declare its complete canonical requirement set"
+            )
+        covers = case["covers"]
+        if (
+            not isinstance(covers, list)
+            or any(not isinstance(item, str) for item in covers)
+            or len(covers) != len(set(covers))
+            or set(covers) != declared_requirements
+        ):
+            raise ContractError(
+                "TestClient WebSocket covers must match each declared session requirement once"
+            )
+        for requirement in websocket_operation["requirements"]:
+            if (
+                "parity" not in requirement["lanes"]
+                or case["target_profiles"][0] not in requirement["target_profiles"]
+            ):
+                raise ContractError(
+                    f"TestClient WebSocket requirement is not applicable to its profile: {requirement['id']}"
+                )
+        _validate_testclient_websocket_case(case)
         return case
     if is_value_formatting:
         value_keys = (

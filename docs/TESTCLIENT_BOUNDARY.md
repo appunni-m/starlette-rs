@@ -1,8 +1,8 @@
 # TestClient runtime boundary
 
 The compatibility authority is Starlette 1.6.0 at
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The repository implements a
-bounded HTTP request/response slice of the documented
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The repository implements
+bounded HTTP request/response and accepted WebSocket text-session slices of the documented
 `starlette.testclient.TestClient` surface. Its pinned implementation is
 `starlette/testclient.py` and its public guide is `docs/testclient.md`.
 
@@ -11,8 +11,11 @@ request-body delivery, response headers/body, debug response extensions, and
 the warning emitted when a request supplies a timeout. It records the warning
 category, message, filename, and line from the input-driven source and package
 runs. The timeout is forwarded to HTTPX; this comparison does not claim that
-the ASGI transport enforces a timeout. Lifespan context management, WebSocket
-sessions, streaming request bodies, and remaining error-policy behavior are
+the ASGI transport enforces a timeout. The WebSocket session input compares
+scope projection, accepted subprotocol, one text send/receive exchange, and the
+default disconnect delivered on context exit. Lifespan context management,
+binary and JSON frames, denial responses, close-message errors, explicit close
+reasons, streaming request bodies, and remaining error-policy behavior are
 still in the compatibility backlog.
 
 ## Source-backed Python boundary
@@ -29,7 +32,9 @@ The implementation boundary is:
 
 - Python preserves the documented `TestClient` inheritance and `request`
   signature, converts HTTPX objects at the PyO3 boundary, and exposes the
-  HTTPX `BaseTransport` protocol as a call-through wrapper.
+  HTTPX `BaseTransport` protocol as a call-through wrapper. Its WebSocket
+  session class forwards context entry/exit, accepted-subprotocol access, text
+  send/receive, and close calls to the native session object.
 - Python supplies small ASGI2/ASGI3 call-and-await functions. Rust selects the
   callable shape, starts AnyIO's blocking portal for the selected backend, and
   drives the ASGI call on that portal without creating another executor or
@@ -38,6 +43,10 @@ The implementation boundary is:
   completion, debug extensions, default headers, URL merging, app state, and
   construction of the HTTPX response through its public types. Rust calls the
   supplied ASGI callable through the existing PyO3 awaitable boundary.
+- Rust owns WebSocket URL-to-scope projection, handshake and accepted
+  subprotocol state, the client/app message streams, text-frame operations, and
+  context-exit disconnect and task cleanup. HTTPX constructs the request and
+  continues to own its URL and request-header types.
 - HTTPX continues to own its client semantics, cookies, redirects, URL types,
   and response types. The selected implementation and its optional dependency
   requirements match the pinned Starlette source lock in parity runs.
@@ -52,11 +61,12 @@ an input-only oracle comparison before it is accepted.
 Each slice is authored as input-only YAML under `tests/fixtures/sources/` and
 is run against the pinned source and installed package in isolated processes.
 Stimuli come from the input definition; adapters may not use case IDs to
-choose requests, scopes, responses, or outcomes. The current HTTP
-request/response slice has four data-driven cases covering five requirements,
-and all four compare exactly against the pinned source. Error-policy,
-streaming-body, lifespan, and WebSocket behavior need separate inputs with
-their own ordered callback and cleanup observations.
+choose requests, scopes, responses, or outcomes. The HTTP request/response
+slice has four data-driven cases covering five requirements; the WebSocket
+slice has one accepted text-exchange case covering four requirements. Both
+compare ordered callbacks and public results against the pinned source.
+Broader error-policy, streaming-body, lifespan, and WebSocket behavior need
+separate input definitions.
 
 The pinned source provides additional mappings in `tests/test_testclient.py`
 and `docs/testclient.md`; those source rows remain visible in the fixture
