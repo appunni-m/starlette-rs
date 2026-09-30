@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 438 input-only cases across 49 files,
-covering 66 operations and 497 parity requirements. The authored cases span
+The active parity manifest indexes 439 input-only cases across 49 files,
+covering 66 operations and 498 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 StaticFiles, WebSockets, exceptions, status constants, endpoints,
@@ -28,18 +28,15 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `466af0d4-8bc5-42ae-bd60-f3c1ac193d60` ran against the
-pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 586 comparisons:
-582 passed, zero failed, zero infrastructure errors, and four were `not_run`.
-The installed Python package passed all 436 of its selected comparisons. The
-Rust-native target passed 146 of 150; its four unsupported inputs exercise
-sync request-dispatch callables represented by a context-preserving function,
-a bound method, a partial, and a callable instance. The pinned HTTP class
-endpoint cases, synchronous handler boundary, POST handler selection, HEAD to
-GET fallback, direct `HTTPEndpoint` ASGI invocation, and WebSocketEndpoint
-error/cancellation cases pass exact package parity. The all-target command
-still exits 2 for the four explicitly unsupported Rust-native cases; this
-bounded run is not full Starlette parity.
+Latest live parity run `9ece999c-4299-47ea-bcc7-49948bff3a36` ran against the
+pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 587 comparisons:
+583 passed, zero failed, zero infrastructure errors, and four Rust-native
+comparisons were `not_run`. The installed Python package passed all 437 of its
+selected comparisons. Rust-native passed 146 of 150; the four unsupported
+inputs exercise sync request-dispatch callable forms. The new multipart
+oversized-text case matched the source error and stopped after one receive
+call. The all-target command still exits 2 for those four unsupported
+Rust-native cases; this bounded run is not full Starlette parity.
 
 The latest correctness-gated Router/GZip benchmark run,
 `07eb140d-a8d2-4964-9e33-2a408f4a171e`, measured 74 of 74 source/package
@@ -300,26 +297,26 @@ re-exports or `__all__`.
 
 ## Completed atlas coverage
 
-The [`coverage matrix`](atlas/coverage-matrix.csv) contains 792 mappings:
+The [`coverage matrix`](atlas/coverage-matrix.csv) contains 796 mappings:
 
 | Mapping | Count |
 | --- | ---: |
 | Upstream test functions and methods | 514 source functions represented by 537 behavior mappings |
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
-| All source mappings | 792 |
-| Existing input mappings in the atlas matrix | 164 |
+| All source mappings | 796 |
+| Existing input mappings in the atlas matrix | 190 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 578 |
+| New input-only fixture backlog | 556 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 164 `existing` mappings point to authored YAML input
+crosswalk snapshot, 190 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest now contains 44 indexed files
-and 408 cases, including twelve Response background-task workflows, six
+input files with 136 cases. The active manifest now contains 49 indexed files
+and 439 cases, including twelve Response background-task workflows, six
 header-view and raw-pair probes, and a Router sequence that verifies live
 route-method and route-list mutations across
 dispatches, twenty URL scope-construction cases,
@@ -383,15 +380,16 @@ Multipart boundaries, disposition parsing, and part values are selected in
 Rust through the locked `multer` parser. Python holds the standard
 `SpooledTemporaryFile` object exposed by the public UploadFile API and performs
 the required PyO3 conversions and awaits the native UploadFile methods. The
-current Request.form state machine still accumulates the complete request body
-before parsing; the Rust parser then materializes each field/file in a byte
-vector before constructing FormData. The pinned Starlette parser enforces text
-part size during each parser callback, writes file chunks as they arrive, and
-closes created temporary files if parsing or receiving raises. Those timing,
-memory, and cleanup behaviors are therefore still partial and remain explicit
-backlog requirements: incremental part limits and stream-consumption order,
-file streaming and rollover, and cleanup after parser or receive errors. The
-selected small-file input does not establish large-file worker-thread behavior.
+request state machine now feeds multipart request chunks to a Rust-owned
+`MultipartFormParser` as they arrive. The additional input-only case places an
+oversized text part in the first chunk and supplies a later sentinel chunk. It
+compares the parser error and number of `receive` calls against pinned
+Starlette, establishing incremental text-part limit enforcement and early
+termination of request consumption for that path. The Rust parser still
+accumulates each complete file part in a byte vector, then the boundary layer
+copies it into Python's `SpooledTemporaryFile` after parsing. Streaming file
+writes and rollover timing, cleanup after parser or receive errors, and
+large-file worker-thread behavior remain explicit backlog requirements.
 
 ## WebSocketEndpoint dispatch slice
 
@@ -487,7 +485,7 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 408 currently indexed cases and
+The backlog distinguishes that work from the 439 currently indexed cases and
 the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
 
 ## Generate the source candidate catalog

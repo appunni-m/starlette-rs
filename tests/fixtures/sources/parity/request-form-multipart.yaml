@@ -77,6 +77,65 @@
         "form"
       ],
       "form_options": {}
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-incremental-text-limit-short-circuits",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-incremental-part-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9c3RyZWFtLWxpbWl0LXRlc3Q="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1zdHJlYW0tbGltaXQtdGVzdA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJsYXJnZSINCg0KVE9PLUxBUkdFDQotLXN0cmVhbS1saW1pdC10ZXN0DQo=",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "Q29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJzZW50aW5lbCINCg0KVU5SRUFEDQotLXN0cmVhbS1saW1pdC10ZXN0LS0NCg==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_options": {
+        "max_part_size": 3
+      }
     }
   ]
 }

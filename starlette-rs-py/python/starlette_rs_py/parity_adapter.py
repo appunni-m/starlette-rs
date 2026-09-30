@@ -5306,6 +5306,7 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
                         "message": str(exc),
                         "fields": fields,
                     },
+                    "receive_calls": received,
                 },
             }
         file_observations = []
@@ -5314,6 +5315,7 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             file_observations.append([key, observation])
         if "form_file_probe_keys" in case:
             value["files"] = file_observations
+        value["receive_calls"] = received
         return {"form": value}
 
     async def inspect_form(

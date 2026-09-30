@@ -12,9 +12,9 @@ use pyo3::types::{
     PyBool, PyBytes, PyDict, PyList, PyModule, PyString, PyTraceback, PyTuple, PyType,
 };
 use starlette_rs::{
-    FormData as NativeFormData, FormDataParseError, MultipartFormParseError, MultipartPart,
-    RequestBodyAccumulator as NativeRequestBodyAccumulator, RequestBodyError,
-    RequestStreamProgress, RequestStreamState, multipart_boundary, parse_multipart_form,
+    FormData as NativeFormData, FormDataParseError, MultipartFormParseError, MultipartFormParser,
+    MultipartPart, RequestBodyAccumulator as NativeRequestBodyAccumulator, RequestBodyError,
+    RequestStreamProgress, RequestStreamState,
 };
 
 use crate::awaitable::{
@@ -572,6 +572,7 @@ impl PyRequestBody {
             max_fields: max_fields.extract::<f64>()?,
             max_fields_display: max_fields.str()?.extract::<String>()?,
             max_part_size: max_part_size.extract::<i64>()?,
+            multipart_parser: None,
             body: Vec::new(),
             pending_receive: false,
         };
@@ -1247,6 +1248,7 @@ struct FormMachine {
     max_fields: f64,
     max_fields_display: String,
     max_part_size: i64,
+    multipart_parser: Option<MultipartFormParser>,
     body: Vec<u8>,
     pending_receive: bool,
 }
@@ -1308,8 +1310,17 @@ impl FormMachine {
         match request_form_media_type(self.content_type.as_deref()) {
             FormMediaType::Multipart => {
                 if let Some(content_type) = self.content_type.as_deref() {
-                    multipart_boundary(content_type)
-                        .map_err(|error| self.multipart_parse_error(py, error))?;
+                    self.multipart_parser = Some(
+                        MultipartFormParser::new(
+                            content_type,
+                            self.max_files,
+                            &self.max_files_display,
+                            self.max_fields,
+                            &self.max_fields_display,
+                            self.max_part_size,
+                        )
+                        .map_err(|error| self.multipart_parse_error(py, error))?,
+                    );
                 }
                 let progress = {
                     let runtime = borrow_runtime(&self.shared)?;
@@ -1339,7 +1350,21 @@ impl FormMachine {
             match progress {
                 RequestStreamProgress::Receive => return self.await_receive(py),
                 RequestStreamProgress::Chunk(body) | RequestStreamProgress::CachedBody(body) => {
-                    self.body.extend_from_slice(&body);
+                    if matches!(
+                        request_form_media_type(self.content_type.as_deref()),
+                        FormMediaType::Multipart
+                    ) {
+                        let Some(parser) = self.multipart_parser.as_mut() else {
+                            return Err(PyRuntimeError::new_err(
+                                "multipart form parser has not been initialized",
+                            ));
+                        };
+                        parser
+                            .push_chunk(body)
+                            .map_err(|error| self.multipart_parse_error(py, error))?;
+                    } else {
+                        self.body.extend_from_slice(&body);
+                    }
                     progress = {
                         let runtime = borrow_runtime(&self.shared)?;
                         self.stream.next(&runtime.accumulator)
@@ -1369,17 +1394,12 @@ impl FormMachine {
             request_form_media_type(self.content_type.as_deref()),
             FormMediaType::Multipart
         ) {
-            let content_type = self.content_type.as_deref().unwrap_or_default();
-            let parts = parse_multipart_form(
-                &self.body,
-                content_type,
-                self.max_files,
-                &self.max_files_display,
-                self.max_fields,
-                &self.max_fields_display,
-                self.max_part_size,
-            )
-            .map_err(|error| self.multipart_parse_error(py, error))?;
+            let parser = self.multipart_parser.take().ok_or_else(|| {
+                PyRuntimeError::new_err("multipart form parser has not been initialized")
+            })?;
+            let parts = parser
+                .finish()
+                .map_err(|error| self.multipart_parse_error(py, error))?;
             return self.complete_multipart_form(py, parts);
         }
         let form =

@@ -1720,7 +1720,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -1731,7 +1731,7 @@
             {
               "id": "starlette.request.receive-worker-access",
               "dimension": "boundary",
-              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO’s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
               "lanes": [
                 "parity"
               ],
@@ -1742,7 +1742,7 @@
             {
               "id": "starlette.request.stream-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO’s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
               "lanes": [
                 "parity"
               ],
@@ -1753,7 +1753,7 @@
             {
               "id": "starlette.request.body-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
               "lanes": [
                 "parity"
               ],
@@ -1764,7 +1764,7 @@
             {
               "id": "starlette.request.json-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity"
               ],
@@ -8079,9 +8079,8 @@
               "signature": "form(self, *, max_files: int | float = 1000, max_fields: int | float = 1000, max_part_size: int = 1024 * 1024) -> AwaitableOrContextManager[FormData]",
               "support": {
                 "status": "partial",
-                "reason": "The package parses ordinary well-formed multipart bodies with small text and file parts, and retains URL-encoded and empty-form behavior. Multipart parsing currently buffers the request before parsing, so incremental limits, file-streaming memory bounds, and cleanup on stream/parser errors are not established.",
+                "reason": "The package now parses multipart chunks incrementally and raises for an oversized text part before requesting later ASGI chunks. File data is still accumulated in Rust and copied into the Python spooled file after parsing; streaming writes, rollover timing, and cleanup after parser or receive failures remain unproven.",
                 "missing_requirements": [
-                  "starlette.request.form.multipart-incremental-part-limits",
                   "starlette.request.form.multipart-file-streaming",
                   "starlette.request.form.multipart-error-file-cleanup"
                 ]
@@ -8137,6 +8136,17 @@
               "id": "starlette.request.form.multipart-form-data",
               "dimension": "input_family",
               "description": "Parse one ordinary, well-formed multipart request split across ASGI body chunks, retaining text/file item order and exposing UploadFile metadata and consumer operations. This requirement covers small valid inputs only. Pinned source: starlette/requests.py:268-326; starlette/formparsers.py:187-297; tests/test_formparsers.py::test_multipart_request_mixed_files_and_data; docs/requests.md:112-162.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-incremental-part-limits",
+              "dimension": "error_path",
+              "description": "When an oversized multipart text part arrives in an ASGI request chunk, enforce max_part_size during parsing and stop requesting subsequent body chunks. Pinned source: starlette/formparsers.py:181-297; starlette/requests.py:268-308; tests/test_formparsers.py::test_max_part_size_exceeds_custom_limit and ::test_max_part_size_exceeds_limit.",
               "lanes": [
                 "parity"
               ],
@@ -8599,7 +8609,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-inverted-single-byte",
               "dimension": "error_path",
-              "description": "Submit `bytes=5-4` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
+              "description": "Submit `bytes=5-4` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
               "lanes": [
                 "parity"
               ],
@@ -8611,7 +8621,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-start-after-end",
               "dimension": "error_path",
-              "description": "Submit `bytes=100-0` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
+              "description": "Submit `bytes=100-0` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
               "lanes": [
                 "parity"
               ],
@@ -8695,7 +8705,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-count-limit-exceeded",
               "dimension": "parameter_combination",
-              "description": "Submit 101 valid ranges and compare Starlette\u2019s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
+              "description": "Submit 101 valid ranges and compare Starlette’s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
               "lanes": [
                 "parity"
               ],
@@ -8707,7 +8717,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-max-ranges-override",
               "dimension": "parameter_combination",
-              "description": "Change the response instance\u2019s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
+              "description": "Change the response instance’s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
               "lanes": [
                 "parity"
               ],
@@ -11609,7 +11619,7 @@
             {
               "id": "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
               "dimension": "boundary",
-              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette\u2019s worker-thread boundary.",
+              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette’s worker-thread boundary.",
               "lanes": [
                 "parity"
               ],

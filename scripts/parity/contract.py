@@ -11,6 +11,8 @@ import re
 import statistics
 import sys
 from datetime import datetime
+from email import policy as email_policy
+from email.parser import BytesParser
 from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from pathlib import Path
@@ -625,7 +627,6 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
         "python-package",
     ): frozenset(
         {
-            "starlette.request.form.multipart-incremental-part-limits",
             "starlette.request.form.multipart-file-streaming",
             "starlette.request.form.multipart-error-file-cleanup",
         }
@@ -9329,6 +9330,21 @@ def _request_form_limits_exceeded(body: bytes, form_options: dict[str, Any]) -> 
     return False
 
 
+def _first_multipart_text_part(content_type: str, body: bytes) -> bytes | None:
+    envelope = f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("latin-1") + body
+    message = BytesParser(policy=email_policy.default).parsebytes(envelope)
+    if not message.is_multipart():
+        return None
+    parts = message.get_payload()
+    if not isinstance(parts, list) or not parts:
+        return None
+    first = parts[0]
+    if first.get_filename() is not None:
+        return None
+    payload = first.get_payload(decode=True)
+    return payload if isinstance(payload, bytes) else None
+
+
 def _validate_request_form_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("Request.form parity currently targets the Python package profile")
@@ -9414,12 +9430,12 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         raise ContractError("Request.form form_access must be await or context-manager")
 
     content_type = None
+    content_type_header = None
     for encoded_name, encoded_value in case["scope"]["headers_base64_pairs"]:
         name = base64.b64decode(encoded_name, validate=True).decode("latin-1").lower()
         if name == "content-type":
-            content_type = (
-                base64.b64decode(encoded_value, validate=True).split(b";", 1)[0].strip().lower()
-            )
+            content_type_header = base64.b64decode(encoded_value, validate=True).decode("latin-1")
+            content_type = content_type_header.split(";", 1)[0].strip().lower().encode("latin-1")
             break
     body = b"".join(base64.b64decode(message["body_base64"], validate=True) for message in messages)
     if content_type == b"application/x-www-form-urlencoded" and body:
@@ -9433,27 +9449,59 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             if form_access == "context-manager":
                 expected_covers.append("starlette.request.form.context-manager-lifecycle")
     elif content_type == b"multipart/form-data" and body:
-        if form_options:
-            raise ContractError(
-                "Request.form multipart cases do not claim multipart parser-limit parity"
-            )
         if not case["scope"]["headers_base64_pairs"]:
             raise ContractError("Request.form multipart cases require Content-Type")
-        expected_covers = [
-            "starlette.request.form.multipart-form-data",
-            "starlette.datastructures.FormData.multidict-lookups",
-        ]
-        if form_file_probe_keys:
-            expected_covers.extend(
-                [
-                    "starlette.datastructures.FormData.file-values",
-                    "starlette.datastructures.UploadFile.file-operations",
-                ]
-            )
-        if case.get("form_close", False) or form_access == "context-manager":
-            expected_covers.append("starlette.datastructures.FormData.close")
-        if form_access == "context-manager":
-            expected_covers.append("starlette.request.form.context-manager-lifecycle")
+        if "max_part_size" in form_options:
+            if set(form_options) != {"max_part_size"}:
+                raise ContractError(
+                    "Request.form multipart limit cases currently select max_part_size alone"
+                )
+            if len(messages) < 2:
+                raise ContractError(
+                    "Request.form multipart incremental-limit cases require a later receive chunk"
+                )
+            if any(
+                base64.b64decode(message["body_base64"], validate=True) == b""
+                for message in messages
+            ):
+                raise ContractError(
+                    "Request.form multipart incremental-limit chunks must carry request bytes"
+                )
+            first_part = _first_multipart_text_part(content_type_header or "", body)
+            first_chunk = base64.b64decode(messages[0]["body_base64"], validate=True)
+            max_part_size = form_options["max_part_size"]
+            if (
+                first_part is None
+                or len(first_part) <= max_part_size
+                or first_part not in first_chunk
+                or form_file_probe_keys
+                or case.get("form_access", "await") != "await"
+            ):
+                raise ContractError(
+                    "Request.form multipart limit cases must put an oversized text part in "
+                    "the first chunk before a later receive chunk"
+                )
+            expected_covers = ["starlette.request.form.multipart-incremental-part-limits"]
+        else:
+            if form_options:
+                raise ContractError(
+                    "Request.form multipart parity currently selects max_part_size only"
+                )
+            expected_covers = [
+                "starlette.request.form.multipart-form-data",
+                "starlette.datastructures.FormData.multidict-lookups",
+            ]
+            if form_file_probe_keys:
+                expected_covers.extend(
+                    [
+                        "starlette.datastructures.FormData.file-values",
+                        "starlette.datastructures.UploadFile.file-operations",
+                    ]
+                )
+            if case.get("form_close", False) or form_access == "context-manager":
+                expected_covers.append("starlette.datastructures.FormData.close")
+            if form_access == "context-manager":
+                expected_covers.append("starlette.request.form.context-manager-lifecycle")
     elif content_type is None and not body:
         expected_covers = ["starlette.request.form.empty"]
     else:
