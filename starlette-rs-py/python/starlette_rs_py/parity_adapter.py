@@ -33,6 +33,11 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
+from scripts.parity.adapters.staticfiles_config import (
+    STATIC_FILES_CONFIGURATION_OPERATION,
+    run_static_files_configuration_case,
+)
+
 REQUEST_SCHEMA = "migration-parity/adapter-request@1"
 RESPONSE_SCHEMA = "migration-parity/adapter-response@1"
 SUBJECT_ID = "python-package"
@@ -70,6 +75,7 @@ SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
 SESSION_WORKFLOW_OPERATION = "session-workflow"
 BASE_HTTP_SURFACE = "starlette.middleware.base.BaseHTTPMiddleware"
 BASE_HTTP_WORKFLOW_OPERATION = "base-http-workflow"
+BASE_HTTP_CONTEXTVARS_OPERATION = "contextvars-propagation"
 TESTCLIENT_SURFACE = "starlette.testclient.TestClient"
 TESTCLIENT_OPERATION = "request-response"
 TESTCLIENT_WEBSOCKET_OPERATION = "websocket-session"
@@ -4107,6 +4113,17 @@ def _static_files_path_limit_root(
             return None, "the padded first root cannot be created within the workspace path limit"
         raise
     return padded_root, None
+
+
+def _run_static_files_configuration_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.staticfiles import StaticFiles
+
+    return run_static_files_configuration_case(
+        case,
+        StaticFiles,
+        make_scope=_make_scope,
+        canonical_message=_canonical_message,
+    )
 
 
 def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
@@ -8873,6 +8890,16 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if (
         isinstance(case, dict)
         and case.get("surface") == BASE_HTTP_SURFACE
+        and case.get("operation") == BASE_HTTP_CONTEXTVARS_OPERATION
+    ):
+        from scripts.parity.adapters.base_http_contextvars import (
+            run_base_http_contextvars_case,
+        )
+
+        return run_base_http_contextvars_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == BASE_HTTP_SURFACE
         and case.get("operation") == BASE_HTTP_WORKFLOW_OPERATION
     ):
         return _run_base_http_workflow_case(case)
@@ -9007,6 +9034,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == RESPONSE_OPERATION
     ):
         return _run_file_response_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == STATIC_FILES_SURFACE
+        and case.get("operation") == STATIC_FILES_CONFIGURATION_OPERATION
+    ):
+        return _run_static_files_configuration_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == STATIC_FILES_SURFACE

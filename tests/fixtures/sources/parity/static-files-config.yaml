@@ -1,0 +1,162 @@
+{
+  "schema": "migration-parity/parity-input@10",
+  "cases": [
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.configuration-check.constructor-missing-directory",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "configuration-check",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.configuration-check.constructor-missing-directory"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "directory_path": "build/parity/static-files-config/constructor-missing",
+      "directory_kind": "missing",
+      "root_file_contents_base64": null,
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "calls": [],
+      "observations": ["configuration-check"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.configuration-check.lazy-missing-directory",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "configuration-check",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.configuration-check.lazy-missing-directory"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "directory_path": "build/parity/static-files-config/lazy-missing",
+      "directory_kind": "missing",
+      "root_file_contents_base64": null,
+      "files": [],
+      "html": false,
+      "check_dir": false,
+      "follow_symlink": false,
+      "calls": [
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/asset.txt",
+            "raw_path_base64": "L2Fzc2V0LnR4dA==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": ["127.0.0.1", 12345],
+            "server": ["testserver", 80]
+          },
+          "incoming": [],
+          "send": {"kind": "capture-asgi-send"}
+        }
+      ],
+      "observations": ["configuration-check"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.configuration-check.lazy-not-directory",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "configuration-check",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.configuration-check.lazy-not-directory"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "directory_path": "build/parity/static-files-config/lazy-file-root",
+      "directory_kind": "file",
+      "root_file_contents_base64": "ZmlsZS1yb290",
+      "files": [],
+      "html": false,
+      "check_dir": false,
+      "follow_symlink": false,
+      "calls": [
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/asset.txt",
+            "raw_path_base64": "L2Fzc2V0LnR4dA==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": ["127.0.0.1", 12345],
+            "server": ["testserver", 80]
+          },
+          "incoming": [],
+          "send": {"kind": "capture-asgi-send"}
+        }
+      ],
+      "observations": ["configuration-check"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.configuration-check.repeated-call-state-and-asgi-events",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "configuration-check",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.configuration-check.repeated-call-state-and-asgi-events"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "directory_path": "build/parity/static-files-config/repeated-root",
+      "directory_kind": "directory",
+      "root_file_contents_base64": null,
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGNvbmZpZyBib2R5",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "html": false,
+      "check_dir": false,
+      "follow_symlink": false,
+      "calls": [
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/asset.txt",
+            "raw_path_base64": "L2Fzc2V0LnR4dA==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": ["127.0.0.1", 12345],
+            "server": ["testserver", 80]
+          },
+          "incoming": [],
+          "send": {"kind": "capture-asgi-send"}
+        },
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/asset.txt",
+            "raw_path_base64": "L2Fzc2V0LnR4dA==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": ["127.0.0.1", 12345],
+            "server": ["testserver", 80]
+          },
+          "incoming": [],
+          "send": {"kind": "capture-asgi-send"}
+        }
+      ],
+      "observations": ["configuration-check"]
+    }
+  ]
+}

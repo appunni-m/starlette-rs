@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, application and route-level body-size limits, async endpoint loop/task/thread ownership and request-task cancellation, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension. The active Python-package profile also covers response-attached BackgroundTask and BackgroundTasks async/sync execution, sequential task ordering, failure propagation, and callable shape classification for async/sync bound methods, callable objects, partials, and nested partials. The active Python-package profile also includes a bounded synchronous TestClient HTTP request/response slice with timeout deprecation-warning parity; lifespan, WebSocket sessions, streaming request bodies, and remaining error-policy cases are separate compatibility work.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, application and route-level body-size limits, async endpoint loop/task/thread ownership and request-task cancellation, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile also compares StaticFiles constructor-time and lazy directory checks, repeated successful configuration checks, and BaseHTTPMiddleware ContextVar propagation across call_next with a pure-ASGI control. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension. The active Python-package profile also covers response-attached BackgroundTask and BackgroundTasks async/sync execution, sequential task ordering, failure propagation, and callable shape classification for async/sync bound methods, callable objects, partials, and nested partials. The active Python-package profile also includes a bounded synchronous TestClient HTTP request/response slice with timeout deprecation-warning parity; lifespan, WebSocket sessions, streaming request bodies, and remaining error-policy cases are separate compatibility work.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -285,10 +285,12 @@
       "build/parity/inputs/parity/static-files.json",
       "build/parity/inputs/parity/static-files-lookup.json",
       "build/parity/inputs/parity/static-files-async-boundary.json",
+      "build/parity/inputs/parity/static-files-config.json",
       "build/parity/inputs/parity/wsgi-middleware.json",
       "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
       "build/parity/inputs/parity/base-http-middleware.json",
+      "build/parity/inputs/parity/base-http-contextvars.json",
       "build/parity/inputs/parity/templating-runtime.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
       "build/parity/inputs/parity/request-form-multipart.json",
@@ -5540,6 +5542,172 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only BaseHTTPMiddleware correctness slice declares no benchmark workload."
+          }
+        },
+        {
+          "id": "contextvars-propagation",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.base.BaseHTTPMiddleware.__call__, dispatch, and call_next",
+            "signature": "Input-driven workflow: compare caller, middleware, and endpoint ContextVar observations around BaseHTTPMiddleware.call_next and a pure-ASGI control.",
+            "parameters": [
+              {
+                "id": "middleware_kind",
+                "style": "input_asset",
+                "value_types": [
+                  "enum"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "context",
+                "style": "input_asset",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "request",
+                "style": "input_asset",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "response",
+                "style": "input_asset",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "context_values",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "BaseHTTPMiddleware is a Python ASGI middleware consumer contract in this slice, with no Rust-native middleware consumer surface.",
+                "authority": "The declared parity target profile is python-package-cpython312 only."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.base.BaseHTTPMiddleware.__call__",
+              "signature": "async __call__(scope, receive, send) -> None through the public BaseHTTPMiddleware ASGI consumer",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.construct-base-http-middleware",
+              "dimension": "boundary",
+              "description": "Run the input-defined async endpoint and dispatch through BaseHTTPMiddleware.call_next. Upstream: tests/middleware/test_base.py:208-265; starlette/middleware/base.py:112-203.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.construct-pure-asgi-control",
+              "dimension": "boundary",
+              "description": "Run the same input-defined endpoint and ContextVar actions through a pure-ASGI middleware control. Upstream: tests/middleware/test_base.py:208-265.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-context-by-layer",
+              "dimension": "boundary",
+              "description": "Record live ContextVar values in the caller, middleware dispatch, and endpoint before and after the endpoint mutation. Upstream: tests/middleware/test_base.py:208-265; docs/middleware.md:343-350.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-asgi-response-events",
+              "dimension": "success_path",
+              "description": "Compare the actual status, headers, body, and ordered ASGI event tape emitted by the input-defined endpoint. Upstream: tests/middleware/test_base.py:208-265.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only ContextVar propagation comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "BaseHTTPMiddleware ContextVar propagation is outside the active benchmark workloads."
           }
         }
       ]
@@ -14416,6 +14584,244 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "StaticFiles lookup helpers are outside active benchmark workloads."
+          }
+        },
+        {
+          "id": "configuration-check",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.staticfiles.StaticFiles.__init__, StaticFiles.check_config, and StaticFiles.__call__",
+            "signature": "Construct StaticFiles from an input-defined root with check_dir set by input, then observe constructor or ASGI-call configuration behavior and instance state.",
+            "parameters": [
+              {
+                "id": "directory_path",
+                "style": "input_asset",
+                "value_types": [
+                  "path"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "directory_kind",
+                "style": "input_asset",
+                "value_types": [
+                  "enum"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "root_file_contents_base64",
+                "style": "input_asset",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "files",
+                "style": "input_asset",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "html",
+                "style": "input_asset",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "check_dir",
+                "style": "input_asset",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "follow_symlink",
+                "style": "input_asset",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "calls",
+                "style": "input_asset",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "config_checked_after_construction",
+                  "value_types": [
+                    "boolean",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "check_config_calls_after_construction",
+                  "value_types": [
+                    "integer",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "calls",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "config_checked_final",
+                  "value_types": [
+                    "boolean",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "constructor_error",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "The native StaticFiles API has no Python config_checked attribute, so this observation is scoped to the documented Python-package instance contract.",
+                "authority": "The parity operation observes Python constructor/call state and config_checked, and its declared target profile is python-package-cpython312 only."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.staticfiles.StaticFiles",
+              "signature": "StaticFiles(*, directory, html=False, check_dir=True, follow_symlink=False); check_config(); async __call__(scope, receive, send)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.staticfiles.StaticFiles.configuration-check.constructor-missing-directory",
+              "dimension": "error_path",
+              "description": "Construct StaticFiles with check_dir enabled and an input-defined missing root, then record the live constructor exception. Upstream: tests/test_staticfiles.py::test_staticfiles_instantiated_with_missing_directory; starlette/staticfiles.py:55-56.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.configuration-check.lazy-missing-directory",
+              "dimension": "error_path",
+              "description": "Construct with check_dir disabled and invoke the app against an input-defined missing root, then record the live lazy configuration exception. Upstream: tests/test_staticfiles.py::test_staticfiles_configured_with_missing_directory; starlette/staticfiles.py:189-203.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.configuration-check.lazy-not-directory",
+              "dimension": "error_path",
+              "description": "Use an input-defined regular file as the configured root with check_dir disabled and record the live lazy not-a-directory exception. Upstream: tests/test_staticfiles.py::test_staticfiles_configured_with_file_instead_of_directory; starlette/staticfiles.py:189-203.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.configuration-check.repeated-call-state-and-asgi-events",
+              "dimension": "boundary",
+              "description": "Invoke the same StaticFiles instance twice with an input-defined valid root, observing config_checked transitions, actual check_config call counts, and each live ASGI event tape. Upstream: tests/test_staticfiles.py::test_staticfiles_config_check_occurs_only_once; starlette/staticfiles.py:189-203.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only StaticFiles configuration comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "StaticFiles configuration checking is outside the active benchmark workloads."
           }
         },
         {

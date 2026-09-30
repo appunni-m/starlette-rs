@@ -17,9 +17,9 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 505 input-only cases across 56 files,
-covering 74 operations and 539 parity requirements. Its SHA-256 is
-`355120fa8b39dc0a20417b8a4ff1ec253310c4cf6ab55e08feb7897cb89c1124`. The
+The active parity manifest indexes 511 input-only cases across 58 files,
+covering 76 operations and 547 parity requirements. Its SHA-256 is
+`80ce2f6f7e4be77441626a27e3aac1211cc8c7b8ab887b387c6922c35229cab9`. The
 authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
@@ -31,23 +31,26 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `cea5e6e7-b3c7-434d-a551-de9aa04dff08` ran against the
+Latest live parity run `1d9998a9-1857-4aa3-b09d-25c656f0c0ac` ran against the
 pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T12:50:54.271Z` to `2026-09-30T12:52:33.101Z`. It selected 657
-profile comparisons: 653 passed, zero failed, zero infrastructure errors, and
+`2026-09-30T13:12:06.481Z` to `2026-09-30T13:13:48.075Z`. It selected 663
+profile comparisons: 659 passed, zero failed, zero infrastructure errors, and
 four unsupported Rust-native Python-callable comparisons were `not_run`. The
-installed Python package passed all 503 selected comparisons; Rust-native
+installed Python package passed all 509 selected comparisons; Rust-native
 passed 150 of 154. The TestClient timeout input matched the warning category,
 message, caller file, and line. The WebSocket session input matched scope,
-accepted subprotocol, ordered text exchange, and context-exit disconnect. New
+accepted subprotocol, ordered text exchange, and context-exit disconnect. Four
+StaticFiles configuration-check cases matched constructor and lazy root errors,
+one-time successful checks, and ASGI events. Two BaseHTTPMiddleware ContextVar
+cases matched the `call_next` context-copy boundary and pure-ASGI control. New
 Request.form inputs cover default/custom multipart part-size short-circuiting,
 duplicate text/file values, high custom field/file limits, tempfile cleanup
 after stream and OSError failures, worker-thread rollover and cleanup, and
 direct/Mount unique and mixed file-count failures.
 The manifest SHA-256 is
-`355120fa8b39dc0a20417b8a4ff1ec253310c4cf6ab55e08feb7897cb89c1124`; the
+`80ce2f6f7e4be77441626a27e3aac1211cc8c7b8ab887b387c6922c35229cab9`; the
 installed package wheel SHA-256 is
-`a07afebe1070ad5ec4a2ed8cbfe6acbc21965673a45a7a2cb52b41f973340127`.
+`e0adf516191281f4e9be79388842d7510ed25eb85ce61ba3f0ac6b1b2787f8ba`.
 The all-target command still exits 2 for the four unsupported Rust-native
 callable cases. This bounded run is not full Starlette parity.
 
@@ -87,7 +90,9 @@ matches escaped HTML, processor merge, `url_for`, response metadata, and the
 ASGI debug event. All 30 FileResponse cases passed on
 both profiles,
 all eight SessionMiddleware cases passed on the Python package profile, and all
-twenty-one BaseHTTPMiddleware cases passed there. Those cases cover header
+twenty-one BaseHTTPMiddleware workflow cases passed there. Two additional
+ContextVar cases compare `call_next` context propagation with a pure-ASGI
+control. The workflow cases cover header
 mutation, replacement responses, body-cache replay, response-completion receive
 racing, exception/context propagation (including cause, TaskGroup
 `ExceptionGroup` context, and suppression-state observations), partial-stream
@@ -243,7 +248,7 @@ Rust-native cases exercise the corresponding trees through explicit roots; they
 do not claim Python package discovery. This boundary uses no upstream
 Starlette runtime import or added runtime dependency.
 
-The 38 authored StaticFiles cases are a correctness slice, not complete
+The 42 authored StaticFiles cases are a correctness slice, not complete
 coverage of its 36 upstream test functions. A package-only async-boundary case
 checks that a bound `lookup_path` override runs on an AnyIO worker while the
 event loop advances, then compares the ASGI response. Fourteen `lookup_path`
@@ -251,9 +256,12 @@ cases run on both profiles; all 28 comparisons pass. Two inputs establish that
 an overlong first configured root produces the source-compatible 404 before a
 later root can serve a matching asset, with both symlink settings. Two more
 deny search permission on a configured root and match the 401 error under both
-symlink settings. Remaining gaps include Windows path normalization and
-semantics, `check_config` scheduling, constructor errors, remaining validators
-and subclass hooks, and the rest of the upstream StaticFiles tests. Direct
+symlink settings. Four Python-package inputs compare constructor-time missing
+root errors, deferred missing/non-directory errors, and the first successful
+`check_config` call across two ASGI requests, including `config_checked` state
+and event tapes. Remaining gaps include Windows path normalization and
+semantics, stateful custom PathLike objects, remaining validators and subclass
+hooks, and the rest of the upstream StaticFiles tests. Direct
 `lookup_path` cases compare resolved paths,
 file types, size, and modification time against the source oracle; they do not
 establish complete StaticFiles parity.
@@ -348,8 +356,9 @@ twelve Response background-task workflows, six
 header-view and raw-pair probes, and a Router sequence that verifies live
 route-method and route-list mutations across
 dispatches, twenty URL scope-construction cases,
-twenty-one BaseHTTPMiddleware cases, one Jinja2 template case, and 30 FileResponse
-cases, 38 authored StaticFiles cases, four authentication cases,
+twenty-one BaseHTTPMiddleware workflow cases, two BaseHTTPMiddleware ContextVar
+cases, one Jinja2 template case, and 30 FileResponse cases, 42 authored
+StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)

@@ -99,6 +99,14 @@ SESSION_WORKFLOW_OPERATION_KEY = (SESSION_MIDDLEWARE_SURFACE, SESSION_WORKFLOW_O
 BASE_HTTP_SURFACE = "starlette.middleware.base.BaseHTTPMiddleware"
 BASE_HTTP_WORKFLOW_OPERATION = "base-http-workflow"
 BASE_HTTP_WORKFLOW_OPERATION_KEY = (BASE_HTTP_SURFACE, BASE_HTTP_WORKFLOW_OPERATION)
+BASE_HTTP_CONTEXTVARS_OPERATION = "contextvars-propagation"
+BASE_HTTP_CONTEXTVARS_OPERATION_KEY = (BASE_HTTP_SURFACE, BASE_HTTP_CONTEXTVARS_OPERATION)
+BASE_HTTP_CONTEXTVARS_REQUIREMENTS = {
+    "base_http": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_CONTEXTVARS_OPERATION}.construct-base-http-middleware",
+    "pure_asgi": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_CONTEXTVARS_OPERATION}.construct-pure-asgi-control",
+    "context": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_CONTEXTVARS_OPERATION}.observe-context-by-layer",
+    "events": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_CONTEXTVARS_OPERATION}.observe-asgi-response-events",
+}
 TESTCLIENT_SURFACE = "starlette.testclient.TestClient"
 TESTCLIENT_OPERATION = "request-response"
 TESTCLIENT_OPERATION_KEY = (TESTCLIENT_SURFACE, TESTCLIENT_OPERATION)
@@ -120,6 +128,12 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
 BASE_HTTP_WORKFLOW_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "application",
     "request",
+}
+BASE_HTTP_CONTEXTVARS_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "middleware_kind",
+    "context",
+    "request",
+    "response",
 }
 BASE_HTTP_REQUIREMENTS = {
     "construct": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware",
@@ -426,6 +440,17 @@ FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
 STATIC_FILES_ASYNC_BOUNDARY_OPERATION = "asgi-call-async-boundary"
+STATIC_FILES_CONFIGURATION_CHECK_OPERATION = "configuration-check"
+STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY = (
+    STATIC_FILES_SURFACE,
+    STATIC_FILES_CONFIGURATION_CHECK_OPERATION,
+)
+STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS = {
+    "constructor_missing": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.constructor-missing-directory",
+    "lazy_missing": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.lazy-missing-directory",
+    "lazy_not_directory": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.lazy-not-directory",
+    "repeated_call": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.repeated-call-state-and-asgi-events",
+}
 STREAMING_RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 RESPONSE_OPERATION = "asgi-call"
@@ -494,6 +519,16 @@ STATIC_FILES_LOOKUP_PATH_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"
 STATIC_FILES_ASYNC_BOUNDARY_CASE_KEYS = STATIC_FILES_CASE_KEYS | {
     "lookup_path_override",
     "event_loop_probe",
+}
+STATIC_FILES_CONFIGURATION_CHECK_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "directory_path",
+    "directory_kind",
+    "root_file_contents_base64",
+    "files",
+    "html",
+    "check_dir",
+    "follow_symlink",
+    "calls",
 }
 RESPONSE_OBSERVATIONS = [
     "response_status",
@@ -1363,6 +1398,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
                 or key == BASE_HTTP_WORKFLOW_OPERATION_KEY
+                or key == BASE_HTTP_CONTEXTVARS_OPERATION_KEY
+                or key == STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY
                 or key == WEBSOCKET_ENDPOINT_OPERATION_KEY
                 or key in AUTHENTICATION_OPERATIONS
                 else {
@@ -1525,6 +1562,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             HTTP_ENDPOINT_OPERATION_KEY,
                             SESSION_WORKFLOW_OPERATION_KEY,
                             BASE_HTTP_WORKFLOW_OPERATION_KEY,
+                            BASE_HTTP_CONTEXTVARS_OPERATION_KEY,
                             TESTCLIENT_OPERATION_KEY,
                             TESTCLIENT_WEBSOCKET_OPERATION_KEY,
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
@@ -1542,6 +1580,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         == (STREAMING_RESPONSE_SURFACE, STREAMING_RESPONSE_TRACE_OPERATION)
                         or (surface["id"], operation["id"])
                         == (STATIC_FILES_SURFACE, STATIC_FILES_ASYNC_BOUNDARY_OPERATION)
+                        or (surface["id"], operation["id"])
+                        == STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY
                         or surface["id"] == BODY_LIMIT_SURFACE
                         or surface["id"]
                         in {
@@ -4518,6 +4558,144 @@ def _validate_static_files_async_boundary_case(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> None:
+    _exact(
+        case,
+        STATIC_FILES_CONFIGURATION_CHECK_CASE_KEYS,
+        "StaticFiles configuration-check case",
+    )
+    if (case["surface"], case["operation"]) != STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY:
+        raise ContractError(
+            "case is outside the declared StaticFiles configuration-check operation"
+        )
+    if case["observations"] != [STATIC_FILES_CONFIGURATION_CHECK_OPERATION]:
+        raise ContractError(
+            "StaticFiles configuration-check observations must select the operation"
+        )
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError(
+            "StaticFiles configuration-check cases apply only to the Python-package profile"
+        )
+    if case["assets"] != []:
+        raise ContractError("StaticFiles configuration-check cases use no package assets")
+
+    directory_path = _string(
+        case["directory_path"], "StaticFiles configuration-check.directory_path"
+    )
+    path_parts = _static_files_relative_components(
+        directory_path,
+        "StaticFiles configuration-check.directory_path",
+        allow_parent=False,
+    )
+    if path_parts[:3] != ["build", "parity", "static-files-config"] or len(path_parts) < 4:
+        raise ContractError(
+            "StaticFiles configuration-check.directory_path must be beneath build/parity/static-files-config"
+        )
+
+    directory_kind = case["directory_kind"]
+    if directory_kind not in {"missing", "file", "directory"}:
+        raise ContractError(
+            "StaticFiles configuration-check.directory_kind must be missing, file, or directory"
+        )
+    root_contents = case["root_file_contents_base64"]
+    if directory_kind == "file":
+        root_contents = _string(
+            root_contents,
+            "StaticFiles configuration-check.root_file_contents_base64",
+        )
+        try:
+            base64.b64decode(root_contents, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(
+                "StaticFiles configuration-check.root_file_contents_base64 must be valid base64"
+            ) from exc
+    elif root_contents is not None:
+        raise ContractError(
+            "StaticFiles configuration-check root file contents apply only to a file root"
+        )
+
+    if type(case["check_dir"]) is not bool:
+        raise ContractError("StaticFiles configuration-check.check_dir must be boolean")
+    if type(case["html"]) is not bool:
+        raise ContractError("StaticFiles configuration-check.html must be boolean")
+    if type(case["follow_symlink"]) is not bool:
+        raise ContractError("StaticFiles configuration-check.follow_symlink must be boolean")
+
+    files = case["files"]
+    if not isinstance(files, list):
+        raise ContractError("StaticFiles configuration-check.files must be an array")
+    file_paths: set[str] = set()
+    for index, file_input in enumerate(files):
+        path, _mtime = _validate_static_asset_file(
+            file_input,
+            f"StaticFiles configuration-check.files[{index}]",
+        )
+        if path in file_paths:
+            raise ContractError("StaticFiles configuration-check file paths must be unique")
+        file_paths.add(path)
+    if directory_kind == "directory" and not file_paths:
+        raise ContractError(
+            "StaticFiles configuration-check directory roots must contain an input-defined file"
+        )
+    if directory_kind != "directory" and files:
+        raise ContractError("StaticFiles configuration-check files require a directory root")
+
+    calls = case["calls"]
+    if not isinstance(calls, list):
+        raise ContractError("StaticFiles configuration-check.calls must be an array")
+    for index, call in enumerate(calls):
+        call = _exact(
+            call,
+            {"scope", "incoming", "send"},
+            f"StaticFiles configuration-check.calls[{index}]",
+        )
+        scope = call["scope"]
+        if not isinstance(scope, dict) or scope.get("type") != "http":
+            raise ContractError("StaticFiles configuration-check calls require an HTTP scope")
+        if call["incoming"] not in ([], [{"type": "http.disconnect"}]) or call["send"] != {
+            "kind": "capture-asgi-send"
+        }:
+            raise ContractError(
+                "StaticFiles configuration-check calls require empty receive or one disconnect and captured send"
+            )
+        _validate_dispatch_stimulus(
+            {"scope": scope, "receive": call["incoming"], "send": call["send"]},
+            request_dispatch=True,
+            allow_headers=True,
+            allow_http_disconnect=True,
+        )
+
+    if directory_kind == "missing" and case["check_dir"] and not calls:
+        requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["constructor_missing"]
+    elif directory_kind == "missing" and not case["check_dir"] and len(calls) == 1:
+        requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["lazy_missing"]
+    elif directory_kind == "file" and not case["check_dir"] and len(calls) == 1:
+        requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["lazy_not_directory"]
+    elif (
+        directory_kind == "directory"
+        and not case["check_dir"]
+        and len(calls) == 2
+        and all(
+            call["scope"].get("method") == "GET"
+            and call["scope"].get("root_path") == ""
+            and isinstance(call["scope"].get("path"), str)
+            and call["scope"]["path"].startswith("/")
+            and call["scope"]["path"][1:] in file_paths
+            for call in calls
+        )
+    ):
+        requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["repeated_call"]
+    else:
+        raise ContractError(
+            "StaticFiles configuration-check input must select one declared constructor, lazy-failure, or repeated-call workflow"
+        )
+
+    if set(case["covers"]) != {requirement}:
+        raise ContractError(
+            "StaticFiles configuration-check covers must match the input-described workflow"
+        )
+
+
 def _validate_static_asset_file(value: Any, context: str) -> tuple[str, float]:
     file_input = _exact(value, {"path", "contents_base64", "mtime_seconds"}, context)
     path = _string(file_input["path"], f"{context}.path")
@@ -6357,6 +6535,81 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_base_http_contextvars_case(case: dict[str, Any]) -> None:
+    middleware_kind = case["middleware_kind"]
+    if middleware_kind not in {"base-http", "pure-asgi"}:
+        raise ContractError("BaseHTTPMiddleware ContextVar middleware_kind is unsupported")
+
+    context = _exact(
+        case["context"],
+        {"name", "default_value", "initial_value", "middleware_value", "endpoint_value"},
+        "BaseHTTPMiddleware ContextVar input",
+    )
+    for key, value in context.items():
+        _string(value, f"BaseHTTPMiddleware ContextVar context.{key}")
+    if not context["name"]:
+        raise ContractError("BaseHTTPMiddleware ContextVar name must not be empty")
+
+    request = _exact(
+        case["request"],
+        {"scope", "receive", "receive_after_messages"},
+        "BaseHTTPMiddleware ContextVar request",
+    )
+    if request["receive_after_messages"] != {"type": "http.disconnect"}:
+        raise ContractError(
+            "BaseHTTPMiddleware ContextVar receive_after_messages must be http.disconnect"
+        )
+    _validate_dispatch_stimulus(
+        {
+            "scope": request["scope"],
+            "receive": request["receive"],
+            "send": {"kind": "capture-asgi-send"},
+        },
+        request_dispatch=True,
+        allow_headers=True,
+    )
+
+    response = _exact(
+        case["response"],
+        {"status", "headers_base64_pairs", "body_base64"},
+        "BaseHTTPMiddleware ContextVar response input",
+    )
+    if type(response["status"]) is not int or not 100 <= response["status"] <= 599:
+        raise ContractError("BaseHTTPMiddleware ContextVar response.status must be an HTTP status")
+    headers = response["headers_base64_pairs"]
+    if not isinstance(headers, list):
+        raise ContractError("BaseHTTPMiddleware ContextVar response headers must be an array")
+    for pair in headers:
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise ContractError("BaseHTTPMiddleware ContextVar response header must be a pair")
+        for value in pair:
+            try:
+                base64.b64decode(value, validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError(
+                    "BaseHTTPMiddleware ContextVar response headers must be valid base64"
+                ) from exc
+    try:
+        base64.b64decode(response["body_base64"], validate=True)
+    except (ValueError, TypeError) as exc:
+        raise ContractError(
+            "BaseHTTPMiddleware ContextVar response body must be valid base64"
+        ) from exc
+
+    constructor_requirement = BASE_HTTP_CONTEXTVARS_REQUIREMENTS[
+        "base_http" if middleware_kind == "base-http" else "pure_asgi"
+    ]
+    expected_covers = {
+        constructor_requirement,
+        BASE_HTTP_CONTEXTVARS_REQUIREMENTS["context"],
+        BASE_HTTP_CONTEXTVARS_REQUIREMENTS["events"],
+    }
+    if set(case["covers"]) != expected_covers:
+        raise ContractError(
+            "BaseHTTPMiddleware ContextVar covers must match the selected middleware and observations"
+        )
+
+
 def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     application_value = case["application"]
     if not isinstance(application_value, dict) or set(application_value) not in (
@@ -7765,6 +8018,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and case.get("surface") == STATIC_FILES_SURFACE
         and case.get("operation") == STATIC_FILES_ASYNC_BOUNDARY_OPERATION
     )
+    is_static_files_configuration_check = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation"))
+        == STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY
+    )
     is_static_files_lookup_path = (
         isinstance(case, dict)
         and case.get("surface") == STATIC_FILES_SURFACE
@@ -7820,6 +8078,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == SESSION_WORKFLOW_OPERATION_KEY
     )
+    is_base_http_contextvars = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == BASE_HTTP_CONTEXTVARS_OPERATION_KEY
+    )
     is_base_http_workflow = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == BASE_HTTP_WORKFLOW_OPERATION_KEY
@@ -7870,6 +8132,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_static_files
         else STATIC_FILES_ASYNC_BOUNDARY_CASE_KEYS
         if is_static_files_async_boundary
+        else STATIC_FILES_CONFIGURATION_CHECK_CASE_KEYS
+        if is_static_files_configuration_check
         else STATIC_FILES_LOOKUP_PATH_CASE_KEYS
         if is_static_files_lookup_path
         else RESPONSE_CASE_KEYS
@@ -7882,6 +8146,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_request_form
         else SESSION_WORKFLOW_CASE_KEYS
         if is_session_workflow
+        else BASE_HTTP_CONTEXTVARS_CASE_KEYS
+        if is_base_http_contextvars
         else BASE_HTTP_WORKFLOW_CASE_KEYS
         if is_base_http_workflow
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"testclient", "websocket", "asgi_app"}
@@ -8097,6 +8363,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             raise ContractError(
                 "StaticFiles async-boundary cases must use the declared async-boundary operation"
             )
+    elif is_static_files_configuration_check:
+        if case["operation"] != STATIC_FILES_CONFIGURATION_CHECK_OPERATION:
+            raise ContractError(
+                "StaticFiles configuration-check cases must use the declared configuration-check operation"
+            )
     elif is_static_files_lookup_path:
         if case["operation"] != STATIC_FILES_LOOKUP_PATH_OPERATION:
             raise ContractError(
@@ -8154,6 +8425,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_session_workflow:
         if (case["surface"], case["operation"]) != SESSION_WORKFLOW_OPERATION_KEY:
             raise ContractError("session cases must use the declared session-workflow operation")
+    elif is_base_http_contextvars:
+        if (case["surface"], case["operation"]) != BASE_HTTP_CONTEXTVARS_OPERATION_KEY:
+            raise ContractError(
+                "BaseHTTPMiddleware ContextVar cases must use contextvars-propagation"
+            )
     elif is_base_http_workflow:
         if (case["surface"], case["operation"]) != BASE_HTTP_WORKFLOW_OPERATION_KEY:
             raise ContractError("BaseHTTPMiddleware cases must use base-http-workflow")
@@ -8194,6 +8470,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError("HTTPEndpoint dispatch selects only the Python-package profile")
     if is_session_workflow and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("SessionMiddleware cases select only the Python-package profile")
+    if is_base_http_contextvars and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError(
+            "BaseHTTPMiddleware ContextVar cases select only the Python-package profile"
+        )
     if is_base_http_workflow and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("BaseHTTPMiddleware cases select only the Python-package profile")
     if is_testclient and selected_profiles != ["python-package-cpython312"]:
@@ -8226,6 +8506,30 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if declared_requirements != set(BASE_HTTP_REQUIREMENTS.values()):
             raise ContractError(
                 "BaseHTTPMiddleware base-http-workflow must declare the complete canonical requirement set"
+            )
+    if is_base_http_contextvars:
+        base_http_operation = operations.get(BASE_HTTP_CONTEXTVARS_OPERATION_KEY)
+        declared_requirements = (
+            {item["id"] for item in base_http_operation["requirements"]}
+            if base_http_operation is not None
+            else set()
+        )
+        expected_requirements = set(BASE_HTTP_CONTEXTVARS_REQUIREMENTS.values())
+        if declared_requirements != expected_requirements:
+            raise ContractError(
+                "BaseHTTPMiddleware contextvars-propagation must declare the complete canonical requirement set"
+            )
+    if is_static_files_configuration_check:
+        static_files_operation = operations.get(STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY)
+        declared_requirements = (
+            {item["id"] for item in static_files_operation["requirements"]}
+            if static_files_operation is not None
+            else set()
+        )
+        expected_requirements = set(STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS.values())
+        if declared_requirements != expected_requirements:
+            raise ContractError(
+                "StaticFiles configuration-check must declare the complete canonical requirement set"
             )
     if is_testclient:
         testclient_operation = operations.get(TESTCLIENT_OPERATION_KEY)
@@ -8280,6 +8584,13 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if case["observations"] != [SESSION_WORKFLOW_OPERATION]:
             raise ContractError("SessionMiddleware observations must select session-workflow")
         _validate_session_workflow_case(case)
+        return case
+    if is_base_http_contextvars:
+        if case["observations"] != [BASE_HTTP_CONTEXTVARS_OPERATION]:
+            raise ContractError(
+                "BaseHTTPMiddleware ContextVar observations must select contextvars-propagation"
+            )
+        _validate_base_http_contextvars_case(case)
         return case
     if is_base_http_workflow:
         if case["observations"] != [BASE_HTTP_WORKFLOW_OPERATION]:
@@ -8355,6 +8666,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_static_files_async_boundary:
         _validate_static_files_async_boundary_case(case)
+        return case
+    if is_static_files_configuration_check:
+        _validate_static_files_configuration_check_case(case)
         return case
     if is_static_files_lookup_path:
         _validate_static_files_lookup_path_case(case)

@@ -200,6 +200,10 @@
         {
           "operation_id": "base-http-workflow",
           "source_path": "starlette.middleware.base.BaseHTTPMiddleware.__call__"
+        },
+        {
+          "operation_id": "contextvars-propagation",
+          "source_path": "starlette.middleware.base.BaseHTTPMiddleware.__call__, dispatch, and call_next"
         }
       ]
     },
@@ -508,6 +512,10 @@
         {
           "operation_id": "asgi-call-async-boundary",
           "source_path": "starlette.staticfiles.StaticFiles.__call__"
+        },
+        {
+          "operation_id": "configuration-check",
+          "source_path": "starlette.staticfiles.StaticFiles.__init__, StaticFiles.check_config, and StaticFiles.__call__"
         },
         {
           "operation_id": "lookup-path",
