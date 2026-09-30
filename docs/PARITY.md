@@ -8,20 +8,22 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run `7f206580-beaf-4a47-bcc8-e7b6b214cadb`
-ran from `2026-09-30T23:08:35.230Z` to `2026-09-30T23:10:29.319Z` against
+The latest full-slice parity run `bc66b064-bf6a-4c13-b8ab-c0a0b58e03a9`
+ran from `2026-09-30T23:33:08.869Z` to `2026-09-30T23:35:09.604Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 716
 profile comparisons: 712 passed, zero failed, zero infrastructure errors, and
 four Rust-native Python-callable rows were `not_run`. The Python package passed
-all 556 selected comparisons; Rust-native passed 156 of 160. The new Starlette
-async-context-manager lifespan callback case passed exact comparison. The
+all 556 selected comparisons; Rust-native passed 156 of 160. The ASGI 2.4
+`StreamingResponse` disconnect case and Starlette async-context-manager
+lifespan callback case passed exact comparison. The Python package target was
+clean at source revision `b437b6d7a11ac83dc937a3900ecc6c965c255c47`; its
 package tree SHA-256 was
-`213a1d934b3d565dcad327138b3238418d42902978053d4e6a458ad773e76cb3` and wheel
-SHA-256 `97ef7b5a23869d2fa72b2b6c0c905f96223e03945cc1adc6b2384ee54cc39c14`.
+`6c9cf1ad1b74a7c1e5070c1c350b0262296bace29a14dce7a66a0be831d12558` and wheel
+SHA-256 `7759b690bb90af132deebbb1a3c8df7b37e27add357cffec33e10e537efab7ab`.
 The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
 and callable-instance Request dispatch cases. `make parity-run` exits with
 status 2 for those declared Python-callable boundaries. Manifest SHA-256:
-`7ca4d6595ee842e6c19586683f76ddb74990530df36d822ca6c2322d5d34321e`. This
+`6830e7c20badb5582c30715c21b2b911cd989efc6c4617f8033cfe3442cd5bad`. This
 bounded evidence does not establish full Starlette parity or release
 readiness. Strict aggregation accepts the parity and benchmark artifacts and
 reports `not_proven` because the full compatibility denominator remains
