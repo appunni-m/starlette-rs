@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 430 input-only cases across 47 files,
-covering 65 operations and 488 parity requirements. The authored cases span
+The active parity manifest indexes 434 input-only cases across 48 files,
+covering 65 operations and 493 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 StaticFiles, WebSockets, exceptions, status constants, endpoints,
@@ -28,16 +28,16 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `670fd03c-e7ef-4bfe-9715-d0cc25359195` ran against the
-pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 578 comparisons:
-574 passed, zero failed, zero infrastructure errors, and four were `not_run`.
-The installed Python package passed all 428 of its selected comparisons. The
+Latest live parity run `f463f8e3-3b3b-4a60-9477-fb4bf85e3fc7` ran against the
+pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 582 comparisons:
+578 passed, zero failed, zero infrastructure errors, and four were `not_run`.
+The installed Python package passed all 432 of its selected comparisons. The
 Rust-native target passed 146 of 150; its four unsupported inputs exercise
 sync request-dispatch callables represented by a context-preserving function,
-a bound method, a partial, and a callable instance. The three additional
-WebSocketEndpoint error/cancellation cases now pass exact package parity. The
-all-target command still exits 2 for the four explicitly unsupported
-Rust-native cases; this bounded run is not full Starlette parity.
+a bound method, a partial, and a callable instance. The four pinned HTTP class
+endpoint cases and three WebSocketEndpoint error/cancellation cases pass exact
+package parity. The all-target command still exits 2 for the four explicitly
+unsupported Rust-native cases; this bounded run is not full Starlette parity.
 
 The latest correctness-gated Router/GZip benchmark run,
 `07eb140d-a8d2-4964-9e33-2a408f4a171e`, measured 74 of 74 source/package
@@ -46,7 +46,7 @@ Python-package preflight. Rust-native remains separately `not_run` for all 74
 workload boundaries. This is benchmark evidence for that lane only; the full
 compatibility denominator remains incomplete. The latest source inventory
 check dispositioned all 999 API candidate rows and reported 796 coverage
-mappings and 563 new fixture-backlog items; those changing counts come from
+mappings and 559 new fixture-backlog items; those changing counts come from
 the generated atlas, not this policy text.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

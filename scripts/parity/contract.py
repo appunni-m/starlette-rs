@@ -305,6 +305,13 @@ WEBSOCKET_ROUTE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
 WEBSOCKET_ROUTE_OBSERVATIONS = (WEBSOCKET_ROUTE_OPERATION,)
 ROUTER_SURFACE = "starlette.routing.Router"
 ROUTER_OPERATION = "route-dispatch"
+ROUTER_HTTP_ENDPOINT_REQUIREMENTS = {
+    "class_route": "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
+    "async_handler": "starlette.routing.Router.route-dispatch.http-endpoint-async-handler",
+    "path_parameter": "starlette.routing.Router.route-dispatch.http-endpoint-path-parameter",
+    "method_not_allowed": "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed",
+    "non_verb_helper": "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected",
+}
 HOST_SURFACE = "starlette.routing.Host"
 HOST_REVERSE_OPERATION = "url_path_for"
 ROUTER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
@@ -2709,7 +2716,11 @@ def _route_path_after_root(path: str, root_path: str) -> str:
 
 
 def _validate_http_route_input(
-    route: Any, context: str, custom_convertors: dict[str, dict[str, Any]] | None = None
+    route: Any,
+    context: str,
+    custom_convertors: dict[str, dict[str, Any]] | None = None,
+    *,
+    allow_http_endpoint: bool = False,
 ) -> dict[str, Any]:
     route = _exact(route, {"kind", "path", "methods", "endpoint"}, context)
     if (
@@ -2719,13 +2730,6 @@ def _validate_http_route_input(
     ):
         raise ContractError(f"{context} must define an absolute HTTP route path")
     methods = route["methods"]
-    if (
-        not isinstance(methods, list)
-        or not methods
-        or any(not isinstance(method, str) or not method for method in methods)
-        or len(methods) != len(set(methods))
-    ):
-        raise ContractError(f"{context}.methods must be a non-empty unique string list")
     path_parameters = _route_template_parameters(route["path"])
     parameter_names = [name for name, _converter in path_parameters]
     if len(parameter_names) != len(set(parameter_names)):
@@ -2739,6 +2743,22 @@ def _validate_http_route_input(
     endpoint = route["endpoint"]
     if not isinstance(endpoint, dict) or not isinstance(endpoint.get("kind"), str):
         raise ContractError(f"{context}.endpoint must define a supported route response")
+    if endpoint["kind"] == "http-class-based-endpoint":
+        if not allow_http_endpoint:
+            raise ContractError(
+                f"{context}.endpoint class dispatch is supported only by Router cases"
+            )
+        if methods is not None:
+            raise ContractError(f"{context}.methods must be null for a class-based endpoint")
+        _validate_http_class_endpoint_input(endpoint, path_parameters, f"{context}.endpoint")
+    else:
+        if (
+            not isinstance(methods, list)
+            or not methods
+            or any(not isinstance(method, str) or not method for method in methods)
+            or len(methods) != len(set(methods))
+        ):
+            raise ContractError(f"{context}.methods must be a non-empty unique string list")
     if endpoint["kind"] == "plain-text-response":
         endpoint = _exact(
             endpoint,
@@ -2773,9 +2793,82 @@ def _validate_http_route_input(
             raise ContractError(f"{context}.endpoint.status_code must be 200")
         if endpoint["media_type"] != "text/plain":
             raise ContractError(f"{context}.endpoint.media_type must be text/plain")
-    else:
+    elif endpoint["kind"] != "http-class-based-endpoint":
         raise ContractError(f"{context}.endpoint kind is unsupported")
     return route
+
+
+def _validate_http_class_endpoint_input(
+    endpoint: Any,
+    path_parameters: list[tuple[str, str]],
+    context: str,
+) -> dict[str, Any]:
+    endpoint = _exact(endpoint, {"kind", "handlers"}, context)
+    if endpoint["kind"] != "http-class-based-endpoint":
+        raise ContractError(f"{context}.kind must be http-class-based-endpoint")
+    handlers = endpoint["handlers"]
+    if not isinstance(handlers, list) or not handlers:
+        raise ContractError(f"{context}.handlers must be a non-empty list")
+    parameter_map = dict(path_parameters)
+    names: set[str] = set()
+    allowed_methods = {"get", "head", "post", "put", "patch", "delete", "options"}
+    for index, raw_handler in enumerate(handlers):
+        handler_context = f"{context}.handlers[{index}]"
+        handler = _exact(raw_handler, {"name", "call_style", "response"}, handler_context)
+        name = _string(handler["name"], f"{handler_context}.name")
+        if name not in allowed_methods and re.fullmatch(r"_[a-z][a-z0-9_]*", name) is None:
+            raise ContractError(
+                f"{handler_context}.name must be an HTTP verb or private helper name"
+            )
+        if name in names:
+            raise ContractError(f"{context}.handlers must use unique names")
+        names.add(name)
+        if handler["call_style"] not in {"async", "sync"}:
+            raise ContractError(f"{handler_context}.call_style must be async or sync")
+        response = handler["response"]
+        if not isinstance(response, dict) or not isinstance(response.get("kind"), str):
+            raise ContractError(f"{handler_context}.response must define a tagged response")
+        if response["kind"] == "plain-text-response":
+            response = _exact(
+                response,
+                {"kind", "content", "status_code", "media_type"},
+                f"{handler_context}.response",
+            )
+            if (
+                not isinstance(response["content"], str)
+                or type(response["status_code"]) is not int
+                or response["status_code"] != 200
+                or response["media_type"] != "text/plain"
+            ):
+                raise ContractError(
+                    f"{handler_context}.response must use a 200 plain-text response"
+                )
+        elif response["kind"] == "path-parameter-text-response":
+            response = _exact(
+                response,
+                {"kind", "path_parameter", "prefix", "suffix", "status_code", "media_type"},
+                f"{handler_context}.response",
+            )
+            path_parameter = _string(
+                response["path_parameter"], f"{handler_context}.response.path_parameter"
+            )
+            if parameter_map.get(path_parameter) != "str":
+                raise ContractError(
+                    f"{handler_context}.response.path_parameter must select a string path parameter"
+                )
+            _string(response["prefix"], f"{handler_context}.response.prefix")
+            _string(response["suffix"], f"{handler_context}.response.suffix")
+            if (
+                type(response["status_code"]) is not int
+                or response["status_code"] != 200
+                or response["media_type"] != "text/plain"
+            ):
+                raise ContractError(
+                    f"{handler_context}.response must use a 200 plain-text response"
+                )
+        else:
+            raise ContractError(f"{handler_context}.response.kind is unsupported")
+    return endpoint
 
 
 def _validate_host_route_input(route: Any, context: str) -> dict[str, Any]:
@@ -2821,7 +2914,12 @@ def _validate_router_route_input(
         return _validate_host_route_input(route, context)
     if isinstance(route, dict) and route.get("kind") == "mount":
         return _validate_mount_route_input(route, context)
-    return _validate_http_route_input(route, context, custom_convertors)
+    return _validate_http_route_input(
+        route,
+        context,
+        custom_convertors,
+        allow_http_endpoint=True,
+    )
 
 
 def _router_dispatch_route_selection(
@@ -2842,11 +2940,15 @@ def _router_dispatch_route_selection(
         if kind == "http-route":
             methods = (
                 route_methods[index]
-                if route_methods is not None and route_methods[index] is not None
-                else {registered.upper() for registered in route["methods"]}
+                if route_methods is not None
+                else (
+                    None
+                    if route["methods"] is None
+                    else {registered.upper() for registered in route["methods"]}
+                )
             )
             if _route_template_matches(route["path"], route_path, custom_convertors) and (
-                method in methods or (method == "HEAD" and "GET" in methods)
+                methods is None or method in methods or (method == "HEAD" and "GET" in methods)
             ):
                 return index, None, mount_was_attempted
             continue
@@ -4545,7 +4647,8 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _route_method_matches(route: dict[str, Any], method: str) -> bool:
-    return method in route["methods"] or (method == "HEAD" and "GET" in route["methods"])
+    methods = route["methods"]
+    return methods is None or method in methods or (method == "HEAD" and "GET" in methods)
 
 
 def _router_redirect_candidate(path: str, route_path: str) -> str | None:
@@ -4689,7 +4792,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     matched = [
         route
         for route in http_routes
-        if method in route["methods"] or (method == "HEAD" and "GET" in route["methods"])
+        if _route_method_matches(route, method)
         if _route_template_matches(route["path"], route_path, custom_convertors)
     ]
     request_host = next(
@@ -4757,6 +4860,30 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             request_host=request_host,
         )
     )
+    if first_full_route_index is not None:
+        endpoint = routes[first_full_route_index].get("endpoint")
+        if isinstance(endpoint, dict) and endpoint.get("kind") == "http-class-based-endpoint":
+            derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["class_route"])
+            handlers = {handler["name"]: handler for handler in endpoint["handlers"]}
+            allowed_methods = {
+                name.upper()
+                for name in handlers
+                if name in {"get", "head", "post", "put", "patch", "delete", "options"}
+            }
+            method_handler_name = (
+                "get" if method == "HEAD" and "head" not in handlers else method.lower()
+            )
+            if method in allowed_methods or (method == "HEAD" and "GET" in allowed_methods):
+                selected_handler = handlers.get(method_handler_name)
+                if selected_handler is not None:
+                    if selected_handler["call_style"] == "async":
+                        derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["async_handler"])
+                    if selected_handler["response"]["kind"] == "path-parameter-text-response":
+                        derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["path_parameter"])
+            else:
+                derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["method_not_allowed"])
+                if method_handler_name.startswith("_") and method_handler_name in handlers:
+                    derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["non_verb_helper"])
     selected_host_route_index = next(
         (index for index, _route in host_matched if index == first_full_route_index), None
     )
@@ -4765,7 +4892,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         if selected_host_route_index > 0 and any(
             route["kind"] == "http-route"
             and _route_template_matches(route["path"], route_path, custom_convertors)
-            and not (method in route["methods"] or (method == "HEAD" and "GET" in route["methods"]))
+            and not _route_method_matches(route, method)
             for route in routes[:selected_host_route_index]
         ):
             derived.add("starlette.routing.Router.route-dispatch.partial-before-host-full")
@@ -4822,6 +4949,11 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
         _validate_router_route_input(route, f"Router routes[{index}]", {})
         for index, route in enumerate(case["routes"])
     ]
+    if any(
+        route["kind"] == "http-route" and route["endpoint"]["kind"] == "http-class-based-endpoint"
+        for route in routes
+    ):
+        raise ContractError("Router mutation sequences do not declare HTTPEndpoint classes")
     if any(route["kind"] == "host-route" for route in routes):
         raise ContractError("Router mutation sequences do not declare Host routes")
     if "observe_router_scope" in case and (
@@ -4831,15 +4963,15 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "observe_router_scope is enabled only for Router inputs containing a Mount"
         )
-    methods = [
-        (
-            {method.upper() for method in route["methods"]}
-            | ({"HEAD"} if "GET" in {method.upper() for method in route["methods"]} else set())
-            if route["kind"] == "http-route"
-            else None
-        )
-        for route in routes
-    ]
+    methods: list[set[str] | None] = []
+    for route in routes:
+        if route["kind"] != "http-route" or route["methods"] is None:
+            methods.append(None)
+            continue
+        route_methods = {method.upper() for method in route["methods"]}
+        if "GET" in route_methods:
+            route_methods.add("HEAD")
+        methods.append(route_methods)
     steps = case["steps"]
     if not isinstance(steps, list) or len(steps) < 2:
         raise ContractError("Router mutation sequence requires at least two dispatch steps")
@@ -4896,6 +5028,10 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
                 route = _validate_http_route_input(
                     mutation["route"], f"{mutation_context}.route", {}
                 )
+                if route["methods"] is None:
+                    raise ContractError(
+                        "Router mutation sequences do not append HTTPEndpoint classes"
+                    )
                 routes.append(route)
                 route_methods = {method.upper() for method in route["methods"]}
                 if "GET" in route_methods:

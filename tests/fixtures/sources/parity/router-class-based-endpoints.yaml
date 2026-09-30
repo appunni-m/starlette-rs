@@ -1,0 +1,287 @@
+{
+  "schema": "migration-parity/parity-input@9",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.http-endpoint-default-get",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
+        "starlette.routing.Router.route-dispatch.http-endpoint-async-handler"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/",
+          "methods": null,
+          "endpoint": {
+            "kind": "http-class-based-endpoint",
+            "handlers": [
+              {
+                "name": "get",
+                "call_style": "async",
+                "response": {
+                  "kind": "plain-text-response",
+                  "content": "Hello, world!",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.http-endpoint-path-params",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
+        "starlette.routing.Router.route-dispatch.http-endpoint-async-handler",
+        "starlette.routing.Router.route-dispatch.http-endpoint-path-parameter"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/{username}",
+          "methods": null,
+          "endpoint": {
+            "kind": "http-class-based-endpoint",
+            "handlers": [
+              {
+                "name": "get",
+                "call_style": "async",
+                "response": {
+                  "kind": "path-parameter-text-response",
+                  "path_parameter": "username",
+                  "prefix": "Hello, ",
+                  "suffix": "!",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/tomchristie",
+        "raw_path_base64": "L3RvbWNocmlzdGll",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
+        "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/",
+          "methods": null,
+          "endpoint": {
+            "kind": "http-class-based-endpoint",
+            "handlers": [
+              {
+                "name": "get",
+                "call_style": "async",
+                "response": {
+                  "kind": "plain-text-response",
+                  "content": "Hello, world!",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-method",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
+        "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed",
+        "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/",
+          "methods": null,
+          "endpoint": {
+            "kind": "http-class-based-endpoint",
+            "handlers": [
+              {
+                "name": "get",
+                "call_style": "async",
+                "response": {
+                  "kind": "plain-text-response",
+                  "content": "Hello, world!",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              },
+              {
+                "name": "_do_delete",
+                "call_style": "async",
+                "response": {
+                  "kind": "plain-text-response",
+                  "content": "Privileged helper",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "_DO_DELETE",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    }
+  ]
+}

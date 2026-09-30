@@ -255,6 +255,7 @@
       "build/parity/inputs/parity/router-converter-dispatch.json",
       "build/parity/inputs/parity/router-slash-redirect.json",
       "build/parity/inputs/parity/router-cache-invalidation.json",
+      "build/parity/inputs/parity/router-class-based-endpoints.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
       "build/parity/inputs/parity/reverse-url-routing.json",
@@ -11259,7 +11260,12 @@
                   "starlette.routing.Router.route-dispatch.live-route-list-append",
                   "starlette.routing.Router.route-dispatch.live-route-method-mutation",
                   "starlette.routing.Router.route-dispatch.mount-route-dispatch",
-                  "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss"
+                  "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss",
+                  "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
+                  "starlette.routing.Router.route-dispatch.http-endpoint-async-handler",
+                  "starlette.routing.Router.route-dispatch.http-endpoint-path-parameter",
+                  "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed",
+                  "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected"
                 ]
               }
             },
@@ -11534,6 +11540,61 @@
               "id": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
               "dimension": "boundary",
               "description": "After a prior dispatch, adding a method to an existing Route.methods set makes the route accept that method. Upstream: starlette/routing.py::Route.matches and Route.handle.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
+              "dimension": "boundary",
+              "description": "A Router Route invokes an HTTPEndpoint subclass as a class-based ASGI endpoint.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.http-endpoint-async-handler",
+              "dimension": "success_path",
+              "description": "HTTPEndpoint dispatches the request to its asynchronous GET handler and returns its response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.http-endpoint-path-parameter",
+              "dimension": "parameter",
+              "description": "An asynchronous HTTPEndpoint reads a string path parameter populated by Route and uses it in its response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed",
+              "dimension": "error_path",
+              "description": "HTTPEndpoint handles an unsupported HTTP verb with its 405 response and Allow header.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected",
+              "dimension": "error_path",
+              "description": "HTTPEndpoint does not dispatch an underscore-prefixed helper for a non-verb request method.",
               "lanes": [
                 "parity"
               ],

@@ -3033,6 +3033,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 
 def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.convertors import Convertor, register_url_convertor
+    from starlette.endpoints import HTTPEndpoint
     from starlette.responses import PlainTextResponse
     from starlette.routing import Host, Mount, Route, Router
 
@@ -3055,6 +3056,81 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
 
     def make_route(route_spec: dict[str, Any], route_index: int) -> Any:
         response_spec = route_spec["endpoint"]
+        if response_spec.get("kind") == "http-class-based-endpoint":
+            if set(response_spec) != {"kind", "handlers"}:
+                raise ValueError("HTTP class endpoint input has unsupported fields")
+
+            def make_class_response(request: Any, class_response_spec: dict[str, Any]) -> Any:
+                kind = class_response_spec["kind"]
+                if kind == "plain-text-response":
+                    if set(class_response_spec) != {
+                        "kind",
+                        "content",
+                        "status_code",
+                        "media_type",
+                    }:
+                        raise ValueError("HTTP class endpoint response has unsupported fields")
+                    content = class_response_spec["content"]
+                elif kind == "path-parameter-text-response":
+                    if set(class_response_spec) != {
+                        "kind",
+                        "path_parameter",
+                        "prefix",
+                        "suffix",
+                        "status_code",
+                        "media_type",
+                    }:
+                        raise ValueError("HTTP class endpoint path response has unsupported fields")
+                    content = (
+                        class_response_spec["prefix"]
+                        + str(request.path_params[class_response_spec["path_parameter"]])
+                        + class_response_spec["suffix"]
+                    )
+                else:
+                    raise ValueError(f"unsupported HTTP class endpoint response: {kind!r}")
+                return PlainTextResponse(
+                    content=content,
+                    status_code=class_response_spec["status_code"],
+                    media_type=class_response_spec["media_type"],
+                )
+
+            class_attributes: dict[str, Any] = {"__module__": __name__}
+
+            def endpoint_init(self: Any, scope: Any, receive: Any, send: Any) -> None:
+                HTTPEndpoint.__init__(self, scope, receive, send)
+                route_index_observations.append(route_index)
+
+            class_attributes["__init__"] = endpoint_init
+            for handler_spec in response_spec["handlers"]:
+                if set(handler_spec) != {"name", "call_style", "response"}:
+                    raise ValueError("HTTP class endpoint handler has unsupported fields")
+                handler_response_spec = handler_spec["response"]
+                if handler_spec["call_style"] == "async":
+
+                    async def async_handler(
+                        self: Any,
+                        request: Any,
+                        class_response_spec: dict[str, Any] = handler_response_spec,
+                    ) -> Any:
+                        return make_class_response(request, class_response_spec)
+
+                    class_attributes[handler_spec["name"]] = async_handler
+                elif handler_spec["call_style"] == "sync":
+
+                    def sync_handler(
+                        self: Any,
+                        request: Any,
+                        class_response_spec: dict[str, Any] = handler_response_spec,
+                    ) -> Any:
+                        return make_class_response(request, class_response_spec)
+
+                    class_attributes[handler_spec["name"]] = sync_handler
+                else:
+                    raise ValueError("HTTP class endpoint call_style must be async or sync")
+
+            endpoint_class = type("InputHTTPEndpoint", (HTTPEndpoint,), class_attributes)
+            return Route(route_spec["path"], endpoint=endpoint_class, methods=route_spec["methods"])
+
         if response_spec["kind"] not in {"plain-text-response", "converted-path-response"}:
             raise ValueError(f"unsupported route endpoint input: {response_spec['kind']!r}")
 

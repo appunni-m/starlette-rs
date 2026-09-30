@@ -4943,6 +4943,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("send input must select the declared ASGI message collector")
 
     from starlette.convertors import CONVERTOR_TYPES, Convertor, register_url_convertor
+    from starlette.endpoints import HTTPEndpoint
     from starlette.responses import PlainTextResponse
     from starlette.routing import Host, Mount, Route, Router
 
@@ -4952,6 +4953,82 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
     route_index_observations: list[int] = []
 
     def make_endpoint(endpoint_spec: dict[str, Any], route_index: int) -> Any:
+        if endpoint_spec.get("kind") == "http-class-based-endpoint":
+            _strict_object(endpoint_spec, {"kind", "handlers"}, "HTTP class endpoint input")
+
+            def make_response(request: Any, response_spec: dict[str, Any]) -> Any:
+                kind = response_spec["kind"]
+                if kind == "plain-text-response":
+                    _strict_object(
+                        response_spec,
+                        {"kind", "content", "status_code", "media_type"},
+                        "HTTP class endpoint response",
+                    )
+                    content = response_spec["content"]
+                elif kind == "path-parameter-text-response":
+                    _strict_object(
+                        response_spec,
+                        {
+                            "kind",
+                            "path_parameter",
+                            "prefix",
+                            "suffix",
+                            "status_code",
+                            "media_type",
+                        },
+                        "HTTP class endpoint path-parameter response",
+                    )
+                    content = (
+                        response_spec["prefix"]
+                        + str(request.path_params[response_spec["path_parameter"]])
+                        + response_spec["suffix"]
+                    )
+                else:
+                    raise ValueError(f"unsupported HTTP class endpoint response: {kind!r}")
+                return PlainTextResponse(
+                    content=content,
+                    status_code=response_spec["status_code"],
+                    media_type=response_spec["media_type"],
+                )
+
+            class_attributes: dict[str, Any] = {"__module__": __name__}
+
+            def endpoint_init(self: Any, scope: Any, receive: Any, send: Any) -> None:
+                HTTPEndpoint.__init__(self, scope, receive, send)
+                route_index_observations.append(route_index)
+
+            class_attributes["__init__"] = endpoint_init
+            for handler_spec in endpoint_spec["handlers"]:
+                _strict_object(
+                    handler_spec,
+                    {"name", "call_style", "response"},
+                    "HTTP class endpoint handler",
+                )
+                response_spec = handler_spec["response"]
+                if handler_spec["call_style"] == "async":
+
+                    async def async_handler(
+                        self: Any,
+                        request: Any,
+                        response_spec: dict[str, Any] = response_spec,
+                    ) -> Any:
+                        return make_response(request, response_spec)
+
+                    class_attributes[handler_spec["name"]] = async_handler
+                else:
+
+                    def sync_handler(
+                        self: Any,
+                        request: Any,
+                        response_spec: dict[str, Any] = response_spec,
+                    ) -> Any:
+                        return make_response(request, response_spec)
+
+                    class_attributes[handler_spec["name"]] = sync_handler
+
+            EndpointClass = type("InputHTTPEndpoint", (HTTPEndpoint,), class_attributes)
+            return EndpointClass
+
         async def endpoint(request: Any) -> Any:
             if is_router:
                 route_index_observations.append(route_index)
