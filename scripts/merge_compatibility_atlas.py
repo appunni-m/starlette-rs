@@ -381,9 +381,7 @@ def main() -> int:
     )
     backlog_rows = [row for row in fixture_rows if row["fixture_status"] == "backlog"]
     fixture_mapping_count = sum(row["fixture_status"] == "existing" for row in fixture_rows)
-    not_applicable_count = sum(
-        row["fixture_status"] == "not_applicable" for row in fixture_rows
-    )
+    not_applicable_count = sum(row["fixture_status"] == "not_applicable" for row in fixture_rows)
     outputs = [
         (args.output / "api-review.csv", API_REVIEW_FIELDS, api_rows),
         (args.output / "coverage-matrix.csv", FIXTURE_FIELDS, fixture_rows),

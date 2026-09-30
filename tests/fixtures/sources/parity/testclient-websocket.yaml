@@ -98,6 +98,163 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.denial-response-streamed-body",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.denial-response-exception"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "/tenant",
+        "client": [
+          "192.0.2.11",
+          4312
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/ws-raise-http",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path",
+          "headers"
+        ],
+        "actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.start",
+              "status": 401,
+              "headers_base64_pairs": [
+                [
+                  "Y29udGVudC10eXBl",
+                  "YXBwbGljYXRpb24vanNvbg=="
+                ],
+                [
+                  "eC1kZW5pYWw=",
+                  "aW5wdXQ="
+                ]
+              ]
+            }
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.body",
+              "body_base64": "eyJkZXRhaWwiOiJVbg==",
+              "more_body": true
+            }
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.body",
+              "body_base64": "YXV0aG9yaXplZCJ9",
+              "more_body": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.denial-response-multi-body",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.denial-response-exception"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path",
+          "headers"
+        ],
+        "actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.start",
+              "status": 404,
+              "headers_base64_pairs": [
+                [
+                  "Y29udGVudC10eXBl",
+                  "dGV4dC9wbGFpbg=="
+                ],
+                [
+                  "Zm9v",
+                  "YmFy"
+                ]
+              ]
+            }
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.body",
+              "body_base64": "aGFyZA==",
+              "more_body": true
+            }
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.body",
+              "body_base64": "Ym9keQ==",
+              "more_body": false
+            }
+          }
+        ]
+      }
     }
   ]
 }

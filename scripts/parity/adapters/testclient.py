@@ -122,7 +122,13 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
-    from starlette.testclient import TestClient
+    try:
+        import httpx2 as httpx
+    except ModuleNotFoundError:
+        import httpx
+
+    from starlette.testclient import TestClient, WebSocketDenialResponse
+    from starlette.websockets import WebSocketDisconnect
 
     settings = case["testclient"]
     websocket_input = case["websocket"]
@@ -160,26 +166,39 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     session_input = websocket_input.get("subprotocols")
     request_headers = dict(websocket_input["headers"])
     action_results: list[dict[str, Any]] = []
-    with client.websocket_connect(
-        websocket_input["url"],
-        subprotocols=session_input,
-        headers=request_headers,
-    ) as session:
-        accepted_subprotocol = session.accepted_subprotocol
-        for action in websocket_input["actions"]:
-            if action["operation"] == "send_text":
-                value = session.send_text(action["text"])
-            elif action["operation"] == "send_bytes":
-                value = session.send_bytes(base64.b64decode(action["data_base64"]))
-            elif action["operation"] == "receive_text":
-                value = session.receive_text()
-            elif action["operation"] == "receive_bytes":
-                value = session.receive_bytes()
-            else:
-                raise ValueError(
-                    f"unsupported TestClient WebSocket action: {action['operation']!r}"
-                )
-            action_results.append({"operation": action["operation"], "value": _safe(value)})
+    accepted_subprotocol = None
+    denial_response = None
+    try:
+        with client.websocket_connect(
+            websocket_input["url"],
+            subprotocols=session_input,
+            headers=request_headers,
+        ) as session:
+            accepted_subprotocol = session.accepted_subprotocol
+            for action in websocket_input["actions"]:
+                if action["operation"] == "send_text":
+                    value = session.send_text(action["text"])
+                elif action["operation"] == "send_bytes":
+                    value = session.send_bytes(base64.b64decode(action["data_base64"]))
+                elif action["operation"] == "receive_text":
+                    value = session.receive_text()
+                elif action["operation"] == "receive_bytes":
+                    value = session.receive_bytes()
+                else:
+                    raise ValueError(
+                        f"unsupported TestClient WebSocket action: {action['operation']!r}"
+                    )
+                action_results.append({"operation": action["operation"], "value": _safe(value)})
+    except WebSocketDenialResponse as exception:
+        exception_type = type(exception)
+        denial_response = {
+            "class": f"{exception_type.__module__}.{exception_type.__qualname__}",
+            "is_websocket_disconnect": isinstance(exception, WebSocketDisconnect),
+            "is_httpx_response": isinstance(exception, httpx.Response),
+            "status_code": exception.status_code,
+            "headers": exception.headers.multi_items(),
+            "body_base64": base64.b64encode(exception.content).decode("ascii"),
+        }
     result = {
         "scope": scope_observations,
         "receive_messages": receive_observations,
@@ -188,6 +207,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             "accepted_subprotocol": accepted_subprotocol,
             "actions": action_results,
         },
+        "denial_response": denial_response,
     }
     client.close()
     return {

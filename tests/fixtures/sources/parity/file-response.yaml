@@ -1736,6 +1736,71 @@
         "observe_cached_headers_across_call": true
       },
       "chunk_size": 10
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.async-file-open-scheduling",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.async-file-open-scheduling"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "stream.fifo",
+        "contents_base64": "cGFyaXR5LWZpZm8tZGF0YQ==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [
+        [
+          "x-fixture-input",
+          "fifo-scheduling"
+        ]
+      ],
+      "media_type": "application/octet-stream",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "scheduling": {
+        "kind": "posix-fifo-loop-marker",
+        "marker_delay_seconds": 0.05,
+        "writer_check_delay_seconds": 0.6,
+        "writer_release_delay_seconds": 1.0,
+        "writer_poll_interval_seconds": 0.005,
+        "writer_timeout_seconds": 2.0,
+        "cleanup_timeout_seconds": 2.5
+      }
     }
   ]
 }

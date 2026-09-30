@@ -32,18 +32,20 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 527 input-only cases, 78 operations, and 564
+The current parity contract has 530 input-only cases, 78 operations, and 566
 parity requirements across 61 indexed files. The cases now include direct
 Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
 interleaved consumers. The live source/package/native run
-`e68c4c1c-7a79-4435-95d9-3fbfb0837f6f` selected 679 profile comparisons: 675
+`3888440a-16e6-4d20-9a77-8a6af72268d4` selected 682 profile comparisons: 678
 passed, zero failed, zero infrastructure errors, and four unsupported
 Rust-native Python-callable comparisons were `not_run`. The Python package
-passed 525/525; Rust-native passed 150/154. The manifest SHA-256 is
-`39f582b91a11f209b99d0a1411259cffe79e972c10e2e43f8f24ada827f6ccdb`; the
+passed 528/528; Rust-native passed 150/154. The latest additions compare two
+streamed TestClient WebSocket denial responses and event-loop progress during
+FIFO-backed FileResponse opening. The manifest SHA-256 is
+`45e3e478790e0f00a53360586f441cbce3e7236ad1ce227ac769802baada10b5`; the
 installed package wheel SHA-256 is
-`735ed64b0364410951774adf039115ad919d40f9fa471477940550cbb2e45cfa`. The
+`ddd4ad9db178f4fe41fc87dbef5bdab8fc9f3046f2d86dfc600c0af262e17b7b`. The
 all-target command exits 2 for those four unsupported native callable cases.
 This bounded evidence does not establish full parity.
 
@@ -61,8 +63,9 @@ Router live-mutation sequence passed on all three dispatches, and all twelve
 background-task cases passed against the pinned source. All 20 URL scope, 14
 URL component, and ten Headers/MutableHeaders cases passed on the Python
 package, as did all six new raw-header, Response-view, and FileResponse range
-view probes. All 30 FileResponse cases passed on the selected profiles, all
-eight SessionMiddleware cases passed on the Python package profile, and all
+view probes. All 30 FileResponse response-behavior cases passed on the selected profiles,
+and the Python-package-only FIFO scheduling comparison passed. All eight
+SessionMiddleware cases passed on the Python package profile, and all
 twenty-one BaseHTTPMiddleware cases passed there. They include the two post-call-next stream-read cases from
 `tests/middleware/test_base.py:715-773`: after the endpoint exhausts
 `request.stream()` or reads `request.body()`, dispatch captures the live result

@@ -6,6 +6,8 @@ from typing import Any
 
 from starlette_rs_py import _core
 
+from starlette.websockets import WebSocketDisconnect
+
 _httpx = _core.testclient_httpx()
 
 
@@ -26,6 +28,13 @@ class _TestClientTransport(_httpx.BaseTransport):
 
     def close(self) -> None:
         self._runtime.close()
+
+
+class WebSocketDenialResponse(  # type: ignore[misc]
+    _httpx.Response,
+    WebSocketDisconnect,
+):
+    """Response raised when a WebSocket handshake is denied with an HTTP response."""
 
 
 class WebSocketTestSession:

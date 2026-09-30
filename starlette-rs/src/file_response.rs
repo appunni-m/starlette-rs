@@ -777,11 +777,36 @@ impl FileResponseCall {
         &self.base_headers
     }
 
+    /// Closes the currently open file, if any.
+    ///
+    /// The file is closed by dropping it on the calling thread. Runtime
+    /// adapters that must keep close off an event loop should call this method
+    /// from their blocking-I/O worker.
+    pub fn close_file(&mut self) {
+        drop(self.file.take());
+    }
+
     /// Produces the next send/background/completion action.
     ///
     /// File reads happen one chunk at a time in Rust after the start event has
     /// been sent, so the Python bridge does not assemble the response body.
+    /// An open file is closed before a terminal action, background action, or
+    /// I/O error is returned.
     pub fn step(&mut self) -> Result<FileResponseCallStep, io::Error> {
+        let result = self.step_inner();
+        if matches!(
+            &result,
+            Err(_)
+                | Ok(FileResponseCallStep::RunBackground)
+                | Ok(FileResponseCallStep::Complete)
+                | Ok(FileResponseCallStep::Failed)
+        ) {
+            self.close_file();
+        }
+        result
+    }
+
+    fn step_inner(&mut self) -> Result<FileResponseCallStep, io::Error> {
         if self.pending.is_some() {
             return Ok(FileResponseCallStep::Failed);
         }

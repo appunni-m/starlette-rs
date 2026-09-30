@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 527 input-only cases across 61 files,
-covering 78 operations and 564 parity requirements. The authored cases span
+The active parity manifest indexes 530 input-only cases across 61 files,
+covering 78 operations and 566 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
@@ -29,13 +29,17 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `e68c4c1c-7a79-4435-95d9-3fbfb0837f6f` ran against the
+Latest live parity run `3888440a-16e6-4d20-9a77-8a6af72268d4` ran against the
 pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T14:36:11.202Z` to `2026-09-30T14:37:58.550Z`. It selected 679
-profile comparisons: 675 passed, zero failed, zero infrastructure errors, and
+`2026-09-30T15:28:16.511Z` to `2026-09-30T15:30:07.379Z`. It selected 682
+profile comparisons: 678 passed, zero failed, zero infrastructure errors, and
 four unsupported Rust-native Python-callable comparisons were `not_run`. The
-installed Python package passed all 525 selected comparisons; Rust-native
-passed 150 of 154. New Request body/stream/JSON inputs cover receive defaults,
+installed Python package passed all 528 selected comparisons; Rust-native
+passed 150 of 154. Two TestClient WebSocket denial cases match a streamed 401
+response and the pinned multi-chunk 404 denial response, including response
+class identity and both exception/response base classes. One FileResponse
+input verifies event-loop progress during FIFO-backed file opening while
+comparing the complete ASGI response. New Request body/stream/JSON inputs cover receive defaults,
 chunk concatenation, body caching and stream replay/consumption, JSON caching
 and decode errors, interleaved streams, disconnect, and an overlapping body
 and stream receive race. Eight upstream Request test rows now point to these
@@ -44,9 +48,9 @@ multipart part-size short-circuiting, duplicate text/file values, high custom
 field/file limits, tempfile cleanup after stream and OSError failures,
 worker-thread rollover and cleanup, and direct/Mount unique and mixed file-count
 failures. The manifest SHA-256 is
-`39f582b91a11f209b99d0a1411259cffe79e972c10e2e43f8f24ada827f6ccdb`; the
+`45e3e478790e0f00a53360586f441cbce3e7236ad1ce227ac769802baada10b5`; the
 installed package wheel SHA-256 is
-`735ed64b0364410951774adf039115ad919d40f9fa471477940550cbb2e45cfa`. The
+`ddd4ad9db178f4fe41fc87dbef5bdab8fc9f3046f2d86dfc600c0af262e17b7b`. The
 all-target command still exits 2 for the four unsupported Rust-native callable
 cases. This bounded run is not full Starlette parity.
 
@@ -61,8 +65,8 @@ source/package median ratios were 0.771 for Router and 0.975 for GZip; source
 was faster in five of six Router workloads and 57 of 68 GZip workloads. This
 is benchmark evidence for that lane only; the full compatibility denominator
 remains incomplete. The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 797 source rows: 249 existing input
-mappings, 50 reasoned `not_applicable` rows, and 498 fixture backlog rows.
+The generated coverage matrix has 798 source rows: 252 existing input
+mappings, 50 reasoned `not_applicable` rows, and 496 fixture backlog rows.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
 `2026-09-29T23:48:10.322Z` and finished at `2026-09-29T23:49:31.637Z`. It
@@ -83,9 +87,9 @@ only header probes observe raw-list aliasing and pair identity, the cached
 FileResponse range responses; all six passed exact source/package comparison.
 The template case
 matches escaped HTML, processor merge, `url_for`, response metadata, and the
-ASGI debug event. All 30 FileResponse cases passed on
-both profiles,
-all eight SessionMiddleware cases passed on the Python package profile, and all
+ASGI debug event. The 30 existing FileResponse behavior cases passed on both
+profiles where selected; the added scheduling case passed on the Python
+package profile. All eight SessionMiddleware cases passed on the Python package profile, and all
 twenty-one BaseHTTPMiddleware workflow cases passed there. Two additional
 ContextVar cases compare `call_next` context propagation with a pure-ASGI
 control. The workflow cases cover header
@@ -355,7 +359,7 @@ header-view and raw-pair probes, and a Router sequence that verifies live
 route-method and route-list mutations across
 dispatches, twenty URL scope-construction cases,
 twenty-one BaseHTTPMiddleware workflow cases, two BaseHTTPMiddleware ContextVar
-cases, one Jinja2 template case, and 30 FileResponse cases, 42 authored
+cases, one Jinja2 template case, 31 FileResponse cases, 42 authored
 StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and
 15 lifecycle cases in

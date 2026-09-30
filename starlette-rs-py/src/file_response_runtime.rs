@@ -1,6 +1,11 @@
 //! PyO3 bridge for the Rust-owned file response state machine.
+//!
+//! The Python task owns the event loop, so synchronous Rust filesystem steps
+//! run through AnyIO's worker pool. Rust still prepares the response, owns the
+//! open file, chooses each ASGI event, and advances the protocol state.
 
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use pyo3::exceptions::{
     PyFileNotFoundError, PyIsADirectoryError, PyOSError, PyPermissionError, PyRuntimeError,
@@ -22,6 +27,7 @@ use crate::runtime_calls::header_pairs;
 
 /// Registers the `FileResponse` PyO3 type.
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PyFileResponseCallDriver>()?;
     module.add_class::<PyFileResponse>()
 }
 
@@ -245,61 +251,273 @@ impl PyFileResponse {
         let raw_headers =
             crate::response_headers_runtime::parse_raw_pairs(self.raw_headers.bind(py))?;
         let view_is_raw = view_raw.is(self.raw_headers.bind(py));
-        let call = self
-            .inner
-            .call_state_with_headers(
+        let driver = Py::new(
+            py,
+            PyFileResponseCallDriver::new(
+                self.inner.clone(),
                 FileResponseHeaderViews {
                     view: view_headers,
                     raw: raw_headers,
                     view_is_raw,
                 },
-                &scope_type,
-                &method,
-                &request_headers,
+                scope_type.clone(),
+                method,
+                request_headers,
                 pathsend_extension,
                 background.is_some(),
-            )
-            .map_err(file_response_error)?;
-        crate::response_headers_runtime::refresh_raw_pairs(py, &view_raw, call.base_headers())?;
+                scope_type == "websocket",
+            ),
+        )?;
         into_python_awaitable(
             py,
             FileResponseMachine {
-                call,
+                driver,
                 send,
                 _receive: receive,
                 background,
-                websocket: scope_type == "websocket",
+                view_raw: view_raw.unbind(),
                 pending: None,
+                deferred_error: None,
             },
         )
     }
 }
 
+/// Owns one response call while AnyIO schedules its synchronous Rust steps.
+///
+/// The mutex is shared with the AnyIO worker callback. The worker releases the
+/// GIL around Rust filesystem work, then converts the selected event after it
+/// returns to Python. This keeps blocking I/O off the event-loop thread without
+/// moving response decisions or file state into Python.
+#[pyclass(name = "_FileResponseCallDriver", frozen)]
+struct PyFileResponseCallDriver {
+    state: Arc<Mutex<FileResponseCallDriverState>>,
+}
+
+struct FileResponseCallDriverState {
+    response: NativeFileResponse,
+    header_views: FileResponseHeaderViews,
+    scope_type: String,
+    method: String,
+    request_headers: Vec<(Vec<u8>, Vec<u8>)>,
+    pathsend_extension: bool,
+    has_background: bool,
+    websocket: bool,
+    call: Option<FileResponseCall>,
+    headers_refreshed: bool,
+}
+
+struct FileResponseWorkerStep {
+    step: FileResponseCallStep,
+    base_headers: Vec<(Vec<u8>, Vec<u8>)>,
+    refresh_headers: bool,
+    websocket: bool,
+}
+
+enum FileResponseWorkerError {
+    LockPoisoned,
+    Preparation(FileResponseError),
+    Io(std::io::Error),
+}
+
+impl PyFileResponseCallDriver {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        response: NativeFileResponse,
+        header_views: FileResponseHeaderViews,
+        scope_type: String,
+        method: String,
+        request_headers: Vec<(Vec<u8>, Vec<u8>)>,
+        pathsend_extension: bool,
+        has_background: bool,
+        websocket: bool,
+    ) -> Self {
+        Self {
+            state: Arc::new(Mutex::new(FileResponseCallDriverState {
+                response,
+                header_views,
+                scope_type,
+                method,
+                request_headers,
+                pathsend_extension,
+                has_background,
+                websocket,
+                call: None,
+                headers_refreshed: false,
+            })),
+        }
+    }
+
+    fn advance(&self, input: FileResponseCallInput<PyErr>) -> PyResult<()> {
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| PyRuntimeError::new_err("file response call state is poisoned"))?;
+        let call = state
+            .call
+            .as_mut()
+            .ok_or_else(|| PyRuntimeError::new_err("file response call was not prepared"))?;
+        call.advance(input).map_err(|error| match error {
+            FileResponseCallError::Operation(error) => error,
+            FileResponseCallError::UnexpectedInput => {
+                PyRuntimeError::new_err("unexpected file response operation result")
+            }
+        })
+    }
+
+    fn step(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let state = Arc::clone(&self.state);
+        let result = py
+            .detach(move || {
+                state
+                    .lock()
+                    .map_err(|_| FileResponseWorkerError::LockPoisoned)?
+                    .step()
+            })
+            .map_err(file_response_worker_error)?;
+
+        let (action, message) = match result.step {
+            FileResponseCallStep::Send(event) => (
+                FILE_RESPONSE_STEP_SEND,
+                file_response_event_to_py(py, event, result.websocket)?
+                    .into_any()
+                    .unbind(),
+            ),
+            FileResponseCallStep::RunBackground => (FILE_RESPONSE_STEP_BACKGROUND, py.None()),
+            FileResponseCallStep::Complete => (FILE_RESPONSE_STEP_COMPLETE, py.None()),
+            FileResponseCallStep::Failed => (FILE_RESPONSE_STEP_FAILED, py.None()),
+        };
+        let base_headers = headers_to_py(py, result.base_headers)?;
+        let values = [
+            action.into_pyobject(py)?.into_any().unbind(),
+            message,
+            result
+                .refresh_headers
+                .into_pyobject(py)?
+                .to_owned()
+                .into_any()
+                .unbind(),
+            base_headers.into_any().unbind(),
+        ];
+        PyTuple::new(py, values)
+            .map(Bound::into_any)
+            .map(Bound::unbind)
+    }
+
+    fn close(&self, py: Python<'_>) -> Py<PyAny> {
+        let state = Arc::clone(&self.state);
+        py.detach(move || {
+            let mut state = match state.lock() {
+                Ok(state) => state,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            state.close_file();
+        });
+        py.None()
+    }
+}
+
+impl FileResponseCallDriverState {
+    fn step(&mut self) -> Result<FileResponseWorkerStep, FileResponseWorkerError> {
+        let refresh_headers = !self.headers_refreshed;
+        if self.call.is_none() {
+            self.call = Some(
+                self.response
+                    .call_state_with_headers(
+                        self.header_views.clone(),
+                        &self.scope_type,
+                        &self.method,
+                        &self.request_headers,
+                        self.pathsend_extension,
+                        self.has_background,
+                    )
+                    .map_err(FileResponseWorkerError::Preparation)?,
+            );
+        }
+        self.headers_refreshed = true;
+
+        let call = self
+            .call
+            .as_mut()
+            .ok_or(FileResponseWorkerError::LockPoisoned)?;
+        let step = call.step().map_err(FileResponseWorkerError::Io)?;
+        let base_headers = if refresh_headers {
+            call.base_headers().to_vec()
+        } else {
+            Vec::new()
+        };
+        Ok(FileResponseWorkerStep {
+            step,
+            base_headers,
+            refresh_headers,
+            websocket: self.websocket,
+        })
+    }
+
+    fn close_file(&mut self) {
+        if let Some(call) = self.call.as_mut() {
+            call.close_file();
+        }
+    }
+}
+
+#[pymethods]
+impl PyFileResponseCallDriver {
+    fn _step(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.step(py)
+    }
+
+    fn _close(&self, py: Python<'_>) -> Py<PyAny> {
+        self.close(py)
+    }
+}
+
+const FILE_RESPONSE_STEP_SEND: u8 = 0;
+const FILE_RESPONSE_STEP_BACKGROUND: u8 = 1;
+const FILE_RESPONSE_STEP_COMPLETE: u8 = 2;
+const FILE_RESPONSE_STEP_FAILED: u8 = 3;
+
 struct FileResponseMachine {
-    call: FileResponseCall,
+    driver: Py<PyFileResponseCallDriver>,
     send: Py<PyAny>,
     _receive: Py<PyAny>,
     background: Option<Py<PyAny>>,
-    websocket: bool,
+    view_raw: Py<PyAny>,
     pending: Option<FileResponsePending>,
+    deferred_error: Option<PyErr>,
 }
 
 enum FileResponsePending {
+    Step,
     Send,
     Background,
+    Close,
 }
 
 impl AwaitableStateMachine for FileResponseMachine {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.next_action(py),
-            MachineResume::Value(_) => {
+            MachineResume::Value(value) => {
                 match self.pending.take() {
+                    Some(FileResponsePending::Step) => return self.next_step_action(py, value),
                     Some(FileResponsePending::Send) => {
-                        self.advance(FileResponseCallInput::Send(Ok(())))?;
+                        if let Err(error) = self.advance(py, FileResponseCallInput::Send(Ok(()))) {
+                            return self.cleanup_after_error(py, error, None);
+                        }
                     }
                     Some(FileResponsePending::Background) => {
-                        self.advance(FileResponseCallInput::BackgroundFinished(Ok(())))?;
+                        if let Err(error) =
+                            self.advance(py, FileResponseCallInput::BackgroundFinished(Ok(())))
+                        {
+                            return self.cleanup_after_error(py, error, None);
+                        }
+                        return Ok(MachineAction::Complete(py.None()));
+                    }
+                    Some(FileResponsePending::Close) => {
+                        return Err(self.deferred_error.take().ok_or_else(|| {
+                            PyRuntimeError::new_err("file response cleanup lost its error")
+                        })?);
                     }
                     None => {
                         return Err(PyRuntimeError::new_err(
@@ -312,34 +530,92 @@ impl AwaitableStateMachine for FileResponseMachine {
             MachineResume::AsyncIterationComplete(_) => Err(PyRuntimeError::new_err(
                 "file response unexpectedly received async-iteration completion",
             )),
-            MachineResume::Error(error) => {
-                match self.pending.take() {
-                    Some(FileResponsePending::Send) => {
-                        self.advance(FileResponseCallInput::Send(Err(error)))?;
-                    }
-                    Some(FileResponsePending::Background) => {
-                        self.advance(FileResponseCallInput::BackgroundFinished(Err(error)))?;
-                    }
-                    None => return Err(error),
+            MachineResume::Error(error) => match self.pending.take() {
+                Some(FileResponsePending::Step) => self.cleanup_after_error(py, error, None),
+                Some(FileResponsePending::Send) => {
+                    let operation_error = error.clone_ref(py);
+                    self.cleanup_after_error(
+                        py,
+                        error,
+                        Some(FileResponseCallInput::Send(Err(operation_error))),
+                    )
                 }
-                Err(PyRuntimeError::new_err(
-                    "file response operation failed without an error",
-                ))
-            }
+                Some(FileResponsePending::Background) => {
+                    let operation_error = error.clone_ref(py);
+                    self.cleanup_after_error(
+                        py,
+                        error,
+                        Some(FileResponseCallInput::BackgroundFinished(Err(
+                            operation_error,
+                        ))),
+                    )
+                }
+                Some(FileResponsePending::Close) => match self.deferred_error.take() {
+                    Some(original) => Err(original),
+                    None => Err(error),
+                },
+                None => Err(error),
+            },
         }
     }
 }
 
 impl FileResponseMachine {
     fn next_action(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        match self.call.step().map_err(io_error)? {
-            FileResponseCallStep::Send(event) => {
+        let awaitable = match (|| {
+            let step = self.driver.bind(py).getattr("_step")?;
+            py.import("anyio.to_thread")?
+                .getattr("run_sync")?
+                .call1((step,))
+        })() {
+            Ok(awaitable) => awaitable,
+            Err(error) => return self.cleanup_after_error(py, error, None),
+        };
+        self.pending = Some(FileResponsePending::Step);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn next_step_action(&mut self, py: Python<'_>, value: Py<PyAny>) -> PyResult<MachineAction> {
+        match self.apply_step_result(py, value) {
+            Ok(action) => Ok(action),
+            Err(error) => {
+                let operation_error = error.clone_ref(py);
+                let input = match self.pending.take() {
+                    Some(FileResponsePending::Send) => {
+                        Some(FileResponseCallInput::Send(Err(operation_error)))
+                    }
+                    Some(FileResponsePending::Background) => Some(
+                        FileResponseCallInput::BackgroundFinished(Err(operation_error)),
+                    ),
+                    _ => None,
+                };
+                self.cleanup_after_error(py, error, input)
+            }
+        }
+    }
+
+    fn apply_step_result(&mut self, py: Python<'_>, value: Py<PyAny>) -> PyResult<MachineAction> {
+        let result = value.bind(py).cast::<PyTuple>()?;
+        let action = result.get_item(0)?.extract::<u8>()?;
+        let message = result.get_item(1)?;
+        let refresh_headers = result.get_item(2)?.extract::<bool>()?;
+        if refresh_headers {
+            let base_headers =
+                crate::response_headers_runtime::parse_raw_pairs(&result.get_item(3)?)?;
+            crate::response_headers_runtime::refresh_raw_pairs(
+                py,
+                self.view_raw.bind(py),
+                &base_headers,
+            )?;
+        }
+
+        match action {
+            FILE_RESPONSE_STEP_SEND => {
                 self.pending = Some(FileResponsePending::Send);
-                let message = file_response_event_to_py(py, event, self.websocket)?;
                 let awaitable = self.send.bind(py).call1((message,))?;
                 Ok(MachineAction::Await(awaitable.unbind()))
             }
-            FileResponseCallStep::RunBackground => {
+            FILE_RESPONSE_STEP_BACKGROUND => {
                 self.pending = Some(FileResponsePending::Background);
                 let callback = self.background.as_ref().ok_or_else(|| {
                     PyRuntimeError::new_err("file response requested a missing background callback")
@@ -347,20 +623,60 @@ impl FileResponseMachine {
                 let awaitable = callback.bind(py).call0()?;
                 Ok(MachineAction::Await(awaitable.unbind()))
             }
-            FileResponseCallStep::Complete => Ok(MachineAction::Complete(py.None())),
-            FileResponseCallStep::Failed => Err(PyRuntimeError::new_err(
+            FILE_RESPONSE_STEP_COMPLETE => Ok(MachineAction::Complete(py.None())),
+            FILE_RESPONSE_STEP_FAILED => Err(PyRuntimeError::new_err(
                 "file response call is already failed",
             )),
+            _ => Err(PyRuntimeError::new_err("unknown file response call step")),
         }
     }
 
-    fn advance(&mut self, input: FileResponseCallInput<PyErr>) -> PyResult<()> {
-        self.call.advance(input).map_err(|error| match error {
-            FileResponseCallError::Operation(error) => error,
-            FileResponseCallError::UnexpectedInput => {
-                PyRuntimeError::new_err("unexpected file response operation result")
+    fn cleanup_after_error(
+        &mut self,
+        py: Python<'_>,
+        error: PyErr,
+        input: Option<FileResponseCallInput<PyErr>>,
+    ) -> PyResult<MachineAction> {
+        self.deferred_error = Some(error.clone_ref(py));
+        if let Some(input) = input {
+            let _advance_result = self.advance(py, input);
+        }
+        self.next_close_action(py)
+    }
+
+    fn next_close_action(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        // Keep AnyIO's default cancellation shielding so the worker closes the
+        // file before this state machine re-raises the original exception.
+        let awaitable = match (|| {
+            let close = self.driver.bind(py).getattr("_close")?;
+            py.import("anyio.to_thread")?
+                .getattr("run_sync")?
+                .call1((close,))
+        })() {
+            Ok(awaitable) => awaitable,
+            Err(error) => {
+                return match self.deferred_error.take() {
+                    Some(original) => Err(original),
+                    None => Err(error),
+                };
             }
-        })
+        };
+        self.pending = Some(FileResponsePending::Close);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn advance(&mut self, py: Python<'_>, input: FileResponseCallInput<PyErr>) -> PyResult<()> {
+        self.driver.bind(py).borrow().advance(input)
+    }
+}
+
+fn file_response_worker_error(error: FileResponseWorkerError) -> PyErr {
+    match error {
+        FileResponseWorkerError::LockPoisoned => {
+            PyRuntimeError::new_err("file response call state is poisoned")
+        }
+        FileResponseWorkerError::Preparation(error) => file_response_error(error),
+        FileResponseWorkerError::Io(error) => io_error(error),
     }
 }
 

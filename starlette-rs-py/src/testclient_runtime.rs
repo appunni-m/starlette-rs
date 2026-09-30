@@ -2,6 +2,7 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use pyo3::basic::CompareOp;
 use pyo3::create_exception;
 use pyo3::exceptions::{PyAssertionError, PyException, PyImportError, PyKeyError, PyRuntimeError};
 use pyo3::prelude::*;
@@ -404,6 +405,7 @@ struct PyWebSocketTestSession {
     app_to_client_receive: Option<Py<PyAny>>,
     task: Option<Py<PyAny>>,
     accepted_subprotocol: Option<String>,
+    accepted: bool,
     client_closed: bool,
 }
 
@@ -429,6 +431,7 @@ impl PyWebSocketTestSession {
             app_to_client_receive: None,
             task: None,
             accepted_subprotocol: None,
+            accepted: false,
             client_closed: false,
         }
     }
@@ -439,6 +442,8 @@ impl PyWebSocketTestSession {
                 "WebSocketTestSession is already entered",
             ));
         }
+        self.accepted = false;
+        self.client_closed = false;
 
         let anyio = py.import("anyio")?;
         let portal_kwargs = PyDict::new(py);
@@ -497,13 +502,67 @@ impl PyWebSocketTestSession {
                     .filter(|value| !value.is_none())
                     .map(|value| value.extract::<String>())
                     .transpose()?;
+                self.accepted = true;
                 Ok(())
             }
             "websocket.close" => Err(websocket_disconnect(py, message)?),
+            "websocket.http.response.start" => Err(self.websocket_denial_response(py, message)?),
             _ => Err(PyRuntimeError::new_err(format!(
                 "expected a WebSocket accept message, got {message_type:?}"
             ))),
         }
+    }
+
+    fn websocket_denial_response(
+        &self,
+        py: Python<'_>,
+        start_message: &Bound<'_, PyDict>,
+    ) -> PyResult<PyErr> {
+        let status = start_message
+            .get_item("status")?
+            .ok_or_else(|| PyKeyError::new_err("status"))?;
+        let headers = start_message
+            .get_item("headers")?
+            .ok_or_else(|| PyKeyError::new_err("headers"))?;
+        let body_chunks = PyList::empty(py);
+
+        loop {
+            let message = self.receive_app_message(py)?;
+            let message = message.bind(py).cast::<PyDict>()?;
+            let message_type = message
+                .get_item("type")?
+                .ok_or_else(|| PyKeyError::new_err("type"))?;
+            let is_body_message = message_type
+                .rich_compare("websocket.http.response.body", CompareOp::Eq)?
+                .is_truthy()?;
+            if !is_body_message {
+                return Err(PyAssertionError::new_err(()));
+            }
+            body_chunks.append(
+                message
+                    .get_item("body")?
+                    .ok_or_else(|| PyKeyError::new_err("body"))?,
+            )?;
+            let more_body = message
+                .get_item("more_body")?
+                .map(|value| value.is_truthy())
+                .transpose()?
+                .unwrap_or(false);
+            if !more_body {
+                break;
+            }
+        }
+
+        let content = PyBytes::new(py, b"").call_method1("join", (body_chunks,))?;
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("status_code", status)?;
+        kwargs.set_item("headers", headers)?;
+        kwargs.set_item("content", content)?;
+        let exception_type = py
+            .import("starlette.testclient")?
+            .getattr("WebSocketDenialResponse")?;
+        let exception = exception_type.call((), Some(&kwargs))?;
+        Ok(PyErr::from_value(exception))
     }
 
     fn send_client_message(&self, py: Python<'_>, message: Py<PyAny>) -> PyResult<()> {
@@ -559,7 +618,7 @@ impl PyWebSocketTestSession {
 
     fn teardown(&mut self, py: Python<'_>) -> PyResult<()> {
         let mut task_error = None;
-        if self.portal.is_some() && !self.client_closed {
+        if self.portal.is_some() && self.accepted && !self.client_closed {
             if let Err(error) = self.close_inner(py, 1000) {
                 task_error = Some(error);
             }

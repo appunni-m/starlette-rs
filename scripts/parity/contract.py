@@ -140,6 +140,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
     "binary_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.binary-message-exchange",
     "cleanup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.context-cleanup",
+    "denial_response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.denial-response-exception",
 }
 BASE_HTTP_WORKFLOW_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "application",
@@ -487,6 +488,9 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "callable_shapes": "starlette.responses.Response.asgi-call.background-callable-shapes",
 }
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
+FILE_RESPONSE_ASYNC_FILE_OPEN_SCHEDULING_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.async-file-open-scheduling"
+)
 FILE_RESPONSE_SINGLE_RANGE_VIEW_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.single-range-header-view-isolation"
 )
@@ -1294,6 +1298,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         }
                         and observation["path"] == "header_view_probe"
                     )
+                    file_response_scheduling_probe = (
+                        condition["input_key"] == "scheduling"
+                        and key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
+                        and observation["path"] == "event_loop_scheduling"
+                    )
                     router_scope_probe = (
                         condition["input_key"] == "observe_router_scope"
                         and key == (ROUTER_SURFACE, ROUTER_OPERATION)
@@ -1305,7 +1314,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             "route_scope.path_params",
                         }
                     )
-                    if not response_header_probe and not router_scope_probe:
+                    if (
+                        not response_header_probe
+                        and not file_response_scheduling_probe
+                        and not router_scope_probe
+                    ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
                         )
@@ -1634,8 +1647,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) == REQUEST_SEND_PUSH_PROMISE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_IS_DISCONNECTED_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_FORM_OPERATION
-                        or (surface["id"], operation["id"])
-                        == REQUEST_BODY_STREAM_JSON_OPERATION
+                        or (surface["id"], operation["id"]) == REQUEST_BODY_STREAM_JSON_OPERATION
                         or (surface["id"], operation["id"]) == FORM_DATA_MULTIDICT_LOOKUPS_OPERATION
                         or (surface["id"], operation["id"]) == UPLOAD_FILE_OPERATION
                         or (surface["id"], operation["id"]) == STATUS_OPERATION
@@ -3730,7 +3742,13 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
 def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     optional_keys = {
         key
-        for key in ("cookie_actions", "chunk_size", "max_ranges", "header_view_probe")
+        for key in (
+            "cookie_actions",
+            "chunk_size",
+            "max_ranges",
+            "header_view_probe",
+            "scheduling",
+        )
         if key in case
     }
     case_keys = FILE_RESPONSE_CASE_KEYS | optional_keys
@@ -3848,6 +3866,76 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             )
     if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
         raise ContractError("FileResponse asgi-call requires empty receive and captured send")
+    if "scheduling" in case:
+        scheduling = _exact(
+            case["scheduling"],
+            {
+                "kind",
+                "marker_delay_seconds",
+                "writer_check_delay_seconds",
+                "writer_release_delay_seconds",
+                "writer_poll_interval_seconds",
+                "writer_timeout_seconds",
+                "cleanup_timeout_seconds",
+            },
+            "FileResponse scheduling probe",
+        )
+        if scheduling["kind"] != "posix-fifo-loop-marker":
+            raise ContractError("FileResponse scheduling.kind is unsupported")
+
+        def bounded_seconds(name: str, minimum: float, maximum: float) -> float:
+            value = scheduling[name]
+            if type(value) not in {int, float} or not math.isfinite(value):
+                raise ContractError(f"FileResponse scheduling.{name} must be finite seconds")
+            result = float(value)
+            if not minimum <= result <= maximum:
+                raise ContractError(
+                    f"FileResponse scheduling.{name} must be from {minimum} to {maximum} seconds"
+                )
+            return result
+
+        marker_delay = bounded_seconds("marker_delay_seconds", 0.0, 0.5)
+        check_delay = bounded_seconds("writer_check_delay_seconds", 0.05, 1.0)
+        release_delay = bounded_seconds("writer_release_delay_seconds", 0.1, 2.0)
+        poll_interval = bounded_seconds("writer_poll_interval_seconds", 0.001, 0.05)
+        writer_timeout = bounded_seconds("writer_timeout_seconds", 0.5, 5.0)
+        cleanup_timeout = bounded_seconds("cleanup_timeout_seconds", 0.5, 5.0)
+        if not marker_delay + poll_interval < check_delay < release_delay < writer_timeout:
+            raise ContractError(
+                "FileResponse scheduling delays must order marker, writer check, release, and timeout"
+            )
+        if cleanup_timeout < writer_timeout:
+            raise ContractError(
+                "FileResponse scheduling.cleanup_timeout_seconds must cover writer timeout"
+            )
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError("FileResponse scheduling probe selects the Python package target")
+        if (
+            not isinstance(scope_spec["method"], str)
+            or scope_spec["method"].upper() != "GET"
+            or has_pathsend_extension
+        ):
+            raise ContractError(
+                "FileResponse scheduling probe requires a direct GET without pathsend"
+            )
+        encoded_request_headers = scope_spec["headers_base64_pairs"]
+        if not isinstance(encoded_request_headers, list) or any(
+            not isinstance(pair, list) or len(pair) != 2 or not isinstance(pair[0], str)
+            for pair in encoded_request_headers
+        ):
+            raise ContractError("FileResponse request header names must be base64 pairs")
+        try:
+            request_header_names = {
+                base64.b64decode(pair[0], validate=True).lower() for pair in encoded_request_headers
+            }
+        except (ValueError, TypeError) as exc:
+            raise ContractError("FileResponse request header names must be base64") from exc
+        if b"range" in request_header_names:
+            raise ContractError("FileResponse scheduling probe does not accept Range requests")
+        if FILE_RESPONSE_ASYNC_FILE_OPEN_SCHEDULING_REQUIREMENT not in case["covers"]:
+            raise ContractError(
+                "FileResponse scheduling probe must map its async file-open requirement"
+            )
     _validate_cookie_actions(case)
     dispatch_scope = {key: value for key, value in scope_spec.items() if key != "extensions"}
     _validate_dispatch_stimulus(
@@ -7891,42 +7979,53 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         raise ContractError("TestClient WebSocket subprotocols must be strings")
     validate_string_pairs(websocket["headers"], "TestClient WebSocket headers")
     session_actions = websocket["actions"]
-    if (
-        not isinstance(session_actions, list)
-        or len(session_actions) != 2
-        or not isinstance(session_actions[0], dict)
-        or not isinstance(session_actions[1], dict)
+    if not isinstance(session_actions, list):
+        raise ContractError("TestClient WebSocket actions must be an array")
+    denial_workflow = not session_actions
+    exchange_requirement: str | None = None
+    frame_mode: str | None = None
+    if denial_workflow:
+        pass
+    elif (
+        len(session_actions) == 2
+        and isinstance(session_actions[0], dict)
+        and isinstance(session_actions[1], dict)
     ):
-        raise ContractError(
-            "TestClient WebSocket actions must send one frame and receive one frame"
+        send_operation = session_actions[0].get("operation")
+        if send_operation == "send_text":
+            send_action = _exact(
+                session_actions[0], {"operation", "text"}, "TestClient WebSocket text send action"
+            )
+            _string(send_action["text"], "TestClient WebSocket send_text.text")
+            receive_operation = "receive_text"
+            exchange_requirement = TESTCLIENT_WEBSOCKET_REQUIREMENTS["text_messages"]
+            frame_mode = "text"
+        elif send_operation == "send_bytes":
+            send_action = _exact(
+                session_actions[0],
+                {"operation", "data_base64"},
+                "TestClient WebSocket byte send action",
+            )
+            validate_base64(
+                send_action["data_base64"], "TestClient WebSocket send_bytes.data_base64"
+            )
+            receive_operation = "receive_bytes"
+            exchange_requirement = TESTCLIENT_WEBSOCKET_REQUIREMENTS["binary_messages"]
+            frame_mode = "bytes"
+        else:
+            raise ContractError(
+                "TestClient WebSocket send operation must be send_text or send_bytes"
+            )
+        receive_action = _exact(
+            session_actions[1], {"operation"}, "TestClient WebSocket receive action"
         )
-    send_operation = session_actions[0].get("operation")
-    if send_operation == "send_text":
-        send_action = _exact(
-            session_actions[0], {"operation", "text"}, "TestClient WebSocket text send action"
-        )
-        _string(send_action["text"], "TestClient WebSocket send_text.text")
-        receive_operation = "receive_text"
-        exchange_requirement = TESTCLIENT_WEBSOCKET_REQUIREMENTS["text_messages"]
-        frame_mode = "text"
-    elif send_operation == "send_bytes":
-        send_action = _exact(
-            session_actions[0],
-            {"operation", "data_base64"},
-            "TestClient WebSocket byte send action",
-        )
-        validate_base64(send_action["data_base64"], "TestClient WebSocket send_bytes.data_base64")
-        receive_operation = "receive_bytes"
-        exchange_requirement = TESTCLIENT_WEBSOCKET_REQUIREMENTS["binary_messages"]
-        frame_mode = "bytes"
+        if receive_action["operation"] != receive_operation:
+            raise ContractError(
+                f"TestClient WebSocket must use {receive_operation} after {send_operation}"
+            )
     else:
-        raise ContractError("TestClient WebSocket send operation must be send_text or send_bytes")
-    receive_action = _exact(
-        session_actions[1], {"operation"}, "TestClient WebSocket receive action"
-    )
-    if receive_action["operation"] != receive_operation:
         raise ContractError(
-            f"TestClient WebSocket must use {receive_operation} after {send_operation}"
+            "TestClient WebSocket actions must be empty for pre-acceptance denial or send one frame and receive one frame"
         )
 
     asgi_app = _exact(
@@ -7960,6 +8059,89 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     ):
         raise ContractError("TestClient WebSocket scope_fields must be unique supported scope keys")
     app_actions = asgi_app["actions"]
+    if denial_workflow:
+        if (
+            not isinstance(app_actions, list)
+            or len(app_actions) < 3
+            or any(not isinstance(action, dict) for action in app_actions)
+        ):
+            raise ContractError(
+                "TestClient WebSocket denial app must receive connect, start an HTTP response, and send a body"
+            )
+        if app_actions[0].get("operation") != "receive" or any(
+            action.get("operation") != "send" for action in app_actions[1:]
+        ):
+            raise ContractError(
+                "TestClient WebSocket denial app actions must receive connect then send its response"
+            )
+        connect_action = _exact(
+            app_actions[0], {"operation"}, "TestClient WebSocket denial connect action"
+        )
+        if connect_action["operation"] != "receive":
+            raise ContractError("TestClient WebSocket denial app must receive the connect event")
+        start_action = _exact(
+            app_actions[1], {"operation", "message"}, "TestClient WebSocket denial start action"
+        )
+        start_message = _exact(
+            start_action["message"],
+            {"type", "status", "headers_base64_pairs"},
+            "TestClient WebSocket denial response start message",
+        )
+        if start_message["type"] != "websocket.http.response.start":
+            raise ContractError("TestClient WebSocket denial app must start an HTTP response")
+        status_code = start_message["status"]
+        if type(status_code) is not int or not 100 <= status_code <= 599:
+            raise ContractError("TestClient WebSocket denial status must be an HTTP status code")
+        denial_headers = start_message["headers_base64_pairs"]
+        if not isinstance(denial_headers, list):
+            raise ContractError("TestClient WebSocket denial headers must be an array")
+        for index, pair in enumerate(denial_headers):
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError(
+                    f"TestClient WebSocket denial headers[{index}] must contain two base64 strings"
+                )
+            for part, value in zip(("name", "value"), pair, strict=True):
+                validate_base64(value, f"TestClient WebSocket denial header {index} {part}")
+
+        body_actions = app_actions[2:]
+        for index, action in enumerate(body_actions):
+            body_action = _exact(
+                action,
+                {"operation", "message"},
+                f"TestClient WebSocket denial body action[{index}]",
+            )
+            if body_action["operation"] != "send":
+                raise ContractError("TestClient WebSocket denial body action must send")
+            body_message = _exact(
+                body_action["message"],
+                {"type", "body_base64", "more_body"},
+                f"TestClient WebSocket denial body message[{index}]",
+            )
+            if body_message["type"] != "websocket.http.response.body":
+                raise ContractError(
+                    "TestClient WebSocket denial app must send response body events"
+                )
+            validate_base64(
+                body_message["body_base64"],
+                f"TestClient WebSocket denial body[{index}].body_base64",
+            )
+            expected_more_body = index < len(body_actions) - 1
+            if (
+                type(body_message["more_body"]) is not bool
+                or body_message["more_body"] != expected_more_body
+            ):
+                raise ContractError(
+                    "TestClient WebSocket denial body events must continue until one terminal body"
+                )
+
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["denial_response"],
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError("TestClient WebSocket covers must match the denial workflow")
+        return
+
     if not isinstance(app_actions, list) or len(app_actions) != 5:
         raise ContractError(
             "TestClient WebSocket app must receive connect, accept, exchange text, then receive disconnect"
@@ -8393,8 +8575,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     )
     is_request_body_stream_json = (
         isinstance(case, dict)
-        and (case.get("surface"), case.get("operation"))
-        == REQUEST_BODY_STREAM_JSON_OPERATION
+        and (case.get("surface"), case.get("operation")) == REQUEST_BODY_STREAM_JSON_OPERATION
     )
     is_status_symbols = (
         isinstance(case, dict) and (case.get("surface"), case.get("operation")) == STATUS_OPERATION
@@ -8511,7 +8692,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = expected_case_keys | {"background"}
     if is_file_response and isinstance(case, dict):
         expected_case_keys = expected_case_keys | (
-            {key for key in ("chunk_size", "max_ranges", "header_view_probe") if key in case}
+            {
+                key
+                for key in ("chunk_size", "max_ranges", "header_view_probe", "scheduling")
+                if key in case
+            }
         )
     if is_testclient:
         if case["observations"] != [TESTCLIENT_OPERATION]:
@@ -11027,7 +11212,10 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     blocked_receive_calls = case["blocked_receive_calls"]
     if (
         not isinstance(blocked_receive_calls, list)
-        or any(type(index) is not int or index < 0 or index >= len(receive) for index in blocked_receive_calls)
+        or any(
+            type(index) is not int or index < 0 or index >= len(receive)
+            for index in blocked_receive_calls
+        )
         or len(blocked_receive_calls) != len(set(blocked_receive_calls))
     ):
         raise ContractError("blocked_receive_calls must select unique messages in the receive tape")
@@ -11080,7 +11268,9 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
 
     expected_covers: set[str] = set()
     body_positions = [
-        index for index, operation in enumerate(action_operations) if operation in {"body", "await-body"}
+        index
+        for index, operation in enumerate(action_operations)
+        if operation in {"body", "await-body"}
     ]
     direct_body_positions = [
         index for index, operation in enumerate(action_operations) if operation == "body"
@@ -11105,9 +11295,17 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         and all(message["type"] == "http.request" for message in receive)
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_chunks"])
-    if direct_body_positions and stream_positions and direct_body_positions[0] < stream_positions[0]:
+    if (
+        direct_body_positions
+        and stream_positions
+        and direct_body_positions[0] < stream_positions[0]
+    ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_replay"])
-    if direct_body_positions and stream_positions and stream_positions[0] < direct_body_positions[0]:
+    if (
+        direct_body_positions
+        and stream_positions
+        and stream_positions[0] < direct_body_positions[0]
+    ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_body_consumed"])
     if len(json_positions) > 1:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["json_cache"])
@@ -11129,8 +11327,10 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         and "stream-next" in action_operations
         and "release-receive" in action_operations
         and "await-body" in action_operations
-        and action_operations.index("start-body") < action_operations.index("stream-next")
-        < action_operations.index("release-receive") < action_operations.index("await-body")
+        and action_operations.index("start-body")
+        < action_operations.index("stream-next")
+        < action_operations.index("release-receive")
+        < action_operations.index("await-body")
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_overlap"])
     if set(case["covers"]) != expected_covers:

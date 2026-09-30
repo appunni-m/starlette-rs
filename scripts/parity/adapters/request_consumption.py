@@ -69,9 +69,7 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
         if gate is not None:
             await gate.wait()
         message = incoming[call_index]
-        receive_trace.append(
-            {"event": "return", "call": call_index, "message": _safe(message)}
-        )
+        receive_trace.append({"event": "return", "call": call_index, "message": _safe(message)})
         return message
 
     request = request_type(dict(case["scope"]), receive)
@@ -109,9 +107,7 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
 
             tasks[task_id] = asyncio.create_task(collect_body())
             await asyncio.sleep(0)
-            observations.append(
-                {"operation": operation, "status": "started", "task_id": task_id}
-            )
+            observations.append({"operation": operation, "status": "started", "task_id": task_id})
         elif operation == "await-body":
             task_id = action["task_id"]
             try:

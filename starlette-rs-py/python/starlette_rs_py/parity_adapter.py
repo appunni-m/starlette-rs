@@ -23,6 +23,7 @@ import os
 import platform
 import re
 import stat
+import subprocess
 import sys
 import tempfile
 import threading
@@ -3807,6 +3808,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         case_keys.add("max_ranges")
     if "header_view_probe" in case:
         case_keys.add("header_view_probe")
+    if "scheduling" in case:
+        case_keys.add("scheduling")
     _exact_object(
         case,
         case_keys,
@@ -3853,11 +3856,51 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
         raise ValueError("FileResponse ASGI-call requires empty receive and captured send")
 
+    scheduling = case.get("scheduling")
+    if scheduling is not None:
+        _exact_object(
+            scheduling,
+            {
+                "kind",
+                "marker_delay_seconds",
+                "writer_check_delay_seconds",
+                "writer_release_delay_seconds",
+                "writer_poll_interval_seconds",
+                "writer_timeout_seconds",
+                "cleanup_timeout_seconds",
+            },
+            "FileResponse scheduling probe",
+        )
+        if scheduling["kind"] != "posix-fifo-loop-marker":
+            raise ValueError("FileResponse scheduling.kind is unsupported")
+        if os.name != "posix" or not callable(getattr(os, "mkfifo", None)):
+            return _file_response_scheduling_skipped(
+                case, "the FileResponse event-loop scheduling probe requires POSIX FIFO support"
+            )
+
     from starlette.responses import FileResponse
 
     with tempfile.TemporaryDirectory(prefix="starlette-file-response-") as directory:
         path = Path(directory) / name
-        path.write_bytes(contents)
+        if scheduling is None:
+            path.write_bytes(contents)
+        else:
+            try:
+                os.mkfifo(path)
+            except OSError as exc:
+                unavailable_fifo_errors = {
+                    errno.ENOSYS,
+                    errno.EPERM,
+                    errno.EACCES,
+                    getattr(errno, "ENOTSUP", errno.EPERM),
+                    getattr(errno, "EOPNOTSUPP", errno.EPERM),
+                }
+                if exc.errno in unavailable_fifo_errors:
+                    return _file_response_scheduling_skipped(
+                        case,
+                        "the temporary filesystem does not provide POSIX FIFO support",
+                    )
+                raise
         stat_result = os.stat_result(
             (
                 stat.S_IFREG | 0o644,
@@ -3905,14 +3948,116 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             _apply_response_cookie_action(response, raw_action, index)
         scope = _make_scope(scope_spec)
         sent: list[dict[str, Any]] = []
+        event_loop_scheduling: dict[str, bool] | None = None
+        writer_process: subprocess.Popen[str] | None = None
 
         async def receive() -> dict[str, Any]:
             return {"type": "http.disconnect"}
 
-        async def send(message: dict[str, Any]) -> None:
-            sent.append(message)
+        if scheduling is None:
 
-        asyncio.run(response(scope, receive, send))
+            async def send(message: dict[str, Any]) -> None:
+                sent.append(message)
+
+            asyncio.run(response(scope, receive, send))
+        else:
+            start_marker_path = Path(directory) / "response-started"
+            loop_marker_path = Path(directory) / "event-loop-marker"
+            marker_state = {"ran": False}
+            writer_configuration = json.dumps(scheduling, separators=(",", ":"))
+            writer_process = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    _FILE_RESPONSE_FIFO_WRITER_SCRIPT,
+                    os.fspath(path),
+                    os.fspath(start_marker_path),
+                    os.fspath(loop_marker_path),
+                    encoded_contents,
+                    writer_configuration,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            async def invoke_with_loop_marker() -> None:
+                response_started = asyncio.Event()
+
+                async def marker_task() -> None:
+                    await response_started.wait()
+                    await asyncio.sleep(scheduling["marker_delay_seconds"])
+                    loop_marker_path.touch()
+                    marker_state["ran"] = True
+
+                async def send(message: dict[str, Any]) -> None:
+                    sent.append(message)
+                    if message["type"] == "http.response.start":
+                        start_marker_path.touch()
+                        response_started.set()
+
+                marker = asyncio.create_task(marker_task())
+                try:
+                    await response(scope, receive, send)
+                finally:
+                    if response_started.is_set():
+                        await marker
+                    else:
+                        marker.cancel()
+                        with contextlib.suppress(asyncio.CancelledError):
+                            await marker
+
+            try:
+                asyncio.run(invoke_with_loop_marker())
+                try:
+                    writer_stdout, writer_stderr = writer_process.communicate(
+                        timeout=scheduling["cleanup_timeout_seconds"]
+                    )
+                except subprocess.TimeoutExpired as exc:
+                    writer_process.terminate()
+                    try:
+                        writer_process.communicate(timeout=scheduling["cleanup_timeout_seconds"])
+                    except subprocess.TimeoutExpired:
+                        writer_process.kill()
+                        writer_process.communicate(timeout=scheduling["cleanup_timeout_seconds"])
+                    raise RuntimeError(
+                        "FileResponse FIFO writer did not finish within its input timeout"
+                    ) from exc
+                if writer_process.returncode != 0:
+                    raise RuntimeError(
+                        "FileResponse FIFO writer failed: "
+                        f"{writer_stderr.strip() or writer_stdout.strip()}"
+                    )
+                try:
+                    writer_result = json.loads(writer_stdout)
+                except json.JSONDecodeError as exc:
+                    raise RuntimeError(
+                        "FileResponse FIFO writer returned invalid result data"
+                    ) from exc
+                if (
+                    not isinstance(writer_result, dict)
+                    or type(writer_result.get("marker_present_at_check")) is not bool
+                    or type(writer_result.get("bytes_written")) is not int
+                ):
+                    raise RuntimeError("FileResponse FIFO writer returned an invalid result shape")
+                if writer_result["bytes_written"] != len(contents):
+                    raise RuntimeError(
+                        "FileResponse FIFO writer did not write the full input payload"
+                    )
+                event_loop_scheduling = {
+                    "marker_task_ran": marker_state["ran"],
+                    "marker_ran_before_writer_pre_release_check": writer_result[
+                        "marker_present_at_check"
+                    ],
+                }
+            finally:
+                if writer_process.poll() is None:
+                    writer_process.terminate()
+                    try:
+                        writer_process.communicate(timeout=scheduling["cleanup_timeout_seconds"])
+                    except subprocess.TimeoutExpired:
+                        writer_process.kill()
+                        writer_process.communicate(timeout=scheduling["cleanup_timeout_seconds"])
         if header_view_probe_value is not None:
             header_view_after = response.headers
             header_view_probe_value.update(
@@ -3956,11 +4101,104 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         }
         if header_view_probe_value is not None:
             observation["header_view_probe"] = header_view_probe_value
+        if event_loop_scheduling is not None:
+            observation["event_loop_scheduling"] = event_loop_scheduling
     return {
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [{"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}],
     }
+
+
+def _file_response_scheduling_skipped(case: dict[str, Any], reason: str) -> dict[str, Any]:
+    return {
+        "case_id": case["case_id"],
+        "status": "skipped",
+        "observations": [{"step_id": RESPONSE_OPERATION, "status": "skipped", "reason": reason}],
+    }
+
+
+_FILE_RESPONSE_FIFO_WRITER_SCRIPT = r"""
+import base64
+import errno
+import json
+import os
+import sys
+import time
+
+fifo_path, start_marker_path, loop_marker_path, payload_base64, raw_configuration = sys.argv[1:]
+configuration = json.loads(raw_configuration)
+poll_interval = configuration["writer_poll_interval_seconds"]
+writer_timeout = configuration["writer_timeout_seconds"]
+
+try:
+    writer_deadline = time.monotonic() + writer_timeout
+    start_marker_seen = False
+    while time.monotonic() < writer_deadline:
+        if os.path.exists(start_marker_path):
+            start_marker_seen = True
+            break
+        time.sleep(poll_interval)
+
+    if start_marker_seen:
+        start_time = time.monotonic()
+        check_delay = configuration["writer_check_delay_seconds"]
+        if time.monotonic() + check_delay >= writer_deadline:
+            time.sleep(max(0, writer_deadline - time.monotonic()))
+            raise TimeoutError("writer deadline elapsed before the pre-release check")
+        time.sleep(check_delay)
+        marker_present_at_check = os.path.exists(loop_marker_path)
+        remaining_release_delay = configuration["writer_release_delay_seconds"] - (
+            time.monotonic() - start_time
+        )
+        if remaining_release_delay > 0:
+            if time.monotonic() + remaining_release_delay >= writer_deadline:
+                time.sleep(max(0, writer_deadline - time.monotonic()))
+                raise TimeoutError("writer deadline elapsed before FIFO release")
+            time.sleep(remaining_release_delay)
+    else:
+        # A reader may be blocked before it can send response-start; try one
+        # nonblocking fallback open, then fail promptly if no reader is waiting.
+        marker_present_at_check = os.path.exists(loop_marker_path)
+
+    while True:
+        try:
+            descriptor = os.open(fifo_path, os.O_WRONLY | os.O_NONBLOCK)
+            break
+        except OSError as error:
+            if error.errno not in {errno.ENXIO, errno.EAGAIN}:
+                raise
+            if not start_marker_seen:
+                raise TimeoutError(
+                    "response start marker was absent and no FIFO reader was waiting"
+                ) from error
+            if time.monotonic() >= writer_deadline:
+                raise TimeoutError("FIFO reader did not open before writer timeout") from error
+            time.sleep(poll_interval)
+
+    payload = base64.b64decode(payload_base64, validate=True)
+    bytes_written = 0
+    try:
+        while bytes_written < len(payload):
+            written = os.write(descriptor, payload[bytes_written:])
+            if written <= 0:
+                raise OSError("FIFO writer made no progress")
+            bytes_written += written
+    finally:
+        os.close(descriptor)
+
+    print(
+        json.dumps(
+            {
+                "marker_present_at_check": marker_present_at_check,
+                "bytes_written": bytes_written,
+            }
+        )
+    )
+except BaseException as error:
+    print(json.dumps({"error": type(error).__name__, "message": str(error)}))
+    sys.exit(2)
+"""
 
 
 def _static_files_path_limit_candidate(
@@ -8944,8 +9182,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_BODY_STREAM_JSON_OPERATION
     ):
-        from scripts.parity.adapters.request_consumption import run_request_consumption_case
         from starlette.requests import Request
+
+        from scripts.parity.adapters.request_consumption import run_request_consumption_case
 
         return run_request_consumption_case(case, Request)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
