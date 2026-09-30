@@ -72,6 +72,16 @@
       ]
     },
     {
+      "surface_id": "starlette.datastructures.FormData",
+      "source_path": "starlette/datastructures.py:482",
+      "operations": [
+        {
+          "operation_id": "multidict-lookups",
+          "source_path": "starlette.datastructures.FormData.__init__, ImmutableMultiDict.getlist, keys, items, multi_items, and __getitem__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.datastructures.Headers",
       "source_path": "starlette/datastructures.py:500",
       "operations": [
@@ -258,6 +268,10 @@
         {
           "operation_id": "is-disconnected",
           "source_path": "starlette.requests.Request.is_disconnected"
+        },
+        {
+          "operation_id": "form",
+          "source_path": "starlette.requests.Request.form"
         }
       ]
     },

@@ -283,7 +283,8 @@
       "build/parity/inputs/parity/static-files-async-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
       "build/parity/inputs/parity/base-http-middleware.json",
-      "build/parity/inputs/parity/templating-runtime.json"
+      "build/parity/inputs/parity/templating-runtime.json",
+      "build/parity/inputs/parity/request-form-urlencoded.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -2780,6 +2781,132 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.datastructures.FormData",
+      "kind": "type",
+      "source_path": "starlette/datastructures.py:482",
+      "storage_slug": "datastructures-formdata",
+      "operations": [
+        {
+          "id": "multidict-lookups",
+          "kind": "value_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.FormData.__init__, ImmutableMultiDict.getlist, keys, items, multi_items, and __getitem__",
+            "signature": "FormData; inspect multi_items(), keys(), items(), __getitem__(key), and getlist(key)",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "probe_keys",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "multidict-lookups",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not expose the Python FormData multidict interface.",
+                "blocker": "FormData is provided by the Python compatibility surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.FormData",
+              "signature": "FormData with immutable multidict lookups and ordered multi_items()",
+              "support": {
+                "status": "partial",
+                "reason": "This operation covers text-only FormData multidict lookups; UploadFile values and the associated FormData.close lifecycle are unsupported.",
+                "missing_requirements": [
+                  "starlette.datastructures.FormData.file-values",
+                  "starlette.datastructures.FormData.close"
+                ]
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.FormData.multidict-lookups",
+              "dimension": "parameter_combination",
+              "description": "Observe the returned FormData through ordered multi_items(), keys(), items(), indexing, and getlist() for supplied probe keys. Pinned source: starlette/datastructures.py:253-315, 482-492; tests/test_datastructures.py::test_formdata; docs/requests.md:135-136.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only FormData consumer comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "FormData multidict lookups are outside the active benchmark workloads."
           }
         }
       ]
@@ -7428,6 +7555,180 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Request disconnect polling is outside the active dispatch benchmark workload."
+          }
+        },
+        {
+          "id": "form",
+          "kind": "method",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.Request.form",
+            "signature": "form(self, *, max_files: int | float = 1000, max_fields: int | float = 1000, max_part_size: int = 1024 * 1024) -> AwaitableOrContextManager[FormData]",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "max_files",
+                "style": "keyword",
+                "value_types": [
+                  "integer",
+                  "number"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": 1000
+                }
+              },
+              {
+                "id": "max_fields",
+                "style": "keyword",
+                "value_types": [
+                  "integer",
+                  "number"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": 1000
+                }
+              },
+              {
+                "id": "max_part_size",
+                "style": "keyword",
+                "value_types": [
+                  "integer"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": 1048576
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "form",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose Python Request.form or its FormData return type.",
+                "blocker": "The Python form parser and returned FormData compatibility interface are not part of the Rust-native public API."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.form",
+              "signature": "form(self, *, max_files: int | float = 1000, max_fields: int | float = 1000, max_part_size: int = 1024 * 1024) -> AwaitableOrContextManager[FormData]",
+              "support": {
+                "status": "partial",
+                "reason": "The declared URL-encoded and empty-form slice includes parser limits and async context-manager lifecycle; multipart form data remains outstanding.",
+                "missing_requirements": [
+                  "starlette.request.form.multipart-form-data"
+                ]
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.request.form.urlencoded-fields",
+              "dimension": "input_family",
+              "description": "Parse an application/x-www-form-urlencoded request into FormData while preserving repeated text fields, percent-decoded values, and an encoded-space field name. Pinned source: starlette/requests.py:268-321; tests/test_requests.py::test_request_form_urlencoded; docs/requests.md:112-136.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.form.empty",
+              "dimension": "success_path",
+              "description": "With an empty request body and no Content-Type header, Request.form returns empty FormData. Pinned source: starlette/requests.py:268-311; docs/requests.md:135-136.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.form.parser-limits",
+              "dimension": "parameter_combination",
+              "description": "Forward supplied max_fields and max_part_size options into URL-encoded parsing and preserve the upstream exception boundary: MultiPartException without scope.app and HTTPException when scope.app is present. Pinned source: starlette/requests.py:268-308; starlette/formparsers.py:57-100; tests/test_formparsers.py::test_urlencoded_max_fields_is_customizable and ::test_urlencoded_max_part_size_is_customizable; docs/requests.md:116-126.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.form.context-manager-lifecycle",
+              "dimension": "runtime",
+              "description": "Consume the URL-encoded Request.form result with async-with entry and exit, preserving the FormData result and completing the context-manager lifecycle. Pinned source: starlette/requests.py:313-321; tests/test_requests.py::test_request_form_context_manager; docs/requests.md:83, 124-136.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only form parsing comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request form parsing is outside the active benchmark workloads."
           }
         }
       ]

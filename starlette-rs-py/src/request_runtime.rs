@@ -2,12 +2,15 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use pyo3::create_exception;
 use pyo3::exceptions::{
-    PyAssertionError, PyBaseException, PyRuntimeError, PyStopAsyncIteration, PyTypeError,
+    PyAssertionError, PyAttributeError, PyBaseException, PyException, PyNotImplementedError,
+    PyRuntimeError, PyStopAsyncIteration, PyTypeError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyBytes, PyDict, PyList, PyModule, PyTraceback, PyTuple, PyType};
 use starlette_rs::{
+    FormData as NativeFormData, FormDataParseError,
     RequestBodyAccumulator as NativeRequestBodyAccumulator, RequestBodyError,
     RequestStreamProgress, RequestStreamState,
 };
@@ -16,6 +19,8 @@ use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
     into_python_awaitable_with_reuse_error,
 };
+
+create_exception!(_core, MultiPartException, PyException);
 
 type SharedRequestBody = Arc<Mutex<RequestBodyRuntime>>;
 type BaseHTTPWrappedReceiveState = (Option<Py<PyAny>>, bool, bool, bool, bool);
@@ -28,6 +33,7 @@ struct RequestBodyRuntime {
     base_http_receive_consumed: bool,
     body_object: Option<Py<PyBytes>>,
     json_object: Option<Py<PyAny>>,
+    form_object: Option<Py<PyAny>>,
 }
 
 #[pyclass(name = "RequestBody")]
@@ -465,6 +471,7 @@ impl PyRequestBody {
                 base_http_receive_consumed: false,
                 body_object: None,
                 json_object: None,
+                form_object: None,
             })),
         })
     }
@@ -539,6 +546,48 @@ impl PyRequestBody {
             JsonMachine {
                 shared: self.shared.clone(),
                 pending_body: false,
+            },
+        )
+    }
+
+    #[pyo3(signature = (content_type, scope, max_files, max_fields, max_part_size))]
+    fn form(
+        &self,
+        py: Python<'_>,
+        content_type: Option<String>,
+        scope: Py<PyAny>,
+        max_files: &Bound<'_, PyAny>,
+        max_fields: &Bound<'_, PyAny>,
+        max_part_size: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyFormAwaitableContext>> {
+        let _ = max_files;
+        let machine = FormMachine {
+            shared: self.shared.clone(),
+            stream: RequestStreamState::default(),
+            content_type,
+            scope,
+            max_fields: max_fields.extract::<f64>()?,
+            max_fields_display: max_fields.str()?.extract::<String>()?,
+            max_part_size: max_part_size.extract::<i64>()?,
+            body: Vec::new(),
+            pending_receive: false,
+        };
+        let awaitable = into_python_awaitable(py, machine)?;
+        Py::new(
+            py,
+            PyFormAwaitableContext {
+                awaitable,
+                entered: Arc::new(Mutex::new(None)),
+            },
+        )
+    }
+
+    fn close_form(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            CloseFormMachine {
+                shared: self.shared.clone(),
+                pending_close: false,
             },
         )
     }
@@ -679,9 +728,23 @@ fn normalize_stream_throw(
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    let py = module.py();
     module.add_function(wrap_pyfunction!(empty_receive, module)?)?;
     module.add_function(wrap_pyfunction!(empty_send, module)?)?;
+    let multipart_exception = py.get_type::<MultiPartException>();
+    module.add("MultiPartException", &multipart_exception)?;
+    multipart_exception.setattr("__module__", "starlette.formparsers")?;
+    let formparsers = PyModule::new(py, "starlette.formparsers")?;
+    formparsers.add("MultiPartException", &multipart_exception)?;
+    formparsers.add("__all__", ["MultiPartException"])?;
+    let modules = py.import("sys")?.getattr("modules")?;
+    modules.set_item("starlette.formparsers", &formparsers)?;
+    let starlette_package = modules.call_method1("get", ("starlette",))?;
+    if !starlette_package.is_none() {
+        starlette_package.setattr("formparsers", formparsers)?;
+    }
     module.add_class::<PyRequestBody>()?;
+    module.add_class::<PyFormAwaitableContext>()?;
     module.add_class::<PyRequestStream>()?;
     module.add_class::<PyHTTPConnection>()?;
     Ok(())
@@ -1167,6 +1230,317 @@ impl StreamMachine {
             if !yielded {
                 protocol.closed = true;
             }
+        }
+    }
+}
+
+struct FormMachine {
+    shared: SharedRequestBody,
+    stream: RequestStreamState,
+    content_type: Option<String>,
+    scope: Py<PyAny>,
+    max_fields: f64,
+    max_fields_display: String,
+    max_part_size: i64,
+    body: Vec<u8>,
+    pending_receive: bool,
+}
+
+impl AwaitableStateMachine for FormMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => self.start(py),
+            MachineResume::Value(message) => {
+                if !self.pending_receive {
+                    return Err(PyRuntimeError::new_err(
+                        "request form parsing received an unexpected result",
+                    ));
+                }
+                self.pending_receive = false;
+                let (message_type, body, more_body) = match request_message(py, message) {
+                    Ok(message) => message,
+                    Err(error) => {
+                        self.stream.fail();
+                        return Err(error);
+                    }
+                };
+                let progress = {
+                    let mut runtime = borrow_runtime_mut(&self.shared)?;
+                    if message_type == "http.disconnect" {
+                        runtime.request_disconnected = true;
+                    }
+                    self.stream
+                        .accept(&mut runtime.accumulator, &message_type, &body, more_body)
+                };
+                match progress {
+                    Ok(progress) => self.consume_progress(py, progress),
+                    Err(error) => {
+                        self.stream.fail();
+                        Err(request_body_error(py, error))
+                    }
+                }
+            }
+            MachineResume::AsyncIterationComplete(_) => {
+                self.stream.fail();
+                Err(PyRuntimeError::new_err(
+                    "async generator raised StopAsyncIteration",
+                ))
+            }
+            MachineResume::Error(error) => {
+                self.stream.fail();
+                Err(error)
+            }
+        }
+    }
+}
+
+impl FormMachine {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        if let Some(form) = borrow_runtime(&self.shared)?.form_object.as_ref() {
+            return Ok(MachineAction::Complete(form.clone_ref(py)));
+        }
+
+        match request_form_media_type(self.content_type.as_deref()) {
+            FormMediaType::Multipart => Err(PyNotImplementedError::new_err(
+                "multipart form parsing is not supported by this Rust runtime",
+            )),
+            FormMediaType::Other => self.complete_form(py, NativeFormData::default()),
+            FormMediaType::UrlEncoded => {
+                let progress = {
+                    let runtime = borrow_runtime(&self.shared)?;
+                    self.stream.next(&runtime.accumulator)
+                }
+                .map_err(|error| request_body_error(py, error))?;
+                self.consume_progress(py, progress)
+            }
+        }
+    }
+
+    fn consume_progress(
+        &mut self,
+        py: Python<'_>,
+        mut progress: RequestStreamProgress,
+    ) -> PyResult<MachineAction> {
+        loop {
+            match progress {
+                RequestStreamProgress::Receive => return self.await_receive(py),
+                RequestStreamProgress::Chunk(body) | RequestStreamProgress::CachedBody(body) => {
+                    self.body.extend_from_slice(&body);
+                    progress = {
+                        let runtime = borrow_runtime(&self.shared)?;
+                        self.stream.next(&runtime.accumulator)
+                    }
+                    .map_err(|error| request_body_error(py, error))?;
+                }
+                RequestStreamProgress::Complete => return self.finish_form(py),
+            }
+        }
+    }
+
+    fn await_receive(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let receive = borrow_runtime(&self.shared)?
+            .receive
+            .as_ref()
+            .map(|receive| receive.clone_ref(py))
+            .ok_or_else(|| {
+                PyRuntimeError::new_err("Receive channel has not been made available")
+            })?;
+        let awaitable = receive.bind(py).call0()?;
+        self.pending_receive = true;
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn finish_form(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let form =
+            NativeFormData::parse_urlencoded(&self.body, self.max_fields, self.max_part_size)
+                .map_err(|error| self.parse_error(py, error))?;
+        self.complete_form(py, form)
+    }
+
+    fn parse_error(&self, py: Python<'_>, error: FormDataParseError) -> PyErr {
+        let message = match error {
+            FormDataParseError::TooManyFields => format!(
+                "Too many fields. Maximum number of fields is {}.",
+                self.max_fields_display
+            ),
+            FormDataParseError::FieldTooLarge { max_part_size_kb } => {
+                format!("Field exceeded maximum size of {max_part_size_kb}KB.")
+            }
+        };
+        let has_app = self
+            .scope
+            .bind(py)
+            .call_method1("__contains__", ("app",))
+            .and_then(|present| present.is_truthy());
+        match has_app {
+            Ok(true) => {
+                let kwargs = PyDict::new(py);
+                if let Err(error) = kwargs.set_item("status_code", 400) {
+                    return error;
+                }
+                if let Err(error) = kwargs.set_item("detail", &message) {
+                    return error;
+                }
+                py.import("starlette.exceptions")
+                    .and_then(|module| module.getattr("HTTPException"))
+                    .and_then(|exception_type| exception_type.call((), Some(&kwargs)))
+                    .map_or_else(|error| error, PyErr::from_value)
+            }
+            Ok(false) => {
+                let exception = MultiPartException::new_err(message.clone());
+                match exception.value(py).setattr("message", &message) {
+                    Ok(()) => exception,
+                    Err(error) => error,
+                }
+            }
+            Err(error) => error,
+        }
+    }
+
+    fn complete_form(&self, py: Python<'_>, form: NativeFormData) -> PyResult<MachineAction> {
+        let form_items = PyList::new(py, form.multi_items())?;
+        let form = py
+            .import("starlette.datastructures")?
+            .getattr("FormData")?
+            .call1((form_items,))?
+            .unbind();
+        borrow_runtime_mut(&self.shared)?.form_object = Some(form.clone_ref(py));
+        Ok(MachineAction::Complete(form))
+    }
+}
+
+enum FormMediaType {
+    UrlEncoded,
+    Multipart,
+    Other,
+}
+
+fn request_form_media_type(content_type: Option<&str>) -> FormMediaType {
+    let media_type = content_type
+        .and_then(|value| value.split(';').next())
+        .unwrap_or_default()
+        .trim();
+    if media_type.eq_ignore_ascii_case("application/x-www-form-urlencoded") {
+        FormMediaType::UrlEncoded
+    } else if media_type.eq_ignore_ascii_case("multipart/form-data") {
+        FormMediaType::Multipart
+    } else {
+        FormMediaType::Other
+    }
+}
+
+type SharedEnteredForm = Arc<Mutex<Option<Py<PyAny>>>>;
+
+#[pyclass(unsendable)]
+struct PyFormAwaitableContext {
+    awaitable: Py<PyAny>,
+    entered: SharedEnteredForm,
+}
+
+#[pymethods]
+impl PyFormAwaitableContext {
+    fn __await__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.awaitable
+            .bind(py)
+            .call_method0("__await__")
+            .map(Bound::unbind)
+    }
+
+    fn __aenter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            EnterFormMachine {
+                awaitable: self.awaitable.clone_ref(py),
+                entered: self.entered.clone(),
+                pending: false,
+            },
+        )
+    }
+
+    #[pyo3(signature = (exc_type=None, exc=None, traceback=None))]
+    fn __aexit__(
+        &self,
+        py: Python<'_>,
+        exc_type: Option<Py<PyAny>>,
+        exc: Option<Py<PyAny>>,
+        traceback: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let _ = (exc_type, exc, traceback);
+        let entered = self
+            .entered
+            .try_lock()
+            .map_err(|_| PyRuntimeError::new_err("form context is already borrowed"))?;
+        let form = entered
+            .as_ref()
+            .ok_or_else(|| PyAttributeError::new_err("form context has not been entered"))?;
+        form.bind(py).call_method0("close").map(Bound::unbind)
+    }
+}
+
+struct EnterFormMachine {
+    awaitable: Py<PyAny>,
+    entered: SharedEnteredForm,
+    pending: bool,
+}
+
+impl AwaitableStateMachine for EnterFormMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start if !self.pending => {
+                self.pending = true;
+                Ok(MachineAction::Await(self.awaitable.clone_ref(py)))
+            }
+            MachineResume::Value(form) if self.pending => {
+                self.pending = false;
+                self.entered
+                    .try_lock()
+                    .map_err(|_| PyRuntimeError::new_err("form context is already borrowed"))?
+                    .replace(form.clone_ref(py));
+                Ok(MachineAction::Complete(form))
+            }
+            MachineResume::Error(error) | MachineResume::AsyncIterationComplete(error) => {
+                Err(error)
+            }
+            _ => Err(PyRuntimeError::new_err(
+                "form context enter received an unexpected result",
+            )),
+        }
+    }
+}
+
+struct CloseFormMachine {
+    shared: SharedRequestBody,
+    pending_close: bool,
+}
+
+impl AwaitableStateMachine for CloseFormMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start if !self.pending_close => {
+                let form = borrow_runtime(&self.shared)?
+                    .form_object
+                    .as_ref()
+                    .map(|form| form.clone_ref(py));
+                match form {
+                    Some(form) => {
+                        self.pending_close = true;
+                        Ok(MachineAction::Await(
+                            form.bind(py).call_method0("close")?.unbind(),
+                        ))
+                    }
+                    None => Ok(MachineAction::Complete(py.None())),
+                }
+            }
+            MachineResume::Value(_) if self.pending_close => {
+                self.pending_close = false;
+                Ok(MachineAction::Complete(py.None()))
+            }
+            MachineResume::Error(error) | MachineResume::AsyncIterationComplete(error) => {
+                Err(error)
+            }
+            _ => Err(PyRuntimeError::new_err(
+                "request form close received an unexpected result",
+            )),
         }
     }
 }

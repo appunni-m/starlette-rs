@@ -6,14 +6,19 @@
 //! policy. The public `URLPath` subclass remains Python because its value must
 //! actually be a `str` subclass.
 
-use pyo3::exceptions::{PyAssertionError, PyAttributeError, PyKeyError};
+use pyo3::exceptions::{PyAssertionError, PyAttributeError, PyKeyError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString, PyTuple};
+use starlette_rs::FormData as NativeFormData;
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PySecret>()?;
     module
         .getattr("Secret")?
+        .setattr("__module__", "starlette.datastructures")?;
+    module.add_class::<PyFormData>()?;
+    module
+        .getattr("FormData")?
         .setattr("__module__", "starlette.datastructures")?;
     module.add_function(wrap_pyfunction!(url_init, module)?)?;
     module.add_function(wrap_pyfunction!(url_components, module)?)?;
@@ -34,6 +39,217 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(state_iter, module)?)?;
     module.add_function(wrap_pyfunction!(state_len, module)?)?;
     Ok(())
+}
+
+/// Immutable ordered form fields backed by Rust's multi-dict semantics.
+#[pyclass(name = "FormData", subclass)]
+pub(crate) struct PyFormData {
+    inner: NativeFormData,
+}
+
+#[pymethods]
+impl PyFormData {
+    #[new]
+    #[pyo3(signature = (*args, **kwargs))]
+    fn new(args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+        if args.len() > 1 {
+            return Err(PyAssertionError::new_err("Too many arguments."));
+        }
+        let mut items = if args.is_empty() {
+            Vec::new()
+        } else {
+            form_data_from_python(&args.get_item(0)?)?
+        };
+        if let Some(kwargs) = kwargs {
+            items.extend(form_data_from_mapping(kwargs)?);
+        }
+        Ok(Self {
+            inner: NativeFormData::from_pairs(items),
+        })
+    }
+
+    #[pyo3(signature = (key, default=None))]
+    fn get(&self, py: Python<'_>, key: &Bound<'_, PyAny>, default: Option<Py<PyAny>>) -> Py<PyAny> {
+        form_data_key(key)
+            .as_deref()
+            .and_then(|form_key| self.inner.get(form_key))
+            .map(|value| PyString::new(py, value).into_any().unbind())
+            .or(default)
+            .unwrap_or_else(|| py.None())
+    }
+
+    fn getlist(&self, key: &Bound<'_, PyAny>) -> Vec<String> {
+        let Some(key) = form_data_key(key) else {
+            return Vec::new();
+        };
+        self.inner
+            .get_list(&key)
+            .into_iter()
+            .map(str::to_owned)
+            .collect()
+    }
+
+    fn get_list(&self, key: &Bound<'_, PyAny>) -> Vec<String> {
+        self.getlist(key)
+    }
+
+    fn multi_items(&self) -> Vec<(String, String)> {
+        self.inner.multi_items().to_vec()
+    }
+
+    fn keys(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.mapping_dict(py)?
+            .call_method0("keys")
+            .map(Bound::unbind)
+    }
+
+    fn values(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.mapping_dict(py)?
+            .call_method0("values")
+            .map(Bound::unbind)
+    }
+
+    fn items(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.mapping_dict(py)?
+            .call_method0("items")
+            .map(Bound::unbind)
+    }
+
+    fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.len()
+    }
+
+    fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.mapping_dict(py)?
+            .call_method0("keys")?
+            .call_method0("__iter__")
+            .map(Bound::unbind)
+    }
+
+    fn __contains__(&self, key: &Bound<'_, PyAny>) -> bool {
+        form_data_key(key).is_some_and(|key| self.inner.get(&key).is_some())
+    }
+
+    fn __getitem__(&self, key: &Bound<'_, PyAny>) -> PyResult<String> {
+        form_data_key(key)
+            .as_deref()
+            .and_then(|form_key| self.inner.get(form_key))
+            .map(str::to_owned)
+            .ok_or_else(|| PyKeyError::new_err(key.clone().unbind()))
+    }
+
+    fn __repr__(slf: PyRef<'_, Self>) -> PyResult<String> {
+        let py = slf.py();
+        let items = slf.inner.multi_items().to_vec();
+        let instance = slf.into_pyobject(py)?;
+        let class_name = instance.get_type().name()?.to_string();
+        let list = PyList::new(py, items)?;
+        let items_repr = list.repr()?.to_str()?.to_owned();
+        Ok(format!("{class_name}({items_repr})"))
+    }
+
+    fn __eq__(slf: PyRef<'_, Self>, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let instance = slf.into_pyobject(py)?;
+        if !other.is_instance(&instance.get_type())? {
+            return Ok(false);
+        }
+        let other = other.extract::<PyRef<'_, PyFormData>>()?;
+        Ok(instance.extract::<PyRef<'_, PyFormData>>()?.inner == other.inner)
+    }
+
+    fn _close(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        crate::awaitable::into_python_awaitable(py, FormDataClose)
+    }
+}
+
+impl PyFormData {
+    fn mapping_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let mapping = PyDict::new(py);
+        for (key, value) in self.inner.items() {
+            mapping.set_item(key, value)?;
+        }
+        Ok(mapping)
+    }
+}
+
+struct FormDataClose;
+
+impl crate::awaitable::AwaitableStateMachine for FormDataClose {
+    fn resume(
+        &mut self,
+        py: Python<'_>,
+        input: crate::awaitable::MachineResume,
+    ) -> PyResult<crate::awaitable::MachineAction> {
+        match input {
+            crate::awaitable::MachineResume::Start => {
+                Ok(crate::awaitable::MachineAction::Complete(py.None()))
+            }
+            crate::awaitable::MachineResume::Value(_) => Err(PyValueError::new_err(
+                "form data close received an unexpected result",
+            )),
+            crate::awaitable::MachineResume::AsyncIterationComplete(error)
+            | crate::awaitable::MachineResume::Error(error) => Err(error),
+        }
+    }
+}
+
+fn form_data_key(value: &Bound<'_, PyAny>) -> Option<String> {
+    value
+        .is_instance_of::<PyString>()
+        .then(|| value.extract::<String>().ok())
+        .flatten()
+}
+
+fn form_data_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
+    if !value.is_truthy()? {
+        return Ok(Vec::new());
+    }
+    if value.hasattr("multi_items")? {
+        return form_data_from_iterable(&value.call_method0("multi_items")?);
+    }
+    if value.hasattr("items")? {
+        return form_data_from_iterable(&value.call_method0("items")?);
+    }
+    form_data_from_iterable(value)
+}
+
+fn form_data_from_mapping(mapping: &Bound<'_, PyDict>) -> PyResult<Vec<(String, String)>> {
+    mapping
+        .iter()
+        .map(|(key, value)| Ok((key.extract::<String>()?, value.extract::<String>()?)))
+        .collect()
+}
+
+fn form_data_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
+    values
+        .try_iter()?
+        .map(|pair| {
+            let pair_values = pair?.try_iter()?.collect::<PyResult<Vec<_>>>()?;
+            if pair_values.len() != 2 {
+                let message = if pair_values.len() < 2 {
+                    format!(
+                        "not enough values to unpack (expected 2, got {})",
+                        pair_values.len()
+                    )
+                } else {
+                    "too many values to unpack (expected 2)".to_owned()
+                };
+                return Err(PyValueError::new_err(message));
+            }
+            Ok((
+                pair_values[0].extract::<String>()?,
+                pair_values[1].extract::<String>()?,
+            ))
+        })
+        .collect()
 }
 
 /// Redacted string value accepted by configuration and session middleware.

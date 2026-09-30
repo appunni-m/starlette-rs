@@ -19,6 +19,7 @@ mod asgi;
 mod connection;
 mod exception_handlers;
 mod file_response;
+mod form_data;
 mod gzip;
 mod headers;
 mod lifespan;
@@ -43,6 +44,7 @@ pub use file_response::{
     FileResponseCallStep, FileResponseError, FileResponseEvent, FileResponseHeaderViews,
     FileResponseOptions, FileStat, FileStatTimestamp,
 };
+pub use form_data::{FormData, FormDataParseError};
 pub use gzip::{
     DEFAULT_EXCLUDED_CONTENT_TYPES, GzipBodyOutput, GzipCompressionError, GzipCompressor,
     GzipConfig, GzipHeader, GzipResponder, GzipResponseStart,

@@ -70,6 +70,7 @@ VALUE_FORMATTING_OPERATION = "value-formatting"
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
+REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
 STATUS_SURFACE = "starlette.status"
 STATUS_OPERATION = "module-symbol-sequence"
 CONFIG_OPERATIONS = {
@@ -563,6 +564,8 @@ def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
         scope["subprotocols"] = list(spec["subprotocols"])
     if "extensions" in spec:
         scope["extensions"] = dict(spec["extensions"])
+    if "app" in spec:
+        scope["app"] = spec["app"]
     if "app_root_path" in spec:
         scope["app_root_path"] = spec["app_root_path"]
     if "path_params" in spec:
@@ -7039,6 +7042,95 @@ def _run_request_is_disconnected_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
+    case_fields = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "scope",
+        "receive",
+        "form_probe_keys",
+        "observations",
+    }
+    if "form_options" in case:
+        case_fields.add("form_options")
+    if "form_access" in case:
+        case_fields.add("form_access")
+    _strict_object(
+        case,
+        case_fields,
+        "Request form case",
+    )
+    from starlette.requests import Request
+
+    scope = _make_scope(case["scope"])
+    incoming = [_message(message) for message in case["receive"]]
+    received = 0
+
+    async def receive() -> dict[str, Any]:
+        nonlocal received
+        message = incoming[received]
+        received += 1
+        return message
+
+    async def observe() -> dict[str, Any]:
+        request = Request(scope, receive)
+        try:
+            if case.get("form_access", "await") == "context-manager":
+                async with request.form(**case.get("form_options", {})) as form:
+                    value = inspect_form(form)
+            else:
+                form = await request.form(**case.get("form_options", {}))
+                value = inspect_form(form)
+        except Exception as exc:
+            fields = {
+                name: _json_safe(getattr(exc, name))
+                for name in ("status_code", "detail", "headers", "message")
+                if hasattr(exc, name)
+            }
+            return {
+                "form": {
+                    "outcome": "error",
+                    "error": {
+                        "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                        "message": str(exc),
+                        "fields": fields,
+                    },
+                },
+            }
+        return {"form": value}
+
+    def inspect_form(form: Any) -> dict[str, Any]:
+        multi_items = [[_json_safe(key), _json_safe(value)] for key, value in form.multi_items()]
+        keys = [_json_safe(key) for key in form.keys()]
+        items = [[_json_safe(key), _json_safe(value)] for key, value in form.items()]
+        lookup = []
+        getlist = []
+        for key in case["form_probe_keys"]:
+            try:
+                value = form[key]
+            except KeyError:
+                value = None
+            lookup.append([key, _json_safe(value)])
+            getlist.append([key, [_json_safe(value) for value in form.getlist(key)]])
+        return {
+            "multi_items": multi_items,
+            "keys": keys,
+            "items": items,
+            "lookup": lookup,
+            "getlist": getlist,
+        }
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "form", "status": "ok", "value": asyncio.run(observe())}],
+    }
+
+
 def _run_status_symbols_case(case: dict[str, Any]) -> dict[str, Any]:
     _strict_object(
         case,
@@ -7988,6 +8080,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) == REQUEST_IS_DISCONNECTED_OPERATION
     ):
         return _run_request_is_disconnected_case(case)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_FORM_OPERATION
+    ):
+        return _run_request_form_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         STATUS_SURFACE,
         STATUS_OPERATION,

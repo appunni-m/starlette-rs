@@ -147,6 +147,25 @@ class Request(HTTPConnection):
         """Decode and cache JSON using Rust-owned request state."""
         return await self._body_state.json()
 
+    def form(
+        self,
+        *,
+        max_files: int | float = 1000,
+        max_fields: int | float = 1000,
+        max_part_size: int = 1024 * 1024,
+    ) -> Any:
+        """Return an awaitable context manager for parsed form data."""
+        return self._body_state.form(
+            self.headers.get("Content-Type"),
+            self.scope,
+            max_files,
+            max_fields,
+            max_part_size,
+        )
+
+    async def close(self) -> None:
+        await self._body_state.close_form()
+
     async def is_disconnected(self) -> bool:
         return await self._body_state.is_disconnected()
 

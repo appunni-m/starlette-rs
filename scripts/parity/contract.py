@@ -127,6 +127,7 @@ VALUE_FORMATTING_OPERATIONS = {
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
+REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
 REQUEST_SEND_PUSH_PROMISE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
     "path",
@@ -136,6 +137,11 @@ REQUEST_IS_DISCONNECTED_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}
     "scope",
     "receive",
     "receive_checkpoints",
+}
+REQUEST_FORM_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "scope",
+    "receive",
+    "form_probe_keys",
 }
 STATUS_OPERATION = ("starlette.status", "module-symbol-sequence")
 CONFIG_OPERATIONS = {
@@ -203,6 +209,10 @@ URL_SCOPE_REQUIREMENTS = {
 QUERY_PARAMS_OPERATION = (
     "starlette.datastructures.QueryParams",
     "construction-and-mapping-sequence",
+)
+FORM_DATA_MULTIDICT_LOOKUPS_OPERATION = (
+    "starlette.datastructures.FormData",
+    "multidict-lookups",
 )
 AUTHENTICATION_OPERATIONS = {
     ("starlette.authentication", "value-operations"),
@@ -546,6 +556,21 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
     ),
     (ROUTER_SURFACE, ROUTER_OPERATION, "rust-native"): frozenset(
         {"starlette.routing.Router.route-dispatch.python-callable-endpoint"}
+    ),
+    (
+        REQUEST_FORM_OPERATION[0],
+        REQUEST_FORM_OPERATION[1],
+        "python-package",
+    ): frozenset({"starlette.request.form.multipart-form-data"}),
+    (
+        FORM_DATA_MULTIDICT_LOOKUPS_OPERATION[0],
+        FORM_DATA_MULTIDICT_LOOKUPS_OPERATION[1],
+        "python-package",
+    ): frozenset(
+        {
+            "starlette.datastructures.FormData.file-values",
+            "starlette.datastructures.FormData.close",
+        }
     ),
 }
 GZIP_SURFACE = "starlette.middleware.gzip.GZipMiddleware"
@@ -1366,6 +1391,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) == REQUEST_DEFAULT_RECEIVE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_SEND_PUSH_PROMISE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_IS_DISCONNECTED_OPERATION
+                        or (surface["id"], operation["id"]) == REQUEST_FORM_OPERATION
+                        or (surface["id"], operation["id"]) == FORM_DATA_MULTIDICT_LOOKUPS_OPERATION
                         or (surface["id"], operation["id"]) == STATUS_OPERATION
                         else profile_ids
                     )
@@ -6613,6 +6640,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_IS_DISCONNECTED_OPERATION
     )
+    is_request_form = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_FORM_OPERATION
+    )
     is_status_symbols = (
         isinstance(case, dict) and (case.get("surface"), case.get("operation")) == STATUS_OPERATION
     )
@@ -6655,6 +6686,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_streaming_response
         else STATUS_CASE_KEYS
         if is_status_symbols
+        else REQUEST_FORM_CASE_KEYS
+        if is_request_form
         else SESSION_WORKFLOW_CASE_KEYS
         if is_session_workflow
         else BASE_HTTP_WORKFLOW_CASE_KEYS
@@ -6747,6 +6780,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = REQUEST_SEND_PUSH_PROMISE_CASE_KEYS
     elif is_request_is_disconnected:
         expected_case_keys = REQUEST_IS_DISCONNECTED_CASE_KEYS
+    elif is_request_form:
+        expected_case_keys = REQUEST_FORM_CASE_KEYS
+        if "form_options" in case:
+            expected_case_keys = expected_case_keys | {"form_options"}
+        if "form_access" in case:
+            expected_case_keys = expected_case_keys | {"form_access"}
     elif is_status_symbols:
         expected_case_keys = STATUS_CASE_KEYS
     elif is_session_workflow:
@@ -6847,6 +6886,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_request_is_disconnected:
         if case["observations"] != ["is-disconnected"]:
             raise ContractError("disconnect cases must select the is-disconnected observation")
+    elif is_request_form:
+        if case["observations"] != ["form"]:
+            raise ContractError("Request.form cases must select the form observation")
     elif is_status_symbols:
         if (case["surface"], case["operation"]) != STATUS_OPERATION:
             raise ContractError(
@@ -6950,6 +6992,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_request_is_disconnected:
         _validate_request_is_disconnected_case(case)
+        return case
+    if is_request_form:
+        _validate_request_form_case(case)
         return case
     if is_status_symbols:
         _validate_status_symbols_case(case)
@@ -8160,6 +8205,7 @@ def _validate_dispatch_stimulus(
     allow_inherited_mount_scope: bool = False,
     allow_http_disconnect: bool = False,
     allow_pre_asgi24_disconnect: bool = False,
+    allow_scope_app: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -8204,7 +8250,11 @@ def _validate_dispatch_stimulus(
         }
         if allow_inherited_mount_scope:
             scope_fields.update(key for key in ("app_root_path", "path_params") if key in scope)
+        if allow_scope_app and "app" in scope:
+            scope_fields.add("app")
         scope = _exact(scope, scope_fields, "HTTP scope input")
+        if "app" in scope and scope["app"] is not True:
+            raise ContractError("HTTP scope.app must be the true app-presence marker")
         if "app_root_path" in scope:
             _string(scope["app_root_path"], "HTTP scope.app_root_path")
         if "path_params" in scope:
@@ -8606,6 +8656,103 @@ def _validate_request_is_disconnected_case(case: dict[str, Any]) -> None:
         expected_covers.append("starlette.request.is-disconnected.cancel-pending-receive")
     if case["covers"] != expected_covers:
         raise ContractError("disconnect case must cover detection and cached disconnect state")
+
+
+def _request_form_limits_exceeded(body: bytes, form_options: dict[str, Any]) -> bool:
+    fields = parse_qsl(body.decode("latin-1"), keep_blank_values=True)
+    max_fields = form_options.get("max_fields")
+    if max_fields is not None and len(fields) > max_fields:
+        return True
+
+    max_part_size = form_options.get("max_part_size")
+    if max_part_size is None:
+        return False
+    for field in body.split(b"&"):
+        name, separator, value = field.partition(b"=")
+        if not separator:
+            value = b""
+        if len(name) + len(value) > max_part_size:
+            return True
+    return False
+
+
+def _validate_request_form_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Request.form parity currently targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["form"]:
+        raise ContractError("Request.form cases must select one form observation without assets")
+    _validate_dispatch_stimulus(
+        {
+            "scope": case["scope"],
+            "receive": case["receive"],
+            "send": {"kind": "capture-asgi-send"},
+        },
+        request_dispatch=True,
+        allow_headers=True,
+        allow_scope_app=True,
+    )
+    if case["scope"]["type"] != "http":
+        raise ContractError("Request.form requires an HTTP scope")
+
+    messages = case["receive"]
+    if (
+        not messages
+        or any(not message["more_body"] for message in messages[:-1])
+        or messages[-1]["more_body"]
+    ):
+        raise ContractError(
+            "Request.form receive input must contain body chunks ending with one final request message"
+        )
+
+    probe_keys = case["form_probe_keys"]
+    if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
+        raise ContractError("Request.form form_probe_keys must be an array of strings")
+
+    form_options = case.get("form_options", {})
+    if not isinstance(form_options, dict) or set(form_options) - {
+        "max_files",
+        "max_fields",
+        "max_part_size",
+    }:
+        raise ContractError("Request.form form_options contains unsupported public arguments")
+    for name, value in form_options.items():
+        if name == "max_part_size":
+            if type(value) is not int:
+                raise ContractError("Request.form max_part_size must be an integer")
+        elif type(value) not in (int, float) or not math.isfinite(value):
+            raise ContractError(f"Request.form {name} must be a finite number")
+
+    form_access = case.get("form_access", "await")
+    if form_access not in {"await", "context-manager"}:
+        raise ContractError("Request.form form_access must be await or context-manager")
+
+    content_type = None
+    for encoded_name, encoded_value in case["scope"]["headers_base64_pairs"]:
+        name = base64.b64decode(encoded_name, validate=True).decode("latin-1").lower()
+        if name == "content-type":
+            content_type = (
+                base64.b64decode(encoded_value, validate=True).split(b";", 1)[0].strip().lower()
+            )
+            break
+    body = b"".join(base64.b64decode(message["body_base64"], validate=True) for message in messages)
+    if content_type == b"application/x-www-form-urlencoded" and body:
+        if _request_form_limits_exceeded(body, form_options):
+            expected_covers = ["starlette.request.form.parser-limits"]
+        else:
+            expected_covers = [
+                "starlette.request.form.urlencoded-fields",
+                "starlette.datastructures.FormData.multidict-lookups",
+            ]
+            if form_access == "context-manager":
+                expected_covers.append("starlette.request.form.context-manager-lifecycle")
+    elif content_type is None and not body:
+        expected_covers = ["starlette.request.form.empty"]
+    else:
+        raise ContractError(
+            "Request.form currently supports non-empty URL-encoded forms or an empty body without Content-Type"
+        )
+    if case["covers"] != expected_covers:
+        raise ContractError("Request.form coverage must match its media type and body input")
 
 
 def _validate_status_symbols_case(case: dict[str, Any]) -> None:

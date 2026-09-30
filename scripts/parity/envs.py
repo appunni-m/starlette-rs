@@ -246,13 +246,15 @@ def _lock_declarations(path: Path) -> dict[str, tuple[str, set[str]]]:
 
 
 def validate_oracle_runtime_lock(root: Path, upstream: Path) -> str:
-    """Check the oracle lock adds only Starlette's pinned optional signer."""
+    """Check the oracle lock adds only pinned Starlette optional dependencies."""
     base = _lock_declarations(root / RUNTIME_LOCK_RELATIVE)
     oracle_path = root / ORACLE_RUNTIME_LOCK_RELATIVE
     oracle = _lock_declarations(oracle_path)
-    if set(oracle) != set(base) | {"itsdangerous"}:
+    oracle_optional_dependencies = {"itsdangerous", "python-multipart"}
+    if set(oracle) != set(base) | oracle_optional_dependencies:
         raise ContractError(
-            "source-oracle lock must add only optional ItsDangerous to the ASGI closure"
+            "source-oracle lock must add only optional ItsDangerous and python-multipart "
+            "to the ASGI closure"
         )
     if any(oracle[name] != entry for name, entry in base.items()):
         raise ContractError(
@@ -265,24 +267,33 @@ def validate_oracle_runtime_lock(root: Path, upstream: Path) -> str:
         raise ContractError(
             f"cannot parse pinned source uv.lock for oracle dependencies: {exc}"
         ) from exc
-    package = next(
-        (
-            item
-            for item in upstream_lock.get("package", [])
-            if item.get("name", "").lower().replace("_", "-") == "itsdangerous"
-        ),
-        None,
-    )
-    if package is None:
+    source_packages = {
+        item.get("name", "").lower().replace("_", "-"): item
+        for item in upstream_lock.get("package", [])
+    }
+    source_starlette = source_packages.get("starlette")
+    if source_starlette is None:
+        raise ContractError("pinned Starlette source lock omits its package record")
+    optional_full = {
+        item["name"].lower().replace("_", "-")
+        for item in source_starlette.get("optional-dependencies", {}).get("full", [])
+    }
+    if not oracle_optional_dependencies <= optional_full:
         raise ContractError(
-            "pinned Starlette source lock omits its optional ItsDangerous dependency"
+            "oracle-only dependencies must be declared in the pinned Starlette full extra"
         )
-    version, hashes = oracle["itsdangerous"]
-    wheel_hashes = {wheel["hash"].removeprefix("sha256:") for wheel in package.get("wheels", [])}
-    if version != package["version"] or not hashes or not hashes <= wheel_hashes:
-        raise ContractError(
-            "oracle ItsDangerous version or hash differs from the pinned source lock"
-        )
+    for name in sorted(oracle_optional_dependencies):
+        package = source_packages.get(name)
+        if package is None:
+            raise ContractError(f"pinned Starlette source lock omits optional {name}")
+        version, hashes = oracle[name]
+        wheel_hashes = {
+            wheel["hash"].removeprefix("sha256:") for wheel in package.get("wheels", [])
+        }
+        if version != package["version"] or not hashes or not hashes <= wheel_hashes:
+            raise ContractError(
+                f"oracle {name} version or hash differs from the pinned source lock"
+            )
     return sha256_file(oracle_path)
 
 

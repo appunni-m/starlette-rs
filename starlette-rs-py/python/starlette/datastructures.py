@@ -112,6 +112,13 @@ class QueryParams(_core.QueryParams, Mapping[str, str]):
     """Immutable query parameters with Rust-owned parsing and lookup behavior."""
 
 
+class FormData(_core.FormData, Mapping[str, str]):
+    """Immutable ordered form values backed by Rust-owned multi-dict semantics."""
+
+    async def close(self) -> None:
+        await self._close()
+
+
 class Address(NamedTuple):
     """A host and port pair from an ASGI connection scope."""
 
