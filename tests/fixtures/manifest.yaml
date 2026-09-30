@@ -11266,7 +11266,9 @@
                   "starlette.routing.Router.route-dispatch.http-endpoint-path-parameter",
                   "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed",
                   "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected",
-                  "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler"
+                  "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
+                  "starlette.routing.Router.route-dispatch.http-endpoint-method-handler",
+                  "starlette.routing.Router.route-dispatch.http-endpoint-head-get-fallback"
                 ]
               }
             },
@@ -11607,6 +11609,28 @@
               "id": "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
               "dimension": "boundary",
               "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette\u2019s worker-thread boundary.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.http-endpoint-method-handler",
+              "dimension": "success_path",
+              "description": "HTTPEndpoint selects an asynchronous handler for a supported non-GET HTTP verb.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.http-endpoint-head-get-fallback",
+              "dimension": "parameter_combination",
+              "description": "HTTPEndpoint serves a HEAD request with the GET handler when no explicit HEAD handler exists.",
               "lanes": [
                 "parity"
               ],

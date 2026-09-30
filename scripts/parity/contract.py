@@ -309,6 +309,8 @@ ROUTER_HTTP_ENDPOINT_REQUIREMENTS = {
     "class_route": "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
     "async_handler": "starlette.routing.Router.route-dispatch.http-endpoint-async-handler",
     "sync_handler": "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
+    "method_handler": "starlette.routing.Router.route-dispatch.http-endpoint-method-handler",
+    "head_fallback": "starlette.routing.Router.route-dispatch.http-endpoint-head-get-fallback",
     "path_parameter": "starlette.routing.Router.route-dispatch.http-endpoint-path-parameter",
     "method_not_allowed": "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed",
     "non_verb_helper": "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected",
@@ -4881,6 +4883,10 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
                         derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["async_handler"])
                     else:
                         derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["sync_handler"])
+                    if method_handler_name != "get":
+                        derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["method_handler"])
+                    if method == "HEAD" and "head" not in handlers and "get" in handlers:
+                        derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["head_fallback"])
                     if selected_handler["response"]["kind"] == "path-parameter-text-response":
                         derived.add(ROUTER_HTTP_ENDPOINT_REQUIREMENTS["path_parameter"])
             else:
