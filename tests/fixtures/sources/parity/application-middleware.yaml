@@ -606,6 +606,411 @@
         "dispatch",
         "register-after-start"
       ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.add_middleware.middleware-stack-cache-per-application",
+      "surface": "starlette.applications.Starlette",
+      "operation": "add_middleware",
+      "covers": [
+        "starlette.applications.Starlette.add_middleware.per-application-stack-cache"
+      ],
+      "execution_schedule": [
+        "middleware-registration",
+        "lifespan.startup",
+        "lifespan.shutdown",
+        "dispatch",
+        "application-construction",
+        "middleware-registration",
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "first-application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "first-register-initializable",
+          "surface": "starlette.applications.Starlette",
+          "operation": "add_middleware",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "first-application"
+          },
+          "arguments": {
+            "middleware_class": {
+              "kind": "literal",
+              "value": {
+                "kind": "input-defined-middleware",
+                "callable_kind": "class",
+                "name": "SimpleInitializableMiddleware"
+              }
+            },
+            "args": {
+              "kind": "literal",
+              "value": []
+            },
+            "kwargs": {
+              "kind": "literal",
+              "value": {}
+            }
+          }
+        },
+        {
+          "step_id": "first-register-noop",
+          "surface": "starlette.applications.Starlette",
+          "operation": "add_middleware",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "first-application"
+          },
+          "arguments": {
+            "middleware_class": {
+              "kind": "literal",
+              "value": {
+                "kind": "input-defined-middleware",
+                "callable_kind": "class",
+                "name": "NoOpMiddleware"
+              }
+            },
+            "args": {
+              "kind": "literal",
+              "value": []
+            },
+            "kwargs": {
+              "kind": "literal",
+              "value": {}
+            }
+          }
+        },
+        {
+          "step_id": "first-lifespan",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "first-application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "lifespan.startup"
+                },
+                {
+                  "type": "lifespan.shutdown"
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        },
+        {
+          "step_id": "first-http",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "first-application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/hello",
+                "raw_path_base64": "L2hlbGxv",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        },
+        {
+          "step_id": "second-application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "second-register-initializable",
+          "surface": "starlette.applications.Starlette",
+          "operation": "add_middleware",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "second-application"
+          },
+          "arguments": {
+            "middleware_class": {
+              "kind": "literal",
+              "value": {
+                "kind": "input-defined-middleware",
+                "callable_kind": "class",
+                "name": "SimpleInitializableMiddleware"
+              }
+            },
+            "args": {
+              "kind": "literal",
+              "value": []
+            },
+            "kwargs": {
+              "kind": "literal",
+              "value": {}
+            }
+          }
+        },
+        {
+          "step_id": "second-register-noop",
+          "surface": "starlette.applications.Starlette",
+          "operation": "add_middleware",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "second-application"
+          },
+          "arguments": {
+            "middleware_class": {
+              "kind": "literal",
+              "value": {
+                "kind": "input-defined-middleware",
+                "callable_kind": "class",
+                "name": "NoOpMiddleware"
+              }
+            },
+            "args": {
+              "kind": "literal",
+              "value": []
+            },
+            "kwargs": {
+              "kind": "literal",
+              "value": {}
+            }
+          }
+        },
+        {
+          "step_id": "second-http",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "second-application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/hello",
+                "raw_path_base64": "L2hlbGxv",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "first-register-initializable",
+        "first-register-noop",
+        "first-lifespan",
+        "first-http",
+        "second-application",
+        "second-register-initializable",
+        "second-register-noop",
+        "second-http"
+      ]
     }
   ]
 }

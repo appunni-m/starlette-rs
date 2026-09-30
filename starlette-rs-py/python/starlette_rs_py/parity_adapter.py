@@ -9316,6 +9316,15 @@ def _run_starlette_add_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
     app, lifecycle_trace, request_observations, route_endpoint, sync_endpoint_states = (
         _materialize_application(application_arguments)
     )
+    applications = {
+        steps[0]["step_id"]: (
+            app,
+            lifecycle_trace,
+            request_observations,
+            route_endpoint,
+            sync_endpoint_states,
+        )
+    }
     middleware_trace: list[dict[str, Any]] = []
     callbacks: dict[tuple[str, str], Any] = {}
 
@@ -9325,6 +9334,19 @@ def _run_starlette_add_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
             arguments = {
                 name: descriptor["value"] for name, descriptor in step["arguments"].items()
             }
+            if step["operation"] == "__init__":
+                applications[step["step_id"]] = _materialize_application(arguments)
+                value = {
+                    "workflow_observation": {
+                        "return": None,
+                        "middleware_trace": _json_safe(middleware_trace),
+                    }
+                }
+            else:
+                application = applications[step["receiver"]["step_id"]]
+                app, lifecycle_trace, request_observations, route_endpoint, sync_endpoint_states = (
+                    application
+                )
             if step["operation"] == "__call__":
                 dispatch = await _invoke(
                     app,
@@ -9341,7 +9363,7 @@ def _run_starlette_add_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                         "middleware_trace": _json_safe(middleware_trace),
                     }
                 }
-            else:
+            elif step["operation"] == "add_middleware":
                 try:
                     marker = arguments["middleware_class"]
                     key = (marker["callable_kind"], marker["name"])

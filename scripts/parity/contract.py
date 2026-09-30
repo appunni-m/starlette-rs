@@ -616,6 +616,7 @@ STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS = {
     "positional_order_and_cache": "starlette.applications.Starlette.add_middleware.positional-order-and-cache",
     "factory_keyword_arguments": "starlette.applications.Starlette.add_middleware.factory-keyword-arguments",
     "after_start_error": "starlette.applications.Starlette.add_middleware.after-start-error",
+    "per_application_stack_cache": "starlette.applications.Starlette.add_middleware.per-application-stack-cache",
 }
 STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY = (
     "starlette.applications.Starlette",
@@ -9982,7 +9983,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(case["steps"], list) or (
         len(case["steps"]) not in {2, 3}
         and not (is_starlette_add_route_workflow and len(case["steps"]) == 4)
-        and not (is_starlette_add_middleware_workflow and len(case["steps"]) in {4, 5})
+        and not is_starlette_add_middleware_workflow
         and not (is_middleware_construction and len(case["steps"]) == 1)
     ):
         raise ContractError("case must contain construction and dispatch steps")
@@ -10161,6 +10162,21 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             if operation["kind"] == "constructor":
                 if receiver is not None:
                     raise ContractError(f"{context}.receiver must be null for construction")
+            elif is_starlette_add_middleware_workflow:
+                prior_app_ids = {
+                    prior["step_id"]
+                    for prior in case["steps"][:index]
+                    if prior["operation"] == "__init__"
+                }
+                if (
+                    not isinstance(receiver, dict)
+                    or set(receiver) != {"kind", "step_id"}
+                    or receiver["kind"] != "binding"
+                    or receiver["step_id"] not in prior_app_ids
+                ):
+                    raise ContractError(
+                        f"{context}.receiver must bind a previously constructed application"
+                    )
             elif receiver != {"kind": "binding", "step_id": step_ids[0]}:
                 raise ContractError(f"{context}.receiver must bind the declared application")
         elif receiver is not None:
@@ -10197,7 +10213,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         _validate_starlette_add_route_workflow(case)
     for step in case["steps"][1:]:
         step_args = {key: descriptor["value"] for key, descriptor in step["arguments"].items()}
-        if is_starlette_add_middleware_workflow and step["operation"] == "add_middleware":
+        if is_starlette_add_middleware_workflow and step["operation"] in {
+            "__init__",
+            "add_middleware",
+        }:
             continue
         if is_starlette_add_route_workflow and step["operation"] in {"add_route", "url_path_for"}:
             continue
@@ -11013,73 +11032,111 @@ def _validate_starlette_add_route_workflow(case: dict[str, Any]) -> None:
 
 
 def _starlette_add_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
-    dispatch_steps = [step for step in case["steps"] if step.get("operation") == "__call__"]
-    first_dispatch_index = next(
-        index for index, step in enumerate(case["steps"]) if step.get("operation") == "__call__"
-    )
-    before_start = [
-        step
-        for index, step in enumerate(case["steps"])
-        if step.get("operation") == "add_middleware" and index < first_dispatch_index
-    ]
-    after_start = [
-        step
-        for index, step in enumerate(case["steps"])
-        if step.get("operation") == "add_middleware" and index > first_dispatch_index
-    ]
+    app_ids = [step["step_id"] for step in case["steps"] if step.get("operation") == "__init__"]
+    registrations: dict[str, list[dict[str, Any]]] = {app_id: [] for app_id in app_ids}
+    dispatches: dict[str, list[dict[str, Any]]] = {app_id: [] for app_id in app_ids}
+    dispatched: set[str] = set()
+    after_start: list[dict[str, Any]] = []
     coverage: set[str] = set()
 
     def input_for(step: dict[str, Any]) -> dict[str, Any]:
         return {name: descriptor["value"] for name, descriptor in step["arguments"].items()}
 
-    definitions = [input_for(step) for step in before_start]
-    if (
-        len(definitions) >= 2
-        and all(item["middleware_class"]["callable_kind"] == "class" for item in definitions)
-        and len({item["middleware_class"]["name"] for item in definitions}) == 1
-        and all(item["args"] for item in definitions[:2])
-        and definitions[0]["args"] != definitions[1]["args"]
-        and len(dispatch_steps) >= 2
-        and dispatch_steps[0]["arguments"]["scope"]["value"]["type"] == "lifespan"
-        and dispatch_steps[1]["arguments"]["scope"]["value"]["type"] == "http"
-    ):
-        coverage.add(STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["positional_order_and_cache"])
-    if (
-        len(definitions) >= 2
-        and all(item["middleware_class"]["callable_kind"] == "factory" for item in definitions)
-        and len({item["middleware_class"]["name"] for item in definitions}) == 1
-        and any(item["args"] for item in definitions)
-        and any(item["kwargs"] for item in definitions)
-        and dispatch_steps[0]["arguments"]["scope"]["value"]["type"] == "lifespan"
-    ):
-        coverage.add(STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["factory_keyword_arguments"])
+    for step in case["steps"]:
+        operation = step.get("operation")
+        if operation not in {"add_middleware", "__call__"}:
+            continue
+        app_id = step["receiver"]["step_id"]
+        if operation == "add_middleware":
+            if app_id in dispatched:
+                after_start.append(step)
+            else:
+                registrations[app_id].append(input_for(step))
+        else:
+            dispatches[app_id].append(step)
+            dispatched.add(app_id)
+
+    for app_id, definitions in registrations.items():
+        dispatch_types = [
+            step["arguments"]["scope"]["value"]["type"] for step in dispatches[app_id]
+        ]
+        if (
+            len(definitions) >= 2
+            and all(item["middleware_class"]["callable_kind"] == "class" for item in definitions)
+            and len({item["middleware_class"]["name"] for item in definitions}) == 1
+            and all(item["args"] for item in definitions[:2])
+            and definitions[0]["args"] != definitions[1]["args"]
+            and dispatch_types[:2] == ["lifespan", "http"]
+        ):
+            coverage.add(STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["positional_order_and_cache"])
+        if (
+            len(definitions) >= 2
+            and all(item["middleware_class"]["callable_kind"] == "factory" for item in definitions)
+            and len({item["middleware_class"]["name"] for item in definitions}) == 1
+            and any(item["args"] for item in definitions)
+            and any(item["kwargs"] for item in definitions)
+            and dispatch_types[:1] == ["lifespan"]
+        ):
+            coverage.add(STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["factory_keyword_arguments"])
+
     if after_start:
         coverage.add(STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["after_start_error"])
+
+    if len(app_ids) >= 2:
+        for first_app in app_ids:
+            first_dispatches = dispatches[first_app]
+            first_types = [step["arguments"]["scope"]["value"]["type"] for step in first_dispatches]
+            first_class_names = {
+                item["middleware_class"]["name"]
+                for item in registrations[first_app]
+                if item["middleware_class"]["callable_kind"] == "class"
+            }
+            if first_types[:2] != ["lifespan", "http"] or not first_class_names:
+                continue
+            for second_app in app_ids:
+                if second_app == first_app or not dispatches[second_app]:
+                    continue
+                second_class_names = {
+                    item["middleware_class"]["name"]
+                    for item in registrations[second_app]
+                    if item["middleware_class"]["callable_kind"] == "class"
+                }
+                if first_class_names & second_class_names:
+                    coverage.add(
+                        STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["per_application_stack_cache"]
+                    )
+                    break
+            if STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["per_application_stack_cache"] in coverage:
+                break
     return coverage
 
 
 def _starlette_add_middleware_expected_schedule(case: dict[str, Any]) -> list[str]:
     schedule: list[str] = []
-    first_dispatch_index = next(
-        index for index, step in enumerate(case["steps"]) if step.get("operation") == "__call__"
-    )
-    if any(
-        step.get("operation") == "add_middleware" for step in case["steps"][:first_dispatch_index]
-    ):
-        schedule.append("middleware-registration")
-    for step in case["steps"]:
-        if step.get("operation") != "__call__":
-            continue
-        arguments = {name: descriptor["value"] for name, descriptor in step["arguments"].items()}
-        if arguments["scope"]["type"] == "lifespan":
-            schedule.extend(["lifespan.startup", "lifespan.shutdown"])
-        else:
-            schedule.append("dispatch")
-    if any(
-        step.get("operation") == "add_middleware"
-        for step in case["steps"][first_dispatch_index + 1 :]
-    ):
-        schedule.append("middleware-add-after-start")
+    registered: set[str] = set()
+    dispatched: set[str] = set()
+    for index, step in enumerate(case["steps"]):
+        operation = step.get("operation")
+        if operation == "__init__":
+            if index:
+                schedule.append("application-construction")
+        elif operation == "add_middleware":
+            app_id = step["receiver"]["step_id"]
+            if app_id in dispatched:
+                schedule.append("middleware-add-after-start")
+            elif app_id not in registered:
+                registered.add(app_id)
+                schedule.append("middleware-registration")
+        elif operation == "__call__":
+            app_id = step["receiver"]["step_id"]
+            arguments = {
+                name: descriptor["value"] for name, descriptor in step["arguments"].items()
+            }
+            if arguments["scope"]["type"] == "lifespan":
+                schedule.extend(["lifespan.startup", "lifespan.shutdown"])
+            else:
+                schedule.append("dispatch")
+            dispatched.add(app_id)
     return schedule
 
 
@@ -11098,11 +11155,23 @@ def _validate_starlette_add_middleware_workflow(case: dict[str, Any]) -> None:
         or any(step.get("surface") != "starlette.applications.Starlette" for step in steps)
     ):
         raise ContractError("Starlette.add_middleware workflow has an invalid operation sequence")
-    first_dispatch_index = operations.index("__call__")
-    if any(operation == "__init__" for operation in operations[1:]):
-        raise ContractError("Starlette.add_middleware workflow uses one application instance")
-    for index, step in enumerate(steps):
-        if step.get("operation") != "add_middleware":
+    app_ids: set[str] = set()
+    dispatched: set[str] = set()
+    registered: set[str] = set()
+    for step in steps:
+        operation = step.get("operation")
+        if operation == "__init__":
+            app_ids.add(step["step_id"])
+            app_arguments = {
+                name: descriptor["value"] for name, descriptor in step["arguments"].items()
+            }
+            _validate_application_stimulus(app_arguments, request_dispatch=False)
+            continue
+        app_id = step["receiver"]["step_id"]
+        if app_id not in app_ids:
+            raise ContractError("Starlette.add_middleware must bind a previously constructed app")
+        if operation == "__call__":
+            dispatched.add(app_id)
             continue
         arguments = step.get("arguments")
         if not isinstance(arguments, dict) or set(arguments) != {
@@ -11135,17 +11204,9 @@ def _validate_starlette_add_middleware_workflow(case: dict[str, Any]) -> None:
             or not isinstance(kwargs_descriptor.get("value"), dict)
         ):
             raise ContractError("middleware variadic arguments must be literal arrays and objects")
-        if index < first_dispatch_index and step.get("receiver") != {
-            "kind": "binding",
-            "step_id": steps[0].get("step_id"),
-        }:
-            raise ContractError("Starlette.add_middleware must bind the constructed application")
-    if any(
-        step.get("operation") == "add_middleware" for step in steps[first_dispatch_index + 1 :]
-    ) and any(
-        step.get("operation") != "add_middleware" for step in steps[first_dispatch_index + 1 :]
-    ):
-        raise ContractError("post-start middleware registration must follow all ASGI dispatches")
+        registered.add(app_id)
+    if app_ids != registered or app_ids != dispatched:
+        raise ContractError("each application must register middleware and receive an ASGI call")
     expected_schedule = _starlette_add_middleware_expected_schedule(case)
     if case["execution_schedule"] != expected_schedule:
         raise ContractError(

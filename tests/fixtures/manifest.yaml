@@ -1960,6 +1960,13 @@
               "description": "Raise the exact RuntimeError when middleware is added after the application has built its middleware stack. Upstream: starlette/applications.py:103-107; docs/applications.md.",
               "lanes": ["parity"],
               "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.applications.Starlette.add_middleware.per-application-stack-cache",
+              "dimension": "success_path",
+              "description": "Build and cache middleware independently for each Starlette application while reusing each application's stack across repeated calls. Upstream: starlette/applications.py:92-107; tests/test_applications.py:465-504.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
             }
           ],
           "parity": {
