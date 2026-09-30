@@ -25,13 +25,14 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 534 input-only cases across
-61 indexed files, 78 operations, and 574 requirements. Run
-`117fef0a-84e6-4cf4-90c4-daf715c3a218` selected 686 comparisons: 682 passed,
+active and incomplete. The current contract has 537 input-only cases across
+61 indexed files, 78 operations, and 575 requirements. Run
+`526e2ced-3557-41b1-8f7f-58366d7e2759` selected 689 comparisons: 685 passed,
 zero failed, zero infrastructure errors, and four Rust-native Python-callable
-comparisons were `not_run`. The Python package passed 532/532; Rust-native
-passed 150/154. This run includes the TestClient WebSocket lifecycle and JSON
-text/binary inputs. The latest direct Request inputs cover body, stream, and
+comparisons were `not_run`. The Python package passed 535/535; Rust-native
+passed 150/154. This run includes the three TestClient exception-policy cases,
+WebSocket lifecycle, and JSON text/binary inputs. The latest direct Request
+inputs cover body, stream, and
 JSON consumption, including interleaved streams and an overlapping body/stream
 receive. Two TestClient inputs cover streamed WebSocket denial responses, and
 one FileResponse input observes event-loop progress during FIFO-backed file
@@ -279,8 +280,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 516 `supported`, 285
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 798
-source rows: 255 existing input mappings, 50 reasoned `not_applicable`
-entries, and 493 input-only backlog rows. These counts describe the current
+source rows: 256 existing input mappings, 50 reasoned `not_applicable`
+entries, and 492 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

@@ -16552,7 +16552,8 @@
                 {
                   "path": "response",
                   "value_types": [
-                    "record"
+                    "record",
+                    "null"
                   ],
                   "comparison": {
                     "kind": "exact"
@@ -16646,6 +16647,17 @@
               "id": "starlette.testclient.TestClient.request-response.timeout-deprecation-warning",
               "dimension": "feature",
               "description": "Emit the pinned StarletteDeprecationWarning when a request supplies a non-default timeout, preserving its category, message, caller filename, and line. Pinned source: starlette/testclient.py:430-452; tests/test_testclient.py::test_timeout_deprecation.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.exception-policy",
+              "dimension": "error_path",
+              "description": "Propagate application exceptions by default, return a 500 response when raise_server_exceptions is false before response start, and return an already completed response when the app raises afterward. Pinned source: starlette/testclient.py:348-367; docs/testclient.md:74-77; tests/middleware/test_errors.py:25-48.",
               "lanes": [
                 "parity"
               ],

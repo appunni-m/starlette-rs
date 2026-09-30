@@ -58,6 +58,9 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             receive_observations.append(_safe(message))
         for message in app_input["messages"]:
             await send(_message(message))
+        if "exception" in app_input:
+            exception_type = getattr(builtins, app_input["exception"]["class"])
+            raise exception_type(app_input["exception"]["message"])
 
     if app_input["kind"] == "asgi2":
 
@@ -89,9 +92,18 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if "timeout" in request_input:
         request_kwargs["timeout"] = request_input["timeout"]
+    response = None
+    captured_error = None
     with warnings.catch_warnings(record=True) as recorded:
         warnings.simplefilter("always")
-        response = client.request(request_input["method"], request_input["url"], **request_kwargs)
+        try:
+            response = client.request(
+                request_input["method"], request_input["url"], **request_kwargs
+            )
+        except BaseException as error:
+            captured_error = error
+        finally:
+            client.close()
     deprecation_warnings = [
         {
             "category": f"{item.category.__module__}.{item.category.__qualname__}",
@@ -101,24 +113,51 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         }
         for item in recorded
     ]
-    result = {
-        "scope": scope_observations,
-        "receive_messages": receive_observations,
-        "deprecation_warnings": deprecation_warnings,
-        "response": {
+    response_value = None
+    if response is not None:
+        response_value = {
             "status_code": response.status_code,
             "headers": response.headers.multi_items(),
             "body_base64": base64.b64encode(response.content).decode("ascii"),
             "extensions": _safe(response.extensions),
             "template": _safe(getattr(response, "template", None)),
             "context": _safe(getattr(response, "context", None)),
-        },
+        }
+    result = {
+        "scope": scope_observations,
+        "receive_messages": receive_observations,
+        "deprecation_warnings": deprecation_warnings,
+        "response": response_value,
     }
-    client.close()
+    observation = {"step_id": "request-response", "status": "ok", "value": result}
+    if captured_error is not None:
+        cause = captured_error.__cause__
+        observation = {
+            "step_id": "request-response",
+            "status": "error",
+            "error": {
+                "class": f"{type(captured_error).__module__}.{type(captured_error).__qualname__}",
+                "kind": "exception",
+                "message": str(captured_error),
+                "stage": "dispatch",
+                "code": None,
+                "cause": (
+                    {
+                        "class": f"{type(cause).__module__}.{type(cause).__qualname__}",
+                        "message": str(cause),
+                        "attributes": _safe(vars(cause)),
+                    }
+                    if cause is not None
+                    else None
+                ),
+                "suppress_context": bool(captured_error.__suppress_context__),
+            },
+            "partial_value": result,
+        }
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [{"step_id": "request-response", "status": "ok", "value": result}],
+        "observations": [observation],
     }
 
 

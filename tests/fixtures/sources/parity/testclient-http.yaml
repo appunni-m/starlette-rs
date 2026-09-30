@@ -304,6 +304,195 @@
           }
         ]
       }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/inspect?term=%C3%B1",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "case_id": "starlette.testclient.TestClient.request-response.exception-propagates-by-default",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.exception-policy"
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
+        ],
+        "receive_count": 1,
+        "messages": [],
+        "exception": {
+          "class": "RuntimeError",
+          "message": "application failed"
+        }
+      }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/inspect?term=%C3%B1",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "case_id": "starlette.testclient.TestClient.request-response.exception-becomes-500",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
+        ],
+        "receive_count": 1,
+        "messages": [],
+        "exception": {
+          "class": "RuntimeError",
+          "message": "application failed"
+        }
+      }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/inspect?term=%C3%B1",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "case_id": "starlette.testclient.TestClient.request-response.exception-after-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
+        ],
+        "receive_count": 1,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 201,
+            "headers_base64_pairs": [
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9wbGFpbg=="
+              ]
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "Y3JlYXRlZA==",
+            "more_body": false
+          }
+        ],
+        "exception": {
+          "class": "RuntimeError",
+          "message": "application failed"
+        }
+      }
     }
   ]
 }

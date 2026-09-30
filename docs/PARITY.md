@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 534 input-only cases in 61 indexed files, covering 78 operations and 574 parity requirements. The cases cover Starlette applications, routing and reverse URLs, async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption; form parsing; responses and background tasks; StaticFiles; WebSockets, including streamed denial responses and TestClient JSON exchange, progress, and cancellation cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 537 input-only cases in 61 indexed files, covering 78 operations and 575 parity requirements. The cases cover Starlette applications, routing and reverse URLs, async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption; form parsing; responses and background tasks; StaticFiles; WebSockets, including streamed denial responses and TestClient JSON exchange, progress, cancellation, and exception-policy cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,18 +8,19 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice run, `117fef0a-84e6-4cf4-90c4-daf715c3a218`, ran from
-`2026-09-30T16:19:21.165Z` to `2026-09-30T16:21:14.345Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 686 profile
-comparisons: 682 passed, zero failed, zero infrastructure errors, and four
+The latest full-slice run, `526e2ced-3557-41b1-8f7f-58366d7e2759`, ran from
+`2026-09-30T16:45:18.229Z` to `2026-09-30T16:47:12.016Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 689 profile
+comparisons: 685 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-532 selected comparisons; Rust-native passed 150 of 154. This run includes the
-four new TestClient WebSocket lifecycle and JSON text/binary inputs. The
-all-target runner exits with status 2 for the four unsupported Rust-native
-callable boundaries. Manifest SHA-256:
-`09b20d6eabed78b28433284c8f45673835bc708b4293f5b6424fb9d5ea269fe4`; installed
+535 selected comparisons; Rust-native passed 150 of 154. The three new
+TestClient exception-policy inputs match the pinned source for default
+propagation, 500 synthesis when no response has started, and a completed
+response followed by an app exception. The all-target runner exits with status
+2 for the four unsupported Rust-native callable boundaries. Manifest SHA-256:
+`a43b747f32efba88eda8fa9612a5d3d6581576e1cbc50908fbe29819b32ffb0a`; installed
 package wheel SHA-256:
-`303536f8f2fa471d64e1a221aaa662679a9255bfd6533d57ad9abcda6a81eb26`; installed
+`601f9b23b7fa7d04072d683eea348b7f9e66d64cf6e0429f012688323069286f`; installed
 package tree SHA-256:
 `134db3c20658b529771b956835104b29f1e01c4dc68955fea5cc9d7f39edd79d`. This is
 bounded local evidence, not full parity or release proof.
@@ -431,7 +432,7 @@ and reverse-URL cases, is generated locally at
 
 All five cases pass source-versus-installed-package comparison against pinned Starlette 1.6.0. The package target resolves omitted details at Python's `HTTPStatus` boundary, so the pinned response details include the relevant status phrases. Rust-native supports the explicit-detail 406 response and matches the oracle for that case; it does not provide Python's default status-phrase lookup. The Python shim catches the raised `HTTPException` because it is a Python exception from a Python callable; it forwards the resolved status, detail, and headers, while Rust constructs the HTTP response. This keeps exception-object handling at the callable boundary and response policy in the Rust core. The integrated run recorded above includes these cases; four callable rows remain unsupported for Rust-native, while Mount dispatch is covered by its public native API.
 
-This slice covers HTTP exceptions raised by matched request-style endpoints before response start, one callable-ASGI endpoint that raises after sending a complete response, the two registered-handler cases described below, and the bounded server-error cases in the next section. The after-start HTTPException case compares the chained `RuntimeError`, its `HTTPException` cause, `suppress_context`, and the partial response event tape. Three application-level WebSocket exception workflows are covered in the WebSocket section; full `TestClient` propagation modes, arbitrary middleware ordering, and exception identity/chaining beyond the declared cases remain open.
+This slice covers HTTP exceptions raised by matched request-style endpoints before response start, one callable-ASGI endpoint that raises after sending a complete response, the two registered-handler cases described below, and the bounded server-error cases in the next section. The after-start HTTPException case compares the chained `RuntimeError`, its `HTTPException` cause, `suppress_context`, and the partial response event tape. Three application-level WebSocket exception workflows are covered in the WebSocket section; the declared TestClient propagation cases are covered separately, while custom error-handler output, arbitrary middleware ordering, and broader exception identity/chaining remain open.
 
 [`asgi-callable-http-exceptions.yaml`](../tests/fixtures/sources/parity/asgi-callable-http-exceptions.yaml) adds two input-only callable-ASGI route cases. One raises `HTTPException(406)` before sending a response and observes Starlette's handled 406 response. The other sends an input-defined 200 response start and body, then raises `HTTPException(406)`; Starlette raises a `RuntimeError` chained from the HTTPException after the 200 events have already been sent. Both cases pass exact source-versus-installed-package comparison. The v4 result record captures the exception class, message, direct cause and public attributes, `suppress_context`, and partial ASGI observations. Rust-native is `not_run` for these Python-callable endpoints because it cannot invoke arbitrary ASGI callables.
 
@@ -557,13 +558,24 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 The `parity-input@10` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every supported target-profile comparison declared for the 534 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 686 comparisons; its four Rust-native callable boundaries are recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every supported target-profile comparison declared for the 537 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 689 comparisons; its four Rust-native callable boundaries are recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
+
+### TestClient exception policy
+
+[`testclient-http.yaml`](../tests/fixtures/sources/parity/testclient-http.yaml)
+also describes application exceptions as input. The three exception-policy
+cases compare default exception propagation, the synthesized 500 response when
+an app fails before sending a response with `raise_server_exceptions=False`,
+and preservation of a completed response when the app raises after sending it.
+The adapter records the live response or exception and partial ASGI observations;
+the case ID does not select the behavior. Rust owns this policy in the transport,
+and the Python `starlette.testclient` methods forward to it.
 
 ### TestClient WebSocket blocking receive and close teardown
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 532 Python-package comparisons passed.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 535 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 

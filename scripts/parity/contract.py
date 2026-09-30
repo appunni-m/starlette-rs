@@ -120,6 +120,7 @@ TESTCLIENT_REQUIREMENTS = {
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
     "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
+    "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
 }
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
@@ -7830,11 +7831,11 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     validate_pairs(request["headers_base64_pairs"], "TestClient request headers")
     validate_base64(request["body_base64"], "TestClient request.body_base64")
 
-    asgi_app = _exact(
-        case["asgi_app"],
-        {"kind", "scope_fields", "receive_count", "messages"},
-        "TestClient ASGI app",
-    )
+    raw_asgi_app = case["asgi_app"]
+    asgi_app_keys = {"kind", "scope_fields", "receive_count", "messages"}
+    if isinstance(raw_asgi_app, dict) and "exception" in raw_asgi_app:
+        asgi_app_keys.add("exception")
+    asgi_app = _exact(raw_asgi_app, asgi_app_keys, "TestClient ASGI app")
     if asgi_app["kind"] not in {"asgi2", "asgi3"}:
         raise ContractError("TestClient ASGI app kind must be asgi2 or asgi3")
     scope_fields = asgi_app["scope_fields"]
@@ -7866,11 +7867,14 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     if type(asgi_app["receive_count"]) is not int or asgi_app["receive_count"] != 1:
         raise ContractError("This TestClient request workflow consumes exactly one request message")
     messages = asgi_app["messages"]
-    if not isinstance(messages, list) or len(messages) not in {2, 3}:
+    exception_spec = asgi_app.get("exception")
+    if not isinstance(messages, list) or (
+        len(messages) not in {2, 3} and not (exception_spec is not None and not messages)
+    ):
         raise ContractError(
-            "TestClient ASGI app must send start, body, and optional debug messages"
+            "TestClient ASGI app must send a complete response, or raise before sending one"
         )
-    if (
+    if messages and (
         not isinstance(messages[0], dict)
         or messages[0].get("type") != "http.response.start"
         or not isinstance(messages[-1], dict)
@@ -7888,8 +7892,23 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     expected_covers = {
         TESTCLIENT_REQUIREMENTS["scope"],
         TESTCLIENT_REQUIREMENTS["receive"],
-        TESTCLIENT_REQUIREMENTS["response"],
     }
+    if exception_spec is not None:
+        exception_spec = _exact(
+            exception_spec,
+            {"class", "message"},
+            "TestClient ASGI app exception",
+        )
+        exception_class = _string(exception_spec["class"], "TestClient ASGI app exception.class")
+        exception_type = getattr(builtins, exception_class, None)
+        if not isinstance(exception_type, type) or not issubclass(exception_type, Exception):
+            raise ContractError(
+                "TestClient ASGI app exception.class must name a built-in Exception"
+            )
+        _string(exception_spec["message"], "TestClient ASGI app exception.message")
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
+    if messages or not settings["raise_server_exceptions"]:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if asgi_app["kind"] == "asgi2":
         expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi2"])
     if "timeout" in request:

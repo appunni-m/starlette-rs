@@ -7,17 +7,20 @@ bounded HTTP request/response, lifespan, and WebSocket-session slices of the doc
 `starlette/testclient.py` and its public guide is `docs/testclient.md`.
 
 The active slice compares ASGI2 and ASGI3 calls, HTTP scope projection,
-request-body delivery, response headers/body, debug response extensions, and
-the warning emitted when a request supplies a timeout. It records the warning
-category, message, filename, and line from the input-driven source and package
-runs. The timeout is forwarded to HTTPX; this comparison does not claim that
-the ASGI transport enforces a timeout. Eight WebSocket inputs compare scope
+request-body delivery, response headers/body, debug response extensions, the
+warning emitted when a request supplies a timeout, and application exception
+policy. Exception inputs compare default propagation, the synthesized 500
+response when no response has started, and preservation of a completed
+response when the app raises afterward. It records the warning category,
+message, filename, and line from the input-driven source and package runs. The
+timeout is forwarded to HTTPX; this comparison does not claim that the ASGI
+transport enforces a timeout. Eight WebSocket inputs compare scope
 projection, text and binary exchange, JSON text and UTF-8 binary frames,
 streamed denial responses, app progress during a blocked receive, disconnect
 details, close-triggered cancellation, completion, and portal cleanup. The
 separate lifespan input compares startup and shutdown context management.
 WebSocket close-message errors, explicit close reasons, streaming request
-bodies, and remaining error-policy behavior are still in the compatibility
+bodies, and other unmapped TestClient error cases remain in the compatibility
 backlog.
 
 ## Source-backed Python boundary
@@ -72,12 +75,12 @@ Each slice is authored as input-only YAML under `tests/fixtures/sources/` and
 is run against the pinned source and installed package in isolated processes.
 Stimuli come from the input definition; adapters may not use case IDs to
 choose requests, scopes, responses, or outcomes. The HTTP request/response
-slice has four data-driven cases covering five requirements; the lifespan
+slice has seven data-driven cases covering six requirements; the lifespan
 slice has one case; the WebSocket slice has eight cases covering the declared
 text, binary, JSON, denial, lifecycle, and cleanup requirements. They compare
-ordered callbacks and public results against the pinned source. Broader
-error-policy, streaming-body, and WebSocket behavior need separate input
-definitions.
+ordered callbacks and public results against the pinned source. Streaming
+request bodies and other unmapped TestClient and WebSocket behavior need
+separate input definitions.
 
 The pinned source provides additional mappings in `tests/test_testclient.py`
 and `docs/testclient.md`; those source rows remain visible in the fixture

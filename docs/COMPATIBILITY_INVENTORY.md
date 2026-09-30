@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 534 input-only cases across 61 files,
-covering 78 operations and 574 parity requirements. The authored cases span
+The active parity manifest indexes 537 input-only cases across 61 files,
+covering 78 operations and 575 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
@@ -29,17 +29,18 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest full-slice parity run `117fef0a-84e6-4cf4-90c4-daf715c3a218` ran against
+Latest full-slice parity run `526e2ced-3557-41b1-8f7f-58366d7e2759` ran against
 the pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T16:19:21.165Z` to `2026-09-30T16:21:14.345Z`. It selected 686
-profile comparisons: 682 passed, zero failed, zero infrastructure errors, and
+`2026-09-30T16:45:18.229Z` to `2026-09-30T16:47:12.016Z`. It selected 689
+profile comparisons: 685 passed, zero failed, zero infrastructure errors, and
 four unsupported Rust-native Python-callable comparisons were `not_run`. The
-installed Python package passed all 532 selected comparisons; Rust-native
-passed 150 of 154. This run includes the four new TestClient WebSocket
-lifecycle and JSON text/binary cases. The manifest SHA-256 is
-`09b20d6eabed78b28433284c8f45673835bc708b4293f5b6424fb9d5ea269fe4`; the
+installed Python package passed all 535 selected comparisons; Rust-native
+passed 150 of 154. The run includes three TestClient exception-policy inputs:
+default propagation, a synthesized 500 with no response started, and a completed
+response followed by an app exception. The manifest SHA-256 is
+`a43b747f32efba88eda8fa9612a5d3d6581576e1cbc50908fbe29819b32ffb0a`; the
 installed package wheel SHA-256 is
-`303536f8f2fa471d64e1a221aaa662679a9255bfd6533d57ad9abcda6a81eb26`, and its
+`601f9b23b7fa7d04072d683eea348b7f9e66d64cf6e0429f012688323069286f`, and its
 installed-file tree SHA-256 is
 `134db3c20658b529771b956835104b29f1e01c4dc68955fea5cc9d7f39edd79d`. The
 all-target command exits 2 because of the four unsupported Rust-native callable
@@ -61,8 +62,8 @@ package wheel SHA-256 was
 `badc85e17febe7dabcc38538fb6e695c63b49d74875841fa16ed649d2688b033`. This is
 benchmark evidence for that lane only; the full compatibility denominator
 remains incomplete. The latest source inventory check dispositioned all 999
-API candidate rows. The generated coverage matrix has 798 source rows: 255
-existing input mappings, 50 reasoned `not_applicable` rows, and 493 fixture
+API candidate rows. The generated coverage matrix has 798 source rows: 256
+existing input mappings, 50 reasoned `not_applicable` rows, and 492 fixture
 backlog rows.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -204,7 +205,7 @@ cases cover the built-in `WebSocketException` close path, an `HTTPException`
 denial response, and a registered synchronous WebSocket close handler. These
 map to the pinned `test_websocket_raise_*` workflows. Direct
 `ServerErrorMiddleware` invocation and arbitrary middleware ordering remain
-outside the active contract. The active TestClient contract compares four input-driven HTTP request/response cases over five requirements, one context-managed lifespan case over four requirements, and eight WebSocket session inputs. Those inputs cover text and binary exchange, compact JSON text and UTF-8 binary JSON frames, streamed denial responses, concurrent JSON receive progress while the app is blocked, disconnect exception fields, close-triggered cancellation, app completion, and portal thread cleanup. The two lifecycle inputs map to `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close`; their authored input and exact output observations are described in [the parity contract](PARITY.md#testclient-websocket-blocking-receive-and-close-teardown). The JSON text and binary cases are input-mapped to the documented `WebSocketTestSession.send_json()` and `receive_json()` methods. All eight active WebSocket inputs are included in the latest full-slice run, and the Python-package comparisons pass. TestClient exception policy, streaming bodies, lifespan re-entry behavior, close-message errors, and explicit close reasons remain in the fixture backlog.
+outside the active contract. The active TestClient contract compares seven input-driven HTTP request/response cases over six requirements, one context-managed lifespan case over four requirements, and eight WebSocket session inputs. Those inputs cover text and binary exchange, compact JSON text and UTF-8 binary JSON frames, streamed denial responses, concurrent JSON receive progress while the app is blocked, disconnect exception fields, close-triggered cancellation, app completion, and portal thread cleanup. The two lifecycle inputs map to `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close`; their authored input and exact output observations are described in [the parity contract](PARITY.md#testclient-websocket-blocking-receive-and-close-teardown). The JSON text and binary cases are input-mapped to the documented `WebSocketTestSession.send_json()` and `receive_json()` methods. All eight active WebSocket inputs are included in the latest full-slice run, and the Python-package comparisons pass. TestClient streaming bodies, lifespan re-entry behavior, close-message errors, and explicit close reasons remain in the fixture backlog.
 `asgi-core.app.test_app_debug` stays in backlog because its input constructs
 the app with debug enabled rather than setting debug after construction. The
 parity artifact status for that historical run was `completed`; the four
