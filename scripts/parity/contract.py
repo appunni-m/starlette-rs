@@ -62,6 +62,29 @@ WEBSOCKET_SURFACE = "starlette.websockets.WebSocket"
 WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
 WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
+WEBSOCKET_ENDPOINT_SURFACE = "starlette.endpoints.WebSocketEndpoint"
+WEBSOCKET_ENDPOINT_OPERATION = "dispatch"
+WEBSOCKET_ENDPOINT_OPERATION_KEY = (
+    WEBSOCKET_ENDPOINT_SURFACE,
+    WEBSOCKET_ENDPOINT_OPERATION,
+)
+WEBSOCKET_ENDPOINT_REQUIREMENTS = {
+    "lifecycle": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.lifecycle",
+    "connect": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-connect-subprotocols",
+    "text": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-text",
+    "text_rejects_bytes": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-text-rejects-bytes",
+    "bytes": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-bytes",
+    "bytes_rejects_text": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-bytes-rejects-text",
+    "json_text": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-json-text",
+    "json_binary": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-json-binary",
+    "json_malformed": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-json-malformed",
+    "disconnect": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-close-code",
+    "default_text": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-text",
+    "default_bytes": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-bytes",
+    "callback_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.callback-error-propagation",
+    "invalid_encoding": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.invalid-encoding",
+    "cancellation": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-finalization",
+}
 SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
 SESSION_WORKFLOW_OPERATION = "session-workflow"
 SESSION_WORKFLOW_OPERATION_KEY = (SESSION_MIDDLEWARE_SURFACE, SESSION_WORKFLOW_OPERATION)
@@ -143,6 +166,15 @@ REQUEST_FORM_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "receive",
     "form_probe_keys",
 }
+REQUEST_FORM_OPTIONAL_KEYS = {
+    "form_options",
+    "form_access",
+    "form_file_probe_keys",
+    "form_file_read_size",
+    "form_file_write_base64",
+    "form_close",
+}
+UPLOAD_FILE_OPERATION = ("starlette.datastructures.UploadFile", "file-operations")
 STATUS_OPERATION = ("starlette.status", "module-symbol-sequence")
 CONFIG_OPERATIONS = {
     ("starlette.config.Config", "value-resolution"),
@@ -243,6 +275,10 @@ WEBSOCKET_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "incoming",
     "actions",
 }
+WEBSOCKET_ENDPOINT_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "endpoint",
+    "sessions",
+}
 STATUS_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "public_names",
     "deprecated_names",
@@ -287,6 +323,10 @@ ROUTER_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"execution_schedule", "scope", "incomi
 ROUTER_SEQUENCE_REQUIREMENTS = {
     "append_route": "starlette.routing.Router.route-dispatch.live-route-list-append",
     "mutate_methods": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
+}
+ROUTER_MOUNT_REQUIREMENTS = {
+    "dispatch": "starlette.routing.Router.route-dispatch.mount-route-dispatch",
+    "prefix_miss": "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss",
 }
 MOUNT_SURFACE = "starlette.routing.Mount"
 MOUNT_OPERATION = "route-dispatch"
@@ -561,17 +601,23 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
         REQUEST_FORM_OPERATION[0],
         REQUEST_FORM_OPERATION[1],
         "python-package",
-    ): frozenset({"starlette.request.form.multipart-form-data"}),
+    ): frozenset(
+        {
+            "starlette.request.form.multipart-incremental-part-limits",
+            "starlette.request.form.multipart-file-streaming",
+            "starlette.request.form.multipart-error-file-cleanup",
+        }
+    ),
     (
         FORM_DATA_MULTIDICT_LOOKUPS_OPERATION[0],
         FORM_DATA_MULTIDICT_LOOKUPS_OPERATION[1],
         "python-package",
-    ): frozenset(
-        {
-            "starlette.datastructures.FormData.file-values",
-            "starlette.datastructures.FormData.close",
-        }
-    ),
+    ): frozenset({"starlette.datastructures.FormData.constructor-input-semantics"}),
+    (
+        UPLOAD_FILE_OPERATION[0],
+        UPLOAD_FILE_OPERATION[1],
+        "python-package",
+    ): frozenset({"starlette.datastructures.UploadFile.spooled-file-rollover"}),
 }
 GZIP_SURFACE = "starlette.middleware.gzip.GZipMiddleware"
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
@@ -1077,17 +1123,29 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         {"input_key"},
                         f"{octx}.condition",
                     )
-                    if (
-                        condition["input_key"] != "header_view_probe"
-                        or key
-                        not in {
+                    response_header_probe = (
+                        condition["input_key"] == "header_view_probe"
+                        and key
+                        in {
                             (RESPONSE_SURFACE, RESPONSE_OPERATION),
                             (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION),
                         }
-                        or observation["path"] != "header_view_probe"
-                    ):
+                        and observation["path"] == "header_view_probe"
+                    )
+                    router_scope_probe = (
+                        condition["input_key"] == "observe_router_scope"
+                        and key == (ROUTER_SURFACE, ROUTER_OPERATION)
+                        and observation["path"]
+                        in {
+                            "route_scope.path",
+                            "route_scope.root_path",
+                            "route_scope.app_root_path",
+                            "route_scope.path_params",
+                        }
+                    )
+                    if not response_header_probe and not router_scope_probe:
                         raise ContractError(
-                            f"{octx}.condition only supports input-gated Response header-view probes"
+                            f"{octx}.condition is not a supported input-gated observation"
                         )
                 if (
                     not isinstance(observation["value_types"], list)
@@ -1213,6 +1271,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
                 or key == BASE_HTTP_WORKFLOW_OPERATION_KEY
+                or key == WEBSOCKET_ENDPOINT_OPERATION_KEY
                 or key in AUTHENTICATION_OPERATIONS
                 else {
                     "class",
@@ -1370,6 +1429,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             (WEBSOCKET_SURFACE, WEBSOCKET_OPERATION),
                             (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION),
                             (WEBSOCKET_CLOSE_SURFACE, WEBSOCKET_CLOSE_OPERATION),
+                            WEBSOCKET_ENDPOINT_OPERATION_KEY,
                             SESSION_WORKFLOW_OPERATION_KEY,
                             BASE_HTTP_WORKFLOW_OPERATION_KEY,
                         }
@@ -1393,6 +1453,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) == REQUEST_IS_DISCONNECTED_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_FORM_OPERATION
                         or (surface["id"], operation["id"]) == FORM_DATA_MULTIDICT_LOOKUPS_OPERATION
+                        or (surface["id"], operation["id"]) == UPLOAD_FILE_OPERATION
                         or (surface["id"], operation["id"]) == STATUS_OPERATION
                         else profile_ids
                     )
@@ -1662,6 +1723,241 @@ def _validate_websocket_message(message: Any, context: str, *, incoming: bool) -
             f"{context}.type is unsupported for outgoing WebSocket messages: {message_type!r}"
         )
     return message_type
+
+
+def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
+    if (
+        case["surface"],
+        case["operation"],
+    ) != WEBSOCKET_ENDPOINT_OPERATION_KEY:
+        raise ContractError("WebSocketEndpoint cases must use the declared dispatch operation")
+    if case["observations"] != [WEBSOCKET_ENDPOINT_OPERATION]:
+        raise ContractError("WebSocketEndpoint cases must observe the dispatch workflow")
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("WebSocketEndpoint dispatch selects only the Python-package profile")
+
+    endpoint = _exact(
+        case["endpoint"],
+        {"encoding", "on_connect", "on_receive", "on_disconnect"},
+        "WebSocketEndpoint endpoint input",
+    )
+    encoding = endpoint["encoding"]
+    if encoding is not None and not isinstance(encoding, str):
+        raise ContractError("WebSocketEndpoint encoding must be null or a string")
+
+    on_connect = endpoint["on_connect"]
+    if not isinstance(on_connect, dict):
+        raise ContractError("WebSocketEndpoint.on_connect must be an object")
+    if on_connect.get("kind") == "default":
+        _exact(on_connect, {"kind"}, "WebSocketEndpoint.on_connect")
+    elif on_connect.get("kind") == "accept":
+        on_connect = _exact(
+            on_connect,
+            {"kind", "subprotocol", "observe_scope_subprotocols"},
+            "WebSocketEndpoint.on_connect",
+        )
+        if on_connect["subprotocol"] is not None:
+            _string(on_connect["subprotocol"], "WebSocketEndpoint.on_connect.subprotocol")
+        if not isinstance(on_connect["observe_scope_subprotocols"], bool):
+            raise ContractError(
+                "WebSocketEndpoint.on_connect.observe_scope_subprotocols must be boolean"
+            )
+    else:
+        raise ContractError("WebSocketEndpoint.on_connect.kind must be default or accept")
+
+    on_receive = endpoint["on_receive"]
+    if not isinstance(on_receive, dict):
+        raise ContractError("WebSocketEndpoint.on_receive must be an object")
+    receive_kind = on_receive.get("kind")
+    if receive_kind == "no-op":
+        _exact(on_receive, {"kind"}, "WebSocketEndpoint.on_receive")
+    elif receive_kind == "send-text-prefix":
+        on_receive = _exact(
+            on_receive,
+            {"kind", "prefix"},
+            "WebSocketEndpoint.on_receive",
+        )
+        _string(on_receive["prefix"], "WebSocketEndpoint.on_receive.prefix")
+    elif receive_kind == "send-bytes-prefix":
+        on_receive = _exact(
+            on_receive,
+            {"kind", "prefix_base64"},
+            "WebSocketEndpoint.on_receive",
+        )
+        try:
+            base64.b64decode(on_receive["prefix_base64"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(
+                "WebSocketEndpoint.on_receive.prefix_base64 is invalid base64"
+            ) from exc
+    elif receive_kind == "send-json-envelope":
+        on_receive = _exact(
+            on_receive,
+            {"kind", "key", "mode"},
+            "WebSocketEndpoint.on_receive",
+        )
+        _string(on_receive["key"], "WebSocketEndpoint.on_receive.key")
+        if on_receive["mode"] not in {"text", "binary"}:
+            raise ContractError("WebSocketEndpoint JSON response mode must be text or binary")
+    elif receive_kind == "raise-value-error":
+        on_receive = _exact(
+            on_receive,
+            {"kind", "message"},
+            "WebSocketEndpoint.on_receive",
+        )
+        _string(on_receive["message"], "WebSocketEndpoint.on_receive.message")
+    else:
+        raise ContractError(
+            "WebSocketEndpoint.on_receive.kind is outside the declared handler input forms"
+        )
+
+    on_disconnect = endpoint["on_disconnect"]
+    if not isinstance(on_disconnect, dict):
+        raise ContractError("WebSocketEndpoint.on_disconnect must be an object")
+    if on_disconnect.get("kind") == "default":
+        _exact(on_disconnect, {"kind"}, "WebSocketEndpoint.on_disconnect")
+    elif on_disconnect.get("kind") == "record-and-close":
+        _exact(on_disconnect, {"kind"}, "WebSocketEndpoint.on_disconnect")
+    else:
+        raise ContractError(
+            "WebSocketEndpoint.on_disconnect.kind must be default or record-and-close"
+        )
+
+    sessions = case["sessions"]
+    if not isinstance(sessions, list) or not sessions:
+        raise ContractError("WebSocketEndpoint.sessions must be a non-empty array")
+    exercised_requirements = {WEBSOCKET_ENDPOINT_REQUIREMENTS["lifecycle"]}
+    for index, raw_session in enumerate(sessions):
+        context = f"WebSocketEndpoint.sessions[{index}]"
+        if not isinstance(raw_session, dict):
+            raise ContractError(f"{context} must be an object")
+        session = _exact(
+            raw_session,
+            {"scope", "incoming"} | ({"cancel_at"} if "cancel_at" in raw_session else set()),
+            context,
+        )
+        _validate_websocket_scope(session["scope"])
+        cancel_at = session.get("cancel_at")
+        if cancel_at is not None and cancel_at != "receive":
+            raise ContractError(f"{context}.cancel_at must be receive")
+        incoming = session["incoming"]
+        if not isinstance(incoming, list):
+            raise ContractError(f"{context}.incoming must be an ASGI message array")
+        message_types = [
+            _validate_websocket_message(
+                message, f"{context}.incoming[{message_index}]", incoming=True
+            )
+            for message_index, message in enumerate(incoming)
+        ]
+        if message_types[0] != "websocket.connect":
+            raise ContractError(f"{context}.incoming must begin with websocket.connect")
+        if incoming[0]["subprotocols"] != session["scope"]["subprotocols"]:
+            raise ContractError(
+                f"{context}.incoming connect subprotocols must match the scope offer"
+            )
+        if cancel_at == "receive":
+            if message_types != ["websocket.connect"]:
+                raise ContractError(
+                    f"{context} cancellation must occur while waiting after websocket.connect"
+                )
+            if (
+                encoding is not None
+                or on_receive["kind"] != "no-op"
+                or on_disconnect["kind"] != "record-and-close"
+            ):
+                raise ContractError(
+                    f"{context} cancellation requires default decoding and observed disconnect finalization"
+                )
+            exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["cancellation"])
+            continue
+        if len(incoming) not in {2, 3}:
+            raise ContractError(f"{context}.incoming must contain two or three ASGI messages")
+        if message_types not in (
+            ["websocket.connect", "websocket.disconnect"],
+            ["websocket.connect", "websocket.receive"],
+            ["websocket.connect", "websocket.receive", "websocket.disconnect"],
+        ):
+            raise ContractError(
+                f"{context}.incoming must be connect/disconnect or connect/receive[/disconnect]"
+            )
+
+        if on_connect["kind"] == "accept":
+            offered = session["scope"]["subprotocols"]
+            selected = on_connect["subprotocol"]
+            if selected is not None and selected not in offered:
+                raise ContractError(f"{context} selects an unoffered WebSocket subprotocol")
+            if offered and selected is not None and on_connect["observe_scope_subprotocols"]:
+                exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["connect"])
+
+        if "websocket.disconnect" in message_types and on_disconnect["kind"] == "record-and-close":
+            exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["disconnect"])
+
+        if "websocket.receive" not in message_types:
+            continue
+        message = incoming[1]
+        message_encoding = "text" if "text" in message else "bytes"
+        if encoding not in {None, "text", "bytes", "json"}:
+            if (
+                message_types != ["websocket.connect", "websocket.receive"]
+                or on_disconnect["kind"] != "record-and-close"
+            ):
+                raise ContractError(
+                    f"{context} invalid encoding requires a receive error and observed finalization"
+                )
+            exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["invalid_encoding"])
+            continue
+        if encoding == "text":
+            requirement_name = "text" if message_encoding == "text" else "text_rejects_bytes"
+        elif encoding == "bytes":
+            requirement_name = "bytes" if message_encoding == "bytes" else "bytes_rejects_text"
+        elif encoding == "json":
+            raw_value: str | bytes = (
+                message["text"]
+                if message_encoding == "text"
+                else base64.b64decode(message["bytes_base64"], validate=True)
+            )
+            try:
+                json.loads(raw_value)
+            except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
+                requirement_name = "json_malformed"
+            else:
+                requirement_name = "json_text" if message_encoding == "text" else "json_binary"
+        else:
+            requirement_name = "default_text" if message_encoding == "text" else "default_bytes"
+            if message_encoding == "text" and not message["text"]:
+                raise ContractError(
+                    f"{context} excludes the empty-text default decoder boundary from this slice"
+                )
+
+        decode_succeeds = requirement_name not in {
+            "text_rejects_bytes",
+            "bytes_rejects_text",
+            "json_malformed",
+        }
+        callback_raises = on_receive["kind"] == "raise-value-error"
+        if callback_raises:
+            if (
+                not decode_succeeds
+                or message_types != ["websocket.connect", "websocket.receive"]
+                or on_disconnect["kind"] != "record-and-close"
+            ):
+                raise ContractError(
+                    f"{context} callback failure requires observed on_disconnect finalization"
+                )
+            exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["callback_error"])
+        has_disconnect = message_types[-1] == "websocket.disconnect"
+        expected_disconnect = decode_succeeds and not callback_raises
+        if expected_disconnect != has_disconnect:
+            raise ContractError(
+                f"{context} must supply disconnect after successful handling and omit it after errors"
+            )
+        exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS[requirement_name])
+
+    if set(case["covers"]) != exercised_requirements:
+        raise ContractError(
+            "WebSocketEndpoint covers must match the handler, encoding, and disconnect inputs: "
+            f"expected={sorted(exercised_requirements)}, actual={sorted(case['covers'])}"
+        )
 
 
 def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
@@ -2523,7 +2819,82 @@ def _validate_router_route_input(
 ) -> dict[str, Any]:
     if isinstance(route, dict) and route.get("kind") == "host-route":
         return _validate_host_route_input(route, context)
+    if isinstance(route, dict) and route.get("kind") == "mount":
+        return _validate_mount_route_input(route, context)
     return _validate_http_route_input(route, context, custom_convertors)
+
+
+def _router_dispatch_route_selection(
+    routes: list[dict[str, Any]],
+    path: str,
+    root_path: str,
+    method: str,
+    custom_convertors: dict[str, dict[str, Any]],
+    *,
+    route_methods: list[set[str] | None] | None = None,
+    request_host: str = "",
+) -> tuple[int | None, dict[str, Any] | None, bool]:
+    """Return the first full Router match and any selected Mount analysis."""
+    route_path = _route_path_after_root(path, root_path)
+    mount_was_attempted = False
+    for index, route in enumerate(routes):
+        kind = route["kind"]
+        if kind == "http-route":
+            methods = (
+                route_methods[index]
+                if route_methods is not None and route_methods[index] is not None
+                else {registered.upper() for registered in route["methods"]}
+            )
+            if _route_template_matches(route["path"], route_path, custom_convertors) and (
+                method in methods or (method == "HEAD" and "GET" in methods)
+            ):
+                return index, None, mount_was_attempted
+            continue
+        if kind == "host-route":
+            if _route_template_matches(
+                "/" + route["host"].lower(), "/" + request_host.lower(), custom_convertors
+            ):
+                return index, None, mount_was_attempted
+            continue
+        analysis = _analyze_mount_dispatch(route, path, root_path, method)
+        if analysis["mount_matches"]:
+            return index, analysis, mount_was_attempted
+        mount_was_attempted = True
+    return None, None, mount_was_attempted
+
+
+def _router_mount_requirements(
+    routes: list[dict[str, Any]],
+    path: str,
+    root_path: str,
+    method: str,
+    custom_convertors: dict[str, dict[str, Any]],
+    *,
+    route_methods: list[set[str] | None] | None = None,
+    request_host: str = "",
+) -> tuple[set[str], bool]:
+    selected_index, selected_mount, mount_was_attempted = _router_dispatch_route_selection(
+        routes,
+        path,
+        root_path,
+        method,
+        custom_convertors,
+        route_methods=route_methods,
+        request_host=request_host,
+    )
+    derived: set[str] = set()
+    if selected_mount is not None:
+        derived.add("starlette.routing.Mount.route-dispatch.scope-extension")
+        if selected_mount["leaf_matches"]:
+            derived.add(ROUTER_MOUNT_REQUIREMENTS["dispatch"])
+        if selected_mount["depth"] > 1 and selected_mount["leaf_matches"]:
+            derived.add("starlette.routing.Mount.route-dispatch.nested-scope-composition")
+        if selected_mount["nested_mount_miss"]:
+            derived.add("starlette.routing.Mount.route-dispatch.nested-mount-miss")
+    elif selected_index is None and mount_was_attempted:
+        derived.add("starlette.routing.Mount.route-dispatch.miss")
+        derived.add(ROUTER_MOUNT_REQUIREMENTS["prefix_miss"])
+    return derived, selected_index is not None
 
 
 def _validate_route_dispatch_io(
@@ -4252,7 +4623,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     if "steps" in case:
         _validate_router_sequence_case_stimulus(case)
         return
-    _exact(case, ROUTER_CASE_KEYS, "Router route-dispatch case")
+    optional_keys = {"observe_router_scope"} if "observe_router_scope" in case else set()
+    _exact(case, ROUTER_CASE_KEYS | optional_keys, "Router route-dispatch case")
     if case["surface"] != ROUTER_SURFACE or case["operation"] != ROUTER_OPERATION:
         raise ContractError("case is outside the declared Router route-dispatch operation")
     if case["observations"] != [ROUTER_OPERATION]:
@@ -4285,6 +4657,15 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     has_host_route = any(
         isinstance(route, dict) and route.get("kind") == "host-route" for route in case["routes"]
     )
+    has_mount_route = any(
+        isinstance(route, dict) and route.get("kind") == "mount" for route in case["routes"]
+    )
+    if "observe_router_scope" in case and (
+        case["observe_router_scope"] is not True or not has_mount_route
+    ):
+        raise ContractError(
+            "observe_router_scope is enabled only for Router inputs containing a Mount"
+        )
     routes = [
         _validate_router_route_input(route, f"Router routes[{index}]", custom_convertors)
         for index, route in enumerate(case["routes"])
@@ -4301,6 +4682,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         allow_query=True,
         allow_headers=has_host_route,
         allow_host=has_host_route,
+        allow_inherited_mount_scope=has_mount_route,
     )
     route_path = _route_path_after_root(path, root_path)
     http_routes = [route for route in routes if route["kind"] == "http-route"]
@@ -4327,6 +4709,15 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         )
     ]
     derived: set[str] = set()
+    mount_requirements, selected_route = _router_mount_requirements(
+        routes,
+        path,
+        root_path,
+        method,
+        custom_convertors,
+        request_host=request_host,
+    )
+    derived.update(mount_requirements)
     derived.update(
         _router_redirect_requirements(
             http_routes,
@@ -4356,23 +4747,15 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             derived.add("starlette.routing.Router.route-dispatch.unicode-regex-literal")
     if not matched:
         derived.add("starlette.routing.Router.route-dispatch.converter-miss")
-    first_full_route_index = min(
-        (
-            index
-            for index, route in enumerate(routes)
-            if (
-                route["kind"] == "http-route"
-                and (method in route["methods"] or (method == "HEAD" and "GET" in route["methods"]))
-                and _route_template_matches(route["path"], route_path, custom_convertors)
-            )
-            or (
-                route["kind"] == "host-route"
-                and _route_template_matches(
-                    "/" + route["host"].lower(), "/" + request_host.lower(), custom_convertors
-                )
-            )
-        ),
-        default=None,
+    first_full_route_index, _selected_mount, _mount_was_attempted = (
+        _router_dispatch_route_selection(
+            routes,
+            path,
+            root_path,
+            method,
+            custom_convertors,
+            request_host=request_host,
+        )
     )
     selected_host_route_index = next(
         (index for index, _route in host_matched if index == first_full_route_index), None
@@ -4392,7 +4775,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         root_path
         and path.startswith(root_path)
         and (path == root_path or path[len(root_path)] == "/")
-        and matched
+        and (matched or selected_route)
     ):
         derived.add("starlette.routing.Router.route-dispatch.root-path-match")
     if (
@@ -4420,7 +4803,12 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
-    _exact(case, ROUTER_SEQUENCE_CASE_KEYS, "Router route-dispatch sequence case")
+    optional_keys = {"observe_router_scope"} if "observe_router_scope" in case else set()
+    _exact(
+        case,
+        ROUTER_SEQUENCE_CASE_KEYS | optional_keys,
+        "Router route-dispatch sequence case",
+    )
     if case["surface"] != ROUTER_SURFACE or case["operation"] != ROUTER_OPERATION:
         raise ContractError("case is outside the declared Router route-dispatch operation")
     if type(case["redirect_slashes"]) is not bool:
@@ -4431,12 +4819,25 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("Router mutation sequences use the built-in convertors only")
 
     routes = [
-        _validate_http_route_input(route, f"Router routes[{index}]", {})
+        _validate_router_route_input(route, f"Router routes[{index}]", {})
         for index, route in enumerate(case["routes"])
     ]
+    if any(route["kind"] == "host-route" for route in routes):
+        raise ContractError("Router mutation sequences do not declare Host routes")
+    if "observe_router_scope" in case and (
+        case["observe_router_scope"] is not True
+        or not any(route["kind"] == "mount" for route in routes)
+    ):
+        raise ContractError(
+            "observe_router_scope is enabled only for Router inputs containing a Mount"
+        )
     methods = [
-        {method.upper() for method in route["methods"]}
-        | ({"HEAD"} if "GET" in {method.upper() for method in route["methods"]} else set())
+        (
+            {method.upper() for method in route["methods"]}
+            | ({"HEAD"} if "GET" in {method.upper() for method in route["methods"]} else set())
+            if route["kind"] == "http-route"
+            else None
+        )
         for route in routes
     ]
     steps = case["steps"]
@@ -4456,6 +4857,7 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
             allow_query=True,
             allow_headers=False,
             allow_host=False,
+            allow_inherited_mount_scope=any(route["kind"] == "mount" for route in routes),
         )
         if not isinstance(step["mutations"], list):
             raise ContractError(f"{context}.mutations must be an array")
@@ -4479,6 +4881,8 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
                     type(route_index) is not int
                     or route_index < 0
                     or route_index >= len(routes)
+                    or routes[route_index]["kind"] != "http-route"
+                    or methods[route_index] is None
                     or method != method.upper()
                     or method in methods[route_index]
                 ):
@@ -4500,6 +4904,26 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
                 derived.add(ROUTER_SEQUENCE_REQUIREMENTS["append_route"])
             else:
                 raise ContractError(f"{mutation_context}.operation is unsupported")
+
+        path = step["scope"]["path"]
+        root_path = step["scope"]["root_path"]
+        method = step["scope"]["method"].upper()
+        mount_requirements, selected_route = _router_mount_requirements(
+            routes,
+            path,
+            root_path,
+            method,
+            {},
+            route_methods=methods,
+        )
+        derived.update(mount_requirements)
+        if (
+            root_path
+            and path.startswith(root_path)
+            and (path == root_path or path[len(root_path)] == "/")
+            and selected_route
+        ):
+            derived.add("starlette.routing.Router.route-dispatch.root-path-match")
 
     if case["observations"] != step_ids:
         raise ContractError("Router observations must select every dispatch step in order")
@@ -6556,6 +6980,10 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
 
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     is_websocket = isinstance(case, dict) and case.get("surface") == WEBSOCKET_SURFACE
+    is_websocket_endpoint = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == WEBSOCKET_ENDPOINT_OPERATION_KEY
+    )
     is_websocket_close = isinstance(case, dict) and case.get("surface") == WEBSOCKET_CLOSE_SURFACE
     is_websocket_route = (
         isinstance(case, dict)
@@ -6658,6 +7086,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
+        else WEBSOCKET_ENDPOINT_CASE_KEYS
+        if is_websocket_endpoint
         else WEBSOCKET_CLOSE_CASE_KEYS
         if is_websocket_close
         else WEBSOCKET_ROUTE_CASE_KEYS
@@ -6694,6 +7124,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_base_http_workflow
         else CASE_KEYS
     )
+    if is_router and isinstance(case, dict) and "observe_router_scope" in case:
+        expected_case_keys = expected_case_keys | {"observe_router_scope"}
     if is_response and isinstance(case, dict) and "render_override" in case:
         expected_case_keys = expected_case_keys | {"render_override"}
     if (
@@ -6782,10 +7214,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = REQUEST_IS_DISCONNECTED_CASE_KEYS
     elif is_request_form:
         expected_case_keys = REQUEST_FORM_CASE_KEYS
-        if "form_options" in case:
-            expected_case_keys = expected_case_keys | {"form_options"}
-        if "form_access" in case:
-            expected_case_keys = expected_case_keys | {"form_access"}
+        expected_case_keys = expected_case_keys | (REQUEST_FORM_OPTIONAL_KEYS.intersection(case))
     elif is_status_symbols:
         expected_case_keys = STATUS_CASE_KEYS
     elif is_session_workflow:
@@ -6807,6 +7236,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             WEBSOCKET_CONVENIENCE_OPERATION,
         }:
             raise ContractError("WebSocket cases must use a declared sequence operation")
+    elif is_websocket_endpoint:
+        if case["operation"] != WEBSOCKET_ENDPOINT_OPERATION:
+            raise ContractError("WebSocketEndpoint cases must use the declared dispatch operation")
     elif is_websocket_close:
         if case["operation"] != WEBSOCKET_CLOSE_OPERATION:
             raise ContractError(
@@ -6928,6 +7360,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ContractError("case must select one or more declared target profiles")
     selected_profile_ids = set(selected_profiles)
+    if is_websocket_endpoint and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError("WebSocketEndpoint dispatch selects only the Python-package profile")
     if is_session_workflow and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("SessionMiddleware cases select only the Python-package profile")
     if is_base_http_workflow and selected_profiles != ["python-package-cpython312"]:
@@ -7043,6 +7477,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             _validate_websocket_convenience_case_stimulus(case)
         else:
             _validate_websocket_case_stimulus(case)
+        return case
+    if is_websocket_endpoint:
+        _validate_websocket_endpoint_case_stimulus(case)
         return case
     if is_websocket_close:
         _validate_websocket_close_case_stimulus(case)
@@ -8708,6 +9145,40 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
         raise ContractError("Request.form form_probe_keys must be an array of strings")
 
+    form_file_probe_keys = case.get("form_file_probe_keys", [])
+    if (
+        not isinstance(form_file_probe_keys, list)
+        or any(not isinstance(key, str) for key in form_file_probe_keys)
+        or len(form_file_probe_keys) != len(set(form_file_probe_keys))
+        or not set(form_file_probe_keys) <= set(probe_keys)
+    ):
+        raise ContractError("Request.form form_file_probe_keys must be unique form_probe_keys")
+    if form_file_probe_keys and type(case.get("form_file_read_size")) is not int:
+        raise ContractError("Request.form file probes require an integer form_file_read_size")
+    if form_file_probe_keys and case["form_file_read_size"] < -1:
+        raise ContractError("Request.form form_file_read_size must be -1 or non-negative")
+    if "form_file_read_size" in case and not form_file_probe_keys:
+        raise ContractError("Request.form form_file_read_size requires form_file_probe_keys")
+    if "form_file_write_base64" in case:
+        if not form_file_probe_keys or not isinstance(case["form_file_write_base64"], str):
+            raise ContractError(
+                "Request.form form_file_write_base64 requires file probes and a base64 string"
+            )
+        try:
+            base64.b64decode(case["form_file_write_base64"], validate=True)
+        except (ValueError, base64.binascii.Error) as exc:
+            raise ContractError("Request.form form_file_write_base64 must be valid base64") from exc
+    if "form_close" in case and type(case["form_close"]) is not bool:
+        raise ContractError("Request.form form_close must be a boolean")
+    if case.get("form_close", False) and not form_file_probe_keys:
+        raise ContractError("Request.form form_close requires an UploadFile probe")
+    if form_file_probe_keys and not (
+        case.get("form_close", False) or case.get("form_access", "await") == "context-manager"
+    ):
+        raise ContractError(
+            "Request.form file probes must exercise FormData's file-close lifecycle"
+        )
+
     form_options = case.get("form_options", {})
     if not isinstance(form_options, dict) or set(form_options) - {
         "max_files",
@@ -8745,11 +9216,33 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             ]
             if form_access == "context-manager":
                 expected_covers.append("starlette.request.form.context-manager-lifecycle")
+    elif content_type == b"multipart/form-data" and body:
+        if form_options:
+            raise ContractError(
+                "Request.form multipart cases do not claim multipart parser-limit parity"
+            )
+        if not case["scope"]["headers_base64_pairs"]:
+            raise ContractError("Request.form multipart cases require Content-Type")
+        expected_covers = [
+            "starlette.request.form.multipart-form-data",
+            "starlette.datastructures.FormData.multidict-lookups",
+        ]
+        if form_file_probe_keys:
+            expected_covers.extend(
+                [
+                    "starlette.datastructures.FormData.file-values",
+                    "starlette.datastructures.UploadFile.file-operations",
+                ]
+            )
+        if case.get("form_close", False) or form_access == "context-manager":
+            expected_covers.append("starlette.datastructures.FormData.close")
+        if form_access == "context-manager":
+            expected_covers.append("starlette.request.form.context-manager-lifecycle")
     elif content_type is None and not body:
         expected_covers = ["starlette.request.form.empty"]
     else:
         raise ContractError(
-            "Request.form currently supports non-empty URL-encoded forms or an empty body without Content-Type"
+            "Request.form supports non-empty URL-encoded forms, bounded valid multipart forms, or an empty body without Content-Type"
         )
     if case["covers"] != expected_covers:
         raise ContractError("Request.form coverage must match its media type and body input")
@@ -12961,25 +13454,52 @@ def _validate_upstream_benchmark_result_artifact(value: Any, root: Path) -> dict
     if result["status"] not in {"completed", "not_proven"}:
         raise ContractError("upstream benchmark result status is invalid")
 
+    base_identity_keys = {
+        "run_id",
+        "started_at",
+        "finished_at",
+        "input",
+        "manifest",
+        "source_revision",
+        "source_files",
+        "parity_gate",
+        "prepared_environments",
+        "machine",
+        "command",
+    }
+    raw_identity = result["identity"]
+    if not isinstance(raw_identity, dict):
+        raise ContractError("upstream benchmark result.identity must be an object")
+    identity_keys = set(raw_identity)
+    if identity_keys not in (base_identity_keys, base_identity_keys | {"target_checkout"}):
+        raise ContractError("upstream benchmark result.identity has missing or unknown fields")
     identity = _exact(
-        result["identity"],
-        {
-            "run_id",
-            "started_at",
-            "finished_at",
-            "input",
-            "manifest",
-            "source_revision",
-            "source_files",
-            "parity_gate",
-            "prepared_environments",
-            "machine",
-            "command",
-        },
+        raw_identity,
+        identity_keys,
         "upstream benchmark result.identity",
     )
     for name in ("run_id", "started_at", "finished_at"):
         _string(identity[name], f"upstream benchmark identity.{name}")
+    if "target_checkout" in identity:
+        target_checkout = _exact(
+            identity["target_checkout"],
+            {"revision", "dirty", "working_tree_sha256"},
+            "upstream benchmark identity.target_checkout",
+        )
+        revision = _string(
+            target_checkout["revision"],
+            "upstream benchmark identity.target_checkout.revision",
+        )
+        if re.fullmatch(r"(?:[a-f0-9]{40}|[a-f0-9]{64})", revision) is None:
+            raise ContractError(
+                "upstream benchmark target checkout revision must be a full lowercase Git object ID"
+            )
+        if type(target_checkout["dirty"]) is not bool:
+            raise ContractError("upstream benchmark target checkout dirty must be a boolean")
+        _validate_sha256(
+            target_checkout["working_tree_sha256"],
+            "upstream benchmark identity.target_checkout.working_tree_sha256",
+        )
     input_identity = _exact(
         identity["input"], {"path", "schema", "sha256"}, "upstream benchmark identity.input"
     )

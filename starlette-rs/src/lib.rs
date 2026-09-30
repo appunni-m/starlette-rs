@@ -24,6 +24,7 @@ mod gzip;
 mod headers;
 mod lifespan;
 mod mount;
+mod multipart;
 mod request;
 mod response;
 mod route_table;
@@ -56,6 +57,9 @@ pub use lifespan::{
 pub use mount::{
     Mount, MountChild, MountDispatchResult, MountDispatchTreeResult, MountError, MountScope,
     MountScopeExtension,
+};
+pub use multipart::{
+    MultipartFormParseError, MultipartPart, multipart_boundary, parse_multipart_form,
 };
 pub use request::{
     BodyProgress, Cookies, QueryParams, RequestBodyAccumulator, RequestBodyError, RequestHeaders,

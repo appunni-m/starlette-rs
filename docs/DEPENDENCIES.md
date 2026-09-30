@@ -159,6 +159,35 @@ uses the pinned mapping for declared fixture extensions. Python's platform
 `mimetypes` database can differ from this static map, so unsupported extension
 equivalence remains a compatibility boundary to cover before a release.
 
+## Rust multipart form parsing
+
+| Crate | Locked version | Role | Cargo manifest license |
+| --- | --- | --- | --- |
+| `multer` | `3.1.0` | Rust-side multipart boundary/header/field parser used by `Request.form()` | MIT |
+| `encoding_rs` | `0.8.35` | Multipart charset decoding and parser dependency | (Apache-2.0 OR MIT) AND BSD-3-Clause |
+| `futures` | `0.3.34` | Stream adapter and executor used to consume the Rust parser | MIT OR Apache-2.0 |
+| `bytes` | `1.12.1` (transitive) | Byte chunks passed through `multer` | MIT |
+| `http` | `1.5.0` (transitive) | Multipart header storage | MIT OR Apache-2.0 |
+| `httparse` | `1.10.1` (transitive) | Header parsing for `multer` | MIT OR Apache-2.0 |
+| `mime` | `0.3.17` (transitive) | Multipart media-type parsing | MIT OR Apache-2.0 |
+| `spin` | `0.9.9` (transitive) | Synchronization primitive selected by `multer` | MIT |
+| `version_check` | `0.9.5` (transitive) | Build-time feature/version detection | MIT/Apache-2.0 |
+
+These versions and crates.io registry sources are pinned in `Cargo.lock`.
+License expressions and archive license files were checked in the local Cargo
+registry: `encoding_rs` includes Apache-2.0, MIT, and WHATWG/BSD-3-Clause
+notices; `futures` includes Apache-2.0 and MIT notices; and `multer` includes
+its MIT license. `deny.toml` already permits the resolved license families and
+the crates.io registry source. No Python multipart parser is added to the
+installed package runtime. The current Request.form parser still buffers the
+complete request and materializes file bytes before building UploadFile; see
+the multipart partial-support record in the compatibility inventory before
+claiming streaming, incremental limit enforcement, or large-file memory parity.
+
+- [`multer` 3.1.0 manifest and source](https://docs.rs/crate/multer/3.1.0)
+- [`encoding_rs` 0.8.35 manifest and source](https://docs.rs/crate/encoding_rs/0.8.35)
+- [`futures` 0.3.34 manifest and source](https://docs.rs/crate/futures/0.3.34)
+
 - Keep Pydantic and FastAPI outside this package.
 - Keep Rust core dependencies separate from Python runtime and build
   dependencies. Pin features and native components explicitly before a crate

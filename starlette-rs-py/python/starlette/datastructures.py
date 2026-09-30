@@ -112,7 +112,23 @@ class QueryParams(_core.QueryParams, Mapping[str, str]):
     """Immutable query parameters with Rust-owned parsing and lookup behavior."""
 
 
-class FormData(_core.FormData, Mapping[str, str]):
+class UploadFile(_core.UploadFile):
+    """An uploaded file whose storage and I/O policy are owned by Rust."""
+
+    async def write(self, data: bytes) -> None:
+        await self._write(data)
+
+    async def read(self, size: int = -1) -> bytes:
+        return await self._read(size)
+
+    async def seek(self, offset: int) -> None:
+        await self._seek(offset)
+
+    async def close(self) -> None:
+        await self._close()
+
+
+class FormData(_core.FormData, Mapping[str, Any]):
     """Immutable ordered form values backed by Rust-owned multi-dict semantics."""
 
     async def close(self) -> None:

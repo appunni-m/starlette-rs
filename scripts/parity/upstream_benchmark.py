@@ -8,6 +8,7 @@ import json
 import math
 import os
 import platform
+import re
 import subprocess
 import sys
 import uuid
@@ -53,6 +54,74 @@ def _canonical_sha256(value: Any) -> str:
         value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
     )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _git_output(root: Path, *arguments: str) -> bytes:
+    try:
+        process = subprocess.run(
+            ["git", "-C", str(root), *arguments],
+            capture_output=True,
+            timeout=30,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ContractError(f"cannot inspect Starlette-RS checkout identity: {exc}") from exc
+    return process.stdout
+
+
+def _checkout_identity(root: Path) -> dict[str, Any]:
+    """Return a stable identity for the repository checkout used by this run."""
+    revision_bytes = _git_output(root, "rev-parse", "--verify", "HEAD^{commit}").strip()
+    try:
+        revision = revision_bytes.decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise ContractError("Starlette-RS checkout revision is not ASCII") from exc
+    if re.fullmatch(r"(?:[a-f0-9]{40}|[a-f0-9]{64})", revision) is None:
+        raise ContractError("Starlette-RS checkout revision is not a full Git object ID")
+
+    status = _git_output(root, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+    tracked_diff = _git_output(root, "diff", "--binary", "--no-ext-diff", "HEAD", "--")
+    untracked_paths = _git_output(root, "ls-files", "--others", "--exclude-standard", "-z").split(
+        b"\0"
+    )
+
+    digest = hashlib.sha256()
+    digest.update(b"revision\0")
+    digest.update(revision_bytes)
+    digest.update(b"\0status\0")
+    digest.update(status)
+    digest.update(b"\0tracked-diff\0")
+    digest.update(tracked_diff)
+    for raw_path in sorted(path for path in untracked_paths if path):
+        path = root / os.fsdecode(raw_path)
+        try:
+            if path.is_symlink():
+                digest.update(b"symlink\0")
+                digest.update(raw_path)
+                digest.update(b"\0")
+                digest.update(os.fsencode(os.readlink(path)))
+            elif path.is_file():
+                digest.update(b"file\0")
+                digest.update(raw_path)
+                digest.update(b"\0")
+                with path.open("rb") as stream:
+                    while chunk := stream.read(1024 * 1024):
+                        digest.update(chunk)
+            else:
+                raise ContractError(
+                    f"cannot fingerprint untracked checkout path: {os.fsdecode(raw_path)}"
+                )
+            digest.update(b"\0")
+        except OSError as exc:
+            raise ContractError(
+                f"cannot fingerprint untracked checkout path {os.fsdecode(raw_path)!r}: {exc}"
+            ) from exc
+
+    return {
+        "revision": revision,
+        "dirty": bool(status),
+        "working_tree_sha256": digest.hexdigest(),
+    }
 
 
 def _upstream_root() -> Path:
@@ -439,6 +508,20 @@ def _profile_parity_gate_passes(
 def _validate_result(result: dict[str, Any], expected_ids: list[str]) -> None:
     if result.get("schema") != UPSTREAM_RESULT_SCHEMA:
         raise ContractError("upstream benchmark result schema identifier differs")
+    identity = result.get("identity")
+    if not isinstance(identity, dict):
+        raise ContractError("upstream benchmark result identity must be an object")
+    checkout = identity.get("target_checkout")
+    if (
+        not isinstance(checkout, dict)
+        or set(checkout) != {"revision", "dirty", "working_tree_sha256"}
+        or not isinstance(checkout.get("revision"), str)
+        or re.fullmatch(r"(?:[a-f0-9]{40}|[a-f0-9]{64})", checkout["revision"]) is None
+        or not isinstance(checkout.get("dirty"), bool)
+        or not isinstance(checkout.get("working_tree_sha256"), str)
+        or re.fullmatch(r"[a-f0-9]{64}", checkout["working_tree_sha256"]) is None
+    ):
+        raise ContractError("upstream benchmark result target checkout identity is malformed")
     rows = result.get("workloads")
     if not isinstance(rows, list) or len(rows) != 74:
         raise ContractError("upstream benchmark result must account for exactly 74 workloads")
@@ -541,6 +624,7 @@ def run_upstream_benchmark(
 ) -> dict[str, Any]:
     """Probe, compare, then time each declared source workload for source and package."""
     root = root.resolve()
+    target_checkout_identity = _checkout_identity(root)
     manifest_path = manifest_path if manifest_path.is_absolute() else root / manifest_path
     manifest_path = manifest_path.resolve()
     active_manifest_path = (root / "tests/fixtures/manifest.yaml").resolve()
@@ -861,6 +945,8 @@ def run_upstream_benchmark(
 
     if _source_revision(upstream) != source_revision:
         raise ContractError("pinned Starlette source revision changed during the benchmark run")
+    if _checkout_identity(root) != target_checkout_identity:
+        raise ContractError("Starlette-RS checkout identity changed during the benchmark run")
     if _benchmark_source_digests(upstream) != source_file_digests:
         raise ContractError("pinned benchmark source files changed during the benchmark run")
     if sha256_file(manifest_path) != manifest_sha256:
@@ -892,6 +978,7 @@ def run_upstream_benchmark(
                 "schema": manifest["schema"],
                 "sha256": manifest_sha256,
             },
+            "target_checkout": target_checkout_identity,
             "source_revision": source_revision,
             "source_files": source_file_digests,
             "parity_gate": {
@@ -940,5 +1027,7 @@ def run_upstream_benchmark(
         if measured_count == 74 and not_run_count == 0 and failed_count == 0
         else "not_proven"
     )
+    if _checkout_identity(root) != target_checkout_identity:
+        raise ContractError("Starlette-RS checkout identity changed before benchmark completion")
     _write_result(root, result, catalog["workload_ids"])
     return result

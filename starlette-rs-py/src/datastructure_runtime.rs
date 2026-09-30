@@ -6,10 +6,15 @@
 //! policy. The public `URLPath` subclass remains Python because its value must
 //! actually be a `str` subclass.
 
-use pyo3::exceptions::{PyAssertionError, PyAttributeError, PyKeyError, PyValueError};
+use std::sync::{Arc, Mutex};
+
+use pyo3::exceptions::{
+    PyAssertionError, PyAttributeError, PyKeyError, PyRuntimeError, PyValueError,
+};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyModule, PyString, PyTuple};
-use starlette_rs::FormData as NativeFormData;
+use pyo3::types::{PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
+
+use crate::awaitable::into_python_awaitable;
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PySecret>()?;
@@ -19,6 +24,10 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyFormData>()?;
     module
         .getattr("FormData")?
+        .setattr("__module__", "starlette.datastructures")?;
+    module.add_class::<PyUploadFile>()?;
+    module
+        .getattr("UploadFile")?
         .setattr("__module__", "starlette.datastructures")?;
     module.add_function(wrap_pyfunction!(url_init, module)?)?;
     module.add_function(wrap_pyfunction!(url_components, module)?)?;
@@ -44,7 +53,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 /// Immutable ordered form fields backed by Rust's multi-dict semantics.
 #[pyclass(name = "FormData", subclass)]
 pub(crate) struct PyFormData {
-    inner: NativeFormData,
+    items: Vec<(String, Py<PyAny>)>,
 }
 
 #[pymethods]
@@ -63,38 +72,39 @@ impl PyFormData {
         if let Some(kwargs) = kwargs {
             items.extend(form_data_from_mapping(kwargs)?);
         }
-        Ok(Self {
-            inner: NativeFormData::from_pairs(items),
-        })
+        Ok(Self { items })
     }
 
     #[pyo3(signature = (key, default=None))]
     fn get(&self, py: Python<'_>, key: &Bound<'_, PyAny>, default: Option<Py<PyAny>>) -> Py<PyAny> {
         form_data_key(key)
             .as_deref()
-            .and_then(|form_key| self.inner.get(form_key))
-            .map(|value| PyString::new(py, value).into_any().unbind())
+            .and_then(|form_key| self.get_value(form_key))
+            .map(|value| value.clone_ref(py))
             .or(default)
             .unwrap_or_else(|| py.None())
     }
 
-    fn getlist(&self, key: &Bound<'_, PyAny>) -> Vec<String> {
+    fn getlist(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> Vec<Py<PyAny>> {
         let Some(key) = form_data_key(key) else {
             return Vec::new();
         };
-        self.inner
-            .get_list(&key)
-            .into_iter()
-            .map(str::to_owned)
+        self.items
+            .iter()
+            .filter(|(item_key, _)| item_key == &key)
+            .map(|(_, value)| value.clone_ref(py))
             .collect()
     }
 
-    fn get_list(&self, key: &Bound<'_, PyAny>) -> Vec<String> {
-        self.getlist(key)
+    fn get_list(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> Vec<Py<PyAny>> {
+        self.getlist(py, key)
     }
 
-    fn multi_items(&self) -> Vec<(String, String)> {
-        self.inner.multi_items().to_vec()
+    fn multi_items(&self, py: Python<'_>) -> Vec<(String, Py<PyAny>)> {
+        self.items
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone_ref(py)))
+            .collect()
     }
 
     fn keys(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
@@ -115,16 +125,16 @@ impl PyFormData {
             .map(Bound::unbind)
     }
 
-    fn len(&self) -> usize {
-        self.inner.len()
+    fn len(&self, py: Python<'_>) -> PyResult<usize> {
+        self.mapping_dict(py).map(|mapping| mapping.len())
     }
 
-    fn is_empty(&self) -> bool {
-        self.inner.is_empty()
+    fn is_empty(&self, py: Python<'_>) -> PyResult<bool> {
+        self.mapping_dict(py).map(|mapping| mapping.is_empty())
     }
 
-    fn __len__(&self) -> usize {
-        self.inner.len()
+    fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
+        self.len(py)
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
@@ -135,20 +145,20 @@ impl PyFormData {
     }
 
     fn __contains__(&self, key: &Bound<'_, PyAny>) -> bool {
-        form_data_key(key).is_some_and(|key| self.inner.get(&key).is_some())
+        form_data_key(key).is_some_and(|key| self.get_value(&key).is_some())
     }
 
-    fn __getitem__(&self, key: &Bound<'_, PyAny>) -> PyResult<String> {
+    fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         form_data_key(key)
             .as_deref()
-            .and_then(|form_key| self.inner.get(form_key))
-            .map(str::to_owned)
+            .and_then(|form_key| self.get_value(form_key))
+            .map(|value| value.clone_ref(py))
             .ok_or_else(|| PyKeyError::new_err(key.clone().unbind()))
     }
 
     fn __repr__(slf: PyRef<'_, Self>) -> PyResult<String> {
         let py = slf.py();
-        let items = slf.inner.multi_items().to_vec();
+        let items = slf.multi_items(py);
         let instance = slf.into_pyobject(py)?;
         let class_name = instance.get_type().name()?.to_string();
         let list = PyList::new(py, items)?;
@@ -162,25 +172,48 @@ impl PyFormData {
             return Ok(false);
         }
         let other = other.extract::<PyRef<'_, PyFormData>>()?;
-        Ok(instance.extract::<PyRef<'_, PyFormData>>()?.inner == other.inner)
+        let left = PyList::new(
+            py,
+            instance.extract::<PyRef<'_, PyFormData>>()?.multi_items(py),
+        )?;
+        let right = PyList::new(py, other.multi_items(py))?;
+        let sorted = py.import("builtins")?.getattr("sorted")?;
+        sorted.call1((left,))?.eq(sorted.call1((right,))?)
     }
 
     fn _close(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        crate::awaitable::into_python_awaitable(py, FormDataClose)
+        let files = self
+            .items
+            .iter()
+            .filter(|(_, value)| value.bind(py).is_instance_of::<PyUploadFile>())
+            .map(|(_, value)| value.clone_ref(py))
+            .collect();
+        crate::awaitable::into_python_awaitable(py, FormDataClose { files, index: 0 })
     }
 }
 
 impl PyFormData {
+    fn get_value(&self, key: &str) -> Option<&Py<PyAny>> {
+        self.items
+            .iter()
+            .rev()
+            .find(|(item_key, _)| item_key == key)
+            .map(|(_, value)| value)
+    }
+
     fn mapping_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let mapping = PyDict::new(py);
-        for (key, value) in self.inner.items() {
-            mapping.set_item(key, value)?;
+        for (key, value) in &self.items {
+            mapping.set_item(key, value.bind(py))?;
         }
         Ok(mapping)
     }
 }
 
-struct FormDataClose;
+struct FormDataClose {
+    files: Vec<Py<PyAny>>,
+    index: usize,
+}
 
 impl crate::awaitable::AwaitableStateMachine for FormDataClose {
     fn resume(
@@ -189,15 +222,25 @@ impl crate::awaitable::AwaitableStateMachine for FormDataClose {
         input: crate::awaitable::MachineResume,
     ) -> PyResult<crate::awaitable::MachineAction> {
         match input {
-            crate::awaitable::MachineResume::Start => {
-                Ok(crate::awaitable::MachineAction::Complete(py.None()))
+            crate::awaitable::MachineResume::Start => self.next(py),
+            crate::awaitable::MachineResume::Value(_) => {
+                self.index += 1;
+                self.next(py)
             }
-            crate::awaitable::MachineResume::Value(_) => Err(PyValueError::new_err(
-                "form data close received an unexpected result",
-            )),
             crate::awaitable::MachineResume::AsyncIterationComplete(error)
             | crate::awaitable::MachineResume::Error(error) => Err(error),
         }
+    }
+}
+
+impl FormDataClose {
+    fn next(&mut self, py: Python<'_>) -> PyResult<crate::awaitable::MachineAction> {
+        let Some(file) = self.files.get(self.index) else {
+            return Ok(crate::awaitable::MachineAction::Complete(py.None()));
+        };
+        Ok(crate::awaitable::MachineAction::Await(
+            file.bind(py).call_method0("close")?.unbind(),
+        ))
     }
 }
 
@@ -208,7 +251,7 @@ fn form_data_key(value: &Bound<'_, PyAny>) -> Option<String> {
         .flatten()
 }
 
-fn form_data_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
+fn form_data_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, Py<PyAny>)>> {
     if !value.is_truthy()? {
         return Ok(Vec::new());
     }
@@ -221,14 +264,14 @@ fn form_data_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, Stri
     form_data_from_iterable(value)
 }
 
-fn form_data_from_mapping(mapping: &Bound<'_, PyDict>) -> PyResult<Vec<(String, String)>> {
+fn form_data_from_mapping(mapping: &Bound<'_, PyDict>) -> PyResult<Vec<(String, Py<PyAny>)>> {
     mapping
         .iter()
-        .map(|(key, value)| Ok((key.extract::<String>()?, value.extract::<String>()?)))
+        .map(|(key, value)| Ok((key.extract::<String>()?, value.unbind())))
         .collect()
 }
 
-fn form_data_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
+fn form_data_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(String, Py<PyAny>)>> {
     values
         .try_iter()?
         .map(|pair| {
@@ -246,10 +289,361 @@ fn form_data_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(String, S
             }
             Ok((
                 pair_values[0].extract::<String>()?,
-                pair_values[1].extract::<String>()?,
+                pair_values[1].clone().unbind(),
             ))
         })
         .collect()
+}
+
+type SharedPythonValue = Arc<Mutex<Py<PyAny>>>;
+type SharedOptionalPythonValue = Arc<Mutex<Option<Py<PyAny>>>>;
+
+/// Public UploadFile behavior with Rust-owned in-memory/worker-thread decisions.
+///
+/// The underlying Python binary file is retained because Starlette exposes it
+/// directly as `UploadFile.file`, and Python consumers rely on the standard
+/// file object's identity and methods.
+#[pyclass(name = "UploadFile", subclass)]
+pub(crate) struct PyUploadFile {
+    file: SharedPythonValue,
+    filename: SharedOptionalPythonValue,
+    size: SharedOptionalPythonValue,
+    headers: SharedPythonValue,
+    max_mem_size: SharedPythonValue,
+}
+
+#[pymethods]
+impl PyUploadFile {
+    #[new]
+    #[pyo3(signature = (file, *, size=None, filename=None, headers=None))]
+    fn new(
+        py: Python<'_>,
+        file: Py<PyAny>,
+        size: Option<Py<PyAny>>,
+        filename: Option<Py<PyAny>>,
+        headers: Option<Py<PyAny>>,
+    ) -> PyResult<Self> {
+        let headers = match headers {
+            Some(headers) if headers.bind(py).is_truthy()? => headers,
+            _ => py
+                .import("starlette.datastructures")?
+                .getattr("Headers")?
+                .call0()?
+                .unbind(),
+        };
+        let max_mem_size = py
+            .import("builtins")?
+            .getattr("getattr")?
+            .call1((file.bind(py), "_max_size", 0))?
+            .unbind();
+        Ok(Self {
+            file: Arc::new(Mutex::new(file)),
+            filename: Arc::new(Mutex::new(filename)),
+            size: Arc::new(Mutex::new(size)),
+            headers: Arc::new(Mutex::new(headers)),
+            max_mem_size: Arc::new(Mutex::new(max_mem_size)),
+        })
+    }
+
+    #[getter]
+    fn file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        shared_python_value(py, &self.file)
+    }
+
+    #[setter]
+    fn set_file(&self, file: Py<PyAny>) -> PyResult<()> {
+        *self
+            .file
+            .lock()
+            .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))? = file;
+        Ok(())
+    }
+
+    #[getter]
+    fn filename(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        shared_optional_python_value(py, &self.filename)
+    }
+
+    #[setter]
+    fn set_filename(&self, filename: Option<Py<PyAny>>) -> PyResult<()> {
+        *self
+            .filename
+            .lock()
+            .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))? = filename;
+        Ok(())
+    }
+
+    #[getter]
+    fn size(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        shared_optional_python_value(py, &self.size)
+    }
+
+    #[setter]
+    fn set_size(&self, size: Option<Py<PyAny>>) -> PyResult<()> {
+        *self
+            .size
+            .lock()
+            .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))? = size;
+        Ok(())
+    }
+
+    #[getter]
+    fn headers(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        shared_python_value(py, &self.headers)
+    }
+
+    #[setter]
+    fn set_headers(&self, headers: Py<PyAny>) -> PyResult<()> {
+        *self
+            .headers
+            .lock()
+            .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))? = headers;
+        Ok(())
+    }
+
+    #[getter]
+    fn content_type(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let headers = shared_python_value(py, &self.headers)?;
+        let none = py.None();
+        headers
+            .bind(py)
+            .call_method1("get", ("content-type", none))
+            .map(Bound::unbind)
+    }
+
+    #[getter]
+    fn _max_mem_size(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        shared_python_value(py, &self.max_mem_size)
+    }
+
+    #[setter]
+    fn set_max_mem_size(&self, max_mem_size: Py<PyAny>) -> PyResult<()> {
+        *self
+            .max_mem_size
+            .lock()
+            .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))? = max_mem_size;
+        Ok(())
+    }
+
+    #[getter]
+    fn _in_memory(&self, py: Python<'_>) -> PyResult<bool> {
+        let file = shared_python_value(py, &self.file)?;
+        upload_file_is_in_memory(py, file.bind(py))
+    }
+
+    fn _will_roll(&self, py: Python<'_>, size_to_add: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let file = shared_python_value(py, &self.file)?;
+        let max_mem_size = shared_python_value(py, &self.max_mem_size)?;
+        upload_file_will_roll(py, file.bind(py), max_mem_size.bind(py), size_to_add)
+    }
+
+    fn _write(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            UploadFileMachine {
+                file: self.file.clone(),
+                size: self.size.clone(),
+                max_mem_size: self.max_mem_size.clone(),
+                operation: UploadFileOperation::Write(data.clone().unbind()),
+                pending: false,
+            },
+        )
+    }
+
+    fn _read(&self, py: Python<'_>, size: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            UploadFileMachine {
+                file: self.file.clone(),
+                size: self.size.clone(),
+                max_mem_size: self.max_mem_size.clone(),
+                operation: UploadFileOperation::Read(size.clone().unbind()),
+                pending: false,
+            },
+        )
+    }
+
+    fn _seek(&self, py: Python<'_>, offset: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            UploadFileMachine {
+                file: self.file.clone(),
+                size: self.size.clone(),
+                max_mem_size: self.max_mem_size.clone(),
+                operation: UploadFileOperation::Seek(offset.clone().unbind()),
+                pending: false,
+            },
+        )
+    }
+
+    fn _close(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            UploadFileMachine {
+                file: self.file.clone(),
+                size: self.size.clone(),
+                max_mem_size: self.max_mem_size.clone(),
+                operation: UploadFileOperation::Close,
+                pending: false,
+            },
+        )
+    }
+
+    fn __repr__(slf: PyRef<'_, Self>) -> PyResult<String> {
+        let py = slf.py();
+        let filename = shared_optional_python_value(py, &slf.filename)?;
+        let size = shared_optional_python_value(py, &slf.size)?;
+        let headers = shared_python_value(py, &slf.headers)?;
+        let instance = slf.into_pyobject(py)?;
+        let class_name = instance.get_type().name()?.to_string();
+        Ok(format!(
+            "{class_name}(filename={}, size={}, headers={})",
+            filename.bind(py).repr()?.to_str()?,
+            size.bind(py).repr()?.to_str()?,
+            headers.bind(py).repr()?.to_str()?
+        ))
+    }
+}
+
+fn shared_python_value(py: Python<'_>, value: &SharedPythonValue) -> PyResult<Py<PyAny>> {
+    value
+        .lock()
+        .map(|value| value.clone_ref(py))
+        .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))
+}
+
+fn shared_optional_python_value(
+    py: Python<'_>,
+    value: &SharedOptionalPythonValue,
+) -> PyResult<Py<PyAny>> {
+    value
+        .lock()
+        .map(|value| {
+            value
+                .as_ref()
+                .map_or_else(|| py.None(), |value| value.clone_ref(py))
+        })
+        .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))
+}
+
+fn upload_file_is_in_memory(py: Python<'_>, file: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let rolled = py
+        .import("builtins")?
+        .getattr("getattr")?
+        .call1((file, "_rolled", true))?;
+    Ok(!rolled.is_truthy()?)
+}
+
+fn upload_file_will_roll(
+    py: Python<'_>,
+    file: &Bound<'_, PyAny>,
+    max_mem_size: &Bound<'_, PyAny>,
+    size_to_add: &Bound<'_, PyAny>,
+) -> PyResult<bool> {
+    if !upload_file_is_in_memory(py, file)? {
+        return Ok(true);
+    }
+    let future_size = file.call_method0("tell")?.add(size_to_add)?;
+    if max_mem_size.is_truthy()? {
+        future_size.gt(max_mem_size)
+    } else {
+        Ok(false)
+    }
+}
+
+enum UploadFileOperation {
+    Write(Py<PyAny>),
+    Read(Py<PyAny>),
+    Seek(Py<PyAny>),
+    Close,
+}
+
+struct UploadFileMachine {
+    file: SharedPythonValue,
+    size: SharedOptionalPythonValue,
+    max_mem_size: SharedPythonValue,
+    operation: UploadFileOperation,
+    pending: bool,
+}
+
+impl crate::awaitable::AwaitableStateMachine for UploadFileMachine {
+    fn resume(
+        &mut self,
+        py: Python<'_>,
+        input: crate::awaitable::MachineResume,
+    ) -> PyResult<crate::awaitable::MachineAction> {
+        match input {
+            crate::awaitable::MachineResume::Start if !self.pending => self.start(py),
+            crate::awaitable::MachineResume::Value(value) if self.pending => {
+                self.pending = false;
+                match &self.operation {
+                    UploadFileOperation::Read(_) => {
+                        Ok(crate::awaitable::MachineAction::Complete(value))
+                    }
+                    _ => Ok(crate::awaitable::MachineAction::Complete(py.None())),
+                }
+            }
+            crate::awaitable::MachineResume::Error(error)
+            | crate::awaitable::MachineResume::AsyncIterationComplete(error) => Err(error),
+            _ => Err(PyRuntimeError::new_err(
+                "UploadFile operation received an unexpected result",
+            )),
+        }
+    }
+}
+
+impl UploadFileMachine {
+    fn start(&mut self, py: Python<'_>) -> PyResult<crate::awaitable::MachineAction> {
+        let file = shared_python_value(py, &self.file)?;
+        let max_mem_size = shared_python_value(py, &self.max_mem_size)?;
+        let file = file.bind(py);
+        let worker_required = match &self.operation {
+            UploadFileOperation::Write(data) => {
+                let data_length = data.bind(py).len()?;
+                let mut size_guard = self
+                    .size
+                    .lock()
+                    .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))?;
+                if let Some(size) = size_guard.as_ref() {
+                    let updated = size.bind(py).add(PyInt::new(py, data_length))?.unbind();
+                    *size_guard = Some(updated);
+                }
+                drop(size_guard);
+                let size_to_add = PyInt::new(py, data_length);
+                upload_file_will_roll(py, file, max_mem_size.bind(py), &size_to_add)?
+            }
+            UploadFileOperation::Read(_)
+            | UploadFileOperation::Seek(_)
+            | UploadFileOperation::Close => !upload_file_is_in_memory(py, file)?,
+        };
+        let (method, arguments): (&str, Vec<Py<PyAny>>) = match &self.operation {
+            UploadFileOperation::Write(data) => ("write", vec![data.clone_ref(py)]),
+            UploadFileOperation::Read(size) => ("read", vec![size.clone_ref(py)]),
+            UploadFileOperation::Seek(offset) => ("seek", vec![offset.clone_ref(py)]),
+            UploadFileOperation::Close => ("close", Vec::new()),
+        };
+        let callable = file.getattr(method)?;
+        let result = if worker_required {
+            let runner = py
+                .import("starlette.concurrency")?
+                .getattr("run_in_threadpool")?;
+            let mut args = Vec::with_capacity(arguments.len() + 1);
+            args.push(callable.unbind());
+            args.extend(arguments);
+            let args = PyTuple::new(py, args)?;
+            runner.call1(args)?
+        } else {
+            callable.call1(PyTuple::new(py, arguments)?)?
+        };
+        if worker_required {
+            self.pending = true;
+            Ok(crate::awaitable::MachineAction::Await(result.unbind()))
+        } else if matches!(&self.operation, UploadFileOperation::Read(_)) {
+            Ok(crate::awaitable::MachineAction::Complete(result.unbind()))
+        } else {
+            Ok(crate::awaitable::MachineAction::Complete(py.None()))
+        }
+    }
 }
 
 /// Redacted string value accepted by configuration and session middleware.

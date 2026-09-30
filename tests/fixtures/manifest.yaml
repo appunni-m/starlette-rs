@@ -284,7 +284,9 @@
       "build/parity/inputs/parity/session-middleware.json",
       "build/parity/inputs/parity/base-http-middleware.json",
       "build/parity/inputs/parity/templating-runtime.json",
-      "build/parity/inputs/parity/request-form-urlencoded.json"
+      "build/parity/inputs/parity/request-form-urlencoded.json",
+      "build/parity/inputs/parity/request-form-multipart.json",
+      "build/parity/inputs/parity/websocket-endpoint-dispatch.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -2800,7 +2802,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.datastructures.FormData.__init__, ImmutableMultiDict.getlist, keys, items, multi_items, and __getitem__",
+            "path": "starlette.datastructures.FormData.__init__, FormData.close, ImmutableMultiDict.getlist, keys, items, multi_items, and __getitem__",
             "signature": "FormData; inspect multi_items(), keys(), items(), __getitem__(key), and getlist(key)",
             "parameters": [
               {
@@ -2873,10 +2875,9 @@
               "signature": "FormData with immutable multidict lookups and ordered multi_items()",
               "support": {
                 "status": "partial",
-                "reason": "This operation covers text-only FormData multidict lookups; UploadFile values and the associated FormData.close lifecycle are unsupported.",
+                "reason": "Returned FormData values preserve file objects and FormData.close closes them; direct constructor input/equality families remain outside the selected consumer workflow.",
                 "missing_requirements": [
-                  "starlette.datastructures.FormData.file-values",
-                  "starlette.datastructures.FormData.close"
+                  "starlette.datastructures.FormData.constructor-input-semantics"
                 ]
               }
             }
@@ -2886,6 +2887,28 @@
               "id": "starlette.datastructures.FormData.multidict-lookups",
               "dimension": "parameter_combination",
               "description": "Observe the returned FormData through ordered multi_items(), keys(), items(), indexing, and getlist() for supplied probe keys. Pinned source: starlette/datastructures.py:253-315, 482-492; tests/test_datastructures.py::test_formdata; docs/requests.md:135-136.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.FormData.file-values",
+              "dimension": "input_family",
+              "description": "Preserve multipart UploadFile objects as FormData values while the ordered entries, mapping lookup, and getlist observations remain available. Pinned source: starlette/datastructures.py:253-315, 482-498; starlette/formparsers.py:265-297; docs/requests.md:135-136.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.FormData.close",
+              "dimension": "runtime",
+              "description": "Await FormData.close and preserve its ordered traversal of UploadFile values through their public close methods. Pinned source: starlette/datastructures.py:482-498; starlette/requests.py:313-321; docs/requests.md:124-162.",
               "lanes": [
                 "parity"
               ],
@@ -2907,6 +2930,131 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "FormData multidict lookups are outside the active benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.datastructures.UploadFile",
+      "kind": "type",
+      "source_path": "starlette/datastructures.py:410",
+      "storage_slug": "datastructures-uploadfile",
+      "operations": [
+        {
+          "id": "file-operations",
+          "kind": "value_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.UploadFile.__init__, content_type, _in_memory, _will_roll, write, read, seek, close, and __repr__",
+            "signature": "UploadFile(file, *, size=None, filename=None, headers=None); inspect file, filename, size, headers, content_type, repr, and await write, read, seek, close",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "probe_keys",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "file-operations",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python UploadFile class.",
+                "blocker": "UploadFile is a Python compatibility consumer type."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.UploadFile",
+              "signature": "UploadFile with file metadata and async read/write/seek/close operations",
+              "support": {
+                "status": "partial",
+                "reason": "The selected input verifies small in-memory file operations; rolled SpooledTemporaryFile I/O and its worker-thread boundary remain unverified.",
+                "missing_requirements": [
+                  "starlette.datastructures.UploadFile.spooled-file-rollover"
+                ]
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.UploadFile.file-operations",
+              "dimension": "parameter_combination",
+              "description": "Observe UploadFile metadata and its documented asynchronous write, read, seek, and close methods on a small in-memory upload. Pinned source: starlette/datastructures.py:410-479; docs/requests.md:138-162; tests/test_formparsers.py::test_multipart_request_files_with_content_type.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only UploadFile consumer comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Small UploadFile consumer operations are outside the active benchmark workloads."
           }
         }
       ]
@@ -3990,6 +4138,278 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "URL construction and replacement are outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.endpoints.WebSocketEndpoint",
+      "kind": "type",
+      "source_path": "starlette/endpoints.py:58",
+      "storage_slug": "starlette-endpoints-WebSocketEndpoint",
+      "operations": [
+        {
+          "id": "dispatch",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.endpoints.WebSocketEndpoint.__init__, starlette.endpoints.WebSocketEndpoint.__await__, starlette.endpoints.WebSocketEndpoint.dispatch, starlette.endpoints.WebSocketEndpoint.decode, starlette.endpoints.WebSocketEndpoint.on_connect, starlette.endpoints.WebSocketEndpoint.on_receive, and starlette.endpoints.WebSocketEndpoint.on_disconnect",
+            "signature": "Construct a WebSocketEndpoint subclass from input-selected encoding and hook behaviors; invoke its ASGI interface with ordered WebSocket scopes and receive messages.",
+            "parameters": [
+              {
+                "id": "endpoint",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "sessions",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "dispatch",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API exposes WebSocket protocol transitions but not the Python WebSocketEndpoint class or its ASGI consumer interface.",
+                "blocker": "This contract compares the documented starlette.endpoints.WebSocketEndpoint import and Python hook behavior."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.endpoints.WebSocketEndpoint",
+              "signature": "WebSocketEndpoint ASGI dispatch with encoding and on_connect/on_receive/on_disconnect hooks",
+              "support": {
+                "status": "partial",
+                "reason": "The selected inputs cover documented encoding modes and successful hook lifecycle behavior; callback failures, unsupported encoding attributes, and cancellation/finalization remain unverified.",
+                "missing_requirements": [
+                  "starlette.endpoints.WebSocketEndpoint.dispatch.callback-error-propagation",
+                  "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-encoding",
+                  "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalization"
+                ]
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+              "dimension": "success_path",
+              "description": "Dispatch ordered connect, optional receive, and disconnect events through the public WebSocketEndpoint hooks and observe their ASGI messages and hook order. Pinned source: starlette/endpoints.py:70-89; tests/test_endpoints.py::test_websocket_endpoint_on_default.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-connect-subprotocols",
+              "dimension": "parameter_combination",
+              "description": "Expose the offered scope subprotocols to on_connect and emit the input-selected accepted subprotocol. Pinned source: starlette/endpoints.py:71-73,119-122; tests/test_endpoints.py::test_websocket_endpoint_on_connect.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-text",
+              "dimension": "protocol_variant",
+              "description": "Decode a text WebSocket frame when the endpoint encoding is text, call on_receive, and observe the input-selected text response. Pinned source: starlette/endpoints.py:91-96; tests/test_endpoints.py::test_websocket_endpoint_on_receive_text.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-text-rejects-bytes",
+              "dimension": "error_path",
+              "description": "Close with unsupported-data code 1003 and raise the documented RuntimeError when text encoding receives a bytes frame. Pinned source: starlette/endpoints.py:92-97; tests/test_endpoints.py::test_websocket_endpoint_on_receive_text.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-bytes",
+              "dimension": "protocol_variant",
+              "description": "Decode a bytes WebSocket frame when the endpoint encoding is bytes, call on_receive, and observe the input-selected binary response. Pinned source: starlette/endpoints.py:98-103; tests/test_endpoints.py::test_websocket_endpoint_on_receive_bytes.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-bytes-rejects-text",
+              "dimension": "error_path",
+              "description": "Close with unsupported-data code 1003 and raise the documented RuntimeError when bytes encoding receives a text frame. Pinned source: starlette/endpoints.py:98-103; tests/test_endpoints.py::test_websocket_endpoint_on_receive_bytes.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-text",
+              "dimension": "protocol_variant",
+              "description": "Decode JSON from a text frame, call on_receive with the parsed value, and compare the selected JSON response. Pinned source: starlette/endpoints.py:104-115; tests/test_endpoints.py::test_websocket_endpoint_on_receive_json.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-binary",
+              "dimension": "protocol_variant",
+              "description": "Decode UTF-8 JSON from a binary frame and compare the input-selected binary JSON response. Pinned source: starlette/endpoints.py:104-111; tests/test_endpoints.py::test_websocket_endpoint_on_receive_json_binary.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-malformed",
+              "dimension": "error_path",
+              "description": "Close with unsupported-data code 1003 and raise the documented RuntimeError for malformed JSON text. Pinned source: starlette/endpoints.py:104-115; tests/test_endpoints.py::test_websocket_endpoint_on_receive_json.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-close-code",
+              "dimension": "error_path",
+              "description": "Pass the input disconnect close code to on_disconnect and observe hook ordering and any emitted close frame. Pinned source: starlette/endpoints.py:82-89; tests/test_endpoints.py::test_websocket_endpoint_on_disconnect.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-default-text",
+              "dimension": "protocol_variant",
+              "description": "When encoding is None, pass a supplied non-empty text frame to on_receive unchanged. Pinned source: starlette/endpoints.py:116-117; tests/test_endpoints.py::test_websocket_endpoint_on_default; docs/endpoints.md:53-85.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-default-bytes",
+              "dimension": "protocol_variant",
+              "description": "When encoding is None, pass a supplied bytes frame to on_receive unchanged. Pinned source: starlette/endpoints.py:116-117; docs/endpoints.md:53-85.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.callback-error-propagation",
+              "dimension": "error_path",
+              "description": "When an overridden hook raises, set the internal close code to 1011, run on_disconnect in finally, and preserve the original exception. Pinned source: starlette/endpoints.py:70-89.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-encoding",
+              "dimension": "error_path",
+              "description": "Preserve the assertion raised for an encoding value outside null, text, bytes, and json and its on_disconnect finalization behavior. Pinned source: starlette/endpoints.py:91-117.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalization",
+              "dimension": "runtime",
+              "description": "Preserve event-loop cancellation through dispatch and run the on_disconnect finally hook with the source close-code behavior. Pinned source: starlette/endpoints.py:70-89.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only WebSocketEndpoint consumer comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "WebSocketEndpoint hook workflows are outside the active benchmark workloads."
           }
         }
       ]
@@ -7566,7 +7986,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.requests.Request.form",
+            "path": "starlette.requests.Request._get_form and Request.form",
             "signature": "form(self, *, max_files: int | float = 1000, max_fields: int | float = 1000, max_part_size: int = 1024 * 1024) -> AwaitableOrContextManager[FormData]",
             "parameters": [
               {
@@ -7663,9 +8083,11 @@
               "signature": "form(self, *, max_files: int | float = 1000, max_fields: int | float = 1000, max_part_size: int = 1024 * 1024) -> AwaitableOrContextManager[FormData]",
               "support": {
                 "status": "partial",
-                "reason": "The declared URL-encoded and empty-form slice includes parser limits and async context-manager lifecycle; multipart form data remains outstanding.",
+                "reason": "The package parses ordinary well-formed multipart bodies with small text and file parts, and retains URL-encoded and empty-form behavior. Multipart parsing currently buffers the request before parsing, so incremental limits, file-streaming memory bounds, and cleanup on stream/parser errors are not established.",
                 "missing_requirements": [
-                  "starlette.request.form.multipart-form-data"
+                  "starlette.request.form.multipart-incremental-part-limits",
+                  "starlette.request.form.multipart-file-streaming",
+                  "starlette.request.form.multipart-error-file-cleanup"
                 ]
               }
             }
@@ -7708,6 +8130,17 @@
               "id": "starlette.request.form.context-manager-lifecycle",
               "dimension": "runtime",
               "description": "Consume the URL-encoded Request.form result with async-with entry and exit, preserving the FormData result and completing the context-manager lifecycle. Pinned source: starlette/requests.py:313-321; tests/test_requests.py::test_request_form_context_manager; docs/requests.md:83, 124-136.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-form-data",
+              "dimension": "input_family",
+              "description": "Parse one ordinary, well-formed multipart request split across ASGI body chunks, retaining text/file item order and exposing UploadFile metadata and consumer operations. This requirement covers small valid inputs only. Pinned source: starlette/requests.py:268-326; starlette/formparsers.py:187-297; tests/test_formparsers.py::test_multipart_request_mixed_files_and_data; docs/requests.md:112-162.",
               "lanes": [
                 "parity"
               ],
@@ -10749,6 +11182,55 @@
                   "comparison": {
                     "kind": "ordered"
                   }
+                },
+                {
+                  "path": "route_scope.path",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "observe_router_scope"
+                  }
+                },
+                {
+                  "path": "route_scope.root_path",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "observe_router_scope"
+                  }
+                },
+                {
+                  "path": "route_scope.app_root_path",
+                  "value_types": [
+                    "string",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "observe_router_scope"
+                  }
+                },
+                {
+                  "path": "route_scope.path_params",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "observe_router_scope"
+                  }
                 }
               ],
               "error": {
@@ -10781,7 +11263,9 @@
                   "starlette.routing.Router.route-dispatch.python-callable-endpoint",
                   "starlette.routing.Router.route-dispatch.custom-converter-override",
                   "starlette.routing.Router.route-dispatch.live-route-list-append",
-                  "starlette.routing.Router.route-dispatch.live-route-method-mutation"
+                  "starlette.routing.Router.route-dispatch.live-route-method-mutation",
+                  "starlette.routing.Router.route-dispatch.mount-route-dispatch",
+                  "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss"
                 ]
               }
             },
@@ -10888,6 +11372,28 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.mount-route-dispatch",
+              "dimension": "boundary",
+              "description": "A Router selects a Mount by its prefix and dispatches into a matching child Route. Pinned source: starlette/routing.py::Router.app; tests/test_routing.py::test_mount_urls; tests/test_routing.py::test_mount_at_root; tests/test_routing.py::test_paths_with_root_path; docs/routing.md:104-130.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss",
+              "dimension": "error_path",
+              "description": "A Router Mount prefix does not match a path that merely shares its leading text but differs at the segment boundary. Pinned source: starlette/routing.py::Router.app; tests/test_routing.py::test_mount_urls.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },

@@ -20,11 +20,14 @@ use std::os::unix::fs::PermissionsExt;
 
 // The workspace's flate2 dependency is used by the companion library target.
 use base64 as _;
+use encoding_rs as _;
 use flate2 as _;
+use futures as _;
 use getrandom as _;
 use hmac as _;
 use md5 as _;
 use mime_guess as _;
+use multer as _;
 use serde_json::{Map, Number, Value, json};
 use sha1 as _;
 use sha2::{Digest, Sha256};

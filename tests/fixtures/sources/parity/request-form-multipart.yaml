@@ -1,0 +1,82 @@
+{
+  "schema": "migration-parity/parity-input@9",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.form.multipart-small-mixed-text-file",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.datastructures.FormData.file-values",
+        "starlette.datastructures.UploadFile.file-operations",
+        "starlette.datastructures.FormData.close"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9Zm9ybS1ib3VuZGFyeS05Y2Rl"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1mb3JtLWJvdW5kYXJ5LTljZGUNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iZmllbGQwIg0KDQp2YWx1ZTANCi0tZm9ybS1ib3VuZGFyeS05Y2RlDQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9InVwbG9hZCI7IGZpbGVuYW1lPSJmaWxlLnR4dCINCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbg0KDQpmaWxlLQ==",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "Y29udGVudA0KLS1mb3I=",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "bS1ib3VuZGFyeS05Y2RlDQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZpZWxkMSINCg0KdmFsdWUxDQotLWZvcm0tYm91bmRhcnktOWNkZS0tDQo=",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "field0",
+        "upload",
+        "field1",
+        "missing"
+      ],
+      "form_file_probe_keys": [
+        "upload"
+      ],
+      "form_file_read_size": 5,
+      "form_file_write_base64": "IQ==",
+      "form_close": true,
+      "observations": [
+        "form"
+      ],
+      "form_options": {}
+    }
+  ]
+}

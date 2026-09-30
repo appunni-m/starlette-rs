@@ -77,7 +77,17 @@
       "operations": [
         {
           "operation_id": "multidict-lookups",
-          "source_path": "starlette.datastructures.FormData.__init__, ImmutableMultiDict.getlist, keys, items, multi_items, and __getitem__"
+          "source_path": "starlette.datastructures.FormData.__init__, FormData.close, ImmutableMultiDict.getlist, keys, items, multi_items, and __getitem__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.datastructures.UploadFile",
+      "source_path": "starlette/datastructures.py:410",
+      "operations": [
+        {
+          "operation_id": "file-operations",
+          "source_path": "starlette.datastructures.UploadFile.__init__, content_type, _in_memory, _will_roll, write, read, seek, close, and __repr__"
         }
       ]
     },
@@ -126,6 +136,16 @@
         {
           "operation_id": "component-and-replacement-sequence",
           "source_path": "starlette.datastructures.URL.__init__, URL.components, URL.replace, and URL.__repr__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.endpoints.WebSocketEndpoint",
+      "source_path": "starlette/endpoints.py:58",
+      "operations": [
+        {
+          "operation_id": "dispatch",
+          "source_path": "starlette.endpoints.WebSocketEndpoint.__init__, starlette.endpoints.WebSocketEndpoint.__await__, starlette.endpoints.WebSocketEndpoint.dispatch, starlette.endpoints.WebSocketEndpoint.decode, starlette.endpoints.WebSocketEndpoint.on_connect, starlette.endpoints.WebSocketEndpoint.on_receive, and starlette.endpoints.WebSocketEndpoint.on_disconnect"
         }
       ]
     },
@@ -271,7 +291,7 @@
         },
         {
           "operation_id": "form",
-          "source_path": "starlette.requests.Request.form"
+          "source_path": "starlette.requests.Request._get_form and Request.form"
         }
       ]
     },

@@ -36,6 +36,8 @@ WEBSOCKET_SURFACE = "starlette.websockets.WebSocket"
 WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
 WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
+WEBSOCKET_ENDPOINT_SURFACE = "starlette.endpoints.WebSocketEndpoint"
+WEBSOCKET_ENDPOINT_OPERATION = "dispatch"
 WEBSOCKET_CLOSE_SURFACE = "starlette.websockets.WebSocketClose"
 WEBSOCKET_CLOSE_OPERATION = "call-sequence"
 WEBSOCKET_ROUTE_SURFACE = "starlette.routing.WebSocketRoute"
@@ -4336,6 +4338,192 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+class _WebSocketEndpointInputReceive:
+    def __init__(
+        self,
+        messages: tuple[dict[str, Any], ...],
+        *,
+        cancel_on_exhaustion: bool = False,
+    ) -> None:
+        self.messages = messages
+        self.index = 0
+        self.cancel_on_exhaustion = cancel_on_exhaustion
+        self.waiting: asyncio.Event | None = None
+
+    async def __call__(self) -> dict[str, Any]:
+        if self.index >= len(self.messages):
+            if self.cancel_on_exhaustion:
+                if self.waiting is None:
+                    raise RuntimeError("WebSocketEndpoint cancellation event was not initialized")
+                self.waiting.set()
+                await asyncio.Future()
+            raise ValueError("WebSocketEndpoint exhausted its input-only receive sequence")
+        message = self.messages[self.index]
+        self.index += 1
+        return message
+
+
+class _WebSocketEndpointCaptureSend:
+    def __init__(self, messages: list[dict[str, Any]]) -> None:
+        self.messages = messages
+
+    async def __call__(self, message: dict[str, Any]) -> None:
+        self.messages.append(dict(message))
+
+
+def _websocket_endpoint_accept_hook(spec: dict[str, Any], calls: list[dict[str, Any]]) -> Any:
+    async def on_connect(_endpoint: Any, websocket: Any) -> None:
+        call: dict[str, Any] = {"hook": "on_connect"}
+        if spec["observe_scope_subprotocols"]:
+            call["scope_subprotocols"] = list(websocket.scope["subprotocols"])
+        calls.append(call)
+        await websocket.accept(subprotocol=spec["subprotocol"])
+
+    return on_connect
+
+
+def _websocket_endpoint_receive_hook(spec: dict[str, Any], calls: list[dict[str, Any]]) -> Any:
+    prefix = (
+        _decode_b64(spec["prefix_base64"], "WebSocketEndpoint.on_receive.prefix_base64")
+        if spec["kind"] == "send-bytes-prefix"
+        else None
+    )
+
+    async def on_receive(_endpoint: Any, websocket: Any, data: Any) -> None:
+        calls.append({"hook": "on_receive", "data": _json_safe(data)})
+        if spec["kind"] == "send-text-prefix":
+            await websocket.send_text(spec["prefix"] + data)
+        elif spec["kind"] == "send-bytes-prefix":
+            await websocket.send_bytes(prefix + data)
+        elif spec["kind"] == "raise-value-error":
+            raise ValueError(spec["message"])
+        else:
+            await websocket.send_json({spec["key"]: data}, mode=spec["mode"])
+
+    return on_receive
+
+
+def _websocket_endpoint_disconnect_hook(calls: list[dict[str, Any]]) -> Any:
+    async def on_disconnect(_endpoint: Any, websocket: Any, close_code: int) -> None:
+        calls.append({"hook": "on_disconnect", "close_code": close_code})
+        await websocket.close(code=close_code)
+
+    return on_disconnect
+
+
+async def _await_websocket_endpoint(
+    endpoint_type: Any,
+    scope: dict[str, Any],
+    receive: Any,
+    send: Any,
+) -> None:
+    await endpoint_type(scope, receive, send)
+
+
+async def _await_cancelled_websocket_endpoint(
+    endpoint_type: Any,
+    scope: dict[str, Any],
+    receive: _WebSocketEndpointInputReceive,
+    send: Any,
+) -> dict[str, Any] | None:
+    receive.waiting = asyncio.Event()
+    task = asyncio.create_task(_await_websocket_endpoint(endpoint_type, scope, receive, send))
+    await receive.waiting.wait()
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError as exc:
+        return _dispatch_error(exc)
+    return None
+
+
+def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "endpoint",
+            "sessions",
+            "observations",
+        },
+        "WebSocketEndpoint dispatch case",
+    )
+    if (
+        case["surface"] != WEBSOCKET_ENDPOINT_SURFACE
+        or case["operation"] != WEBSOCKET_ENDPOINT_OPERATION
+    ):
+        raise ValueError("workflow is outside the declared WebSocketEndpoint dispatch operation")
+    if case["observations"] != [WEBSOCKET_ENDPOINT_OPERATION]:
+        raise ValueError("WebSocketEndpoint observations must select the dispatch workflow")
+    from starlette.endpoints import WebSocketEndpoint
+
+    endpoint_spec = case["endpoint"]
+    connection_results: list[dict[str, Any]] = []
+    for session_spec in case["sessions"]:
+        scope = _make_websocket_scope(session_spec["scope"])
+        incoming = tuple(
+            _materialize_websocket_message(message) for message in session_spec["incoming"]
+        )
+        hook_calls: list[dict[str, Any]] = []
+        sent_messages: list[dict[str, Any]] = []
+        methods: dict[str, Any] = {"encoding": endpoint_spec["encoding"]}
+
+        if endpoint_spec["on_connect"]["kind"] == "accept":
+            methods["on_connect"] = _websocket_endpoint_accept_hook(
+                endpoint_spec["on_connect"], hook_calls
+            )
+
+        on_receive_spec = endpoint_spec["on_receive"]
+        if on_receive_spec["kind"] != "no-op":
+            methods["on_receive"] = _websocket_endpoint_receive_hook(on_receive_spec, hook_calls)
+
+        if endpoint_spec["on_disconnect"]["kind"] == "record-and-close":
+            methods["on_disconnect"] = _websocket_endpoint_disconnect_hook(hook_calls)
+
+        endpoint_type = type("InputWebSocketEndpoint", (WebSocketEndpoint,), methods)
+        receive = _WebSocketEndpointInputReceive(
+            incoming, cancel_on_exhaustion=session_spec.get("cancel_at") == "receive"
+        )
+        send = _WebSocketEndpointCaptureSend(sent_messages)
+
+        if session_spec.get("cancel_at") == "receive":
+            error = asyncio.run(
+                _await_cancelled_websocket_endpoint(endpoint_type, scope, receive, send)
+            )
+        else:
+            error: dict[str, Any] | None = None
+            try:
+                asyncio.run(_await_websocket_endpoint(endpoint_type, scope, receive, send))
+            except Exception as exc:
+                error = _dispatch_error(exc)
+        if receive.index != len(incoming):
+            raise ValueError("WebSocketEndpoint dispatch left supplied ASGI input unconsumed")
+        connection_results.append(
+            {
+                "hook_calls": hook_calls,
+                "asgi_events": [_canonical_websocket_message(message) for message in sent_messages],
+                "exception": error,
+            }
+        )
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": WEBSOCKET_ENDPOINT_OPERATION,
+                "status": "ok",
+                "value": {"dispatch": {"connections": connection_results}},
+            }
+        ],
+    }
+
+
 def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
     _strict_object(
         case,
@@ -4721,6 +4909,8 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             "observations",
         }
         router_keys |= {"steps"} if router_sequence else {"scope", "incoming", "send"}
+        if "observe_router_scope" in case:
+            router_keys.add("observe_router_scope")
         _strict_object(
             case,
             router_keys,
@@ -4812,7 +5002,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 
         return host_app
 
-    def make_mount_child(route_spec: dict[str, Any]) -> Any:
+    def make_mount_child(route_spec: dict[str, Any], route_index: int = 0) -> Any:
         kind = route_spec.get("kind") if isinstance(route_spec, dict) else None
         if kind == "mount":
             _strict_object(route_spec, {"kind", "path", "routes"}, "Nested Mount input")
@@ -4821,7 +5011,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("Nested Mount routes must be a non-empty array")
             return Mount(
                 route_spec["path"],
-                routes=[make_mount_child(child) for child in nested_routes],
+                routes=[make_mount_child(child, route_index) for child in nested_routes],
             )
         if (
             not isinstance(route_spec, dict)
@@ -4831,7 +5021,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("Mount child input must be a declared http-route or mount record")
         return Route(
             route_spec["path"],
-            make_endpoint(route_spec["endpoint"], 0),
+            make_endpoint(route_spec["endpoint"], route_index),
             methods=route_spec["methods"],
         )
 
@@ -4862,6 +5052,9 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                             name=route_spec["name"],
                         )
                     )
+                    continue
+                if isinstance(route_spec, dict) and route_spec.get("kind") == "mount":
+                    route_objects.append(make_mount_child(route_spec, route_index))
                     continue
                 if (
                     not isinstance(route_spec, dict)
@@ -4941,6 +5134,11 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                 "asgi_event_order": [event["type"] for event in events],
                 "asgi_events": events,
             }
+            if is_router and case.get("observe_router_scope") is True:
+                selected["route_scope.path"] = scope.get("path")
+                selected["route_scope.root_path"] = scope.get("root_path", "")
+                selected["route_scope.app_root_path"] = scope.get("app_root_path")
+                selected["route_scope.path_params"] = _route_path_params(scope)
             mount_scope = None
             if is_mount and "app_root_path" in scope:
                 mount_scope = {
@@ -7059,11 +7257,20 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         case_fields.add("form_options")
     if "form_access" in case:
         case_fields.add("form_access")
+    for key in (
+        "form_file_probe_keys",
+        "form_file_read_size",
+        "form_file_write_base64",
+        "form_close",
+    ):
+        if key in case:
+            case_fields.add(key)
     _strict_object(
         case,
         case_fields,
         "Request form case",
     )
+    from starlette.datastructures import UploadFile
     from starlette.requests import Request
 
     scope = _make_scope(case["scope"])
@@ -7078,13 +7285,17 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
 
     async def observe() -> dict[str, Any]:
         request = Request(scope, receive)
+        file_observations = []
+        observed_files = []
         try:
             if case.get("form_access", "await") == "context-manager":
                 async with request.form(**case.get("form_options", {})) as form:
-                    value = inspect_form(form)
+                    value, observed_files = await inspect_form(form)
             else:
                 form = await request.form(**case.get("form_options", {}))
-                value = inspect_form(form)
+                value, observed_files = await inspect_form(form)
+                if case.get("form_close", False):
+                    await form.close()
         except Exception as exc:
             fields = {
                 name: _json_safe(getattr(exc, name))
@@ -7101,9 +7312,16 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
                     },
                 },
             }
+        for key, upload, observation in observed_files:
+            observation["closed_after_form_scope"] = upload.file.closed
+            file_observations.append([key, observation])
+        if "form_file_probe_keys" in case:
+            value["files"] = file_observations
         return {"form": value}
 
-    def inspect_form(form: Any) -> dict[str, Any]:
+    async def inspect_form(
+        form: Any,
+    ) -> tuple[dict[str, Any], list[tuple[str, Any, dict[str, Any]]]]:
         multi_items = [[_json_safe(key), _json_safe(value)] for key, value in form.multi_items()]
         keys = [_json_safe(key) for key in form.keys()]
         items = [[_json_safe(key), _json_safe(value)] for key, value in form.items()]
@@ -7116,13 +7334,36 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
                 value = None
             lookup.append([key, _json_safe(value)])
             getlist.append([key, [_json_safe(value) for value in form.getlist(key)]])
-        return {
+        value = {
             "multi_items": multi_items,
             "keys": keys,
             "items": items,
             "lookup": lookup,
             "getlist": getlist,
         }
+        observed_files = []
+        for key in case.get("form_file_probe_keys", []):
+            upload = form[key]
+            file_value = {
+                "is_upload_file": isinstance(upload, UploadFile),
+                "filename": _json_safe(upload.filename),
+                "size": _json_safe(upload.size),
+                "content_type": _json_safe(upload.content_type),
+                "headers": _json_safe(upload.headers.raw),
+                "file_type": [type(upload.file).__module__, type(upload.file).__qualname__],
+                "repr": repr(upload),
+                "partial_read": _json_safe(await upload.read(case["form_file_read_size"])),
+            }
+            await upload.seek(0)
+            file_value["read_all"] = _json_safe(await upload.read())
+            if "form_file_write_base64" in case:
+                data = base64.b64decode(case["form_file_write_base64"], validate=True)
+                await upload.write(data)
+                file_value["size_after_write"] = _json_safe(upload.size)
+                await upload.seek(0)
+                file_value["read_after_write"] = _json_safe(await upload.read())
+            observed_files.append((key, upload, file_value))
+        return value, observed_files
 
     return {
         "case_id": case["case_id"],
@@ -8131,6 +8372,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         return _run_value_formatting_case(case)
     if isinstance(case, dict) and case.get("operation") in {"url_path_for", "url_for"}:
         return _run_reverse_url_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == WEBSOCKET_ENDPOINT_SURFACE
+        and case.get("operation") == WEBSOCKET_ENDPOINT_OPERATION
+    ):
+        return _run_websocket_endpoint_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == WEBSOCKET_SURFACE

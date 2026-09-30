@@ -4,15 +4,17 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use pyo3::create_exception;
 use pyo3::exceptions::{
-    PyAssertionError, PyAttributeError, PyBaseException, PyException, PyNotImplementedError,
-    PyRuntimeError, PyStopAsyncIteration, PyTypeError,
+    PyAssertionError, PyAttributeError, PyBaseException, PyException, PyRuntimeError,
+    PyStopAsyncIteration, PyTypeError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyBytes, PyDict, PyList, PyModule, PyTraceback, PyTuple, PyType};
+use pyo3::types::{
+    PyBool, PyBytes, PyDict, PyList, PyModule, PyString, PyTraceback, PyTuple, PyType,
+};
 use starlette_rs::{
-    FormData as NativeFormData, FormDataParseError,
+    FormData as NativeFormData, FormDataParseError, MultipartFormParseError, MultipartPart,
     RequestBodyAccumulator as NativeRequestBodyAccumulator, RequestBodyError,
-    RequestStreamProgress, RequestStreamState,
+    RequestStreamProgress, RequestStreamState, multipart_boundary, parse_multipart_form,
 };
 
 use crate::awaitable::{
@@ -560,12 +562,13 @@ impl PyRequestBody {
         max_fields: &Bound<'_, PyAny>,
         max_part_size: &Bound<'_, PyAny>,
     ) -> PyResult<Py<PyFormAwaitableContext>> {
-        let _ = max_files;
         let machine = FormMachine {
             shared: self.shared.clone(),
             stream: RequestStreamState::default(),
             content_type,
             scope,
+            max_files: max_files.extract::<f64>()?,
+            max_files_display: max_files.str()?.extract::<String>()?,
             max_fields: max_fields.extract::<f64>()?,
             max_fields_display: max_fields.str()?.extract::<String>()?,
             max_part_size: max_part_size.extract::<i64>()?,
@@ -1239,6 +1242,8 @@ struct FormMachine {
     stream: RequestStreamState,
     content_type: Option<String>,
     scope: Py<PyAny>,
+    max_files: f64,
+    max_files_display: String,
     max_fields: f64,
     max_fields_display: String,
     max_part_size: i64,
@@ -1301,9 +1306,18 @@ impl FormMachine {
         }
 
         match request_form_media_type(self.content_type.as_deref()) {
-            FormMediaType::Multipart => Err(PyNotImplementedError::new_err(
-                "multipart form parsing is not supported by this Rust runtime",
-            )),
+            FormMediaType::Multipart => {
+                if let Some(content_type) = self.content_type.as_deref() {
+                    multipart_boundary(content_type)
+                        .map_err(|error| self.multipart_parse_error(py, error))?;
+                }
+                let progress = {
+                    let runtime = borrow_runtime(&self.shared)?;
+                    self.stream.next(&runtime.accumulator)
+                }
+                .map_err(|error| request_body_error(py, error))?;
+                self.consume_progress(py, progress)
+            }
             FormMediaType::Other => self.complete_form(py, NativeFormData::default()),
             FormMediaType::UrlEncoded => {
                 let progress = {
@@ -1351,6 +1365,23 @@ impl FormMachine {
     }
 
     fn finish_form(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        if matches!(
+            request_form_media_type(self.content_type.as_deref()),
+            FormMediaType::Multipart
+        ) {
+            let content_type = self.content_type.as_deref().unwrap_or_default();
+            let parts = parse_multipart_form(
+                &self.body,
+                content_type,
+                self.max_files,
+                &self.max_files_display,
+                self.max_fields,
+                &self.max_fields_display,
+                self.max_part_size,
+            )
+            .map_err(|error| self.multipart_parse_error(py, error))?;
+            return self.complete_multipart_form(py, parts);
+        }
         let form =
             NativeFormData::parse_urlencoded(&self.body, self.max_fields, self.max_part_size)
                 .map_err(|error| self.parse_error(py, error))?;
@@ -1367,6 +1398,14 @@ impl FormMachine {
                 format!("Field exceeded maximum size of {max_part_size_kb}KB.")
             }
         };
+        self.form_exception(py, &message)
+    }
+
+    fn multipart_parse_error(&self, py: Python<'_>, error: MultipartFormParseError) -> PyErr {
+        self.form_exception(py, &error.message())
+    }
+
+    fn form_exception(&self, py: Python<'_>, message: &str) -> PyErr {
         let has_app = self
             .scope
             .bind(py)
@@ -1378,7 +1417,7 @@ impl FormMachine {
                 if let Err(error) = kwargs.set_item("status_code", 400) {
                     return error;
                 }
-                if let Err(error) = kwargs.set_item("detail", &message) {
+                if let Err(error) = kwargs.set_item("detail", message) {
                     return error;
                 }
                 py.import("starlette.exceptions")
@@ -1387,8 +1426,8 @@ impl FormMachine {
                     .map_or_else(|error| error, PyErr::from_value)
             }
             Ok(false) => {
-                let exception = MultiPartException::new_err(message.clone());
-                match exception.value(py).setattr("message", &message) {
+                let exception = MultiPartException::new_err(message.to_owned());
+                match exception.value(py).setattr("message", message) {
                     Ok(()) => exception,
                     Err(error) => error,
                 }
@@ -1398,7 +1437,46 @@ impl FormMachine {
     }
 
     fn complete_form(&self, py: Python<'_>, form: NativeFormData) -> PyResult<MachineAction> {
-        let form_items = PyList::new(py, form.multi_items())?;
+        let form_items = form
+            .multi_items()
+            .iter()
+            .map(|(key, value)| (key.clone(), PyString::new(py, value).into_any().unbind()))
+            .collect::<Vec<_>>();
+        self.complete_form_items(py, form_items)
+    }
+
+    fn complete_multipart_form(
+        &self,
+        py: Python<'_>,
+        parts: Vec<MultipartPart>,
+    ) -> PyResult<MachineAction> {
+        let items = parts
+            .into_iter()
+            .map(|part| {
+                let MultipartPart {
+                    name,
+                    filename,
+                    headers,
+                    data,
+                    text,
+                } = part;
+                let value = if let Some(text) = text {
+                    PyString::new(py, &text).into_any().unbind()
+                } else {
+                    multipart_upload_file(py, filename, headers, data)?
+                };
+                Ok((name, value))
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        self.complete_form_items(py, items)
+    }
+
+    fn complete_form_items(
+        &self,
+        py: Python<'_>,
+        items: Vec<(String, Py<PyAny>)>,
+    ) -> PyResult<MachineAction> {
+        let form_items = PyList::new(py, items)?;
         let form = py
             .import("starlette.datastructures")?
             .getattr("FormData")?
@@ -1413,6 +1491,45 @@ enum FormMediaType {
     UrlEncoded,
     Multipart,
     Other,
+}
+
+fn multipart_upload_file(
+    py: Python<'_>,
+    filename: Option<String>,
+    headers: Vec<(Vec<u8>, Vec<u8>)>,
+    data: Vec<u8>,
+) -> PyResult<Py<PyAny>> {
+    // Python's SpooledTemporaryFile is the public `.file` representation in
+    // Starlette's API. It remains a boundary object; Rust selects file parts,
+    // sets the spool threshold, and constructs the UploadFile wrapper.
+    let spool_kwargs = PyDict::new(py);
+    spool_kwargs.set_item("max_size", 1024 * 1024)?;
+    let file = py
+        .import("tempfile")?
+        .getattr("SpooledTemporaryFile")?
+        .call((), Some(&spool_kwargs))?;
+    file.call_method1("write", (PyBytes::new(py, &data),))?;
+    file.call_method1("seek", (0,))?;
+
+    let raw_headers = PyList::empty(py);
+    for (name, value) in headers {
+        raw_headers.append((PyBytes::new(py, &name), PyBytes::new(py, &value)))?;
+    }
+    let headers_kwargs = PyDict::new(py);
+    headers_kwargs.set_item("raw", raw_headers)?;
+    let headers = py
+        .import("starlette.datastructures")?
+        .getattr("Headers")?
+        .call((), Some(&headers_kwargs))?;
+
+    let upload_kwargs = PyDict::new(py);
+    upload_kwargs.set_item("size", data.len())?;
+    upload_kwargs.set_item("filename", filename)?;
+    upload_kwargs.set_item("headers", headers)?;
+    py.import("starlette.datastructures")?
+        .getattr("UploadFile")?
+        .call((file,), Some(&upload_kwargs))
+        .map(Bound::unbind)
 }
 
 fn request_form_media_type(content_type: Option<&str>) -> FormMediaType {

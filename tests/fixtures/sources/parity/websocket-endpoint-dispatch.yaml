@@ -1,0 +1,937 @@
+{
+  "schema": "migration-parity/parity-input@9",
+  "cases": [
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.test-websocket-endpoint-on-connect",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.on-connect-subprotocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": null,
+        "on_connect": {
+          "kind": "accept",
+          "subprotocol": "wamp",
+          "observe_scope_subprotocols": true
+        },
+        "on_receive": {
+          "kind": "no-op"
+        },
+        "on_disconnect": {
+          "kind": "default"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": [
+              "soap",
+              "wamp"
+            ]
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": [
+                "soap",
+                "wamp"
+              ]
+            },
+            {
+              "type": "websocket.disconnect",
+              "code": 1000
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.test-websocket-endpoint-on-receive-text",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-text",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-text-rejects-bytes"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": "text",
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "send-text-prefix",
+          "prefix": "Message text was: "
+        },
+        "on_disconnect": {
+          "kind": "default"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "text": "Hello, world!"
+            },
+            {
+              "type": "websocket.disconnect",
+              "code": 1000
+            }
+          ]
+        },
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "bytes_base64": "SGVsbG8gd29ybGQ="
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.test-websocket-endpoint-on-receive-bytes",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-bytes",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-bytes-rejects-text"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": "bytes",
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "send-bytes-prefix",
+          "prefix_base64": "TWVzc2FnZSBieXRlcyB3YXM6IA=="
+        },
+        "on_disconnect": {
+          "kind": "default"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "bytes_base64": "SGVsbG8sIHdvcmxkIQ=="
+            },
+            {
+              "type": "websocket.disconnect",
+              "code": 1000
+            }
+          ]
+        },
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "text": "Hello world"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.test-websocket-endpoint-on-receive-json",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-text",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-malformed"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": "json",
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "send-json-envelope",
+          "key": "message",
+          "mode": "text"
+        },
+        "on_disconnect": {
+          "kind": "default"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "text": "{\"hello\":\"world\"}"
+            },
+            {
+              "type": "websocket.disconnect",
+              "code": 1000
+            }
+          ]
+        },
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "text": "Hello world"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.test-websocket-endpoint-on-receive-json-binary",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-binary"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": "json",
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "send-json-envelope",
+          "key": "message",
+          "mode": "binary"
+        },
+        "on_disconnect": {
+          "kind": "default"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "bytes_base64": "eyJoZWxsbyI6IndvcmxkIn0="
+            },
+            {
+              "type": "websocket.disconnect",
+              "code": 1000
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.test-websocket-endpoint-on-disconnect",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-close-code"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": null,
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "no-op"
+        },
+        "on_disconnect": {
+          "kind": "record-and-close"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.disconnect",
+              "code": 1001
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.docs-default-encoding-text",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-default-text"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": null,
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "send-text-prefix",
+          "prefix": "Message text was: "
+        },
+        "on_disconnect": {
+          "kind": "default"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "text": "Hello, world!"
+            },
+            {
+              "type": "websocket.disconnect",
+              "code": 1000
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.docs-default-encoding-bytes",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-default-bytes"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": null,
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "send-bytes-prefix",
+          "prefix_base64": "TWVzc2FnZSBieXRlcyB3YXM6IA=="
+        },
+        "on_disconnect": {
+          "kind": "default"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "bytes_base64": "SGVsbG8sIHdvcmxkIQ=="
+            },
+            {
+              "type": "websocket.disconnect",
+              "code": 1000
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.callback-error-propagation",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-text",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.callback-error-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": "text",
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "raise-value-error",
+          "message": "on_receive callback failed"
+        },
+        "on_disconnect": {
+          "kind": "record-and-close"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "text": "fail from handler"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-encoding",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-encoding"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": "xml",
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "no-op"
+        },
+        "on_disconnect": {
+          "kind": "record-and-close"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "text": "trigger invalid encoding"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalization",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalization"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": null,
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "no-op"
+        },
+        "on_disconnect": {
+          "kind": "record-and-close"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "cancel_at": "receive",
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

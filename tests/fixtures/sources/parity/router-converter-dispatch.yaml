@@ -1008,6 +1008,485 @@
       ],
       "custom_convertors": [],
       "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.mount-path-boundaries",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "observe_router_scope": true,
+      "covers": [
+        "starlette.routing.Mount.route-dispatch.scope-extension",
+        "starlette.routing.Mount.route-dispatch.miss",
+        "starlette.routing.Router.route-dispatch.mount-route-dispatch",
+        "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "mount",
+          "path": "/users",
+          "routes": [
+            {
+              "kind": "http-route",
+              "path": "/",
+              "methods": [
+                "GET"
+              ],
+              "endpoint": {
+                "kind": "plain-text-response",
+                "content": "mounted-root",
+                "status_code": 200,
+                "media_type": "text/plain",
+                "cookies": []
+              }
+            },
+            {
+              "kind": "http-route",
+              "path": "/{name:str}",
+              "methods": [
+                "GET"
+              ],
+              "endpoint": {
+                "kind": "plain-text-response",
+                "content": "mounted-child",
+                "status_code": 200,
+                "media_type": "text/plain",
+                "cookies": []
+              }
+            }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "mount-prefix-no-slash",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/users",
+            "raw_path_base64": "L3VzZXJz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        },
+        {
+          "step_id": "mount-root",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/users/",
+            "raw_path_base64": "L3VzZXJzLw==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        },
+        {
+          "step_id": "mount-child-path",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/users/a",
+            "raw_path_base64": "L3VzZXJzL2E=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        },
+        {
+          "step_id": "mount-prefix-boundary-miss",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/usersa",
+            "raw_path_base64": "L3VzZXJzYQ==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        }
+      ],
+      "observations": [
+        "mount-prefix-no-slash",
+        "mount-root",
+        "mount-child-path",
+        "mount-prefix-boundary-miss"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.mount-at-root",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "observe_router_scope": true,
+      "covers": [
+        "starlette.routing.Mount.route-dispatch.scope-extension",
+        "starlette.routing.Router.route-dispatch.mount-route-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "mount",
+          "path": "/",
+          "routes": [
+            {
+              "kind": "http-route",
+              "path": "/",
+              "methods": [
+                "GET"
+              ],
+              "endpoint": {
+                "kind": "plain-text-response",
+                "content": "root-mounted",
+                "status_code": 200,
+                "media_type": "text/plain",
+                "cookies": []
+              }
+            }
+          ]
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.mounts-with-root-path",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "observe_router_scope": true,
+      "covers": [
+        "starlette.routing.Router.route-dispatch.root-path-match",
+        "starlette.routing.Mount.route-dispatch.scope-extension",
+        "starlette.routing.Router.route-dispatch.mount-route-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/path",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "root-path-route",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        },
+        {
+          "kind": "mount",
+          "path": "/asgipath",
+          "routes": [
+            {
+              "kind": "http-route",
+              "path": "/",
+              "methods": [
+                "GET"
+              ],
+              "endpoint": {
+                "kind": "plain-text-response",
+                "content": "asgipath-root",
+                "status_code": 200,
+                "media_type": "text/plain",
+                "cookies": []
+              }
+            }
+          ]
+        },
+        {
+          "kind": "mount",
+          "path": "/sub",
+          "routes": [
+            {
+              "kind": "http-route",
+              "path": "/path",
+              "methods": [
+                "GET"
+              ],
+              "endpoint": {
+                "kind": "plain-text-response",
+                "content": "nested-path",
+                "status_code": 200,
+                "media_type": "text/plain",
+                "cookies": []
+              }
+            }
+          ]
+        },
+        {
+          "kind": "mount",
+          "path": "/root-queue",
+          "routes": [
+            {
+              "kind": "http-route",
+              "path": "/path",
+              "methods": [
+                "POST"
+              ],
+              "endpoint": {
+                "kind": "plain-text-response",
+                "content": "mounted-post",
+                "status_code": 200,
+                "media_type": "text/plain",
+                "cookies": []
+              }
+            }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "root-path-direct-route",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/root/path",
+            "raw_path_base64": "L3Jvb3QvcGF0aA==",
+            "query_string_base64": "",
+            "root_path": "/root",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        },
+        {
+          "step_id": "root-path-mount-root",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/root/asgipath/",
+            "raw_path_base64": "L3Jvb3QvYXNnaXBhdGgv",
+            "query_string_base64": "",
+            "root_path": "/root",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        },
+        {
+          "step_id": "root-path-nested-mount-route",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/root/sub/path",
+            "raw_path_base64": "L3Jvb3Qvc3ViL3BhdGg=",
+            "query_string_base64": "",
+            "root_path": "/root",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        },
+        {
+          "step_id": "root-path-post-through-mount",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/root/root-queue/path",
+            "raw_path_base64": "L3Jvb3Qvcm9vdC1xdWV1ZS9wYXRo",
+            "query_string_base64": "",
+            "root_path": "/root",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        }
+      ],
+      "observations": [
+        "root-path-direct-route",
+        "root-path-mount-root",
+        "root-path-nested-mount-route",
+        "root-path-post-through-mount"
+      ]
     }
   ]
 }

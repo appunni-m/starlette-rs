@@ -347,6 +347,27 @@
         }
       }
     },
+    "targetCheckoutIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "dirty",
+        "working_tree_sha256"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$"
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "working_tree_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
     "identity": {
       "type": "object",
       "additionalProperties": false,
@@ -380,6 +401,10 @@
         },
         "manifest": {
           "$ref": "#/$defs/manifestIdentity"
+        },
+        "target_checkout": {
+          "description": "Present in newly generated results; optional for existing @1 artifacts.",
+          "$ref": "#/$defs/targetCheckoutIdentity"
         },
         "source_revision": {
           "const": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f"

@@ -60,3 +60,14 @@ listed in [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). MD5 is used only to
 match Starlette's existing ETag format; it is not used as a security check.
 Inspect the resolved crate license files and include the required notices in
 release artifacts.
+
+The multipart Request.form parser adds `multer` 3.1.0 (MIT), `encoding_rs`
+0.8.35 ((Apache-2.0 OR MIT) AND BSD-3-Clause), and `futures` 0.3.34 (MIT OR
+Apache-2.0), all from crates.io and pinned in `Cargo.lock`. The inspected
+archives include the `multer` MIT notice (Copyright © 2020 Rousan Ali), the
+`encoding_rs` Apache-2.0/MIT notices (Mozilla Foundation) and WHATWG BSD-3-Clause
+notice (WHATWG contributors), and the `futures` Apache-2.0/MIT notices (Alex
+Crichton and the Tokio authors). The resolved transitive parser crates are
+listed in [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). Preserve the complete
+notices in any distributed artifact that includes these dependencies; the
+repository does not copy their source files.

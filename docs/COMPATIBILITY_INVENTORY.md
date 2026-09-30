@@ -342,6 +342,54 @@ The merger validates the pinned upstream commit, all 999 API rows, evidence
 paths, test identities, support modules, docs navigation paths, and
 input-only fixture files.
 
+## Multipart Request.form and UploadFile slice
+
+The input-only case in
+[`request-form-multipart.yaml`](../tests/fixtures/sources/parity/request-form-multipart.yaml)
+compares a small, well-formed multipart body split across three ASGI request
+chunks. It contains text fields before and after one `file.txt` upload. The
+consumer observations cover FormData ordering and lookups, UploadFile metadata,
+partial and full reads, append/write/readback, seek, and explicit FormData.close.
+The case maps to the mixed-files-and-data parser scenario and the documented
+UploadFile attributes and async methods. It does not claim broad multipart
+parity.
+
+Multipart boundaries, disposition parsing, and part values are selected in
+Rust through the locked `multer` parser. Python holds the standard
+`SpooledTemporaryFile` object exposed by the public UploadFile API and performs
+the required PyO3 conversions and awaits the native UploadFile methods. The
+current Request.form state machine still accumulates the complete request body
+before parsing; the Rust parser then materializes each field/file in a byte
+vector before constructing FormData. The pinned Starlette parser enforces text
+part size during each parser callback, writes file chunks as they arrive, and
+closes created temporary files if parsing or receiving raises. Those timing,
+memory, and cleanup behaviors are therefore still partial and remain explicit
+backlog requirements: incremental part limits and stream-consumption order,
+file streaming and rollover, and cleanup after parser or receive errors. The
+selected small-file input does not establish large-file worker-thread behavior.
+
+## WebSocketEndpoint dispatch slice
+
+The input-only fixture in
+[`websocket-endpoint-dispatch.yaml`](../tests/fixtures/sources/parity/websocket-endpoint-dispatch.yaml)
+invokes the documented `starlette.endpoints.WebSocketEndpoint` ASGI interface.
+Eight cases compare the pinned source and installed package exactly across
+connect/disconnect hooks, offered subprotocols, text and bytes decoding, JSON
+text and binary decoding, malformed and mismatched frames, and the default
+encoding. Three additional cases exercise callback-error propagation, invalid
+encoding, and cancellation while waiting for the next receive. The source
+results are retained, while package-target results are recorded as unsupported
+under the operation's declared partial-support gaps; they do not establish
+package parity for those behaviors.
+
+The Python wrapper forwards dispatch and decoding to the Rust runtime. User
+hooks remain Python callables invoked and awaited on Python's event loop. The
+Rust-native target does not currently expose the Python `WebSocketEndpoint`
+class and ASGI consumer interface. Other boundary cases remain uncovered,
+including failures from `on_connect` or `on_disconnect`, missing disconnect
+codes, empty default-encoding text, malformed binary JSON, and unexpected ASGI
+message types.
+
 ## Import-path candidates
 
 The 31 non-private leaf module paths are:
