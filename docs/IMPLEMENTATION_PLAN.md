@@ -32,20 +32,23 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 538 input-only cases, 78 operations, and 579
+The current parity contract has 539 input-only cases, 78 operations, and 580
 parity requirements across 61 indexed files. The cases include direct
 Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
 interleaved consumers. The latest live source/package/native run
-`b565b6f4-8cc6-42c5-906d-5fb81687e56e` selected 690 profile comparisons: 686
-passed, zero failed, zero infrastructure errors, and four unsupported
+`143cd077-f5f7-4c7b-8506-039ea5cd4f3e` selected 691 profile comparisons:
+687 passed, zero failed, zero infrastructure errors, and four unsupported
 Rust-native Python-callable comparisons were `not_run`. The Python package
-passed 536/536; Rust-native passed 150/154. This run includes TestClient
-exception-policy and lifespan state-propagation inputs, plus the WebSocket
-lifecycle and JSON text/binary inputs. The manifest SHA-256 is
-`8babb9a7c3758c9aaf1931a8d2132eb783965b28fd3a1435c738a5835f06ef23`; the
+passed 537/537; Rust-native passed 150/154. This run includes TestClient
+exception-policy and lifespan state-propagation inputs, WebSocket lifecycle and
+JSON text/binary inputs, and exact async response-background-task cancellation
+and finalization. The manifest SHA-256 is
+`cd5c7d0494659d80d6c8293fd1eb853e05ff36ef30d651801bb4cf2b47df3acc`; the
 installed package wheel SHA-256 is
-`1c9c2e1663f2c6c9b4accc6cbf414870598676c6d8fd6b21c754a7e696299d46`. The
+`c4a42cbb4b924fee0821d2cfe1e1e19b4bb6b8d5c4b29cc439bc06183756c565`; its
+installed-file tree SHA-256 is
+`5562c495eade138edde694e3b24c5f6cd0193b820f72cea1faf149dcb304789f`. The
 all-target command exits 2 for those four unsupported native callable cases.
 This bounded evidence does not establish full parity.
 
@@ -331,8 +334,8 @@ direct `ServerErrorMiddleware` call-boundary
 parity, broader WebSocket exception flows beyond the three declared cases,
 remaining TestClient exception-propagation modes, arbitrary middleware
 ordering, middleware
-composition, authentication, broader background-task callable and cancellation
-behavior, and concurrency.
+composition, authentication, synchronous background-callback cancellation,
+context variables, and broader background-task error interactions.
 
 ## 4. Optional and edge features
 
@@ -443,28 +446,30 @@ emits each chunk lazily using Rust-built ASGI messages, and sends the final
 empty body event on exhaustion. The byte case is supported by the pinned source
 pass-through branch; upstream has no dedicated raw-bytes test. This evidence
 does not establish arbitrary iterator cancellation, disconnect races,
-background-task callable shapes or cancellation, ASGI 2.4 `OSError` mapping,
-or all memoryview formats.
+synchronous background-callback cancellation, ASGI 2.4 `OSError` mapping, or
+all memoryview formats.
 
 ### Completed bounded goal: Response background task sequencing
 
 [`background-tasks.yaml`](../tests/fixtures/sources/parity/background-tasks.yaml)
-contains twelve package-profile cases with callback mode, arguments, failure,
+contains thirteen package-profile cases with callback mode, arguments, failure,
 callable shape, and task-list construction supplied by each input. They cover
 async and sync functions, bound methods, callable objects, partials, nested
 partials, callback arguments, response-send ordering, worker-thread execution
 for synchronous callbacks, both `BackgroundTasks` construction paths,
 sequential execution, and propagation that stops later tasks after the first
-failure. All twelve cases pass exact comparison against pinned Starlette 1.6.0
-and the installed package. The active fixture crosswalk promotes the
+failure. The cancellation case cancels a response after its async callback
+starts and compares the propagated `CancelledError`, callback cancellation,
+finalizer, and response event tape. All thirteen cases pass exact comparison
+against pinned Starlette 1.6.0 and the installed package. The active fixture crosswalk promotes the
 callable-shape behavior alongside the previously mapped BackgroundTask
 behaviors.
 
-This remains a bounded slice. Task cancellation, context variables,
+This remains a bounded slice. Synchronous callback cancellation, context variables,
 concurrency, and broader middleware/error interactions with background
 failures remain unproven. Four Rust-native Request-dispatch callable rows still
 produce the expected `not_run` status, so the integrated `make test` command
-exits 2 despite all 552 executed comparisons passing.
+exits 2 despite all 687 executed comparisons passing.
 
 ### HTTPException default-response slice: bounded parity verified
 

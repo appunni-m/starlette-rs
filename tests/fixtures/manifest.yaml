@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@11",
+      "input_schema": "migration-parity/parity-input@12",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -10970,6 +10970,17 @@
               "id": "starlette.responses.Response.asgi-call.background-async-task",
               "dimension": "boundary",
               "description": "Attach one async BackgroundTask with input-defined positional and keyword arguments to Response; compare response-send and task start/completion events. Upstream: tests/test_background.py::test_async_task; starlette/background.py:12-23; starlette/responses.py:54-70.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-task-cancellation",
+              "dimension": "boundary",
+              "description": "Cancel the ASGI response task after its async BackgroundTask starts; compare the completed response send tape, task cancellation and finally trace, and propagated CancelledError. Pinned source: starlette/background.py:12-23; starlette/responses.py:54-70.",
               "lanes": [
                 "parity"
               ],

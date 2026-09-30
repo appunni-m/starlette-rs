@@ -8,18 +8,18 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 538 input-only cases in 61 indexed files,
-covering 78 operations and 579 parity requirements. The latest integrated run,
-`b565b6f4-8cc6-42c5-906d-5fb81687e56e`, selected 690 comparisons: 686 passed,
+The active contract contains 539 input-only cases in 61 indexed files,
+covering 78 operations and 580 parity requirements. The latest integrated run,
+`143cd077-f5f7-4c7b-8506-039ea5cd4f3e`, selected 691 comparisons: 687 passed,
 zero failed, zero infrastructure errors, and four Rust-native Python-callable
-comparisons were `not_run`. The Python package passed all 536 comparisons;
-Rust-native passed 150 of 154. The run includes three TestClient exception-policy
-inputs for propagation, 500 synthesis, and completed-response preservation, in
-addition to the lifespan state-propagation, WebSocket lifecycle, and JSON
-text/binary inputs. The target
+comparisons were `not_run`. The Python package passed all 537 comparisons;
+Rust-native passed 150 of 154. The run includes TestClient exception-policy
+inputs for propagation, 500 synthesis, and completed-response preservation,
+lifespan state-propagation, WebSocket lifecycle and JSON text/binary inputs, and
+exact async response-background-task cancellation and finalization. The target
 remains `scope.mode: slice`; this does not claim full compatibility.
 
-The current coverage matrix has 798 source rows: 262 existing input mappings,
+The current coverage matrix has 799 source rows: 263 existing input mappings,
 50 reasoned `not_applicable` rows, and 486 rows in the fixture backlog. These
 figures are derived from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
@@ -34,8 +34,8 @@ direct/Mount unique and mixed 1,001-file count failures. The fixture source is
 [`request-form-multipart.yaml`](../../tests/fixtures/sources/parity/request-form-multipart.yaml).
 Each output comes from the pinned Starlette 1.6.0 oracle and installed package.
 
-The atlas currently has 798 source rows: 486 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 262 existing input mappings.
+The atlas currently has 799 source rows: 486 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 263 existing input mappings.
 The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for the run evidence.
 
@@ -45,7 +45,7 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 798 source rows: 262 existing input mappings, 50 reasoned
+The current matrix has 799 source rows: 263 existing input mappings, 50 reasoned
 `not_applicable` entries, and 486 fixture backlog rows. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
@@ -81,8 +81,9 @@ request and ASGI flows. Exact Python-package parity now covers async Request
 endpoints, synchronous functions, bound methods and partials through AnyIO,
 callable-instance routes invoked as ASGI apps, and basic BackgroundTask and
 BackgroundTasks execution. Response-attached tasks also cover bound-method,
-callable-object, and partial callable shapes. The remaining boundary work includes
-background cancellation, broader exception identity/chaining,
+callable-object, and partial callable shapes, plus async cancellation after the
+callback starts with cancellation and finalizer observations. Remaining boundary
+work includes synchronous background-callback cancellation, broader exception identity/chaining,
 streaming backpressure, broader lifespan state and concurrency, and other
 Python/Rust ownership decisions. The new bounded generator-lifespan slice covers sync and
 async entry/cleanup, startup/shutdown failures, synchronous callback-call
@@ -204,7 +205,7 @@ assert exact parity before the coordinated gate records that result.
 ## P3 — Expand by atlas requirements
 
 Implement routing, connections, requests/responses, middleware, authentication,
-remaining background-task cancellation behavior, data structures,
+synchronous background-task cancellation behavior and remaining data structures,
 forms/uploads, remaining StaticFiles edge cases, templates,
 schemas, configuration, and TestClient in dependency-aware groups. The mapped
 WSGI middleware, `build_environ`, and import-deprecation behaviors now have

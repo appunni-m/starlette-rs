@@ -235,6 +235,7 @@ def _input_background_tasks(
     spec: dict[str, Any],
     execution_trace: list[dict[str, Any]],
     event_loop_thread_id: list[int | None],
+    cancellation_started: asyncio.Event | None = None,
 ) -> Any:
     from starlette.background import BackgroundTask, BackgroundTasks
 
@@ -252,9 +253,33 @@ def _input_background_tasks(
         if task_spec["mode"] == "async":
 
             async def base_callback(*args: Any, **kwargs: Any) -> None:
-                _record_input_background_task(
-                    task_index, args, kwargs, failure, execution_trace, event_loop_thread_id
+                if cancellation_started is None:
+                    _record_input_background_task(
+                        task_index, args, kwargs, failure, execution_trace, event_loop_thread_id
+                    )
+                    return
+
+                execution_trace.append(
+                    {
+                        "event": "task-start",
+                        "task_index": task_index,
+                        "args": _json_safe(args),
+                        "kwargs": _json_safe(kwargs),
+                        "thread": (
+                            "event-loop"
+                            if threading.get_ident() == event_loop_thread_id[0]
+                            else "worker"
+                        ),
+                    }
                 )
+                cancellation_started.set()
+                try:
+                    await asyncio.Event().wait()
+                except asyncio.CancelledError:
+                    execution_trace.append({"event": "task-cancelled", "task_index": task_index})
+                    raise
+                finally:
+                    execution_trace.append({"event": "task-finally", "task_index": task_index})
 
         else:
 
@@ -4909,6 +4934,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         required_fields.add("header_view_probe")
     if "background" in case:
         required_fields.add("background")
+    if "background_control" in case:
+        required_fields.add("background_control")
     if surface == STREAMING_RESPONSE_SURFACE:
         required_fields.add("streaming")
         required_fields.update(
@@ -5083,6 +5110,14 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         ):
             raise ValueError("StreamingResponse failing send input is invalid")
 
+    background_control: dict[str, str] | None = None
+    if "background_control" in case:
+        background_control = _exact_object(
+            case["background_control"], {"kind"}, "Response background control"
+        )
+        if background_control["kind"] != "cancel-after-task-start" or surface != RESPONSE_SURFACE:
+            raise ValueError("Response background control is unsupported")
+
     background_values: list[str] | None = None
     background_tasks_spec: dict[str, Any] | None = None
     if "background" in case:
@@ -5142,6 +5177,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     )
     background_execution_trace = [] if background_tasks_spec is not None else None
     event_loop_thread_id: list[int | None] = [None]
+    background_started = asyncio.Event() if background_control is not None else None
 
     from starlette.responses import JSONResponse, Response, StreamingResponse
 
@@ -5204,7 +5240,10 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         if background_execution_trace is None:
             raise RuntimeError("background tasks require an execution trace")
         response_arguments["background"] = _input_background_tasks(
-            background_tasks_spec, background_execution_trace, event_loop_thread_id
+            background_tasks_spec,
+            background_execution_trace,
+            event_loop_thread_id,
+            background_started,
         )
     response = response_type(**response_arguments)
     try:
@@ -5297,9 +5336,32 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 receive_gate.set()
         send_index += 1
 
-    captured_error: Exception | None = None
+    captured_error: BaseException | None = None
     try:
-        asyncio.run(response(scope, receive, send))
+        if background_control is None:
+            asyncio.run(response(scope, receive, send))
+        else:
+
+            async def dispatch_and_cancel_background() -> None:
+                if background_started is None:
+                    raise RuntimeError("background cancellation event is unavailable")
+                response_task = asyncio.create_task(response(scope, receive, send))
+                try:
+                    await asyncio.wait_for(background_started.wait(), timeout=5.0)
+                except BaseException:
+                    response_task.cancel()
+                    try:
+                        await response_task
+                    except BaseException:
+                        pass
+                    raise
+                response_task.cancel()
+                await response_task
+
+            try:
+                asyncio.run(dispatch_and_cancel_background())
+            except asyncio.CancelledError as exc:
+                captured_error = exc
     except Exception as exc:
         if send_error_spec is None and background_tasks_spec is None:
             raise

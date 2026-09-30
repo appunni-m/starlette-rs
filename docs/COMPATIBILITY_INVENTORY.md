@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 538 input-only cases across 61 files,
-covering 78 operations and 579 parity requirements. The authored cases span
+The active parity manifest indexes 539 input-only cases across 61 files,
+covering 78 operations and 580 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
@@ -29,20 +29,20 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest full-slice parity run `b565b6f4-8cc6-42c5-906d-5fb81687e56e` ran against
+Latest full-slice parity run `143cd077-f5f7-4c7b-8506-039ea5cd4f3e` ran against
 the pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T17:28:53.314Z` to `2026-09-30T17:31:01.836Z`. It selected 690
-profile comparisons: 686 passed, zero failed, zero infrastructure errors, and
+`2026-09-30T17:56:11.852Z` to `2026-09-30T17:57:58.236Z`. It selected 691
+profile comparisons: 687 passed, zero failed, zero infrastructure errors, and
 four unsupported Rust-native Python-callable comparisons were `not_run`. The
-installed Python package passed all 536 selected comparisons; Rust-native
-passed 150 of 154. The run includes the three TestClient exception-policy
-inputs and the exact lifespan state-propagation comparison across HTTP and
-WebSocket requests. The manifest SHA-256 is
-`8babb9a7c3758c9aaf1931a8d2132eb783965b28fd3a1435c738a5835f06ef23`; the
+installed Python package passed all 537 selected comparisons; Rust-native
+passed 150 of 154. The run includes the TestClient state and exception-policy
+inputs plus exact async background-task cancellation and finalization. The
+manifest SHA-256 is
+`cd5c7d0494659d80d6c8293fd1eb853e05ff36ef30d651801bb4cf2b47df3acc`; the
 installed package wheel SHA-256 is
-`1c9c2e1663f2c6c9b4accc6cbf414870598676c6d8fd6b21c754a7e696299d46`, and its
+`c4a42cbb4b924fee0821d2cfe1e1e19b4bb6b8d5c4b29cc439bc06183756c565`, and its
 installed-file tree SHA-256 is
-`f1ab17b2c0105ee03ec400c5e10fd67501e01d09996094b240dbe95923ee1e70c`. The
+`5562c495eade138edde694e3b24c5f6cd0193b820f72cea1faf149dcb304789f`. The
 all-target command exits 2 because of the four unsupported Rust-native callable
 cases. This bounded run is not full Starlette parity.
 
@@ -62,7 +62,7 @@ package wheel SHA-256 was
 `badc85e17febe7dabcc38538fb6e695c63b49d74875841fa16ed649d2688b033`. This is
 benchmark evidence for that lane only; the full compatibility denominator
 remains incomplete. The latest source inventory check dispositioned all 999
-API candidate rows. The generated coverage matrix has 798 source rows: 262
+API candidate rows. The generated coverage matrix has 799 source rows: 263
 existing input mappings, 50 reasoned `not_applicable` rows, and 486 fixture
 backlog rows.
 
@@ -342,7 +342,7 @@ application-level Router-miss 404 handler input,
 post-construction `Starlette.add_route` coverage, Request.form URL-encoded
 limit and multipart boundary/count/charset inputs,
 one bounded native `HostPattern` port-and-capture input,
-twelve Response background-task workflows, six
+thirteen Response background-task workflows, six
 header-view and raw-pair probes, and a Router sequence that verifies live
 route-method and route-list mutations across
 dispatches, twenty URL scope-construction cases,

@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@11"
+INPUT_SCHEMA = "migration-parity/parity-input@12"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -499,6 +499,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_failure": "starlette.responses.Response.asgi-call.background-task-failure-stops",
     "task_sequence_constructor": "starlette.responses.Response.asgi-call.background-task-sequence-constructor",
     "callable_shapes": "starlette.responses.Response.asgi-call.background-callable-shapes",
+    "task_cancellation": "starlette.responses.Response.asgi-call.background-task-cancellation",
 }
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
 FILE_RESPONSE_ASYNC_FILE_OPEN_SCHEDULING_REQUIREMENT = (
@@ -3469,6 +3470,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             "header_actions",
             "header_view_probe",
             "background",
+            "background_control",
         )
         if key in case
     }
@@ -3477,6 +3479,21 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("case is outside the declared Response asgi-call operations")
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ContractError("Response observations must select asgi-call")
+    background_control = None
+    if "background_control" in case:
+        background_control = _exact(
+            case["background_control"],
+            {"kind"},
+            "Response background control",
+        )
+        if background_control["kind"] != "cancel-after-task-start":
+            raise ContractError("Response background control kind is unsupported")
+        if case["surface"] != RESPONSE_SURFACE or "background" not in case:
+            raise ContractError(
+                "Response background cancellation requires a Response background task"
+            )
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError("Response background cancellation is Python-package-only")
     if type(case["status_code"]) is not int or case["status_code"] not in {200, 204}:
         raise ContractError("Response status_code must be 200 or 204 for this input slice")
     header_pairs = case["header_pairs"]
@@ -3700,7 +3717,19 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         )
                     has_callable_shape |= callable_kind != "function"
 
-            if kind == "single-task":
+            if background_control is not None:
+                if (
+                    kind != "single-task"
+                    or len(tasks) != 1
+                    or tasks[0]["mode"] != "async"
+                    or failures
+                    or has_callable_shape
+                ):
+                    raise ContractError(
+                        "Response background cancellation requires one async function task"
+                    )
+                derived = [RESPONSE_BACKGROUND_REQUIREMENTS["task_cancellation"]]
+            elif kind == "single-task":
                 derived = [
                     RESPONSE_BACKGROUND_REQUIREMENTS[
                         "async_task" if tasks[0]["mode"] == "async" else "sync_task"
@@ -9215,6 +9244,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = expected_case_keys | {"header_view_probe"}
     if isinstance(case, dict) and "background" in case and is_response:
         expected_case_keys = expected_case_keys | {"background"}
+    if isinstance(case, dict) and "background_control" in case and is_response:
+        expected_case_keys = expected_case_keys | {"background_control"}
     if is_file_response and isinstance(case, dict):
         expected_case_keys = expected_case_keys | (
             {
