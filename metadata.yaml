@@ -150,6 +150,16 @@
       ]
     },
     {
+      "surface_id": "starlette.endpoints.HTTPEndpoint",
+      "source_path": "starlette/endpoints.py:17",
+      "operations": [
+        {
+          "operation_id": "dispatch",
+          "source_path": "starlette.endpoints.HTTPEndpoint.__init__, starlette.endpoints.HTTPEndpoint.__await__, starlette.endpoints.HTTPEndpoint.dispatch, and starlette.endpoints.HTTPEndpoint.method_not_allowed"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.exceptions",
       "source_path": "starlette/exceptions.py:7",
       "operations": [

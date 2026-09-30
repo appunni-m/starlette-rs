@@ -287,7 +287,8 @@
       "build/parity/inputs/parity/templating-runtime.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
       "build/parity/inputs/parity/request-form-multipart.json",
-      "build/parity/inputs/parity/websocket-endpoint-dispatch.json"
+      "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
+      "build/parity/inputs/parity/http-endpoint-dispatch.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -14971,6 +14972,182 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This Jinja2 behavior is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.endpoints.HTTPEndpoint",
+      "kind": "type",
+      "source_path": "starlette/endpoints.py:17",
+      "storage_slug": "starlette-endpoints-HTTPEndpoint",
+      "operations": [
+        {
+          "id": "dispatch",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.endpoints.HTTPEndpoint.__init__, starlette.endpoints.HTTPEndpoint.__await__, starlette.endpoints.HTTPEndpoint.dispatch, and starlette.endpoints.HTTPEndpoint.method_not_allowed",
+            "signature": "Construct an HTTPEndpoint subclass from an input-selected HTTP handler; invoke its awaitable ASGI interface with (scope, receive, send).",
+            "parameters": [
+              {
+                "id": "endpoint",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  }
+                },
+                {
+                  "path": "asgi_event_order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the HTTPEndpoint Python class or its ASGI consumer interface.",
+                "blocker": "This input compares the documented starlette.endpoints.HTTPEndpoint class as a direct ASGI application."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.endpoints.HTTPEndpoint",
+              "signature": "HTTPEndpoint subclass invoked through its awaitable ASGI interface",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.endpoints.HTTPEndpoint.dispatch.direct-asgi-application",
+              "dimension": "boundary",
+              "description": "Invoke an HTTPEndpoint subclass directly as an ASGI application and observe the response status, headers, bytes, and event order. Pinned source: starlette/endpoints.py:17-62; docs/endpoints.md:5-46.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only direct-ASGI comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Direct HTTPEndpoint class invocation is outside the active benchmark workloads."
           }
         }
       ]

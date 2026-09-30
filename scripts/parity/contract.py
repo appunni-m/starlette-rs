@@ -68,6 +68,12 @@ WEBSOCKET_ENDPOINT_OPERATION_KEY = (
     WEBSOCKET_ENDPOINT_SURFACE,
     WEBSOCKET_ENDPOINT_OPERATION,
 )
+HTTP_ENDPOINT_SURFACE = "starlette.endpoints.HTTPEndpoint"
+HTTP_ENDPOINT_OPERATION = "dispatch"
+HTTP_ENDPOINT_OPERATION_KEY = (HTTP_ENDPOINT_SURFACE, HTTP_ENDPOINT_OPERATION)
+HTTP_ENDPOINT_REQUIREMENTS = {
+    "direct_asgi": f"{HTTP_ENDPOINT_SURFACE}.{HTTP_ENDPOINT_OPERATION}.direct-asgi-application",
+}
 WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "lifecycle": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.lifecycle",
     "connect": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-connect-subprotocols",
@@ -278,6 +284,12 @@ WEBSOCKET_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
 WEBSOCKET_ENDPOINT_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "endpoint",
     "sessions",
+}
+HTTP_ENDPOINT_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "endpoint",
+    "scope",
+    "incoming",
+    "send",
 }
 STATUS_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "public_names",
@@ -1440,6 +1452,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION),
                             (WEBSOCKET_CLOSE_SURFACE, WEBSOCKET_CLOSE_OPERATION),
                             WEBSOCKET_ENDPOINT_OPERATION_KEY,
+                            HTTP_ENDPOINT_OPERATION_KEY,
                             SESSION_WORKFLOW_OPERATION_KEY,
                             BASE_HTTP_WORKFLOW_OPERATION_KEY,
                         }
@@ -2440,6 +2453,50 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             "WebSocket case claims requirements not exercised by its convenience sequence: "
             f"{sorted(unexercised)}"
         )
+
+
+def _validate_http_endpoint_case_stimulus(case: dict[str, Any]) -> None:
+    if (case["surface"], case["operation"]) != HTTP_ENDPOINT_OPERATION_KEY:
+        raise ContractError("HTTPEndpoint cases must use the declared dispatch operation")
+    if case["observations"] != [HTTP_ENDPOINT_OPERATION]:
+        raise ContractError("HTTPEndpoint cases must observe the dispatch result")
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("HTTPEndpoint dispatch selects only the Python-package profile")
+
+    endpoint = _validate_http_class_endpoint_input(
+        case["endpoint"],
+        [],
+        "HTTPEndpoint endpoint input",
+    )
+    handlers = endpoint["handlers"]
+    if (
+        len(handlers) != 1
+        or handlers[0]["name"] != "get"
+        or handlers[0]["call_style"] != "async"
+        or handlers[0]["response"]["kind"] != "plain-text-response"
+    ):
+        raise ContractError(
+            "direct HTTPEndpoint input requires one asynchronous GET plain-text handler"
+        )
+
+    scope = case["scope"]
+    if (
+        not isinstance(scope, dict)
+        or scope.get("method") != "GET"
+        or scope.get("path") != "/"
+        or scope.get("root_path") != ""
+        or scope.get("query_string_base64") != ""
+        or scope.get("headers_base64_pairs") != []
+    ):
+        raise ContractError("direct HTTPEndpoint input must use the declared GET / scope")
+    _validate_dispatch_stimulus(
+        {"scope": scope, "receive": case["incoming"], "send": case["send"]},
+        request_dispatch=True,
+    )
+    if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
+        raise ContractError("direct HTTPEndpoint dispatch uses empty receive and captured send")
+    if case["covers"] != [HTTP_ENDPOINT_REQUIREMENTS["direct_asgi"]]:
+        raise ContractError("HTTPEndpoint covers must match its direct ASGI dispatch input")
 
 
 def _validate_websocket_close_case_stimulus(case: dict[str, Any]) -> None:
@@ -7129,6 +7186,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == WEBSOCKET_ENDPOINT_OPERATION_KEY
     )
+    is_http_endpoint = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == HTTP_ENDPOINT_OPERATION_KEY
+    )
     is_websocket_close = isinstance(case, dict) and case.get("surface") == WEBSOCKET_CLOSE_SURFACE
     is_websocket_route = (
         isinstance(case, dict)
@@ -7231,6 +7292,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     expected_case_keys = (
         WEBSOCKET_CASE_KEYS
         if is_websocket
+        else HTTP_ENDPOINT_CASE_KEYS
+        if is_http_endpoint
         else WEBSOCKET_ENDPOINT_CASE_KEYS
         if is_websocket_endpoint
         else WEBSOCKET_CLOSE_CASE_KEYS
@@ -7381,6 +7444,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             WEBSOCKET_CONVENIENCE_OPERATION,
         }:
             raise ContractError("WebSocket cases must use a declared sequence operation")
+    elif is_http_endpoint:
+        if case["operation"] != HTTP_ENDPOINT_OPERATION:
+            raise ContractError("HTTPEndpoint cases must use the declared dispatch operation")
     elif is_websocket_endpoint:
         if case["operation"] != WEBSOCKET_ENDPOINT_OPERATION:
             raise ContractError("WebSocketEndpoint cases must use the declared dispatch operation")
@@ -7507,6 +7573,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     selected_profile_ids = set(selected_profiles)
     if is_websocket_endpoint and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("WebSocketEndpoint dispatch selects only the Python-package profile")
+    if is_http_endpoint and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError("HTTPEndpoint dispatch selects only the Python-package profile")
     if is_session_workflow and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("SessionMiddleware cases select only the Python-package profile")
     if is_base_http_workflow and selected_profiles != ["python-package-cpython312"]:
@@ -7622,6 +7690,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             _validate_websocket_convenience_case_stimulus(case)
         else:
             _validate_websocket_case_stimulus(case)
+        return case
+    if is_http_endpoint:
+        _validate_http_endpoint_case_stimulus(case)
         return case
     if is_websocket_endpoint:
         _validate_websocket_endpoint_case_stimulus(case)

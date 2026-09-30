@@ -43,6 +43,8 @@ WEBSOCKET_STATE_OPERATION = "state-sequence"
 WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
 WEBSOCKET_ENDPOINT_SURFACE = "starlette.endpoints.WebSocketEndpoint"
 WEBSOCKET_ENDPOINT_OPERATION = "dispatch"
+HTTP_ENDPOINT_SURFACE = "starlette.endpoints.HTTPEndpoint"
+HTTP_ENDPOINT_OPERATION = "dispatch"
 WEBSOCKET_CLOSE_SURFACE = "starlette.websockets.WebSocketClose"
 WEBSOCKET_CLOSE_OPERATION = "call-sequence"
 WEBSOCKET_ROUTE_SURFACE = "starlette.routing.WebSocketRoute"
@@ -2490,6 +2492,117 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
                 "status": "ok",
                 "value": {"dispatch": {"connections": connection_results}},
             }
+        ],
+    }
+
+
+async def _await_http_endpoint(
+    endpoint_type: Any,
+    scope: dict[str, Any],
+    receive: Any,
+    send: Any,
+) -> None:
+    await endpoint_type(scope, receive, send)
+
+
+def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "endpoint",
+            "scope",
+            "incoming",
+            "send",
+            "observations",
+        },
+        "HTTPEndpoint dispatch case",
+    )
+    if case["surface"] != HTTP_ENDPOINT_SURFACE or case["operation"] != HTTP_ENDPOINT_OPERATION:
+        raise ValueError("workflow is outside the declared HTTPEndpoint dispatch operation")
+    if case["observations"] != [HTTP_ENDPOINT_OPERATION]:
+        raise ValueError("HTTPEndpoint observations must select the dispatch workflow")
+    if case["send"] != {"kind": "capture-asgi-send"}:
+        raise ValueError("send input must select the declared ASGI message collector")
+
+    from starlette.endpoints import HTTPEndpoint
+    from starlette.responses import PlainTextResponse
+
+    endpoint_spec = case["endpoint"]
+    _exact_object(endpoint_spec, {"kind", "handlers"}, "HTTP class endpoint input")
+    if endpoint_spec["kind"] != "http-class-based-endpoint" or len(endpoint_spec["handlers"]) != 1:
+        raise ValueError("HTTPEndpoint input must define one HTTP class handler")
+    handler_spec = endpoint_spec["handlers"][0]
+    _exact_object(handler_spec, {"name", "call_style", "response"}, "HTTP class endpoint handler")
+    response_spec = handler_spec["response"]
+    _exact_object(
+        response_spec,
+        {"kind", "content", "status_code", "media_type"},
+        "HTTP class endpoint response",
+    )
+    if response_spec["kind"] != "plain-text-response" or handler_spec["name"] != "get":
+        raise ValueError("HTTPEndpoint direct input must select its GET plain-text handler")
+
+    async def get(_self: Any, _request: Any) -> Any:
+        return PlainTextResponse(
+            content=response_spec["content"],
+            status_code=response_spec["status_code"],
+            media_type=response_spec["media_type"],
+        )
+
+    endpoint_type = type("InputHTTPEndpoint", (HTTPEndpoint,), {"get": get})
+    scope = _make_scope(case["scope"])
+    incoming = [_make_message(item) for item in case["incoming"]]
+    incoming_index = 0
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        nonlocal incoming_index
+        if incoming_index >= len(incoming):
+            return {"type": "http.disconnect"}
+        message = incoming[incoming_index]
+        incoming_index += 1
+        return message
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    asyncio.run(_await_http_endpoint(endpoint_type, scope, receive, send))
+    if incoming_index != len(incoming):
+        raise ValueError("HTTPEndpoint dispatch left supplied ASGI input unconsumed")
+    events = [_canonical_message(message) for message in sent]
+    response_start = next(
+        (message for message in sent if message["type"] == "http.response.start"), None
+    )
+    response_start_event = next(
+        (event for event in events if event["type"] == "http.response.start"), None
+    )
+    response_body = b"".join(
+        message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+    )
+    observation = {
+        "response_status": response_start["status"] if response_start is not None else None,
+        "ordered_repeated_headers": (
+            response_start_event["headers"] if response_start_event is not None else []
+        ),
+        "response_bytes": (
+            {"encoding": "base64", "data": base64.b64encode(response_body).decode("ascii")}
+            if response_start is not None
+            else None
+        ),
+        "asgi_event_order": [event["type"] for event in events],
+        "asgi_events": events,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": HTTP_ENDPOINT_OPERATION, "status": "ok", "value": observation}
         ],
     }
 
@@ -8345,6 +8458,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == WEBSOCKET_ENDPOINT_OPERATION
     ):
         return _run_websocket_endpoint_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == HTTP_ENDPOINT_SURFACE
+        and case.get("operation") == HTTP_ENDPOINT_OPERATION
+    ):
+        return _run_http_endpoint_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == WEBSOCKET_SURFACE
