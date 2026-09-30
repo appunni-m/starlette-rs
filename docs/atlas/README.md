@@ -25,29 +25,30 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 556 input-only cases across
-64 indexed files, 80 operations, and 593 requirements. The latest full-slice run `47e84033-64e5-4ebf-a214-c92e3fa5e4e2` ran from
-`2026-09-30T21:57:40.515Z` to `2026-09-30T21:59:34.460Z` against Starlette 1.6.0
-at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 714 profile
-comparisons: 710 passed, zero failed, zero infrastructure errors, and four
+active and incomplete. The current contract has 557 input-only cases across
+64 indexed files, 80 operations, and 594 requirements. The latest full-slice run `410877e9-85c4-4a6e-9af8-316adbe88763` ran from
+`2026-09-30T22:38:19.189Z` to `2026-09-30T22:40:14.041Z` against Starlette 1.6.0
+at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 715 profile
+comparisons: 711 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-554 selected comparisons; Rust-native passed 156 of 160. All three
-`Starlette.add_middleware` workflows passed exact comparison. The target used a
-dirty working tree, with package tree SHA-256
-`a56a4eaa803faaed6870bd1759f5660b76eadf8aa6a3e3b24a7dfd75ce32e2d1` and wheel
-SHA-256 `dc3450c375d6c03b504138a4a150a7a8bd909f7aa9c0060cf77f6f56d2b33a00`.
+555 selected comparisons; Rust-native passed 156 of 160. All four
+`Starlette.add_middleware` workflows passed exact comparison, including
+per-application stack caching. The target was clean at revision
+`730040d05514c82d1a6e214a5d2b23764501ac96`, with package tree SHA-256
+`213a1d934b3d565dcad327138b3238418d42902978053d4e6a458ad773e76cb3` and wheel
+SHA-256 `f6aad2ea591cec1c2d5c2a346871d565cc3d1f14ec9a01680af693f537e7e268`.
 The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
 and callable-instance Request dispatch cases. `make parity-run` exits with
 status 2 for those declared Python-callable boundaries. Manifest SHA-256:
-`49f1a335065713814bfea854e35e3f66cefd49025cc8e93837f0295e75a1c38a`. This
-bounded, dirty-tree evidence does not establish full Starlette parity or release
+`0487c7dcd3404bde6f6eb425fe8135b869e35b81a2672e0d6ca34b4d7ba246a6`. This
+bounded evidence does not establish full Starlette parity or release
 readiness.
 
-The latest Router/GZip run `9f7518bc-cf46-4d84-a890-7ab4c19644f3` measured all
+The latest Router/GZip run `a4014be0-3606-464a-b00e-b6983fe293e6` measured all
 74 source/package workloads after parity preflight
-`8a1f0e0b-e3d7-4241-a7b6-6b809638ae2c`. Median source/package ratios were
-0.761 for Router and 0.978 for GZip; source was faster on five of six Router
-workloads and 60 of 68 GZip workloads. See
+`410877e9-85c4-4a6e-9af8-316adbe88763`. Median source/package ratios were
+0.748 for Router and 0.974 for GZip; source was faster on five of six Router
+workloads and 61 of 68 GZip workloads. See
 [Benchmark mapping](../BENCHMARKS.md)
 for the timing summary and limits. These bounded results do not establish full
 compatibility.
@@ -236,7 +237,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 799 source rows:
-281 `existing` mappings, 468 `backlog` rows, and 50 reasoned `not_applicable`
+282 `existing` mappings, 467 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -284,8 +285,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 516 `supported`, 285
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 799
-source rows: 281 existing input mappings, 50 reasoned `not_applicable`
-entries, and 468 input-only backlog rows. These counts describe the current
+source rows: 282 existing input mappings, 50 reasoned `not_applicable`
+entries, and 467 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

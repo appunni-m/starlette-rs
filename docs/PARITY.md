@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 556 input-only cases in 64 indexed files, covering 80 operations and 593 parity requirements. The cases cover Starlette applications and route inventory, including `add_middleware` argument forwarding, middleware order and stack reuse, and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 557 input-only cases in 64 indexed files, covering 80 operations and 594 parity requirements. The cases cover Starlette applications and route inventory, including `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,37 +8,42 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice run `47e84033-64e5-4ebf-a214-c92e3fa5e4e2` ran from
-`2026-09-30T21:57:40.515Z` to `2026-09-30T21:59:34.460Z` against Starlette 1.6.0
-at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 714 profile
-comparisons: 710 passed, zero failed, zero infrastructure errors, and four
-Rust-native Python-callable rows were `not_run`. The Python package passed all
-554 selected comparisons; Rust-native passed 156 of 160. All three
-`Starlette.add_middleware` workflows passed exact comparison. The target used a
-dirty working tree, with package tree SHA-256
-`a56a4eaa803faaed6870bd1759f5660b76eadf8aa6a3e3b24a7dfd75ce32e2d1` and wheel
-SHA-256 `dc3450c375d6c03b504138a4a150a7a8bd909f7aa9c0060cf77f6f56d2b33a00`.
+The latest full-slice parity preflight `410877e9-85c4-4a6e-9af8-316adbe88763`
+ran from `2026-09-30T22:38:19.189Z` to `2026-09-30T22:40:14.041Z` against
+Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 715
+profile comparisons: 711 passed, zero failed, zero infrastructure errors, and
+four Rust-native Python-callable rows were `not_run`. The Python package passed
+all 555 selected comparisons; Rust-native passed 156 of 160. All four
+`Starlette.add_middleware` workflows passed exact comparison, including the
+two-application stack-cache case. The target was clean at revision
+`730040d05514c82d1a6e214a5d2b23764501ac96`, with package tree SHA-256
+`213a1d934b3d565dcad327138b3238418d42902978053d4e6a458ad773e76cb3` and wheel
+SHA-256 `f6aad2ea591cec1c2d5c2a346871d565cc3d1f14ec9a01680af693f537e7e268`.
 The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
 and callable-instance Request dispatch cases. `make parity-run` exits with
 status 2 for those declared Python-callable boundaries. Manifest SHA-256:
-`49f1a335065713814bfea854e35e3f66cefd49025cc8e93837f0295e75a1c38a`. This
-bounded, dirty-tree evidence does not establish full Starlette parity or release
-readiness.
+`0487c7dcd3404bde6f6eb425fe8135b869e35b81a2672e0d6ca34b4d7ba246a6`. This
+clean, bounded evidence does not establish full Starlette parity or release
+readiness. Strict aggregation accepts the parity and benchmark artifacts and
+reports `not_proven` because the full compatibility denominator remains
+incomplete.
 
 ## Input-only cases
 
 ### Application middleware registration and lifecycle
 
 [`application-middleware.yaml`](../tests/fixtures/sources/parity/application-middleware.yaml)
-adds three input-only workflows for `Starlette.add_middleware`: class
+adds four input-only workflows for `Starlette.add_middleware`: class
 middleware with distinct positional arguments across lifespan and a later HTTP
 dispatch, a factory with positional and keyword arguments, and the exact error
-after the stack has been initialized. The independent source and package
+after the stack has been initialized, plus a two-application workflow that
+checks stack construction is per application and reuse is per instance. The independent source and package
 adapters materialize their callbacks from the input and compare constructor
 arguments, invocation order, stack state, ASGI events, and exception details.
-All three passed in run
-`47e84033-64e5-4ebf-a214-c92e3fa5e4e2`. The separate-app constructor count in
-the full upstream `test_middleware_stack_init` remains uncovered.
+All four passed in run
+`410877e9-85c4-4a6e-9af8-316adbe88763`. The two-application workflow maps the
+constructor-count behavior in upstream `test_middleware_stack_init`; broader
+built-in/user middleware ordering remains uncovered.
 
 ### Request.state lazy initialization
 
@@ -619,7 +624,7 @@ and the Python `starlette.testclient` methods forward to it.
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 549 Python-package comparisons passed.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 555 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 
