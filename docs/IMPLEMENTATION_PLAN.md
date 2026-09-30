@@ -32,13 +32,15 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 552 input-only cases, 79 operations, and 589
+The current parity contract has 553 input-only cases, 79 operations, and 590
 parity requirements across 63 indexed files. The cases include the
-Starlette.routes property inventory plus direct
+Starlette.routes property inventory, synchronous background-callback
+cancellation, and direct
 Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
 interleaved consumers, plus lazy Request.state initialization through a routed
-request. The latest live source/package/native run
+request. The latest clean live source/package/native run for the previous
+552-case manifest
 `80e14fcd-ac09-4cd9-aea5-299cb4d6300e` ran from
 `2026-09-30T21:08:44.515Z` to `2026-09-30T21:10:38.274Z` and selected 710
 profile comparisons: 706 passed, zero failed, zero infrastructure errors, and
@@ -48,7 +50,9 @@ clean run at commit `cb3fdb1128bb2d6d99ad93dfe51f93c86a2c2ce9`; installed
 package tree SHA-256 was
 `de7bede73015b69bf7969aca89977b17d32156a2dfd1296e0238563d8c8399ff`. The new
 routes case compares ordered HTTP, WebSocket, Mount, and Host route shapes,
-list aliasing, and original route identity. Manifest SHA-256 is
+list aliasing, and original route identity. The additional synchronous
+background cancellation case passes a focused source/package comparison; its
+full-profile comparison is pending. Manifest SHA-256 is
 `a8ed9b924274628820b8bc3e23d013b01829d6ab82bd20def0753db8d85929d2`. This
 bounded evidence does not establish full parity.
 
@@ -334,8 +338,8 @@ direct `ServerErrorMiddleware` call-boundary
 parity, broader WebSocket exception flows beyond the three declared cases,
 remaining TestClient exception-propagation modes, arbitrary middleware
 ordering, middleware
-composition, authentication, synchronous background-callback cancellation,
-context variables, and broader background-task error interactions.
+composition, authentication, additional synchronous background-cancellation
+schedules, context variables, and broader background-task error interactions.
 
 ## 4. Optional and edge features
 
@@ -449,13 +453,13 @@ emits each chunk lazily using Rust-built ASGI messages, and sends the final
 empty body event on exhaustion. The byte case is supported by the pinned source
 pass-through branch; upstream has no dedicated raw-bytes test. This evidence
 does not establish arbitrary iterator cancellation, disconnect races,
-synchronous background-callback cancellation, ASGI 2.4 `OSError` mapping, or
-all memoryview formats.
+synchronous background-callback cancellation through StreamingResponse, ASGI 2.4
+`OSError` mapping, or all memoryview formats.
 
 ### Completed bounded goal: Response background task sequencing
 
 [`background-tasks.yaml`](../tests/fixtures/sources/parity/background-tasks.yaml)
-contains thirteen package-profile cases with callback mode, arguments, failure,
+contains fourteen package-profile cases with callback mode, arguments, failure,
 callable shape, and task-list construction supplied by each input. They cover
 async and sync functions, bound methods, callable objects, partials, nested
 partials, callback arguments, response-send ordering, worker-thread execution
@@ -463,16 +467,17 @@ for synchronous callbacks, both `BackgroundTasks` construction paths,
 sequential execution, and propagation that stops later tasks after the first
 failure. The cancellation case cancels a response after its async callback
 starts and compares the propagated `CancelledError`, callback cancellation,
-finalizer, and response event tape. All thirteen cases pass exact comparison
-against pinned Starlette 1.6.0 and the installed package. The active fixture crosswalk promotes the
+finalizer, and response event tape. The previous integrated run covered and passed thirteen cases. The added
+synchronous cancellation case passes a focused source/package comparison; the
+updated full profile is pending. The active fixture crosswalk promotes the
 callable-shape behavior alongside the previously mapped BackgroundTask
 behaviors.
 
-This remains a bounded slice. Synchronous callback cancellation, context variables,
-concurrency, and broader middleware/error interactions with background
-failures remain unproven. Four Rust-native Request-dispatch callable rows still
-produce the expected `not_run` status, so the integrated `make test` command
-exits 2 despite all 691 executed comparisons passing.
+This remains a bounded slice. Additional synchronous cancellation schedules,
+context variables, concurrency, and broader middleware/error interactions with
+background failures remain unproven. The previous 552-case full run recorded
+four Rust-native Request-dispatch callable rows as `not_run`; the Python package
+passed 550/550 comparisons and Rust-native passed 156/160.
 
 ### HTTPException default-response slice: bounded parity verified
 

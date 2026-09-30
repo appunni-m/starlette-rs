@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 552 input-only cases across 63 files,
-covering 79 operations and 589 parity requirements. The authored cases span
+The active parity manifest indexes 553 input-only cases across 63 files,
+covering 79 operations and 590 parity requirements. The authored cases span
 the Starlette ASGI application and route inventory, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
@@ -29,7 +29,8 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest full-slice parity run `80e14fcd-ac09-4cd9-aea5-299cb4d6300e` ran against
+The latest clean full-slice parity run for the previous 552-case manifest,
+`80e14fcd-ac09-4cd9-aea5-299cb4d6300e`, ran against
 the pinned Starlette 1.6.0 source on CPython 3.12.13, from
 `2026-09-30T21:08:44.515Z` to `2026-09-30T21:10:38.274Z`. It selected 710
 profile comparisons: 706 passed, zero failed, zero infrastructure errors, and
@@ -46,7 +47,10 @@ query-parameter inputs, async background-task cancellation and finalization,
 StaticFiles traversal, and Mount reverse-URL cases. The manifest SHA-256 is
 `a8ed9b924274628820b8bc3e23d013b01829d6ab82bd20def0753db8d85929d2`. The
 all-target command exits 2 because of the four unsupported Rust-native callable
-cases. This bounded run is not full Starlette parity.
+cases. Since that run, one synchronous background-callback cancellation case
+was added; its focused source/package comparison passes exactly, while a full
+profile run for the updated contract remains pending. This bounded run is not
+full Starlette parity.
 
 The latest correctness-gated Router/GZip benchmark run,
 `9f7518bc-cf46-4d84-a890-7ab4c19644f3`, measured all 74 declared source/package

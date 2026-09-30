@@ -25,8 +25,9 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 552 input-only cases across
-63 indexed files, 79 operations, and 589 requirements. Run
+active and incomplete. The current contract has 553 input-only cases across
+63 indexed files, 79 operations, and 590 requirements. The latest clean full
+run covers the previous contract:
 `80e14fcd-ac09-4cd9-aea5-299cb4d6300e` selected 710 comparisons: 706 passed,
 zero failed, zero infrastructure errors, and four Rust-native Python-callable
 comparisons were `not_run`. The Python package passed 550/550; Rust-native
@@ -39,8 +40,10 @@ along with TestClient exception-policy and lifespan state-propagation cases,
 Request.app identity and lazy Request.state initialization, WebSocket lifecycle,
 JSON text/binary, raw query projection and parsed query parameters, async
 background-task cancellation and finalization, and StaticFiles traversal and
-symlink serving plus Mount reverse-URL inputs. The latest direct Request
-inputs cover body, stream, and
+symlink serving plus Mount reverse-URL inputs. A new synchronous
+background-callback cancellation case passes a focused source/package
+comparison and is pending inclusion in the next full run. The latest direct
+Request inputs cover body, stream, and
 JSON consumption, including interleaved streams and an overlapping body/stream
 receive. Two TestClient inputs cover streamed WebSocket denial responses, and
 one FileResponse input observes event-loop progress during FIFO-backed file

@@ -8,8 +8,9 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 552 input-only cases in 63 indexed files,
-covering 79 operations and 589 parity requirements. The latest integrated run,
+The active contract contains 553 input-only cases in 63 indexed files,
+covering 79 operations and 590 parity requirements. The latest clean full run
+covers the previous 552-case contract:
 `80e14fcd-ac09-4cd9-aea5-299cb4d6300e`, selected 710 comparisons: 706 passed,
 zero failed, zero infrastructure errors, and four Rust-native Python-callable
 comparisons were `not_run`. The Python package passed all 550 comparisons;
@@ -22,7 +23,9 @@ includes TestClient exception-policy and lifespan state-propagation inputs,
 Request.app identity and lazy Request.state initialization, WebSocket lifecycle,
 JSON text/binary, raw query projection and parsed query parameters, async
 response-background-task cancellation and finalization, StaticFiles traversal
-and symlink serving, and Mount reverse-URL inputs. The target remains
+and symlink serving, and Mount reverse-URL inputs. A synchronous
+background-callback cancellation case now passes focused source/package parity
+and awaits inclusion in the next full run. The target remains
 `scope.mode: slice`; this does not claim full compatibility.
 
 The current coverage matrix has 799 source rows: 278 existing input mappings,
@@ -88,15 +91,18 @@ endpoints, synchronous functions, bound methods and partials through AnyIO,
 callable-instance routes invoked as ASGI apps, and basic BackgroundTask and
 BackgroundTasks execution. Response-attached tasks also cover bound-method,
 callable-object, and partial callable shapes, plus async cancellation after the
-callback starts with cancellation and finalizer observations. Remaining boundary
-work includes synchronous background-callback cancellation, broader exception identity/chaining,
+callback starts with cancellation and finalizer observations. The new
+synchronous background cancellation input holds the worker callback until
+cancellation reaches the response task, then compares worker completion and
+propagated cancellation; its focused source/package comparison passes.
+Remaining boundary work includes broader exception identity/chaining,
 streaming backpressure, broader lifespan state and concurrency, and other
-Python/Rust ownership decisions. The new bounded generator-lifespan slice covers sync and
-async entry/cleanup, startup/shutdown failures, synchronous callback-call
-failures, special-method lookup, extra-yield errors, and shutdown-error
-suppression. Rust implements the generator context-manager protocol and calls
-the Python generator methods through PyO3. Python owns user callables and event
-loop execution. The
+Python/Rust ownership decisions. The new bounded generator-lifespan slice
+covers sync and async entry/cleanup, startup/shutdown failures, synchronous
+callback-call failures, special-method lookup, extra-yield errors, and
+shutdown-error suppression. Rust implements the generator context-manager
+protocol and calls the Python generator methods through PyO3. Python owns user
+callables and event-loop execution. The
 HTTPException slice covers exceptions raised before response start by
 matched HTTP request-style endpoints, one callable-ASGI exception after
 response start, status-code handler precedence over an HTTPException class
@@ -211,7 +217,7 @@ assert exact parity before the coordinated gate records that result.
 ## P3 — Expand by atlas requirements
 
 Implement routing, connections, requests/responses, middleware, authentication,
-synchronous background-task cancellation behavior and remaining data structures,
+additional synchronous background-task cancellation schedules and remaining data structures,
 forms/uploads, remaining StaticFiles edge cases, templates,
 schemas, configuration, and TestClient in dependency-aware groups. The mapped
 WSGI middleware, `build_environ`, and import-deprecation behaviors now have

@@ -502,6 +502,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_sequence_constructor": "starlette.responses.Response.asgi-call.background-task-sequence-constructor",
     "callable_shapes": "starlette.responses.Response.asgi-call.background-callable-shapes",
     "task_cancellation": "starlette.responses.Response.asgi-call.background-task-cancellation",
+    "sync_task_cancellation": "starlette.responses.Response.asgi-call.background-sync-task-cancellation",
 }
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
 FILE_RESPONSE_ASYNC_FILE_OPEN_SCHEDULING_REQUIREMENT = (
@@ -3746,14 +3747,17 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 if (
                     kind != "single-task"
                     or len(tasks) != 1
-                    or tasks[0]["mode"] != "async"
+                    or tasks[0]["mode"] not in {"async", "sync"}
                     or failures
                     or has_callable_shape
                 ):
                     raise ContractError(
-                        "Response background cancellation requires one async function task"
+                        "Response background cancellation requires one plain-function task"
                     )
-                derived = [RESPONSE_BACKGROUND_REQUIREMENTS["task_cancellation"]]
+                cancellation_requirement = (
+                    "task_cancellation" if tasks[0]["mode"] == "async" else "sync_task_cancellation"
+                )
+                derived = [RESPONSE_BACKGROUND_REQUIREMENTS[cancellation_requirement]]
             elif kind == "single-task":
                 derived = [
                     RESPONSE_BACKGROUND_REQUIREMENTS[
