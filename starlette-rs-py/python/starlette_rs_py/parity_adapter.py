@@ -618,6 +618,18 @@ def _make_message(spec: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _request_form_message(spec: dict[str, Any]) -> dict[str, Any]:
+    if "body_repeat" not in spec:
+        return _make_message(spec)
+    repeat = spec["body_repeat"]
+    pattern = _decode_base64(repeat["pattern_base64"], "receive.body_repeat.pattern_base64")
+    return {
+        "type": spec["type"],
+        "body": pattern * repeat["count"],
+        "more_body": spec["more_body"],
+    }
+
+
 def _materialize_asgi_action(action: Any, index: int) -> tuple[str, Any]:
     if not isinstance(action, dict) or not isinstance(action.get("action"), str):
         raise ValueError(f"ASGI action[{index}] must declare an action kind")
@@ -5261,6 +5273,7 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         "form_close",
         "form_io_trace",
         "receive_error",
+        "file_write_error",
     ):
         if key in case:
             case_fields.add(key)
@@ -5273,10 +5286,11 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.requests import Request
 
     scope = _make_scope(case["scope"])
-    incoming = [_make_message(message) for message in case["receive"]]
+    incoming = [_request_form_message(message) for message in case["receive"]]
     received = 0
     io_trace: list[list[Any]] = []
     tracked_tempfiles: list[Any] = []
+    upload_write_calls = 0
 
     async def receive() -> dict[str, Any]:
         nonlocal received
@@ -5396,6 +5410,15 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             file = original_spooled_tempfile(*args, **kwargs)
             tracked_tempfiles.append(file)
             original_close = file.close
+            creation_thread = threading.get_ident()
+            original_rollover = file.rollover
+
+            def observed_rollover() -> Any:
+                result = original_rollover()
+                io_trace.append(
+                    ["spooled-rollover-worker", threading.get_ident() != creation_thread]
+                )
+                return result
 
             def observed_close() -> Any:
                 result = original_close()
@@ -5403,10 +5426,19 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
                 return result
 
             file.close = observed_close
+            file.rollover = observed_rollover
             return file
 
         async def observed_upload_write(self: Any, data: bytes) -> None:
-            io_trace.append(["upload-write", self.filename, base64.b64encode(data).decode("ascii")])
+            nonlocal upload_write_calls
+            call_index = upload_write_calls
+            upload_write_calls += 1
+            io_trace.append(
+                ["upload-write", self.filename, len(data), hashlib.sha256(data).hexdigest()]
+            )
+            write_error = case.get("file_write_error")
+            if write_error is not None and call_index == write_error["at_call"]:
+                raise RuntimeError(write_error["message"])
             await original_upload_write(self, data)
 
         async def observed_upload_seek(self: Any, offset: int) -> None:

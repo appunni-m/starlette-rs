@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 441 input-only cases across 49 files,
-covering 66 operations and 500 parity requirements. The authored cases span
+The active parity manifest indexes 443 input-only cases across 49 files,
+covering 66 operations and 501 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 StaticFiles, WebSockets, exceptions, status constants, endpoints,
@@ -28,14 +28,15 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `4a3dde0f-ce5c-4ca4-8214-cc248190d71c` ran against the
-pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 589 comparisons:
-585 passed, zero failed, zero infrastructure errors, and four Rust-native
-comparisons were `not_run`. The installed Python package passed all 439 of its
+Latest live parity run `ed42eea2-3040-4b5b-bea5-9a80599c518a` ran against the
+pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 591 comparisons:
+587 passed, zero failed, zero infrastructure errors, and four Rust-native
+comparisons were `not_run`. The installed Python package passed all 441 of its
 selected comparisons. Rust-native passed 146 of 150; the four unsupported
 inputs exercise sync request-dispatch callable forms. Multipart inputs compare
 the text-limit short circuit, file write/seek ordering across request chunks,
-and cleanup after a receive callback error. The all-target command still exits
+cleanup after receive-callback and `UploadFile.write` errors, and rollover of a
+file larger than 1 MiB in a worker thread. The all-target command still exits
 2 for those four unsupported Rust-native cases; this bounded run is not full
 Starlette parity.
 
@@ -317,7 +318,7 @@ crosswalk snapshot, 190 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 49 indexed files
-and 441 cases, including twelve Response background-task workflows, six
+and 443 cases, including twelve Response background-task workflows, six
 header-view and raw-pair probes, and a Router sequence that verifies live
 route-method and route-list mutations across
 dispatches, twenty URL scope-construction cases,
@@ -398,7 +399,9 @@ matches Starlette: the first write occurs before the second receive, both
 writes from the latter chunk precede both seeks, and FormData closes both
 spooled files. A separate input makes the next receive callback raise after
 file bytes have been written; both implementations close the spooled file and
-propagate the same `RuntimeError`. Large-file rollover and worker-thread timing
+propagate the same `RuntimeError`. The large-file input streams an
+input-defined 1 MiB-plus payload, checks its size and write-chunk digests, and
+confirms rollover runs outside the request thread. Other rollover error paths
 remain unproven.
 
 ## WebSocketEndpoint dispatch slice
@@ -495,7 +498,7 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 441 currently indexed cases and
+The backlog distinguishes that work from the 443 currently indexed cases and
 the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
 
 ## Generate the source candidate catalog

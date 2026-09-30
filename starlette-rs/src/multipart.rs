@@ -284,6 +284,7 @@ impl MultipartFormParser {
             }
             if let Some(field) = self.active_field.as_mut() {
                 match Pin::new(field).poll_next(&mut context) {
+                    Poll::Ready(Some(Ok(chunk))) if chunk.is_empty() => {}
                     Poll::Ready(Some(Ok(chunk))) => {
                         let Some(part) = self.active_part.as_mut() else {
                             return Err(MultipartFormParseError::Malformed {

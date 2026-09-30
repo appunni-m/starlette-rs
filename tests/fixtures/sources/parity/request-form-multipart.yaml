@@ -268,6 +268,137 @@
       "observations": [
         "form"
       ]
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-rolls-large-file-in-worker",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.request.form.multipart-file-streaming",
+        "starlette.request.form.multipart-large-file-rollover-worker"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9bGFyZ2Utcm9sbG92ZXItNDQ="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1sYXJnZS1yb2xsb3Zlci00NA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJsYXJnZSI7IGZpbGVuYW1lPSJsYXJnZS5iaW4iDQpDb250ZW50LVR5cGU6IGFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbQ0KDQpoaQ==",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_repeat": {
+            "pattern_base64": "IA==",
+            "count": 1048577
+          },
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "DQotLWxhcmdlLXJvbGxvdmVyLTQ0LS0NCg==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "large"
+      ],
+      "form_io_trace": true,
+      "observations": [
+        "form"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-cleans-files-after-upload-write-error",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-error-file-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9d3JpdGUtZXJyb3ItZGVtby00NQ=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS13cml0ZS1lcnJvci1kZW1vLTQ1DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9InVwbG9hZCI7IGZpbGVuYW1lPSJ3cml0ZS1lcnJvci5iaW4iDQpDb250ZW50LVR5cGU6IGFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbQ0KDQpjaHVuaw==",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "DQotLXdyaXRlLWVycm9yLWRlbW8tNDUtLQ0K",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "form_io_trace": true,
+      "file_write_error": {
+        "at_call": 0,
+        "message": "injected UploadFile.write failure"
+      },
+      "observations": [
+        "form"
+      ]
     }
   ]
 }

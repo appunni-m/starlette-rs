@@ -183,6 +183,7 @@ REQUEST_FORM_OPTIONAL_KEYS = {
     "form_close",
     "form_io_trace",
     "receive_error",
+    "file_write_error",
 }
 UPLOAD_FILE_OPERATION = ("starlette.datastructures.UploadFile", "file-operations")
 STATUS_OPERATION = ("starlette.status", "module-symbol-sequence")
@@ -9373,15 +9374,62 @@ def _first_multipart_file_data_range(content_type: str, body: bytes) -> tuple[in
     return None
 
 
+def _expand_request_form_messages(messages: Any) -> list[dict[str, Any]]:
+    if not isinstance(messages, list):
+        raise ContractError("Request.form receive input must be a list")
+    expanded: list[dict[str, Any]] = []
+    for index, message in enumerate(messages):
+        if not isinstance(message, dict) or "body_repeat" not in message:
+            expanded.append(message)
+            continue
+        _exact(
+            message,
+            {"type", "body_repeat", "more_body"},
+            f"Request.form receive[{index}]",
+        )
+        if message["type"] != "http.request" or type(message["more_body"]) is not bool:
+            raise ContractError("repeated Request.form bodies must be HTTP request messages")
+        repeat = _exact(
+            message["body_repeat"],
+            {"pattern_base64", "count"},
+            f"Request.form receive[{index}].body_repeat",
+        )
+        try:
+            pattern = base64.b64decode(repeat["pattern_base64"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(
+                f"Request.form receive[{index}].body_repeat.pattern_base64 is invalid"
+            ) from exc
+        count = repeat["count"]
+        if (
+            not pattern
+            or type(count) is not int
+            or count < 1
+            or len(pattern) * count > 8 * 1024 * 1024
+        ):
+            raise ContractError(
+                f"Request.form receive[{index}].body_repeat must expand to 1 through 8 MiB"
+            )
+        expanded.append(
+            {
+                "type": message["type"],
+                "body_base64": base64.b64encode(pattern * count).decode("ascii"),
+                "more_body": message["more_body"],
+            }
+        )
+    return expanded
+
+
 def _validate_request_form_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("Request.form parity currently targets the Python package profile")
     if case["assets"] != [] or case["observations"] != ["form"]:
         raise ContractError("Request.form cases must select one form observation without assets")
+    messages = _expand_request_form_messages(case["receive"])
     _validate_dispatch_stimulus(
         {
             "scope": case["scope"],
-            "receive": case["receive"],
+            "receive": messages,
             "send": {"kind": "capture-asgi-send"},
         },
         request_dispatch=True,
@@ -9391,7 +9439,6 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     if case["scope"]["type"] != "http":
         raise ContractError("Request.form requires an HTTP scope")
 
-    messages = case["receive"]
     if (
         not messages
         or any(not message["more_body"] for message in messages[:-1])
@@ -9441,6 +9488,9 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     if "form_io_trace" in case and type(case["form_io_trace"]) is not bool:
         raise ContractError("Request.form form_io_trace must be a boolean")
     receive_error = case.get("receive_error")
+    file_write_error = case.get("file_write_error")
+    if receive_error is not None and file_write_error is not None:
+        raise ContractError("Request.form cannot select receive and file-write errors together")
     if receive_error is not None:
         _exact(receive_error, {"at_call", "message"}, "Request.form receive_error")
         if (
@@ -9454,6 +9504,16 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "Request.form receive_error must fail after a traced multipart chunk"
             )
+    if file_write_error is not None:
+        _exact(file_write_error, {"at_call", "message"}, "Request.form file_write_error")
+        if (
+            type(file_write_error["at_call"]) is not int
+            or file_write_error["at_call"] != 0
+            or not isinstance(file_write_error["message"], str)
+            or not file_write_error["message"]
+            or not case.get("form_io_trace", False)
+        ):
+            raise ContractError("Request.form file_write_error must fail the first traced write")
 
     form_options = case.get("form_options", {})
     if not isinstance(form_options, dict) or set(form_options) - {
@@ -9495,7 +9555,24 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     elif content_type == b"multipart/form-data" and body:
         if not case["scope"]["headers_base64_pairs"]:
             raise ContractError("Request.form multipart cases require Content-Type")
-        if receive_error is not None:
+        if file_write_error is not None:
+            if form_options or form_file_probe_keys or form_access != "await":
+                raise ContractError(
+                    "Request.form file-write-error cleanup cases cannot include options or probes"
+                )
+            file_data_range = _first_multipart_file_data_range(content_type_header or "", body)
+            first_chunk = base64.b64decode(messages[0]["body_base64"], validate=True)
+            if (
+                file_data_range is None
+                or file_data_range[1] <= file_data_range[0]
+                or len(first_chunk) <= file_data_range[0]
+                or not messages[0]["more_body"]
+            ):
+                raise ContractError(
+                    "Request.form file-write-error cases must attempt a write before a later receive"
+                )
+            expected_covers = ["starlette.request.form.multipart-error-file-cleanup"]
+        elif receive_error is not None:
             if form_options or form_file_probe_keys or form_access != "await":
                 raise ContractError(
                     "Request.form receive-error cleanup cases cannot include form options or probes"
@@ -9579,6 +9656,21 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                         "Request.form file streaming traces must split file bytes across receives"
                     )
                 expected_covers.append("starlette.request.form.multipart-file-streaming")
+            if any("body_repeat" in message for message in case["receive"]):
+                file_data_range = _first_multipart_file_data_range(content_type_header or "", body)
+                if (
+                    not case.get("form_io_trace", False)
+                    or file_data_range is None
+                    or file_data_range[1] - file_data_range[0] <= 1024 * 1024
+                    or form_file_probe_keys
+                    or case.get("form_close", False)
+                ):
+                    raise ContractError(
+                        "Request.form repeated-body cases must trace a file larger than the spool threshold"
+                    )
+                expected_covers.append(
+                    "starlette.request.form.multipart-large-file-rollover-worker"
+                )
     elif content_type is None and not body:
         expected_covers = ["starlette.request.form.empty"]
     else:

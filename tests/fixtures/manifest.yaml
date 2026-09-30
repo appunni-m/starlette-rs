@@ -8163,7 +8163,18 @@
             {
               "id": "starlette.request.form.multipart-error-file-cleanup",
               "dimension": "error_path",
-              "description": "Close every temporary upload file when the request receive callback fails after file bytes have been written, then propagate the original exception. Pinned source: starlette/formparsers.py:262-297; tests/test_formparsers.py::test_multipart_closes_tempfile_on_stream_error.",
+              "description": "Close every temporary upload file when request reading or UploadFile.write fails after file creation, then propagate the original exception. Pinned source: starlette/formparsers.py:262-297; starlette/datastructures.py:451-468; tests/test_formparsers.py::test_multipart_closes_tempfile_on_stream_error.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-large-file-rollover-worker",
+              "dimension": "runtime",
+              "description": "For a file larger than the 1 MiB spool threshold, roll the standard spooled file in a worker thread while parsing and writing file data through UploadFile. Pinned source: starlette/formparsers.py:157-180; starlette/datastructures.py:451-468; tests/test_formparsers.py::test_multipart_request_large_file_rollover_in_background_thread.",
               "lanes": [
                 "parity"
               ],
