@@ -22,9 +22,10 @@ The latest invocation, `fb8e8c4c-8ac0-462e-b4a2-123648d00c3d`, ran from
 `2026-09-30T02:07:29.337Z` to `2026-09-30T02:09:09.070Z`. It is `not_proven`:
 the correctness preflight selected 578 comparisons, of which 571 passed, zero
 failed, zero hit infrastructure errors, and seven were `not_run`. Four are
-existing Rust-native Python-callable gaps; three are the new declared partial
-`WebSocketEndpoint` package gaps. The strict package preflight therefore
-timed zero of the 74 workloads. The run recorded target checkout revision
+separate Rust-native Python-callable gaps; three are the new declared partial
+`WebSocketEndpoint` Python-package gaps. The package profile passed 425 of its
+428 comparisons, so the strict source/package preflight timed zero of the 74
+workloads. The Rust-native gaps did not affect that gate. The run recorded target checkout revision
 `644715b2ab6e26a12c5106682cb764e9204744f8`, `dirty: true`, and working-tree
 SHA-256 `9d1ccfe2374568b15266e56b02aa1bcffdd07734f8be72400c8a85da5446136c`.
 Its manifest SHA-256 is
@@ -72,7 +73,7 @@ are ignored local outputs and are not committed.
 
 | Evidence | Artifact | Result |
 | --- | --- | --- |
-| Router/GZip upstream runner, latest invocation | `build/parity/upstream-benchmark-result.json` | `not_proven`; run `fb8e8c4c-8ac0-462e-b4a2-123648d00c3d`; 0/74 timed because the preflight had 3 declared WebSocket package gaps and 4 Rust-native gaps |
+| Router/GZip upstream runner, latest invocation | `build/parity/upstream-benchmark-result.json` | `not_proven`; run `fb8e8c4c-8ac0-462e-b4a2-123648d00c3d`; 0/74 timed because three declared WebSocket package cases were `not_run` |
 | Router/GZip upstream runner, preceding measured run | `build/parity/upstream-benchmark-result.json` | Historical `completed`; run `1010b562-e52a-43a5-8827-f486074e093b`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 Rust-native workloads unsupported |
 | Router/GZip upstream runner, earlier failed preflight | `build/parity/upstream-benchmark-result.json` | Historical `not_proven`; run `2311eb92-753a-4d59-a882-a0d06ef1970e`; 0/74 measured because two debug traceback comparisons failed preflight |
 | Direct-ASGI smoke correctness | `build/parity/benchmark-correctness-result.json` | Historical smoke gate; separate from the 74-workload runner |
