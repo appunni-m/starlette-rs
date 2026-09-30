@@ -12144,12 +12144,15 @@
           "targets": [
             {
               "target_id": "rust-native",
-              "path": null,
-              "signature": null,
+              "path": "starlette_rs::NamedRouteTable::url_path_for",
+              "signature": "url_path_for(&self, name: &str, path_params: &[(String, String)]) -> Result<RouteUrlPath, NamedRouteError>",
               "support": {
-                "status": "unimplemented",
-                "reason": "The Rust-native public API does not declare the Python named URL lookup interface.",
-                "blocker": "No Rust-native named Route/Router/Mount reverse lookup API is exposed for this compatibility operation."
+                "status": "partial",
+                "reason": "Rust-native NamedRouteTable supports ordered reverse lookup for flat, directly named HTTP routes using built-in converters and converter-formatted string parameters. Nested Mount or Host routes, WebSocket routes, Python custom converters, and Python exception mapping for converter failures are unsupported.",
+                "missing_requirements": [
+                  "starlette.routing.Router.url_path_for.outside-flat-built-in-http-scope",
+                  "starlette.routing.Router.url_path_for.native-error-mapping"
+                ]
               }
             },
             {
@@ -12165,22 +12168,24 @@
             {
               "id": "starlette.routing.Router.url_path_for.first-success",
               "dimension": "success_path",
-              "description": "Router skips earlier NoMatchFound results and returns the first later matching route.",
+              "description": "For flat direct HTTP routes using built-in converters, Router skips earlier NoMatchFound results and returns the first later matching route.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
             {
               "id": "starlette.routing.Router.url_path_for.mismatch",
               "dimension": "error_path",
-              "description": "Router raises NoMatchFound when every route rejects the requested name or parameter set.",
+              "description": "For a flat direct HTTP route using built-in converters, Router raises NoMatchFound when the route rejects the requested name or parameter set.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             }
@@ -12188,6 +12193,7 @@
           "parity": {
             "applicability": "required",
             "target_profiles": [
+              "rust-native-local",
               "python-package-cpython312"
             ]
           },

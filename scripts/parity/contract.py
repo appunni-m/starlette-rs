@@ -322,6 +322,12 @@ WEBSOCKET_ROUTE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
 WEBSOCKET_ROUTE_OBSERVATIONS = (WEBSOCKET_ROUTE_OPERATION,)
 ROUTER_SURFACE = "starlette.routing.Router"
 ROUTER_OPERATION = "route-dispatch"
+ROUTER_URL_PATH_FOR_OPERATION = "url_path_for"
+ROUTER_URL_PATH_FOR_OPERATION_KEY = (ROUTER_SURFACE, ROUTER_URL_PATH_FOR_OPERATION)
+ROUTER_URL_PATH_FOR_NATIVE_GAP = (
+    "starlette.routing.Router.url_path_for.outside-flat-built-in-http-scope"
+)
+ROUTER_URL_PATH_FOR_ERROR_MAPPING_GAP = "starlette.routing.Router.url_path_for.native-error-mapping"
 ROUTER_HTTP_ENDPOINT_REQUIREMENTS = {
     "class_route": "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
     "async_handler": "starlette.routing.Router.route-dispatch.http-endpoint-async-handler",
@@ -636,6 +642,9 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
     ),
     (ROUTER_SURFACE, ROUTER_OPERATION, "rust-native"): frozenset(
         {"starlette.routing.Router.route-dispatch.python-callable-endpoint"}
+    ),
+    (ROUTER_SURFACE, ROUTER_URL_PATH_FOR_OPERATION, "rust-native"): frozenset(
+        {ROUTER_URL_PATH_FOR_NATIVE_GAP, ROUTER_URL_PATH_FOR_ERROR_MAPPING_GAP}
     ),
     (
         FORM_DATA_MULTIDICT_LOOKUPS_OPERATION[0],
@@ -1468,7 +1477,10 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (
                             (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
                             and (surface["id"], operation["id"])
-                            != (HOST_SURFACE, HOST_REVERSE_OPERATION)
+                            not in {
+                                (HOST_SURFACE, HOST_REVERSE_OPERATION),
+                                ROUTER_URL_PATH_FOR_OPERATION_KEY,
+                            }
                         )
                         or (surface["id"], operation["id"])
                         == (STREAMING_RESPONSE_SURFACE, STREAMING_RESPONSE_TRACE_OPERATION)
@@ -5580,6 +5592,51 @@ def _reverse_node_depth(node: dict[str, Any], kind: str) -> int:
     return own + max((_reverse_node_depth(child, kind) for child in node["routes"]), default=0)
 
 
+def _validate_native_router_url_path_for_case(
+    graph: dict[str, Any],
+    lookup: dict[str, Any],
+    custom: dict[str, dict[str, Any]],
+) -> None:
+    routes = graph["routes"]
+    if custom or any(
+        route["kind"] != "http-route" or route["name"] is None or route["observer"] is not None
+        for route in routes
+    ):
+        raise ContractError(
+            "Rust-native Router URL cases require named direct HTTP routes without observers or custom converters"
+        )
+
+    path_params = lookup["path_params"]
+    if any(type(value) is not str for value in path_params.values()):
+        raise ContractError(
+            "Rust-native Router URL path parameter values must be converter-formatted strings"
+        )
+
+    candidates = _reverse_route_candidates(graph, lookup["name"], path_params, custom)
+    if not candidates:
+        return
+
+    first_index = min(index for index, _route in candidates)
+    first_route = next(route for index, route in candidates if index == first_index)
+    parameters = _validate_reverse_path(
+        first_route["path"], custom, "Rust-native Router selected route path"
+    )
+    for name, converter in parameters:
+        value = path_params[name]
+        if converter == "str" and (not value or "/" in value):
+            raise ContractError(
+                "Rust-native Router string-converter inputs must be non-empty and slash-free"
+            )
+        if converter == "int" and re.fullmatch(r"[0-9]+", value) is None:
+            raise ContractError(
+                "Rust-native Router integer-converter inputs must be non-negative ASCII decimal strings"
+            )
+        if converter == "float" and re.fullmatch(r"(?:-0|[0-9]+(?:\.[0-9]+)?)", value) is None:
+            raise ContractError(
+                "Rust-native Router float-converter inputs must use finite non-negative decimal strings"
+            )
+
+
 def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
     surface = case["surface"]
     operation = case["operation"]
@@ -5779,6 +5836,8 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
         graph = _validate_reverse_route_node(
             graph, "reverse URL route_graph", custom, allow_observer=allow_observer
         )
+    if key == ROUTER_URL_PATH_FOR_OPERATION_KEY and "rust-native-local" in case["target_profiles"]:
+        _validate_native_router_url_path_for_case(graph, lookup, custom)
     if key[0] == "starlette.requests.Request" and allow_observer:
         observers = _reverse_effective_observer_paths(graph)
         if len(observers) != 1:

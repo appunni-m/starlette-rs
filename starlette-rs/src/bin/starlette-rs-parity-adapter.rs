@@ -36,8 +36,8 @@ use starlette_rs::{
     DetailedRouteMatch, FileMetadata, FileResponse as NativeFileResponse, FileResponseCallInput,
     FileResponseCallStep, FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader,
     GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState, Mount as NativeMount,
-    MountChild, MountScope, PathConverter, PathParameterCapture, QueryParams,
-    RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
+    MountChild, MountScope, NamedRouteError, NamedRouteTable, PathConverter, PathParameterCapture,
+    QueryParams, RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
     Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
     StaticFilesResponse, StreamingResponse, StreamingResponseEvent, WebSocketState,
     WebSocketStateMachine, classify_scope, connection_url,
@@ -59,6 +59,7 @@ const QUERY_PARAMS_SURFACE: &str = "starlette.datastructures.QueryParams";
 const QUERY_PARAMS_OPERATION: &str = "construction-and-mapping-sequence";
 const HOST_SURFACE: &str = "starlette.routing.Host";
 const HOST_URL_PATH_OPERATION: &str = "url_path_for";
+const ROUTER_URL_PATH_OPERATION: &str = "url_path_for";
 const WEBSOCKET_SURFACE: &str = "starlette.websockets.WebSocket";
 const WEBSOCKET_OPERATION: &str = "protocol-sequence";
 const WEBSOCKET_STATE_OPERATION: &str = "state-sequence";
@@ -401,6 +402,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         }
         (Some("starlette.routing.Router"), Some("route-dispatch")) => {
             return run_router_case(case);
+        }
+        (Some("starlette.routing.Router"), Some(ROUTER_URL_PATH_OPERATION)) => {
+            return run_router_reverse_url_case(case);
         }
         (Some(HOST_SURFACE), Some(HOST_URL_PATH_OPERATION)) => {
             return run_host_reverse_url_case(case);
@@ -1052,6 +1056,130 @@ fn run_host_reverse_url_case(case: &Value) -> Result<Value, String> {
                     "host": url_path.host,
                 },
             },
+        }],
+    }))
+}
+
+fn run_router_reverse_url_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "observations",
+            "route_graph",
+            "lookup",
+            "request_scope",
+            "custom_convertors",
+        ],
+        "Router URLPath case",
+    )?;
+    let case_id = string_field(case, "case_id", "Router URLPath case")?;
+    if string_field(case, "surface", "Router URLPath case")? != "starlette.routing.Router"
+        || string_field(case, "operation", "Router URLPath case")? != ROUTER_URL_PATH_OPERATION
+        || case.get("observations") != Some(&json!(["reverse-url"]))
+        || case.get("assets") != Some(&json!([]))
+        || case.get("request_scope") != Some(&Value::Null)
+        || case.get("custom_convertors") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "Rust-native Router URLPath requires the declared flat-route reverse-lookup input",
+        ));
+    }
+
+    let route_graph = exact_object(
+        case.get("route_graph")
+            .ok_or_else(|| String::from("Router URLPath route graph is missing"))?,
+        &["kind", "routes"],
+        "Router URLPath route graph",
+    )?;
+    if string_field(route_graph, "kind", "Router URLPath route graph")? != "router" {
+        return Err(String::from(
+            "Rust-native Router URLPath requires a Router route graph",
+        ));
+    }
+    let routes = route_graph
+        .get("routes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("Router URLPath route graph.routes must be an array"))?;
+    let mut named_routes = NamedRouteTable::new();
+    for (index, route) in routes.iter().enumerate() {
+        let route = exact_object(
+            route,
+            &["kind", "path", "name", "methods", "observer"],
+            "Router URLPath child route",
+        )?;
+        if string_field(route, "kind", "Router URLPath child route")? != "http-route"
+            || route.get("observer") != Some(&Value::Null)
+        {
+            return Err(format!(
+                "Rust-native Router URLPath supports only direct HTTP routes without observers; route {index} is outside that contract"
+            ));
+        }
+        let path = string_field(route, "path", "Router URLPath child route")?;
+        let name = string_field(route, "name", "Router URLPath child route")?;
+        named_routes
+            .add_route(path, name)
+            .map_err(|error| error.to_string())?;
+    }
+
+    let lookup = exact_object(
+        case.get("lookup")
+            .ok_or_else(|| String::from("Router URLPath lookup is missing"))?,
+        &["name", "path_params"],
+        "Router URLPath lookup",
+    )?;
+    let name = string_field(lookup, "name", "Router URLPath lookup")?;
+    let path_params = lookup
+        .get("path_params")
+        .and_then(Value::as_object)
+        .ok_or_else(|| String::from("Router URLPath lookup.path_params must be an object"))?
+        .iter()
+        .map(|(key, value)| {
+            let value = match value {
+                Value::String(value) => value.clone(),
+                Value::Number(value) => value.to_string(),
+                _ => {
+                    return Err(format!(
+                        "Rust-native Router URLPath requires scalar text or numeric parameter {key:?}"
+                    ));
+                }
+            };
+            Ok((key.clone(), value))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    let observed = match named_routes.url_path_for(name, &path_params) {
+        Ok(url_path) => json!({
+            "path": url_path.path,
+            "protocol": url_path.protocol,
+            "host": url_path.host,
+        }),
+        Err(error @ NamedRouteError::NoMatchFound { .. }) => json!({
+            "error": {
+                "class": "NoMatchFound",
+                "message": error.to_string(),
+            },
+        }),
+        Err(NamedRouteError::RouteFormatting(error)) => json!({
+            "error": {
+                "class": "RouteFormattingError",
+                "message": error.to_string(),
+            },
+        }),
+    };
+
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": "reverse-url",
+            "status": "ok",
+            "value": {"reverse-url": observed},
         }],
     }))
 }

@@ -1,9 +1,9 @@
 //! Rust-native pieces for the Starlette replacement.
 //!
-//! The first implementation slice covers ordered HTTP route matching and
-//! reverse path formatting with Starlette's built-in converters, plain-text
-//! and bounded streaming responses, and the successful ASGI lifespan transition
-//! sequence.
+//! The first implementation slice covers ordered HTTP route matching, named
+//! direct-HTTP reverse lookup and path formatting with Starlette's built-in
+//! converters, plain-text and bounded streaming responses, and the successful
+//! ASGI lifespan transition sequence.
 //! The native [`Starlette`] API composes routes with prebuilt responses and
 //! exposes a narrow runtime-agnostic async call boundary for native callers.
 //! The crate does not implement the full Starlette API or claim Python-package
@@ -26,6 +26,7 @@ mod host;
 mod lifespan;
 mod mount;
 mod multipart;
+mod named_route_table;
 mod request;
 mod response;
 mod route_table;
@@ -64,6 +65,7 @@ pub use multipart::{
     MultipartFormEvent, MultipartFormParseError, MultipartFormParser, MultipartPart,
     multipart_boundary, parse_multipart_form,
 };
+pub use named_route_table::{NamedRouteError, NamedRouteTable, RouteUrlPath};
 pub use request::{
     BodyProgress, Cookies, QueryParams, RequestBodyAccumulator, RequestBodyError, RequestHeaders,
     RequestStreamProgress, RequestStreamState, parse_cookie_header,

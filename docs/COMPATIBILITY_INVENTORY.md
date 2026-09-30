@@ -19,7 +19,7 @@ checked in; the run IDs and counts below describe their recorded executions.
 
 The active parity manifest indexes 449 input-only cases across 51 files,
 covering 68 operations and 508 parity requirements. Its SHA-256 is
-`b07baf042e4a3716cfe4f6b670e41913ae385fc7b5c3b586dbce247be299a5ae`. The
+`a223d4bacffd5cb0e0a2b18ff29130f670e47a7648cc16bc6948b64b960a2a9a`. The
 authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
@@ -30,12 +30,14 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `076ce730-4a2b-4016-8d5d-439f034af022` ran against the
-pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 599 comparisons:
-595 passed, zero failed, zero infrastructure errors, and four pre-existing
+Latest live parity run `ead91f96-bd01-47f3-a1e6-f3a81c01c002` ran against the
+pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 601 comparisons:
+597 passed, zero failed, zero infrastructure errors, and four pre-existing
 unsupported Rust-native Python-callable comparisons were `not_run`. The
 installed Python package passed 447 of 447 selected comparisons. Rust-native
-passed 148 of 152. Three route-level
+passed 150 of 154, including both flat Router reverse-URL cases: first-success
+returned `/objects/7` with HTTP protocol metadata, and a complete miss matched
+the source `NoMatchFound` class and message. Three route-level
 `max_body_size` inputs compare the inherited application limit and higher and
 lower route overrides against exact response and ASGI event observations. A
 new application Router-miss input matches the source's registered async
@@ -50,7 +52,10 @@ on source, Python-package, and Rust-native profiles. A separate Host
 reverse-URL input compares the direct named path and retains `:3600` in the
 formatted host across source, package, and Rust. The all-target command
 still exits 2 for those four unsupported Rust-native cases; this bounded run
-is not full Starlette parity.
+is not full Starlette parity. Rust-native named URL support is limited to flat
+direct HTTP routes with built-in converters and converter-formatted strings;
+nested Mount/Host, WebSocket, custom-converter lookup, and Python exception
+mapping for converter failures remain open.
 
 The latest correctness-gated Router/GZip benchmark run,
 `5056413b-deae-4264-9f2b-80da0699e005`, measured 74 of 74 source/package

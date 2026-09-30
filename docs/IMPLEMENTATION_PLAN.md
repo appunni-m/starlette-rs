@@ -34,8 +34,8 @@ this plan identify recorded executions.
 
 The current parity contract has 449 input-only cases, 68 operations, and 508
 parity requirements across 51 indexed files, including route-level request
-body limits, application Router-miss 404 handling, URL scope and component
-construction, Headers and MutableHeaders,
+body limits, application Router-miss 404 handling, flat Router reverse URL
+selection, URL scope and component construction, Headers and MutableHeaders,
 bounded SessionMiddleware and BaseHTTPMiddleware workflow slices, twelve
 BackgroundTask/BackgroundTasks cases, one Jinja2 template workflow, and six
 header alias/view probes. The additive HostPattern/Host-route slice matches
@@ -44,10 +44,12 @@ port for matching, and records `tenant=acme` in route scope for one fixed
 `GET /health` response route. A separate input exercises the direct Host
 reverse-URL branch with a configured port. The inputs do not establish full
 Host Router dispatch, nested Host reverse lookup, IPv6, or overall parity.
-Latest integrated run `076ce730-4a2b-4016-8d5d-439f034af022` selected 599
-profile comparisons: 595 passed, zero failed, zero infrastructure errors, and
+Latest integrated run `ead91f96-bd01-47f3-a1e6-f3a81c01c002` selected 601
+profile comparisons: 597 passed, zero failed, zero infrastructure errors, and
 four were `not_run`. The Python package passed 447 selected comparisons;
-Rust-native passed 148 of 152, with four pre-existing unsupported Python-callable rows `not_run`. The
+Rust-native passed 150 of 154, with four pre-existing unsupported
+Python-callable rows `not_run`. Both new Rust-native flat Router reverse-URL
+comparisons passed exactly. The
 three route body-limit
 cases and the new application Router-miss 404 handler pass exact source/package
 comparison. The three body-limit cases cover inherited application limits and
@@ -256,11 +258,12 @@ and 41 of 47 Rust-native comparisons passed. Its manifest SHA-256 is
 target wheel SHA-256 is
 `4faf7bf1db038332fa0734e5c86b37c56e55e0fbb71db4ac110c620fe1e498b1`. The
 result is local evidence from dirty trees, not an all-target or release pass.
-The 21-case reverse URL slice now covers the named Python route surfaces and
-`Request.url_for`; the Rust-native named Route/Router API and Rust custom
-converter registration remain open. Route/router/mount-local middleware is
-present in the Python compatibility layer but is not yet covered by input-only
-parity cases.
+The 21-case reverse URL slice covers the named Python route surfaces and
+`Request.url_for`; a separate bounded Rust-native slice now covers two flat
+`Router.url_path_for` cases. Direct `Route.url_path_for`, nested Router route
+graphs, and Rust custom converter registration remain open. Route/router/mount-
+local middleware is present in the Python compatibility layer but is not yet
+covered by input-only parity cases.
 
 ### Completed bounded goal: reverse URL generation
 
@@ -270,10 +273,10 @@ It exercises built-in converter formatting and errors, a Python custom
 converter override, first-success router selection, direct and nested mounts,
 `app_root_path`, provider fallback, missing context, and the top-level
 application forwarder. All 21 source/package comparisons passed. Rust owns the
-built-in path substitution primitive used by the Python package; the
-Rust-native named Route/Router URL API and Rust custom converter registration
-remain open and are excluded from these comparisons. A separate bounded Host
-case is recorded below.
+built-in path substitution primitive used by the Python package; the separate
+Rust-native Router URLPath comparisons and their limits are recorded below.
+Rust custom converter registration remains open. A separate bounded Host case
+is also recorded below.
 
 ### Completed bounded goal: direct Host reverse URL formatting
 
@@ -284,6 +287,19 @@ branch: the supplied path is preserved, the protocol is empty, and the
 formatted host retains its configured port. Nested child-route lookup remains
 Python-package only. This slice does not claim full named-route lookup or
 absolute URL construction.
+
+### Completed bounded goal: flat Router reverse URL lookup
+
+The two existing `Router.url_path_for` input cases also select the
+Rust-native profile. The public `NamedRouteTable` preserves route order, skips
+name and exact-parameter-set mismatches, and returns the first matching flat
+HTTP route with `http` protocol metadata. Source, package, and Rust return the
+same `/objects/7` URLPath for first-success lookup and the same `NoMatchFound`
+message for a complete miss. Native support is limited to direct HTTP routes,
+built-in converters, and converter-formatted string inputs. Native formatting
+failures remain typed Rust errors rather than Python exception objects. Nested
+Mount/Host routes, WebSocket routes, and Python custom converters remain
+unsupported.
 
 ### Completed bounded goal: run HTTP inside an active lifespan
 

@@ -17,6 +17,31 @@ pinned upstream source. The current implemented surface and outstanding gaps
 are recorded in the [compatibility inventory](docs/COMPATIBILITY_INVENTORY.md);
 full Starlette parity is not yet claimed.
 
+## Rust-native named-route reverse lookup
+
+`NamedRouteTable` provides insertion-ordered reverse lookup for flat, directly
+named HTTP routes with Starlette's built-in converters (`str`, `int`, `float`,
+`uuid`, and `path`). It selects the first route with a matching name and exact
+parameter-name set. Pass parameter values already formatted as strings; the
+returned path is not percent-encoded. Converter-formatting failures remain
+typed Rust errors; they are not translated into Python exception objects.
+Nested `Mount` or `Host` routes, custom converters, and WebSocket routes are
+outside this API. Full Starlette parity remains in progress.
+
+```rust
+use starlette_rs::NamedRouteTable;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut routes = NamedRouteTable::new();
+    routes.add_route("/users/{user_id:int}", "user")?;
+    routes.add_route("/profiles/{user_id:int}", "user")?;
+
+    let url = routes.url_path_for("user", &[("user_id".into(), "42".into())])?;
+    println!("{} {}", url.protocol, url.path);
+    Ok(())
+}
+```
+
 See:
 
 - [Pinned sources and discrepancies](docs/UPSTREAM.md)

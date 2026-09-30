@@ -329,6 +329,7 @@
         "starlette.routing.Router.url_path_for.first-success"
       ],
       "target_profiles": [
+        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
@@ -358,7 +359,7 @@
       "lookup": {
         "name": "member",
         "path_params": {
-          "object_id": 7
+          "object_id": "7"
         }
       },
       "request_scope": null,
@@ -375,6 +376,7 @@
         "starlette.routing.Router.url_path_for.mismatch"
       ],
       "target_profiles": [
+        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
