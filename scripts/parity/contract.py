@@ -4172,14 +4172,13 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError("StaticFiles.filesystem must be an object or null")
         if (
             scope["method"] != "GET"
-            or not case["follow_symlink"]
             or case["html"]
             or case["packages"]
             or path_limit_stress is not None
             or permission_denial_stress is not None
         ):
             raise ContractError(
-                "StaticFiles ASGI filesystem inputs require a plain GET with follow_symlink enabled"
+                "StaticFiles ASGI filesystem inputs require a plain GET without HTML or stress workloads"
             )
         filesystem_lookup_requirement = _validate_static_files_lookup_path_case(
             {
@@ -4225,6 +4224,8 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
     filesystem_requirement_by_lookup = {
         "external-file-link.follow-symlink-enabled": "follow-symlink-file-served",
         "external-directory-link.follow-symlink-enabled": "follow-symlink-directory-served",
+        "parent-traversal.follow-symlink-disabled": "parent-traversal-rejected",
+        "configured-root-symlink-traversal": "configured-root-symlink-traversal-rejected",
     }
     if filesystem_lookup_requirement is not None:
         try:

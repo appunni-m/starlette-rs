@@ -547,6 +547,36 @@
       ]
     },
     {
+      "case_id": "starlette.routing.Mount.url_path_for.extra-parameter",
+      "surface": "starlette.routing.Mount",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Mount.url_path_for.mismatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "mount",
+        "path": "/users",
+        "name": "users",
+        "routes": []
+      },
+      "lookup": {
+        "name": "users",
+        "path_params": {
+          "path": "/a",
+          "foo": "bar"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
       "case_id": "starlette.requests.Request.url_for.mounted-app-root-path",
       "surface": "starlette.requests.Request",
       "operation": "url_for",

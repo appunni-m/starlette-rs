@@ -1078,6 +1078,199 @@
       "incoming": [],
       "send": {"kind": "capture-asgi-send"},
       "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.parent-traversal-rejected",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.parent-traversal-rejected"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "static",
+      "path_limit_stress": null,
+      "permission_denial_stress": null,
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [
+          {
+            "path": "example.txt",
+            "contents_base64": "b3V0c2lkZSByb290IGRpcg==",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "symlinks": []
+      },
+      "packages": [],
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/../example.txt",
+        "raw_path_base64": "Ly4uL2V4YW1wbGUudHh0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.parent-traversal-sibling-file-rejected",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.parent-traversal-rejected"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "static",
+      "path_limit_stress": null,
+      "permission_denial_stress": null,
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [
+          {
+            "path": "static1.txt",
+            "contents_base64": "UHJpdmF0ZQ==",
+            "mtime_seconds": 1700000000.0
+          },
+          {
+            "path": "static_disallow/index.html",
+            "contents_base64": "PGgxPlByaXZhdGU8L2gxPg==",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "symlinks": []
+      },
+      "packages": [],
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/../static1.txt",
+        "raw_path_base64": "Ly4uL3N0YXRpYzEudHh0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.parent-traversal-sibling-directory-rejected",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.parent-traversal-rejected"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "static",
+      "path_limit_stress": null,
+      "permission_denial_stress": null,
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [
+          {
+            "path": "static_disallow/index.html",
+            "contents_base64": "PGgxPlByaXZhdGU8L2gxPg==",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "symlinks": []
+      },
+      "packages": [],
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/../static_disallow/index.html",
+        "raw_path_base64": "Ly4uL3N0YXRpY19kaXNhbGxvdy9pbmRleC5odG1s",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.configured-root-symlink-traversal-rejected",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.configured-root-symlink-traversal-rejected"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "directory": "statics",
+      "path_limit_stress": null,
+      "permission_denial_stress": null,
+      "filesystem": {
+        "root_symlink_target": "root_source/statics",
+        "directories": ["root_source/statics"],
+        "outside_files": [
+          {
+            "path": "index.html",
+            "contents_base64": "PGgxPkhlbGxvPC9oMT4=",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "symlinks": []
+      },
+      "packages": [],
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": true,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/../index.html",
+        "raw_path_base64": "Ly4uL2luZGV4Lmh0bWw=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
     }
   ]
 }

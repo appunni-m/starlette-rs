@@ -14262,6 +14262,30 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.parent-traversal-rejected",
+              "dimension": "error_path",
+              "description": "Supply an input-defined sibling file and request it through a parent-traversal path; compare the live 404 response without exposing the file. Upstream: tests/test_staticfiles.py::test_staticfiles_prevents_breaking_out_of_directory and ::test_staticfiles_avoids_path_traversal.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.configured-root-symlink-traversal-rejected",
+              "dimension": "error_path",
+              "description": "Place the configured static root behind an input-defined symlink and request an input-defined sibling file with parent traversal; compare the live 404 response and root-boundary behavior. Upstream: tests/test_staticfiles.py::test_staticfiles_disallows_path_traversal_with_symlinks.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.path-limit-overflow-preempts-later-root",
               "dimension": "error_path",
               "description": "When the same input-defined asset is reachable from a later package root, make its candidate path exceed PC_PATH_MAX at the earlier configured root and compare Starlette's immediate 404 handling. Upstream: tests/test_staticfiles.py::test_staticfiles_filename_too_long; starlette/staticfiles.py::StaticFiles.lookup_path and get_response.",
