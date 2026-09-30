@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@14",
+      "input_schema": "migration-parity/parity-input@15",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -1537,6 +1537,17 @@
               "id": "starlette.request.connection-property-missing-user",
               "dimension": "error_path",
               "description": "Access Request.user through a routed HTTP request without a user key and compare the live AssertionError type, exact message, response events, and rethrown dispatch error. Upstream: starlette/requests.py:183-186 at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.connection-property-app-identity",
+              "dimension": "boundary",
+              "description": "Access the documented Request.app property during routed HTTP dispatch; compare its qualified Python type and identity with scope.app. Starlette assigns itself to scope.app before dispatch. Pinned source: docs/requests.md:172-175; starlette/requests.py:106-107; starlette/applications.py:92-96.",
               "lanes": [
                 "parity"
               ],

@@ -1359,13 +1359,22 @@ def _materialize_application(
             def make_request_connection_property_endpoint(spec: dict[str, Any]) -> Any:
                 async def endpoint(request: Any) -> Any:
                     value = getattr(request, spec["property"])
-                    request_observations.append(
-                        {
-                            "property": spec["property"],
-                            "value": _json_safe(value),
-                            "type": type(value).__name__,
-                        }
-                    )
+                    if spec["property"] == "app":
+                        request_observations.append(
+                            {
+                                "property": "app",
+                                "qualified_type": f"{type(value).__module__}.{type(value).__qualname__}",
+                                "same_as_scope_app": value is request.scope["app"],
+                            }
+                        )
+                    else:
+                        request_observations.append(
+                            {
+                                "property": spec["property"],
+                                "value": _json_safe(value),
+                                "type": type(value).__name__,
+                            }
+                        )
                     return PlainTextResponse("request-property-observed")
 
                 return endpoint

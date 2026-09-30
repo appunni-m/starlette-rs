@@ -32,23 +32,24 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 548 input-only cases, 78 operations, and 585
+The current parity contract has 549 input-only cases, 78 operations, and 586
 parity requirements across 62 indexed files. The cases include direct
 Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
 interleaved consumers. The latest live source/package/native run
-`cbedb8db-f884-4471-8e5a-3e5b55308fe4` selected 706 profile comparisons:
-702 passed, zero failed, zero infrastructure errors, and four unsupported
+`dda395ab-c9d4-4890-ba15-d0fb38dab32b` selected 707 profile comparisons:
+703 passed, zero failed, zero infrastructure errors, and four unsupported
 Rust-native Python-callable comparisons were `not_run`. The Python package
-passed 546/546; Rust-native passed 156/160. This run includes TestClient
-exception-policy, lifespan state propagation, and WebSocket query/raw-path
-inputs; exact async response-background-task cancellation and finalization; and
-StaticFiles traversal plus Mount reverse-URL inputs. The manifest SHA-256 is
-`efa39b9c35c4e4dad5f85fb640d18c68449fbe35d8f69dbce6a71eb2dd80e0c2`; the
+passed 547/547; Rust-native passed 156/160. This run includes the documented
+Request.app identity, TestClient exception-policy, lifespan state propagation,
+and WebSocket query/raw-path inputs; exact async response-background-task
+cancellation and finalization; and StaticFiles traversal plus Mount reverse-URL
+inputs. The manifest SHA-256 is
+`aa7ca8b424b2a9d642219ca746ad57103744a001e2177282526d1613e2029f1d`; the
 installed package wheel SHA-256 is
-`91a7bda6a4d94b57350cfb09e495b9de4c5cff922e8b8f4a4ccff9238a40cf7e`; its
+`fe1a289537e3a4cfcecb618cfe0de5e7129a998e5fddc1325b5762f8a8cd1e24`; its
 installed-file tree SHA-256 is
-`87dd452fc4d062c8ecc18af80274bdcb963eec34f13596eae883acdc6f54b130`. The
+`4a6c647166fafe1ffe5500d027b5dfffa464654c8f517597bf071bb56a261c61`. The
 all-target command exits 2 for those four unsupported native callable cases.
 This bounded evidence does not establish full parity.
 

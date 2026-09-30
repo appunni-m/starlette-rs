@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@14"
+INPUT_SCHEMA = "migration-parity/parity-input@15"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -681,6 +681,7 @@ REQUEST_OBSERVER_ENDPOINT = {
     "media_type": "text/plain",
 }
 REQUEST_CONNECTION_PROPERTY_REQUIREMENTS = {
+    "app": "starlette.request.connection-property-app-identity",
     "session": "starlette.request.connection-property-missing-session",
     "auth": "starlette.request.connection-property-missing-auth",
     "user": "starlette.request.connection-property-missing-user",
@@ -15406,7 +15407,9 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                 coverage.add("starlette.request.json-chunked-body")
     elif endpoint["kind"] == "request-connection-property":
         property_name = endpoint["property"]
-        if property_name not in scope:
+        if property_name == "app":
+            coverage.add(REQUEST_CONNECTION_PROPERTY_REQUIREMENTS[property_name])
+        elif property_name not in scope:
             coverage.add(REQUEST_CONNECTION_PROPERTY_REQUIREMENTS[property_name])
     elif endpoint["kind"] == "request-stream-observer":
         operations = {action["operation"] for action in endpoint["actions"]}
