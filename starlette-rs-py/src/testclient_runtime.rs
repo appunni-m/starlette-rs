@@ -716,6 +716,26 @@ impl PyWebSocketTestSession {
         self.send_bytes_inner(py, data.bind(py))
     }
 
+    #[pyo3(signature = (data, mode="text"))]
+    fn send_json(&self, py: Python<'_>, data: Py<PyAny>, mode: &str) -> PyResult<()> {
+        let json = py.import("json")?;
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("separators", (",", ":"))?;
+        kwargs.set_item("ensure_ascii", false)?;
+        let serialized = json
+            .getattr("dumps")?
+            .call((data.bind(py),), Some(&kwargs))?;
+        let message = PyDict::new(py);
+        message.set_item("type", "websocket.receive")?;
+        if mode == "text" {
+            message.set_item("text", serialized)?;
+        } else {
+            let encoded = serialized.call_method1("encode", ("utf-8",))?;
+            message.set_item("bytes", encoded)?;
+        }
+        self.send_client_message(py, message.into_any().unbind())
+    }
+
     fn receive_bytes(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let message = self.receive_app_message(py)?;
         let message = message.bind(py).cast::<PyDict>()?;
@@ -729,6 +749,33 @@ impl PyWebSocketTestSession {
         message
             .get_item("bytes")?
             .ok_or_else(|| PyKeyError::new_err("bytes"))
+            .map(Bound::unbind)
+    }
+
+    #[pyo3(signature = (mode="text"))]
+    fn receive_json(&self, py: Python<'_>, mode: &str) -> PyResult<Py<PyAny>> {
+        let message = self.receive_app_message(py)?;
+        let message = message.bind(py).cast::<PyDict>()?;
+        let message_type = message
+            .get_item("type")?
+            .ok_or_else(|| PyKeyError::new_err("type"))?
+            .extract::<String>()?;
+        if message_type == "websocket.close" {
+            return Err(websocket_disconnect(py, message)?);
+        }
+        let value = if mode == "text" {
+            message
+                .get_item("text")?
+                .ok_or_else(|| PyKeyError::new_err("text"))?
+        } else {
+            message
+                .get_item("bytes")?
+                .ok_or_else(|| PyKeyError::new_err("bytes"))?
+                .call_method1("decode", ("utf-8",))?
+        };
+        py.import("json")?
+            .getattr("loads")?
+            .call1((value,))
             .map(Bound::unbind)
     }
 

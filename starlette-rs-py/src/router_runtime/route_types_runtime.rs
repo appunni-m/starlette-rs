@@ -57,8 +57,7 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 
 #[pyclass(name = "_DefaultLifespanRuntime", unsendable)]
 struct PyDefaultLifespanRuntime {
-    #[allow(dead_code)]
-    router: Py<PyAny>,
+    _router: Py<PyAny>,
 }
 
 /// Callable adapter created by Rust for deprecated synchronous generator lifespans.
@@ -519,7 +518,7 @@ fn base_route_unimplemented_async(py: Python<'_>, _method: &str) -> PyResult<Py<
 
 #[pyfunction]
 fn default_lifespan_runtime(py: Python<'_>, router: Py<PyAny>) -> PyResult<Py<PyAny>> {
-    Py::new(py, PyDefaultLifespanRuntime { router }).map(|value| value.into_any())
+    Py::new(py, PyDefaultLifespanRuntime { _router: router }).map(|value| value.into_any())
 }
 
 #[pyfunction]
@@ -845,6 +844,7 @@ fn compile_route_path(
 
 #[pyfunction]
 #[pyo3(signature = (kind, path, endpoint, methods, name, include_in_schema, middleware, max_body_size, routes, convertor_types, builtin_convertors, route_table_type, request_response_factory, websocket_endpoint_factory, router_type))]
+// LINT EXCEPTION: Preserve each Starlette route field and factory as a separate PyO3 conversion input.
 #[allow(clippy::too_many_arguments)]
 fn initialize_route(
     py: Python<'_>,
@@ -953,6 +953,7 @@ fn initialize_route(
 
 #[pyfunction]
 #[pyo3(signature = (router, routes, default, lifespan, middleware, max_body_size, runtime_type, http_route_type, websocket_route_type, mount_type, host_route_type, default_lifespan_factory, deprecation_warning_type))]
+// LINT EXCEPTION: Router state and its concrete factories must cross PyO3 as distinct Python references.
 #[allow(clippy::too_many_arguments)]
 fn initialize_router_state(
     py: Python<'_>,
@@ -1241,6 +1242,7 @@ fn router_add_mount(
 }
 
 #[pyfunction]
+// LINT EXCEPTION: Forward route fields individually to the Starlette route class to preserve its call contract.
 #[allow(clippy::too_many_arguments)]
 fn router_add_route(
     py: Python<'_>,
@@ -1294,6 +1296,7 @@ type RouteInitValues = (
     Py<PyAny>,
 );
 
+// LINT EXCEPTION: Map every HTTP route option and factory separately to preserve Starlette's route state.
 #[allow(clippy::too_many_arguments)]
 fn initialize_http_route(
     py: Python<'_>,
@@ -1374,6 +1377,7 @@ fn initialize_http_route(
     ))
 }
 
+// LINT EXCEPTION: Keep WebSocket route options and class factories separate at the Python compatibility boundary.
 #[allow(clippy::too_many_arguments)]
 fn initialize_websocket_route(
     py: Python<'_>,
@@ -1431,6 +1435,7 @@ fn initialize_websocket_route(
     ))
 }
 
+// LINT EXCEPTION: Preserve host, application, name, and converter inputs separately for Starlette Host behavior.
 #[allow(clippy::too_many_arguments)]
 fn initialize_host_route(
     py: Python<'_>,
@@ -1465,6 +1470,7 @@ fn initialize_host_route(
     ))
 }
 
+// LINT EXCEPTION: Preserve each Mount option and its Python class factory as an independent compatibility input.
 #[allow(clippy::too_many_arguments)]
 fn initialize_mount(
     py: Python<'_>,

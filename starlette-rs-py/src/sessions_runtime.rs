@@ -189,6 +189,7 @@ pub(crate) struct PySessionMiddlewareRuntime {
 impl PySessionMiddlewareRuntime {
     #[new]
     #[pyo3(signature = (app, secret_key, session_cookie="session", max_age=Some(1209600), path="/", same_site="lax", https_only=false, domain=None))]
+    // LINT EXCEPTION: Preserve Starlette SessionMiddleware's constructor options and defaults one-for-one.
     #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,

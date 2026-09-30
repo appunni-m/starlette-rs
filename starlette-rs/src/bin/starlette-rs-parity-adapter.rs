@@ -3394,6 +3394,7 @@ fn static_files_absolute_path(path: &Path) -> io::Result<PathBuf> {
 }
 
 #[cfg(unix)]
+// LINT EXCEPTION: POSIX pathconf supplies the filesystem component limit needed by this parity probe.
 #[allow(unsafe_code)]
 fn pathconf_limit(path: &Path, name: libc::c_int) -> Option<usize> {
     let path = CString::new(path.as_os_str().as_bytes()).ok()?;

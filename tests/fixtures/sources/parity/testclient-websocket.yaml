@@ -255,6 +255,341 @@
           }
         ]
       }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "/tenant",
+        "client": [
+          "192.0.2.11",
+          4312
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/chat?room=blue",
+        "subprotocols": [
+          "chat.v1"
+        ],
+        "headers": [
+          [
+            "x-session",
+            "input"
+          ]
+        ],
+        "actions": [
+          {
+            "operation": "receive_json",
+            "mode": "text"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path",
+          "headers",
+          "subprotocols"
+        ],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {
+                "operation": "accept",
+                "subprotocol": "chat.v1"
+              },
+              {
+                "operation": "parallel",
+                "tasks": [
+                  [
+                    {
+                      "operation": "send_json",
+                      "value": {
+                        "message": "test"
+                      },
+                      "mode": "text"
+                    }
+                  ],
+                  [
+                    {
+                      "operation": "receive_json",
+                      "mode": "text",
+                      "capture_disconnect": true
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "case_id": "starlette.testclient.TestClient.websocket-session.blocking-receive-progress-and-disconnect",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup",
+        "starlette.testclient.TestClient.websocket-session.blocking-receive-progress",
+        "starlette.testclient.TestClient.websocket-session.disconnect-details",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.receive-json-text-frame"
+      ]
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "/tenant",
+        "client": [
+          "192.0.2.11",
+          4312
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/chat?room=blue",
+        "subprotocols": [
+          "chat.v1"
+        ],
+        "headers": [
+          [
+            "x-session",
+            "input"
+          ]
+        ],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path",
+          "headers",
+          "subprotocols"
+        ],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {
+                "operation": "accept",
+                "subprotocol": "chat.v1"
+              },
+              {
+                "operation": "wait_forever"
+              }
+            ]
+          }
+        ]
+      },
+      "case_id": "starlette.testclient.TestClient.websocket-session.close-triggered-cancellation-and-cleanup",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup",
+        "starlette.testclient.TestClient.websocket-session.close-triggered-cancellation",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ]
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.send-receive-json-text",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup",
+        "starlette.testclient.TestClient.websocket-session.send-json-text-frame",
+        "starlette.testclient.TestClient.websocket-session.receive-json-text-frame",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "/tenant",
+        "client": [
+          "192.0.2.11",
+          4312
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/chat?room=blue",
+        "subprotocols": [
+          "chat.v1"
+        ],
+        "headers": [
+          [
+            "x-session",
+            "input"
+          ]
+        ],
+        "actions": [
+          {
+            "operation": "send_json",
+            "value": {
+              "message": "café",
+              "count": 3
+            },
+            "mode": "text"
+          },
+          {
+            "operation": "receive_json",
+            "mode": "text"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path",
+          "headers",
+          "subprotocols"
+        ],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {
+                "operation": "accept",
+                "subprotocol": "chat.v1"
+              },
+              {
+                "operation": "receive_json",
+                "mode": "text"
+              },
+              {
+                "operation": "send_json",
+                "value": {
+                  "reply": "olá",
+                  "count": 3
+                },
+                "mode": "text"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.send-receive-json-binary",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup",
+        "starlette.testclient.TestClient.websocket-session.send-json-binary-frame",
+        "starlette.testclient.TestClient.websocket-session.receive-json-binary-frame",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "/tenant",
+        "client": [
+          "192.0.2.11",
+          4312
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/chat?room=blue",
+        "subprotocols": [
+          "chat.v1"
+        ],
+        "headers": [
+          [
+            "x-session",
+            "input"
+          ]
+        ],
+        "actions": [
+          {
+            "operation": "send_json",
+            "value": {
+              "message": "café",
+              "count": 3
+            },
+            "mode": "binary"
+          },
+          {
+            "operation": "receive_json",
+            "mode": "binary"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path",
+          "headers",
+          "subprotocols"
+        ],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {
+                "operation": "accept",
+                "subprotocol": "chat.v1"
+              },
+              {
+                "operation": "receive_json",
+                "mode": "binary"
+              },
+              {
+                "operation": "send_json",
+                "value": {
+                  "reply": "olá",
+                  "count": 3
+                },
+                "mode": "binary"
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }

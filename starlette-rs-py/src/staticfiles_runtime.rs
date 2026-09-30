@@ -189,7 +189,7 @@ impl PyStaticFiles {
         )
     }
 
-    // PyO3 passes the ASGI scope, two callbacks, and three facade methods separately.
+    // LINT EXCEPTION: PyO3 passes the ASGI scope, two callbacks, and three facade methods separately.
     #[allow(clippy::too_many_arguments)]
     fn asgi_call(
         slf: Py<Self>,
@@ -303,6 +303,7 @@ struct StaticFilesCallMachine {
 }
 
 impl StaticFilesCallMachine {
+    // LINT EXCEPTION: Store owner, scope, callbacks, and request purpose as distinct state-machine inputs.
     #[allow(clippy::too_many_arguments)]
     fn new(
         owner: Py<PyStaticFiles>,

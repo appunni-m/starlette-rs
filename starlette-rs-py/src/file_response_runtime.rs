@@ -42,6 +42,7 @@ struct PyFileResponse {
 impl PyFileResponse {
     #[new]
     #[pyo3(signature = (path, status_code=200, headers=None, media_type=None, filename=None, stat_result=None, content_disposition_type="attachment", chunk_size=65536, max_ranges=100))]
+    // LINT EXCEPTION: Preserve FileResponse's public constructor options and defaults as individual PyO3 inputs.
     #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
@@ -160,6 +161,7 @@ impl PyFileResponse {
     }
 
     #[pyo3(signature = (key, value="", max_age=None, expires=None, path="/", domain=None, secure=false, httponly=false, samesite="lax", partitioned=false))]
+    // LINT EXCEPTION: Preserve FileResponse.set_cookie's public Python options and keyword names one-for-one.
     #[allow(clippy::too_many_arguments)]
     fn set_cookie(
         &mut self,
@@ -192,6 +194,7 @@ impl PyFileResponse {
     }
 
     #[pyo3(signature = (key, path="/", domain=None, secure=false, httponly=false, samesite="lax"))]
+    // LINT EXCEPTION: Preserve FileResponse.delete_cookie's public Python options and keyword names one-for-one.
     #[allow(clippy::too_many_arguments)]
     fn delete_cookie(
         &mut self,
@@ -321,6 +324,7 @@ enum FileResponseWorkerError {
 }
 
 impl PyFileResponseCallDriver {
+    // LINT EXCEPTION: Keep each ASGI request fact as a separate Rust step-driver state input.
     #[allow(clippy::too_many_arguments)]
     fn new(
         response: NativeFileResponse,

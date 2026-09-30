@@ -25,17 +25,19 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 530 input-only cases across
-61 indexed files, 78 operations, and 566 requirements. Run
+active and incomplete. The current contract has 534 input-only cases across
+61 indexed files, 78 operations, and 574 requirements. Run
 `3888440a-16e6-4d20-9a77-8a6af72268d4` selected 682 comparisons: 678 passed,
 zero failed, zero infrastructure errors, and four Rust-native Python-callable
-comparisons were `not_run`. The Python package passed 528/528; Rust-native
-passed 150/154. The latest direct Request inputs cover body, stream, and JSON
-consumption, including interleaved streams and an overlapping body/stream
-receive. Two package-only TestClient inputs cover streamed WebSocket denial
-responses, and one package-only FileResponse input observes event-loop progress
-during FIFO-backed file opening. The all-target runner exits 2 for the four
-unsupported native callable cases; full parity is not claimed.
+comparisons were `not_run`. At that historical run, the Python package passed
+528/528 and Rust-native passed 150/154. Its manifest predates the four current
+TestClient WebSocket lifecycle and JSON text/binary inputs. The latest direct
+Request inputs cover body, stream, and JSON consumption, including interleaved
+streams and an overlapping body/stream receive. Two package-only TestClient
+inputs cover streamed WebSocket denial responses, and one package-only
+FileResponse input observes event-loop progress during FIFO-backed file
+opening. The all-target runner exits 2 for the four unsupported native callable
+cases; full parity is not claimed.
 
 The latest Router/GZip run `5056413b-deae-4264-9f2b-80da0699e005` measured all 74
 source/package workloads after parity preflight

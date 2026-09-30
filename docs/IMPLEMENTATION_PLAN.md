@@ -32,7 +32,7 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 530 input-only cases, 78 operations, and 566
+The current parity contract has 534 input-only cases, 78 operations, and 574
 parity requirements across 61 indexed files. The cases now include direct
 Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
@@ -40,9 +40,10 @@ interleaved consumers. The live source/package/native run
 `3888440a-16e6-4d20-9a77-8a6af72268d4` selected 682 profile comparisons: 678
 passed, zero failed, zero infrastructure errors, and four unsupported
 Rust-native Python-callable comparisons were `not_run`. The Python package
-passed 528/528; Rust-native passed 150/154. The latest additions compare two
-streamed TestClient WebSocket denial responses and event-loop progress during
-FIFO-backed FileResponse opening. The manifest SHA-256 is
+passed 528/528; Rust-native passed 150/154. That historical run predates the
+four current TestClient WebSocket lifecycle and JSON text/binary inputs. Other
+recent additions compare two streamed TestClient WebSocket denial responses
+and event-loop progress during FIFO-backed FileResponse opening. Its manifest SHA-256 is
 `45e3e478790e0f00a53360586f441cbce3e7236ad1ce227ac769802baada10b5`; the
 installed package wheel SHA-256 is
 `ddd4ad9db178f4fe41fc87dbef5bdab8fc9f3046f2d86dfc600c0af262e17b7b`. The

@@ -8,18 +8,19 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 530 input-only cases in 61 indexed files,
-covering 78 operations and 566 parity requirements. The latest live run,
+The active contract contains 534 input-only cases in 61 indexed files,
+covering 78 operations and 574 parity requirements. The latest integrated run,
 `3888440a-16e6-4d20-9a77-8a6af72268d4`, selected 682 comparisons: 678 passed,
 zero failed, zero infrastructure errors, and four Rust-native Python-callable
 comparisons were `not_run`. The Python package passed all 528 comparisons;
-Rust-native passed 150 of 154. New input cases cover streamed TestClient
-WebSocket denial responses and event-loop progress during FIFO-backed
+Rust-native passed 150 of 154. That run predates the four current TestClient
+WebSocket lifecycle and JSON text/binary inputs. Other recent inputs cover
+streamed WebSocket denial responses and event-loop progress during FIFO-backed
 FileResponse opening. The target remains `scope.mode: slice`; this does not
 claim full compatibility.
 
-The current coverage matrix has 798 source rows: 252 existing input mappings,
-50 reasoned `not_applicable` rows, and 496 rows in the fixture backlog. These
+The current coverage matrix has 798 source rows: 255 existing input mappings,
+50 reasoned `not_applicable` rows, and 493 rows in the fixture backlog. These
 figures are derived from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

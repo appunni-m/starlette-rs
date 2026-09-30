@@ -16,6 +16,8 @@ ignore = []
 multiple-versions = "deny"
 wildcards = "deny"
 skip = [
+    # PyO3 0.29's macro stack needs syn 2 while futures-macro 0.3.34 needs syn 3.
+    { crate = "syn@2.0.119", reason = "PyO3 and futures-macro require incompatible syn major versions" },
 ]
 
 [licenses]

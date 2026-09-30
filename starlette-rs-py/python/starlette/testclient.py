@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from starlette_rs_py import _core
 
@@ -65,6 +65,12 @@ class WebSocketTestSession:
 
     def receive_bytes(self) -> bytes:
         return self._runtime.receive_bytes()
+
+    def send_json(self, data: Any, mode: Literal["text", "binary"] = "text") -> None:
+        self._runtime.send_json(data, mode)
+
+    def receive_json(self, mode: Literal["text", "binary"] = "text") -> Any:
+        return self._runtime.receive_json(mode)
 
     def close(self, code: int = 1000) -> None:
         self._runtime.close(code)

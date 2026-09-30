@@ -903,6 +903,7 @@ impl PyResponse {
     }
 
     #[pyo3(signature = (key, value="", max_age=None, expires=None, path="/", domain=None, secure=false, httponly=false, samesite="lax", partitioned=false))]
+    // LINT EXCEPTION: Preserve Response.set_cookie's public Python options and keyword names one-for-one.
     #[allow(clippy::too_many_arguments)]
     fn set_cookie(
         &mut self,
@@ -935,6 +936,7 @@ impl PyResponse {
     }
 
     #[pyo3(signature = (key, path="/", domain=None, secure=false, httponly=false, samesite="lax"))]
+    // LINT EXCEPTION: Preserve Response.delete_cookie's public Python options and keyword names one-for-one.
     #[allow(clippy::too_many_arguments)]
     fn delete_cookie(
         &mut self,
@@ -1045,6 +1047,7 @@ struct PyGzipConfig {
 impl PyGzipConfig {
     #[new]
     #[pyo3(signature = (minimum_size=500, compresslevel=9, thread_minimum_size=131072, exclude_content_types=None))]
+    // LINT EXCEPTION: Keep Starlette's public `compresslevel` keyword spelling in the PyO3 constructor.
     #[allow(non_snake_case)]
     fn new(
         minimum_size: i64,

@@ -141,6 +141,14 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "binary_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.binary-message-exchange",
     "cleanup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.context-cleanup",
     "denial_response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.denial-response-exception",
+    "blocking_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.blocking-receive-progress",
+    "disconnect_details": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.disconnect-details",
+    "cancellation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.close-triggered-cancellation",
+    "portal_cleanup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.portal-cleanup",
+    "send_json_text": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.send-json-text-frame",
+    "send_json_binary": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.send-json-binary-frame",
+    "receive_json_text": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.receive-json-text-frame",
+    "receive_json_binary": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.receive-json-binary-frame",
 }
 BASE_HTTP_WORKFLOW_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "application",
@@ -7920,6 +7928,121 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             raise ContractError(f"TestClient response message[{index}] has an unsupported type")
 
 
+def _validate_testclient_websocket_flow(app_actions: Any) -> str:
+    if not isinstance(app_actions, list) or len(app_actions) != 1:
+        raise ContractError("TestClient WebSocket flow must contain one declarative app action")
+    flow = _exact(
+        app_actions[0],
+        {"operation", "actions"},
+        "TestClient WebSocket flow",
+    )
+    if flow["operation"] != "websocket_flow":
+        raise ContractError("TestClient WebSocket flow operation must be websocket_flow")
+    actions = flow["actions"]
+    if not isinstance(actions, list) or not actions:
+        raise ContractError("TestClient WebSocket flow actions must be a non-empty array")
+    operations: list[str] = []
+
+    def validate_actions(values: Any, context: str) -> None:
+        if not isinstance(values, list) or not values:
+            raise ContractError(f"{context} must be a non-empty action array")
+        for index, value in enumerate(values):
+            item_context = f"{context}[{index}]"
+            if not isinstance(value, dict):
+                raise ContractError(f"{item_context} must be an object")
+            operation = value.get("operation")
+            operations.append(operation)
+            if operation == "accept":
+                expected = {"operation"} | (value.keys() & {"subprotocol", "headers_base64_pairs"})
+                action = _exact(value, expected, item_context)
+                if "subprotocol" in action:
+                    _string(action["subprotocol"], f"{item_context}.subprotocol")
+                headers = action.get("headers_base64_pairs", [])
+                if not isinstance(headers, list):
+                    raise ContractError(f"{item_context}.headers_base64_pairs must be an array")
+                for header_index, pair in enumerate(headers):
+                    if not isinstance(pair, list) or len(pair) != 2:
+                        raise ContractError(
+                            f"{item_context}.headers_base64_pairs[{header_index}] must contain two base64 strings"
+                        )
+                    for part, encoded in zip(("name", "value"), pair, strict=True):
+                        try:
+                            decoded = base64.b64decode(encoded, validate=True)
+                        except (TypeError, ValueError) as exc:
+                            raise ContractError(
+                                f"{item_context} header {header_index} {part} is invalid base64"
+                            ) from exc
+                        if base64.b64encode(decoded).decode("ascii") != encoded:
+                            raise ContractError(
+                                f"{item_context} header {header_index} {part} must use canonical base64"
+                            )
+            elif operation == "send_json":
+                action = _exact(
+                    value,
+                    {"operation", "value"} | (value.keys() & {"mode"}),
+                    item_context,
+                )
+                mode = _string(action.get("mode", "text"), f"{item_context}.mode")
+                if mode not in {"text", "binary"}:
+                    raise ContractError(f"{item_context}.mode must be text or binary")
+            elif operation == "receive_json":
+                action = _exact(
+                    value,
+                    {"operation"} | (value.keys() & {"mode", "capture_disconnect"}),
+                    item_context,
+                )
+                mode = _string(action.get("mode", "text"), f"{item_context}.mode")
+                if mode not in {"text", "binary"}:
+                    raise ContractError(f"{item_context}.mode must be text or binary")
+                if (
+                    "capture_disconnect" in action
+                    and type(action["capture_disconnect"]) is not bool
+                ):
+                    raise ContractError(f"{item_context}.capture_disconnect must be boolean")
+            elif operation == "parallel":
+                action = _exact(value, {"operation", "tasks"}, item_context)
+                tasks = action["tasks"]
+                if not isinstance(tasks, list) or len(tasks) < 2:
+                    raise ContractError(f"{item_context}.tasks must contain at least two tasks")
+                for task_index, task in enumerate(tasks):
+                    validate_actions(task, f"{item_context}.tasks[{task_index}]")
+            elif operation == "wait_forever":
+                _exact(value, {"operation"}, item_context)
+            else:
+                raise ContractError(f"{item_context} has unsupported operation {operation!r}")
+
+    validate_actions(actions, "TestClient WebSocket flow actions")
+    if actions[0].get("operation") != "accept":
+        raise ContractError("TestClient WebSocket flow must accept before other actions")
+    if "accept" in operations[1:]:
+        raise ContractError("TestClient WebSocket flow may accept only once")
+    if (
+        len(actions) == 2
+        and actions[1].get("operation") == "parallel"
+        and len(actions[1]["tasks"]) == 2
+        and all(len(task) == 1 for task in actions[1]["tasks"])
+        and {task[0].get("operation") for task in actions[1]["tasks"]}
+        == {"send_json", "receive_json"}
+        and next(
+            task[0].get("capture_disconnect", False)
+            for task in actions[1]["tasks"]
+            if task[0].get("operation") == "receive_json"
+        )
+    ):
+        return "blocking-receive"
+    if len(actions) == 3 and [action.get("operation") for action in actions] == [
+        "accept",
+        "receive_json",
+        "send_json",
+    ]:
+        return "json-exchange"
+    if len(actions) == 2 and actions[1].get("operation") == "wait_forever":
+        return "cancellation"
+    raise ContractError(
+        "TestClient WebSocket flow must model concurrent send/receive or close-triggered cancellation"
+    )
+
+
 def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     settings = _exact(
         case["testclient"],
@@ -7981,7 +8104,12 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     session_actions = websocket["actions"]
     if not isinstance(session_actions, list):
         raise ContractError("TestClient WebSocket actions must be an array")
-    denial_workflow = not session_actions
+    no_client_actions = not session_actions
+    denial_workflow = no_client_actions
+    client_json_workflow = False
+    client_json_exchange = False
+    client_json_send_mode: str | None = None
+    client_json_receive_mode: str | None = None
     exchange_requirement: str | None = None
     frame_mode: str | None = None
     if denial_workflow:
@@ -7992,7 +8120,34 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         and isinstance(session_actions[1], dict)
     ):
         send_operation = session_actions[0].get("operation")
-        if send_operation == "send_text":
+        if send_operation == "send_json":
+            send_action = _exact(
+                session_actions[0],
+                {"operation", "value"} | (session_actions[0].keys() & {"mode"}),
+                "TestClient WebSocket JSON send action",
+            )
+            client_json_send_mode = _string(
+                send_action.get("mode", "text"),
+                "TestClient WebSocket send_json mode",
+            )
+            if client_json_send_mode not in {"text", "binary"}:
+                raise ContractError("TestClient WebSocket send_json mode must be text or binary")
+            receive_action = _exact(
+                session_actions[1],
+                {"operation"} | (session_actions[1].keys() & {"mode"}),
+                "TestClient WebSocket JSON receive action",
+            )
+            if receive_action["operation"] != "receive_json":
+                raise ContractError("TestClient WebSocket must use receive_json after send_json")
+            client_json_receive_mode = _string(
+                receive_action.get("mode", "text"),
+                "TestClient WebSocket receive_json mode",
+            )
+            if client_json_receive_mode not in {"text", "binary"}:
+                raise ContractError("TestClient WebSocket receive_json mode must be text or binary")
+            client_json_workflow = True
+            client_json_exchange = True
+        elif send_operation == "send_text":
             send_action = _exact(
                 session_actions[0], {"operation", "text"}, "TestClient WebSocket text send action"
             )
@@ -8014,18 +8169,33 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             frame_mode = "bytes"
         else:
             raise ContractError(
-                "TestClient WebSocket send operation must be send_text or send_bytes"
+                "TestClient WebSocket send operation must be send_json, send_text, or send_bytes"
             )
+        if send_operation != "send_json":
+            receive_action = _exact(
+                session_actions[1], {"operation"}, "TestClient WebSocket receive action"
+            )
+            if receive_action["operation"] != receive_operation:
+                raise ContractError(
+                    f"TestClient WebSocket must use {receive_operation} after {send_operation}"
+                )
+    elif len(session_actions) == 1 and isinstance(session_actions[0], dict):
         receive_action = _exact(
-            session_actions[1], {"operation"}, "TestClient WebSocket receive action"
+            session_actions[0],
+            {"operation", "mode"} & session_actions[0].keys(),
+            "TestClient WebSocket JSON receive action",
         )
-        if receive_action["operation"] != receive_operation:
-            raise ContractError(
-                f"TestClient WebSocket must use {receive_operation} after {send_operation}"
-            )
+        if receive_action["operation"] != "receive_json":
+            raise ContractError("TestClient WebSocket single action must call receive_json")
+        client_json_receive_mode = _string(
+            receive_action.get("mode", "text"), "TestClient WebSocket receive_json mode"
+        )
+        if client_json_receive_mode not in {"text", "binary"}:
+            raise ContractError("TestClient WebSocket receive_json mode must be text or binary")
+        client_json_workflow = True
     else:
         raise ContractError(
-            "TestClient WebSocket actions must be empty for pre-acceptance denial or send one frame and receive one frame"
+            "TestClient WebSocket actions must be empty, receive one JSON frame, send and receive one JSON frame, or send one text/byte frame and receive one frame"
         )
 
     asgi_app = _exact(
@@ -8059,6 +8229,14 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     ):
         raise ContractError("TestClient WebSocket scope_fields must be unique supported scope keys")
     app_actions = asgi_app["actions"]
+    accepted_flow_workflow = (
+        isinstance(app_actions, list)
+        and len(app_actions) == 1
+        and isinstance(app_actions[0], dict)
+        and app_actions[0].get("operation") == "websocket_flow"
+    )
+    if no_client_actions and accepted_flow_workflow:
+        denial_workflow = False
     if denial_workflow:
         if (
             not isinstance(app_actions, list)
@@ -8141,6 +8319,76 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         if set(case["covers"]) != expected_covers:
             raise ContractError("TestClient WebSocket covers must match the denial workflow")
         return
+
+    if accepted_flow_workflow:
+        flow_kind = _validate_testclient_websocket_flow(app_actions)
+        if flow_kind == "blocking-receive" and not client_json_workflow:
+            raise ContractError(
+                "TestClient blocking-receive flow must observe its server JSON frame through receive_json"
+            )
+        if flow_kind == "cancellation" and (client_json_workflow or session_actions):
+            raise ContractError(
+                "TestClient close-triggered cancellation flow must exit without client message actions"
+            )
+        if flow_kind == "json-exchange":
+            if not client_json_exchange:
+                raise ContractError(
+                    "TestClient JSON exchange flow requires send_json followed by receive_json"
+                )
+            flow_actions = app_actions[0]["actions"]
+            app_receive_mode = _string(
+                flow_actions[1].get("mode", "text"),
+                "TestClient WebSocket app receive_json mode",
+            )
+            app_send_mode = _string(
+                flow_actions[2].get("mode", "text"),
+                "TestClient WebSocket app send_json mode",
+            )
+            if (
+                app_receive_mode != client_json_send_mode
+                or app_send_mode != client_json_receive_mode
+            ):
+                raise ContractError(
+                    "TestClient WebSocket app JSON modes must match the client frame modes"
+                )
+        elif client_json_exchange:
+            raise ContractError(
+                "TestClient send_json and receive_json require a JSON exchange app flow"
+            )
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+        }
+        if flow_kind == "blocking-receive":
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["blocking_receive"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["disconnect_details"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS[
+                        "receive_json_" + str(client_json_receive_mode)
+                    ],
+                }
+            )
+        elif flow_kind == "cancellation":
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["cancellation"])
+        else:
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["send_json_" + str(client_json_send_mode)],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS[
+                        "receive_json_" + str(client_json_receive_mode)
+                    ],
+                }
+            )
+        if set(case["covers"]) != expected_covers:
+            raise ContractError("TestClient WebSocket covers must match the app flow")
+        return
+    if client_json_workflow:
+        raise ContractError(
+            "TestClient receive_json action requires an input-defined concurrent WebSocket app flow"
+        )
 
     if not isinstance(app_actions, list) or len(app_actions) != 5:
         raise ContractError(

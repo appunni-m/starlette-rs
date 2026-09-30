@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 530 input-only cases across 61 files,
-covering 78 operations and 566 parity requirements. The authored cases span
+The active parity manifest indexes 534 input-only cases across 61 files,
+covering 78 operations and 574 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
@@ -207,17 +207,7 @@ cases cover the built-in `WebSocketException` close path, an `HTTPException`
 denial response, and a registered synchronous WebSocket close handler. These
 map to the pinned `test_websocket_raise_*` workflows. Direct
 `ServerErrorMiddleware` invocation and arbitrary middleware ordering remain
-outside the active contract. The active TestClient contract compares four
-input-driven HTTP request/response cases over five requirements, one
-context-managed lifespan case over four requirements, and WebSocket session
-inputs covering text and binary frames. It covers ASGI2/ASGI3 dispatch, HTTP and
-WebSocket scope projection, HTTP request-body delivery, response headers/body,
-debug extensions, timeout deprecation warning details, context-managed lifespan
-startup/request reuse/shutdown, WebSocket subprotocol acceptance, text and
-binary exchange, and context-exit disconnect. TestClient exception policy,
-streaming bodies, lifespan re-entry behavior, JSON frames, denial responses,
-close-message errors, and explicit close reasons remain in the
-fixture backlog.
+outside the active contract. The active TestClient contract compares four input-driven HTTP request/response cases over five requirements, one context-managed lifespan case over four requirements, and eight WebSocket session inputs. Those inputs cover text and binary exchange, compact JSON text and UTF-8 binary JSON frames, streamed denial responses, concurrent JSON receive progress while the app is blocked, disconnect exception fields, close-triggered cancellation, app completion, and portal thread cleanup. The two lifecycle inputs map to `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close`; their authored input and exact output observations are described in [the parity contract](PARITY.md#testclient-websocket-blocking-receive-and-close-teardown). The JSON text and binary cases are input-mapped to the documented `WebSocketTestSession.send_json()` and `receive_json()` methods. The latest previously integrated full-slice artifact predates these four new inputs. TestClient exception policy, streaming bodies, lifespan re-entry behavior, close-message errors, and explicit close reasons remain in the fixture backlog.
 `asgi-core.app.test_app_debug` stays in backlog because its input constructs
 the app with debug enabled rather than setting debug after construction. The
 parity artifact status for that historical run was `completed`; the four

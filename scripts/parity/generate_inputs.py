@@ -45,13 +45,42 @@ def _relative_input_path(value: str, lane: str) -> Path:
     return path
 
 
+def _source_relative_path(relative_input: Path, lane: str) -> Path:
+    """Map an indexed generated JSON path to its authored YAML path."""
+    return relative_input.relative_to(INPUT_ROOT / lane).with_suffix(".yaml")
+
+
+def _source_relative_paths(relative_input: Path, lane: str) -> tuple[Path, Path]:
+    source = _source_relative_path(relative_input, lane)
+    return source, source.with_suffix(".yml")
+
+
 def _source_path(root: Path, relative_input: Path, lane: str) -> Path:
     source_root = (root / SOURCE_ROOT / lane).resolve()
-    source = (source_root / f"{relative_input.stem}.yaml").resolve()
-    if source_root not in source.parents or not source.is_file():
+    sources = [
+        (source_root / relative).resolve()
+        for relative in _source_relative_paths(relative_input, lane)
+        if (source_root / relative).is_file()
+    ]
+    if len(sources) != 1:
+        source_names = ", ".join(
+            (SOURCE_ROOT / lane / relative).as_posix()
+            for relative in _source_relative_paths(relative_input, lane)
+        )
+        if len(sources) > 1:
+            raise ContractError(
+                f"multiple authored YAML sources map to {relative_input.as_posix()}: "
+                f"{source_names}; keep exactly one"
+            )
         raise ContractError(
             f"missing authored YAML input for {relative_input.as_posix()}: "
-            f"{source.relative_to(root).as_posix() if source.is_relative_to(root) else source}"
+            f"expected one of {source_names}"
+        )
+    source = sources[0]
+    if source_root not in source.parents or not source.is_file():
+        raise ContractError(
+            f"authored YAML input for {relative_input.as_posix()} must resolve beneath "
+            f"{(SOURCE_ROOT / lane).as_posix()}: {source}"
         )
     return source
 
@@ -70,6 +99,7 @@ def _validate_sources(
     generated: list[tuple[Path, bytes, dict[str, Any]]] = []
     parity_cases: list[dict[str, Any]] = []
     seen_paths: set[Path] = set()
+    _validate_source_index(root, manifest)
     for lane in LANES:
         paths = manifest["input_index"][lane]
         for value in paths:
@@ -109,6 +139,84 @@ def _validate_sources(
             else:
                 validate_upstream_workloads(document)
     return generated
+
+
+def _validate_source_index(root: Path, manifest: dict[str, Any]) -> None:
+    """Require a one-to-one mapping between indexed inputs and authored YAML."""
+    source_base_path = root / SOURCE_ROOT
+    if source_base_path.is_symlink():
+        raise ContractError(
+            f"active authored input source root cannot be a symlink: {SOURCE_ROOT.as_posix()}"
+        )
+
+    for lane in LANES:
+        indexed_paths = manifest["input_index"][lane]
+        seen_inputs: set[Path] = set()
+        expected_sources: set[Path] = set()
+        missing_inputs: list[str] = []
+        duplicated_inputs: list[str] = []
+        for value in indexed_paths:
+            relative_input = _relative_input_path(value, lane)
+            if relative_input in seen_inputs:
+                raise ContractError(f"duplicate generated input path in {lane} index: {value}")
+            seen_inputs.add(relative_input)
+            candidates = _source_relative_paths(relative_input, lane)
+            expected_sources.update(candidates)
+
+        source_root_path = root / SOURCE_ROOT / lane
+        if source_root_path.is_symlink():
+            raise ContractError(
+                f"active authored input source root cannot be a symlink: "
+                f"{(SOURCE_ROOT / lane).as_posix()}"
+            )
+        source_root = source_root_path.resolve()
+        actual_sources: set[Path] = set()
+        if source_root.exists():
+            for path in source_root.rglob("*"):
+                relative_source = path.relative_to(source_root)
+                if path.is_symlink() and path.is_dir():
+                    raise ContractError(
+                        "authored input source tree cannot contain a symlinked directory: "
+                        f"{(SOURCE_ROOT / lane / relative_source).as_posix()}"
+                    )
+                if (path.is_file() or path.is_symlink()) and path.suffix.lower() in {
+                    ".yaml",
+                    ".yml",
+                }:
+                    actual_sources.add(relative_source)
+
+        for value in indexed_paths:
+            candidates = _source_relative_paths(_relative_input_path(value, lane), lane)
+            present = [source for source in candidates if source in actual_sources]
+            if not present:
+                missing_inputs.append(value)
+            elif len(present) > 1:
+                duplicated_inputs.append(value)
+
+        unindexed_sources = sorted(actual_sources - expected_sources)
+        if not missing_inputs and not duplicated_inputs and not unindexed_sources:
+            continue
+
+        details = [f"authored YAML sources and manifest input_index.{lane} are out of sync:"]
+        details.extend(
+            f"- missing source for {value}: expected "
+            f"{(SOURCE_ROOT / lane / _source_relative_path(_relative_input_path(value, lane), lane)).as_posix()} "
+            f"or its .yml equivalent"
+            for value in missing_inputs
+        )
+        details.extend(
+            f"- multiple YAML sources map to {value}: "
+            f"{', '.join((SOURCE_ROOT / lane / source).as_posix() for source in _source_relative_paths(_relative_input_path(value, lane), lane))}; "
+            "keep exactly one"
+            for value in duplicated_inputs
+        )
+        details.extend(
+            f"- unindexed source {(SOURCE_ROOT / lane / source).as_posix()}: add "
+            f"{(INPUT_ROOT / lane / source.with_suffix('.json')).as_posix()} to "
+            f"manifest.input_index.{lane}, or move the YAML out of the active source tree"
+            for source in unindexed_sources
+        )
+        raise ContractError("\n".join(details))
 
 
 def _write_generated(root: Path, generated: list[tuple[Path, bytes, dict[str, Any]]]) -> None:

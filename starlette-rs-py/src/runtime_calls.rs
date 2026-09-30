@@ -271,6 +271,7 @@ impl PyStreamingResponse {
     }
 
     #[pyo3(signature = (key, value="", max_age=None, expires=None, path="/", domain=None, secure=false, httponly=false, samesite="lax", partitioned=false))]
+    // LINT EXCEPTION: Preserve Response.set_cookie's public Python options and keyword names one-for-one.
     #[allow(clippy::too_many_arguments)]
     fn set_cookie(
         &mut self,
@@ -303,6 +304,7 @@ impl PyStreamingResponse {
     }
 
     #[pyo3(signature = (key, path="/", domain=None, secure=false, httponly=false, samesite="lax"))]
+    // LINT EXCEPTION: Preserve Response.delete_cookie's public Python options and keyword names one-for-one.
     #[allow(clippy::too_many_arguments)]
     fn delete_cookie(
         &mut self,

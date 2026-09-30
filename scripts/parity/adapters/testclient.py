@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import builtins
+import threading
 import warnings
 from typing import Any
 
@@ -136,6 +137,24 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     scope_observations: list[dict[str, Any]] = []
     receive_observations: list[dict[str, Any]] = []
     send_observations: list[dict[str, Any]] = []
+    event_tape: list[dict[str, Any]] = []
+    application_values: list[dict[str, Any]] = []
+    disconnect_observations: list[dict[str, Any]] = []
+    cancellation_observations: list[dict[str, str]] = []
+    application_state: dict[str, Any] = {"completed": False, "thread": None}
+
+    async def observed_receive(receive: Any) -> dict[str, Any]:
+        message = await receive()
+        safe_message = _safe(message)
+        receive_observations.append(safe_message)
+        event_tape.append({"direction": "receive", "message": safe_message})
+        return message
+
+    async def observed_send(send: Any, message: dict[str, Any]) -> None:
+        safe_message = _safe(message)
+        send_observations.append(safe_message)
+        event_tape.append({"direction": "send", "message": safe_message})
+        await send(message)
 
     def record_scope(scope: dict[str, Any]) -> None:
         scope_observations.append(
@@ -145,15 +164,76 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     async def run_app_body(receive: Any, send: Any) -> None:
         for action in app_input["actions"]:
             if action["operation"] == "receive":
-                receive_observations.append(_safe(await receive()))
+                await observed_receive(receive)
             else:
                 message = _message(action["message"])
-                send_observations.append(_safe(message))
-                await send(message)
+                await observed_send(send, message)
+
+    async def run_websocket_flow(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        import anyio
+        from starlette.websockets import WebSocket, WebSocketDisconnect
+
+        websocket = WebSocket(
+            scope,
+            lambda: observed_receive(receive),
+            lambda message: observed_send(send, message),
+        )
+
+        async def run_actions(actions: list[dict[str, Any]]) -> None:
+            for action in actions:
+                operation = action["operation"]
+                if operation == "accept":
+                    await websocket.accept(
+                        action.get("subprotocol"),
+                        _decoded_pairs(action.get("headers_base64_pairs", [])),
+                    )
+                elif operation == "send_json":
+                    await websocket.send_json(action["value"], action.get("mode", "text"))
+                elif operation == "receive_json":
+                    try:
+                        value = await websocket.receive_json(action.get("mode", "text"))
+                    except WebSocketDisconnect as error:
+                        if not action.get("capture_disconnect", False):
+                            raise
+                        disconnect_observations.append(
+                            {
+                                "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                                "code": error.code,
+                                "reason": error.reason,
+                            }
+                        )
+                    else:
+                        application_values.append({"operation": operation, "value": _safe(value)})
+                elif operation == "parallel":
+                    async with anyio.create_task_group() as task_group:
+                        for task in action["tasks"]:
+                            task_group.start_soon(run_actions, task)
+                elif operation == "wait_forever":
+                    try:
+                        await anyio.sleep_forever()
+                    except anyio.get_cancelled_exc_class() as error:
+                        cancellation_observations.append(
+                            {"class": f"{type(error).__module__}.{type(error).__qualname__}"}
+                        )
+                        raise
+                else:
+                    raise ValueError(f"unsupported WebSocket app action: {operation!r}")
+
+        try:
+            await run_actions(app_input["actions"][0]["actions"])
+        finally:
+            application_state["completed"] = True
 
     async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
         record_scope(scope)
-        await run_app_body(receive, send)
+        application_state["thread"] = threading.current_thread()
+        try:
+            if app_input["actions"][0]["operation"] == "websocket_flow":
+                await run_websocket_flow(scope, receive, send)
+            else:
+                await run_app_body(receive, send)
+        finally:
+            application_state["completed"] = True
 
     client = TestClient(
         app,
@@ -180,10 +260,14 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                     value = session.send_text(action["text"])
                 elif action["operation"] == "send_bytes":
                     value = session.send_bytes(base64.b64decode(action["data_base64"]))
+                elif action["operation"] == "send_json":
+                    value = session.send_json(action["value"], action.get("mode", "text"))
                 elif action["operation"] == "receive_text":
                     value = session.receive_text()
                 elif action["operation"] == "receive_bytes":
                     value = session.receive_bytes()
+                elif action["operation"] == "receive_json":
+                    value = session.receive_json(action.get("mode", "text"))
                 else:
                     raise ValueError(
                         f"unsupported TestClient WebSocket action: {action['operation']!r}"
@@ -208,6 +292,17 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             "actions": action_results,
         },
         "denial_response": denial_response,
+    }
+    result["event_tape"] = event_tape
+    portal_thread = application_state["thread"]
+    result["app"] = {
+        "values": application_values,
+        "disconnects": disconnect_observations,
+        "cancellations": cancellation_observations,
+        "completed": application_state["completed"],
+        "portal_thread_alive_after_exit": (
+            None if portal_thread is None else portal_thread.is_alive()
+        ),
     }
     client.close()
     return {

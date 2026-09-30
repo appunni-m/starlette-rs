@@ -129,6 +129,7 @@ fn authentication_requires_config(
     )
 }
 
+// LINT EXCEPTION: Pass Starlette's wrapper factories and exception classes separately to preserve Python identity.
 #[allow(clippy::too_many_arguments)]
 #[pyfunction]
 fn authentication_requires_decorate(
@@ -522,6 +523,7 @@ struct PyAuthenticationMiddlewareRuntime {
 }
 
 #[pyfunction]
+// LINT EXCEPTION: Retain each Python app, backend, handler, and Starlette runtime class as a separate reference.
 #[allow(clippy::too_many_arguments)]
 fn authentication_middleware_initialize(
     py: Python<'_>,

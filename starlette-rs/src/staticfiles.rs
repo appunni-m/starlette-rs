@@ -46,7 +46,7 @@ impl StaticFile {
 }
 
 /// The response selected by the StaticFiles protocol policy.
-// Keep the public file payload by value; boxing it would change this consumer API.
+// LINT EXCEPTION: Keep the public file payload by value because boxing would change this consumer API.
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StaticFilesResponse {
@@ -70,7 +70,7 @@ pub enum StaticFilesResponse {
 }
 
 /// The next operation in an asynchronous static-file response flow.
-// This short-lived public transition carries the response without changing its API to Box.
+// LINT EXCEPTION: Keep this public transition's response by value because boxing would change its API.
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StaticFilesResponseStep {

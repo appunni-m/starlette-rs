@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -44,6 +45,19 @@ RUST_TEST_ATTRIBUTES = re.compile(
     re.MULTILINE,
 )
 RUST_TEST_MODULE = re.compile(r"^\s*mod\s+tests\s*(?:\{|;)", re.MULTILINE)
+RUST_ALLOW_ATTRIBUTE = re.compile(r"^\s*#!?\[\s*allow\s*\(")
+RUST_LINT_EXCEPTION = re.compile(r"^\s*// LINT EXCEPTION:\s*(?P<rationale>.+\S)\s*$")
+MIN_LINT_EXCEPTION_RATIONALE_LENGTH = 40
+GENERATED_PARITY_JSON_PATHS = (
+    "build/parity/inputs/parity/asgi-http-get-text.json",
+    "build/parity/inputs/benchmark/asgi-get-hello.json",
+    "build/parity/inputs/benchmark/starlette-upstream-workloads.json",
+    "build/parity/parity-result.json",
+    "build/parity/benchmark-result.json",
+    "build/parity/benchmark-correctness-result.json",
+    "build/parity/upstream-benchmark-result.json",
+    "build/parity/upstream-benchmark-correctness-result.json",
+)
 PYTHON_TEST_FRAMEWORK_IMPORT = re.compile(
     r"^\s*(?:from\s+(?:pytest|unittest)(?:\.|\s)|import\s+(?:pytest|unittest)(?:\.|\s|$))",
     re.MULTILINE,
@@ -62,8 +76,76 @@ def python_sources() -> list[Path]:
     return sorted(path for root in PYTHON_SOURCE_ROOTS for path in root.rglob("*.py"))
 
 
+def check_rust_lint_exceptions(path: Path, source: str, violations: list[str]) -> None:
+    lines = source.splitlines()
+    for index, line in enumerate(lines):
+        if not RUST_ALLOW_ATTRIBUTE.match(line):
+            continue
+        rationale_line = lines[index - 1] if index > 0 else ""
+        rationale = RUST_LINT_EXCEPTION.match(rationale_line)
+        if (
+            rationale is None
+            or len(rationale.group("rationale").strip()) < MIN_LINT_EXCEPTION_RATIONALE_LENGTH
+        ):
+            violations.append(
+                f"{path.relative_to(ROOT)}:{index + 1}: Rust lint allow attributes need an "
+                "immediately adjacent `// LINT EXCEPTION:` comment with a specific rationale "
+                f"of at least {MIN_LINT_EXCEPTION_RATIONALE_LENGTH} characters"
+            )
+
+
+def check_generated_parity_json(violations: list[str]) -> None:
+    try:
+        tracked = subprocess.run(
+            ["git", "ls-files", "--cached", "--", "build/parity"],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as error:
+        violations.append(f"build/parity: unable to inspect tracked outputs with git: {error}")
+        return
+
+    if tracked.returncode != 0:
+        detail = tracked.stderr.strip()
+        violations.append(
+            "build/parity: `git ls-files` could not verify generated JSON tracking"
+            + (f": {detail}" if detail else "")
+        )
+        return
+
+    for relative_path in tracked.stdout.splitlines():
+        if Path(relative_path).suffix.lower() == ".json":
+            violations.append(
+                f"{relative_path}: generated JSON under build/parity must not be tracked"
+            )
+
+    for relative_path in GENERATED_PARITY_JSON_PATHS:
+        try:
+            ignored = subprocess.run(
+                ["git", "check-ignore", "--quiet", "--no-index", "--", relative_path],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except OSError as error:
+            violations.append(
+                f"{relative_path}: unable to verify generated-output ignore rule: {error}"
+            )
+            continue
+        if ignored.returncode != 0:
+            detail = ignored.stderr.strip()
+            violations.append(
+                f"{relative_path}: generated parity input/result path must be ignored by Git"
+                + (f" ({detail})" if detail else "")
+            )
+
+
 def main() -> int:
     violations: list[str] = []
+    check_generated_parity_json(violations)
 
     for path in TESTS_ROOT.rglob("*"):
         if not path.is_file() or path.is_relative_to(FIXTURE_ROOT):
@@ -76,6 +158,7 @@ def main() -> int:
 
     for path in rust_sources():
         source = path.read_text()
+        check_rust_lint_exceptions(path, source, violations)
         for pattern in (RUST_TEST_ATTRIBUTES, RUST_TEST_MODULE):
             for match in pattern.finditer(source):
                 line = source.count("\n", 0, match.start()) + 1
@@ -140,7 +223,8 @@ def main() -> int:
     print(
         "project policy check passed: no conventional unit-test sources or "
         "framework imports, no upstream Starlette runtime dependency, and no "
-        "control flow in Python Starlette wrappers; `make test` routes to live parity"
+        "control flow in Python Starlette wrappers; Rust lint exceptions are "
+        "documented, parity JSON is untracked and ignored; `make test` routes to live parity"
     )
     return 0
 

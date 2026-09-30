@@ -10,6 +10,7 @@ use starlette_rs::{CookieOptions, ResponseError};
 /// CPython's `http.cookies` and `email.utils` are used only to convert the
 /// Python-specific `expires` forms into the textual HTTP date that Rust stores
 /// and serializes. Cookie decisions and header construction remain in Rust.
+// LINT EXCEPTION: Keep each Starlette set_cookie option separate while converting Python expires values.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn options_from_python(
     py: Python<'_>,
@@ -41,6 +42,7 @@ pub(crate) fn options_from_python(
 }
 
 /// Converts deletion attributes and Python's current-time expires value.
+// LINT EXCEPTION: Keep each Starlette delete_cookie option separate while converting its expires value.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn delete_options_from_python(
     py: Python<'_>,
