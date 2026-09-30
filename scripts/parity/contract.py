@@ -5093,19 +5093,34 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
 
     receive_behavior = case.get("receive_behavior")
     if receive_behavior is not None:
-        receive_behavior = _exact(
-            receive_behavior,
-            {"kind", "minimum_body_bytes"},
-            "StreamingResponse receive behavior",
-        )
-        if (
-            receive_behavior["kind"] != "disconnect-after-body-bytes"
-            or type(receive_behavior["minimum_body_bytes"]) is not int
-            or receive_behavior["minimum_body_bytes"] < 1
-        ):
-            raise ContractError(
-                "StreamingResponse receive behavior must declare a positive body-byte threshold"
+        if not isinstance(receive_behavior, dict):
+            raise ContractError("StreamingResponse receive behavior must be an object")
+        if receive_behavior.get("kind") == "disconnect-after-body-bytes":
+            receive_behavior = _exact(
+                receive_behavior,
+                {"kind", "minimum_body_bytes"},
+                "StreamingResponse receive behavior",
             )
+            if (
+                type(receive_behavior["minimum_body_bytes"]) is not int
+                or receive_behavior["minimum_body_bytes"] < 1
+            ):
+                raise ContractError(
+                    "StreamingResponse receive behavior must declare a positive body-byte threshold"
+                )
+        elif receive_behavior.get("kind") == "raise-not-implemented":
+            receive_behavior = _exact(
+                receive_behavior,
+                {"kind"},
+                "StreamingResponse receive behavior",
+            )
+        else:
+            raise ContractError("StreamingResponse receive behavior kind is unsupported")
+
+    send = case["send"]
+    send_raises_oserror = isinstance(send, dict) and send.get("kind") == (
+        "capture-asgi-send-until-oserror"
+    )
 
     stimulus = (tuple(chunks), tuple(tuple(pair) for pair in headers), media_type)
     allowed_sync = {
@@ -5202,8 +5217,20 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             )
         except (AttributeError, KeyError, TypeError, ValueError) as exc:
             raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
-        if spec_version >= (2, 4):
-            raise ContractError("gated disconnect behavior requires a pre-ASGI-2.4 response scope")
+        receive_kind = receive_behavior["kind"]
+        if spec_version < (2, 4):
+            if receive_kind != "disconnect-after-body-bytes" or send_raises_oserror:
+                raise ContractError(
+                    "pre-ASGI-2.4 repeating generators require gated disconnect input and normal send"
+                )
+        elif (
+            receive_kind != "raise-not-implemented"
+            or not send_raises_oserror
+            or case["streaming"] != "async-generator"
+        ):
+            raise ContractError(
+                "ASGI 2.4 repeating generators require an unused failing receive and OSError send"
+            )
         repeated_chunk_bytes = sum(
             len(value.encode("utf-8"))
             if kind == "text"
@@ -5227,10 +5254,6 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "StreamingResponse execution-trace operation requires an async generator"
         )
-    send = case["send"]
-    send_raises_oserror = isinstance(send, dict) and send.get("kind") == (
-        "capture-asgi-send-until-oserror"
-    )
     if case["incoming"] != [] or (
         send != {"kind": "capture-asgi-send"} and not send_raises_oserror
     ):
@@ -5243,7 +5266,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         )
         if (
             send["kind"] != "capture-asgi-send-until-oserror"
-            or case["streaming"] != "sync"
+            or case["streaming"] not in {"sync", "async-generator"}
             or type(send["event_index"]) is not int
             or send["event_index"] < 0
             or send["event_index"] >= len(chunks) + 2
@@ -5262,7 +5285,10 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         },
         request_dispatch=True,
         allow_oserror_send=send_raises_oserror,
-        allow_pre_asgi24_disconnect=receive_behavior is not None,
+        allow_pre_asgi24_disconnect=(
+            receive_behavior is not None
+            and receive_behavior["kind"] == "disconnect-after-body-bytes"
+        ),
     )
     if case["scope"]["query_string_base64"] != "" or case["scope"]["headers_base64_pairs"] != []:
         raise ContractError("Response asgi-call scope uses the direct HTTP baseline")

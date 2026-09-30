@@ -5277,16 +5277,27 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
     receive_behavior: dict[str, Any] | None = None
     if "receive_behavior" in case:
-        receive_behavior = _exact_object(
-            case["receive_behavior"],
-            {"kind", "minimum_body_bytes"},
-            "Response receive behavior",
-        )
-        if (
-            receive_behavior["kind"] != "disconnect-after-body-bytes"
-            or type(receive_behavior["minimum_body_bytes"]) is not int
-            or receive_behavior["minimum_body_bytes"] < 1
-        ):
+        receive_behavior_value = case["receive_behavior"]
+        if not isinstance(receive_behavior_value, dict):
+            raise ValueError("Response receive behavior input must be an object")
+        if receive_behavior_value.get("kind") == "disconnect-after-body-bytes":
+            receive_behavior = _exact_object(
+                receive_behavior_value,
+                {"kind", "minimum_body_bytes"},
+                "Response receive behavior",
+            )
+            if (
+                type(receive_behavior["minimum_body_bytes"]) is not int
+                or receive_behavior["minimum_body_bytes"] < 1
+            ):
+                raise ValueError("Response receive behavior input is invalid")
+        elif receive_behavior_value.get("kind") == "raise-not-implemented":
+            receive_behavior = _exact_object(
+                receive_behavior_value,
+                {"kind"},
+                "Response receive behavior",
+            )
+        else:
             raise ValueError("Response receive behavior input is invalid")
 
     execution_trace = (
@@ -5430,10 +5441,17 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         }
     scope = _make_scope(scope_spec)
     sent: list[dict[str, Any]] = []
-    receive_gate = asyncio.Event() if receive_behavior is not None else None
+    receive_gate = (
+        asyncio.Event()
+        if receive_behavior is not None
+        and receive_behavior["kind"] == "disconnect-after-body-bytes"
+        else None
+    )
     sent_body_bytes = 0
 
     async def receive() -> dict[str, Any]:
+        if receive_behavior is not None and receive_behavior["kind"] == "raise-not-implemented":
+            raise NotImplementedError
         if receive_gate is not None:
             await receive_gate.wait()
         message = {"type": "http.disconnect"}
@@ -5457,7 +5475,11 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             )
         if execution_trace is not None:
             execution_trace.append({"event": "asgi-send", "message": _canonical_message(message)})
-        if receive_behavior is not None and message["type"] == "http.response.body":
+        if (
+            receive_behavior is not None
+            and receive_behavior["kind"] == "disconnect-after-body-bytes"
+            and message["type"] == "http.response.body"
+        ):
             sent_body_bytes += len(message.get("body", b""))
             if sent_body_bytes >= receive_behavior["minimum_body_bytes"]:
                 if receive_gate is None:

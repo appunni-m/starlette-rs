@@ -11600,7 +11600,7 @@
             {
               "id": "starlette.responses.StreamingResponse.asgi-call.client-disconnect-oserror",
               "dimension": "protocol_variant",
-              "description": "Capture the response start and first body event, then raise an input-defined OSError before recording the second body event. Compare the propagated ClientDisconnect and partial ASGI observation for ASGI spec 2.4. Upstream: starlette/responses.py::StreamingResponse.__call__; test: tests/test_responses.py::test_streaming_response_on_client_disconnects.",
+              "description": "Under ASGI spec 2.4, run an input-defined repeating async generator that yields after an event-loop checkpoint, record the first body event, and raise an input-defined OSError on the next send. The receive callback raises NotImplementedError if called, matching the source fixture. Compare ClientDisconnect, partial ASGI events, and generator execution trace. Upstream: starlette/responses.py::StreamingResponse.__call__; test: tests/test_responses.py::test_streaming_response_on_client_disconnects.",
               "lanes": [
                 "parity"
               ],
