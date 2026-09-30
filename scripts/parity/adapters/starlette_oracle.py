@@ -69,6 +69,8 @@ SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
 SESSION_WORKFLOW_OPERATION = "session-workflow"
 BASE_HTTP_SURFACE = "starlette.middleware.base.BaseHTTPMiddleware"
 BASE_HTTP_WORKFLOW_OPERATION = "base-http-workflow"
+TESTCLIENT_SURFACE = "starlette.testclient.TestClient"
+TESTCLIENT_OPERATION = "request-response"
 EXCEPTION_VALUES_SURFACE = "starlette.exceptions"
 MIDDLEWARE_CONFIG_SURFACE = "starlette.middleware.Middleware"
 VALUE_FORMATTING_OPERATION = "value-formatting"
@@ -8947,6 +8949,10 @@ def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if case.get("surface") == TESTCLIENT_SURFACE and case.get("operation") == TESTCLIENT_OPERATION:
+        from scripts.parity.adapters.testclient import run_testclient_case
+
+        return run_testclient_case(case)
     if case.get("surface") == "starlette.middleware.wsgi" and case.get("operation") in {
         "build-environ",
         "module-import-warning",

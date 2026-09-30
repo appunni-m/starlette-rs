@@ -99,6 +99,15 @@ SESSION_WORKFLOW_OPERATION_KEY = (SESSION_MIDDLEWARE_SURFACE, SESSION_WORKFLOW_O
 BASE_HTTP_SURFACE = "starlette.middleware.base.BaseHTTPMiddleware"
 BASE_HTTP_WORKFLOW_OPERATION = "base-http-workflow"
 BASE_HTTP_WORKFLOW_OPERATION_KEY = (BASE_HTTP_SURFACE, BASE_HTTP_WORKFLOW_OPERATION)
+TESTCLIENT_SURFACE = "starlette.testclient.TestClient"
+TESTCLIENT_OPERATION = "request-response"
+TESTCLIENT_OPERATION_KEY = (TESTCLIENT_SURFACE, TESTCLIENT_OPERATION)
+TESTCLIENT_REQUIREMENTS = {
+    "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.scope-projection",
+    "receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-message",
+    "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
+    "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
+}
 BASE_HTTP_WORKFLOW_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "application",
     "request",
@@ -1507,6 +1516,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             HTTP_ENDPOINT_OPERATION_KEY,
                             SESSION_WORKFLOW_OPERATION_KEY,
                             BASE_HTTP_WORKFLOW_OPERATION_KEY,
+                            TESTCLIENT_OPERATION_KEY,
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
                             ROUTE_CONSTRUCTOR_OPERATION_KEY,
                         }
@@ -7351,6 +7361,163 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_testclient_case(case: dict[str, Any]) -> None:
+    settings = _exact(
+        case["testclient"],
+        {"base_url", "raise_server_exceptions", "root_path", "client", "headers"},
+        "TestClient settings",
+    )
+    base_url = _string(settings["base_url"], "TestClient.base_url")
+    if not base_url.startswith(("http://", "https://")):
+        raise ContractError("TestClient.base_url must use http or https")
+    if type(settings["raise_server_exceptions"]) is not bool:
+        raise ContractError("TestClient.raise_server_exceptions must be boolean")
+    if not isinstance(settings["root_path"], str):
+        raise ContractError("TestClient.root_path must be a string")
+    client = settings["client"]
+    if (
+        not isinstance(client, list)
+        or len(client) != 2
+        or not isinstance(client[0], str)
+        or type(client[1]) is not int
+        or not 0 <= client[1] <= 65535
+    ):
+        raise ContractError("TestClient.client must be [host, port]")
+    headers = settings["headers"]
+    if not isinstance(headers, list) or any(
+        not isinstance(pair, list)
+        or len(pair) != 2
+        or any(not isinstance(value, str) for value in pair)
+        for pair in headers
+    ):
+        raise ContractError("TestClient.headers must be an array of string pairs")
+
+    request = _exact(
+        case["request"],
+        {"method", "url", "headers_base64_pairs", "body_base64"},
+        "TestClient request",
+    )
+    method = _string(request["method"], "TestClient request.method")
+    if not method or method != method.upper():
+        raise ContractError("TestClient request.method must be a non-empty uppercase token")
+    _string(request["url"], "TestClient request.url")
+
+    def validate_base64(value: Any, context: str) -> None:
+        if not isinstance(value, str):
+            raise ContractError(f"{context} must be a base64 string")
+        encoded = value
+        try:
+            decoded = base64.b64decode(encoded, validate=True)
+        except (TypeError, ValueError) as exc:
+            raise ContractError(f"{context} is invalid base64") from exc
+        if base64.b64encode(decoded).decode("ascii") != encoded:
+            raise ContractError(f"{context} must use canonical base64")
+
+    def validate_pairs(value: Any, context: str) -> None:
+        if not isinstance(value, list):
+            raise ContractError(f"{context} must be an array")
+        for index, pair in enumerate(value):
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError(f"{context}[{index}] must contain two base64 strings")
+            validate_base64(pair[0], f"{context}[{index}].name")
+            validate_base64(pair[1], f"{context}[{index}].value")
+
+    validate_pairs(request["headers_base64_pairs"], "TestClient request headers")
+    validate_base64(request["body_base64"], "TestClient request.body_base64")
+
+    asgi_app = _exact(
+        case["asgi_app"],
+        {"kind", "scope_fields", "receive_count", "messages"},
+        "TestClient ASGI app",
+    )
+    if asgi_app["kind"] not in {"asgi2", "asgi3"}:
+        raise ContractError("TestClient ASGI app kind must be asgi2 or asgi3")
+    scope_fields = asgi_app["scope_fields"]
+    allowed_scope_fields = {
+        "type",
+        "http_version",
+        "method",
+        "scheme",
+        "path",
+        "raw_path",
+        "query_string",
+        "root_path",
+        "headers",
+        "client",
+        "server",
+        "state",
+        "extensions",
+    }
+    if (
+        not isinstance(scope_fields, list)
+        or not scope_fields
+        or any(field not in allowed_scope_fields for field in scope_fields)
+        or len(scope_fields) != len(set(scope_fields))
+    ):
+        raise ContractError("TestClient ASGI app scope_fields must be unique supported scope keys")
+    if type(asgi_app["receive_count"]) is not int or asgi_app["receive_count"] != 1:
+        raise ContractError("This TestClient request workflow consumes exactly one request message")
+    messages = asgi_app["messages"]
+    if not isinstance(messages, list) or len(messages) not in {2, 3}:
+        raise ContractError(
+            "TestClient ASGI app must send start, body, and optional debug messages"
+        )
+    if (
+        not isinstance(messages[0], dict)
+        or messages[0].get("type") != "http.response.start"
+        or not isinstance(messages[-1], dict)
+        or messages[-1].get("type") != "http.response.body"
+    ):
+        raise ContractError("TestClient ASGI response must start before its final body")
+    if (
+        sum(
+            isinstance(message, dict) and message.get("type") == "http.response.debug"
+            for message in messages
+        )
+        > 1
+    ):
+        raise ContractError("TestClient ASGI response may contain one debug message")
+    expected_covers = {
+        TESTCLIENT_REQUIREMENTS["scope"],
+        TESTCLIENT_REQUIREMENTS["receive"],
+        TESTCLIENT_REQUIREMENTS["response"],
+    }
+    if asgi_app["kind"] == "asgi2":
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi2"])
+    if set(case["covers"]) != expected_covers:
+        raise ContractError("TestClient covers must match the input app and request workflow")
+    for index, message in enumerate(messages):
+        message_type = message.get("type") if isinstance(message, dict) else None
+        if message_type == "http.response.start":
+            message = _exact(
+                message,
+                {"type", "status", "headers_base64_pairs"},
+                f"TestClient response message[{index}]",
+            )
+            if type(message["status"]) is not int or not 100 <= message["status"] <= 599:
+                raise ContractError("TestClient response status must be an HTTP status code")
+            validate_pairs(message["headers_base64_pairs"], f"response message[{index}].headers")
+        elif message_type == "http.response.debug":
+            message = _exact(
+                message,
+                {"type", "info"},
+                f"TestClient response message[{index}]",
+            )
+            if not isinstance(message["info"], dict):
+                raise ContractError("TestClient response debug info must be a record")
+        elif message_type == "http.response.body":
+            message = _exact(
+                message,
+                {"type", "body_base64", "more_body"},
+                f"TestClient response message[{index}]",
+            )
+            validate_base64(message["body_base64"], f"response message[{index}].body")
+            if type(message["more_body"]) is not bool or message["more_body"]:
+                raise ContractError("TestClient response body message must be terminal")
+        else:
+            raise ContractError(f"TestClient response message[{index}] has an unsupported type")
+
+
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     is_websocket = isinstance(case, dict) and case.get("surface") == WEBSOCKET_SURFACE
     is_websocket_endpoint = (
@@ -7460,6 +7627,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == BASE_HTTP_WORKFLOW_OPERATION_KEY
     )
+    is_testclient = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == TESTCLIENT_OPERATION_KEY
+    )
     is_starlette_add_route_workflow = (
         isinstance(case, dict)
         and case.get("surface") == "starlette.applications.Starlette"
@@ -7512,6 +7683,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_session_workflow
         else BASE_HTTP_WORKFLOW_CASE_KEYS
         if is_base_http_workflow
+        else (CASE_KEYS - {"steps", "execution_schedule"}) | {"testclient", "request", "asgi_app"}
+        if is_testclient
         else CASE_KEYS
     )
     if is_router and isinstance(case, dict) and "observe_router_scope" in case:
@@ -7538,6 +7711,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = expected_case_keys | (
             {key for key in ("chunk_size", "max_ranges", "header_view_probe") if key in case}
         )
+    if is_testclient:
+        if case["observations"] != [TESTCLIENT_OPERATION]:
+            raise ContractError("TestClient cases must select request-response")
+        _validate_testclient_case(case)
+        return case
     if is_value_formatting:
         value_keys = (
             {"instances"} if case["surface"] == EXCEPTION_VALUES_SURFACE else {"middleware"}
@@ -7727,6 +7905,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_base_http_workflow:
         if (case["surface"], case["operation"]) != BASE_HTTP_WORKFLOW_OPERATION_KEY:
             raise ContractError("BaseHTTPMiddleware cases must use base-http-workflow")
+    elif is_testclient:
+        if (case["surface"], case["operation"]) != TESTCLIENT_OPERATION_KEY:
+            raise ContractError("TestClient cases must use request-response")
     elif case["surface"] != "starlette.applications.Starlette" or case["operation"] not in {
         "__call__",
         "request-dispatch",
@@ -7763,6 +7944,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError("SessionMiddleware cases select only the Python-package profile")
     if is_base_http_workflow and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("BaseHTTPMiddleware cases select only the Python-package profile")
+    if is_testclient and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError("TestClient cases select only the Python-package profile")
     requirements: dict[str, dict[str, Any]] = {}
     operations: dict[tuple[str, str], dict[str, Any]] = {}
     for surface in manifest["surfaces"]:
@@ -7791,6 +7974,17 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if declared_requirements != set(BASE_HTTP_REQUIREMENTS.values()):
             raise ContractError(
                 "BaseHTTPMiddleware base-http-workflow must declare the complete canonical requirement set"
+            )
+    if is_testclient:
+        testclient_operation = operations.get(TESTCLIENT_OPERATION_KEY)
+        declared_requirements = (
+            {item["id"] for item in testclient_operation["requirements"]}
+            if testclient_operation is not None
+            else set()
+        )
+        if declared_requirements != set(TESTCLIENT_REQUIREMENTS.values()):
+            raise ContractError(
+                "TestClient request-response must declare its complete requirement set"
             )
     covers = case["covers"]
     if (

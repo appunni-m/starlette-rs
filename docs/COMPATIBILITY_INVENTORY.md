@@ -202,8 +202,13 @@ convenience/close cases described above. Three additional package-profile
 cases cover the built-in `WebSocketException` close path, an `HTTPException`
 denial response, and a registered synchronous WebSocket close handler. These
 map to the pinned `test_websocket_raise_*` workflows. Direct
-`ServerErrorMiddleware` invocation, arbitrary middleware ordering, and
-TestClient propagation remain outside the active contract.
+`ServerErrorMiddleware` invocation and arbitrary middleware ordering remain
+outside the active contract. The active TestClient contract now compares
+three input-driven HTTP request/response cases over four requirements for
+ASGI2/ASGI3 dispatch, scope projection, request-body delivery, response
+headers/body, and debug extensions. TestClient exception policy, timeout
+warnings, streaming bodies, lifespan management, and WebSocket sessions
+remain in the fixture backlog.
 `asgi-core.app.test_app_debug` stays in backlog because its input constructs
 the app with debug enabled rather than setting debug after construction. The
 parity artifact status for that historical run was `completed`; the four

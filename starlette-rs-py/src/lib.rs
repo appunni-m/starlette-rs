@@ -34,6 +34,7 @@ mod sessions_runtime;
 mod staticfiles_runtime;
 mod status_runtime;
 mod templating_runtime;
+mod testclient_runtime;
 mod websocket_calls;
 mod wsgi_runtime;
 
@@ -1249,6 +1250,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     server_error_runtime::register(module)?;
     sessions_runtime::register(module)?;
     status_runtime::register(module)?;
+    testclient_runtime::register(module)?;
     templating_runtime::register(module)?;
     websocket_calls::register(module)?;
     wsgi_runtime::register(module)?;

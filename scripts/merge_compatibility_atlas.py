@@ -236,6 +236,7 @@ def check_fixture_backlog(
     mapped_tests: set[tuple[str, str]] = set()
     mapped_support_modules: set[str] = set()
     mapped_docs: set[str] = set()
+    validated_fixtures: set[pathlib.Path] = set()
 
     for path in fixture_paths:
         for row in read_csv(path, FIXTURE_FIELDS):
@@ -275,7 +276,9 @@ def check_fixture_backlog(
                     )
                 if resolved.suffix != ".yaml":
                     raise AtlasError(f"{path}: committed parity sources must use .yaml files")
-                check_input_fixture(resolved, manifest)
+                if resolved not in validated_fixtures:
+                    check_input_fixture(resolved, manifest)
+                    validated_fixtures.add(resolved)
             elif fixture_path:
                 raise AtlasError(f"{path}: fixture_path is only valid for existing inputs")
             if row["fixture_status"] == "not_applicable":

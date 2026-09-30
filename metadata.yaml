@@ -526,6 +526,16 @@
       ]
     },
     {
+      "surface_id": "starlette.testclient.TestClient",
+      "source_path": "starlette/testclient.py:371",
+      "operations": [
+        {
+          "operation_id": "request-response",
+          "source_path": "starlette.testclient.TestClient"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.websockets.WebSocket",
       "source_path": "starlette/websockets.py:26",
       "operations": [

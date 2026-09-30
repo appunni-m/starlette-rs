@@ -198,10 +198,17 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
     }
     expected_names = {
         "anyio",
+        "certifi",
+        "h11",
+        "httpcore",
+        "httpcore2",
+        "httpx",
+        "httpx2",
         "idna",
         "jinja2",
         "markupsafe",
         "sniffio",
+        "truststore",
         "typing-extensions",
         "pyyaml",
     }
@@ -228,7 +235,8 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
         raise ContractError(f"cannot parse committed CPython runtime lock: {exc}") from exc
     if set(declarations) != expected_names:
         raise ContractError(
-            "runtime dependency lock must contain the ASGI closure and optional YAML/template parsers"
+            "runtime dependency lock must contain the ASGI closure, optional YAML/template parsers, "
+            "and pinned TestClient HTTP transports"
         )
     for name, (version, hashes) in declarations.items():
         package = locked_packages.get(name)

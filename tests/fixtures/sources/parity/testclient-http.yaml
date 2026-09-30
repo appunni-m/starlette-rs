@@ -1,0 +1,238 @@
+{
+  "schema": "migration-parity/parity-input@10",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.asgi3-default-client",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/inspect?term=%C3%B1",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
+        ],
+        "receive_count": 1,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9wbGFpbg=="
+              ]
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "b2s=",
+            "more_body": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.asgi2-custom-client-body",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.asgi2-callable",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver/api/v1/",
+        "raise_server_exceptions": true,
+        "root_path": "/tenant",
+        "client": [
+          "192.0.2.11",
+          4312
+        ],
+        "headers": [
+          [
+            "X-Client",
+            "configured"
+          ]
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "url": "/echo?tag=a&tag=b",
+        "headers_base64_pairs": [
+          [
+            "eC1yZXBlYXQ=",
+            "b25l"
+          ],
+          [
+            "eC1yZXBlYXQ=",
+            "dHdv"
+          ]
+        ],
+        "body_base64": "cGF5bG9hZA=="
+      },
+      "asgi_app": {
+        "kind": "asgi2",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state"
+        ],
+        "receive_count": 1,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 202,
+            "headers_base64_pairs": [
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9wbGFpbg=="
+              ],
+              [
+                "eC1yZXN1bHQ=",
+                "Zmlyc3Q="
+              ],
+              [
+                "eC1yZXN1bHQ=",
+                "c2Vjb25k"
+              ]
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "YWNjZXB0ZWQ=",
+            "more_body": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.debug-extension",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.request-message"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "https://example.test",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/template",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "scheme",
+          "path",
+          "raw_path",
+          "server",
+          "extensions"
+        ],
+        "receive_count": 1,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9odG1s"
+              ]
+            ]
+          },
+          {
+            "type": "http.response.debug",
+            "info": {
+              "template": "index.html",
+              "context": {
+                "name": "world"
+              },
+              "blocks": [
+                "nav"
+              ]
+            }
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "cmVuZGVyZWQ=",
+            "more_body": false
+          }
+        ]
+      }
+    }
+  ]
+}
