@@ -36,7 +36,10 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 /// Holds application callbacks and asks Rust's policy to select each error path.
-#[pyclass(name = "ServerErrorMiddlewareRuntime", unsendable)]
+///
+/// The runtime is cached in Starlette's middleware stack and may be invoked on
+/// a TestClient portal thread other than the one that built the stack.
+#[pyclass(name = "ServerErrorMiddlewareRuntime")]
 struct PyServerErrorMiddlewareRuntime {
     app: Py<PyAny>,
     handlers: Py<PyAny>,

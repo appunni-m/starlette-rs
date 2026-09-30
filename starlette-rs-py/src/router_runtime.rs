@@ -1,8 +1,9 @@
 //! Rust-owned route ordering, scope changes, and ASGI dispatch.
 
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use pyo3::exceptions::{PyAssertionError, PyKeyError, PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -105,14 +106,15 @@ impl RouteSignature {
 }
 
 struct CachedRouterRoutes {
-    routes: Rc<RouterRoutes>,
+    routes: Arc<RouterRoutes>,
     signatures: Vec<RouteSignature>,
 }
 
-#[pyclass(name = "RouterRuntime", unsendable)]
+/// Caches route metadata behind a mutex and only accesses Python handles under the GIL.
+#[pyclass(name = "RouterRuntime")]
 pub(crate) struct PyRouterRuntime {
     route_types: RouteTypes,
-    routes_cache: Rc<RefCell<Option<Rc<CachedRouterRoutes>>>>,
+    routes_cache: Arc<Mutex<Option<Arc<CachedRouterRoutes>>>>,
 }
 
 #[pymethods]
@@ -131,7 +133,7 @@ impl PyRouterRuntime {
                 mount: mount_type,
                 host: host_type,
             },
-            routes_cache: Rc::new(RefCell::new(None)),
+            routes_cache: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -228,9 +230,13 @@ impl RouteTypes {
         &self,
         py: Python<'_>,
         source: &Bound<'_, PyAny>,
-        cache: &RefCell<Option<Rc<CachedRouterRoutes>>>,
-    ) -> PyResult<Rc<RouterRoutes>> {
-        let cached = cache.borrow().as_ref().cloned();
+        cache: &Mutex<Option<Arc<CachedRouterRoutes>>>,
+    ) -> PyResult<Arc<RouterRoutes>> {
+        let cached = cache
+            .lock()
+            .map_err(|_| PyRuntimeError::new_err("router cache lock was poisoned"))?
+            .as_ref()
+            .cloned();
         let Some(cached) = cached else {
             let mut state = RouterRoutes::new();
             let mut signatures = Vec::new();
@@ -242,7 +248,7 @@ impl RouteTypes {
                 Self::register_route(&mut state, &signature, route)?;
                 signatures.push(signature);
             }
-            return Ok(Self::cache_routes(cache, state, signatures));
+            return Self::cache_routes(cache, state, signatures);
         };
 
         let mut prefix_len = 0;
@@ -273,7 +279,7 @@ impl RouteTypes {
                 Self::register_route(&mut state, &signature, route)?;
                 signatures.push(signature);
             }
-            return Ok(Self::cache_routes(cache, state, signatures));
+            return Self::cache_routes(cache, state, signatures);
         }
 
         if prefix_len == cached.signatures.len() {
@@ -281,14 +287,14 @@ impl RouteTypes {
         }
 
         let state = Self::routes_from_prefix(py, &cached, prefix_len)?;
-        Ok(Self::cache_routes(
+        Self::cache_routes(
             cache,
             state,
             cached.signatures[..prefix_len]
                 .iter()
                 .map(|entry| entry.clone_ref(py))
                 .collect(),
-        ))
+        )
     }
 
     fn inspect_route(
@@ -477,16 +483,19 @@ impl RouteTypes {
     }
 
     fn cache_routes(
-        cache: &RefCell<Option<Rc<CachedRouterRoutes>>>,
+        cache: &Mutex<Option<Arc<CachedRouterRoutes>>>,
         routes: RouterRoutes,
         signatures: Vec<RouteSignature>,
-    ) -> Rc<RouterRoutes> {
-        let routes = Rc::new(routes);
-        *cache.borrow_mut() = Some(Rc::new(CachedRouterRoutes {
-            routes: routes.clone(),
-            signatures,
-        }));
-        routes
+    ) -> PyResult<Arc<RouterRoutes>> {
+        let routes = Arc::new(routes);
+        *cache
+            .lock()
+            .map_err(|_| PyRuntimeError::new_err("router cache lock was poisoned"))? =
+            Some(Arc::new(CachedRouterRoutes {
+                routes: routes.clone(),
+                signatures,
+            }));
+        Ok(routes)
     }
 }
 
@@ -507,7 +516,7 @@ impl RouterRoutes {
 
 struct RouterDispatchMachine {
     route_types: RouteTypes,
-    routes_cache: Rc<RefCell<Option<Rc<CachedRouterRoutes>>>>,
+    routes_cache: Arc<Mutex<Option<Arc<CachedRouterRoutes>>>>,
     routes_source: Py<PyAny>,
     router: Py<PyAny>,
     scope: Py<PyAny>,

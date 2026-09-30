@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@10",
+  "schema": "migration-parity/parity-input@11",
   "cases": [
     {
       "case_id": "starlette.templating.Jinja2Templates.template-response.directory-autoescape-context-processors-url-for-debug",

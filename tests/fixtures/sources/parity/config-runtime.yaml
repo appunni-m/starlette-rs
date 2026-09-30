@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@10",
+  "schema": "migration-parity/parity-input@11",
   "cases": [
     {
       "case_id": "starlette.config.Config.value-resolution.environment-file-default-and-casts",

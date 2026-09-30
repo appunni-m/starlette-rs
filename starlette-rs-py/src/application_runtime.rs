@@ -26,7 +26,11 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 /// Owns mutable Starlette app configuration and creates the ASGI middleware stack.
-#[pyclass(name = "StarletteRuntime", unsendable)]
+///
+/// This stores only Python handles and accesses them under the GIL. TestClient
+/// invokes the ASGI app on its portal thread, which may differ from the thread
+/// that constructed the Starlette application.
+#[pyclass(name = "StarletteRuntime")]
 pub(crate) struct PyStarletteRuntime {
     app: Py<PyAny>,
     middleware_type: Py<PyAny>,
@@ -341,7 +345,11 @@ struct ExceptionMiddlewareArgs {
 }
 
 /// Rust runtime behind Starlette's public `ExceptionMiddleware` facade.
-#[pyclass(name = "ExceptionMiddlewareRuntime", unsendable)]
+///
+/// Middleware instances are cached on the application stack and can be called
+/// by different TestClient portal threads; Python handles are accessed under
+/// the GIL and routing metadata is Rust-owned.
+#[pyclass(name = "ExceptionMiddlewareRuntime")]
 pub(crate) struct PyExceptionMiddlewareRuntime {
     app: Py<PyAny>,
     handlers: Vec<Py<PyAny>>,

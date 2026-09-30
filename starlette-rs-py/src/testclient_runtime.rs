@@ -395,6 +395,7 @@ struct PyWebSocketTestSession {
     app: Py<PyAny>,
     runner: Py<PyAny>,
     scope: Py<PyDict>,
+    shared_portal: Option<Py<PyAny>>,
     backend: String,
     backend_options: Py<PyDict>,
     portal_manager: Option<Py<PyAny>>,
@@ -414,6 +415,7 @@ impl PyWebSocketTestSession {
         app: Py<PyAny>,
         runner: Py<PyAny>,
         scope: Py<PyDict>,
+        shared_portal: Option<Py<PyAny>>,
         backend: String,
         backend_options: Py<PyDict>,
     ) -> Self {
@@ -421,6 +423,7 @@ impl PyWebSocketTestSession {
             app,
             runner,
             scope,
+            shared_portal,
             backend,
             backend_options,
             portal_manager: None,
@@ -445,18 +448,28 @@ impl PyWebSocketTestSession {
         self.accepted = false;
         self.client_closed = false;
 
-        let anyio = py.import("anyio")?;
-        let portal_kwargs = PyDict::new(py);
-        portal_kwargs.set_item("backend", &self.backend)?;
-        portal_kwargs.set_item("backend_options", self.backend_options.bind(py))?;
-        let manager = anyio
-            .getattr("from_thread")?
-            .getattr("start_blocking_portal")?
-            .call((), Some(&portal_kwargs))?;
-        let portal = manager.call_method0("__enter__")?;
-        self.portal_manager = Some(manager.unbind());
-        self.portal = Some(portal.clone().unbind());
+        if let Some(portal) = self.shared_portal.as_ref() {
+            self.portal = Some(portal.clone_ref(py));
+        } else {
+            let anyio = py.import("anyio")?;
+            let portal_kwargs = PyDict::new(py);
+            portal_kwargs.set_item("backend", &self.backend)?;
+            portal_kwargs.set_item("backend_options", self.backend_options.bind(py))?;
+            let manager = anyio
+                .getattr("from_thread")?
+                .getattr("start_blocking_portal")?
+                .call((), Some(&portal_kwargs))?;
+            let portal = manager.call_method0("__enter__")?;
+            self.portal_manager = Some(manager.unbind());
+            self.portal = Some(portal.unbind());
+        }
 
+        let anyio = py.import("anyio")?;
+        let portal = self
+            .portal
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("WebSocketTestSession portal is unavailable"))?
+            .bind(py);
         let capacity = py.import("math")?.getattr("inf")?;
         let stream_factory = anyio.getattr("create_memory_object_stream")?;
         let client_to_app = stream_factory
@@ -1020,12 +1033,17 @@ impl PyTestClientTransport {
             } else {
                 self.asgi2_runner.clone_ref(py)
             };
+            let shared_portal = self
+                .lifespan
+                .as_ref()
+                .and_then(|lifespan| lifespan.portal.as_ref().map(|portal| portal.clone_ref(py)));
             let session = Py::new(
                 py,
                 PyWebSocketTestSession::new(
                     self.app.clone_ref(py),
                     runner,
                     scope,
+                    shared_portal,
                     self.backend.clone(),
                     self.backend_options.clone_ref(py),
                 ),

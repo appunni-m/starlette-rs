@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 537 input-only cases across 61 files,
-covering 78 operations and 575 parity requirements. The authored cases span
+The active parity manifest indexes 538 input-only cases across 61 files,
+covering 78 operations and 579 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
@@ -29,20 +29,20 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest full-slice parity run `526e2ced-3557-41b1-8f7f-58366d7e2759` ran against
+Latest full-slice parity run `b565b6f4-8cc6-42c5-906d-5fb81687e56e` ran against
 the pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T16:45:18.229Z` to `2026-09-30T16:47:12.016Z`. It selected 689
-profile comparisons: 685 passed, zero failed, zero infrastructure errors, and
+`2026-09-30T17:28:53.314Z` to `2026-09-30T17:31:01.836Z`. It selected 690
+profile comparisons: 686 passed, zero failed, zero infrastructure errors, and
 four unsupported Rust-native Python-callable comparisons were `not_run`. The
-installed Python package passed all 535 selected comparisons; Rust-native
-passed 150 of 154. The run includes three TestClient exception-policy inputs:
-default propagation, a synthesized 500 with no response started, and a completed
-response followed by an app exception. The manifest SHA-256 is
-`a43b747f32efba88eda8fa9612a5d3d6581576e1cbc50908fbe29819b32ffb0a`; the
+installed Python package passed all 536 selected comparisons; Rust-native
+passed 150 of 154. The run includes the three TestClient exception-policy
+inputs and the exact lifespan state-propagation comparison across HTTP and
+WebSocket requests. The manifest SHA-256 is
+`8babb9a7c3758c9aaf1931a8d2132eb783965b28fd3a1435c738a5835f06ef23`; the
 installed package wheel SHA-256 is
-`601f9b23b7fa7d04072d683eea348b7f9e66d64cf6e0429f012688323069286f`, and its
+`1c9c2e1663f2c6c9b4accc6cbf414870598676c6d8fd6b21c754a7e696299d46`, and its
 installed-file tree SHA-256 is
-`134db3c20658b529771b956835104b29f1e01c4dc68955fea5cc9d7f39edd79d`. The
+`f1ab17b2c0105ee03ec400c5e10fd67501e01d09996094b240dbe95923ee1e70c`. The
 all-target command exits 2 because of the four unsupported Rust-native callable
 cases. This bounded run is not full Starlette parity.
 
@@ -62,8 +62,8 @@ package wheel SHA-256 was
 `badc85e17febe7dabcc38538fb6e695c63b49d74875841fa16ed649d2688b033`. This is
 benchmark evidence for that lane only; the full compatibility denominator
 remains incomplete. The latest source inventory check dispositioned all 999
-API candidate rows. The generated coverage matrix has 798 source rows: 256
-existing input mappings, 50 reasoned `not_applicable` rows, and 492 fixture
+API candidate rows. The generated coverage matrix has 798 source rows: 262
+existing input mappings, 50 reasoned `not_applicable` rows, and 486 fixture
 backlog rows.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

@@ -352,6 +352,13 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
+    if case["asgi_app"]["kind"] == "starlette-state":
+        from scripts.parity.adapters.testclient_state import (
+            run_testclient_stateful_lifespan_case,
+        )
+
+        return run_testclient_stateful_lifespan_case(case)
+
     from starlette.testclient import TestClient
 
     settings = case["testclient"]
@@ -461,6 +468,10 @@ def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
         "http_receive_messages": http_receive_messages,
         "http_send_messages": http_send_messages,
         "request_results": request_results,
+        "websocket_scopes": [],
+        "websocket_receive_messages": [],
+        "websocket_send_messages": [],
+        "websocket_results": [],
         "action_errors": action_errors,
         "loop_relations": loop_relations,
     }

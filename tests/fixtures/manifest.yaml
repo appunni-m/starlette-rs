@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@10",
+      "input_schema": "migration-parity/parity-input@11",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -17131,6 +17131,42 @@
                   }
                 },
                 {
+                  "path": "websocket_scopes",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "websocket_receive_messages",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "websocket_send_messages",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "websocket_results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
                   "path": "action_errors",
                   "value_types": [
                     "sequence"
@@ -17202,7 +17238,7 @@
             {
               "id": "starlette.testclient.TestClient.lifespan-context.managed-request-portal-reuse",
               "dimension": "boundary",
-              "description": "An HTTP request inside the TestClient context reuses the active AnyIO portal and event loop used by lifespan. Pinned source: starlette/testclient.py:422-426; tests/test_testclient.py::test_use_testclient_as_contextmanager.",
+              "description": "HTTP requests and WebSocket sessions inside the TestClient context reuse the active AnyIO portal and event loop used by lifespan. Pinned source: starlette/testclient.py:112-130,422-426; tests/test_testclient.py::test_use_testclient_as_contextmanager.",
               "lanes": [
                 "parity"
               ],
@@ -17247,6 +17283,50 @@
               "id": "starlette.testclient.TestClient.lifespan-context.shutdown-error-propagation",
               "dimension": "error_path",
               "description": "When the lifespan task raises during shutdown, TestClient exit propagates the app error and tears down the portal. Pinned source: starlette/testclient.py:727-749; tests/test_routing.py::test_raise_on_shutdown.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.http-lifespan-state",
+              "dimension": "input_family",
+              "description": "Merge the mapping yielded by the Starlette lifespan context into its lifespan scope and expose the values to an HTTP Request.state consumer. Pinned source: starlette/routing.py:639-653; docs/lifespan.md:35-74; tests/test_applications.py:108-115,241-245.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.request-state-shallow-copy",
+              "dimension": "boundary",
+              "description": "Give each HTTP request its own shallow copy of lifespan state: top-level request assignments do not leak to a later request while nested mutable values remain shared. Pinned source: starlette/testclient.py:277-291; docs/lifespan.md:70-74.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.app-state-separation",
+              "dimension": "boundary",
+              "description": "Keep app.state independent from the request state populated by lifespan and observe mutations through each public state interface. Pinned source: starlette/applications.py:72-84; starlette/requests.py:189-196; docs/lifespan.md:35-74.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.websocket-lifespan-state",
+              "dimension": "input_family",
+              "description": "Expose lifespan-provided state to a WebSocket consumer using both attribute and mapping access and preserve the shallow-copy relationship. Pinned source: starlette/testclient.py:250-274; docs/lifespan.md:117-129; tests/test_applications.py:94-110,257-261.",
               "lanes": [
                 "parity"
               ],

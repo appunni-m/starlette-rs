@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@10",
+  "schema": "migration-parity/parity-input@11",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.normal-managed-cycle",
@@ -280,6 +280,365 @@
             }
           ]
         }
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.state-propagation-http-websocket",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.startup-handshake",
+        "starlette.testclient.TestClient.lifespan-context.managed-request-portal-reuse",
+        "starlette.testclient.TestClient.lifespan-context.shutdown-handshake",
+        "starlette.testclient.TestClient.lifespan-context.http-lifespan-state",
+        "starlette.testclient.TestClient.lifespan-context.request-state-shallow-copy",
+        "starlette.testclient.TestClient.lifespan-context.app-state-separation",
+        "starlette.testclient.TestClient.lifespan-context.websocket-lifespan-state"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/state/first",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/state/second",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "websocket",
+          "url": "/state/websocket",
+          "subprotocols": []
+        },
+        {
+          "operation": "exit"
+        }
+      ],
+      "asgi_app": {
+        "kind": "starlette-state",
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "state"
+        ],
+        "loop_relations": [
+          "active_lifespan",
+          "previous_http_request"
+        ],
+        "lifespan_state": {
+          "label": "lifespan",
+          "shared": {
+            "count": 0
+          }
+        },
+        "app_state": {
+          "label": "application"
+        },
+        "routes": [
+          {
+            "transport": "http",
+            "path": "/state/first",
+            "method": "GET",
+            "actions": [
+              {
+                "operation": "read",
+                "name": "request_label_before",
+                "source": "request",
+                "path": [
+                  "label"
+                ],
+                "access": "attribute"
+              },
+              {
+                "operation": "read",
+                "name": "nested_count_before",
+                "source": "request",
+                "path": [
+                  "shared",
+                  "count"
+                ],
+                "access": "item"
+              },
+              {
+                "operation": "read",
+                "name": "app_label_before",
+                "source": "app",
+                "path": [
+                  "label"
+                ],
+                "access": "item"
+              },
+              {
+                "operation": "identity",
+                "name": "nested_state_is_lifespan_object",
+                "left": {
+                  "source": "request",
+                  "path": [
+                    "shared"
+                  ],
+                  "access": "attribute"
+                },
+                "right": {
+                  "source": "lifespan",
+                  "path": [
+                    "shared"
+                  ],
+                  "access": "item"
+                }
+              },
+              {
+                "operation": "identity",
+                "name": "request_and_app_state_are_distinct",
+                "left": {
+                  "source": "request",
+                  "path": [],
+                  "access": "attribute"
+                },
+                "right": {
+                  "source": "app",
+                  "path": [],
+                  "access": "item"
+                }
+              },
+              {
+                "operation": "set",
+                "target": "request",
+                "path": [
+                  "label"
+                ],
+                "access": "attribute",
+                "value": "request-only"
+              },
+              {
+                "operation": "set",
+                "target": "request",
+                "path": [
+                  "shared",
+                  "count"
+                ],
+                "access": "attribute",
+                "value": 1
+              },
+              {
+                "operation": "set",
+                "target": "app",
+                "path": [
+                  "label"
+                ],
+                "access": "item",
+                "value": "application-updated"
+              },
+              {
+                "operation": "read",
+                "name": "request_label_after",
+                "source": "request",
+                "path": [
+                  "label"
+                ],
+                "access": "item"
+              },
+              {
+                "operation": "read",
+                "name": "nested_count_after",
+                "source": "request",
+                "path": [
+                  "shared",
+                  "count"
+                ],
+                "access": "item"
+              },
+              {
+                "operation": "read",
+                "name": "app_label_after",
+                "source": "app",
+                "path": [
+                  "label"
+                ],
+                "access": "attribute"
+              }
+            ]
+          },
+          {
+            "transport": "http",
+            "path": "/state/second",
+            "method": "GET",
+            "actions": [
+              {
+                "operation": "read",
+                "name": "request_label",
+                "source": "request",
+                "path": [
+                  "label"
+                ],
+                "access": "attribute"
+              },
+              {
+                "operation": "read",
+                "name": "nested_count",
+                "source": "request",
+                "path": [
+                  "shared",
+                  "count"
+                ],
+                "access": "item"
+              },
+              {
+                "operation": "read",
+                "name": "app_label",
+                "source": "app",
+                "path": [
+                  "label"
+                ],
+                "access": "item"
+              },
+              {
+                "operation": "identity",
+                "name": "nested_state_is_lifespan_object",
+                "left": {
+                  "source": "request",
+                  "path": [
+                    "shared"
+                  ],
+                  "access": "item"
+                },
+                "right": {
+                  "source": "lifespan",
+                  "path": [
+                    "shared"
+                  ],
+                  "access": "item"
+                }
+              },
+              {
+                "operation": "identity",
+                "name": "request_and_app_state_are_distinct",
+                "left": {
+                  "source": "request",
+                  "path": [],
+                  "access": "attribute"
+                },
+                "right": {
+                  "source": "app",
+                  "path": [],
+                  "access": "item"
+                }
+              }
+            ]
+          },
+          {
+            "transport": "websocket",
+            "path": "/state/websocket",
+            "actions": [
+              {
+                "operation": "read",
+                "name": "websocket_label_before",
+                "source": "websocket",
+                "path": [
+                  "label"
+                ],
+                "access": "item"
+              },
+              {
+                "operation": "read",
+                "name": "nested_count_before",
+                "source": "websocket",
+                "path": [
+                  "shared",
+                  "count"
+                ],
+                "access": "attribute"
+              },
+              {
+                "operation": "identity",
+                "name": "nested_state_is_lifespan_object",
+                "left": {
+                  "source": "websocket",
+                  "path": [
+                    "shared"
+                  ],
+                  "access": "item"
+                },
+                "right": {
+                  "source": "lifespan",
+                  "path": [
+                    "shared"
+                  ],
+                  "access": "item"
+                }
+              },
+              {
+                "operation": "set",
+                "target": "websocket",
+                "path": [
+                  "label"
+                ],
+                "access": "item",
+                "value": "websocket-only"
+              },
+              {
+                "operation": "set",
+                "target": "websocket",
+                "path": [
+                  "shared",
+                  "count"
+                ],
+                "access": "item",
+                "value": 2
+              },
+              {
+                "operation": "read",
+                "name": "websocket_label_after",
+                "source": "websocket",
+                "path": [
+                  "label"
+                ],
+                "access": "attribute"
+              },
+              {
+                "operation": "read",
+                "name": "nested_count_after",
+                "source": "websocket",
+                "path": [
+                  "shared",
+                  "count"
+                ],
+                "access": "item"
+              }
+            ]
+          }
+        ]
       }
     }
   ]
