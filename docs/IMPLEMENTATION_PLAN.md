@@ -106,7 +106,7 @@ through BaseHTTPMiddleware while its receive callback remains unused. The instal
 content tree SHA-256 is
 `99fd7a11cb20c8a9bda279f5807b621c4dd3a08f86dca79503bb135319edc492`.
 Manifest SHA-256:
-`63a853e8902fb9f59e184d0fb6e32280cd5811175427ed4101fe1a23b84485c8`.
+`a223d4bacffd5cb0e0a2b18ff29130f670e47a7648cc16bc6948b64b960a2a9a`.
 `make test` exits with status 2 for the four explicitly unsupported
 Rust-native Python-callable rows; this is not release proof.
 
