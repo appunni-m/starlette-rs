@@ -107,6 +107,7 @@ TESTCLIENT_REQUIREMENTS = {
     "receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-message",
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
     "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
+    "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
 }
 BASE_HTTP_WORKFLOW_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "application",
@@ -7392,15 +7393,22 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     ):
         raise ContractError("TestClient.headers must be an array of string pairs")
 
-    request = _exact(
-        case["request"],
-        {"method", "url", "headers_base64_pairs", "body_base64"},
-        "TestClient request",
-    )
+    request = case["request"]
+    request_keys = {"method", "url", "headers_base64_pairs", "body_base64"}
+    if isinstance(request, dict) and "timeout" in request:
+        request_keys.add("timeout")
+    request = _exact(request, request_keys, "TestClient request")
     method = _string(request["method"], "TestClient request.method")
     if not method or method != method.upper():
         raise ContractError("TestClient request.method must be a non-empty uppercase token")
     _string(request["url"], "TestClient request.url")
+    if "timeout" in request and (
+        not isinstance(request["timeout"], (int, float))
+        or isinstance(request["timeout"], bool)
+        or not math.isfinite(request["timeout"])
+        or request["timeout"] <= 0
+    ):
+        raise ContractError("TestClient request.timeout must be a finite positive number")
 
     def validate_base64(value: Any, context: str) -> None:
         if not isinstance(value, str):
@@ -7484,6 +7492,8 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     }
     if asgi_app["kind"] == "asgi2":
         expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi2"])
+    if "timeout" in request:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["timeout_warning"])
     if set(case["covers"]) != expected_covers:
         raise ContractError("TestClient covers must match the input app and request workflow")
     for index, message in enumerate(messages):

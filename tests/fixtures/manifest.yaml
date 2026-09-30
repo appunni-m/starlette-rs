@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, application and route-level body-size limits, async endpoint loop/task/thread ownership and request-task cancellation, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension. The active Python-package profile also covers response-attached BackgroundTask and BackgroundTasks async/sync execution, sequential task ordering, failure propagation, and callable shape classification for async/sync bound methods, callable objects, partials, and nested partials. The active Python-package profile also includes a bounded synchronous TestClient HTTP request/response slice; lifespan, WebSocket sessions, warning behavior, streaming request bodies, and remaining error-policy cases are separate compatibility work.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, application and route-level body-size limits, async endpoint loop/task/thread ownership and request-task cancellation, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension. The active Python-package profile also covers response-attached BackgroundTask and BackgroundTasks async/sync execution, sequential task ordering, failure propagation, and callable shape classification for async/sync bound methods, callable objects, partials, and nested partials. The active Python-package profile also includes a bounded synchronous TestClient HTTP request/response slice with timeout deprecation-warning parity; lifespan, WebSocket sessions, streaming request bodies, and remaining error-policy cases are separate compatibility work.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -15829,7 +15829,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.testclient.TestClient",
-            "signature": "TestClient(app, base_url, raise_server_exceptions, root_path, backend, backend_options, cookies, headers, follow_redirects, client); synchronous request(method, url, content, headers) -> httpx.Response",
+            "signature": "TestClient(app, base_url, raise_server_exceptions, root_path, backend, backend_options, cookies, headers, follow_redirects, client); synchronous request(method, url, content, headers, timeout) -> httpx.Response",
             "parameters": [
               {
                 "id": "app",
@@ -15886,6 +15886,15 @@
                 },
                 {
                   "path": "receive_messages",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "deprecation_warnings",
                   "value_types": [
                     "sequence"
                   ],
@@ -15979,6 +15988,17 @@
               "id": "starlette.testclient.TestClient.request-response.asgi2-callable",
               "dimension": "protocol_variant",
               "description": "Adapt the supplied two-stage ASGI2 callable to the TestClient ASGI3 transport without changing its scope, receive, send, or response behavior. Pinned source: starlette/testclient.py:59-69,395-401; tests/test_testclient.py::test_testclient_asgi2.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.timeout-deprecation-warning",
+              "dimension": "feature",
+              "description": "Emit the pinned StarletteDeprecationWarning when a request supplies a non-default timeout, preserving its category, message, caller filename, and line. Pinned source: starlette/testclient.py:430-452; tests/test_testclient.py::test_timeout_deprecation.",
               "lanes": [
                 "parity"
               ],

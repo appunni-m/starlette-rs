@@ -7,10 +7,13 @@ bounded HTTP request/response slice of the documented
 `starlette/testclient.py` and its public guide is `docs/testclient.md`.
 
 The active slice compares ASGI2 and ASGI3 calls, HTTP scope projection,
-request-body delivery, response headers/body, and debug response extensions.
-Lifespan context management, WebSocket sessions, streaming request bodies,
-timeout warnings, and remaining error-policy behavior are still in the
-compatibility backlog.
+request-body delivery, response headers/body, debug response extensions, and
+the warning emitted when a request supplies a timeout. It records the warning
+category, message, filename, and line from the input-driven source and package
+runs. The timeout is forwarded to HTTPX; this comparison does not claim that
+the ASGI transport enforces a timeout. Lifespan context management, WebSocket
+sessions, streaming request bodies, and remaining error-policy behavior are
+still in the compatibility backlog.
 
 ## Source-backed Python boundary
 
@@ -50,10 +53,10 @@ Each slice is authored as input-only YAML under `tests/fixtures/sources/` and
 is run against the pinned source and installed package in isolated processes.
 Stimuli come from the input definition; adapters may not use case IDs to
 choose requests, scopes, responses, or outcomes. The current HTTP
-request/response slice has three data-driven cases covering four requirements,
-and all three compare exactly against the pinned source. Error-policy,
-timeout-warning, streaming-body, lifespan, and WebSocket behavior need
-separate inputs with their own ordered callback and cleanup observations.
+request/response slice has four data-driven cases covering five requirements,
+and all four compare exactly against the pinned source. Error-policy,
+streaming-body, lifespan, and WebSocket behavior need separate inputs with
+their own ordered callback and cleanup observations.
 
 The pinned source provides additional mappings in `tests/test_testclient.py`
 and `docs/testclient.md`; those source rows remain visible in the fixture

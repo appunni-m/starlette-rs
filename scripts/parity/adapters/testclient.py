@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import warnings
 from typing import Any
 
 
@@ -76,15 +77,28 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         client=tuple(settings["client"]),
         headers=dict(settings["headers"]),
     )
-    response = client.request(
-        request_input["method"],
-        request_input["url"],
-        content=base64.b64decode(request_input["body_base64"]),
-        headers=_decoded_pairs(request_input["headers_base64_pairs"]),
-    )
+    request_kwargs = {
+        "content": base64.b64decode(request_input["body_base64"]),
+        "headers": _decoded_pairs(request_input["headers_base64_pairs"]),
+    }
+    if "timeout" in request_input:
+        request_kwargs["timeout"] = request_input["timeout"]
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        response = client.request(request_input["method"], request_input["url"], **request_kwargs)
+    deprecation_warnings = [
+        {
+            "category": f"{item.category.__module__}.{item.category.__qualname__}",
+            "message": str(item.message),
+            "filename": item.filename,
+            "lineno": item.lineno,
+        }
+        for item in recorded
+    ]
     result = {
         "scope": scope_observations,
         "receive_messages": receive_observations,
+        "deprecation_warnings": deprecation_warnings,
         "response": {
             "status_code": response.status_code,
             "headers": response.headers.multi_items(),

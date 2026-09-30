@@ -17,9 +17,9 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 500 input-only cases across 54 files,
-covering 72 operations and 530 parity requirements. Its SHA-256 is
-`99a50f34d1f79707d7d0a300b6ff9bdd3ad3168eb5e83be3ab37915408ed0922`. The
+The active parity manifest indexes 504 input-only cases across 55 files,
+covering 73 operations and 535 parity requirements. Its SHA-256 is
+`471d05456524b834e6f6fc39682bcb367622ebc7948cd7cea3da6ca94a31b25a`. The
 authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
@@ -31,40 +31,39 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `a3baca57-a4bf-4304-98ad-21947b114005` ran against the
+Latest live parity run `0170f6a1-56b8-4012-8e47-e16c2d4e1fc6` ran against the
 pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T10:58:24.458Z` to
-`2026-09-30T11:00:13.611Z`. It selected 652 profile comparisons: 648 passed,
+`2026-09-30T12:22:37.894Z` to
+`2026-09-30T12:24:30.167Z`. It selected 656 profile comparisons: 652 passed,
 zero failed, zero infrastructure errors, and four unsupported Rust-native
 Python-callable comparisons were `not_run`. The installed Python package
-passed all 498 selected comparisons; Rust-native passed 150 of 154. New
+passed all 502 selected comparisons; Rust-native passed 150 of 154. The new
+TestClient timeout input matched the warning category, message, caller file,
+and line between source and installed package. New
 Request.form inputs cover default/custom multipart part-size short-circuiting,
 duplicate text/file values, high custom field/file limits, tempfile cleanup
 after stream and OSError failures, worker-thread rollover and cleanup, and
 direct/Mount unique and mixed file-count failures.
 The manifest SHA-256 is
-`99a50f34d1f79707d7d0a300b6ff9bdd3ad3168eb5e83be3ab37915408ed0922`; the
-installed package source-tree SHA-256 is
-`785c7c716ff51360d0c8b3b39dd702bd76c70c23cf287fbc09709fd003c171c8`, and its
-wheel artifact SHA-256 is
-`51e3e208d992c43027867d789eb88d5ab0c0154b3bb6bf34c4196fab81527167`.
+`471d05456524b834e6f6fc39682bcb367622ebc7948cd7cea3da6ca94a31b25a`; the
+installed package wheel SHA-256 is
+`a76ed14d3134a516c71816bfb5538f888af6a8a2353d2a43d472eb21e8f61217`.
 The all-target command still exits 2 for the four unsupported Rust-native
 callable cases. This bounded run is not full Starlette parity.
 
 The latest correctness-gated Router/GZip benchmark run,
-`5056413b-deae-4264-9f2b-80da0699e005`, measured 74 of 74 source/package
-workloads with zero failed or skipped workloads after preflight
-`7b514f0a-b065-45cc-9fc9-f8a828504ba7`. That preflight selected 598 comparisons:
-594 passed, with 447/447 Python-package comparisons passing and four
-Rust-native Python-callable comparisons `not_run`. Rust-native remains
+`a14932cb-4c65-42f6-8cbe-da1df5e8dcff`, measured all 74 declared
+source/package workloads with zero failures or skipped workloads after
+preflight `7649c925-c388-4074-a34c-04ff049cdd26`. That preflight selected 656
+comparisons: 652 passed, with all 502 Python-package comparisons passing and
+four Rust-native Python-callable comparisons `not_run`. Rust-native remains
 separately `not_run` for all 74 workload boundaries. The measured
-source/package median ratios were 0.749 for Router and 0.965 for GZip; source
-was faster in all six Router workloads and 55 of 68 GZip workloads. This
-is benchmark evidence for that lane only;
-the full compatibility denominator remains incomplete. The latest source
-inventory check dispositioned all 999 API candidate rows and reported 797
-coverage mappings and 523 new fixture-backlog items; those changing counts
-come from the generated atlas, not this policy text.
+source/package median ratios were 0.771 for Router and 0.975 for GZip; source
+was faster in five of six Router workloads and 57 of 68 GZip workloads. This
+is benchmark evidence for that lane only; the full compatibility denominator
+remains incomplete. The latest source inventory check dispositioned all 999
+API candidate rows. Current mapping and fixture-backlog totals are published
+in the generated atlas files linked below.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
 `2026-09-29T23:48:10.322Z` and finished at `2026-09-29T23:49:31.637Z`. It
@@ -203,12 +202,12 @@ cases cover the built-in `WebSocketException` close path, an `HTTPException`
 denial response, and a registered synchronous WebSocket close handler. These
 map to the pinned `test_websocket_raise_*` workflows. Direct
 `ServerErrorMiddleware` invocation and arbitrary middleware ordering remain
-outside the active contract. The active TestClient contract now compares
-three input-driven HTTP request/response cases over four requirements for
-ASGI2/ASGI3 dispatch, scope projection, request-body delivery, response
-headers/body, and debug extensions. TestClient exception policy, timeout
-warnings, streaming bodies, lifespan management, and WebSocket sessions
-remain in the fixture backlog.
+outside the active contract. The active TestClient contract now compares four
+input-driven HTTP request/response cases over five requirements for ASGI2/ASGI3
+dispatch, scope projection, request-body delivery, response headers/body,
+debug extensions, and timeout deprecation warning details. TestClient exception
+policy, streaming bodies, lifespan management, and WebSocket sessions remain
+in the fixture backlog.
 `asgi-core.app.test_app_debug` stays in backlog because its input constructs
 the app with debug enabled rather than setting debug after construction. The
 parity artifact status for that historical run was `completed`; the four
@@ -320,29 +319,24 @@ re-exports or `__all__`.
 
 ## Completed atlas coverage
 
-The [`coverage matrix`](atlas/coverage-matrix.csv) contains 797 mappings:
+The [`coverage matrix`](atlas/coverage-matrix.csv) contains the current
+source-to-fixture mapping totals:
 
 | Mapping | Count |
 | --- | ---: |
-| Upstream test functions and methods | 514 source functions represented by 537 behavior mappings |
+| Upstream test functions and methods | 514 source functions; see the matrix for their mapping total |
 | Documentation navigation pages | 24 |
-| Shared test support modules | 4, with 14 downstream-use mappings |
-| All source mappings | 797 |
-| Existing input mappings in the atlas matrix | 233 |
-| Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 514 |
+| Shared test support modules | 4; see the matrix for downstream-use mappings |
+| Existing, `not_applicable`, and backlog mappings | See the generated matrix and backlog CSVs |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
-every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 233 `existing` mappings point to authored YAML input
-definitions; runtime JSON is generated separately under `build/parity/inputs/`.
-The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest now contains 54 indexed files
-and 500 cases, including six WSGIMiddleware cases, two direct `build_environ`
-cases, a module-import deprecation warning case, and an async caller
-event-loop/task/thread and cancellation
-boundary input, route-level request-body limit inputs, and an
+every `not_applicable` mapping has a concrete reason. The generated CSVs are
+the current source for changing mapping counts. Runtime JSON is generated
+separately under `build/parity/inputs/`. The active manifest includes
+WSGIMiddleware cases, direct `build_environ` cases, a module-import deprecation
+warning case, an async caller event-loop/task/thread and cancellation boundary
+input, route-level request-body limit inputs, and an
 application-level Router-miss 404 handler input,
 post-construction `Starlette.add_route` coverage, Request.form URL-encoded
 limit and multipart boundary/count/charset inputs,
@@ -558,8 +552,8 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 449 currently indexed cases and
-the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
+The active contract and generated atlas links above carry the current case and
+backlog inventory; this document does not duplicate their changing totals.
 
 ## Generate the source candidate catalog
 
