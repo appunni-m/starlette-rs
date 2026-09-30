@@ -32,8 +32,9 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 449 input-only cases, 68 operations, and 508
-parity requirements across 51 indexed files, including route-level request
+The current parity contract has 450 input-only cases, 68 operations, and 510
+parity requirements across 52 indexed files, including async endpoint
+loop/task/thread ownership and request cancellation, route-level request
 body limits, application Router-miss 404 handling, flat Router reverse URL
 selection, URL scope and component construction, Headers and MutableHeaders,
 bounded SessionMiddleware and BaseHTTPMiddleware workflow slices, twelve
@@ -44,11 +45,13 @@ port for matching, and records `tenant=acme` in route scope for one fixed
 `GET /health` response route. A separate input exercises the direct Host
 reverse-URL branch with a configured port. The inputs do not establish full
 Host Router dispatch, nested Host reverse lookup, IPv6, or overall parity.
-Latest integrated run `ead91f96-bd01-47f3-a1e6-f3a81c01c002` selected 601
-profile comparisons: 597 passed, zero failed, zero infrastructure errors, and
-four were `not_run`. The Python package passed 447 selected comparisons;
+Latest integrated run `77c299b2-08be-4a7f-972d-066c539ec5bc` selected 602
+profile comparisons: 598 passed, zero failed, zero infrastructure errors, and
+four were `not_run`. The Python package passed 448 selected comparisons;
 Rust-native passed 150 of 154, with four pre-existing unsupported
-Python-callable rows `not_run`. Both new Rust-native flat Router reverse-URL
+Python-callable rows `not_run`. The new async boundary comparison confirms
+source/package parity for caller event-loop/task/thread ownership, cancellation
+delivery, and endpoint finalization. Both Rust-native flat Router reverse-URL
 comparisons passed exactly. The
 three route body-limit
 cases and the new application Router-miss 404 handler pass exact source/package

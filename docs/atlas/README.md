@@ -25,13 +25,15 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The latest contract has 449 input-only cases across 51
-files, 68 operations, and 508 requirements. Run
-`d112000d-7b32-468c-b17d-447c89f80f9e` selected 601 comparisons: 597 passed,
-zero failed, zero infrastructure errors, and four pre-existing Rust-native
-callable boundaries were `not_run`. The Python package passed 447 selected
-cases; Rust-native passed 150 of 154. This run adds native flat
-`Router.url_path_for` success and miss comparisons, three route-level
+active and incomplete. The latest contract has 450 input-only cases across 52
+files, 68 operations, and 510 requirements. Run
+`77c299b2-08be-4a7f-972d-066c539ec5bc` selected 602 comparisons: 598 passed,
+zero failed, zero infrastructure errors, and four existing Rust-native
+callable boundaries were `not_run`. The Python package passed all 448 selected
+cases; Rust-native passed 150 of 154. This run adds an asyncio endpoint
+boundary comparison for caller event-loop/task/thread ownership and request
+cancellation, plus native flat `Router.url_path_for` success and miss
+comparisons, three route-level
 `max_body_size` combinations, an application Router-miss 404 handler case,
 direct Host reverse-URL formatting through `{tenant}.example.test:3600`,
 post-construction `Starlette.add_route`, and multipart cleanup and rollover

@@ -8,14 +8,15 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 449 input-only cases across 51 files, covering 68
-operations and 508 requirements. Latest run
-`d112000d-7b32-468c-b17d-447c89f80f9e` selected 601 comparisons: 597 passed,
-zero failed, zero infrastructure errors, and four pre-existing Rust-native
-rows were `not_run`. The Python package passed 447 selected cases; Rust-native
+The active contract has 450 input-only cases across 52 files, covering 68
+operations and 510 requirements. Latest run
+`77c299b2-08be-4a7f-972d-066c539ec5bc` selected 602 comparisons: 598 passed,
+zero failed, zero infrastructure errors, and four existing Rust-native rows
+were `not_run`. The Python package passed all 448 selected cases; Rust-native
 passed 150 of 154. Those four rows require Python endpoint or ASGI callables.
-The latest slice adds native flat `Router.url_path_for` success and miss
-comparisons, three route-level request-body limit combinations, an application
+The latest slice adds an asyncio endpoint boundary case for caller
+event-loop/task/thread ownership and request cancellation, plus native flat
+`Router.url_path_for` success and miss comparisons, three route-level request-body limit combinations, an application
 Router-miss 404 handler input, direct Host reverse-URL formatting through
 `{tenant}.example.test:3600`, post-construction `Starlette.add_route`, and
 multipart cleanup and rollover inputs. The parameterized Host-route input

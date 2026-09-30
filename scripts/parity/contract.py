@@ -591,6 +591,11 @@ ASGI_CALLABLE_INSTANCE_ENDPOINT = {
     "kind": "asgi-callable-instance-observer",
     "response_content": "asgi instance ok",
 }
+ASYNC_CALL_BOUNDARY_ENDPOINT = {"kind": "async-call-boundary-observer"}
+ASYNC_CALL_BOUNDARY_REQUIREMENTS = (
+    "starlette.asgi.caller-event-loop-ownership",
+    "starlette.asgi.request-cancellation",
+)
 DECLARED_UNSCOPED_SUPPORT_GAPS = {
     (
         "starlette.applications.Starlette",
@@ -8129,6 +8134,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             "dispatch-get",
             "dispatch-wrong-method",
         ]
+    elif app_args["routes"][0]["endpoint"] == ASYNC_CALL_BOUNDARY_ENDPOINT:
+        if step_ids != ["application", "dispatch"]:
+            raise ContractError("async boundary cancellation uses one direct request dispatch")
+        expected_schedule = ["dispatch", "cancel-server-task"]
     else:
         expected_scope = (
             "websocket" if app_args["routes"][0]["kind"] == "websocket-route" else "http"
@@ -8690,6 +8699,10 @@ def _validate_application_stimulus(
         if endpoint == ASGI_CALLABLE_INSTANCE_ENDPOINT:
             if route["path"] != "/items/{item_id:int}":
                 raise ContractError("ASGI callable-instance input uses the int route boundary")
+            return
+        if endpoint == ASYNC_CALL_BOUNDARY_ENDPOINT:
+            if route["path"] != "/items/{item_id:int}":
+                raise ContractError("async boundary input uses the int route boundary")
             return
         if isinstance(endpoint, dict) and endpoint.get("kind") == "asgi-callable-action-sequence":
             if route["path"] != "/items/{item_id:int}":
@@ -12767,6 +12780,9 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             coverage.add(SYNC_ENDPOINT_REQUIREMENTS["callable_form"])
     elif endpoint["kind"] == "asgi-callable-instance-observer":
         coverage.add(ASGI_CALLABLE_INSTANCE_REQUIREMENT)
+    elif endpoint == ASYNC_CALL_BOUNDARY_ENDPOINT:
+        if case["execution_schedule"] == ["dispatch", "cancel-server-task"]:
+            coverage.update(ASYNC_CALL_BOUNDARY_REQUIREMENTS)
     elif endpoint["kind"] == "asgi-callable-action-sequence":
         coverage.add(ASGI_CALLABLE_INSTANCE_REQUIREMENT)
         sent_response = any(action["action"] == "send" for action in endpoint["actions"])

@@ -1475,6 +1475,42 @@ def _materialize_application(
                     await response(scope, receive, send)
 
             route_endpoint = ASGICallableInstanceObserver(response_spec["response_content"])
+        elif response_spec["kind"] == "async-call-boundary-observer":
+            _strict_object(
+                response_spec,
+                {"kind"},
+                "async call-boundary observer endpoint",
+            )
+            boundary_state: dict[str, Any] = {
+                "entered": None,
+                "endpoint_loop": None,
+                "endpoint_task": None,
+                "endpoint_thread_id": None,
+                "finalizer_ran": False,
+                "cancellation_class": None,
+            }
+
+            class AsyncCallBoundaryObserver:
+                def __init__(self, state: dict[str, Any]) -> None:
+                    self.boundary_state = state
+
+                async def __call__(self, _scope: Any, _receive: Any, _send: Any) -> None:
+                    self.boundary_state["endpoint_loop"] = asyncio.get_running_loop()
+                    self.boundary_state["endpoint_task"] = asyncio.current_task()
+                    self.boundary_state["endpoint_thread_id"] = threading.get_ident()
+                    self.boundary_state["entered"].set()
+                    try:
+                        await asyncio.Future()
+                    except asyncio.CancelledError as exc:
+                        self.boundary_state["cancellation_class"] = (
+                            f"{type(exc).__module__}.{type(exc).__qualname__}"
+                        )
+                        raise
+                    finally:
+                        self.boundary_state["finalizer_ran"] = True
+
+            route_endpoint = AsyncCallBoundaryObserver(boundary_state)
+            route_endpoint._parity_async_boundary_state = boundary_state
         elif response_spec["kind"] == "asgi-callable-action-sequence":
             _strict_object(
                 response_spec,
@@ -1552,6 +1588,7 @@ async def _invoke(
     workflow_events: list[dict[str, Any]] | None = None,
     sync_endpoint_states: list[dict[str, Any]] | None = None,
     capture_dispatch_error: bool = False,
+    cancel_after_endpoint_entry: bool = False,
 ) -> dict[str, Any] | _CapturedDispatchError:
     scope = _make_scope(step_args["scope"])
     incoming = [_message(item) for item in step_args["receive"]]
@@ -1574,18 +1611,44 @@ async def _invoke(
     if step_args["send"] != {"kind": "capture-asgi-send"}:
         raise ValueError("send input must select the declared ASGI message collector")
     context_tokens: list[tuple[dict[str, Any], contextvars.Token[Any]]] = []
-    captured_exception: Exception | None = None
+    captured_exception: BaseException | None = None
+    async_endpoint_observations: dict[str, Any] | None = None
+    boundary_state = getattr(route_endpoint, "_parity_async_boundary_state", None)
     try:
         for state in sync_endpoint_states or []:
             state["caller_thread_id"] = threading.get_ident()
             token = state["context_var"].set(state["context_value"])
             context_tokens.append((state, token))
-        try:
-            await app(scope, receive, send)
-        except Exception as exc:
-            if not capture_dispatch_error:
-                raise
-            captured_exception = exc
+        if cancel_after_endpoint_entry:
+            if boundary_state is None:
+                raise RuntimeError("cancellation schedule requires the declared async endpoint")
+            server_loop = asyncio.get_running_loop()
+            server_thread_id = threading.get_ident()
+            boundary_state["entered"] = asyncio.Event()
+            server_task = asyncio.create_task(app(scope, receive, send))
+            await boundary_state["entered"].wait()
+            cancel_requested = server_task.cancel()
+            try:
+                await server_task
+            except asyncio.CancelledError as exc:
+                captured_exception = exc
+            async_endpoint_observations = {
+                "endpoint_entered": boundary_state["endpoint_task"] is not None,
+                "endpoint_finalizer_ran": boundary_state["finalizer_ran"],
+                "endpoint_cancellation_class": boundary_state["cancellation_class"],
+                "same_event_loop": boundary_state["endpoint_loop"] is server_loop,
+                "same_request_task": boundary_state["endpoint_task"] is server_task,
+                "same_thread": boundary_state["endpoint_thread_id"] == server_thread_id,
+                "server_task_cancel_requested": cancel_requested,
+                "server_task_cancelled": server_task.cancelled(),
+            }
+        else:
+            try:
+                await app(scope, receive, send)
+            except Exception as exc:
+                if not capture_dispatch_error:
+                    raise
+                captured_exception = exc
     finally:
         for state, token in reversed(context_tokens):
             state["context_var"].reset(token)
@@ -1596,7 +1659,11 @@ async def _invoke(
             (event for event in events if event["type"] == "websocket.http.response.start"),
             None,
         )
-    if start is None and scope["type"] not in {"lifespan", "websocket"}:
+    if (
+        start is None
+        and scope["type"] not in {"lifespan", "websocket"}
+        and async_endpoint_observations is None
+    ):
         raise RuntimeError("Starlette completed without an http.response.start event")
     body_chunks = []
     for event in events:
@@ -1627,6 +1694,7 @@ async def _invoke(
             {
                 "request_observations": request_observations[0] if request_observations else None,
                 "sync_endpoint_observations": _observed_sync_endpoint(sync_endpoint_states or []),
+                "async_endpoint_observations": async_endpoint_observations,
                 "route_scope": {
                     "app_is_application": scope.get("app") is app,
                     "router_is_application_router": scope.get("router") is app.router,
@@ -1641,6 +1709,7 @@ async def _invoke(
             for key in (
                 "request_observations",
                 "sync_endpoint_observations",
+                "async_endpoint_observations",
                 "route_scope",
                 "response_status",
                 "ordered_repeated_headers",
@@ -8853,10 +8922,16 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     schedule = case["execution_schedule"]
     is_request_dispatch = case["operation"] == "request-dispatch"
     if is_request_dispatch:
+        endpoint_spec = steps[0]["arguments"]["routes"]["value"][0]["endpoint"]
+        expected_schedule = (
+            ["dispatch", "cancel-server-task"]
+            if endpoint_spec == {"kind": "async-call-boundary-observer"}
+            else ["dispatch"]
+        )
         if (
             step_ids != ["application", "dispatch"]
             or steps[-1].get("operation") != "request-dispatch"
-            or schedule != ["dispatch"]
+            or schedule != expected_schedule
         ):
             raise ValueError(
                 "request-dispatch cases must contain application then request-dispatch"
@@ -8944,6 +9019,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                 is_request_dispatch and step["operation"] == "request-dispatch",
                 sync_endpoint_states=sync_endpoint_states,
                 capture_dispatch_error=capture_dispatch_error,
+                cancel_after_endpoint_entry=(
+                    case["execution_schedule"] == ["dispatch", "cancel-server-task"]
+                ),
             )
             results.append(_workflow_observation(step["step_id"], value))
         return results

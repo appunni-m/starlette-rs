@@ -5166,6 +5166,7 @@ fn run_request_case(case: &Value) -> Result<Value, String> {
             "value": {
                 "request_observations": request_observations,
                 "sync_endpoint_observations": null,
+                "async_endpoint_observations": null,
                 "route_scope": route_scope,
                 "response_status": response["response_status"],
                 "ordered_repeated_headers": response["ordered_repeated_headers"],
