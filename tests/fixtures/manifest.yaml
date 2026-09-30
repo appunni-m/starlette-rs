@@ -4220,13 +4220,7 @@
               "path": "starlette.endpoints.WebSocketEndpoint",
               "signature": "WebSocketEndpoint ASGI dispatch with encoding and on_connect/on_receive/on_disconnect hooks",
               "support": {
-                "status": "partial",
-                "reason": "The selected inputs cover documented encoding modes and successful hook lifecycle behavior; callback failures, unsupported encoding attributes, and cancellation/finalization remain unverified.",
-                "missing_requirements": [
-                  "starlette.endpoints.WebSocketEndpoint.dispatch.callback-error-propagation",
-                  "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-encoding",
-                  "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalization"
-                ]
+                "status": "supported"
               }
             }
           ],

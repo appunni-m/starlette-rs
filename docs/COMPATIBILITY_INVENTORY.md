@@ -17,17 +17,39 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 408 input-only cases across 44 files,
-covering 61 operations and 462 parity requirements. The authored cases span
+The active parity manifest indexes 430 input-only cases across 47 files,
+covering 65 operations and 488 parity requirements. The authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 StaticFiles, WebSockets, exceptions, status constants, endpoints,
 authentication, middleware (including bounded SessionMiddleware and
 BaseHTTPMiddleware workflows), configuration,
-schemas, and one bounded Python-package Jinja2 template workflow. The exact operation and profile denominator is in the parity
-manifest; generated JSON and run results remain ignored local build outputs.
+schemas, and one bounded Python-package Jinja2 template workflow. The exact
+operation and profile denominator is in the parity manifest; generated JSON
+and run results remain ignored local build outputs.
 
-Integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
+Latest live parity run `670fd03c-e7ef-4bfe-9715-d0cc25359195` ran against the
+pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 578 comparisons:
+574 passed, zero failed, zero infrastructure errors, and four were `not_run`.
+The installed Python package passed all 428 of its selected comparisons. The
+Rust-native target passed 146 of 150; its four unsupported inputs exercise
+sync request-dispatch callables represented by a context-preserving function,
+a bound method, a partial, and a callable instance. The three additional
+WebSocketEndpoint error/cancellation cases now pass exact package parity. The
+all-target command still exits 2 for the four explicitly unsupported
+Rust-native cases; this bounded run is not full Starlette parity.
+
+The latest correctness-gated Router/GZip benchmark run,
+`07eb140d-a8d2-4964-9e33-2a408f4a171e`, measured 74 of 74 source/package
+workloads with zero failed or skipped workloads after a passing 428/428
+Python-package preflight. Rust-native remains separately `not_run` for all 74
+workload boundaries. This is benchmark evidence for that lane only; the full
+compatibility denominator remains incomplete. The latest source inventory
+check dispositioned all 999 API candidate rows and reported 796 coverage
+mappings and 563 new fixture-backlog items; those changing counts come from
+the generated atlas, not this policy text.
+
+Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
 `2026-09-29T23:48:10.322Z` and finished at `2026-09-29T23:49:31.637Z`. It
 selected 556 profile comparisons: 552 passed, zero failed, zero infrastructure
 errors, and four Rust-native comparisons were `not_run`. The Python package
@@ -167,11 +189,12 @@ map to the pinned `test_websocket_raise_*` workflows. Direct
 TestClient propagation remain outside the active contract.
 `asgi-core.app.test_app_debug` stays in backlog because its input constructs
 the app with debug enabled rather than setting debug after construction. The
-parity artifact status is `completed`; four explicitly unsupported Rust-native
-callable rows keep the all-target gate incomplete. The Router/GZip benchmark
-lane remains `not_proven`: its source/package workload comparisons do not
-establish full Starlette replacement parity, and Rust-native remains outside
-those benchmark boundaries. Ignored local results live in
+parity artifact status for that historical run was `completed`; the four
+explicitly unsupported Rust-native callable rows kept its all-target gate
+incomplete. The current Router/GZip source/package benchmark lane is
+`completed` for all 74 declared workloads, but does not establish full
+Starlette replacement parity; Rust-native remains outside those benchmark
+boundaries. Ignored local results live in
 `build/parity/parity-result.json` and
 `build/parity/upstream-benchmark-result.json`.
 These results cover the selected workflows only and do not establish full
