@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import builtins
 import warnings
 from typing import Any
 
@@ -192,4 +194,124 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [{"step_id": "websocket-session", "status": "ok", "value": result}],
+    }
+
+
+def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.testclient import TestClient
+
+    settings = case["testclient"]
+    app_input = case["asgi_app"]
+    lifespan_scope: list[dict[str, Any]] = []
+    lifespan_receive_messages: list[dict[str, Any]] = []
+    lifespan_send_messages: list[dict[str, Any]] = []
+    http_scopes: list[dict[str, Any]] = []
+    http_receive_messages: list[dict[str, Any]] = []
+    http_send_messages: list[dict[str, Any]] = []
+    request_results: list[dict[str, Any]] = []
+    loop_state: dict[str, Any] = {"lifespan": None, "previous_http_request": None}
+    loop_relations = {name: [] for name in app_input["loop_relations"]}
+
+    def record_scope(scope: dict[str, Any]) -> dict[str, Any]:
+        return {field: _safe(scope[field]) for field in app_input["scope_fields"]}
+
+    async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope["type"] == "lifespan":
+            lifespan_scope.append(record_scope(scope))
+            loop_state["lifespan"] = asyncio.get_running_loop()
+            for action in app_input["lifespan_actions"]:
+                if action["operation"] == "receive":
+                    message = await receive()
+                    lifespan_receive_messages.append(_safe(message))
+                elif action["operation"] == "send":
+                    message = _message(action["message"])
+                    lifespan_send_messages.append(_safe(message))
+                    await send(message)
+                else:
+                    exception_type = getattr(builtins, action["exception_type"])
+                    raise exception_type(action["message"])
+            return
+
+        current_loop = asyncio.get_running_loop()
+        http_scopes.append(record_scope(scope))
+        for relation in app_input["loop_relations"]:
+            if relation == "active_lifespan":
+                lifespan_loop = loop_state["lifespan"]
+                loop_relations[relation].append(
+                    None if lifespan_loop is None else current_loop is lifespan_loop
+                )
+            else:
+                previous_loop = loop_state["previous_http_request"]
+                loop_relations[relation].append(
+                    None if previous_loop is None else current_loop is previous_loop
+                )
+        loop_state["previous_http_request"] = current_loop
+        for _ in range(app_input["http"]["receive_count"]):
+            http_receive_messages.append(_safe(await receive()))
+        for message_spec in app_input["http"]["messages"]:
+            message = _message(message_spec)
+            http_send_messages.append(_safe(message))
+            await send(message)
+
+    client = TestClient(
+        app,
+        base_url=settings["base_url"],
+        raise_server_exceptions=settings["raise_server_exceptions"],
+        root_path=settings["root_path"],
+        client=tuple(settings["client"]),
+        headers=dict(settings["headers"]),
+        backend=settings["backend"],
+        backend_options=settings["backend_options"],
+    )
+    action_errors: list[dict[str, Any]] = []
+    for action_index, action in enumerate(case["client_actions"]):
+        try:
+            if action["operation"] == "enter":
+                client.__enter__()
+            elif action["operation"] == "exit":
+                client.__exit__(None, None, None)
+            else:
+                request_input = action["request"]
+                response = client.request(
+                    request_input["method"],
+                    request_input["url"],
+                    content=base64.b64decode(request_input["body_base64"]),
+                    headers=_decoded_pairs(request_input["headers_base64_pairs"]),
+                )
+                request_results.append(
+                    {
+                        "action_index": action_index,
+                        "url": str(response.request.url),
+                        "status_code": response.status_code,
+                        "headers": response.headers.multi_items(),
+                        "body_base64": base64.b64encode(response.content).decode("ascii"),
+                    }
+                )
+        except Exception as error:
+            error_type = type(error)
+            action_errors.append(
+                {
+                    "action_index": action_index,
+                    "operation": action["operation"],
+                    "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
+                    "message": str(error),
+                }
+            )
+            break
+    client.close()
+    result = {
+        "lifespan_scope": lifespan_scope[0],
+        "lifespan_receive_messages": lifespan_receive_messages,
+        "lifespan_send_messages": lifespan_send_messages,
+        "http_scopes": http_scopes,
+        "http_receive_messages": http_receive_messages,
+        "http_send_messages": http_send_messages,
+        "request_results": request_results,
+        "action_errors": action_errors,
+        "loop_relations": loop_relations,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "lifespan-context", "status": "ok", "value": result}],
     }

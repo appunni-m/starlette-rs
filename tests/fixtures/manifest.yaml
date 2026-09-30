@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, application and route-level body-size limits, async endpoint loop/task/thread ownership and request-task cancellation, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile also compares StaticFiles constructor-time and lazy directory checks, repeated successful configuration checks, and BaseHTTPMiddleware ContextVar propagation across call_next with a pure-ASGI control. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension. The active Python-package profile also covers response-attached BackgroundTask and BackgroundTasks async/sync execution, sequential task ordering, failure propagation, and callable shape classification for async/sync bound methods, callable objects, partials, and nested partials. The active Python-package profile also includes bounded synchronous TestClient HTTP request/response and WebSocket text/binary frame exchange slices with timeout deprecation-warning parity; lifespan, streaming request bodies, and remaining error-policy cases are separate compatibility work.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, application and route-level body-size limits, async endpoint loop/task/thread ownership and request-task cancellation, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile also compares StaticFiles constructor-time and lazy directory checks, repeated successful configuration checks, and BaseHTTPMiddleware ContextVar propagation across call_next with a pure-ASGI control. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension. The active Python-package profile also covers response-attached BackgroundTask and BackgroundTasks async/sync execution, sequential task ordering, failure propagation, and callable shape classification for async/sync bound methods, callable objects, partials, and nested partials. The active Python-package profile also includes bounded synchronous TestClient HTTP request/response and WebSocket text/binary frame exchange slices, plus context-managed lifespan startup/shutdown with timeout deprecation-warning parity; streaming request bodies and remaining error-policy cases are separate compatibility work.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -298,7 +298,8 @@
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-http.json",
       "build/parity/inputs/parity/testclient-websocket.json",
-      "build/parity/inputs/parity/testclient-websocket-bytes.json"
+      "build/parity/inputs/parity/testclient-websocket-bytes.json",
+      "build/parity/inputs/parity/testclient-lifespan-context.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -16631,6 +16632,265 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "The initial TestClient WebSocket session contract has no benchmark workload."
+          }
+        },
+        {
+          "id": "lifespan-context",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.testclient.TestClient.__enter__, TestClient.__exit__, TestClient.lifespan, TestClient.wait_startup, and TestClient.wait_shutdown",
+            "signature": "with TestClient as client: start lifespan before entry, reuse its portal for managed requests, and send shutdown on exit",
+            "parameters": [
+              {
+                "id": "app",
+                "style": "positional",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "client_options",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "client_actions",
+                "style": "keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "asgi_app",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "lifespan_scope",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "lifespan_receive_messages",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "lifespan_send_messages",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "http_scopes",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "http_receive_messages",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "http_send_messages",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "request_results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "action_errors",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "loop_relations",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The additive Rust-native API does not expose the documented Python synchronous TestClient context-managed lifespan interface.",
+                "blocker": "TestClient is a Python consumer API; the declared parity profile exercises Rust-owned semantics through the installed package."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.testclient.TestClient.__enter__",
+              "signature": "__enter__() -> TestClient; __exit__(*args) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.startup-handshake",
+              "dimension": "protocol_variant",
+              "description": "Entering TestClient starts the ASGI lifespan task, sends lifespan.startup, and waits for the startup completion message before returning. Pinned source: starlette/testclient.py:679-722; docs/testclient.md:79-84.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.managed-request-portal-reuse",
+              "dimension": "boundary",
+              "description": "An HTTP request inside the TestClient context reuses the active AnyIO portal and event loop used by lifespan. Pinned source: starlette/testclient.py:422-426; tests/test_testclient.py::test_use_testclient_as_contextmanager.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.shutdown-handshake",
+              "dimension": "protocol_variant",
+              "description": "Exiting TestClient sends lifespan.shutdown, waits for its completion, then closes lifecycle streams and the portal. Pinned source: starlette/testclient.py:700-749; docs/lifespan.md:142-158.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.transient-outside-context-requests",
+              "dimension": "boundary",
+              "description": "Requests outside a TestClient context use per-request portals and do not trigger lifespan startup or shutdown. Pinned source: starlette/testclient.py:422-426; docs/testclient.md:79-84.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.startup-error-propagation",
+              "dimension": "error_path",
+              "description": "When the lifespan task raises during startup, entering TestClient propagates the app error and tears down the portal. Pinned source: starlette/testclient.py:679-722; tests/test_testclient.py::test_error_on_startup.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.shutdown-error-propagation",
+              "dimension": "error_path",
+              "description": "When the lifespan task raises during shutdown, TestClient exit propagates the app error and tears down the portal. Pinned source: starlette/testclient.py:727-749; tests/test_routing.py::test_raise_on_shutdown.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Input-only TestClient lifecycle observations make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This first TestClient lifespan contract has no benchmark workload."
           }
         }
       ]

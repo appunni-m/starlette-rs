@@ -544,6 +544,10 @@
         {
           "operation_id": "websocket-session",
           "source_path": "starlette.testclient.TestClient.websocket_connect, WebSocketTestSession.send_text, receive_text, send_bytes, and receive_bytes"
+        },
+        {
+          "operation_id": "lifespan-context",
+          "source_path": "starlette.testclient.TestClient.__enter__, TestClient.__exit__, TestClient.lifespan, TestClient.wait_startup, and TestClient.wait_shutdown"
         }
       ]
     },

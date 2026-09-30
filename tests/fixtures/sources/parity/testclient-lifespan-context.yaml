@@ -1,0 +1,286 @@
+{
+  "schema": "migration-parity/parity-input@10",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.normal-managed-cycle",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.startup-handshake",
+        "starlette.testclient.TestClient.lifespan-context.managed-request-portal-reuse",
+        "starlette.testclient.TestClient.lifespan-context.shutdown-handshake",
+        "starlette.testclient.TestClient.lifespan-context.transient-outside-context-requests"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/before-entry",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/inside-context-first",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/inside-context-second",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "exit"
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/after-exit",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        }
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type"
+        ],
+        "loop_relations": [
+          "active_lifespan",
+          "previous_http_request"
+        ],
+        "lifespan_actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "lifespan.startup.complete"
+            }
+          },
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "lifespan.shutdown.complete"
+            }
+          }
+        ],
+        "http": {
+          "receive_count": 1,
+          "messages": [
+            {
+              "type": "http.response.start",
+              "status": 200,
+              "headers_base64_pairs": [
+                [
+                  "Y29udGVudC10eXBl",
+                  "dGV4dC9wbGFpbg=="
+                ]
+              ]
+            },
+            {
+              "type": "http.response.body",
+              "body_base64": "b2s=",
+              "more_body": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.startup-error",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.startup-error-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "enter"
+        }
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type"
+        ],
+        "loop_relations": [
+          "active_lifespan",
+          "previous_http_request"
+        ],
+        "lifespan_actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "raise",
+            "exception_type": "RuntimeError",
+            "message": "startup failure"
+          }
+        ],
+        "http": {
+          "receive_count": 1,
+          "messages": [
+            {
+              "type": "http.response.start",
+              "status": 200,
+              "headers_base64_pairs": [
+                [
+                  "Y29udGVudC10eXBl",
+                  "dGV4dC9wbGFpbg=="
+                ]
+              ]
+            },
+            {
+              "type": "http.response.body",
+              "body_base64": "b2s=",
+              "more_body": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.shutdown-error",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.startup-handshake",
+        "starlette.testclient.TestClient.lifespan-context.shutdown-error-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "exit"
+        }
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type"
+        ],
+        "loop_relations": [
+          "active_lifespan",
+          "previous_http_request"
+        ],
+        "lifespan_actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "lifespan.startup.complete"
+            }
+          },
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "raise",
+            "exception_type": "RuntimeError",
+            "message": "shutdown failure"
+          }
+        ],
+        "http": {
+          "receive_count": 1,
+          "messages": [
+            {
+              "type": "http.response.start",
+              "status": 200,
+              "headers_base64_pairs": [
+                [
+                  "Y29udGVudC10eXBl",
+                  "dGV4dC9wbGFpbg=="
+                ]
+              ]
+            },
+            {
+              "type": "http.response.body",
+              "body_base64": "b2s=",
+              "more_body": false
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

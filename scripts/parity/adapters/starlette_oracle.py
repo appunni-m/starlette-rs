@@ -78,6 +78,7 @@ BASE_HTTP_CONTEXTVARS_OPERATION = "contextvars-propagation"
 TESTCLIENT_SURFACE = "starlette.testclient.TestClient"
 TESTCLIENT_OPERATION = "request-response"
 TESTCLIENT_WEBSOCKET_OPERATION = "websocket-session"
+TESTCLIENT_LIFESPAN_OPERATION = "lifespan-context"
 EXCEPTION_VALUES_SURFACE = "starlette.exceptions"
 MIDDLEWARE_CONFIG_SURFACE = "starlette.middleware.Middleware"
 VALUE_FORMATTING_OPERATION = "value-formatting"
@@ -8970,13 +8971,19 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if case.get("surface") == TESTCLIENT_SURFACE and case.get("operation") in {
         TESTCLIENT_OPERATION,
         TESTCLIENT_WEBSOCKET_OPERATION,
+        TESTCLIENT_LIFESPAN_OPERATION,
     }:
-        from scripts.parity.adapters.testclient import run_testclient_case
+        from scripts.parity.adapters.testclient import (
+            run_testclient_case,
+            run_testclient_lifespan_case,
+        )
 
         if case.get("operation") == TESTCLIENT_WEBSOCKET_OPERATION:
             from scripts.parity.adapters.testclient import run_testclient_websocket_case
 
             return run_testclient_websocket_case(case)
+        if case.get("operation") == TESTCLIENT_LIFESPAN_OPERATION:
+            return run_testclient_lifespan_case(case)
         return run_testclient_case(case)
     if case.get("surface") == "starlette.middleware.wsgi" and case.get("operation") in {
         "build-environ",

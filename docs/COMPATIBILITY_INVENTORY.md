@@ -208,14 +208,16 @@ denial response, and a registered synchronous WebSocket close handler. These
 map to the pinned `test_websocket_raise_*` workflows. Direct
 `ServerErrorMiddleware` invocation and arbitrary middleware ordering remain
 outside the active contract. The active TestClient contract compares four
-input-driven HTTP request/response cases over five requirements and two WebSocket
-session inputs covering text and binary frames. It covers ASGI2/ASGI3 dispatch,
-HTTP and WebSocket scope projection, HTTP request-body delivery, response
-headers/body, debug extensions, timeout deprecation warning details, WebSocket
-subprotocol acceptance, text and binary exchange, and context-exit disconnect.
-TestClient exception policy, streaming bodies, lifespan management, JSON frames,
-denial responses, close-message errors, and explicit close reasons remain in
-the fixture backlog.
+input-driven HTTP request/response cases over five requirements, one
+context-managed lifespan case over four requirements, and WebSocket session
+inputs covering text and binary frames. It covers ASGI2/ASGI3 dispatch, HTTP and
+WebSocket scope projection, HTTP request-body delivery, response headers/body,
+debug extensions, timeout deprecation warning details, context-managed lifespan
+startup/request reuse/shutdown, WebSocket subprotocol acceptance, text and
+binary exchange, and context-exit disconnect. TestClient exception policy,
+streaming bodies, lifespan re-entry behavior, JSON frames, denial responses,
+close-message errors, and explicit close reasons remain in the
+fixture backlog.
 `asgi-core.app.test_app_debug` stays in backlog because its input constructs
 the app with debug enabled rather than setting debug after construction. The
 parity artifact status for that historical run was `completed`; the four

@@ -26,6 +26,365 @@ pub(crate) struct PyTestClientTransport {
     client_host: String,
     client_port: u16,
     app_state: Py<PyDict>,
+    lifespan: Option<TestClientLifespan>,
+}
+
+#[derive(Default)]
+struct TestClientLifespan {
+    portal_manager: Option<Py<PyAny>>,
+    portal: Option<Py<PyAny>>,
+    portal_entered: bool,
+    client_to_app_send: Option<Py<PyAny>>,
+    app_to_client_receive: Option<Py<PyAny>>,
+    app_to_client_send: Option<Py<PyAny>>,
+    client_to_app_receive: Option<Py<PyAny>>,
+    task: Option<Py<PyAny>>,
+}
+
+enum LifespanTaskPhase {
+    App,
+    CompletionSignal,
+}
+
+struct LifespanTaskMachine {
+    runner: Py<PyAny>,
+    app: Py<PyAny>,
+    scope: Py<PyDict>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    completion_send: Py<PyAny>,
+    phase: LifespanTaskPhase,
+    app_error: Option<PyErr>,
+}
+
+#[pyclass]
+struct LifespanTaskCallable {
+    runner: Py<PyAny>,
+    app: Py<PyAny>,
+    scope: Py<PyDict>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    completion_send: Py<PyAny>,
+}
+
+#[pymethods]
+impl LifespanTaskCallable {
+    fn __call__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        into_python_awaitable(
+            py,
+            LifespanTaskMachine {
+                runner: self.runner.clone_ref(py),
+                app: self.app.clone_ref(py),
+                scope: self.scope.clone_ref(py),
+                receive: self.receive.clone_ref(py),
+                send: self.send.clone_ref(py),
+                completion_send: self.completion_send.clone_ref(py),
+                phase: LifespanTaskPhase::App,
+                app_error: None,
+            },
+        )
+    }
+}
+
+impl LifespanTaskMachine {
+    fn send_completion(
+        &mut self,
+        py: Python<'_>,
+        app_error: Option<PyErr>,
+    ) -> PyResult<MachineAction> {
+        self.phase = LifespanTaskPhase::CompletionSignal;
+        self.app_error = app_error;
+        let completion = self
+            .completion_send
+            .bind(py)
+            .call_method1("send", (py.None(),))?;
+        Ok(MachineAction::Await(completion.unbind()))
+    }
+}
+
+impl AwaitableStateMachine for LifespanTaskMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match (&self.phase, input) {
+            (LifespanTaskPhase::App, MachineResume::Start) => {
+                let awaitable = self.runner.bind(py).call1((
+                    self.app.bind(py),
+                    self.scope.bind(py),
+                    self.receive.bind(py),
+                    self.send.bind(py),
+                ));
+                match awaitable {
+                    Ok(awaitable) => Ok(MachineAction::Await(awaitable.unbind())),
+                    Err(error) => self.send_completion(py, Some(error)),
+                }
+            }
+            (LifespanTaskPhase::App, MachineResume::Value(_)) => self.send_completion(py, None),
+            (LifespanTaskPhase::App, MachineResume::AsyncIterationComplete(error))
+            | (LifespanTaskPhase::App, MachineResume::Error(error)) => {
+                self.send_completion(py, Some(error))
+            }
+            (LifespanTaskPhase::CompletionSignal, MachineResume::Value(_)) => {
+                if let Some(error) = self.app_error.take() {
+                    Err(error)
+                } else {
+                    Ok(MachineAction::Complete(py.None()))
+                }
+            }
+            (
+                LifespanTaskPhase::CompletionSignal,
+                MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error),
+            ) => Err(error),
+            (LifespanTaskPhase::CompletionSignal, MachineResume::Start) => Err(
+                PyRuntimeError::new_err("lifespan completion resumed before awaiting its signal"),
+            ),
+        }
+    }
+}
+
+impl TestClientLifespan {
+    fn start(
+        py: Python<'_>,
+        app: Py<PyAny>,
+        runner: Py<PyAny>,
+        app_state: Py<PyDict>,
+        backend: &str,
+        backend_options: &Py<PyDict>,
+    ) -> PyResult<Self> {
+        let mut lifespan = Self::default();
+        if let Err(error) =
+            lifespan.start_inner(py, app, runner, app_state, backend, backend_options)
+        {
+            let _ = lifespan.cleanup(py, false, None);
+            return Err(error);
+        }
+        Ok(lifespan)
+    }
+
+    fn start_inner(
+        &mut self,
+        py: Python<'_>,
+        app: Py<PyAny>,
+        runner: Py<PyAny>,
+        app_state: Py<PyDict>,
+        backend: &str,
+        backend_options: &Py<PyDict>,
+    ) -> PyResult<()> {
+        let anyio = py.import("anyio")?;
+        let portal_kwargs = PyDict::new(py);
+        portal_kwargs.set_item("backend", backend)?;
+        portal_kwargs.set_item("backend_options", backend_options.bind(py))?;
+        let manager = anyio
+            .getattr("from_thread")?
+            .getattr("start_blocking_portal")?
+            .call((), Some(&portal_kwargs))?;
+        self.portal_manager = Some(manager.unbind());
+        let manager = self
+            .portal_manager
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("TestClient portal manager is unavailable"))?;
+        let portal = manager.bind(py).call_method0("__enter__")?;
+        self.portal = Some(portal.unbind());
+        self.portal_entered = true;
+
+        let capacity = py.import("math")?.getattr("inf")?;
+        let stream_factory = anyio.getattr("create_memory_object_stream")?;
+        let client_to_app = stream_factory
+            .call1((capacity.clone(),))?
+            .cast_into::<PyTuple>()?;
+        self.client_to_app_send = Some(client_to_app.get_item(0)?.unbind());
+        self.client_to_app_receive = Some(client_to_app.get_item(1)?.unbind());
+        let app_to_client = stream_factory.call1((capacity,))?.cast_into::<PyTuple>()?;
+        self.app_to_client_send = Some(app_to_client.get_item(0)?.unbind());
+        self.app_to_client_receive = Some(app_to_client.get_item(1)?.unbind());
+
+        let scope = PyDict::new(py);
+        scope.set_item("type", "lifespan")?;
+        scope.set_item("state", app_state.bind(py))?;
+        let receive = self
+            .client_to_app_receive
+            .as_ref()
+            .ok_or_else(|| {
+                PyRuntimeError::new_err("TestClient lifespan receive stream is unavailable")
+            })?
+            .bind(py)
+            .getattr("receive")?
+            .unbind();
+        let send = self
+            .app_to_client_send
+            .as_ref()
+            .ok_or_else(|| {
+                PyRuntimeError::new_err("TestClient lifespan send stream is unavailable")
+            })?
+            .bind(py)
+            .getattr("send")?
+            .unbind();
+        let completion_send = self
+            .app_to_client_send
+            .as_ref()
+            .ok_or_else(|| {
+                PyRuntimeError::new_err("TestClient lifespan completion stream is unavailable")
+            })?
+            .clone_ref(py);
+        let task_callable = Py::new(
+            py,
+            LifespanTaskCallable {
+                runner,
+                app,
+                scope: scope.unbind(),
+                receive,
+                send,
+                completion_send,
+            },
+        )?;
+        let portal = self
+            .portal
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("TestClient portal is unavailable"))?;
+        let task = portal
+            .bind(py)
+            .call_method1("start_task_soon", (task_callable,))?;
+        self.task = Some(task.unbind());
+        self.handshake(py, true)
+    }
+
+    fn handshake(&self, py: Python<'_>, startup: bool) -> PyResult<()> {
+        let portal = self
+            .portal
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("TestClient portal is unavailable"))?;
+        let (event, complete, failed) = if startup {
+            (
+                "lifespan.startup",
+                "lifespan.startup.complete",
+                "lifespan.startup.failed",
+            )
+        } else {
+            (
+                "lifespan.shutdown",
+                "lifespan.shutdown.complete",
+                "lifespan.shutdown.failed",
+            )
+        };
+        let send_stream = self.client_to_app_send.as_ref().ok_or_else(|| {
+            PyRuntimeError::new_err("TestClient lifespan send stream is unavailable")
+        })?;
+        let receive_stream = self.app_to_client_receive.as_ref().ok_or_else(|| {
+            PyRuntimeError::new_err("TestClient lifespan receive stream is unavailable")
+        })?;
+        let message = PyDict::new(py);
+        message.set_item("type", event)?;
+        let send = send_stream.bind(py).getattr("send")?;
+        portal.bind(py).call_method1("call", (send, message))?;
+
+        let response = self.receive_lifespan_message(py, portal.bind(py), receive_stream)?;
+        let response_type = response.bind(py).get_item("type")?.extract::<String>()?;
+        if response_type != complete && response_type != failed {
+            return Err(PyAssertionError::new_err(()));
+        }
+        if response_type == failed {
+            let _ = self.receive_lifespan_message(py, portal.bind(py), receive_stream)?;
+        }
+        Ok(())
+    }
+
+    fn receive_lifespan_message(
+        &self,
+        py: Python<'_>,
+        portal: &Bound<'_, PyAny>,
+        receive_stream: &Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let receive = receive_stream.bind(py).getattr("receive")?;
+        let message = portal.call_method1("call", (receive,))?;
+        if message.is_none() {
+            self.task
+                .as_ref()
+                .ok_or_else(|| PyRuntimeError::new_err("TestClient lifespan task is unavailable"))?
+                .bind(py)
+                .call_method0("result")?;
+        }
+        Ok(message.unbind())
+    }
+
+    fn cleanup(
+        &mut self,
+        py: Python<'_>,
+        wait_shutdown: bool,
+        mut primary_error: Option<PyErr>,
+    ) -> PyResult<()> {
+        if wait_shutdown && self.portal.is_some() {
+            if let Err(error) = self.handshake(py, false) {
+                if primary_error.is_none() {
+                    primary_error = Some(error);
+                }
+            }
+        }
+
+        for stream in [
+            self.client_to_app_send.take(),
+            self.client_to_app_receive.take(),
+            self.app_to_client_send.take(),
+            self.app_to_client_receive.take(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if let Err(error) = stream.bind(py).call_method0("close") {
+                if primary_error.is_none() {
+                    primary_error = Some(error);
+                }
+            }
+        }
+
+        self.task = None;
+        self.portal = None;
+        let manager = self.portal_manager.take();
+        if self.portal_entered {
+            if let Some(manager) = manager {
+                if let Err(error) =
+                    exit_portal(py, manager.bind(py).clone(), primary_error.as_ref())
+                {
+                    if primary_error.is_none() {
+                        primary_error = Some(error);
+                    }
+                }
+            }
+        }
+        self.portal_entered = false;
+
+        match primary_error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    }
+}
+
+impl PyTestClientTransport {
+    fn start_lifespan(&mut self, py: Python<'_>) -> PyResult<()> {
+        if self.lifespan.is_some() {
+            return Err(PyRuntimeError::new_err("TestClient is already entered"));
+        }
+        let runner = if is_asgi3(py, self.app.bind(py))? {
+            self.asgi3_runner.clone_ref(py)
+        } else {
+            self.asgi2_runner.clone_ref(py)
+        };
+        let lifespan = TestClientLifespan::start(
+            py,
+            self.app.clone_ref(py),
+            runner,
+            self.app_state.clone_ref(py),
+            &self.backend,
+            &self.backend_options,
+        )?;
+        self.lifespan = Some(lifespan);
+        Ok(())
+    }
+
+    fn stop_lifespan(&mut self, py: Python<'_>) -> PyResult<()> {
+        match self.lifespan.take() {
+            Some(mut lifespan) => lifespan.cleanup(py, true, None),
+            None => Ok(()),
+        }
+    }
 }
 
 /// Internal transport signal used to return a Rust-owned WebSocket session
@@ -492,7 +851,19 @@ impl PyTestClientTransport {
             client_host: client.0,
             client_port: client.1,
             app_state: PyDict::new(py).unbind(),
+            lifespan: None,
         })
+    }
+
+    fn __enter__(slf: Py<Self>, py: Python<'_>, client: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        slf.borrow_mut(py).start_lifespan(py)?;
+        Ok(client)
+    }
+
+    #[pyo3(signature = (*args))]
+    fn __exit__(slf: Py<Self>, py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<()> {
+        let _ = args;
+        slf.borrow_mut(py).stop_lifespan(py)
     }
 
     #[getter]
@@ -570,17 +941,32 @@ impl PyTestClientTransport {
             ..TestClientResponseState::default()
         }));
         let anyio = py.import("anyio")?;
-        let from_thread = anyio.getattr("from_thread")?;
-        let start_portal = from_thread.getattr("start_blocking_portal")?;
-        let portal_kwargs = PyDict::new(py);
-        portal_kwargs.set_item("backend", &self.backend)?;
-        portal_kwargs.set_item("backend_options", self.backend_options.bind(py))?;
-        let manager = start_portal.call((), Some(&portal_kwargs))?;
-        let portal = manager.call_method0("__enter__")?;
-        let event = match portal.call_method1("call", (anyio.getattr("Event")?,)) {
+        let (manager, portal) = if let Some(lifespan) = self.lifespan.as_ref() {
+            let portal = lifespan
+                .portal
+                .as_ref()
+                .ok_or_else(|| PyRuntimeError::new_err("TestClient portal is unavailable"))?
+                .clone_ref(py);
+            (None, portal)
+        } else {
+            let from_thread = anyio.getattr("from_thread")?;
+            let start_portal = from_thread.getattr("start_blocking_portal")?;
+            let portal_kwargs = PyDict::new(py);
+            portal_kwargs.set_item("backend", &self.backend)?;
+            portal_kwargs.set_item("backend_options", self.backend_options.bind(py))?;
+            let manager = start_portal.call((), Some(&portal_kwargs))?;
+            let portal = manager.call_method0("__enter__")?;
+            (Some(manager.unbind()), portal.unbind())
+        };
+        let event = match portal
+            .bind(py)
+            .call_method1("call", (anyio.getattr("Event")?,))
+        {
             Ok(event) => event,
             Err(error) => {
-                exit_portal(py, manager, Some(&error))?;
+                if let Some(manager) = manager.as_ref() {
+                    exit_portal(py, manager.bind(py).clone(), Some(&error))?;
+                }
                 return Err(error);
             }
         };
@@ -602,11 +988,14 @@ impl PyTestClientTransport {
         } else {
             self.asgi2_runner.bind(py)
         };
-        let app_result =
-            portal.call_method1("call", (runner, self.app.bind(py), &scope, receive, send));
-        match &app_result {
-            Ok(_) => exit_portal(py, manager, None)?,
-            Err(error) => exit_portal(py, manager, Some(error))?,
+        let app_result = portal
+            .bind(py)
+            .call_method1("call", (runner, self.app.bind(py), &scope, receive, send));
+        if let Some(manager) = manager {
+            match &app_result {
+                Ok(_) => exit_portal(py, manager.bind(py).clone(), None)?,
+                Err(error) => exit_portal(py, manager.bind(py).clone(), Some(error))?,
+            }
         }
         if let Err(error) = app_result {
             if self.raise_server_exceptions {

@@ -112,12 +112,27 @@ TESTCLIENT_OPERATION = "request-response"
 TESTCLIENT_OPERATION_KEY = (TESTCLIENT_SURFACE, TESTCLIENT_OPERATION)
 TESTCLIENT_WEBSOCKET_OPERATION = "websocket-session"
 TESTCLIENT_WEBSOCKET_OPERATION_KEY = (TESTCLIENT_SURFACE, TESTCLIENT_WEBSOCKET_OPERATION)
+TESTCLIENT_LIFESPAN_OPERATION = "lifespan-context"
+TESTCLIENT_LIFESPAN_OPERATION_KEY = (TESTCLIENT_SURFACE, TESTCLIENT_LIFESPAN_OPERATION)
 TESTCLIENT_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.scope-projection",
     "receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-message",
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
     "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
+}
+TESTCLIENT_LIFESPAN_REQUIREMENTS = {
+    "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
+    "managed_request": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.managed-request-portal-reuse",
+    "shutdown": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.shutdown-handshake",
+    "outside_requests": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.transient-outside-context-requests",
+    "startup_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-error-propagation",
+    "shutdown_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.shutdown-error-propagation",
+}
+TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "testclient",
+    "client_actions",
+    "asgi_app",
 }
 TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
@@ -1566,6 +1581,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             BASE_HTTP_CONTEXTVARS_OPERATION_KEY,
                             TESTCLIENT_OPERATION_KEY,
                             TESTCLIENT_WEBSOCKET_OPERATION_KEY,
+                            TESTCLIENT_LIFESPAN_OPERATION_KEY,
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
                             ROUTE_CONSTRUCTOR_OPERATION_KEY,
                         }
@@ -7998,6 +8014,258 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         raise ContractError("TestClient WebSocket covers must match the input frame workflow")
 
 
+def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
+    settings = _exact(
+        case["testclient"],
+        {
+            "base_url",
+            "raise_server_exceptions",
+            "root_path",
+            "client",
+            "headers",
+            "backend",
+            "backend_options",
+        },
+        "TestClient lifespan settings",
+    )
+    base_url = _string(settings["base_url"], "TestClient.base_url")
+    if not base_url.startswith(("http://", "https://")):
+        raise ContractError("TestClient.base_url must use http or https")
+    if type(settings["raise_server_exceptions"]) is not bool:
+        raise ContractError("TestClient.raise_server_exceptions must be boolean")
+    if not isinstance(settings["root_path"], str):
+        raise ContractError("TestClient.root_path must be a string")
+    client = settings["client"]
+    if (
+        not isinstance(client, list)
+        or len(client) != 2
+        or not isinstance(client[0], str)
+        or type(client[1]) is not int
+        or not 0 <= client[1] <= 65535
+    ):
+        raise ContractError("TestClient.client must be [host, port]")
+    for key in ("backend",):
+        _string(settings[key], f"TestClient.{key}")
+    if not isinstance(settings["backend_options"], dict):
+        raise ContractError("TestClient.backend_options must be a record")
+
+    def validate_pairs(value: Any, context: str, *, encoded: bool) -> None:
+        if not isinstance(value, list):
+            raise ContractError(f"{context} must be an array")
+        for index, pair in enumerate(value):
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or any(not isinstance(item, str) for item in pair)
+            ):
+                raise ContractError(f"{context}[{index}] must contain two strings")
+            if encoded:
+                for part, item in zip(("name", "value"), pair, strict=True):
+                    validate_base64(item, f"{context}[{index}].{part}")
+
+    def validate_base64(value: Any, context: str) -> None:
+        if not isinstance(value, str):
+            raise ContractError(f"{context} must be a base64 string")
+        try:
+            decoded = base64.b64decode(value, validate=True)
+        except (TypeError, ValueError) as exc:
+            raise ContractError(f"{context} is invalid base64") from exc
+        if base64.b64encode(decoded).decode("ascii") != value:
+            raise ContractError(f"{context} must use canonical base64")
+
+    validate_pairs(settings["headers"], "TestClient.headers", encoded=False)
+
+    client_actions = case["client_actions"]
+    if not isinstance(client_actions, list) or not client_actions:
+        raise ContractError("TestClient lifespan workflow requires client actions")
+    client_operations = [
+        action.get("operation") for action in client_actions if isinstance(action, dict)
+    ]
+    if client_operations not in (
+        ["request", "enter", "request", "request", "exit", "request"],
+        ["enter"],
+        ["enter", "exit"],
+    ):
+        raise ContractError("TestClient lifespan actions do not match a declared lifecycle path")
+    for index, operation in enumerate(client_operations):
+        if operation != "request":
+            _exact(client_actions[index], {"operation"}, "TestClient context action")
+    for index in (
+        index for index, operation in enumerate(client_operations) if operation == "request"
+    ):
+        action = _exact(
+            client_actions[index], {"operation", "request"}, f"TestClient request action[{index}]"
+        )
+        request = _exact(
+            action["request"],
+            {"method", "url", "headers_base64_pairs", "body_base64"},
+            f"TestClient request action[{index}].request",
+        )
+        _string(request["method"], f"TestClient request action[{index}].method")
+        _string(request["url"], f"TestClient request action[{index}].url")
+        validate_pairs(
+            request["headers_base64_pairs"],
+            f"TestClient request action[{index}].headers_base64_pairs",
+            encoded=True,
+        )
+        validate_base64(request["body_base64"], f"TestClient request action[{index}].body_base64")
+    asgi_app = _exact(
+        case["asgi_app"],
+        {"kind", "scope_fields", "loop_relations", "lifespan_actions", "http"},
+        "TestClient lifespan ASGI app",
+    )
+    if asgi_app["kind"] != "asgi3":
+        raise ContractError("TestClient lifespan workflow accepts an ASGI3 callable")
+    allowed_scope_fields = {
+        "type",
+        "http_version",
+        "method",
+        "path",
+        "raw_path",
+        "root_path",
+        "scheme",
+        "query_string",
+        "headers",
+        "client",
+        "server",
+        "state",
+        "extensions",
+    }
+    scope_fields = asgi_app["scope_fields"]
+    if (
+        not isinstance(scope_fields, list)
+        or not scope_fields
+        or any(
+            not isinstance(field, str) or field not in allowed_scope_fields
+            for field in scope_fields
+        )
+        or len(scope_fields) != len(set(scope_fields))
+    ):
+        raise ContractError("TestClient lifespan scope_fields must be unique supported scope keys")
+    loop_relations = asgi_app["loop_relations"]
+    if (
+        not isinstance(loop_relations, list)
+        or any(not isinstance(relation, str) for relation in loop_relations)
+        or set(loop_relations) != {"active_lifespan", "previous_http_request"}
+        or len(loop_relations) != len(set(loop_relations))
+    ):
+        raise ContractError("TestClient lifespan loop_relations must select the declared probes")
+
+    lifespan_actions = asgi_app["lifespan_actions"]
+    if not isinstance(lifespan_actions, list):
+        raise ContractError("TestClient lifespan app actions must be an array")
+    lifespan_operations = [
+        action.get("operation") for action in lifespan_actions if isinstance(action, dict)
+    ]
+    if lifespan_operations == ["receive", "send", "receive", "send"]:
+        expected_lifespan_messages = [
+            "lifespan.startup.complete",
+            "lifespan.shutdown.complete",
+        ]
+        for index, message_type in zip((1, 3), expected_lifespan_messages, strict=True):
+            action = _exact(
+                lifespan_actions[index],
+                {"operation", "message"},
+                "TestClient lifespan send action",
+            )
+            message = _exact(action["message"], {"type"}, "TestClient lifespan message")
+            if message["type"] != message_type:
+                raise ContractError(
+                    "TestClient lifespan messages must complete startup then shutdown"
+                )
+        for index in (0, 2):
+            _exact(lifespan_actions[index], {"operation"}, "TestClient lifespan receive action")
+    elif lifespan_operations == ["receive", "raise"]:
+        _exact(lifespan_actions[0], {"operation"}, "TestClient lifespan receive action")
+        error = _exact(
+            lifespan_actions[1],
+            {"operation", "exception_type", "message"},
+            "TestClient startup error action",
+        )
+        if error["exception_type"] != "RuntimeError":
+            raise ContractError("TestClient lifespan error inputs currently use RuntimeError")
+        _string(error["message"], "TestClient startup error message")
+    elif lifespan_operations == ["receive", "send", "receive", "raise"]:
+        _exact(lifespan_actions[0], {"operation"}, "TestClient lifespan receive action")
+        startup = _exact(
+            lifespan_actions[1], {"operation", "message"}, "TestClient startup message action"
+        )
+        if _exact(startup["message"], {"type"}, "TestClient startup message")["type"] != (
+            "lifespan.startup.complete"
+        ):
+            raise ContractError("TestClient shutdown error input must complete startup first")
+        _exact(lifespan_actions[2], {"operation"}, "TestClient lifespan receive action")
+        error = _exact(
+            lifespan_actions[3],
+            {"operation", "exception_type", "message"},
+            "TestClient shutdown error action",
+        )
+        if error["exception_type"] != "RuntimeError":
+            raise ContractError("TestClient lifespan error inputs currently use RuntimeError")
+        _string(error["message"], "TestClient shutdown error message")
+    else:
+        raise ContractError("TestClient lifespan app actions do not match a declared protocol path")
+
+    if (client_operations, lifespan_operations) == (
+        ["request", "enter", "request", "request", "exit", "request"],
+        ["receive", "send", "receive", "send"],
+    ):
+        expected_covers = set(TESTCLIENT_LIFESPAN_REQUIREMENTS.values()) - {
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown_error"],
+        }
+    elif (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
+        expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"]}
+    elif (client_operations, lifespan_operations) == (
+        ["enter", "exit"],
+        ["receive", "send", "receive", "raise"],
+    ):
+        expected_covers = {
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown_error"],
+        }
+    else:
+        raise ContractError("TestClient client actions and lifespan app actions do not align")
+
+    http = _exact(asgi_app["http"], {"receive_count", "messages"}, "TestClient lifespan HTTP app")
+    if type(http["receive_count"]) is not int or http["receive_count"] != 1:
+        raise ContractError("TestClient lifespan HTTP app consumes one request message")
+    messages = http["messages"]
+    if not isinstance(messages, list) or len(messages) != 2:
+        raise ContractError("TestClient lifespan HTTP app sends one response start and body")
+    start = _exact(
+        messages[0],
+        {"type", "status", "headers_base64_pairs"},
+        "TestClient lifespan HTTP response start",
+    )
+    if start["type"] != "http.response.start":
+        raise ContractError("TestClient lifespan HTTP response must start first")
+    if type(start["status"]) is not int or not 100 <= start["status"] <= 599:
+        raise ContractError("TestClient lifespan HTTP response status is invalid")
+    validate_pairs(
+        start["headers_base64_pairs"], "TestClient lifespan response headers", encoded=True
+    )
+    body = _exact(
+        messages[1],
+        {"type", "body_base64", "more_body"},
+        "TestClient lifespan HTTP response body",
+    )
+    if body["type"] != "http.response.body" or type(body["more_body"]) is not bool:
+        raise ContractError("TestClient lifespan HTTP response body is invalid")
+    if body["more_body"]:
+        raise ContractError("TestClient lifespan HTTP response body must be terminal")
+    validate_base64(body["body_base64"], "TestClient lifespan response body")
+
+    covers = case["covers"]
+    if (
+        not isinstance(covers, list)
+        or any(not isinstance(requirement, str) for requirement in covers)
+        or len(covers) != len(set(covers))
+        or set(covers) != expected_covers
+    ):
+        raise ContractError("TestClient lifespan covers must match the input lifecycle workflow")
+
+
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     is_websocket = isinstance(case, dict) and case.get("surface") == WEBSOCKET_SURFACE
     is_websocket_endpoint = (
@@ -8120,6 +8388,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == TESTCLIENT_OPERATION_KEY
     )
+    is_testclient_lifespan = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == TESTCLIENT_LIFESPAN_OPERATION_KEY
+    )
     is_testclient_websocket = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == TESTCLIENT_WEBSOCKET_OPERATION_KEY
@@ -8182,6 +8454,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_base_http_workflow
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"testclient", "websocket", "asgi_app"}
         if is_testclient_websocket
+        else TESTCLIENT_LIFESPAN_CASE_KEYS
+        if is_testclient_lifespan
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"testclient", "request", "asgi_app"}
         if is_testclient
         else CASE_KEYS
@@ -8214,6 +8488,19 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if case["observations"] != [TESTCLIENT_OPERATION]:
             raise ContractError("TestClient cases must select request-response")
         _validate_testclient_case(case)
+        return case
+    if is_testclient_lifespan:
+        _exact(case, expected_case_keys, "case")
+        case_id = _string(case["case_id"], "case.case_id")
+        if not case_id.startswith(f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}."):
+            raise ContractError("TestClient lifespan case ID must bind to its public operation")
+        if case["assets"] != []:
+            raise ContractError("TestClient lifespan workflow does not use assets")
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError("TestClient lifespan cases select only the Python-package profile")
+        if case["observations"] != [TESTCLIENT_LIFESPAN_OPERATION]:
+            raise ContractError("TestClient lifespan cases must select lifespan-context")
+        _validate_testclient_lifespan_case(case)
         return case
     if is_testclient_websocket:
         _exact(case, expected_case_keys, "case")
@@ -8466,6 +8753,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_testclient:
         if (case["surface"], case["operation"]) != TESTCLIENT_OPERATION_KEY:
             raise ContractError("TestClient cases must use request-response")
+    elif is_testclient_lifespan:
+        if (case["surface"], case["operation"]) != TESTCLIENT_LIFESPAN_OPERATION_KEY:
+            raise ContractError("TestClient lifespan cases must use lifespan-context")
     elif case["surface"] != "starlette.applications.Starlette" or case["operation"] not in {
         "__call__",
         "request-dispatch",
@@ -8508,6 +8798,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError("BaseHTTPMiddleware cases select only the Python-package profile")
     if is_testclient and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("TestClient cases select only the Python-package profile")
+    if is_testclient_lifespan and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError("TestClient lifespan cases select only the Python-package profile")
     requirements: dict[str, dict[str, Any]] = {}
     operations: dict[tuple[str, str], dict[str, Any]] = {}
     for surface in manifest["surfaces"]:
@@ -8571,6 +8863,17 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if declared_requirements != set(TESTCLIENT_REQUIREMENTS.values()):
             raise ContractError(
                 "TestClient request-response must declare its complete requirement set"
+            )
+    if is_testclient_lifespan:
+        testclient_lifespan_operation = operations.get(TESTCLIENT_LIFESPAN_OPERATION_KEY)
+        declared_requirements = (
+            {item["id"] for item in testclient_lifespan_operation["requirements"]}
+            if testclient_lifespan_operation is not None
+            else set()
+        )
+        if declared_requirements != set(TESTCLIENT_LIFESPAN_REQUIREMENTS.values()):
+            raise ContractError(
+                "TestClient lifespan-context must declare its complete requirement set"
             )
     covers = case["covers"]
     if (
