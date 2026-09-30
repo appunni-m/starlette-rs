@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@16",
+  "schema": "migration-parity/parity-input@17",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.websocket-session.accepted-text-exchange",
@@ -669,6 +669,49 @@
             "actions": [
               {"operation": "accept"},
               {"operation": "send_scope_bytes", "field": "raw_path"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.application-query-params",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.application-query-params",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.receive-json-text-frame"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["127.0.0.1", 12345],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/?a=abc&b=456",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [{"operation": "receive_json"}]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path", "query_string"],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {"operation": "observe_query_params"},
+              {"operation": "accept"},
+              {"operation": "send_query_params_json"},
+              {"operation": "close"}
             ]
           }
         ]

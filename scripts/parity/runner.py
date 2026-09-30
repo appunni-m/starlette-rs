@@ -382,6 +382,14 @@ def _target_identity(
         )
     target_env = dict(env)
     target_env["STARLETTE_PARITY_DEPENDENCY_LOCK_SHA256"] = dependency_lock
+    if target_environment is not None:
+        target_env["STARLETTE_PARITY_TARGET_TREE_SHA256"] = target_environment["target_tree_sha256"]
+        target_env["STARLETTE_PARITY_TARGET_SOURCE_REVISION"] = target_environment[
+            "target_source_revision"
+        ]
+        target_env["STARLETTE_PARITY_TARGET_SOURCE_DIRTY"] = (
+            "1" if target_environment["target_dirty"] else "0"
+        )
     try:
         cmd = _resolve_command(commands[target["identity_command_id"]], prepared, root)
     except ContractError as exc:
@@ -474,6 +482,19 @@ def _target_identity(
             and identity["revision"].startswith("dirty-tree:")
         ):
             tree_sha = identity["revision"].removeprefix("dirty-tree:")
+        if target_environment is not None:
+            expected_dirty = target_environment["target_dirty"] or (
+                tree_sha != target_environment["target_tree_sha256"]
+            )
+            expected_revision = (
+                f"dirty-tree:{tree_sha}"
+                if expected_dirty
+                else target_environment["target_source_revision"]
+            )
+            if identity["dirty"] is not expected_dirty or identity["revision"] != expected_revision:
+                raise ContractError(
+                    "Python target identity differs from its prepared wheel/source identity"
+                )
         records = []
         by_profile: dict[str, dict[str, Any]] = {}
         for profile in profiles:
@@ -589,9 +610,21 @@ def _unsupported_result(case: dict[str, Any], reason: str) -> dict[str, Any]:
     }
 
 
-def _adapter_environment(base: dict[str, str], dependency_lock_sha256: str) -> dict[str, str]:
+def _adapter_environment(
+    base: dict[str, str],
+    dependency_lock_sha256: str,
+    target_environment: dict[str, Any] | None = None,
+) -> dict[str, str]:
     env = dict(base)
     env["STARLETTE_PARITY_DEPENDENCY_LOCK_SHA256"] = dependency_lock_sha256
+    if target_environment is not None:
+        env["STARLETTE_PARITY_TARGET_TREE_SHA256"] = target_environment["target_tree_sha256"]
+        env["STARLETTE_PARITY_TARGET_SOURCE_REVISION"] = target_environment[
+            "target_source_revision"
+        ]
+        env["STARLETTE_PARITY_TARGET_SOURCE_DIRTY"] = (
+            "1" if target_environment["target_dirty"] else "0"
+        )
     return env
 
 
@@ -823,7 +856,7 @@ def run_parity(
                         if target_environment
                         else sha256_file(root / "Cargo.lock")
                     )
-                    target_env = _adapter_environment(env, target_lock)
+                    target_env = _adapter_environment(env, target_lock, target_environment)
                     target_result, error = _run_case(
                         target_command, target["id"], case, target_env, "target", root
                     )

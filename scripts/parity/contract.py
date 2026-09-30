@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@16"
+INPUT_SCHEMA = "migration-parity/parity-input@17"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -142,6 +142,7 @@ TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | 
 TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
     "query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.query-params-raw-path",
+    "application_query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-query-params",
     "handshake": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accept-handshake",
     "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
     "binary_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.binary-message-exchange",
@@ -8111,6 +8112,8 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                 mode = _string(action.get("mode", "text"), f"{item_context}.mode")
                 if mode not in {"text", "binary"}:
                     raise ContractError(f"{item_context}.mode must be text or binary")
+            elif operation in {"observe_query_params", "send_query_params_json", "close"}:
+                _exact(value, {"operation"}, item_context)
             elif operation == "receive_json":
                 action = _exact(
                     value,
@@ -8144,9 +8147,12 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                 raise ContractError(f"{item_context} has unsupported operation {operation!r}")
 
     validate_actions(actions, "TestClient WebSocket flow actions")
-    if actions[0].get("operation") != "accept":
+    application_query_params_flow = len(actions) == 4 and [
+        action.get("operation") for action in actions
+    ] == ["observe_query_params", "accept", "send_query_params_json", "close"]
+    if actions[0].get("operation") != "accept" and not application_query_params_flow:
         raise ContractError("TestClient WebSocket flow must accept before other actions")
-    if "accept" in operations[1:]:
+    if "accept" in operations[1:] and not application_query_params_flow:
         raise ContractError("TestClient WebSocket flow may accept only once")
     if (
         len(actions) == 2
@@ -8168,6 +8174,8 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
         "send_json",
     ]:
         return "json-exchange"
+    if application_query_params_flow:
+        return "application-query-params"
     if len(actions) == 2 and actions[1].get("operation") == "wait_forever":
         return "cancellation"
     if len(actions) == 2 and [action.get("operation") for action in actions] == [
@@ -8495,6 +8503,17 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "TestClient close-triggered cancellation flow must exit without client message actions"
             )
+        if flow_kind == "application-query-params" and (
+            len(session_actions) != 1
+            or not client_json_workflow
+            or client_json_receive_mode != "text"
+            or "params" in websocket
+            or not websocket_url.partition("?")[2]
+            or "query_string" not in scope_fields
+        ):
+            raise ContractError(
+                "TestClient WebSocket query-params flow requires an inline query, observed query_string, and one text receive_json action"
+            )
         if flow_kind == "json-exchange":
             if not client_json_exchange:
                 raise ContractError(
@@ -8523,9 +8542,10 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         expected_covers = {
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
-            TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
         }
+        if flow_kind != "application-query-params":
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"])
         if flow_kind == "blocking-receive":
             expected_covers.update(
                 {
@@ -8540,6 +8560,13 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["cancellation"])
         elif flow_kind == "scope-bytes":
             expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["query_params"])
+        elif flow_kind == "application-query-params":
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_query_params"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["receive_json_text"],
+                }
+            )
         else:
             expected_covers.update(
                 {

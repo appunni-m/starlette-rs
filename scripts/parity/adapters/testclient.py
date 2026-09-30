@@ -217,8 +217,10 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             lambda: observed_receive(receive),
             lambda message: observed_send(send, message),
         )
+        query_params_value: dict[str, Any] | None = None
 
         async def run_actions(actions: list[dict[str, Any]]) -> None:
+            nonlocal query_params_value
             for action in actions:
                 operation = action["operation"]
                 if operation == "accept":
@@ -226,8 +228,17 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                         action.get("subprotocol"),
                         _decoded_pairs(action.get("headers_base64_pairs", [])),
                     )
+                elif operation == "observe_query_params":
+                    query_params_value = dict(websocket.query_params)
+                    application_values.append(
+                        {"operation": "query_params", "value": _safe(query_params_value)}
+                    )
                 elif operation == "send_json":
                     await websocket.send_json(action["value"], action.get("mode", "text"))
+                elif operation == "send_query_params_json":
+                    await websocket.send_json({"params": query_params_value})
+                elif operation == "close":
+                    await websocket.close()
                 elif operation == "send_scope_bytes":
                     await websocket.send_bytes(scope[action["field"]])
                 elif operation == "receive_json":

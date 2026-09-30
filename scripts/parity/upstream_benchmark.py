@@ -485,9 +485,17 @@ def _native_not_run(category: str, identity: dict[str, Any] | None) -> dict[str,
 def _profile_parity_gate_passes(
     result: dict[str, Any], profile_id: str, expected_case_ids: list[str]
 ) -> bool:
-    """Require one passing live comparison for every case selected by a profile."""
+    """Require complete passing comparisons from a clean target identity."""
     comparisons = result.get("comparisons")
     if not isinstance(comparisons, list):
+        return False
+    targets = result.get("targets")
+    if not isinstance(targets, list):
+        return False
+    profile_targets = [
+        row for row in targets if isinstance(row, dict) and row.get("target_profile") == profile_id
+    ]
+    if len(profile_targets) != 1 or profile_targets[0].get("dirty") is not False:
         return False
     profile_rows = [
         row

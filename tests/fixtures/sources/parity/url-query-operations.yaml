@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@16",
+  "schema": "migration-parity/parity-input@17",
   "cases": [
     {
       "case_id": "starlette.datastructures.URL.query-parameter-operations.order-and-escaping",

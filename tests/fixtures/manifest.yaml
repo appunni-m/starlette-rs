@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@16",
+      "input_schema": "migration-parity/parity-input@17",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -16938,6 +16938,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.query-params-raw-path",
               "dimension": "input_family",
               "description": "Compare inline URL query text with an input-defined params mapping and observe scope.query_string, scope.raw_path, and the received raw-path byte frame. Pinned source: starlette/testclient.py:656-677; tests/test_testclient.py::test_websocket_raw_path_without_params; docs/testclient.md:209-215.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.application-query-params",
+              "dimension": "input_family",
+              "description": "Construct the public WebSocket from the live TestClient ASGI scope, observe dict(websocket.query_params) before acceptance, return that live mapping through send_json, and close the socket. Compare the app value, emitted ASGI messages, and client receive_json result. Pinned source: starlette/websockets.py:26-32; starlette/requests.py:139-142; tests/test_websockets.py::test_websocket_query_params; docs/websockets.md:40-44.",
               "lanes": [
                 "parity"
               ],

@@ -545,6 +545,33 @@ def _load_installed_package() -> tuple[Any, Any, importlib.metadata.Distribution
     return starlette, _core, distribution
 
 
+def _installed_package_tree_sha256(
+    distribution: importlib.metadata.Distribution,
+) -> str:
+    package_roots = ("starlette", "starlette_rs_py")
+    files: dict[str, bytes] = {}
+    for package in package_roots:
+        package_path = Path(distribution.locate_file(package))
+        if not package_path.is_dir():
+            continue
+        for path in sorted(package_path.rglob("*")):
+            if path.is_dir() or path.suffix in {".pyc", ".pyo"}:
+                continue
+            if path.is_symlink() or not path.is_file():
+                raise RuntimeError(f"installed target package contains a non-file entry: {path}")
+            relative = f"{package}/{path.relative_to(package_path).as_posix()}"
+            files[relative] = path.read_bytes()
+    if not files:
+        raise RuntimeError("installed target package has no verifiable package files")
+    digest = hashlib.sha256()
+    for relative in sorted(files):
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(files[relative])
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def _identity(distribution: importlib.metadata.Distribution) -> dict[str, Any]:
     dependency_lock_sha256 = os.environ.get("STARLETTE_PARITY_DEPENDENCY_LOCK_SHA256")
     if (
@@ -554,30 +581,24 @@ def _identity(distribution: importlib.metadata.Distribution) -> dict[str, Any]:
         raise RuntimeError(
             "STARLETTE_PARITY_DEPENDENCY_LOCK_SHA256 must be a lowercase SHA-256 digest"
         )
+    expected_tree_sha256 = os.environ.get("STARLETTE_PARITY_TARGET_TREE_SHA256")
+    source_revision = os.environ.get("STARLETTE_PARITY_TARGET_SOURCE_REVISION")
+    source_dirty = os.environ.get("STARLETTE_PARITY_TARGET_SOURCE_DIRTY")
+    if (
+        expected_tree_sha256 is None
+        or re.fullmatch(r"[0-9a-f]{64}", expected_tree_sha256) is None
+        or source_revision is None
+        or re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", source_revision) is None
+        or source_dirty not in {"0", "1"}
+    ):
+        raise RuntimeError("prepared target package identity is missing or malformed")
 
-    digest = hashlib.sha256()
-    package_roots = ("starlette/", "starlette_rs_py/")
-    files = distribution.files or ()
-    included = 0
-    for item in sorted(files, key=lambda entry: str(entry)):
-        relative = str(item).replace("\\", "/")
-        if not relative.startswith(package_roots):
-            continue
-        path = Path(distribution.locate_file(item))
-        if not path.is_file() or path.suffix in {".pyc", ".pyo"}:
-            continue
-        digest.update(relative.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-        digest.update(b"\0")
-        included += 1
-    if included == 0:
-        raise RuntimeError("installed target package has no verifiable package files")
-    target_tree_sha256 = digest.hexdigest()
+    target_tree_sha256 = _installed_package_tree_sha256(distribution)
+    dirty = source_dirty == "1" or target_tree_sha256 != expected_tree_sha256
     return {
         "subject_id": SUBJECT_ID,
-        "revision": f"dirty-tree:{target_tree_sha256}",
-        "dirty": True,
+        "revision": f"dirty-tree:{target_tree_sha256}" if dirty else source_revision,
+        "dirty": dirty,
         "runtime": f"{platform.python_implementation()} {platform.python_version()}",
         "os": platform.platform(),
         "architecture": platform.machine(),

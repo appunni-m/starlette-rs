@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +17,7 @@ import tomllib
 
 from .contract import ORACLE_COMMIT, ContractError, sha256_file
 
-ENVIRONMENTS_SCHEMA = "migration-parity/python-environments@1"
+ENVIRONMENTS_SCHEMA = "migration-parity/python-environments@2"
 ENVIRONMENTS_RELATIVE = Path("build/parity/python-environments.json")
 RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/asgi-runtime-cpython312.txt")
 ORACLE_RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/starlette-oracle-cpython312.txt")
@@ -46,6 +47,127 @@ print(json.dumps({
 def _canonical_sha256(value: Any) -> str:
     raw = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
+
+
+def _target_source_identity(root: Path) -> dict[str, Any]:
+    try:
+        revision = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--verify", "HEAD^{commit}"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        ).stdout.strip()
+        status = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "status",
+                "--porcelain=v1",
+                "-z",
+                "--untracked-files=all",
+            ],
+            capture_output=True,
+            timeout=30,
+            check=True,
+        ).stdout
+        tracked_diff = subprocess.run(
+            ["git", "-C", str(root), "diff", "--binary", "--no-ext-diff", "HEAD", "--"],
+            capture_output=True,
+            timeout=30,
+            check=True,
+        ).stdout
+        untracked_paths = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "ls-files",
+                "--others",
+                "--exclude-standard",
+                "-z",
+            ],
+            capture_output=True,
+            timeout=30,
+            check=True,
+        ).stdout.split(b"\0")
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ContractError(f"cannot inspect target source checkout identity: {exc}") from exc
+    if len(revision) not in {40, 64} or any(
+        character not in "0123456789abcdef" for character in revision
+    ):
+        raise ContractError("target source revision must be a full lowercase Git object ID")
+    digest = hashlib.sha256()
+    digest.update(b"revision\0")
+    digest.update(revision.encode("ascii"))
+    digest.update(b"\0status\0")
+    digest.update(status)
+    digest.update(b"\0tracked-diff\0")
+    digest.update(tracked_diff)
+    for raw_path in sorted(path for path in untracked_paths if path):
+        path = root / os.fsdecode(raw_path)
+        try:
+            if path.is_symlink():
+                digest.update(b"symlink\0")
+                digest.update(raw_path)
+                digest.update(b"\0")
+                digest.update(os.fsencode(os.readlink(path)))
+            elif path.is_file():
+                digest.update(b"file\0")
+                digest.update(raw_path)
+                digest.update(b"\0")
+                with path.open("rb") as stream:
+                    while chunk := stream.read(1024 * 1024):
+                        digest.update(chunk)
+            else:
+                raise ContractError(
+                    f"cannot fingerprint untracked target source path: {os.fsdecode(raw_path)}"
+                )
+            digest.update(b"\0")
+        except OSError as exc:
+            raise ContractError(
+                f"cannot fingerprint untracked target source path {os.fsdecode(raw_path)!r}: {exc}"
+            ) from exc
+    return {
+        "revision": revision,
+        "dirty": bool(status),
+        "working_tree_sha256": digest.hexdigest(),
+    }
+
+
+def _package_tree_sha256(files: dict[str, bytes]) -> str:
+    if not files:
+        raise ContractError("target wheel has no verifiable Starlette package files")
+    digest = hashlib.sha256()
+    for relative in sorted(files):
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(files[relative])
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _wheel_package_tree_sha256(wheel: Path) -> str:
+    package_roots = ("starlette/", "starlette_rs_py/")
+    files: dict[str, bytes] = {}
+    try:
+        with zipfile.ZipFile(wheel) as archive:
+            for entry in archive.infolist():
+                relative = entry.filename.replace("\\", "/")
+                if entry.is_dir() or not relative.startswith(package_roots):
+                    continue
+                parts = Path(relative).parts
+                if relative.startswith("/") or ".." in parts:
+                    raise ContractError(f"target wheel contains an unsafe package path: {relative}")
+                if relative.endswith((".pyc", ".pyo")):
+                    continue
+                if relative in files:
+                    raise ContractError(f"target wheel repeats package file: {relative}")
+                files[relative] = archive.read(entry)
+    except (OSError, zipfile.BadZipFile, RuntimeError) as exc:
+        raise ContractError(f"cannot inspect target wheel package files: {exc}") from exc
+    return _package_tree_sha256(files)
 
 
 def base_environment() -> dict[str, str]:
@@ -363,6 +485,7 @@ def prepare_environments(
         )
     if not host_python.is_file():
         raise ContractError(f"requested Python interpreter is absent: {host_python}")
+    target_source = _target_source_identity(root)
     revision, _ = _source_revision(upstream)
     lock_path = root / RUNTIME_LOCK_RELATIVE
     lock_digest = validate_runtime_lock(root, upstream)
@@ -388,6 +511,9 @@ def prepare_environments(
     env = base_environment()
     wheel = _target_wheel(root, wheelhouse, host_python, env)
     wheel_digest = sha256_file(wheel)
+    target_tree_digest = _wheel_package_tree_sha256(wheel)
+    if _target_source_identity(root) != target_source:
+        raise ContractError("target source checkout changed while building the prepared wheel")
     env_root.mkdir(parents=True)
 
     records: list[dict[str, Any]] = []
@@ -445,7 +571,12 @@ def prepare_environments(
     output = {
         "schema": ENVIRONMENTS_SCHEMA,
         "source_revision": revision,
-        "target_wheel": {"path": wheel.relative_to(root).as_posix(), "sha256": wheel_digest},
+        "target_source": target_source,
+        "target_wheel": {
+            "path": wheel.relative_to(root).as_posix(),
+            "sha256": wheel_digest,
+            "target_tree_sha256": target_tree_digest,
+        },
         "environments": records,
     }
     environment_lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -471,7 +602,13 @@ def load_prepared_environments(
         document = json.loads(metadata_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ContractError(f"cannot load prepared parity environment identity: {exc}") from exc
-    expected_top = {"schema", "source_revision", "target_wheel", "environments"}
+    expected_top = {
+        "schema",
+        "source_revision",
+        "target_source",
+        "target_wheel",
+        "environments",
+    }
     if (
         not isinstance(document, dict)
         or set(document) != expected_top
@@ -480,12 +617,31 @@ def load_prepared_environments(
         raise ContractError("prepared environment lock has unknown fields or schema")
     if document["source_revision"] != ORACLE_COMMIT:
         raise ContractError("prepared environments were built against another source revision")
+    target_source = document["target_source"]
+    if (
+        not isinstance(target_source, dict)
+        or set(target_source) != {"revision", "dirty", "working_tree_sha256"}
+        or not isinstance(target_source["revision"], str)
+        or not isinstance(target_source["dirty"], bool)
+        or not isinstance(target_source["working_tree_sha256"], str)
+        or len(target_source["working_tree_sha256"]) != 64
+        or any(ch not in "0123456789abcdef" for ch in target_source["working_tree_sha256"])
+    ):
+        raise ContractError("prepared target source identity is malformed")
+    if _target_source_identity(root) != target_source:
+        raise ContractError("target source checkout changed after environment preparation")
     target_wheel = document["target_wheel"]
-    if not isinstance(target_wheel, dict) or set(target_wheel) != {"path", "sha256"}:
+    if not isinstance(target_wheel, dict) or set(target_wheel) != {
+        "path",
+        "sha256",
+        "target_tree_sha256",
+    }:
         raise ContractError("prepared target wheel identity is malformed")
     wheel_path = root / target_wheel["path"]
     if not wheel_path.is_file() or sha256_file(wheel_path) != target_wheel["sha256"]:
         raise ContractError("prepared target wheel is missing or changed")
+    if _wheel_package_tree_sha256(wheel_path) != target_wheel["target_tree_sha256"]:
+        raise ContractError("prepared target wheel package tree is missing or changed")
     rows = document["environments"]
     if not isinstance(rows, list) or {
         row.get("id") for row in rows if isinstance(row, dict)
@@ -547,6 +703,14 @@ def load_prepared_environments(
         if actual != row:
             raise ContractError(f"{row['id']} environment changed after preparation")
         output[row["id"]] = row
+    target = output[ENVIRONMENT_IDS[1]]
+    target_tree_sha256 = target_wheel["target_tree_sha256"]
+    target["target_tree_sha256"] = target_tree_sha256
+    target["target_revision"] = (
+        f"dirty-tree:{target_tree_sha256}" if target_source["dirty"] else target_source["revision"]
+    )
+    target["target_dirty"] = target_source["dirty"]
+    target["target_source_revision"] = target_source["revision"]
     if not require_target:
         output.pop(ENVIRONMENT_IDS[1], None)
     return output
