@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@15",
+      "input_schema": "migration-parity/parity-input@16",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -1548,6 +1548,17 @@
               "id": "starlette.request.connection-property-app-identity",
               "dimension": "boundary",
               "description": "Access the documented Request.app property during routed HTTP dispatch; compare its qualified Python type and identity with scope.app. Starlette assigns itself to scope.app before dispatch. Pinned source: docs/requests.md:172-175; starlette/requests.py:106-107; starlette/applications.py:92-96.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.state-lazy-initialization",
+              "dimension": "boundary",
+              "description": "Start routed dispatch without a scope state key, access Request.state, set and read an input-defined value through attribute and mapping access, and compare the cached State object with the resulting scope mapping. Pinned source: starlette/requests.py:189-196; starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state; docs/requests.md:176-183.",
               "lanes": [
                 "parity"
               ],

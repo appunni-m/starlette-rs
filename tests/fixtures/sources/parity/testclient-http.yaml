@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@15",
+  "schema": "migration-parity/parity-input@16",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.asgi3-default-client",

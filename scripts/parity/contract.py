@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@15"
+INPUT_SCHEMA = "migration-parity/parity-input@16"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -709,6 +709,7 @@ SYNC_REQUEST_RUNTIME_REQUIREMENTS = {
     "body": "starlette.request.body-awaitable-construction-worker",
     "json": "starlette.request.json-awaitable-construction-worker",
 }
+REQUEST_STATE_LAZY_INITIALIZATION_REQUIREMENT = "starlette.request.state-lazy-initialization"
 SYNC_ENDPOINT_REQUIREMENTS = {
     "contextvar": "starlette.routing.sync-endpoint-contextvar-propagation",
     "worker_thread": "starlette.routing.sync-endpoint-worker-thread",
@@ -1012,6 +1013,24 @@ def _validate_sync_request_runtime_endpoint(endpoint: Any) -> dict[str, Any]:
         raise ContractError(
             "sync request runtime actions must cover receive, stream, body, and json"
         )
+    return endpoint
+
+
+def _validate_request_state_endpoint(endpoint: Any) -> dict[str, Any]:
+    endpoint = _exact(
+        endpoint,
+        {"kind", "state_key", "state_value", "response_content"},
+        "request state endpoint",
+    )
+    if endpoint["kind"] != "request-state-observer":
+        raise ContractError("request state endpoint must use the declared observer kind")
+    if not _string(endpoint["state_key"], "request state key"):
+        raise ContractError("request state key must not be empty")
+    _string(endpoint["response_content"], "request state response content")
+    try:
+        json.dumps(endpoint["state_value"], allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        raise ContractError("request state value must be JSON-compatible") from exc
     return endpoint
 
 
@@ -10698,6 +10717,11 @@ def _validate_application_stimulus(
                     "request connection-property endpoint uses an unsupported property"
                 )
             return
+        if isinstance(endpoint, dict) and endpoint.get("kind") == "request-state-observer":
+            _validate_request_state_endpoint(endpoint)
+            if route["path"] != "/items/{item_id:int}":
+                raise ContractError("request state input uses the int route boundary")
+            return
         if isinstance(endpoint, dict) and endpoint.get("kind") == "request-stream-observer":
             _validate_request_stream_endpoint(endpoint)
             return
@@ -15411,6 +15435,8 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             coverage.add(REQUEST_CONNECTION_PROPERTY_REQUIREMENTS[property_name])
         elif property_name not in scope:
             coverage.add(REQUEST_CONNECTION_PROPERTY_REQUIREMENTS[property_name])
+    elif endpoint["kind"] == "request-state-observer":
+        coverage.add(REQUEST_STATE_LAZY_INITIALIZATION_REQUIREMENT)
     elif endpoint["kind"] == "request-stream-observer":
         operations = {action["operation"] for action in endpoint["actions"]}
         coverage.update(

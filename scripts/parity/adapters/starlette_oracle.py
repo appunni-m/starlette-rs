@@ -1380,6 +1380,36 @@ def _materialize_application(
                 return endpoint
 
             route_endpoint = make_request_connection_property_endpoint(response_spec)
+        elif response_spec["kind"] == "request-state-observer":
+            _strict_object(
+                response_spec,
+                {"kind", "state_key", "state_value", "response_content"},
+                "request state observer endpoint",
+            )
+
+            def make_request_state_endpoint(spec: dict[str, Any]) -> Any:
+                async def endpoint(request: Any) -> Any:
+                    state_missing_before_access = "state" not in request.scope
+                    state = request.state
+                    setattr(state, spec["state_key"], spec["state_value"])
+                    attribute_value = getattr(state, spec["state_key"])
+                    mapping_value = state[spec["state_key"]]
+                    scope_state = request.scope["state"]
+                    request_observations.append(
+                        {
+                            "state_missing_before_access": state_missing_before_access,
+                            "attribute_value": _json_safe(attribute_value),
+                            "mapping_value": _json_safe(mapping_value),
+                            "scope_mapping_value": _json_safe(scope_state[spec["state_key"]]),
+                            "same_cached_state": request.state is state,
+                            "scope_state_type": type(scope_state).__name__,
+                        }
+                    )
+                    return PlainTextResponse(content=spec["response_content"])
+
+                return endpoint
+
+            route_endpoint = make_request_state_endpoint(response_spec)
         elif response_spec["kind"] == "request-stream-observer":
             if set(response_spec) != {"kind", "actions"}:
                 raise ValueError("request stream-observer input does not match its schema")

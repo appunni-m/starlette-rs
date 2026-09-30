@@ -32,24 +32,25 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 549 input-only cases, 78 operations, and 586
+The current parity contract has 550 input-only cases, 78 operations, and 587
 parity requirements across 62 indexed files. The cases include direct
 Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
 chunked receive messages, stream replay and consumption, JSON decoding, and
-interleaved consumers. The latest live source/package/native run
-`dda395ab-c9d4-4890-ba15-d0fb38dab32b` selected 707 profile comparisons:
-703 passed, zero failed, zero infrastructure errors, and four unsupported
+interleaved consumers, plus lazy Request.state initialization through a routed
+request. The latest live source/package/native run
+`c52fbe37-433e-47f2-84e0-292850256f04` selected 708 profile comparisons:
+704 passed, zero failed, zero infrastructure errors, and four unsupported
 Rust-native Python-callable comparisons were `not_run`. The Python package
-passed 547/547; Rust-native passed 156/160. This run includes the documented
-Request.app identity, TestClient exception-policy, lifespan state propagation,
-and WebSocket query/raw-path inputs; exact async response-background-task
-cancellation and finalization; and StaticFiles traversal plus Mount reverse-URL
-inputs. The manifest SHA-256 is
-`aa7ca8b424b2a9d642219ca746ad57103744a001e2177282526d1613e2029f1d`; the
+passed 548/548; Rust-native passed 156/160. This run includes the documented
+Request.app identity and lazy Request.state initialization, TestClient
+exception-policy, lifespan state propagation, and WebSocket query/raw-path
+inputs; exact async response-background-task cancellation and finalization; and
+StaticFiles traversal plus Mount reverse-URL inputs. The manifest SHA-256 is
+`8cc888ad84fe4a498e822d17d6d89d2cf557b6732033f8a113487fc04d02a13f`; the
 installed package wheel SHA-256 is
-`fe1a289537e3a4cfcecb618cfe0de5e7129a998e5fddc1325b5762f8a8cd1e24`; its
+`2c5b15346318f7a93bdb0eb60d7269c11c6aafcd74e595049ab4122352ed9c9d`; its
 installed-file tree SHA-256 is
-`4a6c647166fafe1ffe5500d027b5dfffa464654c8f517597bf071bb56a261c61`. The
+`8bd2b967d51f69aacc05e5775c381512daec2416a54dd3ec42ea7d36a176d78d`. The
 all-target command exits 2 for those four unsupported native callable cases.
 This bounded evidence does not establish full parity.
 

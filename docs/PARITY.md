@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 549 input-only cases in 62 indexed files, covering 78 operations and 586 parity requirements. The cases cover Starlette applications, routing and reverse URLs, async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity; form parsing; responses and background tasks, including background-task cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including streamed denial responses, query parameters and `raw_path`, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 550 input-only cases in 62 indexed files, covering 78 operations and 587 parity requirements. The cases cover Starlette applications, routing and reverse URLs, async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including background-task cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including streamed denial responses, query parameters and `raw_path`, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,25 +8,35 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice run, `dda395ab-c9d4-4890-ba15-d0fb38dab32b`, ran from
-`2026-09-30T19:37:10.557Z` to `2026-09-30T19:39:01.240Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 707 profile
-comparisons: 703 passed, zero failed, zero infrastructure errors, and four
+The latest full-slice run, `c52fbe37-433e-47f2-84e0-292850256f04`, ran from
+`2026-09-30T19:54:22.992Z` to `2026-09-30T19:56:14.155Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 708 profile
+comparisons: 704 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-547 selected comparisons; Rust-native passed 156 of 160. This run includes the
-documented `Request.app` identity check, StaticFiles traversal and Mount
-reverse-URL cases, and TestClient WebSocket query-parameter inputs that compare
-inline query text with `params` and observe `query_string`, `raw_path`, and the
-received raw-path bytes. The all-target runner exits with status 2 for the four
-unsupported Rust-native callable boundaries. Manifest SHA-256:
-`aa7ca8b424b2a9d642219ca746ad57103744a001e2177282526d1613e2029f1d`; installed
+548 selected comparisons; Rust-native passed 156 of 160. This run includes the
+documented `Request.app` identity check, lazy `Request.state` initialization,
+StaticFiles traversal and Mount reverse-URL cases, and TestClient WebSocket
+query-parameter inputs that compare inline query text with `params` and observe
+`query_string`, `raw_path`, and the received raw-path bytes. The all-target
+runner exits with status 2 for the four unsupported Rust-native callable
+boundaries. Manifest SHA-256:
+`8cc888ad84fe4a498e822d17d6d89d2cf557b6732033f8a113487fc04d02a13f`; installed
 package wheel SHA-256:
-`fe1a289537e3a4cfcecb618cfe0de5e7129a998e5fddc1325b5762f8a8cd1e24`; installed
+`2c5b15346318f7a93bdb0eb60d7269c11c6aafcd74e595049ab4122352ed9c9d`; installed
 package tree SHA-256:
-`4a6c647166fafe1ffe5500d027b5dfffa464654c8f517597bf071bb56a261c61`. This is
+`8bd2b967d51f69aacc05e5775c381512daec2416a54dd3ec42ea7d36a176d78d`. This is
 bounded local evidence, not full parity or release proof.
 
 ## Input-only cases
+
+### Request.state lazy initialization
+
+[`request-runtime.yaml`](../tests/fixtures/sources/parity/request-runtime.yaml)
+starts a routed request without `scope["state"]`, reads `Request.state`, sets
+an input-defined key and value, and observes the value through attribute and
+mapping access. The live observations also compare the resulting scope mapping
+and confirm repeated property access returns the cached state object. The
+Python-package-only case passes exact comparison against the pinned source.
 
 ### Request.form multipart limits and cleanup
 
@@ -567,7 +577,9 @@ The `parity-input@14` contract adds an optional `params` mapping to TestClient W
 
 The `parity-input@15` contract adds `app` to the Request connection-property input family. The new routed request observes the live qualified type of `request.app` and whether it is the same object as `request.scope["app"]`; expected observations stay in the source and target runs.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every supported target-profile comparison declared for the 549 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 707 comparisons: 703 passed, no comparisons failed or hit infrastructure errors, and four Rust-native callable boundaries were recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
+The `parity-input@16` contract adds a routed Request.state case with no initial `scope["state"]`. It observes lazy scope initialization, input-defined assignment and reads through attribute and mapping access, and reuse of the cached State object. The comparison derives every value from the live source and installed-package request.
+
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every supported target-profile comparison declared for the 550 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 708 comparisons: 704 passed, no comparisons failed or hit infrastructure errors, and four Rust-native callable boundaries were recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
 
 ### TestClient exception policy
 
@@ -584,7 +596,7 @@ and the Python `starlette.testclient` methods forward to it.
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 547 Python-package comparisons passed.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 548 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 
