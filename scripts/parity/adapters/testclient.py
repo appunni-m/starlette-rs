@@ -15,10 +15,13 @@ def _message(value: dict[str, Any]) -> dict[str, Any]:
     message = dict(value)
     message.pop("headers_base64_pairs", None)
     message.pop("body_base64", None)
+    message.pop("bytes_base64", None)
     if "headers_base64_pairs" in value:
         message["headers"] = _decoded_pairs(value["headers_base64_pairs"])
     if "body_base64" in value:
         message["body"] = base64.b64decode(value["body_base64"])
+    if "bytes_base64" in value:
+        message["bytes"] = base64.b64decode(value["bytes_base64"])
     return message
 
 
@@ -164,8 +167,16 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         for action in websocket_input["actions"]:
             if action["operation"] == "send_text":
                 value = session.send_text(action["text"])
-            else:
+            elif action["operation"] == "send_bytes":
+                value = session.send_bytes(base64.b64decode(action["data_base64"]))
+            elif action["operation"] == "receive_text":
                 value = session.receive_text()
+            elif action["operation"] == "receive_bytes":
+                value = session.receive_bytes()
+            else:
+                raise ValueError(
+                    f"unsupported TestClient WebSocket action: {action['operation']!r}"
+                )
             action_results.append({"operation": action["operation"], "value": _safe(value)})
     result = {
         "scope": scope_observations,

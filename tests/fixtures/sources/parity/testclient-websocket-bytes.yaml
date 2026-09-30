@@ -1,0 +1,92 @@
+{
+  "schema": "migration-parity/parity-input@10",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.binary-message-exchange",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.binary-message-exchange",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "/tenant",
+        "client": [
+          "192.0.2.11",
+          4312
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/binary?channel=events",
+        "subprotocols": [
+          "binary.v1"
+        ],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "send_bytes",
+            "data_base64": "AAEC/w=="
+          },
+          {
+            "operation": "receive_bytes"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path",
+          "raw_path",
+          "root_path",
+          "scheme",
+          "query_string",
+          "headers",
+          "client",
+          "server",
+          "subprotocols",
+          "state",
+          "extensions"
+        ],
+        "actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.accept",
+              "subprotocol": "binary.v1",
+              "headers_base64_pairs": []
+            }
+          },
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.send",
+              "bytes_base64": "cG9uZwD/"
+            }
+          },
+          {
+            "operation": "receive"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -122,7 +122,8 @@ TESTCLIENT_REQUIREMENTS = {
 TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
     "handshake": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accept-handshake",
-    "messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
+    "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
+    "binary_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.binary-message-exchange",
     "cleanup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.context-cleanup",
 }
 BASE_HTTP_WORKFLOW_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
@@ -7829,6 +7830,16 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
 
     validate_string_pairs(settings["headers"], "TestClient.headers")
 
+    def validate_base64(value: Any, context: str) -> None:
+        if not isinstance(value, str):
+            raise ContractError(f"{context} must be a base64 string")
+        try:
+            decoded = base64.b64decode(value, validate=True)
+        except (TypeError, ValueError) as exc:
+            raise ContractError(f"{context} is invalid base64") from exc
+        if base64.b64encode(decoded).decode("ascii") != value:
+            raise ContractError(f"{context} must use canonical base64")
+
     websocket = _exact(
         case["websocket"],
         {"url", "subprotocols", "headers", "actions"},
@@ -7848,18 +7859,37 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         or not isinstance(session_actions[0], dict)
         or not isinstance(session_actions[1], dict)
     ):
-        raise ContractError("TestClient WebSocket actions must send one text and receive one text")
-    send_action = _exact(
-        session_actions[0], {"operation", "text"}, "TestClient WebSocket send action"
-    )
-    if send_action["operation"] != "send_text":
-        raise ContractError("TestClient WebSocket must send_text before receive_text")
-    _string(send_action["text"], "TestClient WebSocket send_text.text")
+        raise ContractError(
+            "TestClient WebSocket actions must send one frame and receive one frame"
+        )
+    send_operation = session_actions[0].get("operation")
+    if send_operation == "send_text":
+        send_action = _exact(
+            session_actions[0], {"operation", "text"}, "TestClient WebSocket text send action"
+        )
+        _string(send_action["text"], "TestClient WebSocket send_text.text")
+        receive_operation = "receive_text"
+        exchange_requirement = TESTCLIENT_WEBSOCKET_REQUIREMENTS["text_messages"]
+        frame_mode = "text"
+    elif send_operation == "send_bytes":
+        send_action = _exact(
+            session_actions[0],
+            {"operation", "data_base64"},
+            "TestClient WebSocket byte send action",
+        )
+        validate_base64(send_action["data_base64"], "TestClient WebSocket send_bytes.data_base64")
+        receive_operation = "receive_bytes"
+        exchange_requirement = TESTCLIENT_WEBSOCKET_REQUIREMENTS["binary_messages"]
+        frame_mode = "bytes"
+    else:
+        raise ContractError("TestClient WebSocket send operation must be send_text or send_bytes")
     receive_action = _exact(
         session_actions[1], {"operation"}, "TestClient WebSocket receive action"
     )
-    if receive_action["operation"] != "receive_text":
-        raise ContractError("TestClient WebSocket must receive_text after send_text")
+    if receive_action["operation"] != receive_operation:
+        raise ContractError(
+            f"TestClient WebSocket must use {receive_operation} after {send_operation}"
+        )
 
     asgi_app = _exact(
         case["asgi_app"], {"kind", "scope_fields", "actions"}, "TestClient WebSocket ASGI app"
@@ -7923,16 +7953,6 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     if "subprotocol" in accept_message:
         _string(accept_message["subprotocol"], "TestClient WebSocket accepted subprotocol")
 
-    def validate_base64(value: Any, context: str) -> None:
-        if not isinstance(value, str):
-            raise ContractError(f"{context} must be a base64 string")
-        try:
-            decoded = base64.b64decode(value, validate=True)
-        except (TypeError, ValueError) as exc:
-            raise ContractError(f"{context} is invalid base64") from exc
-        if base64.b64encode(decoded).decode("ascii") != value:
-            raise ContractError(f"{context} must use canonical base64")
-
     if "headers_base64_pairs" in accept_message:
         accept_headers = accept_message["headers_base64_pairs"]
         if not isinstance(accept_headers, list):
@@ -7950,12 +7970,17 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     )
     response_message = _exact(
         response_action["message"],
-        {"type", "text"},
+        {"type", "text"} if frame_mode == "text" else {"type", "bytes_base64"},
         "TestClient WebSocket response message",
     )
     if response_message["type"] != "websocket.send":
-        raise ContractError("TestClient WebSocket app must send a text frame")
-    _string(response_message["text"], "TestClient WebSocket response text")
+        raise ContractError(f"TestClient WebSocket app must send a {frame_mode} frame")
+    if frame_mode == "text":
+        _string(response_message["text"], "TestClient WebSocket response text")
+    else:
+        validate_base64(
+            response_message["bytes_base64"], "TestClient WebSocket response bytes_base64"
+        )
     for index in (0, 2, 4):
         action = _exact(
             app_actions[index], {"operation"}, f"TestClient WebSocket receive action[{index}]"
@@ -7963,9 +7988,14 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         if action["operation"] != "receive":
             raise ContractError("TestClient WebSocket app receive action is invalid")
 
-    expected_covers = set(TESTCLIENT_WEBSOCKET_REQUIREMENTS.values())
+    expected_covers = {
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+        exchange_requirement,
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"],
+    }
     if set(case["covers"]) != expected_covers:
-        raise ContractError("TestClient WebSocket covers must match the input session workflow")
+        raise ContractError("TestClient WebSocket covers must match the input frame workflow")
 
 
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
@@ -8219,10 +8249,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             not isinstance(covers, list)
             or any(not isinstance(item, str) for item in covers)
             or len(covers) != len(set(covers))
-            or set(covers) != declared_requirements
+            or not set(covers) <= declared_requirements
         ):
             raise ContractError(
-                "TestClient WebSocket covers must match each declared session requirement once"
+                "TestClient WebSocket covers must select declared session requirements once"
             )
         for requirement in websocket_operation["requirements"]:
             if (

@@ -184,6 +184,13 @@ impl PyWebSocketTestSession {
         self.send_client_message(py, message.into_any().unbind())
     }
 
+    fn send_bytes_inner(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<()> {
+        let message = PyDict::new(py);
+        message.set_item("type", "websocket.receive")?;
+        message.set_item("bytes", data)?;
+        self.send_client_message(py, message.into_any().unbind())
+    }
+
     fn close_inner(&mut self, py: Python<'_>, code: u16) -> PyResult<()> {
         let message = websocket_disconnect_message(py, code)?;
         self.send_client_message(py, message)?;
@@ -285,6 +292,26 @@ impl PyWebSocketTestSession {
             .get_item("text")?
             .ok_or_else(|| PyKeyError::new_err("text"))?
             .extract::<String>()
+    }
+
+    fn send_bytes(&self, py: Python<'_>, data: Py<PyAny>) -> PyResult<()> {
+        self.send_bytes_inner(py, data.bind(py))
+    }
+
+    fn receive_bytes(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let message = self.receive_app_message(py)?;
+        let message = message.bind(py).cast::<PyDict>()?;
+        let message_type = message
+            .get_item("type")?
+            .ok_or_else(|| PyKeyError::new_err("type"))?
+            .extract::<String>()?;
+        if message_type == "websocket.close" {
+            return Err(websocket_disconnect(py, message)?);
+        }
+        message
+            .get_item("bytes")?
+            .ok_or_else(|| PyKeyError::new_err("bytes"))
+            .map(Bound::unbind)
     }
 
     #[pyo3(signature = (code=1000))]

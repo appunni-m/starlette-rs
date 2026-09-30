@@ -51,6 +51,12 @@ class WebSocketTestSession:
     def receive_text(self) -> str:
         return self._runtime.receive_text()
 
+    def send_bytes(self, data: bytes) -> None:
+        self._runtime.send_bytes(data)
+
+    def receive_bytes(self) -> bytes:
+        return self._runtime.receive_bytes()
+
     def close(self, code: int = 1000) -> None:
         self._runtime.close(code)
 

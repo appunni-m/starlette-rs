@@ -543,7 +543,7 @@
         },
         {
           "operation_id": "websocket-session",
-          "source_path": "starlette.testclient.TestClient.websocket_connect"
+          "source_path": "starlette.testclient.TestClient.websocket_connect, WebSocketTestSession.send_text, receive_text, send_bytes, and receive_bytes"
         }
       ]
     },
