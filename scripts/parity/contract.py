@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@9"
+INPUT_SCHEMA = "migration-parity/parity-input@10"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -178,6 +178,7 @@ REQUEST_FORM_OPTIONAL_KEYS = {
     "form_options",
     "form_access",
     "form_file_probe_keys",
+    "form_file_probe_all",
     "form_file_read_size",
     "form_file_write_base64",
     "form_close",
@@ -9973,6 +9974,93 @@ def _expand_request_form_messages(messages: Any) -> list[dict[str, Any]]:
         raise ContractError("Request.form receive input must be a list")
     expanded: list[dict[str, Any]] = []
     for index, message in enumerate(messages):
+        if isinstance(message, dict) and "body_segments" in message:
+            _exact(
+                message,
+                {"type", "body_segments", "more_body"},
+                f"Request.form receive[{index}]",
+            )
+            if message["type"] != "http.request" or type(message["more_body"]) is not bool:
+                raise ContractError("segmented Request.form bodies must be HTTP request messages")
+            segments = message["body_segments"]
+            if not isinstance(segments, list) or not segments:
+                raise ContractError("Request.form body_segments must be a non-empty array")
+            body_parts = []
+            body_length = 0
+            for segment_index, segment in enumerate(segments):
+                context = f"Request.form receive[{index}].body_segments[{segment_index}]"
+                if not isinstance(segment, dict) or not isinstance(segment.get("kind"), str):
+                    raise ContractError(f"{context} must declare a segment kind")
+                if segment["kind"] == "literal":
+                    _exact(segment, {"kind", "bytes_base64"}, context)
+                    try:
+                        part = base64.b64decode(segment["bytes_base64"], validate=True)
+                    except (ValueError, TypeError) as exc:
+                        raise ContractError(f"{context}.bytes_base64 is invalid") from exc
+                elif segment["kind"] == "repeat":
+                    repeat = _exact(
+                        segment,
+                        {"kind", "pattern_base64", "count"},
+                        context,
+                    )
+                    try:
+                        pattern = base64.b64decode(repeat["pattern_base64"], validate=True)
+                    except (ValueError, TypeError) as exc:
+                        raise ContractError(f"{context}.pattern_base64 is invalid") from exc
+                    count = repeat["count"]
+                    if not pattern or type(count) is not int or count < 1:
+                        raise ContractError(
+                            f"{context} repeat must have a non-empty pattern and positive count"
+                        )
+                    part = pattern * count
+                elif segment["kind"] == "indexed_repeat":
+                    repeat = _exact(
+                        segment,
+                        {"kind", "template_base64", "count"},
+                        context,
+                    )
+                    try:
+                        template = base64.b64decode(repeat["template_base64"], validate=True)
+                    except (ValueError, TypeError) as exc:
+                        raise ContractError(f"{context}.template_base64 is invalid") from exc
+                    count = repeat["count"]
+                    placeholder = b"{{index}}"
+                    if (
+                        not template
+                        or placeholder not in template
+                        or type(count) is not int
+                        or not 1 <= count <= 20000
+                        or len(template) * count > 8 * 1024 * 1024
+                    ):
+                        raise ContractError(
+                            f"{context} indexed repeat requires an index template and count from 1 through 20000"
+                        )
+                    part = b"".join(
+                        template.replace(placeholder, str(item_index).encode("ascii"))
+                        for item_index in range(count)
+                    )
+                else:
+                    raise ContractError(
+                        f"{context}.kind must be literal, repeat, or indexed_repeat"
+                    )
+                body_length += len(part)
+                if body_length > 8 * 1024 * 1024:
+                    raise ContractError(
+                        f"Request.form receive[{index}].body_segments must expand to 1 through 8 MiB"
+                    )
+                body_parts.append(part)
+            if body_length == 0:
+                raise ContractError(
+                    f"Request.form receive[{index}].body_segments must expand to 1 through 8 MiB"
+                )
+            expanded.append(
+                {
+                    "type": message["type"],
+                    "body_base64": base64.b64encode(b"".join(body_parts)).decode("ascii"),
+                    "more_body": message["more_body"],
+                }
+            )
+            continue
         if not isinstance(message, dict) or "body_repeat" not in message:
             expanded.append(message)
             continue
@@ -10054,14 +10142,22 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         or not set(form_file_probe_keys) <= set(probe_keys)
     ):
         raise ContractError("Request.form form_file_probe_keys must be unique form_probe_keys")
-    if form_file_probe_keys and type(case.get("form_file_read_size")) is not int:
+    form_file_probe_all = case.get("form_file_probe_all", False)
+    if type(form_file_probe_all) is not bool:
+        raise ContractError("Request.form form_file_probe_all must be a boolean")
+    if form_file_probe_all and form_file_probe_keys:
+        raise ContractError(
+            "Request.form all-file probes cannot be combined with named file probes"
+        )
+    has_file_probes = bool(form_file_probe_keys) or form_file_probe_all
+    if has_file_probes and type(case.get("form_file_read_size")) is not int:
         raise ContractError("Request.form file probes require an integer form_file_read_size")
-    if form_file_probe_keys and case["form_file_read_size"] < -1:
+    if has_file_probes and case["form_file_read_size"] < -1:
         raise ContractError("Request.form form_file_read_size must be -1 or non-negative")
-    if "form_file_read_size" in case and not form_file_probe_keys:
-        raise ContractError("Request.form form_file_read_size requires form_file_probe_keys")
+    if "form_file_read_size" in case and not has_file_probes:
+        raise ContractError("Request.form form_file_read_size requires file probes")
     if "form_file_write_base64" in case:
-        if not form_file_probe_keys or not isinstance(case["form_file_write_base64"], str):
+        if not has_file_probes or not isinstance(case["form_file_write_base64"], str):
             raise ContractError(
                 "Request.form form_file_write_base64 requires file probes and a base64 string"
             )
@@ -10071,9 +10167,9 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             raise ContractError("Request.form form_file_write_base64 must be valid base64") from exc
     if "form_close" in case and type(case["form_close"]) is not bool:
         raise ContractError("Request.form form_close must be a boolean")
-    if case.get("form_close", False) and not form_file_probe_keys:
-        raise ContractError("Request.form form_close requires an UploadFile probe")
-    if form_file_probe_keys and not (
+    if case.get("form_close", False) and not has_file_probes and case.get("form_app") is None:
+        raise ContractError("Request.form form_close without file probes requires an ASGI app")
+    if has_file_probes and not (
         case.get("form_close", False) or case.get("form_access", "await") == "context-manager"
     ):
         raise ContractError(
@@ -10145,6 +10241,15 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             content_type = content_type_header.split(";", 1)[0].strip().lower().encode("latin-1")
             break
     body = b"".join(base64.b64decode(message["body_base64"], validate=True) for message in messages)
+    if (
+        case.get("form_close", False)
+        and not has_file_probes
+        and (
+            content_type != b"multipart/form-data"
+            or _first_multipart_file_data_range(content_type_header or "", body) is None
+        )
+    ):
+        raise ContractError("Request.form form_close without file probes requires a multipart file")
     if content_type == b"application/x-www-form-urlencoded" and body:
         if _request_form_limits_exceeded(body, form_options):
             expected_covers = ["starlette.request.form.parser-limits"]
@@ -10163,7 +10268,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             or _multipart_has_missing_name(content_type_header or "", body)
         )
     ):
-        if form_options or form_file_probe_keys or form_access != "await":
+        if form_options or has_file_probes or form_access != "await":
             raise ContractError("multipart framing-error cases only observe the parser error")
         expected_covers = ["starlette.request.form.multipart-input-errors"]
     elif (
@@ -10173,7 +10278,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     ):
         if set(form_options) - {"max_part_size"}:
             raise ContractError("multipart part-limit cases select max_part_size alone")
-        if len(messages) < 2 or form_file_probe_keys or form_access != "await":
+        if len(messages) < 2 or has_file_probes or form_access != "await":
             raise ContractError(
                 "multipart part-limit cases must stop before a later receive and cannot probe files"
             )
@@ -10202,14 +10307,14 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     ):
         if set(form_options) - {"max_files", "max_fields"}:
             raise ContractError("multipart count-limit cases select max_files or max_fields")
-        if form_file_probe_keys or case.get("form_close", False) or form_access != "await":
+        if has_file_probes or form_access != "await":
             raise ContractError("multipart count-limit errors cannot inspect or close form values")
         expected_covers = ["starlette.request.form.multipart-count-limits"]
     elif content_type == b"multipart/form-data" and body:
         if not case["scope"]["headers_base64_pairs"]:
             raise ContractError("Request.form multipart cases require Content-Type")
         if file_write_error is not None:
-            if form_options or form_file_probe_keys or form_access != "await":
+            if form_options or has_file_probes or form_access != "await":
                 raise ContractError(
                     "Request.form file-write-error cleanup cases cannot include options or probes"
                 )
@@ -10226,7 +10331,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 )
             expected_covers = ["starlette.request.form.multipart-error-file-cleanup"]
         elif receive_error is not None:
-            if form_options or form_file_probe_keys or form_access != "await":
+            if form_options or has_file_probes or form_access != "await":
                 raise ContractError(
                     "Request.form receive-error cleanup cases cannot include form options or probes"
                 )
@@ -10261,7 +10366,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 value > 127 for value in body
             ):
                 expected_covers.append("starlette.request.form.multipart-charset-decoding")
-            if form_file_probe_keys:
+            if has_file_probes:
                 expected_covers.extend(
                     [
                         "starlette.datastructures.FormData.file-values",
@@ -10292,8 +10397,8 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                     not case.get("form_io_trace", False)
                     or file_data_range is None
                     or file_data_range[1] - file_data_range[0] <= 1024 * 1024
-                    or form_file_probe_keys
-                    or case.get("form_close", False)
+                    or has_file_probes
+                    or form_app is None
                 ):
                     raise ContractError(
                         "Request.form repeated-body cases must trace a file larger than the spool threshold"

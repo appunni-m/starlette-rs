@@ -32,7 +32,7 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 490 input-only cases, 72 operations, and 530
+The current parity contract has 496 input-only cases, 72 operations, and 530
 parity requirements across 54 indexed files, including WSGIMiddleware
 response, request-body, environment, and error-boundary workflows, async endpoint
 loop/task/thread ownership and request cancellation, route-level request
@@ -47,13 +47,16 @@ port for matching, and records `tenant=acme` in route scope for one fixed
 `GET /health` response route. A separate input exercises the direct Host
 reverse-URL branch with a configured port. The inputs do not establish full
 Host Router dispatch, nested Host reverse lookup, IPv6, or overall parity.
-Latest integrated run `aa571946-b652-4e05-ba4f-6032b1cabe72` selected 642
-profile comparisons: 638 passed, zero failed, zero infrastructure errors, and
-four were `not_run`. The Python package passed all 488 selected comparisons;
-Rust-native passed 150 of 154, with four unsupported Python-callable rows
-`not_run`. New Request.form inputs compare ASGI app and body-cache behavior, file
-metadata and headers, UTF-8 values and filenames, URL-encoded limits, and
-bare-app versus Mount error handling. Six WSGIMiddleware cases, two direct
+Latest integrated run `39a54b13-1e6b-44ac-893f-45df290841a2` selected 648 profile comparisons: 644
+passed, zero failed, zero infrastructure errors, and four Rust-native callable
+rows were `not_run`. The Python package passed 494 comparisons; Rust-native
+passed 150 of 154. New Request.form cases cover direct/Mount multipart size
+limits, duplicate file values, 2,000 custom field/file limits, parser cleanup
+on stream and tempfile errors, and rollover on a worker thread. The manifest
+SHA-256 is `99a50f34d1f79707d7d0a300b6ff9bdd3ad3168eb5e83be3ab37915408ed0922`; the installed Python package tree SHA-256 is
+`785c7c716ff51360d0c8b3b39dd702bd76c70c23cf287fbc09709fd003c171c8`, and wheel SHA-256 is `bea6cde3efb020af6e58a38b65ed0a45b0f6e327183884003918c52bbb64166c`. These observations remain
+a bounded compatibility slice, not full Starlette parity.
+Six WSGIMiddleware cases, two direct
 `build_environ` cases, and the module-import deprecation warning case passed
 exact source/package comparison. The new async boundary comparison confirms
 source/package parity for caller event-loop/task/thread ownership, cancellation

@@ -17,9 +17,9 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 490 input-only cases across 54 files,
+The active parity manifest indexes 496 input-only cases across 54 files,
 covering 72 operations and 530 parity requirements. Its SHA-256 is
-`20bd2bfd264f272bbf06c441b43c16ef8fd251f3f1016b1405e235822956b787`. The
+`99a50f34d1f79707d7d0a300b6ff9bdd3ad3168eb5e83be3ab37915408ed0922`. The
 authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
@@ -31,29 +31,19 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `aa571946-b652-4e05-ba4f-6032b1cabe72` ran against the
-pinned Starlette 1.6.0 source on CPython 3.12.13, from
-`2026-09-30T10:11:17.606Z` to `2026-09-30T10:12:52.173Z`. It selected 642
-comparisons: 638 passed, zero failed, zero infrastructure errors, and four
-unsupported Rust-native Python-callable comparisons were `not_run`. The
-installed Python package passed all 488 selected comparisons; Rust-native
-passed 150 of 154. New Request.form inputs compare ASGI app and body-cache
-behavior, file metadata and headers, UTF-8 values and filenames, URL-encoded
-limits, and bare-app versus Mount error handling. The Rust-backed package now
-stops URL-encoded parsing before requesting the next body message when a limit
-is exceeded. Existing WSGI, Host routing, reverse-URL, route body-limit,
-Router-miss, async cancellation, multipart file streaming/cleanup, and rollover
-comparisons also pass. The manifest SHA-256 is
-`20bd2bfd264f272bbf06c441b43c16ef8fd251f3f1016b1405e235822956b787`; the
-installed package source-tree SHA-256 is
-`599b8698814759b1d1c9cca876483e51789363f0d15976feff581ac96b33946d`, and its
-wheel artifact SHA-256 is
-`e43556d3421707d57a63205f6b0caf70907e06681c6a8d13cc1153633b0ccae9`. The
-all-target command still exits 2 for the four unsupported Rust-native callable
-cases. This bounded run is not full Starlette parity. Rust-native named URL
-support remains limited to flat direct HTTP routes with built-in converters;
-nested Mount/Host, WebSocket, custom-converter lookup, and Python exception
-mapping for converter failures remain open.
+Latest live parity run `39a54b13-1e6b-44ac-893f-45df290841a2` ran against the pinned Starlette 1.6.0 source
+on CPython 3.12.13, from `2026-09-30T10:48:11.799Z` to
+`2026-09-30T10:49:58.072Z`. It selected 648 profile comparisons: 644 passed,
+zero failed, zero infrastructure errors, and four unsupported Rust-native
+Python-callable comparisons were `not_run`. The installed Python package
+passed all 494 selected comparisons; Rust-native passed 150 of 154. New
+Request.form inputs cover default/custom multipart part-size short-circuiting,
+duplicate text/file values, high custom field/file limits, tempfile cleanup
+after stream and OSError failures, and worker-thread rollover and cleanup.
+The manifest SHA-256 is `99a50f34d1f79707d7d0a300b6ff9bdd3ad3168eb5e83be3ab37915408ed0922`; the installed package source-tree
+SHA-256 is `785c7c716ff51360d0c8b3b39dd702bd76c70c23cf287fbc09709fd003c171c8`, and its wheel artifact SHA-256 is `bea6cde3efb020af6e58a38b65ed0a45b0f6e327183884003918c52bbb64166c`.
+The all-target command still exits 2 for the four unsupported Rust-native
+callable cases. This bounded run is not full Starlette parity.
 
 The latest correctness-gated Router/GZip benchmark run,
 `5056413b-deae-4264-9f2b-80da0699e005`, measured 74 of 74 source/package
@@ -327,18 +317,18 @@ The [`coverage matrix`](atlas/coverage-matrix.csv) contains 797 mappings:
 | Documentation navigation pages | 24 |
 | Shared test support modules | 4, with 14 downstream-use mappings |
 | All source mappings | 797 |
-| Existing input mappings in the atlas matrix | 201 |
+| Existing input mappings in the atlas matrix | 231 |
 | Reasoned `not_applicable` mappings | 50 |
-| New input-only fixture backlog | 523 |
+| New input-only fixture backlog | 516 |
 
 The [`fixture backlog`](atlas/fixture-backlog.csv) contains no expected
 outputs. Every backlog mapping has an input stimulus and observation selectors;
 every `not_applicable` mapping has a concrete reason. In this checked-in
-crosswalk snapshot, 224 `existing` mappings point to authored YAML input
+crosswalk snapshot, 231 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
 input files with 136 cases. The active manifest now contains 54 indexed files
-and 490 cases, including six WSGIMiddleware cases, two direct `build_environ`
+and 496 cases, including six WSGIMiddleware cases, two direct `build_environ`
 cases, a module-import deprecation warning case, and an async caller
 event-loop/task/thread and cancellation
 boundary input, route-level request-body limit inputs, and an

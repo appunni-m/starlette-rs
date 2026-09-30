@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@9",
+      "input_schema": "migration-parity/parity-input@10",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },

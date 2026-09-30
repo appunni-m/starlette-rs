@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 490 input-only cases in 54 indexed files, covering 72 operations and 530 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, including post-construction `Starlette.add_route`, route-level request-body limits, Router-generated 404 handling, Router behavior after live route mutations, flat Router reverse-URL selection, a parameterized Host-route port comparison, and direct Host reverse-URL formatting; async endpoint loop/task/thread ownership and request cancellation; URL scope and component construction/replacement; Headers and MutableHeaders; Request.form URL-encoded limits, multipart file metadata, charset decoding, parser limits, and bare-app/Mount failures; responses and background tasks; StaticFiles; WebSockets; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, direct WSGI `build_environ`, its module-import deprecation warning, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 496 input-only cases in 54 indexed files, covering 72 operations and 530 parity requirements. The cases cover bounded Starlette application, routing and reverse URLs, including post-construction `Starlette.add_route`, route-level request-body limits, Router-generated 404 handling, Router behavior after live route mutations, flat Router reverse-URL selection, a parameterized Host-route port comparison, and direct Host reverse-URL formatting; async endpoint loop/task/thread ownership and request cancellation; URL scope and component construction/replacement; Headers and MutableHeaders; Request.form URL-encoded limits, multipart file metadata and duplicate values, charset decoding, parser limits, tempfile cleanup, and bare-app/Mount failures; responses and background tasks; StaticFiles; WebSockets; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, direct WSGI `build_environ`, its module-import deprecation warning, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is the authority for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,9 +8,38 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest integrated run, `aa571946-b652-4e05-ba4f-6032b1cabe72`, started at `2026-09-30T10:11:17.606Z` and finished at `2026-09-30T10:12:52.173Z`. It selected 642 profile comparisons: 638 passed, zero failed, zero infrastructure errors, and four Rust-native Python-callable rows were `not_run`. The Python package passed all 488 selected comparisons; Rust-native passed 150 of 154. New Request.form inputs compare ASGI app and body-cache behavior, file metadata and headers, UTF-8 values and filenames, URL-encoded limits, and bare-app versus Mount error handling. The Rust-backed package now stops URL-encoded parsing before requesting another body message after a limit is exceeded. Six WSGIMiddleware cases, two direct `build_environ` cases, the module-import deprecation warning, async cancellation, Router/Host URL, route body-limit, Router-miss, and multipart file streaming/cleanup comparisons also passed. The helper candidate remains uncertain in the API inventory. Manifest SHA-256: `20bd2bfd264f272bbf06c441b43c16ef8fd251f3f1016b1405e235822956b787`. The installed package source-tree SHA-256 is `599b8698814759b1d1c9cca876483e51789363f0d15976feff581ac96b33946d`; its wheel artifact SHA-256 is `e43556d3421707d57a63205f6b0caf70907e06681c6a8d13cc1153633b0ccae9`. `make parity-run` returns status 2 for the four unsupported Rust-native callable boundaries. This remains local, bounded evidence, not full parity or release proof.
+The latest integrated run, `39a54b13-1e6b-44ac-893f-45df290841a2`, started at
+`2026-09-30T10:48:11.799Z` and finished at `2026-09-30T10:49:58.072Z`. It
+selected 648 profile comparisons: 644 passed, zero failed, zero infrastructure
+errors, and four Rust-native Python-callable rows were `not_run`. The Python
+package passed all 494 selected comparisons; Rust-native passed 150 of 154.
+New Request.form inputs cover direct and mounted default/custom multipart
+part-size limits with receive short-circuiting, duplicate text/file values,
+2,000 text fields and 2,000 files under raised limits, tempfile cleanup after
+stream and OSError failures, and worker-thread rollover followed by cleanup.
+The schema v10 input representation supports bounded literal, repeated, and
+indexed repeated body segments; generated JSON remains ignored under
+`build/parity/inputs/`. Manifest SHA-256: `99a50f34d1f79707d7d0a300b6ff9bdd3ad3168eb5e83be3ab37915408ed0922`. The installed
+package source-tree SHA-256 is `785c7c716ff51360d0c8b3b39dd702bd76c70c23cf287fbc09709fd003c171c8`; its wheel artifact SHA-256 is
+`bea6cde3efb020af6e58a38b65ed0a45b0f6e327183884003918c52bbb64166c`. `make parity-run` returns status 2 for the four unsupported
+Rust-native callable boundaries. This is bounded local evidence, not full
+parity or release proof.
 
 ## Input-only cases
+
+### Request.form multipart limits and cleanup
+
+[`request-form-multipart.yaml`](../tests/fixtures/sources/parity/request-form-multipart.yaml)
+now includes the pinned high-count case (2,000 distinct text fields plus 2,000
+empty file fields), duplicate text/file values enumerated through
+`FormData.multi_items()`, and default/custom `max_part_size` failures through
+direct and mounted applications. The latter place oversized part bytes in the
+first ASGI message and a sentinel in the next message so the adapters observe
+whether parsing stops early. Additional cases compare stream and tempfile
+`OSError` cleanup, and verify that large-file rollover occurs in a worker
+thread before `Request.close()` closes the upload. All selected Python-package
+comparisons match the pinned source exactly. These inputs cover these specific
+boundaries and do not establish complete multipart parser parity.
 
 ### Async endpoint event-loop ownership and cancellation
 
@@ -527,9 +556,9 @@ Each adapter runs in a fresh process. The runner sends one strict JSON `migratio
 
 [`url-components.yaml`](../tests/fixtures/sources/parity/url-components.yaml) adds 14 URL component access and ordered `replace(**components)` workflows. [`datastructures-headers.yaml`](../tests/fixtures/sources/parity/datastructures-headers.yaml) adds ten `Headers` and `MutableHeaders` construction and consumer workflows, including duplicate order, scope/raw-list aliasing, mutable-copy pair identity and independence, no-op mutation identity, and ordered mutation. [`responses-basic.yaml`](../tests/fixtures/sources/parity/responses-basic.yaml) observes the cached `Response.headers` object and its raw-list alias, while [`file-response.yaml`](../tests/fixtures/sources/parity/file-response.yaml) observes base header-view isolation across single and multiple range calls. These new package-only cases passed exact source/package comparison in the latest integrated run. The Python facades forward these operations to Rust; the public Python consumer interfaces remain the compatibility contract.
 
-The `parity-input@9` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
+The `parity-input@10` cases for callable-ASGI `HTTPException` behavior drive an ordered action sequence from fixture data. If the app raises after response events have been sent, the adapter marks that workflow step `error`, preserves the chained exception and `suppress_context` flag, and records the partial ASGI observations in `partial_value`. This keeps captured application behavior comparable while adapter crashes and malformed evidence remain infrastructure failures.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every target-profile comparison declared for the 490 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 642 comparisons; its four Rust-native callable boundaries are recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. A full `run` attempts every target-profile comparison declared for the 496 indexed cases and fails closed when a target identity or workflow is unavailable. The latest run selected 648 comparisons; its four Rust-native callable boundaries are recorded as `not_run` in the parity evidence section above. `pass` requires completed oracle and target workflows plus exact equality after the declared normalizations. Generated results are local ignored artifacts and are not checked in.
 
 ## Maintained commands
 

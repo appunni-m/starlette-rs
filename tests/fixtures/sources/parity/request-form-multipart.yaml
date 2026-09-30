@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@9",
+  "schema": "migration-parity/parity-input@10",
   "cases": [
     {
       "case_id": "starlette.requests.Request.form.multipart-small-mixed-text-file",
@@ -140,6 +140,375 @@
       "form_app": "mount"
     },
     {
+      "case_id": "starlette.requests.Request.form.multipart-default-part-limit-direct",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-incremental-part-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9bXVsdGlwYXJ0LWRlZmF1bHQtcGFydC1saW1pdC12MTA="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_segments": [
+            {
+              "kind": "literal",
+              "bytes_base64": "LS1tdWx0aXBhcnQtZGVmYXVsdC1wYXJ0LWxpbWl0LXYxMA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJzbWFsbCINCg0Kc21hbGwgY29udGVudA0KLS1tdWx0aXBhcnQtZGVmYXVsdC1wYXJ0LWxpbWl0LXYxMA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJsYXJnZSINCg0K"
+            },
+            {
+              "kind": "repeat",
+              "pattern_base64": "eA==",
+              "count": 1048577
+            },
+            {
+              "kind": "literal",
+              "bytes_base64": "DQotLW11bHRpcGFydC1kZWZhdWx0LXBhcnQtbGltaXQtdjEwLS0NCg=="
+            }
+          ],
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "IQ==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_app": "direct"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-custom-high-count-limits",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.request.form.multipart-count-limits",
+        "starlette.datastructures.FormData.file-values",
+        "starlette.datastructures.UploadFile.file-operations",
+        "starlette.datastructures.FormData.close"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9bWF4LWZpZWxkcy1oaWdoLXYxMA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_segments": [
+            {
+              "kind": "indexed_repeat",
+              "template_base64": "LS1tYXgtZmllbGRzLWhpZ2gtdjEwDQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9Ik57e3t7aW5kZXh9fX19Ig0KDQoNCi0tbWF4LWZpZWxkcy1oaWdoLXYxMA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJGe3t7e2luZGV4fX19fSI7IGZpbGVuYW1lPSJGe3t7e2luZGV4fX19fSINCg0KDQo=",
+              "count": 2000
+            },
+            {
+              "kind": "literal",
+              "bytes_base64": "LS1tYXgtZmllbGRzLWhpZ2gtdjEwLS0NCg=="
+            }
+          ],
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "N1999",
+        "F1999"
+      ],
+      "form_file_probe_keys": [
+        "F1999"
+      ],
+      "form_file_read_size": -1,
+      "form_close": true,
+      "observations": [
+        "form"
+      ],
+      "form_options": {
+        "max_files": 2000,
+        "max_fields": 2000
+      },
+      "form_app": "direct"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-default-part-limit-mount",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-incremental-part-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9bXVsdGlwYXJ0LWRlZmF1bHQtcGFydC1saW1pdC12MTA="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_segments": [
+            {
+              "kind": "literal",
+              "bytes_base64": "LS1tdWx0aXBhcnQtZGVmYXVsdC1wYXJ0LWxpbWl0LXYxMA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJzbWFsbCINCg0Kc21hbGwgY29udGVudA0KLS1tdWx0aXBhcnQtZGVmYXVsdC1wYXJ0LWxpbWl0LXYxMA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJsYXJnZSINCg0K"
+            },
+            {
+              "kind": "repeat",
+              "pattern_base64": "eA==",
+              "count": 1048577
+            },
+            {
+              "kind": "literal",
+              "bytes_base64": "DQotLW11bHRpcGFydC1kZWZhdWx0LXBhcnQtbGltaXQtdjEwLS0NCg=="
+            }
+          ],
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "IQ==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_app": "mount"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-custom-part-limit-direct",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-incremental-part-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9bXVsdGlwYXJ0LWN1c3RvbS1wYXJ0LWxpbWl0LXYxMA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_segments": [
+            {
+              "kind": "literal",
+              "bytes_base64": "LS1tdWx0aXBhcnQtY3VzdG9tLXBhcnQtbGltaXQtdjEwDQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9InNtYWxsIg0KDQpzbWFsbCBjb250ZW50DQotLW11bHRpcGFydC1jdXN0b20tcGFydC1saW1pdC12MTANCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0ibGFyZ2UiDQoNCg=="
+            },
+            {
+              "kind": "repeat",
+              "pattern_base64": "eA==",
+              "count": 10241
+            },
+            {
+              "kind": "literal",
+              "bytes_base64": "DQotLW11bHRpcGFydC1jdXN0b20tcGFydC1saW1pdC12MTAtLQ0K"
+            }
+          ],
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "IQ==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_app": "direct",
+      "form_options": {
+        "max_part_size": 10240
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-custom-part-limit-mount",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-incremental-part-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9bXVsdGlwYXJ0LWN1c3RvbS1wYXJ0LWxpbWl0LXYxMA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_segments": [
+            {
+              "kind": "literal",
+              "bytes_base64": "LS1tdWx0aXBhcnQtY3VzdG9tLXBhcnQtbGltaXQtdjEwDQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9InNtYWxsIg0KDQpzbWFsbCBjb250ZW50DQotLW11bHRpcGFydC1jdXN0b20tcGFydC1saW1pdC12MTANCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0ibGFyZ2UiDQoNCg=="
+            },
+            {
+              "kind": "repeat",
+              "pattern_base64": "eA==",
+              "count": 10241
+            },
+            {
+              "kind": "literal",
+              "bytes_base64": "DQotLW11bHRpcGFydC1jdXN0b20tcGFydC1saW1pdC12MTAtLQ0K"
+            }
+          ],
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "IQ==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_app": "mount",
+      "form_options": {
+        "max_part_size": 10240
+      }
+    },
+    {
       "case_id": "starlette.requests.Request.form.multipart-streams-file-chunks",
       "surface": "starlette.requests.Request",
       "operation": "form",
@@ -211,6 +580,67 @@
       ]
     },
     {
+      "case_id": "starlette.requests.Request.form.multipart-duplicate-values-files",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.datastructures.FormData.file-values",
+        "starlette.datastructures.UploadFile.file-operations",
+        "starlette.datastructures.FormData.close"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9bXVsdGktaXRlbXMtdjEw"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1tdWx0aS1pdGVtcy12MTANCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0idGVzdDEiDQoNCmFiYw0KLS1tdWx0aS1pdGVtcy12MTANCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0idGVzdDEiOyBmaWxlbmFtZT0idGVzdDEudHh0Ig0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluDQoNCjxmaWxlMSBjb250ZW50Pg0KLS1tdWx0aS1pdGVtcy12MTANCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0idGVzdDEiOyBmaWxlbmFtZT0idGVzdDIudHh0Ig0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluDQoNCjxmaWxlMiBjb250ZW50Pg0KLS1tdWx0aS1pdGVtcy12MTAtLQ0K",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "test1"
+      ],
+      "form_file_probe_all": true,
+      "form_file_read_size": -1,
+      "form_close": true,
+      "observations": [
+        "form"
+      ],
+      "form_app": "direct"
+    },
+    {
       "case_id": "starlette.requests.Request.form.multipart-cleans-files-after-receive-error",
       "surface": "starlette.requests.Request",
       "operation": "form",
@@ -265,7 +695,7 @@
       "form_io_trace": true,
       "receive_error": {
         "at_call": 1,
-        "message": "receive failed after multipart file data"
+        "message": "stream failed"
       },
       "observations": [
         "form"
@@ -278,6 +708,7 @@
       "covers": [
         "starlette.request.form.multipart-form-data",
         "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.datastructures.FormData.close",
         "starlette.request.form.multipart-file-streaming",
         "starlette.request.form.multipart-large-file-rollover-worker"
       ],
@@ -339,7 +770,9 @@
       "form_io_trace": true,
       "observations": [
         "form"
-      ]
+      ],
+      "form_app": "direct",
+      "form_close": true
     },
     {
       "case_id": "starlette.requests.Request.form.multipart-cleans-files-after-upload-write-error",
@@ -396,7 +829,7 @@
       "form_io_trace": true,
       "file_write_error": {
         "at_call": 0,
-        "message": "injected UploadFile.write failure"
+        "message": "disk full"
       },
       "observations": [
         "form"

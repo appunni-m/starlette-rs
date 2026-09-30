@@ -25,27 +25,15 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The latest contract has 459 input-only cases across 54
-files, 72 operations, and 527 requirements. Run
-`70c9102e-b87e-4f2c-8f58-1af59889d960` selected 611 comparisons: 607 passed,
-zero failed, zero infrastructure errors, and four Rust-native callable
-boundaries were `not_run`. The Python package passed all 457 selected cases;
-Rust-native passed 150 of 154. This run adds six WSGIMiddleware cases for
-response ordering, request buffering, environment conversion, worker-thread
-execution, and error propagation, two direct `build_environ` cases, and a
-module-import deprecation warning comparison, plus an asyncio endpoint boundary comparison
-for caller event-loop/task/thread ownership and request
-cancellation, plus native flat `Router.url_path_for` success and miss
-comparisons, three route-level
-`max_body_size` combinations, an application Router-miss 404 handler case,
-direct Host reverse-URL formatting through `{tenant}.example.test:3600`,
-post-construction `Starlette.add_route`, and multipart cleanup and rollover
-cases. It also includes the parameterized Host-route port comparison, the
-Router live-mutation sequence, twelve BackgroundTask/BackgroundTasks cases,
-and the Python-package Jinja2 workflow. The 20 URL-scope, 14 URL-component, and ten
-Headers/MutableHeaders cases passed on the Python package; six package-only
-header probes cover `Response.headers` aliasing and FileResponse range
-isolation. The latest Router/GZip run `5056413b-deae-4264-9f2b-80da0699e005` measured all 74
+active and incomplete. The latest contract has 496 input-only cases across 54
+files, 72 operations, and 530 requirements. Run `39a54b13-1e6b-44ac-893f-45df290841a2` selected 648
+comparisons: 644 passed, zero failed, zero infrastructure errors, and four
+Rust-native callable boundaries were `not_run`. The Python package passed all
+494 selected cases; Rust-native passed 150 of 154. New Request.form cases
+compare default/custom multipart size limits, duplicate text/file values, high
+field/file limits, tempfile cleanup after stream and OSError failures, and
+worker-thread rollover followed by request cleanup. Full parity is not claimed.
+The latest Router/GZip run `5056413b-deae-4264-9f2b-80da0699e005` measured all 74
 source/package workloads after parity preflight
 `7b514f0a-b065-45cc-9fc9-f8a828504ba7`. Median source/package ratios were
 0.749 for Router and 0.965 for GZip; source was faster on all six Router
@@ -286,8 +274,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 515 `supported`, 286
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 797
-source mappings: 224 existing input mappings, 50 reasoned `not_applicable`
-entries, and 523 input-only backlog rows. These counts describe the current
+source mappings: 231 existing input mappings, 50 reasoned `not_applicable`
+entries, and 516 input-only backlog rows. These counts describe the current
 atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
 of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

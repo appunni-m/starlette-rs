@@ -8,102 +8,26 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 459 input-only cases across 54 files, covering 72
-operations and 527 requirements. Latest run
-`70c9102e-b87e-4f2c-8f58-1af59889d960` selected 611 comparisons: 607 passed,
-zero failed, zero infrastructure errors, and four Rust-native rows were
-`not_run`. The Python package passed all 457 selected cases; Rust-native
-passed 150 of 154. Those four native rows require Python endpoint or ASGI
-callables.
-The latest slice adds six WSGIMiddleware cases for response order, request
-buffering, environment conversion, worker-thread execution, and errors, plus
-an asyncio endpoint boundary case for caller
-event-loop/task/thread ownership and request cancellation, plus native flat
-`Router.url_path_for` success and miss comparisons, three route-level request-body limit combinations, an application
-Router-miss 404 handler input, direct Host reverse-URL formatting through
-`{tenant}.example.test:3600`, post-construction `Starlette.add_route`, two
-direct `build_environ` cases, a module-import deprecation warning comparison,
-and multipart cleanup and rollover inputs. The parameterized Host-route input
-matches `{tenant}.example.test` against `Host: acme.example.test:5600`, ignores
-the port for matching, and records `tenant=acme` in route scope. Nested
-child-route lookup remains outside this bounded slice. It does not establish
-full Host Router dispatch, IPv6 behavior, or overall parity. The Router
-live-mutation sequence passed on all three dispatches. Twelve BackgroundTask
-and BackgroundTasks cases and the Python-package Jinja2 template workflow also
-passed. The run includes the 20 URL scope, 14 URL component, and ten
-Headers/MutableHeaders cases. Six package-only header-view probes passed exact
-source/package comparison. All 30 FileResponse cases passed on the selected profiles;
-all eight SessionMiddleware cases and all twenty-one BaseHTTPMiddleware cases
-passed on the Python package profile. The twenty-one BaseHTTPMiddleware cases
-cover configured-header mutation, awaited `call_next` response replacement,
-body-cache replay, response-completion unblocking downstream receive,
-exception-context propagation, caught downstream `ValueError` handling,
-partial-stream forwarding, downstream receive transformation, repeated
-disconnect polling with `send_body=True` and `False`, downstream disconnect
-propagation followed by `Request.is_disconnected()`, body-cache/disconnect
-ordering, stream consumption
-followed by a downstream body read, body buffering followed by a downstream
-stream read, dispatch stream reads after downstream stream/body consumption,
-cached-stream replay after downstream body reading, a downstream body read
-after dispatch caches the request body, and a downstream stream read after
-dispatch exhausts `request.stream()`.
-The two post-call-next cases at `tests/middleware/test_base.py:715-773` capture
-the live read result after the endpoint consumes the stream or body; the input
-does not encode an expected exception.
-The new pre-call-next cache case maps to
-`test_read_request_stream_in_dispatch_after_app_calls_body_with_middleware_calling_body_before_call_next`
-at `tests/middleware/test_base.py:835-862`: dispatch caches the body, the
-endpoint reads it, then dispatch observes the cached stream bytes, empty
-terminal chunk, and exhaustion. The source and package matched exactly.
-The discarded-stream case maps to `tests/middleware/test_base.py:473-546`:
-dispatch consumes one `call_next` chunk, closes the iterator, and returns a
-replacement response while the downstream app streams until disconnect. Its
-observed close, cancellation, response, and disconnect behavior also matches.
-The caught-exception case matches
-`tests/middleware/test_base.py:338-356`: dispatch catches `ValueError("TEST")`
-from `call_next` and returns status 400 with a body derived from `str(exc)`.
-Both polling variants observe two downstream polls, raw and downstream receive
-traces, drained requests and poll results, and the exact `200 b"good!"` response
-tape; see `tests/middleware/test_base.py:1168-1215`. The disconnect-observation
-cases map to `test_read_request_disconnected_client` and
-`test_read_request_disconnected_after_consuming_steam` at
-`tests/middleware/test_base.py:894-976`: one observes a downstream disconnect
-before dispatch checks `Request.is_disconnected()`, and the other caches `b"hi"`,
-checks for disconnect, then verifies the downstream body and disconnect
-sequence. Source and package observations match. The body-buffer/stream case
-matches `test_read_request_stream_in_app_after_middleware_calls_body` at
-`tests/middleware/test_base.py:631-657`: dispatch reads `b"a"` before
-`call_next`, and downstream stream iteration reads `b"a"` then `b""` before
-returning `Homepage`. The stream-consumption case matches
-`test_read_request_body_in_app_after_middleware_calls_stream` at
-`tests/middleware/test_base.py:660-686`: dispatch exhausts `request.stream()`
-and downstream reads the cached empty body before returning `Homepage`. The
-case at `tests/middleware/test_base.py:599-628` drains the stream in dispatch
-before `call_next`; downstream stream iteration then sees only the cached
-empty chunk. Both observations match the source exactly. The
-body-cache case maps to `test_read_request_body_in_app_after_middleware_calls_body`
-at `tests/middleware/test_base.py:689-712`: dispatch and the downstream
-endpoint both report reading `b"a"`, and the endpoint response returns those
-bytes. The source test-client fixture declares asyncio and trio backends; the active input
-selects the Python-package profile only. The partial-stream case consumes
-`b"1"` in dispatch, forwards the next unread `b"2"` to the endpoint, then
-resumes dispatch to consume `b"3"` after `call_next`; see
-`tests/middleware/test_base.py:777-832`. The receive-transformation case maps
-`tests/middleware/test_base.py:979-1017`: dispatch observes `b"foo "`, the
-downstream wrapper doubles the request body, and the endpoint observes
-`b"foo foo "`. This bounded slice leaves other partial-stream/replay
-interleavings, disconnect ordering across stacked middleware, broader
-exception-group shapes beyond the observed TaskGroup context and caught
-`ValueError`, varied or malformed `http.response.debug` frames, broader
-cancellation and cleanup ordering, path-send combinations beyond the covered FileResponse forwarding case, and additional
-streaming behaviors unproven. The Rust-native target was clean at revision
-`7ab9f0cee22b03035b96c2c2df5c66cc6a1d28c8+source-fnv1a64-3f737351c1674203`;
-the Python-package target tree SHA-256 is
-`99fd7a11cb20c8a9bda279f5807b621c4dd3a08f86dca79503bb135319edc492`. Manifest
-SHA-256: `63a853e8902fb9f59e184d0fb6e32280cd5811175427ed4101fe1a23b84485c8`;
-package wheel SHA-256:
-`4a1736486aed60dc5a4e1894c076f919617080548874f4f79d385f72d9e88a00`.
-See [Migration parity contract and evidence](../PARITY.md) for current scope.
+The active contract contains 496 input-only cases in 54 indexed files,
+covering 72 operations and 530 parity requirements. The latest live run
+`39a54b13-1e6b-44ac-893f-45df290841a2` selected 648 profile comparisons: 644 passed, zero failed, zero
+infrastructure errors, and four Rust-native Python-callable comparisons were
+`not_run`. The Python package passed all 494 selected comparisons; Rust-native
+passed 150 of 154. The target remains `scope.mode: slice`; this does not claim
+full compatibility.
+
+The latest Request.form inputs compare default and custom multipart part-size
+limits through direct and mounted consumers, including short-circuiting before
+a later body chunk; duplicate text and file values through `multi_items()`;
+2,000 text fields and 2,000 files under raised limits; stream and tempfile-write
+failure cleanup; and worker-thread rollover followed by request cleanup. The
+fixture source is [`request-form-multipart.yaml`](../../tests/fixtures/sources/parity/request-form-multipart.yaml).
+Each output comes from the pinned Starlette 1.6.0 oracle and installed package.
+
+The atlas currently has 797 source mappings, including 516 fixture backlog
+rows, 50 reasoned `not_applicable` entries, and 231 existing input mappings.
+The compatibility objective remains active and incomplete. See
+[Migration parity contract and evidence](../PARITY.md) for the run evidence.
 
 ## P0 — Close the source-backed atlas (complete)
 
@@ -111,8 +35,8 @@ The merged review disposes all 999 API candidates as `supported`,
 `private/internal`, or `uncertain`, with pinned-source evidence. It maps all
 514 upstream test functions, 24 documentation navigation pages, and four
 shared test support modules into the [coverage matrix](coverage-matrix.csv).
-The current matrix has 797 mappings: 523 fixture backlog rows, 50 reasoned
-`not_applicable` entries, and 224 existing input mappings. It maps selected
+The current matrix has 797 mappings: 516 fixture backlog rows, 50 reasoned
+`not_applicable` entries, and 231 existing input mappings. It maps selected
 HTTPException, registered-handler, server-error, WebSocket, route-converter,
 Mount, and typed-Request behaviors to input files. It is not a one-to-one index
 of every active parity case, so backlog status does not prove a behavior is

@@ -602,6 +602,33 @@ def _message(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def _request_form_message(spec: dict[str, Any]) -> dict[str, Any]:
+    if "body_segments" in spec:
+        body_parts = []
+        for segment in spec["body_segments"]:
+            if segment["kind"] == "literal":
+                body_parts.append(
+                    _decode_b64(segment["bytes_base64"], "receive.body_segments.bytes_base64")
+                )
+            elif segment["kind"] == "repeat":
+                pattern = _decode_b64(
+                    segment["pattern_base64"], "receive.body_segments.pattern_base64"
+                )
+                body_parts.append(pattern * segment["count"])
+            else:
+                template = _decode_b64(
+                    segment["template_base64"], "receive.body_segments.template_base64"
+                )
+                body_parts.append(
+                    b"".join(
+                        template.replace(b"{{index}}", str(index).encode("ascii"))
+                        for index in range(segment["count"])
+                    )
+                )
+        return {
+            "type": spec["type"],
+            "body": b"".join(body_parts),
+            "more_body": spec["more_body"],
+        }
     if "body_repeat" not in spec:
         return _message(spec)
     repeat = spec["body_repeat"]
@@ -7653,6 +7680,7 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         case_fields.add("form_access")
     for key in (
         "form_file_probe_keys",
+        "form_file_probe_all",
         "form_file_read_size",
         "form_file_write_base64",
         "form_close",
@@ -7677,7 +7705,7 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
     received = 0
     io_trace: list[list[Any]] = []
     tracked_tempfiles: list[Any] = []
-    upload_write_calls = 0
+    tempfile_write_calls = 0
 
     async def receive() -> dict[str, Any]:
         nonlocal received
@@ -7731,7 +7759,7 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         for key, upload, observation in observed_files:
             observation["closed_after_form_scope"] = upload.file.closed
             file_observations.append([key, observation])
-        if "form_file_probe_keys" in case:
+        if "form_file_probe_keys" in case or case.get("form_file_probe_all", False):
             value["files"] = file_observations
         value["receive_calls"] = received
         if case.get("form_io_trace", False):
@@ -7777,7 +7805,7 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             for key, upload, observation in observed_files:
                 observation["closed_after_form_scope"] = upload.file.closed
                 file_observations.append([key, observation])
-            if "form_file_probe_keys" in case:
+            if "form_file_probe_keys" in case or case.get("form_file_probe_all", False):
                 value["files"] = file_observations
             value["receive_calls"] = received
             if case.get("form_io_trace", False):
@@ -7857,8 +7885,13 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             "getlist": getlist,
         }
         observed_files = []
-        for key in case.get("form_file_probe_keys", []):
-            upload = form[key]
+        if case.get("form_file_probe_all", False):
+            file_values = [
+                (key, item) for key, item in form.multi_items() if isinstance(item, UploadFile)
+            ]
+        else:
+            file_values = [(key, form[key]) for key in case.get("form_file_probe_keys", [])]
+        for key, upload in file_values:
             file_value = {
                 "is_upload_file": isinstance(upload, UploadFile),
                 "filename": _json_safe(upload.filename),
@@ -7892,8 +7925,19 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             file = original_spooled_tempfile(*args, **kwargs)
             tracked_tempfiles.append(file)
             original_close = file.close
+            original_write = file.write
             creation_thread = threading.get_ident()
             original_rollover = file.rollover
+
+            def observed_write(data: bytes) -> Any:
+                nonlocal tempfile_write_calls
+                call_index = tempfile_write_calls
+                tempfile_write_calls += 1
+                io_trace.append(["tempfile-write", len(data)])
+                write_error = case.get("file_write_error")
+                if write_error is not None and call_index == write_error["at_call"]:
+                    raise OSError(write_error["message"])
+                return original_write(data)
 
             def observed_rollover() -> Any:
                 result = original_rollover()
@@ -7908,19 +7952,14 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
                 return result
 
             file.close = observed_close
+            file.write = observed_write
             file.rollover = observed_rollover
             return file
 
         async def observed_upload_write(self: Any, data: bytes) -> None:
-            nonlocal upload_write_calls
-            call_index = upload_write_calls
-            upload_write_calls += 1
             io_trace.append(
                 ["upload-write", self.filename, len(data), hashlib.sha256(data).hexdigest()]
             )
-            write_error = case.get("file_write_error")
-            if write_error is not None and call_index == write_error["at_call"]:
-                raise RuntimeError(write_error["message"])
             await original_upload_write(self, data)
 
         async def observed_upload_seek(self: Any, offset: int) -> None:
