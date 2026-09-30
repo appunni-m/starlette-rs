@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ast
 import csv
+import io
 import pathlib
 import re
 import subprocess
@@ -85,9 +86,27 @@ def read_csv(path: pathlib.Path, expected_fields: list[str]) -> list[dict[str, s
 def write_csv(path: pathlib.Path, fields: list[str], rows: list[dict[str, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(rows)
+        stream.write(render_csv(fields, rows))
+
+
+def render_csv(fields: list[str], rows: list[dict[str, str]]) -> str:
+    stream = io.StringIO(newline="")
+    writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return stream.getvalue()
+
+
+def check_generated_csv(path: pathlib.Path, fields: list[str], rows: list[dict[str, str]]) -> None:
+    expected = render_csv(fields, rows)
+    try:
+        actual = path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise AtlasError(f"{path}: generated atlas file is missing or unreadable") from error
+    if actual != expected:
+        raise AtlasError(
+            f"{path}: generated atlas file is stale; rerun merge_compatibility_atlas.py"
+        )
 
 
 def test_functions(upstream: pathlib.Path, test_source_root: str) -> set[tuple[str, str]]:
@@ -316,7 +335,9 @@ def main() -> int:
     parser.add_argument("--reviews", type=pathlib.Path, default=pathlib.Path("docs/atlas/reviews"))
     parser.add_argument("--output", type=pathlib.Path, default=pathlib.Path("docs/atlas"))
     parser.add_argument(
-        "--check", action="store_true", help="validate partitions without writing merged files"
+        "--check",
+        action="store_true",
+        help="validate partitions and generated atlas files without writing",
     )
     args = parser.parse_args()
 
@@ -355,11 +376,18 @@ def main() -> int:
         inventory["documentation_root"],
         manifest,
     )
-    if not args.check:
-        write_csv(args.output / "api-review.csv", API_REVIEW_FIELDS, api_rows)
-        write_csv(args.output / "coverage-matrix.csv", FIXTURE_FIELDS, fixture_rows)
-        backlog_rows = [row for row in fixture_rows if row["fixture_status"] == "backlog"]
-        write_csv(args.output / "fixture-backlog.csv", FIXTURE_FIELDS, backlog_rows)
+    backlog_rows = [row for row in fixture_rows if row["fixture_status"] == "backlog"]
+    outputs = [
+        (args.output / "api-review.csv", API_REVIEW_FIELDS, api_rows),
+        (args.output / "coverage-matrix.csv", FIXTURE_FIELDS, fixture_rows),
+        (args.output / "fixture-backlog.csv", FIXTURE_FIELDS, backlog_rows),
+    ]
+    if args.check:
+        for path, fields, rows in outputs:
+            check_generated_csv(path, fields, rows)
+    else:
+        for path, fields, rows in outputs:
+            write_csv(path, fields, rows)
     print(f"API review: {len(api_rows)}/{len(api_rows)} candidate rows dispositioned")
     test_module_count = len(
         {path for path, _ in test_functions(upstream, inventory["test_source_root"])}

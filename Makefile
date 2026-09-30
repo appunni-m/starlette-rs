@@ -15,7 +15,7 @@ PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/pytho
 CARGO_DENY ?= cargo deny
 CARGO_AUDIT ?= cargo audit
 
-.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check workflows-check lint check build test parity-inputs parity-env parity-adapter parity-run contract-check source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
+.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check workflows-check lint check build test parity-inputs parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
@@ -36,7 +36,8 @@ help: ## Show common Rust workspace commands
 	  '  make parity-inputs  Generate ignored JSON inputs from authored YAML' \
 	  '  make parity-env  Build the wheel and prepare isolated source/package environments' \
 	  '  make parity-adapter  Build the current Rust-native parity adapter' \
-	  '  make source-inventory-check  Check the metadata-derived API catalog and source atlas' \
+	  '  make source-inventory  Regenerate the metadata-derived API catalog and source atlas' \
+	  '  make source-inventory-check  Check the API catalog and generated atlas for drift' \
 	  '  make test       Run live source-to-package and supported Rust parity comparisons' \
 	  '  make contract-check  Generate and statically validate parity inputs' \
 	  '  make benchmark-upstream  Run 74 correctness-gated Starlette source/package workloads' \
@@ -105,7 +106,11 @@ parity-adapter: ## Build the current Rust-native parity adapter
 contract-check: parity-inputs ## Generate inputs, then validate the local parity contract and input inventory offline
 	$(PARITY_PYTHON) -m scripts.parity.cli validate-contract
 
-source-inventory-check: contract-check ## Check the generated API catalog and source coverage atlas against pinned Starlette
+source-inventory: contract-check ## Regenerate the metadata-derived API catalog and source coverage atlas
+	$(PARITY_PYTHON) scripts/inventory_upstream_api.py --upstream "$(STARLETTE_ORACLE_ROOT)"
+	$(PARITY_PYTHON) scripts/merge_compatibility_atlas.py --upstream "$(STARLETTE_ORACLE_ROOT)"
+
+source-inventory-check: contract-check ## Check the API catalog and generated atlas for drift against pinned Starlette
 	$(PARITY_PYTHON) scripts/inventory_upstream_api.py --upstream "$(STARLETTE_ORACLE_ROOT)" --check
 	$(PARITY_PYTHON) scripts/merge_compatibility_atlas.py --check --upstream "$(STARLETTE_ORACLE_ROOT)"
 
