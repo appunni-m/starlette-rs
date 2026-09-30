@@ -22,6 +22,7 @@ mod file_response;
 mod form_data;
 mod gzip;
 mod headers;
+mod host;
 mod lifespan;
 mod mount;
 mod multipart;
@@ -51,6 +52,7 @@ pub use gzip::{
     GzipConfig, GzipHeader, GzipResponder, GzipResponseStart,
 };
 pub use headers::{Headers, MutableHeaders};
+pub use host::{HostPattern, HostPatternError};
 pub use lifespan::{
     LifespanAction, LifespanError, LifespanOperation, LifespanPhase, LifespanState,
 };

@@ -267,6 +267,7 @@
       "build/parity/inputs/parity/websocket-convenience.json",
       "build/parity/inputs/parity/exception-values.json",
       "build/parity/inputs/parity/host-routing.json",
+      "build/parity/inputs/parity/host-routing-native-port.json",
       "build/parity/inputs/parity/status-constants.json",
       "build/parity/inputs/parity/cors-middleware.json",
       "build/parity/inputs/parity/host-middleware.json",
@@ -11905,6 +11906,18 @@
                 "parity"
               ],
               "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.host-parameter-port-ignored",
+              "dimension": "parameter_combination",
+              "description": "For a parameterized Host pattern, ignore configured and incoming Host ports before matching and preserve the captured tenant value in the child path_params scope. Pinned source: starlette/routing.py::Host.matches and compile_path; tests/test_routing.py::test_host_routing and ::test_subdomain_routing.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },

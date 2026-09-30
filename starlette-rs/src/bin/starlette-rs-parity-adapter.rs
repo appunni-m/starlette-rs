@@ -35,11 +35,12 @@ use starlette_rs::{
     ApplicationRoute, AsgiScopeKind, CookieOptions, Cookies, DEFAULT_EXCLUDED_CONTENT_TYPES,
     DetailedRouteMatch, FileMetadata, FileResponse as NativeFileResponse, FileResponseCallInput,
     FileResponseCallStep, FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader,
-    GzipResponseStart, HttpScope, LifespanAction, LifespanState, Mount as NativeMount, MountChild,
-    MountScope, PathConverter, PathParameterCapture, QueryParams, RequestBodyAccumulator,
-    RequestHeaders, Response, ResponseEvent, RouteTable, Starlette as NativeApplication,
-    StaticFiles as NativeStaticFiles, StaticFilesError, StaticFilesResponse, StreamingResponse,
-    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
+    GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState, Mount as NativeMount,
+    MountChild, MountScope, PathConverter, PathParameterCapture, QueryParams,
+    RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
+    Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
+    StaticFilesResponse, StreamingResponse, StreamingResponseEvent, WebSocketState,
+    WebSocketStateMachine, classify_scope, connection_url,
 };
 
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
@@ -595,25 +596,25 @@ fn query_params_value_string(value: &Value, context: &str) -> Result<String, Str
 }
 
 fn run_router_case(case: &Value) -> Result<Value, String> {
-    let case = exact_object(
-        case,
-        &[
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "custom_convertors",
-            "routes",
-            "redirect_slashes",
-            "scope",
-            "incoming",
-            "send",
-            "observations",
-        ],
-        "Router route-dispatch case",
-    )?;
+    let mut expected_fields = vec![
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "custom_convertors",
+        "routes",
+        "redirect_slashes",
+        "scope",
+        "incoming",
+        "send",
+        "observations",
+    ];
+    if case.get("observe_router_scope").is_some() {
+        expected_fields.push("observe_router_scope");
+    }
+    let case = exact_object(case, &expected_fields, "Router route-dispatch case")?;
     let case_id = string_field(case, "case_id", "Router route-dispatch case")?;
     if string_field(case, "surface", "Router route-dispatch case")? != "starlette.routing.Router"
         || string_field(case, "operation", "Router route-dispatch case")? != "route-dispatch"
@@ -634,6 +635,29 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
         .get("redirect_slashes")
         .and_then(Value::as_bool)
         .ok_or_else(|| String::from("Router redirect_slashes must be a boolean"))?;
+    if case.get("incoming") != Some(&json!([]))
+        || case.get("send") != Some(&json!({"kind": "capture-asgi-send"}))
+    {
+        return Err(String::from(
+            "Router dispatch requires an empty receive sequence and captured ASGI send",
+        ));
+    }
+    if routes
+        .iter()
+        .any(|route| route.get("kind").and_then(Value::as_str) == Some("host-route"))
+    {
+        if routes.len() != 1 {
+            return Err(String::from(
+                "Rust-native Router Host dispatch supports one Host route",
+            ));
+        }
+        return run_router_host_case(case, &routes[0], case_id);
+    }
+    if case.get("observe_router_scope").is_some() {
+        return Err(String::from(
+            "Rust-native Router scope observation is limited to one Host route",
+        ));
+    }
     let mut route_table = RouteTable::new();
     for route in routes {
         let route = exact_object(
@@ -675,13 +699,6 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
                 "Rust-native Router projection requires a fixed plain-text endpoint",
             ));
         }
-    }
-    if case.get("incoming") != Some(&json!([]))
-        || case.get("send") != Some(&json!({"kind": "capture-asgi-send"}))
-    {
-        return Err(String::from(
-            "Router dispatch requires an empty receive sequence and captured ASGI send",
-        ));
     }
     let scope = exact_object(
         case.get("scope")
@@ -790,6 +807,144 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
                 "asgi_event_order": event_order,
                 "asgi_events": events,
             },
+        }],
+    }))
+}
+
+fn run_router_host_case(
+    case: &Map<String, Value>,
+    route: &Value,
+    case_id: &str,
+) -> Result<Value, String> {
+    let route = exact_object(
+        route,
+        &["kind", "host", "name", "app"],
+        "Router Host route input",
+    )?;
+    if string_field(route, "kind", "Router Host route input")? != "host-route" {
+        return Err(String::from("Router Host route kind must be host-route"));
+    }
+    let host_pattern = HostPattern::new(string_field(route, "host", "Router Host route input")?)
+        .map_err(|error| error.to_string())?;
+    let _name = optional_string_field(route, "name", "Router Host route input")?;
+    let app = exact_object(
+        route
+            .get("app")
+            .ok_or_else(|| String::from("Router Host route app is missing"))?,
+        &["kind", "content", "status_code", "media_type", "cookies"],
+        "Router Host app response",
+    )?;
+    if string_field(app, "kind", "Router Host app response")? != "plain-text-response"
+        || string_field(app, "media_type", "Router Host app response")? != "text/plain"
+        || app.get("cookies") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "Rust-native Host dispatch requires a plain-text response without cookies",
+        ));
+    }
+    let content = string_field(app, "content", "Router Host app response")?;
+    let status_code = app
+        .get("status_code")
+        .and_then(Value::as_u64)
+        .and_then(|status| u16::try_from(status).ok())
+        .ok_or_else(|| String::from("Router Host response status_code must fit u16"))?;
+    let observe_router_scope = match case.get("observe_router_scope") {
+        None => false,
+        Some(Value::Bool(true)) => true,
+        Some(_) => {
+            return Err(String::from(
+                "Router observe_router_scope must be true when supplied",
+            ));
+        }
+    };
+    let scope = validate_asgi_http_scope(
+        case.get("scope")
+            .ok_or_else(|| String::from("Router scope is missing"))?,
+        "Router",
+    )?;
+    if string_field(scope, "http_version", "Router scope")? != "1.1"
+        || string_field(scope, "scheme", "Router scope")? != "http"
+    {
+        return Err(String::from(
+            "Router scope differs from the declared HTTP baseline",
+        ));
+    }
+    let scope_path = string_field(scope, "path", "Router scope")?;
+    let scope_root_path = string_field(scope, "root_path", "Router scope")?;
+    let encoded_headers = scope
+        .get("headers_base64_pairs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("Router scope.headers_base64_pairs must be an array"))?;
+    let headers = encoded_headers
+        .iter()
+        .enumerate()
+        .map(|(index, pair)| {
+            let pair = pair
+                .as_array()
+                .filter(|pair| pair.len() == 2)
+                .ok_or_else(|| format!("Router scope header[{index}] must be a pair"))?;
+            let name = decode_base64(
+                pair[0]
+                    .as_str()
+                    .ok_or_else(|| format!("Router scope header[{index}] name must be base64"))?,
+                "Router scope header name",
+            )?;
+            let value = decode_base64(
+                pair[1]
+                    .as_str()
+                    .ok_or_else(|| format!("Router scope header[{index}] value must be base64"))?,
+                "Router scope header value",
+            )?;
+            Ok((name, value))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let host_header = RequestHeaders::new(headers)
+        .get(b"host")
+        .map(decode_latin1)
+        .unwrap_or_default();
+    let matched_captures = host_pattern.match_host(&host_header);
+    let host_matched = matched_captures.is_some();
+    let path_params = matched_captures
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(name, value)| (name, json!({"value": value, "type": "str"})))
+        .collect::<Map<_, _>>();
+    let response = if host_matched {
+        Response::plain_text_with_status(status_code, content)
+    } else {
+        Response::plain_text_with_status(404, "Not Found")
+    };
+    let events = response
+        .asgi_events()
+        .into_iter()
+        .map(canonical_response_event)
+        .collect::<Vec<_>>();
+    let event_order = events
+        .iter()
+        .filter_map(|event| event.get("type").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let mut observation = json!({
+        "route_index": if host_matched { json!(0) } else { Value::Null },
+        "response_status": response.status_code(),
+        "ordered_repeated_headers": canonical_headers(response.headers()),
+        "response_bytes": {"encoding": "base64", "data": encode_base64(response.body())},
+        "asgi_event_order": event_order,
+        "asgi_events": events,
+    });
+    if observe_router_scope {
+        observation["route_scope.path"] = json!(scope_path);
+        observation["route_scope.root_path"] = json!(scope_root_path);
+        observation["route_scope.app_root_path"] = Value::Null;
+        observation["route_scope.path_params"] = Value::Object(path_params);
+    }
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": "route-dispatch",
+            "status": "ok",
+            "value": observation,
         }],
     }))
 }

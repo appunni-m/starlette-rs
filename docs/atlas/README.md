@@ -25,12 +25,17 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The latest contract has 448 input-only cases across 50
-files, 68 operations, and 507 requirements. Run
-`16ba93fe-b03f-4c04-94e2-115390d1dbd9` selected 596 comparisons: 592 passed,
-zero failed, zero infrastructure errors, and four Rust-native callable
-boundaries were `not_run`. The Python package passed all 446 selected cases;
-Rust-native passed 146 of 150. Three route-level `max_body_size` inputs verify
+active and incomplete. The latest contract has 449 input-only cases across 51
+files, 68 operations, and 508 requirements. Run
+`68a60d80-a1d1-42f6-9dc5-e888719773c8` selected 598 comparisons: 594 passed,
+zero failed, zero infrastructure errors, and four pre-existing Rust-native
+callable boundaries were `not_run`. The Python package passed 447 selected
+cases; Rust-native passed 147 of 151. The additive HostPattern/Host-route
+input matches `{tenant}.example.test` against `Host: acme.example.test:5600`,
+ignores the port for matching, and records `tenant=acme` in route scope for a
+single fixed-response `GET /health` route. This does not establish full Host
+Router dispatch, IPv6 behavior, reverse lookup, or overall parity. Three route-level
+`max_body_size` inputs verify
 inherited application limits and higher and lower route overrides. A fourth
 input compares the application Router-miss 404 and its async HTTPException
 handler. The
@@ -44,11 +49,11 @@ one Jinja2 template workflow passed on the Python package. The 20 URL-scope,
 14 URL-component, and ten Headers/MutableHeaders cases also passed there. Six
 package-only header probes passed exact source/package comparison, including
 `Response.headers` aliasing and FileResponse range isolation. The latest
-Router/GZip run `10fc39eb-b268-441b-aa91-d8cfa6f051d9` measured all 74
+Router/GZip run `5056413b-deae-4264-9f2b-80da0699e005` measured all 74
 source/package workloads after parity preflight
-`ed4e7d54-9fab-4d53-b913-68480255bdf1`. Median source/package ratios were
-0.749 for Router and 0.972 for GZip; source was faster on five of six Router
-workloads and 58 of 68 GZip workloads. See
+`7b514f0a-b065-45cc-9fc9-f8a828504ba7`. Median source/package ratios were
+0.749 for Router and 0.965 for GZip; source was faster on all six Router
+workloads and 55 of 68 GZip workloads. See
 [Benchmark mapping](../BENCHMARKS.md)
 for the timing summary and limits. These
 bounded results do not establish full compatibility.
@@ -163,7 +168,7 @@ Rust-native target was clean at revision
 `7ab9f0cee22b03035b96c2c2df5c66cc6a1d28c8+source-fnv1a64-3f737351c1674203`;
 the Python-package target tree SHA-256 is
 `99fd7a11cb20c8a9bda279f5807b621c4dd3a08f86dca79503bb135319edc492`. Manifest
-SHA-256: `44e45ddbf67daa09a23ce54a3f0d43e83b8b77e00fa704ceac904374c2661766`;
+SHA-256: `63a853e8902fb9f59e184d0fb6e32280cd5811175427ed4101fe1a23b84485c8`;
 package wheel SHA-256:
 `4a1736486aed60dc5a4e1894c076f919617080548874f4f79d385f72d9e88a00`. See
 [Migration parity contract and evidence](../PARITY.md) for current scope and

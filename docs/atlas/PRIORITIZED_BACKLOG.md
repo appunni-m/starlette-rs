@@ -8,13 +8,17 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract has 448 input-only cases across 50 files, covering 68
-operations and 507 requirements. Latest run
-`16ba93fe-b03f-4c04-94e2-115390d1dbd9` ran from `2026-09-30T05:37:34.270Z` to
-`2026-09-30T05:39:07.241Z` and selected 596 comparisons: 592 passed, zero
-failed, zero infrastructure errors, and four Rust-native rows were `not_run`.
-The Python package passed all 446 selected cases; Rust-native passed 146 of
-150. Those four rows require Python endpoint or ASGI callables. Three
+The active contract has 449 input-only cases across 51 files, covering 68
+operations and 508 requirements. Latest run
+`68a60d80-a1d1-42f6-9dc5-e888719773c8` selected 598 comparisons: 594 passed,
+zero failed, zero infrastructure errors, and four pre-existing Rust-native
+rows were `not_run`. The Python package passed 447 selected cases; Rust-native
+passed 147 of 151. Those four rows require Python endpoint or ASGI callables.
+The additive HostPattern/Host-route input matches `{tenant}.example.test`
+against `Host: acme.example.test:5600`, ignores the port for matching, and
+records `tenant=acme` in route scope for a single fixed-response `GET /health`
+route. It does not establish full Host Router dispatch, IPv6 behavior, reverse
+lookup, or overall parity. Three
 route-level request-body limit cases compare inherited application limits and
 higher and lower route overrides exactly. The application Router-miss 404
 case also passed with its registered async HTTPException handler. The
@@ -91,7 +95,7 @@ streaming behaviors unproven. The Rust-native target was clean at revision
 `7ab9f0cee22b03035b96c2c2df5c66cc6a1d28c8+source-fnv1a64-3f737351c1674203`;
 the Python-package target tree SHA-256 is
 `99fd7a11cb20c8a9bda279f5807b621c4dd3a08f86dca79503bb135319edc492`. Manifest
-SHA-256: `44e45ddbf67daa09a23ce54a3f0d43e83b8b77e00fa704ceac904374c2661766`;
+SHA-256: `63a853e8902fb9f59e184d0fb6e32280cd5811175427ed4101fe1a23b84485c8`;
 package wheel SHA-256:
 `4a1736486aed60dc5a4e1894c076f919617080548874f4f79d385f72d9e88a00`.
 See [Migration parity contract and evidence](../PARITY.md) for current scope.

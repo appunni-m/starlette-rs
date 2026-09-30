@@ -334,6 +334,7 @@ ROUTER_HTTP_ENDPOINT_REQUIREMENTS = {
 }
 HOST_SURFACE = "starlette.routing.Host"
 HOST_REVERSE_OPERATION = "url_path_for"
+ROUTER_HOST_PORT_REQUIREMENT = "starlette.routing.Router.route-dispatch.host-parameter-port-ignored"
 ROUTER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "custom_convertors",
     "redirect_slashes",
@@ -2990,6 +2991,34 @@ def _validate_router_route_input(
     )
 
 
+def _host_pattern_for_matching(host_pattern: str) -> str:
+    """Remove the configured port suffix the way Starlette compiles Host patterns."""
+    parameters = list(
+        re.finditer(r"\{([a-zA-Z_][a-zA-Z0-9_]*)(?::([a-zA-Z_][a-zA-Z0-9_]*))?\}", host_pattern)
+    )
+    if not parameters:
+        return host_pattern.split(":", 1)[0]
+    prefix_end = parameters[-1].end()
+    return host_pattern[:prefix_end] + host_pattern[prefix_end:].split(":", 1)[0]
+
+
+def _host_pattern_port(host_pattern: str) -> int | None:
+    """Return a numeric port suffix after the last Host parameter, when present."""
+    parameters = list(
+        re.finditer(r"\{([a-zA-Z_][a-zA-Z0-9_]*)(?::([a-zA-Z_][a-zA-Z0-9_]*))?\}", host_pattern)
+    )
+    suffix_start = parameters[-1].end() if parameters else 0
+    suffix = host_pattern[suffix_start:]
+    _, separator, port_text = suffix.partition(":")
+    return int(port_text) if separator and re.fullmatch(r"[0-9]+", port_text) else None
+
+
+def _host_header_port(host_header: str) -> int | None:
+    """Return a numeric DNS-style Host header port, excluding IPv6 authorities."""
+    port = re.fullmatch(r"[^:]+:([0-9]+)", host_header)
+    return int(port.group(1)) if port else None
+
+
 def _router_dispatch_route_selection(
     routes: list[dict[str, Any]],
     path: str,
@@ -3022,7 +3051,9 @@ def _router_dispatch_route_selection(
             continue
         if kind == "host-route":
             if _route_template_matches(
-                "/" + route["host"].lower(), "/" + request_host.lower(), custom_convertors
+                "/" + _host_pattern_for_matching(route["host"]),
+                "/" + request_host,
+                custom_convertors,
             ):
                 return index, None, mount_was_attempted
             continue
@@ -4832,10 +4863,10 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         isinstance(route, dict) and route.get("kind") == "mount" for route in case["routes"]
     )
     if "observe_router_scope" in case and (
-        case["observe_router_scope"] is not True or not has_mount_route
+        case["observe_router_scope"] is not True or not (has_mount_route or has_host_route)
     ):
         raise ContractError(
-            "observe_router_scope is enabled only for Router inputs containing a Mount"
+            "observe_router_scope requires a Router input containing a Mount or Host route"
         )
     routes = [
         _validate_router_route_input(route, f"Router routes[{index}]", custom_convertors)
@@ -4863,20 +4894,24 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         if _route_method_matches(route, method)
         if _route_template_matches(route["path"], route_path, custom_convertors)
     ]
-    request_host = next(
+    raw_request_host = next(
         (
-            base64.b64decode(pair[1], validate=True).decode("latin-1").split(":")[0]
+            base64.b64decode(pair[1], validate=True).decode("latin-1")
             for pair in case["scope"]["headers_base64_pairs"]
             if base64.b64decode(pair[0], validate=True).lower() == b"host"
         ),
         "",
     )
+    request_host = raw_request_host.split(":")[0]
+    request_host_port = _host_header_port(raw_request_host)
     host_matched = [
         (index, route)
         for index, route in enumerate(routes)
         if route["kind"] == "host-route"
         if _route_template_matches(
-            "/" + route["host"].lower(), "/" + request_host.lower(), custom_convertors
+            "/" + _host_pattern_for_matching(route["host"]),
+            "/" + request_host,
+            custom_convertors,
         )
     ]
     derived: set[str] = set()
@@ -4963,6 +4998,15 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     )
     if selected_host_route_index is not None:
         derived.add("starlette.routing.Router.route-dispatch.host-route-match")
+        selected_host_route = routes[selected_host_route_index]
+        if (
+            _route_template_parameters(selected_host_route["host"])
+            and _host_pattern_port(selected_host_route["host"]) is not None
+            and request_host_port is not None
+            and _host_pattern_port(selected_host_route["host"]) != request_host_port
+            and case.get("observe_router_scope") is True
+        ):
+            derived.add(ROUTER_HOST_PORT_REQUIREMENT)
         if selected_host_route_index > 0 and any(
             route["kind"] == "http-route"
             and _route_template_matches(route["path"], route_path, custom_convertors)

@@ -17,8 +17,10 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 448 input-only cases across 50 files,
-covering 68 operations and 507 parity requirements. The authored cases span
+The active parity manifest indexes 449 input-only cases across 51 files,
+covering 68 operations and 508 parity requirements. Its SHA-256 is
+`63a853e8902fb9f59e184d0fb6e32280cd5811175427ed4101fe1a23b84485c8`. The
+authored cases span
 the Starlette ASGI application, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 StaticFiles, WebSockets, exceptions, status constants, endpoints,
@@ -28,12 +30,12 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-Latest live parity run `16ba93fe-b03f-4c04-94e2-115390d1dbd9` ran against the
-pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 596 comparisons:
-592 passed, zero failed, zero infrastructure errors, and four Rust-native
-comparisons were `not_run`. The installed Python package passed all 446 of its
-selected comparisons. Rust-native passed 146 of 150; the four unsupported
-inputs exercise Python-callable Request-dispatch forms. Three route-level
+Latest live parity run `68a60d80-a1d1-42f6-9dc5-e888719773c8` ran against the
+pinned Starlette 1.6.0 source on CPython 3.12.13. It selected 598 comparisons:
+594 passed, zero failed, zero infrastructure errors, and four pre-existing
+unsupported Rust-native Python-callable comparisons were `not_run`. The
+installed Python package passed 447 of 447 selected comparisons. Rust-native
+passed 147 of 151. Three route-level
 `max_body_size` inputs compare the inherited application limit and higher and
 lower route overrides against exact response and ASGI event observations. A
 new application Router-miss input matches the source's registered async
@@ -42,16 +44,22 @@ confirms post-construction registration and matching GET/405 dispatch
 observations. Multipart inputs compare the text-limit short circuit, file
 write/seek ordering across request chunks, cleanup after receive-callback and
 `UploadFile.write` errors, and rollover of a file larger than 1 MiB in a worker
-thread. The all-target command still exits 2 for those four unsupported
-Rust-native cases; this bounded run is not full Starlette parity.
+thread. A Host-pattern input matches `{tenant}.example.test:3600` against
+`Host: acme.example.test:5600` and observes the `tenant` capture in route scope
+on source, Python-package, and Rust-native profiles. The all-target command
+still exits 2 for those four unsupported Rust-native cases; this bounded run
+is not full Starlette parity.
 
 The latest correctness-gated Router/GZip benchmark run,
-`10fc39eb-b268-441b-aa91-d8cfa6f051d9`, measured 74 of 74 source/package
-workloads with zero failed or skipped workloads after a passing 446/446
-Python-package preflight. Rust-native remains separately `not_run` for all 74
-workload boundaries. The measured source/package median ratios were 0.749 for
-Router and 0.972 for GZip; source was faster in five of six Router workloads
-and 58 of 68 GZip workloads. This is benchmark evidence for that lane only;
+`5056413b-deae-4264-9f2b-80da0699e005`, measured 74 of 74 source/package
+workloads with zero failed or skipped workloads after preflight
+`7b514f0a-b065-45cc-9fc9-f8a828504ba7`. That preflight selected 598 comparisons:
+594 passed, with 447/447 Python-package comparisons passing and four
+Rust-native Python-callable comparisons `not_run`. Rust-native remains
+separately `not_run` for all 74 workload boundaries. The measured
+source/package median ratios were 0.749 for Router and 0.965 for GZip; source
+was faster in all six Router workloads and 55 of 68 GZip workloads. This
+is benchmark evidence for that lane only;
 the full compatibility denominator remains incomplete. The latest source
 inventory check dispositioned all 999 API candidate rows and reported 796
 coverage mappings and 555 new fixture-backlog items; those changing counts
@@ -324,10 +332,11 @@ every `not_applicable` mapping has a concrete reason. In this checked-in
 crosswalk snapshot, 191 `existing` mappings point to authored YAML input
 definitions; runtime JSON is generated separately under `build/parity/inputs/`.
 The earlier checked-in fixture crosswalk snapshot separately indexed 19 parity
-input files with 136 cases. The active manifest now contains 50 indexed files
-and 448 cases, including route-level request-body limit inputs and an
+input files with 136 cases. The active manifest now contains 51 indexed files
+and 449 cases, including route-level request-body limit inputs and an
 application-level Router-miss 404 handler input,
 post-construction `Starlette.add_route` coverage,
+one bounded native `HostPattern` port-and-capture input,
 twelve Response background-task workflows, six
 header-view and raw-pair probes, and a Router sequence that verifies live
 route-method and route-list mutations across
@@ -413,6 +422,24 @@ propagate the same `RuntimeError`. The large-file input streams an
 input-defined 1 MiB-plus payload, checks its size and write-chunk digests, and
 confirms rollover runs outside the request thread. Other rollover error paths
 remain unproven.
+
+## Rust-native HostPattern matcher slice
+
+[`host-routing-native-port.yaml`](../tests/fixtures/sources/parity/host-routing-native-port.yaml)
+defines one input-only comparison: the route pattern is
+`{tenant}.example.test:3600`, and the incoming header is
+`Host: acme.example.test:5600`. The source and both target profiles ignore the
+configured and incoming port suffixes, select the route, and expose the named
+capture `tenant = "acme"` in the route scope. The capture is a string. Exact
+source/package/Rust observations passed in parity run
+`68a60d80-a1d1-42f6-9dc5-e888719773c8`.
+
+The additive Rust API exports `HostPattern` and `HostPatternError` from the
+crate root. `HostPattern::new(pattern)` compiles one host pattern, and
+`match_host(host_header)` returns optional named capture pairs in pattern
+order. This is a bounded matcher slice, not complete native `Router` Host
+registration, ordering, or ASGI dispatch. It does not claim IPv6 authority
+parsing or Host reverse-URL lookup; those behaviors remain outside this input.
 
 ## WebSocketEndpoint dispatch slice
 
@@ -508,7 +535,7 @@ These items are tracked as uncertain behavior or backlog stimuli; they do not
 block using the atlas to choose implementation work. The remaining staged work
 includes broader Python/Rust boundary characterization and expansion beyond
 the current ASGI, GZip, default HTTPException, and registered-handler slices.
-The backlog distinguishes that work from the 443 currently indexed cases and
+The backlog distinguishes that work from the 449 currently indexed cases and
 the generated fixture backlog in [`fixture-backlog.csv`](atlas/fixture-backlog.csv).
 
 ## Generate the source candidate catalog
