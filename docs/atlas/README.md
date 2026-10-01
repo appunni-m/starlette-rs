@@ -27,7 +27,7 @@ with no conventional Python or Rust unit-test suite.
 The source atlas is complete, while the full Starlette replacement remains
 active and incomplete. The current contract has 648 input-only cases across
 75 indexed files, 91 operations, and 683 requirements. The latest full-slice
-run `5acb83cd-2065-46bd-ae0d-9f1df23a5338` passed 827 of 831 selected profile
+run `c45bc2af-4d8f-472c-9c25-d40b7dd31df9` passed 827 of 831 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
 Python-callable rows `not_run`. The Python package passed 646/646; Rust-native
 passed 181/185. All nine selected `CommaSeparatedStrings` comparisons pass,
@@ -43,11 +43,11 @@ The generated coverage matrix has 802 source rows: 354 existing input
 mappings, 50 reasoned `not_applicable` rows, and 398 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `6807b591-c0de-476b-82ab-6e61572c4b41` measured all
+The latest Router/GZip run `dc0379a4-ebe9-4ff3-bff6-04a2afafcc8f` measured all
 74 source/package workloads after clean parity preflight
-`0cbbc7c8-34ee-45a0-965f-3d203615d999`. Median per-workload source/package
-ratios were 0.778 for Router and 0.977 for GZip; source latency was lower on
-five of six Router workloads and 62 of 68 GZip workloads. All 74
+`c45bc2af-4d8f-472c-9c25-d40b7dd31df9`. Median per-workload source/package
+ratios were 0.779 for Router and 0.973 for GZip; source latency was lower on
+five of six Router workloads and 60 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.

@@ -10,8 +10,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `5acb83cd-2065-46bd-ae0d-9f1df23a5338`.
-It ran from `2026-10-01T17:53:30.013Z` to `2026-10-01T17:55:55.518Z` against
+The latest full-slice parity run is `c45bc2af-4d8f-472c-9c25-d40b7dd31df9`.
+It ran from `2026-10-01T18:05:06.337Z` to `2026-10-01T18:07:31.685Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
 648-case/683-requirement manifest. It selected 831 profile comparisons: 827
 passed, zero failed, zero infrastructure errors, and four Rust-native
@@ -24,11 +24,11 @@ dispatch. `make test` exits with status 2 because those declared rows remain
 `not_run`.
 
 The Rust-native fingerprint was
-`0aa2ddb04fa792ac3a57d04ce8f0763c0c64e007+source-fnv1a64-b3bbd3ddb65860b2`.
+`419d8aa350cbdfa250b24a0036df2693d5ecbd1e+source-fnv1a64-b3bbd3ddb65860b2`.
 The installed package tree SHA-256 was
 `bde48f939a9906c910480c00c2aaeab13c7fe732c5b0dfd8edbb2b9e69203b44`; its
 wheel SHA-256 was
-`9739159516a5b435b833dd6e4bdeb53d767f235f08827d3faa0fe10f2f1d0203`. The
+`1d7e68197f82de3d6f925f4a2b6cc696e3d21287dce5f4dfae2cca12ea28667a`. The
 manifest SHA-256 was
 `2e7c09041f5e4626d64f772a5855f4ee362b2ed9be364859f74af78f80587844`.
 Strict aggregation remains `not_proven` because the full compatibility
@@ -52,7 +52,7 @@ through UTF-32LE with `surrogatepass` because Rust UTF-8 `String` cannot encode
 unpaired surrogates. The input generator falls back to ASCII-escaped JSON when
 the authored input contains a lone surrogate. The Python facade remains a
 forwarder. All nine selected native/package comparisons pass in run
-`5acb83cd-2065-46bd-ae0d-9f1df23a5338`.
+`c45bc2af-4d8f-472c-9c25-d40b7dd31df9`.
 
 ### Request.cookies parsing and Python mapping boundary
 
