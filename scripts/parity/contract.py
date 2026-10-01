@@ -236,6 +236,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "denial_response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.denial-response-exception",
     "blocking_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.blocking-receive-progress",
     "disconnect_details": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.disconnect-details",
+    "client_close": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.client-close-code-reason",
     "cancellation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.close-triggered-cancellation",
     "portal_cleanup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.portal-cleanup",
     "send_json_text": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.send-json-text-frame",
@@ -796,6 +797,9 @@ ROUTE_CONSTRUCTOR_OPERATION_KEY = ("starlette.routing.Route", "__init__")
 ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS = {
     "application_default": "starlette.routing.Route.max_body_size.application-default",
     "raise_application": "starlette.routing.Route.max_body_size.raise-application-limit",
+    "raise_application_through_scope_copy": (
+        "starlette.routing.Route.max_body_size.raise-application-limit-through-scope-copy"
+    ),
     "lower_application": "starlette.routing.Route.max_body_size.lower-application-limit",
 }
 ROUTER_MISS_EXCEPTION_HANDLER_REQUIREMENT = "starlette.asgi.exception-handler.router-miss-404"
@@ -9321,6 +9325,17 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                     and type(action["capture_disconnect"]) is not bool
                 ):
                     raise ContractError(f"{item_context}.capture_disconnect must be boolean")
+            elif operation == "receive_text":
+                action = _exact(
+                    value,
+                    {"operation"} | (value.keys() & {"capture_disconnect"}),
+                    item_context,
+                )
+                if (
+                    "capture_disconnect" in action
+                    and type(action["capture_disconnect"]) is not bool
+                ):
+                    raise ContractError(f"{item_context}.capture_disconnect must be boolean")
             elif operation == "send_scope_bytes":
                 action = _exact(value, {"operation", "field"}, item_context)
                 if action["field"] != "raw_path":
@@ -9367,6 +9382,12 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
         "send_json",
     ]:
         return "json-exchange"
+    if (
+        len(actions) == 2
+        and [action.get("operation") for action in actions] == ["accept", "receive_text"]
+        and actions[1].get("capture_disconnect", False)
+    ):
+        return "client-close-disconnect"
     if application_query_params_flow:
         return "application-query-params"
     if len(actions) == 2 and actions[1].get("operation") == "wait_forever":
@@ -9462,6 +9483,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     client_json_receive_mode: str | None = None
     exchange_requirement: str | None = None
     frame_mode: str | None = None
+    client_close_workflow = False
     if denial_workflow:
         pass
     elif (
@@ -9530,7 +9552,22 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     f"TestClient WebSocket must use {receive_operation} after {send_operation}"
                 )
     elif len(session_actions) == 1 and isinstance(session_actions[0], dict):
-        if session_actions[0].get("operation") == "receive_bytes":
+        if session_actions[0].get("operation") == "close":
+            close_action = _exact(
+                session_actions[0],
+                {"operation"} | (session_actions[0].keys() & {"code", "reason"}),
+                "TestClient WebSocket close action",
+            )
+            close_code = close_action.get("code", 1000)
+            close_reason = close_action.get("reason")
+            if type(close_code) is not int or not 0 <= close_code <= 65535:
+                raise ContractError(
+                    "TestClient WebSocket close code must fit an unsigned 16-bit integer"
+                )
+            if close_reason is not None and not isinstance(close_reason, str):
+                raise ContractError("TestClient WebSocket close reason must be a string or null")
+            client_close_workflow = True
+        elif session_actions[0].get("operation") == "receive_bytes":
             _exact(session_actions[0], {"operation"}, "TestClient WebSocket bytes receive action")
             client_binary_receive_workflow = True
         else:
@@ -9696,6 +9733,10 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "TestClient close-triggered cancellation flow must exit without client message actions"
             )
+        if flow_kind == "client-close-disconnect" and not client_close_workflow:
+            raise ContractError(
+                "TestClient disconnect capture flow requires one declared client close action"
+            )
         if flow_kind == "application-query-params" and (
             len(session_actions) != 1
             or not client_json_workflow
@@ -9737,7 +9778,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
         }
-        if flow_kind != "application-query-params":
+        if flow_kind not in {"application-query-params", "client-close-disconnect"}:
             expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"])
         if flow_kind == "blocking-receive":
             expected_covers.update(
@@ -9758,6 +9799,13 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                 {
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_query_params"],
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["receive_json_text"],
+                }
+            )
+        elif flow_kind == "client-close-disconnect":
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["disconnect_details"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["client_close"],
                 }
             )
         else:
@@ -13754,9 +13802,15 @@ def _validate_route_body_limit_application(arguments: dict[str, Any]) -> None:
         {"debug", "routes", "middleware", "exception_handlers", "lifespan", "max_body_size"},
         "route body-limit application input",
     )
+    middleware = arguments["middleware"]
+    if not isinstance(middleware, list):
+        raise ContractError("route body-limit middleware must be an input-defined array")
+    for index, middleware_spec in enumerate(middleware):
+        spec = _exact(middleware_spec, {"kind"}, f"route body-limit middleware[{index}]")
+        if spec["kind"] != "copy-scope":
+            raise ContractError("route body-limit middleware supports only the copy-scope action")
     if (
         arguments["debug"] is not False
-        or arguments["middleware"] != []
         or arguments["exception_handlers"] != []
         or type(arguments["max_body_size"]) is not int
         or arguments["max_body_size"] < 0
@@ -13795,6 +13849,9 @@ def _route_body_limit_requirement_from_input(case: dict[str, Any]) -> str | None
     route = construction["routes"][0]
     app_limit = construction["max_body_size"]
     route_limit = route["max_body_size"]
+    scope_copy_middleware = any(
+        middleware_spec["kind"] == "copy-scope" for middleware_spec in construction["middleware"]
+    )
     body_size = sum(
         len(base64.b64decode(message["body_base64"], validate=True))
         for message in dispatch["receive"]
@@ -13803,6 +13860,8 @@ def _route_body_limit_requirement_from_input(case: dict[str, Any]) -> str | None
         return ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS["application_default"]
     if route_limit is None:
         return None
+    if scope_copy_middleware and app_limit < body_size <= route_limit and route_limit > app_limit:
+        return ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS["raise_application_through_scope_copy"]
     if app_limit < body_size <= route_limit and route_limit > app_limit:
         return ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS["raise_application"]
     if route_limit < body_size <= app_limit and route_limit < app_limit:

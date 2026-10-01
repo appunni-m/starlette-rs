@@ -15122,6 +15122,17 @@
               ]
             },
             {
+              "id": "starlette.routing.Route.max_body_size.raise-application-limit-through-scope-copy",
+              "dimension": "boundary",
+              "description": "A route-level max_body_size that exceeds the application limit remains effective after input-defined ASGI middleware forwards a shallow copy of the scope. Upstream: starlette/routing.py:197-208; starlette/middleware/body_limit.py:71-80; tests/middleware/test_body_limit.py:321-338.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.routing.Route.max_body_size.lower-application-limit",
               "dimension": "error_path",
               "description": "A route-level max_body_size governs a POST whose body exceeds the route limit but remains within the application limit. Upstream: starlette/routing.py:197-208; tests/middleware/test_body_limit.py:284-292.",
@@ -20099,7 +20110,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.testclient.TestClient.websocket_connect",
-              "signature": "websocket_connect(url, subprotocols=None, **kwargs) -> WebSocketTestSession; send_text/receive_text, send_bytes/receive_bytes, send_json(data, mode=\"text\"), receive_json(mode=\"text\"), close(code=1000)",
+              "signature": "websocket_connect(url, subprotocols=None, **kwargs) -> WebSocketTestSession; send_text/receive_text, send_bytes/receive_bytes, send_json(data, mode=\"text\"), receive_json(mode=\"text\"), close(code=1000, reason=None)",
               "support": {
                 "status": "supported"
               }
@@ -20209,6 +20220,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.disconnect-details",
               "dimension": "feature",
               "description": "Context exit delivers the default websocket.disconnect event to the blocked application receive, which raises WebSocketDisconnect with the pinned code and reason; compare the raw event and exception fields. Pinned source: tests/test_testclient.py::test_websocket_blocking_receive; starlette/testclient.py:117-125; starlette/websockets.py:36-50.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.client-close-code-reason",
+              "dimension": "boundary",
+              "description": "Forward the declared client close code and reason into the app receive stream; compare the raw websocket.disconnect event and the WebSocketDisconnect fields captured by receive_text(). Pinned source: starlette/testclient.py:181-182; starlette/websockets.py:36-50; tests/test_websockets.py::test_client_close.",
               "lanes": [
                 "parity"
               ],

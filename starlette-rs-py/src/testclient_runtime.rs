@@ -622,8 +622,13 @@ impl PyWebSocketTestSession {
         self.send_client_message(py, message.into_any().unbind())
     }
 
-    fn close_inner(&mut self, py: Python<'_>, code: u16) -> PyResult<()> {
-        let message = websocket_disconnect_message(py, code)?;
+    fn close_inner(
+        &mut self,
+        py: Python<'_>,
+        code: u16,
+        reason: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let message = websocket_disconnect_message(py, code, reason)?;
         self.send_client_message(py, message)?;
         self.client_closed = true;
         Ok(())
@@ -632,7 +637,7 @@ impl PyWebSocketTestSession {
     fn teardown(&mut self, py: Python<'_>) -> PyResult<()> {
         let mut task_error = None;
         if self.portal.is_some() && self.accepted && !self.client_closed {
-            if let Err(error) = self.close_inner(py, 1000) {
+            if let Err(error) = self.close_inner(py, 1000, None) {
                 task_error = Some(error);
             }
         }
@@ -792,9 +797,9 @@ impl PyWebSocketTestSession {
             .map(Bound::unbind)
     }
 
-    #[pyo3(signature = (code=1000))]
-    fn close(&mut self, py: Python<'_>, code: u16) -> PyResult<()> {
-        self.close_inner(py, code)
+    #[pyo3(signature = (code=1000, reason=None))]
+    fn close(&mut self, py: Python<'_>, code: u16, reason: Option<Py<PyAny>>) -> PyResult<()> {
+        self.close_inner(py, code, reason.as_ref().map(|value| value.bind(py)))
     }
 }
 
@@ -1558,11 +1563,19 @@ fn websocket_connect_message(py: Python<'_>) -> PyResult<Py<PyAny>> {
     Ok(message.into_any().unbind())
 }
 
-fn websocket_disconnect_message(py: Python<'_>, code: u16) -> PyResult<Py<PyAny>> {
+fn websocket_disconnect_message(
+    py: Python<'_>,
+    code: u16,
+    reason: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Py<PyAny>> {
     let message = PyDict::new(py);
     message.set_item("type", "websocket.disconnect")?;
     message.set_item("code", code)?;
-    message.set_item("reason", py.None())?;
+    if let Some(reason) = reason {
+        message.set_item("reason", reason)?;
+    } else {
+        message.set_item("reason", py.None())?;
+    }
     Ok(message.into_any().unbind())
 }
 

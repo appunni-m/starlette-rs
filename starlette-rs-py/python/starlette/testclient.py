@@ -72,8 +72,8 @@ class WebSocketTestSession:
     def receive_json(self, mode: Literal["text", "binary"] = "text") -> Any:
         return self._runtime.receive_json(mode)
 
-    def close(self, code: int = 1000) -> None:
-        self._runtime.close(code)
+    def close(self, code: int = 1000, reason: str | None = None) -> None:
+        self._runtime.close(code, reason)
 
 
 class TestClient(_httpx.Client):

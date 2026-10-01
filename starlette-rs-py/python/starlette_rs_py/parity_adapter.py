@@ -1196,6 +1196,28 @@ def _raise_lifespan_failure(spec: dict[str, Any]) -> None:
     raise RuntimeError(spec["failure_message"])
 
 
+def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
+    from starlette.middleware import Middleware
+
+    if not isinstance(middleware_specs, list):
+        raise ValueError("application middleware input must be an array")
+
+    class CopyScopeMiddleware:
+        def __init__(self, app: Any) -> None:
+            self.app = app
+
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            await self.app(dict(scope), receive, send)
+
+    middleware = []
+    for index, raw_spec in enumerate(middleware_specs):
+        spec = _exact_object(raw_spec, {"kind"}, f"application middleware[{index}]")
+        if spec["kind"] != "copy-scope":
+            raise ValueError(f"unsupported application middleware action: {spec['kind']!r}")
+        middleware.append(Middleware(CopyScopeMiddleware))
+    return middleware
+
+
 def _materialize_application(
     app_spec: dict[str, Any],
 ) -> tuple[Any, list[str], list[dict[str, Any]], Any, list[dict[str, Any]]]:
@@ -2045,7 +2067,7 @@ def _materialize_application(
         app = Starlette(
             debug=app_spec["debug"],
             routes=routes,
-            middleware=app_spec["middleware"],
+            middleware=_materialize_application_middleware(app_spec["middleware"]),
             exception_handlers=exception_handlers,
             lifespan=lifespan,
             max_body_size=app_spec["max_body_size"],

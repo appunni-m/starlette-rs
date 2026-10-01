@@ -671,6 +671,21 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                         )
                     else:
                         application_values.append({"operation": operation, "value": _safe(value)})
+                elif operation == "receive_text":
+                    try:
+                        value = await websocket.receive_text()
+                    except WebSocketDisconnect as error:
+                        if not action.get("capture_disconnect", False):
+                            raise
+                        disconnect_observations.append(
+                            {
+                                "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                                "code": error.code,
+                                "reason": error.reason,
+                            }
+                        )
+                    else:
+                        application_values.append({"operation": operation, "value": _safe(value)})
                 elif operation == "parallel":
                     async with anyio.create_task_group() as task_group:
                         for task in action["tasks"]:
@@ -738,6 +753,8 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                     value = session.receive_bytes()
                 elif action["operation"] == "receive_json":
                     value = session.receive_json(action.get("mode", "text"))
+                elif action["operation"] == "close":
+                    value = session.close(action.get("code", 1000), action.get("reason"))
                 else:
                     raise ValueError(
                         f"unsupported TestClient WebSocket action: {action['operation']!r}"
