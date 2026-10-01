@@ -52,8 +52,8 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `6a2c4c4d-b453-400c-8b0b-a5d57b55d828`. It ran from
-`2026-10-01T18:38:00.558Z` to `2026-10-01T18:40:44.390Z` and selected 840
+The latest full-slice run is `f386b6b5-485b-4914-aad3-89bc05e12085`. It ran from
+`2026-10-01T19:01:22.249Z` to `2026-10-01T19:03:46.447Z` and selected 840
 profile comparisons: 836 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
 passed all 651 selected comparisons; Rust-native passed 185 of 189. All nine
@@ -62,10 +62,10 @@ lone-surrogate inputs. The four native `not_run` rows are synchronous Request
 endpoint, bound-method endpoint, partial endpoint, and callable-instance ASGI
 dispatch. `make test` exits with status 2 for those declared Python-callable
 boundaries. The Rust-native source fingerprint was
-`f72290ba1701ade7e5d9e46565366010be98b2d0+source-fnv1a64-b3bbd3ddb65860b2`.
+`33e711f5cd37e65b9a8ef1601c65e004b34e812a+source-fnv1a64-b3bbd3ddb65860b2`.
 The installed package tree SHA-256 was
 `68c1bb11108aace159050bd9eacf35ba270d76d1971ce8372a9b5cf9be519e81`, wheel
-SHA-256 `f99a06973d01842c13361b007c98d5d016f0318c416f3a701e517d47141c2686`,
+SHA-256 `0e4202c0a55bde6b5aa488bbd701e5ce0f6d5a6476d4e1de7d912e35c6e6b142`,
 and manifest SHA-256
 `c272e2924b69a4b2404af5b1233fa8558dd2b99fb322084ee11957ac13220134`. Full
 run identity and case-level evidence are recorded in

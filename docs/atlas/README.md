@@ -27,7 +27,7 @@ with no conventional Python or Rust unit-test suite.
 The source atlas is complete, while the full Starlette replacement remains
 active and incomplete. The current contract has 653 input-only cases across
 75 indexed files, 91 operations, and 687 requirements. The latest full-slice
-run `6a2c4c4d-b453-400c-8b0b-a5d57b55d828` passed 836 of 840 selected profile
+run `f386b6b5-485b-4914-aad3-89bc05e12085` passed 836 of 840 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
 Python-callable rows `not_run`. The Python package passed 651/651; Rust-native
 passed 185/189. All nine selected `CommaSeparatedStrings` comparisons pass,

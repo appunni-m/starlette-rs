@@ -49,7 +49,7 @@ parameter from the edge-case and malformed-cookie source rows. New WebSocket
 inputs add four denial-response state transitions and a fresh-iterator
 `asend(non-None)` error boundary. The six direct ServerErrorMiddleware inputs and three TestClient exception-
 chain cases also pass in the latest run. Run
-`6a2c4c4d-b453-400c-8b0b-a5d57b55d828` selected 840 comparisons: 836 passed,
+`f386b6b5-485b-4914-aad3-89bc05e12085` selected 840 comparisons: 836 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
 Python-callable rows `not_run`. The installed Python package passed 651/651;
 Rust-native passed 185/189. The four native `not_run` rows are synchronous
