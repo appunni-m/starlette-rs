@@ -111,11 +111,13 @@ def run_state_case(case: dict[str, Any]) -> dict[str, Any]:
                 "step_id": "consumer-sequence",
                 "status": "ok",
                 "value": {
-                    "action_trace": action_trace,
-                    "instances": [
-                        _snapshot(instance_id, state, provided_mappings[instance_id])
-                        for instance_id, state in instances.items()
-                    ],
+                    "consumer-sequence": {
+                        "action_trace": action_trace,
+                        "instances": [
+                            _snapshot(instance_id, state, provided_mappings[instance_id])
+                            for instance_id, state in instances.items()
+                        ],
+                    }
                 },
             }
         ],
