@@ -10,8 +10,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `0f291df8-8bd1-4265-9039-965c5022b71d`.
-It ran from `2026-10-01T17:25:58.643Z` to `2026-10-01T17:28:30.373Z` against
+The latest full-slice parity run is `0cbbc7c8-34ee-45a0-965f-3d203615d999`.
+It ran from `2026-10-01T17:32:32.493Z` to `2026-10-01T17:35:04.640Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
 647-case/682-requirement manifest. It selected 830 profile comparisons: 826
 passed, zero failed, zero infrastructure errors, and four Rust-native
@@ -23,7 +23,7 @@ and callable-instance ASGI dispatch. `make test` exits with status 2 because
 those declared rows remain `not_run`.
 
 The Rust-native fingerprint was
-`7005dbcabab50efa464b4229ac31497c7fd4dd12+source-fnv1a64-7200f9cf1e05b571`.
+`d7980ddc1c44e3dac9a7e103c7859c994f637243+source-fnv1a64-7200f9cf1e05b571`.
 The installed package tree SHA-256 was
 `9ffc9a46cef15744f40e0cdf5b19ef373617a1e283d04f8d2e83503dce8526fc`; its
 wheel SHA-256 was
@@ -46,7 +46,7 @@ shell quoting/comments/empty fields, malformed quotes and escapes, selected
 Unicode printable categories, and Python `str` subclass identity and live
 `__repr__` behavior. The parser and formatter are implemented in Rust; the
 Python facade forwards to the PyO3 value. All eight selected native/package
-comparisons pass in run `0f291df8-8bd1-4265-9039-965c5022b71d`.
+comparisons pass in run `0cbbc7c8-34ee-45a0-965f-3d203615d999`.
 
 Lone-surrogate Python strings remain a documented compatibility gap: PyO3's
 Rust `String` conversion cannot represent them. The scalar-value Unicode cases

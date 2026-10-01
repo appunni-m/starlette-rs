@@ -22,7 +22,7 @@ ServerErrorMiddleware cases, three TestClient exception-chain cases, a
 default middleware-boundary trace, and sixteen Request.cookies inputs pass live
 source/package comparison, including the sequential TestClient cookie
 round-trip from `test_request_cookies`. Latest integrated run
-`0f291df8-8bd1-4265-9039-965c5022b71d` passed 826 of 830 selected comparisons,
+`0cbbc7c8-34ee-45a0-965f-3d203615d999` passed 826 of 830 selected comparisons,
 with zero failures or infrastructure errors and four Rust-native
 Python-callable rows `not_run`. The Python package passed 645/645;
 Rust-native passed 181/185. The four native `not_run` rows are synchronous

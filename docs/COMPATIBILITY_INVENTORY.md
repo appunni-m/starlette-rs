@@ -51,8 +51,8 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `0f291df8-8bd1-4265-9039-965c5022b71d`. It ran from
-`2026-10-01T17:25:58.643Z` to `2026-10-01T17:28:30.373Z` and selected 830
+The latest full-slice run is `0cbbc7c8-34ee-45a0-965f-3d203615d999`. It ran from
+`2026-10-01T17:32:32.493Z` to `2026-10-01T17:35:04.640Z` and selected 830
 profile comparisons: 826 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
 passed all 645 selected comparisons; Rust-native passed 181 of 185. All eight
@@ -60,7 +60,7 @@ new `CommaSeparatedStrings` comparisons passed. The four native `not_run` rows
 are synchronous Request endpoint, bound-method endpoint, partial endpoint,
 and callable-instance ASGI dispatch. `make test` exits with status 2 for those
 declared Python-callable boundaries. The Rust-native source fingerprint was
-`7005dbcabab50efa464b4229ac31497c7fd4dd12+source-fnv1a64-7200f9cf1e05b571`.
+`d7980ddc1c44e3dac9a7e103c7859c994f637243+source-fnv1a64-7200f9cf1e05b571`.
 The installed package tree SHA-256 was
 `9ffc9a46cef15744f40e0cdf5b19ef373617a1e283d04f8d2e83503dce8526fc`, wheel
 SHA-256 `a6c03a0e899e61eb1dbe1583b38a245e5091cf0d424087cb0996caab99418d3f`,
@@ -76,21 +76,21 @@ Rust's UTF-8 `String` cannot hold lone surrogate code points from Python. The
 compatibility package currently fails that input during PyO3 string conversion.
 
 The latest correctness-gated Router/GZip benchmark run,
-`e279f32f-6c93-40e3-a1ae-c50d60293c95`, measured all 74 declared workloads:
+`6807b591-c0de-476b-82ab-6e61572c4b41`, measured all 74 declared workloads:
 six Router and 68 GZip, with zero failures or skipped measurements. Its clean
-correctness preflight `79952567-5fcf-4f02-9937-8409773fadbd` selected 780
-comparisons: 776 passed, zero failed or hit infrastructure errors, and four
+correctness preflight `0cbbc7c8-34ee-45a0-965f-3d203615d999` selected 830
+comparisons: 826 passed, zero failed or hit infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 613/613 and Rust-native passed 163/167. Rust-native remains `not_run`
+passed 645/645 and Rust-native passed 181/185. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. The median per-workload
-source/package ratios were 0.768 for Router and 0.972 for GZip; source was
-faster in five of six Router workloads and 56 of 68 GZip workloads. All 74
-source/package observations had matching raw hashes. The clean
+source/package ratios were 0.778 for Router and 0.977 for GZip; source was
+faster in five of six Router workloads and 62 of 68 GZip workloads. All 74
+source/package observations had matching normalized hashes. The clean
 target checkout was revision
-`3af96de8aa110ca9701a0f20987a1361bfc29f16` with working-tree SHA-256
-`3a8cd1c2da313ab564d08fa4f2b59f176bb21ba2cc9f9a0e3d247bf67b953ced`; the
+`d7980ddc1c44e3dac9a7e103c7859c994f637243` with working-tree SHA-256
+`a7ba27a649cc904b8a8a62f5c4c0a47a66caa6f2dbd211fa88473a56a4a566c8`; the
 target wheel SHA-256 was
-`e3ae153cd93d14853620af704f31efc2447b47d606713099abece71e63b987e0`.
+`473753aa1aba87d322ae1ca4403728321976f4571b82fb179fa57c2861cda39f`.
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
