@@ -171,6 +171,25 @@ impl PySessionState {
             .call(&positional, kwargs)?;
         Ok(())
     }
+
+    fn popitem(&self, py: Python<'_>, session: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        py.get_type::<PyDict>()
+            .getattr("popitem")?
+            .call1((session,))
+            .map(Bound::unbind)
+    }
+
+    fn ior(
+        &self,
+        py: Python<'_>,
+        session: &Bound<'_, PyAny>,
+        other: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        py.get_type::<PyDict>()
+            .getattr("__ior__")?
+            .call1((session, other))
+            .map(Bound::unbind)
+    }
 }
 
 /// Rust runtime behind the public `starlette.middleware.sessions` facade.

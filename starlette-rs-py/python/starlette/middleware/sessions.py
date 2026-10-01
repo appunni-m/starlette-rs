@@ -62,6 +62,12 @@ class Session(dict[str, Any]):
     def update(self, *args: Any, **kwargs: Any) -> None:
         self._runtime.update(self, *args, **kwargs)
 
+    def popitem(self) -> tuple[str, Any]:
+        return self._runtime.popitem(self)
+
+    def __ior__(self, other: Any) -> Session:
+        return self._runtime.ior(self, other)
+
 
 class SessionMiddleware:
     """Persist ``request.session`` in a signed, HTTP-only cookie."""

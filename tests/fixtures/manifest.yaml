@@ -9368,7 +9368,7 @@
             {
               "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.session-mutation-flags",
               "dimension": "protocol_variant",
-              "description": "Compare Session accessed and modified flags and mutation results for set, delete, clear, pop, setdefault, and empty/non-empty update inputs. Upstream: tests/middleware/test_session.py:251-287.",
+              "description": "Compare Session accessed and modified flags and mutation results for set, delete, clear, pop, popitem, setdefault, update, and in-place union. Inherited dict popitem and in-place union must preserve Starlette's unchanged flag behavior. Upstream: tests/middleware/test_session.py:251-287; starlette/middleware/sessions.py:90-125.",
               "lanes": [
                 "parity"
               ],

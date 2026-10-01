@@ -4420,10 +4420,26 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     session.clear()
                 elif mutation_kind == "pop":
                     mutation_result = session.pop(mutation["key"], mutation["default"])
+                elif mutation_kind == "popitem":
+                    mutation_result = session.popitem()
                 elif mutation_kind == "setdefault":
                     mutation_result = session.setdefault(mutation["key"], mutation["default"])
                 elif mutation_kind == "update":
                     session.update(mutation["values"])
+                elif mutation_kind == "in-place-union":
+                    original_session = session
+                    session |= mutation["values"]
+                    mutation_result = session is original_session
+                session_value = dict(session)
+            elif action_kind == "session-operation":
+                session = request.session
+                mutation = action["mutation"]
+                if mutation["kind"] == "popitem":
+                    mutation_result = session.popitem()
+                elif mutation["kind"] == "in-place-union":
+                    original_session = session
+                    session |= mutation["values"]
+                    mutation_result = session is original_session
                 session_value = dict(session)
             else:
                 session_value = None
@@ -4539,12 +4555,35 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     "delete": {"kind", "key"},
                     "clear": {"kind"},
                     "pop": {"kind", "key", "default"},
+                    "popitem": {"kind"},
                     "setdefault": {"kind", "key", "default"},
                     "update": {"kind", "values"},
+                    "in-place-union": {"kind", "values"},
                 }.get(mutation["kind"])
                 if mutation_keys is None:
                     raise ValueError(f"unsupported Session mutation: {mutation['kind']!r}")
                 _strict_object(mutation, mutation_keys, "SessionMiddleware mutation")
+            elif action["kind"] == "session-operation":
+                if scope["type"] != "http":
+                    raise ValueError("Session operations require HTTP scopes")
+                _strict_object(
+                    action,
+                    {"kind", "mutation"},
+                    "SessionMiddleware request Session operation action",
+                )
+                mutation = action["mutation"]
+                if not isinstance(mutation, dict) or mutation.get("kind") not in {
+                    "popitem",
+                    "in-place-union",
+                }:
+                    raise ValueError("unsupported request Session operation")
+                mutation_keys = {
+                    "popitem": {"kind"},
+                    "in-place-union": {"kind", "values"},
+                }[mutation["kind"]]
+                _strict_object(
+                    mutation, mutation_keys, "SessionMiddleware request Session operation"
+                )
             elif action["kind"] == "websocket-view":
                 _strict_object(
                     action,
@@ -4631,6 +4670,7 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 "clear": "http",
                 "no-access": "http",
                 "session-mutation": "http",
+                "session-operation": "http",
                 "websocket-view": "websocket",
                 "passthrough": "lifespan",
             }[action["kind"]]

@@ -262,6 +262,178 @@
           "action": {
             "kind": "clear"
           }
+        },
+        {
+          "request_id": "popitem-loaded-session",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "write-session"
+          },
+          "action": {
+            "kind": "session-operation",
+            "mutation": {
+              "kind": "popitem"
+            }
+          }
+        },
+        {
+          "request_id": "in-place-union-loaded-session",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "write-session"
+          },
+          "action": {
+            "kind": "session-operation",
+            "mutation": {
+              "kind": "in-place-union",
+              "values": [
+                [
+                  "scope",
+                  "retained"
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "request_id": "popitem-cookie-still-original",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "write-session"
+          },
+          "action": {
+            "kind": "view"
+          }
+        },
+        {
+          "request_id": "in-place-union-cookie-still-original",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "write-session"
+          },
+          "action": {
+            "kind": "view"
+          }
         }
       ],
       "observations": [
@@ -983,6 +1155,191 @@
               "values": {
                 "b": "2"
               }
+            }
+          }
+        },
+        {
+          "request_id": "mutation-popitem",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1",
+              "b": "2"
+            },
+            "mutation": {
+              "kind": "popitem"
+            }
+          }
+        },
+        {
+          "request_id": "mutation-in-place-union-mapping",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1"
+            },
+            "mutation": {
+              "kind": "in-place-union",
+              "values": {
+                "b": "2"
+              }
+            }
+          }
+        },
+        {
+          "request_id": "mutation-in-place-union-pairs",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {},
+            "mutation": {
+              "kind": "in-place-union",
+              "values": [
+                [
+                  "a",
+                  "1"
+                ],
+                [
+                  "b",
+                  "2"
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "request_id": "mutation-in-place-union-empty",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-mutation",
+            "initial": {
+              "a": "1"
+            },
+            "mutation": {
+              "kind": "in-place-union",
+              "values": {}
             }
           }
         }

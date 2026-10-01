@@ -6658,6 +6658,24 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_session_union_values(values: Any, context: str) -> None:
+    if isinstance(values, dict):
+        if any(not isinstance(key, str) for key in values):
+            raise ContractError(f"{context} mapping keys must be strings")
+    elif isinstance(values, list):
+        if any(
+            not isinstance(pair, list) or len(pair) != 2 or not isinstance(pair[0], str)
+            for pair in values
+        ):
+            raise ContractError(f"{context} must contain string-key pairs")
+    else:
+        raise ContractError(f"{context} must be a mapping or pair sequence")
+    try:
+        json.dumps(values, allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        raise ContractError(f"{context} must be JSON-compatible") from exc
+
+
 def _validate_session_workflow_case(case: dict[str, Any]) -> None:
     constructor = _exact(
         case["constructor"],
@@ -6806,6 +6824,7 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
             "clear",
             "no-access",
             "session-mutation",
+            "session-operation",
             "websocket-view",
             "passthrough",
         }:
@@ -6831,6 +6850,24 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "SessionMiddleware update values must be JSON-compatible"
                 ) from exc
+        elif action_kind == "session-operation":
+            if scope_type != "http":
+                raise ContractError("Session operations require HTTP scopes")
+            action = _exact(action, {"kind", "mutation"}, f"{context}.action")
+            mutation = action["mutation"]
+            if not isinstance(mutation, dict) or mutation.get("kind") not in {
+                "popitem",
+                "in-place-union",
+            }:
+                raise ContractError("Session operation has an unsupported kind")
+            mutation_kind = mutation["kind"]
+            mutation_fields = {
+                "popitem": {"kind"},
+                "in-place-union": {"kind", "values"},
+            }[mutation_kind]
+            mutation = _exact(mutation, mutation_fields, f"{context}.mutation.{mutation_kind}")
+            if mutation_kind == "in-place-union":
+                _validate_session_union_values(mutation["values"], f"{context}.mutation.values")
         else:
             if action_kind == "session-mutation" and scope_type != "http":
                 raise ContractError("direct Session mutations require HTTP scopes")
@@ -6905,8 +6942,10 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                     "delete",
                     "clear",
                     "pop",
+                    "popitem",
                     "setdefault",
                     "update",
+                    "in-place-union",
                 }:
                     raise ContractError("SessionMiddleware mutation has an unsupported kind")
                 mutation_kind = mutation["kind"]
@@ -6915,8 +6954,10 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                     "delete": {"kind", "key"},
                     "clear": {"kind"},
                     "pop": {"kind", "key", "default"},
+                    "popitem": {"kind"},
                     "setdefault": {"kind", "key", "default"},
                     "update": {"kind", "values"},
+                    "in-place-union": {"kind", "values"},
                 }[mutation_kind]
                 mutation = _exact(mutation, mutation_fields, f"{context}.mutation.{mutation_kind}")
                 if mutation_kind in {"set", "delete", "pop", "setdefault"}:
@@ -6928,6 +6969,8 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                     or any(not isinstance(key, str) for key in mutation["values"])
                 ):
                     raise ContractError("SessionMiddleware mutation update requires a mapping")
+                if mutation_kind == "in-place-union":
+                    _validate_session_union_values(mutation["values"], f"{context}.mutation.values")
                 try:
                     json.dumps({"initial": initial, "mutation": mutation}, allow_nan=False)
                 except (TypeError, ValueError) as exc:
@@ -7062,7 +7105,17 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         for action in mutation_actions
     )
     if (
-        {"set", "delete", "clear", "pop", "setdefault", "update"} <= mutation_kinds
+        {
+            "set",
+            "delete",
+            "clear",
+            "pop",
+            "popitem",
+            "setdefault",
+            "update",
+            "in-place-union",
+        }
+        <= mutation_kinds
         and pop_existing
         and pop_missing
         and setdefault_existing
