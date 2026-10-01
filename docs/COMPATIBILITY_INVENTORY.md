@@ -17,9 +17,10 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 583 input-only cases across 66 files,
-covering 83 operations and 622 parity requirements. It now includes two
-Python-package-only direct `run_in_threadpool` cases. The six direct
+The active parity manifest indexes 585 input-only cases across 67 files,
+covering 84 operations and 633 parity requirements. It includes two
+Python-package-only direct `run_in_threadpool` cases and two direct `State`
+consumer sequences. The six direct
 ServerErrorMiddleware inputs and three TestClient exception-chain inputs pass
 live source/package comparison in the latest run. The authored cases span
 the Starlette ASGI application and route inventory, routing and reverse URLs, URL scope/components,
@@ -32,27 +33,28 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `49e6b69e-e09e-4c82-9ad4-160ef8fc9a64`. It ran
-from `2026-10-01T05:16:09.182Z` to `2026-10-01T05:18:32.697Z` and selected 742
-profile comparisons: 738 passed, zero failed, zero infrastructure errors, and
+The latest full-slice run is `9c119678-c6df-4c16-8018-ae03b5775cb4`. It ran
+from `2026-10-01T05:43:27.440Z` to `2026-10-01T05:45:56.559Z` and selected 744
+profile comparisons: 740 passed, zero failed, zero infrastructure errors, and
 four Rust-native Python-callable rows were `not_run`. The Python package passed
-all 581 selected comparisons; Rust-native passed 157 of 161. Both target
+all 583 selected comparisons; Rust-native passed 157 of 161. Both target
 profiles were clean at revision
-`acb06796a6dd4691940d1a782a8c1d065203e6c1`; the Rust-native source fingerprint
-was `acb06796a6dd4691940d1a782a8c1d065203e6c1+source-fnv1a64-26d37a031534df21`.
-The two direct `run_in_threadpool` cases, all six direct ServerErrorMiddleware
-cases, and all three TestClient exception-chain inputs passed on the package
-profile. The installed package tree SHA-256 was
-`327d73c6e7a374642f7c05be59c1517e31c0e9bdee0a748360939cc959133e9c`, the wheel
+`589c2ccd39f1651eadc7cf7e13e866e3a1ff68ce`; the Rust-native source fingerprint
+was `589c2ccd39f1651eadc7cf7e13e866e3a1ff68ce+source-fnv1a64-26d37a031534df21`.
+The two direct `run_in_threadpool` cases, both direct State consumer sequences,
+all six direct ServerErrorMiddleware cases, and all three TestClient
+exception-chain inputs passed on the package profile. The installed package
+tree SHA-256 was
+`96e55d4177240b1cf6743d81e241f06f33adfc42e9325cd695f4fd7d6a27977a`, the wheel
 SHA-256 was
-`70bb1df5e16fe13e72a2bb02000a9d054d24dcf57fda735d2d4a6b1d01bdedfe`, and the
+`2c37448744fec28a562081acc9cb74f9f24f26cdeeca742b8b2a7b7911672082`, and the
 manifest SHA-256 was
-`91264a4901c2211e68cc5c2d6657115cf19d85d8c8cfe5ef0dc397c2747ced40`. The four
+`28a150b35eea3a58b195b47ba122d328e098ebaf037840502c7a2c66b585abc2`. The four
 native `not_run` rows are sync endpoint, bound-method, partial, and
-callable-instance Request dispatch cases. `make test` exits with status
-2 for those declared Python-callable boundaries. Full run and wheel hash are
-recorded in [Migration parity contract and evidence](PARITY.md). This bounded
-evidence does not establish full Starlette parity or release readiness.
+callable-instance Request dispatch cases. `make test` exits with status 2 for
+those declared Python-callable boundaries. Full run and wheel hash are recorded
+in [Migration parity contract and evidence](PARITY.md). This bounded evidence
+does not establish full Starlette parity or release readiness.
 
 The latest correctness-gated Router/GZip benchmark run,
 `d653ffc6-5828-4678-bb25-6d3e5b926abf`, measured all 74 declared workloads:
@@ -71,8 +73,8 @@ the package wheel SHA-256 was
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 800 source rows: 309 existing input
-mappings, 50 reasoned `not_applicable` rows, and 441 fixture backlog rows.
+The generated coverage matrix has 800 source rows: 310 existing input
+mappings, 50 reasoned `not_applicable` rows, and 440 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

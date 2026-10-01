@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 583 input-only cases in 66 indexed files, covering 83 operations and 622 parity requirements, including two Python-package-only direct `run_in_threadpool` cases. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases pass live source/package comparisons in the latest run recorded below. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation and post-construction FileResponse field assignments; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; one Python-package Jinja2 template workflow, and direct thread-pool callable forwarding and scheduling. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 585 input-only cases in 67 indexed files, covering 84 operations and 633 parity requirements, including two Python-package-only direct `run_in_threadpool` cases and two direct `State` consumer sequences. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases pass live source/package comparisons in the latest run recorded below. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers, MutableHeaders, and State attribute/item behavior; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation and post-construction FileResponse field assignments; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; one Python-package Jinja2 template workflow, and direct thread-pool callable forwarding and scheduling. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,30 +8,39 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `49e6b69e-e09e-4c82-9ad4-160ef8fc9a64`.
-It ran from `2026-10-01T05:16:09.182Z` to `2026-10-01T05:18:32.697Z` against
+The latest full-slice parity run is `9c119678-c6df-4c16-8018-ae03b5775cb4`.
+It ran from `2026-10-01T05:43:27.440Z` to `2026-10-01T05:45:56.559Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-583-case/622-requirement manifest. It selected 742 profile comparisons: 738
+585-case/633-requirement manifest. It selected 744 profile comparisons: 740
 passed, zero failed, zero infrastructure errors, and four Rust-native
-Python-callable rows were `not_run`. All 581 Python-package comparisons passed;
-Rust-native passed 157 of 161. Both direct `run_in_threadpool` cases passed,
-as did all six direct ServerErrorMiddleware cases and all three TestClient
-exception-chain cases. The four Rust-native `not_run` rows are sync endpoint,
-bound-method, partial, and callable-instance Request dispatch cases.
-`make test` exits with status 2 for those declared `not_run` rows. Both target
-profiles were clean at revision `acb06796a6dd4691940d1a782a8c1d065203e6c1`;
-the Rust-native source fingerprint was
-`acb06796a6dd4691940d1a782a8c1d065203e6c1+source-fnv1a64-26d37a031534df21`.
+Python-callable rows were `not_run`. All 583 Python-package comparisons passed;
+Rust-native passed 157 of 161. Both direct `run_in_threadpool` cases, both
+direct State consumer sequences, all six direct ServerErrorMiddleware cases,
+and all three TestClient exception-chain cases passed. The four Rust-native
+`not_run` rows are sync endpoint, bound-method, partial, and callable-instance
+Request dispatch cases. `make test` exits with status 2 because those declared
+rows remain `not_run`. Both target profiles were clean at revision
+`589c2ccd39f1651eadc7cf7e13e866e3a1ff68ce`; the Rust-native source fingerprint
+was `589c2ccd39f1651eadc7cf7e13e866e3a1ff68ce+source-fnv1a64-26d37a031534df21`.
 The installed package tree SHA-256 was
-`327d73c6e7a374642f7c05be59c1517e31c0e9bdee0a748360939cc959133e9c`, the
+`96e55d4177240b1cf6743d81e241f06f33adfc42e9325cd695f4fd7d6a27977a`, the
 wheel SHA-256 was
-`70bb1df5e16fe13e72a2bb02000a9d054d24dcf57fda735d2d4a6b1d01bdedfe`, and the
+`2c37448744fec28a562081acc9cb74f9f24f26cdeeca742b8b2a7b7911672082`, and the
 manifest SHA-256 was
-`91264a4901c2211e68cc5c2d6657115cf19d85d8c8cfe5ef0dc397c2747ced40`.
+`28a150b35eea3a58b195b47ba122d328e098ebaf037840502c7a2c66b585abc2`.
 Strict aggregation reports `not_proven` because the full compatibility
 denominator remains incomplete.
 
 ## Input-only cases
+
+### `State` attribute and mapping behavior
+
+[`datastructures-state.yaml`](../tests/fixtures/sources/parity/datastructures-state.yaml)
+defines two consumer sequences for `starlette.datastructures.State`. They
+compare attribute and item reads, writes, and deletes; aliasing between item
+and attribute access; missing-key errors; iteration and length; the instance
+dictionary; retention of a supplied mapping; and independent default
+instances. Both source/package comparisons pass in the latest full-slice run.
 
 ### Application middleware registration and lifecycle
 
