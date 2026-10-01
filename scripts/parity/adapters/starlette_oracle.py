@@ -10,6 +10,7 @@ import contextvars
 import errno
 import functools
 import hashlib
+import importlib.util
 import inspect
 import json
 import math
@@ -556,8 +557,20 @@ def _load_starlette() -> tuple[Any, Path]:
         raise RuntimeError(f"Starlette package was not found under {root}")
     if "starlette" in sys.modules:
         raise RuntimeError("the oracle adapter must start in a fresh process")
-    sys.path.insert(0, str(root))
-    import starlette
+    spec = importlib.util.spec_from_file_location(
+        "starlette",
+        package / "__init__.py",
+        submodule_search_locations=[str(package)],
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("could not create an isolated import spec for the Starlette package")
+    starlette = importlib.util.module_from_spec(spec)
+    sys.modules["starlette"] = starlette
+    try:
+        spec.loader.exec_module(starlette)
+    except BaseException:
+        sys.modules.pop("starlette", None)
+        raise
 
     source_file = Path(starlette.__file__).resolve()
     if source_file != (package / "__init__.py").resolve():

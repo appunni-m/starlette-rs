@@ -19548,6 +19548,9 @@ def _validate_parity_result_against_active_contract(
 
     manifest = load_manifest(active_manifest_path)
     validate_manifest(manifest)
+    from .api_sources import load_api_metadata
+
+    package_path = Path(load_api_metadata(root)["authority"]["package_path"])
     from .generate_inputs import _check_generated, _validate_sources
 
     generated_inputs = _validate_sources(root, manifest)
@@ -19589,6 +19592,206 @@ def _validate_parity_result_against_active_contract(
     }
     if value["identity"]["command"] != expected_command:
         raise ContractError("parity result command identity differs from the active manifest")
+
+    identity = value["identity"]
+    if not all(isinstance(identity[name], list) for name in ("oracles", "targets", "environments")):
+        raise ContractError("parity result identity inventories must be arrays")
+    errors = value["infrastructure_errors"]
+    failed_runner_environment = any(
+        error["scope"] == "runner" and error["id"] == "python-environments" for error in errors
+    )
+
+    expected_oracles = {oracle["id"]: oracle for oracle in manifest["oracles"]}
+    oracle_records: dict[str, dict[str, Any]] = {}
+    for index, oracle in enumerate(identity["oracles"]):
+        oracle_id = _string(oracle["oracle_id"], f"result.identity.oracles[{index}].oracle_id")
+        if oracle_id not in expected_oracles or oracle_id in oracle_records:
+            raise ContractError("parity result oracle identity inventory differs from the manifest")
+        declared = expected_oracles[oracle_id]
+        if (
+            oracle["name"] != declared["name"]
+            or oracle["version"] != declared["version"]
+            or oracle["revision"] != manifest["scope"]["inventory"]["revision"]
+        ):
+            raise ContractError(f"parity result oracle identity {oracle_id} differs from the pin")
+        for field in ("runtime", "module_path", "os", "architecture"):
+            _string(oracle[field], f"result.identity.oracles[{index}].{field}")
+        module_path = Path(oracle["module_path"])
+        if (
+            not module_path.is_absolute()
+            or module_path.name != "__init__.py"
+            or module_path.parent.name != package_path.parts[-1]
+        ):
+            raise ContractError(
+                f"parity result oracle identity {oracle_id} has an invalid module path"
+            )
+        for field in (
+            "dependency_lock_sha256",
+            "environment_sha256",
+            "runtime_lock_sha256",
+        ):
+            _validate_sha256(oracle[field], f"result.identity.oracles[{index}].{field}")
+        oracle_records[oracle_id] = oracle
+
+    if set(oracle_records) != set(expected_oracles) and not (
+        failed_runner_environment
+        or any(error["scope"] == "oracle" and error["id"] in expected_oracles for error in errors)
+    ):
+        raise ContractError(
+            "parity result omits a source oracle identity without an identity error"
+        )
+
+    expected_profiles = {profile["id"]: profile for profile in manifest["target_profiles"]}
+    targets = {target["id"]: target for target in manifest["targets"]}
+    profile_records: dict[str, dict[str, Any]] = {}
+    for index, target in enumerate(identity["targets"]):
+        profile_id = _string(
+            target["target_profile"], f"result.identity.targets[{index}].target_profile"
+        )
+        if profile_id not in expected_profiles or profile_id in profile_records:
+            raise ContractError("parity result target identity inventory differs from the manifest")
+        declared_profile = expected_profiles[profile_id]
+        target_id = declared_profile["target_id"]
+        if (
+            target["target_id"] != target_id
+            or target["backend"] != declared_profile["backend"]
+            or target["features"] != declared_profile["features"]
+        ):
+            raise ContractError(
+                f"parity result target identity {profile_id} differs from its profile"
+            )
+        if target_id not in targets:
+            raise ContractError(
+                f"parity result target identity {profile_id} names an unknown target"
+            )
+        for field in ("revision", "runtime", "backend", "os", "architecture"):
+            _string(target[field], f"result.identity.targets[{index}].{field}")
+        if not isinstance(target["dirty"], bool) or not isinstance(target["features"], list):
+            raise ContractError(f"parity result target identity {profile_id} is malformed")
+        if target["package_version"] is not None:
+            _string(target["package_version"], f"result.identity.targets[{index}].package_version")
+        if target["target_tree_sha256"] is not None:
+            _validate_sha256(
+                target["target_tree_sha256"],
+                f"result.identity.targets[{index}].target_tree_sha256",
+            )
+        _validate_sha256(
+            target["dependency_lock_sha256"],
+            f"result.identity.targets[{index}].dependency_lock_sha256",
+        )
+        if target["environment_sha256"] is not None:
+            _validate_sha256(
+                target["environment_sha256"],
+                f"result.identity.targets[{index}].environment_sha256",
+            )
+        profile_records[profile_id] = target
+
+    if command_id == "oracle-only" and profile_records:
+        raise ContractError("oracle-only result must not include target identities")
+    if command_id == "parity":
+        missing_profiles = set(expected_profiles) - set(profile_records)
+        for profile_id in missing_profiles:
+            target_id = expected_profiles[profile_id]["target_id"]
+            if not (
+                failed_runner_environment
+                or any(error["scope"] == "target" and error["id"] == target_id for error in errors)
+            ):
+                raise ContractError(
+                    f"parity result omits target identity {profile_id} without an identity error"
+                )
+
+    environment_records: dict[str, dict[str, Any]] = {}
+    for index, environment in enumerate(identity["environments"]):
+        environment_id = _string(environment["id"], f"result.identity.environments[{index}].id")
+        if environment_id in environment_records:
+            raise ContractError("parity result repeats a prepared environment identity")
+        for field in ("runtime", "os", "architecture"):
+            _string(environment[field], f"result.identity.environments[{index}].{field}")
+        _validate_sha256(
+            environment["dependency_lock_sha256"],
+            f"result.identity.environments[{index}].dependency_lock_sha256",
+        )
+        _validate_sha256(
+            environment["environment_sha256"],
+            f"result.identity.environments[{index}].environment_sha256",
+        )
+        if environment_id == "rust-native-local":
+            lock_path = root / "Cargo.lock"
+            if not lock_path.is_file() or environment["dependency_lock_sha256"] != sha256_file(
+                lock_path
+            ):
+                raise ContractError("native environment lock digest differs from active Cargo.lock")
+        elif environment_id in {
+            "starlette-oracle-cpython312",
+            "starlette-rs-py-cpython312",
+        }:
+            expected_lock = (
+                "scripts/parity/locks/starlette-oracle-cpython312.txt"
+                if environment_id == "starlette-oracle-cpython312"
+                else "scripts/parity/locks/asgi-runtime-cpython312.txt"
+            )
+            if environment["dependency_lock_path"] != expected_lock:
+                raise ContractError(f"{environment_id} is bound to an unexpected runtime lock")
+            lock_path = root / expected_lock
+            if not lock_path.is_file() or environment["dependency_lock_sha256"] != sha256_file(
+                lock_path
+            ):
+                raise ContractError(f"{environment_id} lock digest differs from the active lock")
+            _validate_sha256(
+                environment["installed_lock_sha256"],
+                f"result.identity.environments[{index}].installed_lock_sha256",
+            )
+            artifact_digest = environment["artifact_sha256"]
+            if environment_id == "starlette-oracle-cpython312":
+                if artifact_digest is not None:
+                    raise ContractError(
+                        "source oracle environment cannot identify a target artifact"
+                    )
+            elif artifact_digest is not None:
+                _validate_sha256(
+                    artifact_digest,
+                    f"result.identity.environments[{index}].artifact_sha256",
+                )
+        else:
+            raise ContractError(f"parity result has unknown environment identity {environment_id}")
+        environment_records[environment_id] = environment
+
+    expected_environment_ids = {"starlette-oracle-cpython312", "starlette-rs-py-cpython312"}
+    if command_id == "parity":
+        expected_environment_ids.add("rust-native-local")
+    if not failed_runner_environment and set(environment_records) != expected_environment_ids:
+        raise ContractError("parity result prepared environment inventory differs from the command")
+    if command_id == "oracle-only" and "rust-native-local" in environment_records:
+        raise ContractError("oracle-only result must not include a native target environment")
+
+    oracle_environment = environment_records.get("starlette-oracle-cpython312")
+    if oracle_environment is not None:
+        for oracle in oracle_records.values():
+            if oracle["runtime_lock_sha256"] != oracle_environment["dependency_lock_sha256"]:
+                raise ContractError(
+                    "source oracle runtime lock differs from its prepared environment"
+                )
+            if oracle["environment_sha256"] != oracle_environment["environment_sha256"]:
+                raise ContractError("source oracle identity differs from its prepared environment")
+    python_environment = environment_records.get("starlette-rs-py-cpython312")
+    native_environment = environment_records.get("rust-native-local")
+    for profile_id, target in profile_records.items():
+        if target["target_id"] == "rust-native":
+            if native_environment is None or (
+                target["dependency_lock_sha256"] != native_environment["dependency_lock_sha256"]
+                or target["environment_sha256"] != native_environment["environment_sha256"]
+            ):
+                raise ContractError(
+                    f"native target identity {profile_id} differs from its environment"
+                )
+        elif target["target_id"] == "python-package":
+            if python_environment is None or (
+                target["dependency_lock_sha256"] != python_environment["dependency_lock_sha256"]
+                or target["environment_sha256"] != python_environment["environment_sha256"]
+            ):
+                raise ContractError(
+                    f"Python target identity {profile_id} differs from its environment"
+                )
 
     expected_rows = [
         (case["case_id"], profile_id) for case in cases for profile_id in case["target_profiles"]
