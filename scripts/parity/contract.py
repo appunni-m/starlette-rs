@@ -783,6 +783,7 @@ SYNC_ENDPOINT_REQUIREMENTS = {
     "worker_thread": "starlette.routing.sync-endpoint-worker-thread",
     "single_invocation": "starlette.routing.sync-endpoint-single-invocation",
     "callable_form": "starlette.routing.sync-endpoint-callable-form",
+    "worker_cancellation": "starlette.routing.sync-endpoint-worker-cancellation",
 }
 ASGI_CALLABLE_INSTANCE_REQUIREMENT = "starlette.routing.asgi-callable-instance-dispatch"
 ASGI_CALLABLE_INSTANCE_ENDPOINT = {
@@ -10842,9 +10843,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 "GET/HEAD route workflow requires a synchronous endpoint with default methods"
             )
         expected_schedule = ["dispatch-get", "dispatch-head"]
-    elif app_args["routes"][0]["endpoint"] == ASYNC_CALL_BOUNDARY_ENDPOINT:
+    elif app_args["routes"][0]["endpoint"] == ASYNC_CALL_BOUNDARY_ENDPOINT or (
+        isinstance(app_args["routes"][0]["endpoint"], dict)
+        and app_args["routes"][0]["endpoint"].get("kind") == "sync-request-cancellation-observer"
+    ):
         if step_ids != ["application", "dispatch"]:
-            raise ContractError("async boundary cancellation uses one direct request dispatch")
+            raise ContractError("endpoint cancellation uses one direct request dispatch")
         expected_schedule = ["dispatch", "cancel-server-task"]
     else:
         expected_scope = (
@@ -11701,6 +11705,22 @@ def _validate_application_stimulus(
             _validate_sync_request_runtime_endpoint(endpoint)
             if route["path"] != "/items/{item_id:int}":
                 raise ContractError("sync request runtime input uses the int route boundary")
+            return
+        if (
+            isinstance(endpoint, dict)
+            and endpoint.get("kind") == "sync-request-cancellation-observer"
+        ):
+            endpoint = _exact(
+                endpoint,
+                {"kind", "response_content"},
+                "sync request cancellation observer endpoint",
+            )
+            if route["path"] != "/items/{item_id:int}" or not isinstance(
+                endpoint["response_content"], str
+            ):
+                raise ContractError(
+                    "sync request cancellation input must use the int route and text response"
+                )
             return
         if endpoint == ASGI_CALLABLE_INSTANCE_ENDPOINT:
             if route["path"] != "/items/{item_id:int}":
@@ -16932,6 +16952,11 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         )
         if endpoint["callable_kind"] in {"bound_method", "partial"}:
             coverage.add(SYNC_ENDPOINT_REQUIREMENTS["callable_form"])
+    elif endpoint["kind"] == "sync-request-cancellation-observer":
+        coverage.update(
+            SYNC_ENDPOINT_REQUIREMENTS[key]
+            for key in ("worker_thread", "single_invocation", "worker_cancellation")
+        )
     elif endpoint["kind"] == "asgi-callable-instance-observer":
         coverage.add(ASGI_CALLABLE_INSTANCE_REQUIREMENT)
     elif endpoint == ASYNC_CALL_BOUNDARY_ENDPOINT:

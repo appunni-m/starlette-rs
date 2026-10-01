@@ -32,27 +32,26 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 585 input-only cases in 67 indexed files,
-covering 84 operations and 633 requirements, including the direct
-`starlette.concurrency.run_in_threadpool` helper and two direct `State`
-consumer sequences. The six direct
+The active parity contract contains 586 input-only cases in 68 indexed files,
+covering 84 operations and 634 requirements, including the direct
+`starlette.concurrency.run_in_threadpool` helper, synchronous Request endpoint
+worker cancellation, and two direct `State` consumer sequences. The six direct
 ServerErrorMiddleware inputs and three TestClient exception-chain inputs pass
 live source/package comparison. Latest integrated run
-`9c119678-c6df-4c16-8018-ae03b5775cb4` selected 744 comparisons: 740 passed,
+`5fcedcd5-dc24-4016-b208-959cfc8f92b1` selected 745 comparisons: 741 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
-Python-callable rows `not_run`. Both target profiles were clean at revision
-`589c2ccd39f1651eadc7cf7e13e866e3a1ff68ce`; the installed Python package
-passed 583/583, and Rust-native passed 157/161. The two direct
-`run_in_threadpool` cases and both direct `State` consumer sequences passed on
-the package profile. The four native `not_run` rows are sync endpoint,
-bound-method, partial, and callable-instance Request dispatch. `make test`
-exits with status 2 for these declared rows. The complete run identity, wheel
-and tree hashes, and case-level evidence are in
+Python-callable rows `not_run`. The installed Python package passed 584/584,
+and Rust-native passed 157/161. The synchronous Request worker-cancellation
+case, the two direct `run_in_threadpool` cases, and both direct `State` consumer
+sequences passed on the package profile. The four native `not_run` rows are
+sync endpoint, bound-method, partial, and callable-instance Request dispatch.
+`make test` exits with status 2 for these declared rows. The complete run
+identity, wheel and tree hashes, and case-level evidence are in
 [Migration parity contract and evidence](PARITY.md). This bounded run does not
 establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 800 source rows: 310 input mappings,
-50 source-backed `not_applicable` rows, and 440 fixture-backlog rows. These
+The generated coverage matrix contains 800 source rows: 311 input mappings,
+50 source-backed `not_applicable` rows, and 439 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.
@@ -348,6 +347,15 @@ The synchronous endpoint is passed to the Rust-backed
 `starlette.concurrency.run_in_threadpool` awaitable, which delegates execution
 to AnyIO's worker-thread API. Python's active task drives each returned
 awaitable; the user function body remains Python code.
+
+The new package-only case in
+[`asgi-request-cancellation.yaml`](../tests/fixtures/sources/parity/asgi-request-cancellation.yaml)
+requests cancellation after the synchronous endpoint enters the worker and
+releases the worker afterward. Exact source/package comparison confirms the
+request task remains unfinished before release, the worker completes its
+finalizer after constructing a response, and `CancelledError` propagates with
+no ASGI response events. Rust-native remains unselected because it does not
+invoke arbitrary Python Request endpoint callables.
 
 The earlier 51-case checkpoint was run `480437e5-e1f4-4e25-91a5-1453ba82ea69`.
 It predates the Router and Mount cases; the latest integrated run is recorded

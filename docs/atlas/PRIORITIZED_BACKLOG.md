@@ -8,24 +8,23 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 585 input-only cases in 67 indexed files,
-covering 84 operations and 633 parity requirements. The two direct
-`run_in_threadpool` cases, two direct State consumer sequences, six direct
-ServerErrorMiddleware cases, and three TestClient exception-chain cases pass
-live source/package comparison. Latest integrated run
-`9c119678-c6df-4c16-8018-ae03b5775cb4` passed all 740 executed comparisons out
-of 744 selected, with zero failures or infrastructure errors and four
-Rust-native Python-callable rows `not_run`. Both target profiles were clean at
-revision `589c2ccd39f1651eadc7cf7e13e866e3a1ff68ce`. The Python package passed
-583/583; Rust-native passed 157/161. The four native `not_run` rows are sync
-endpoint, bound-method, partial, and callable-instance Request dispatch.
+The active contract contains 586 input-only cases in 68 indexed files,
+covering 84 operations and 634 parity requirements. The two direct
+`run_in_threadpool` cases, synchronous Request endpoint worker cancellation,
+two direct State consumer sequences, six direct ServerErrorMiddleware cases,
+and three TestClient exception-chain cases pass live source/package comparison.
+Latest integrated run `5fcedcd5-dc24-4016-b208-959cfc8f92b1` passed all 741
+executed comparisons out of 745 selected, with zero failures or infrastructure
+errors and four Rust-native Python-callable rows `not_run`. The Python package
+passed 584/584; Rust-native passed 157/161. The four native `not_run` rows are
+sync endpoint, bound-method, partial, and callable-instance Request dispatch.
 `make test` exits with status 2 for those declared rows. Full run identities
 and package hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The current coverage matrix has 800 source rows: 310 existing input mappings,
-50 source-backed `not_applicable` rows, and 440 fixture-backlog rows. Derive
+The current coverage matrix has 800 source rows: 311 existing input mappings,
+50 source-backed `not_applicable` rows, and 439 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
@@ -87,8 +86,11 @@ callback starts with cancellation and finalizer observations. The synchronous
 background cancellation input holds the worker callback until cancellation
 reaches the response task, then compares worker completion and propagated
 cancellation; it passes in the latest full source/package run.
-Remaining boundary work includes exception identity/chaining beyond the
-bounded TestClient propagation cases,
+The new synchronous Request worker-cancellation input matches source/package
+behavior for cancellation requested after AnyIO worker entry, worker
+finalization and completion, and the propagated cancellation error. Remaining
+boundary work includes exception identity/chaining beyond the bounded
+TestClient propagation cases,
 streaming backpressure, broader lifespan state and concurrency, and other
 Python/Rust ownership decisions. The new bounded generator-lifespan slice
 covers sync and async entry/cleanup, startup/shutdown failures, synchronous

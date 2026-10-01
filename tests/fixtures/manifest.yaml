@@ -243,6 +243,7 @@
       "build/parity/inputs/parity/asgi-http-get-text.json",
       "build/parity/inputs/parity/application-middleware.json",
       "build/parity/inputs/parity/asgi-request-items.json",
+      "build/parity/inputs/parity/asgi-request-cancellation.json",
       "build/parity/inputs/parity/asgi-call-boundary.json",
       "build/parity/inputs/parity/request-runtime.json",
       "build/parity/inputs/parity/request-consumption.json",
@@ -1466,6 +1467,7 @@
                   "starlette.routing.sync-endpoint-contextvar-propagation",
                   "starlette.routing.sync-endpoint-worker-thread",
                   "starlette.routing.sync-endpoint-single-invocation",
+                  "starlette.routing.sync-endpoint-worker-cancellation",
                   "starlette.routing.sync-endpoint-callable-form",
                   "starlette.routing.asgi-callable-instance-dispatch",
                   "starlette.routing.asgi-callable-http-exception-before-start",
@@ -1681,6 +1683,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.sync-endpoint-worker-cancellation",
+              "dimension": "boundary",
+              "description": "Cancel the host ASGI request task after a synchronous Request endpoint enters AnyIO's worker pool, then release the endpoint and observe worker completion, finalization, request cancellation, and ASGI events. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; AnyIO 4.14.2.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },

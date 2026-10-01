@@ -863,6 +863,32 @@ def _sync_request_observer_response(
     return PlainTextResponse(content=spec["response_content"])
 
 
+def _sync_request_cancellation_response(
+    _request: Any, spec: dict[str, Any], state: dict[str, Any]
+) -> Any:
+    with state["lock"]:
+        state["worker_thread_id"] = threading.get_ident()
+        state["invocation_count"] += 1
+        state["event_trace"].append("worker-entered")
+    state["worker_entered"].set()
+    state["event_loop"].call_soon_threadsafe(state["worker_entered_async"].set)
+    try:
+        state["worker_release"].wait()
+        from starlette.responses import PlainTextResponse
+
+        response = PlainTextResponse(content=spec["response_content"])
+        with state["lock"]:
+            state["response_constructed"] = True
+        return response
+    finally:
+        with state["lock"]:
+            state["worker_finalizer_ran"] = True
+            state["event_trace"].append("worker-finalizer-ran")
+            state["worker_completed"].set()
+            state["event_trace"].append("worker-completed")
+        state["event_loop"].call_soon_threadsafe(state["worker_completed_async"].set)
+
+
 def _sync_request_runtime_observer_response(
     request: Any, spec: dict[str, Any], state: dict[str, Any]
 ) -> Any:
@@ -1607,6 +1633,38 @@ def _materialize_application(
                 )
             else:
                 raise ValueError(f"unsupported sync endpoint callable kind: {callable_kind!r}")
+        elif response_spec["kind"] == "sync-request-cancellation-observer":
+            _strict_object(
+                response_spec,
+                {"kind", "response_content"},
+                "sync request cancellation observer endpoint",
+            )
+            sync_state: dict[str, Any] = {
+                "caller_thread_id": None,
+                "worker_thread_id": None,
+                "invocation_count": 0,
+                "observation": None,
+                "lock": threading.Lock(),
+                "event_loop": None,
+                "worker_entered": threading.Event(),
+                "worker_release": threading.Event(),
+                "worker_completed": threading.Event(),
+                "worker_entered_async": None,
+                "worker_completed_async": None,
+                "worker_finalizer_ran": False,
+                "response_constructed": False,
+                "event_trace": [],
+            }
+            sync_endpoint_states.append(sync_state)
+
+            def make_cancellation_endpoint(spec: dict[str, Any], state: dict[str, Any]) -> Any:
+                def endpoint(request: Any) -> Any:
+                    return _sync_request_cancellation_response(request, spec, state)
+
+                return endpoint
+
+            route_endpoint = make_cancellation_endpoint(response_spec, sync_state)
+            route_endpoint._parity_sync_cancellation_state = sync_state
         elif response_spec["kind"] == "sync-request-runtime-observer":
             _strict_object(
                 response_spec,
@@ -1791,6 +1849,7 @@ async def _invoke(
     captured_exception: BaseException | None = None
     async_endpoint_observations: dict[str, Any] | None = None
     boundary_state = getattr(route_endpoint, "_parity_async_boundary_state", None)
+    sync_cancellation_state = getattr(route_endpoint, "_parity_sync_cancellation_state", None)
     try:
         for state in sync_endpoint_states or []:
             state["caller_thread_id"] = threading.get_ident()
@@ -1798,28 +1857,91 @@ async def _invoke(
                 token = state["context_var"].set(state["context_value"])
                 context_tokens.append((state, token))
         if cancel_after_endpoint_entry:
-            if boundary_state is None:
-                raise RuntimeError("cancellation schedule requires the declared async endpoint")
             server_loop = asyncio.get_running_loop()
             server_thread_id = threading.get_ident()
-            boundary_state["entered"] = asyncio.Event()
-            server_task = asyncio.create_task(app(scope, receive, send))
-            await boundary_state["entered"].wait()
-            cancel_requested = server_task.cancel()
-            try:
-                await server_task
-            except asyncio.CancelledError as exc:
-                captured_exception = exc
-            async_endpoint_observations = {
-                "endpoint_entered": boundary_state["endpoint_task"] is not None,
-                "endpoint_finalizer_ran": boundary_state["finalizer_ran"],
-                "endpoint_cancellation_class": boundary_state["cancellation_class"],
-                "same_event_loop": boundary_state["endpoint_loop"] is server_loop,
-                "same_request_task": boundary_state["endpoint_task"] is server_task,
-                "same_thread": boundary_state["endpoint_thread_id"] == server_thread_id,
-                "server_task_cancel_requested": cancel_requested,
-                "server_task_cancelled": server_task.cancelled(),
-            }
+            if boundary_state is not None:
+                boundary_state["entered"] = asyncio.Event()
+                server_task = asyncio.create_task(app(scope, receive, send))
+                await boundary_state["entered"].wait()
+                cancel_requested = server_task.cancel()
+                try:
+                    await server_task
+                except asyncio.CancelledError as exc:
+                    captured_exception = exc
+                async_endpoint_observations = {
+                    "endpoint_entered": boundary_state["endpoint_task"] is not None,
+                    "endpoint_finalizer_ran": boundary_state["finalizer_ran"],
+                    "endpoint_cancellation_class": boundary_state["cancellation_class"],
+                    "same_event_loop": boundary_state["endpoint_loop"] is server_loop,
+                    "same_request_task": boundary_state["endpoint_task"] is server_task,
+                    "same_thread": boundary_state["endpoint_thread_id"] == server_thread_id,
+                    "server_task_cancel_requested": cancel_requested,
+                    "server_task_cancelled": server_task.cancelled(),
+                }
+            elif sync_cancellation_state is not None:
+                state = sync_cancellation_state
+                state["event_loop"] = server_loop
+                state["worker_entered_async"] = asyncio.Event()
+                state["worker_completed_async"] = asyncio.Event()
+                server_task = asyncio.create_task(app(scope, receive, send))
+                cancel_requested = False
+                request_task_done_before_worker_release = None
+                try:
+                    await asyncio.wait_for(state["worker_entered_async"].wait(), timeout=15)
+                    cancel_requested = server_task.cancel()
+                    with state["lock"]:
+                        state["event_trace"].append("request-cancel-requested")
+                    request_task_done_before_worker_release = server_task.done()
+                    with state["lock"]:
+                        state["event_trace"].append("worker-released")
+                        state["worker_release"].set()
+                    try:
+                        await asyncio.wait_for(server_task, timeout=15)
+                    except asyncio.CancelledError as exc:
+                        captured_exception = exc
+                        with state["lock"]:
+                            state["event_trace"].append("request-task-cancelled")
+                    except Exception as exc:
+                        if not capture_dispatch_error:
+                            raise
+                        captured_exception = exc
+                        with state["lock"]:
+                            state["event_trace"].append("request-task-raised")
+                    else:
+                        with state["lock"]:
+                            state["event_trace"].append("request-task-completed")
+                    await asyncio.wait_for(state["worker_completed_async"].wait(), timeout=15)
+                finally:
+                    state["worker_release"].set()
+                    if not server_task.done():
+                        server_task.cancel()
+                        try:
+                            await asyncio.wait_for(server_task, timeout=15)
+                        except asyncio.CancelledError:
+                            pass
+                with state["lock"]:
+                    state["observation"] = {
+                        "worker_entered": state["worker_entered"].is_set(),
+                        "different_worker_thread": state["worker_thread_id"] != server_thread_id,
+                        "invocation_count": state["invocation_count"],
+                        "worker_completed": state["worker_completed"].is_set(),
+                        "worker_finalizer_ran": state["worker_finalizer_ran"],
+                        "response_constructed": state["response_constructed"],
+                        "request_task_cancel_requested": cancel_requested,
+                        "request_task_done_before_worker_release": (
+                            request_task_done_before_worker_release
+                        ),
+                        "request_task_cancelled": server_task.cancelled(),
+                        "request_task_terminal_error_class": (
+                            f"{type(captured_exception).__module__}."
+                            f"{type(captured_exception).__qualname__}"
+                            if captured_exception is not None
+                            else None
+                        ),
+                        "event_trace": list(state["event_trace"]),
+                    }
+            else:
+                raise RuntimeError("cancellation schedule requires a declared endpoint observer")
         else:
             try:
                 await app(scope, receive, send)
@@ -1841,6 +1963,7 @@ async def _invoke(
         start is None
         and scope["type"] not in {"lifespan", "websocket"}
         and async_endpoint_observations is None
+        and sync_cancellation_state is None
     ):
         raise RuntimeError("Starlette completed without an http.response.start event")
     body_chunks = []
@@ -10249,6 +10372,10 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         expected_schedule = (
             ["dispatch", "cancel-server-task"]
             if endpoint_spec == {"kind": "async-call-boundary-observer"}
+            or (
+                isinstance(endpoint_spec, dict)
+                and endpoint_spec.get("kind") == "sync-request-cancellation-observer"
+            )
             else ["dispatch"]
         )
         if (
