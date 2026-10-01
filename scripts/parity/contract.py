@@ -793,7 +793,12 @@ SYNC_ENDPOINT_REQUIREMENTS = {
     "worker_cancellation": "starlette.routing.sync-endpoint-worker-cancellation",
 }
 ASYNC_ENDPOINT_CALLABLE_REQUIREMENT = "starlette.routing.async-endpoint-callable-form"
-ASYNC_ENDPOINT_CALLABLE_KINDS = {"function", "bound_method", "partial", "nested_partial"}
+ASYNC_ENDPOINT_CALLABLE_KINDS = {
+    "function",
+    "bound_method",
+    "partial",
+    "nested_partial",
+}
 ASGI_CALLABLE_INSTANCE_REQUIREMENT = "starlette.routing.asgi-callable-instance-dispatch"
 ASGI_CALLABLE_INSTANCE_ENDPOINT = {
     "kind": "asgi-callable-instance-observer",
@@ -11782,9 +11787,12 @@ def _validate_application_stimulus(
                 )
             return
         if isinstance(endpoint, dict) and endpoint.get("kind") == "async-request-callable-observer":
+            fields = {"kind", "callable_kind", "path_parameter", "response_content"}
+            if "error_message" in endpoint:
+                fields.add("error_message")
             endpoint = _exact(
                 endpoint,
-                {"kind", "callable_kind", "path_parameter", "response_content"},
+                fields,
                 "async request callable observer endpoint",
             )
             if (
@@ -11792,6 +11800,7 @@ def _validate_application_stimulus(
                 or route["path"] != "/items/{item_id:int}"
                 or endpoint["path_parameter"] != "item_id"
                 or not isinstance(endpoint["response_content"], str)
+                or ("error_message" in endpoint and not isinstance(endpoint["error_message"], str))
             ):
                 raise ContractError(
                     "async endpoint callable input must use the declared int route and callable forms"
@@ -11852,16 +11861,19 @@ def _validate_application_stimulus(
             return
         if not isinstance(endpoint, dict) or endpoint.get("kind") != "sync-request-observer":
             raise ContractError("Request endpoint must use a declared observer input shape")
+        fields = {
+            "kind",
+            "callable_kind",
+            "path_parameter",
+            "context_var_name",
+            "context_value",
+            "response_content",
+        }
+        if "error_message" in endpoint:
+            fields.add("error_message")
         _exact(
             endpoint,
-            {
-                "kind",
-                "callable_kind",
-                "path_parameter",
-                "context_var_name",
-                "context_value",
-                "response_content",
-            },
+            fields,
             "sync endpoint input",
         )
         if (
@@ -11872,6 +11884,7 @@ def _validate_application_stimulus(
             or not isinstance(endpoint["context_value"], str)
             or not endpoint["context_value"]
             or endpoint["response_content"] != "sync ok"
+            or ("error_message" in endpoint and not isinstance(endpoint["error_message"], str))
         ):
             raise ContractError("sync endpoint input must use the declared caller-context stimulus")
         return
@@ -13045,7 +13058,7 @@ def _validate_exception_handler_dispatch(
     endpoint = route["endpoint"]
     if _is_router_miss_http_exception_handler_workflow(app_arguments, dispatch_arguments):
         return
-    if scope.get("type") != "http" or scope["path"] != route["path"]:
+    if scope.get("type") != "http" or _route_template_capture(route["path"], scope["path"]) is None:
         raise ContractError("exception-handler input must dispatch to its declared route path")
     if _is_server_error_stimulus(app_arguments):
         if scope["method"] != "GET" or route["methods"] != ["GET"]:
@@ -17246,8 +17259,12 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         )
         if endpoint["callable_kind"] in {"bound_method", "partial"}:
             coverage.add(SYNC_ENDPOINT_REQUIREMENTS["callable_form"])
+        if "error_message" in endpoint:
+            coverage.add("starlette.asgi.server-error.default-response")
     elif endpoint["kind"] == "async-request-callable-observer":
         coverage.add(ASYNC_ENDPOINT_CALLABLE_REQUIREMENT)
+        if "error_message" in endpoint:
+            coverage.add("starlette.asgi.server-error.default-response")
     elif endpoint["kind"] == "sync-request-cancellation-observer":
         coverage.update(
             SYNC_ENDPOINT_REQUIREMENTS[key]
@@ -17261,11 +17278,19 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     elif endpoint["kind"] == "asgi-callable-action-sequence":
         coverage.add(ASGI_CALLABLE_INSTANCE_REQUIREMENT)
         sent_response = any(action["action"] == "send" for action in endpoint["actions"])
-        coverage.add(
-            "starlette.routing.asgi-callable-http-exception-after-start"
-            if sent_response
-            else "starlette.routing.asgi-callable-http-exception-before-start"
-        )
+        action_kinds = {action["action"] for action in endpoint["actions"]}
+        if "raise-http-exception" in action_kinds:
+            coverage.add(
+                "starlette.routing.asgi-callable-http-exception-after-start"
+                if sent_response
+                else "starlette.routing.asgi-callable-http-exception-before-start"
+            )
+        if "raise-runtime-error" in action_kinds:
+            coverage.add(
+                "starlette.asgi.server-error.response-started"
+                if sent_response
+                else "starlette.asgi.server-error.default-response"
+            )
     return coverage
 
 

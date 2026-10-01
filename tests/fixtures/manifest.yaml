@@ -1703,7 +1703,7 @@
             {
               "id": "starlette.routing.sync-endpoint-callable-form",
               "dimension": "boundary",
-              "description": "Route synchronous endpoints supplied as a bound method or functools.partial and observe their live execution through Starlette's AnyIO worker-thread boundary. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_routing.py::test_partial_async_endpoint and test_route_name callable-form cases.",
+              "description": "Route synchronous Request endpoints supplied as a function, bound method, or functools.partial. Observe actual callable type, partial depth, Request path parameter, context-variable transfer, and execution on a distinct AnyIO worker thread. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_routing.py callable-form cases.",
               "lanes": [
                 "parity"
               ],
@@ -1726,7 +1726,7 @@
             {
               "id": "starlette.routing.asgi-callable-instance-dispatch",
               "dimension": "boundary",
-              "description": "A callable instance supplied as a Route endpoint is invoked as an ASGI application for the matched HTTP scope. Observe its response through the live ASGI status, headers, body, and event sequence. Upstream: starlette/routing.py:215-225 and Route.handle; tests/test_routing.py::test_route_name callable-instance case.",
+              "description": "A callable instance supplied as a Route endpoint is invoked with the matched ASGI scope, receive callback, and send callback. Observe its actual endpoint type, arguments, response status, headers, bytes, and ordered ASGI events. Upstream: starlette/routing.py:215-225 and Route.handle; tests/test_routing.py callable-instance case.",
               "lanes": [
                 "parity"
               ],

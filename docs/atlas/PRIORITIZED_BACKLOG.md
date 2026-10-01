@@ -8,29 +8,33 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 592 input-only cases in 70 indexed files,
-covering 85 operations and 636 parity requirements. Four async Request endpoint
-callable-shape cases, the two direct `run_in_threadpool` cases, synchronous
-Request endpoint worker cancellation, two direct State consumer sequences,
-two `Starlette.add_exception_handler` workflows, six direct ServerErrorMiddleware
+The active contract contains 595 input-only cases in 70 indexed files,
+covering 85 operations and 636 parity requirements. Five async Request endpoint
+callable-shape and failure cases, the two direct `run_in_threadpool` cases,
+synchronous Request endpoint worker cancellation and failure, ASGI callable-
+instance success and failure, two direct State consumer sequences, two
+`Starlette.add_exception_handler` workflows, six direct ServerErrorMiddleware
 cases, and three TestClient exception-chain cases pass live source/package
 comparison. Latest integrated run
-`d097c6ac-24ca-471b-88ba-7aa989d6aa5c` passed all 747 executed comparisons out
-of 751 selected, with zero failures or infrastructure errors and four
-Rust-native Python-callable rows `not_run`. The Python package passed 590/590;
+`13577354-5bd6-44d8-841d-ae97bd55359e` passed all 750 executed comparisons out
+of 754 selected, with zero failures or infrastructure errors and four
+Rust-native Python-callable rows `not_run`. The Python package passed 593/593;
 Rust-native passed 157/161. The four native `not_run` rows are sync endpoint,
-bound-method, partial, and callable-instance Request dispatch. `make test`
+bound-method, partial, and callable-instance ASGI dispatch. `make test`
 exits with status 2 for those declared rows. Full run identities and package
 hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The endpoint-callable-shapes backlog item remains open. The current package-only
-slice covers async functions, bound methods, and single or nested partial
-construction; callable instances and exception observations remain unmapped.
+The endpoint-callable-shapes backlog item is mapped in the generated coverage
+matrix. The package-only input slice covers async functions, bound methods,
+single or nested partial construction, sync function/bound-method/partial
+success and failure, and callable instances dispatched as ASGI apps with
+success and failure observations. Exact parity for these selected inputs does
+not establish all callable or exception behavior.
 
-The current coverage matrix has 800 source rows: 312 existing input mappings,
-50 source-backed `not_applicable` rows, and 438 fixture-backlog rows. Derive
+The current coverage matrix has 800 source rows: 313 existing input mappings,
+50 source-backed `not_applicable` rows, and 437 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

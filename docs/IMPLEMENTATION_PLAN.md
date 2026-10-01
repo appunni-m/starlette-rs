@@ -32,26 +32,27 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 592 input-only cases in 70 indexed files,
+The active parity contract contains 595 input-only cases in 70 indexed files,
 covering 85 operations and 636 requirements, including the direct
 `starlette.concurrency.run_in_threadpool` helper, synchronous Request endpoint
-worker cancellation, four async Request endpoint callable shapes, two direct
-`State` consumer sequences, and two `Starlette.add_exception_handler` workflows.
-The six direct ServerErrorMiddleware inputs and three TestClient
-exception-chain inputs pass live source/package comparison. Latest integrated
-run `d097c6ac-24ca-471b-88ba-7aa989d6aa5c` selected 751 comparisons: 747
-executed and passed, zero failed, zero infrastructure errors, and four
-declared Rust-native Python-callable rows `not_run`. The installed Python
-package passed 590/590, and Rust-native passed 157/161. The two new exception
-handler cases passed exact package/source comparison. The four native
-`not_run` rows are sync endpoint, bound-method, partial, and callable-instance
-Request dispatch. `make test` exits with status 2 for these declared rows. The
-complete run identity, wheel and tree hashes, and case-level evidence are in
+worker cancellation and failure, five async Request endpoint callable shapes
+and failure, ASGI callable-instance success and failure, two direct `State`
+consumer sequences, and two `Starlette.add_exception_handler` workflows. The
+six direct ServerErrorMiddleware inputs and three TestClient exception-chain
+inputs pass live source/package comparison. Latest integrated run
+`13577354-5bd6-44d8-841d-ae97bd55359e` selected 754 comparisons: 750 executed
+and passed, zero failed, zero infrastructure errors, and four declared
+Rust-native Python-callable rows `not_run`. The installed Python package passed
+593/593, and Rust-native passed 157/161. The new callable failure cases passed
+exact package/source comparison. The four native `not_run` rows are sync
+endpoint, bound-method, partial, and callable-instance ASGI dispatch. `make
+test` exits with status 2 for these declared rows. The complete run identity,
+wheel and tree hashes, and case-level evidence are in
 [Migration parity contract and evidence](PARITY.md). This bounded run does not
 establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 800 source rows: 312 input mappings,
-50 source-backed `not_applicable` rows, and 438 fixture-backlog rows. These
+The generated coverage matrix contains 800 source rows: 313 input mappings,
+50 source-backed `not_applicable` rows, and 437 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.

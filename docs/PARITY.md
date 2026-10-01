@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 592 input-only cases in 70 indexed files, covering 85 operations and 636 parity requirements. It includes two Python-package-only direct `run_in_threadpool` cases, synchronous Request endpoint worker cancellation, four async Request endpoint callable-shape cases, two direct `State` consumer sequences, and two `Starlette.add_exception_handler` workflows. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases pass live source/package comparisons in the latest run recorded below. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, `add_middleware` and `add_exception_handler` behavior, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State attribute/item behavior; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation and post-construction FileResponse field assignments; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; one Python-package Jinja2 template workflow, and direct thread-pool callable forwarding and scheduling. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 595 input-only cases in 70 indexed files, covering 85 operations and 636 parity requirements. It includes two Python-package-only direct `run_in_threadpool` cases, synchronous Request endpoint worker cancellation, five async Request endpoint callable-shape and failure cases, synchronous endpoint and ASGI-callable failure observations, two direct `State` consumer sequences, and two `Starlette.add_exception_handler` workflows. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases pass live source/package comparisons in the latest run recorded below. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, `add_middleware` and `add_exception_handler` behavior, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State attribute/item behavior; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation and post-construction FileResponse field assignments; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; one Python-package Jinja2 template workflow, and direct thread-pool callable forwarding and scheduling. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,27 +8,26 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `d097c6ac-24ca-471b-88ba-7aa989d6aa5c`.
-It ran from `2026-10-01T07:15:55.018Z` to `2026-10-01T07:18:19.179Z` against
+The latest full-slice parity run is `13577354-5bd6-44d8-841d-ae97bd55359e`.
+It ran from `2026-10-01T07:46:45.650Z` to `2026-10-01T07:49:11.787Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-592-case/636-requirement manifest. It selected 751 profile comparisons: 747
+595-case/636-requirement manifest. It selected 754 profile comparisons: 750
 executed and passed, zero failed, zero infrastructure errors, and four
-Rust-native Python-callable rows were `not_run`. All 590 Python-package
-comparisons passed; Rust-native passed 157 of 161. Both new exception-handler
-cases passed exact source/package comparison. The four Rust-native `not_run`
-rows are sync endpoint, bound-method, partial, and callable-instance Request
-dispatch cases. `make test` exits with status 2 because those declared rows
-remain `not_run`.
+Rust-native Python-callable rows were `not_run`. All 593 Python-package
+comparisons passed; Rust-native passed 157 of 161. The new async, synchronous,
+and ASGI-callable error observations passed exact source/package comparisons.
+The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
+and callable-instance ASGI dispatch cases. `make test` exits with status 2
+because those declared rows remain `not_run`.
 
 The Rust-native source fingerprint was
-`8f57ed5fff8e59f2484779faaff3628360055685+source-fnv1a64-26d37a031534df21`.
-The installed package was built from clean commit
-`8f57ed5fff8e59f2484779faaff3628360055685`; its package-tree SHA-256 was
-`bb6b94a8d84db30f31332d259b8e9c5a1451587fad822380fc2251854453da10`, and the
+`93e2572c8f7fb9fd142b8cc7118d59f38f42e0ad+source-fnv1a64-26d37a031534df21`.
+The installed package tree SHA-256 was
+`7d068308752ab50dc02c5046972923a77c8361a1a54a211a481481c36258d469`, and the
 wheel SHA-256 was
-`f54cb9d3527b6d57a3861684ea1f682644da82dcb6921fb1aeeeea3c82a39bdd`. The
+`4ab944cba1080aef3adf0a150d6c12baf24a991f7725fb70a7c493f8c0011fb9`. The
 manifest SHA-256 was
-`441a35dba2315fd3cc1baca6a6d529d6eaee886cb6a1c852842845c9a7f6f983`.
+`52bad50bda22a8d2519acf40817882ba95d892c0a836ccb46e7566dadce79cfe`.
 Strict aggregation remains `not_proven` because the full compatibility
 denominator is incomplete and four Rust-native rows are `not_run`.
 
@@ -38,15 +37,27 @@ denominator is incomplete and four Rust-native rows are `not_run`.
 
 [`asgi-request-callable-shapes.yaml`](../tests/fixtures/sources/parity/asgi-request-callable-shapes.yaml)
 defines package-only Request dispatch inputs for async functions, bound methods,
-`functools.partial`, and nested partial construction. The live comparisons
-observe the actual endpoint callable type, partial depth, Request argument,
-integer path parameter, single invocation, ASGI response events, and loop/task/
-thread identity. All four cases pass in run
-`d097c6ac-24ca-471b-88ba-7aa989d6aa5c`. Python flattens nested partials when
-constructing the object, so the nested-partial input is observed as a partial
-with depth 1 on both source and package. This bounded slice does not complete
-the broader endpoint-callable-shapes backlog item, which also includes callable
-instances and exception observations.
+`functools.partial`, and nested partial construction, plus an async function that
+raises an input-defined `RuntimeError`. The live comparisons observe the actual
+endpoint callable type, partial depth, Request argument, integer path parameter,
+single invocation, ASGI response events, loop/task/thread identity, and the
+resulting server-error response and exception message. All five cases pass in
+run `13577354-5bd6-44d8-841d-ae97bd55359e`. Python flattens nested partials
+when constructing the object, so the nested-partial input is observed as a
+partial with depth 1 on both source and package.
+
+### Request endpoint and ASGI callable failures
+
+[`asgi-request-items.yaml`](../tests/fixtures/sources/parity/asgi-request-items.yaml)
+adds an input-defined `RuntimeError` from a synchronous Request endpoint and
+from a callable-instance ASGI endpoint. The comparisons observe the synchronous
+endpoint's callable, ContextVar, worker-thread, exception, and response details;
+the ASGI app comparison observes the concrete callable type, scope and callback
+arguments, exception, and response events. Both match the pinned source exactly
+in run `13577354-5bd6-44d8-841d-ae97bd55359e`. Callable instances follow
+Starlette's ASGI-app path and do not receive a Request object. These cases map
+the corresponding callable-dispatch and default server-error requirements;
+they do not establish all endpoint or exception behavior.
 
 ### `State` attribute and mapping behavior
 

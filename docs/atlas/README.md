@@ -25,25 +25,26 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 592 input-only cases across
-70 indexed files, 85 operations, and 636 requirements. Four async Request
-endpoint callable-shape cases, two direct `run_in_threadpool` cases,
-synchronous Request endpoint worker cancellation, two direct State consumer
-sequences, two `Starlette.add_exception_handler` workflows, six direct
+active and incomplete. The current contract has 595 input-only cases across
+70 indexed files, 85 operations, and 636 requirements. Five async Request
+endpoint callable-shape and failure cases, two direct `run_in_threadpool`
+cases, synchronous Request endpoint worker cancellation and failure, ASGI
+callable-instance success and failure, two direct State consumer sequences,
+two `Starlette.add_exception_handler` workflows, six direct
 ServerErrorMiddleware cases, and three TestClient exception-chain cases pass
 live source/package comparison in the latest full-slice run
-`d097c6ac-24ca-471b-88ba-7aa989d6aa5c`. It passed all 747 executed profile
-comparisons out of 751 selected, with zero failures or infrastructure errors
+`13577354-5bd6-44d8-841d-ae97bd55359e`. It passed all 750 executed profile
+comparisons out of 754 selected, with zero failures or infrastructure errors
 and four Rust-native Python-callable rows `not_run`. The Python package passed
-590/590; Rust-native passed 157/161. The four native `not_run` rows are sync
-endpoint, bound-method, partial, and callable-instance Request dispatch.
+593/593; Rust-native passed 157/161. The four native `not_run` rows are sync
+endpoint, bound-method, partial, and callable-instance ASGI dispatch.
 `make test` exits with status 2 for those declared rows. Full run and wheel
 identities are recorded in [Migration parity contract and
 evidence](../PARITY.md). This bounded evidence does not establish full
 Starlette parity or release readiness.
 
-The generated coverage matrix has 800 source rows: 312 existing input
-mappings, 50 reasoned `not_applicable` rows, and 438 fixture-backlog rows.
+The generated coverage matrix has 800 source rows: 313 existing input
+mappings, 50 reasoned `not_applicable` rows, and 437 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest Router/GZip run `d653ffc6-5828-4678-bb25-6d3e5b926abf`
@@ -223,9 +224,10 @@ one executable workflow.
 describes only the app/request/events/arguments/assets to supply. Observation
 selectors name what a future live runner records, never the expected value.
 `fixture_status` is `existing`, `backlog`, or `not_applicable`. `fixture_path`
-is required for `existing` and otherwise empty. It names the authored YAML
-source definition under `tests/fixtures/sources/parity/`, never the generated
-runtime JSON under ignored `build/parity/inputs/`. An `not_applicable` row
+is required for `existing` and otherwise empty. It names one or more authored
+YAML source definitions under `tests/fixtures/sources/parity/`, separated by
+semicolons; the merger validates each path. It never names generated runtime
+JSON under ignored `build/parity/inputs/`. An `not_applicable` row
 requires a concrete reason, such as documentation with no independent runtime behavior;
 private helpers must not silently disappear. Test support helpers and modules
 use `test_support` and explain their downstream fixture role or why they have no
@@ -287,8 +289,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 516 `supported`, 285
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 800
-source rows: 312 existing input mappings, 50 reasoned `not_applicable`
-entries, and 438 input-only backlog rows. Derive these changing counts from
+source rows: 313 existing input mappings, 50 reasoned `not_applicable`
+entries, and 437 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

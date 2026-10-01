@@ -17,11 +17,12 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 592 input-only cases across 70 files,
+The active parity manifest indexes 595 input-only cases across 70 files,
 covering 85 operations and 636 parity requirements. It includes two
 Python-package-only direct `run_in_threadpool` cases, synchronous Request
-endpoint worker cancellation, four async Request endpoint callable-shape cases,
-two direct `State` consumer sequences, and two `Starlette.add_exception_handler`
+endpoint worker cancellation and failure, five async Request endpoint callable
+shapes and failure, ASGI callable-instance success and failure, two direct
+`State` consumer sequences, and two `Starlette.add_exception_handler`
 workflows. The six direct ServerErrorMiddleware inputs and three TestClient
 exception-chain inputs pass live source/package comparison in the latest run.
 The authored cases span
@@ -35,23 +36,23 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `d097c6ac-24ca-471b-88ba-7aa989d6aa5c`. It ran
-from `2026-10-01T07:15:55.018Z` to `2026-10-01T07:18:19.179Z` and selected 751
-profile comparisons: 747 executed and passed, zero failed, zero infrastructure
+The latest full-slice run is `13577354-5bd6-44d8-841d-ae97bd55359e`. It ran
+from `2026-10-01T07:46:45.650Z` to `2026-10-01T07:49:11.787Z` and selected 754
+profile comparisons: 750 executed and passed, zero failed, zero infrastructure
 errors, and four Rust-native Python-callable rows were `not_run`. The Python
-package passed all 590 selected comparisons; Rust-native passed 157 of 161.
-Both new exception-handler workflows passed exact source/package comparison.
-The four native `not_run` rows are sync endpoint, bound-method, partial, and
-callable-instance Request dispatch cases. `make test` exits with status 2 for
-those declared Python-callable boundaries. The Rust-native source fingerprint
-was `8f57ed5fff8e59f2484779faaff3628360055685+source-fnv1a64-26d37a031534df21`.
-The installed package was built from clean commit
-`8f57ed5fff8e59f2484779faaff3628360055685`; its package-tree SHA-256 was
-`bb6b94a8d84db30f31332d259b8e9c5a1451587fad822380fc2251854453da10`, wheel
-SHA-256 `f54cb9d3527b6d57a3861684ea1f682644da82dcb6921fb1aeeeea3c82a39bdd`,
+package passed all 593 selected comparisons; Rust-native passed 157 of 161.
+The new async, synchronous, and ASGI-callable error workflows passed exact
+source/package comparison. The four native `not_run` rows are sync endpoint,
+bound-method, partial, and callable-instance ASGI dispatch. `make test` exits
+with status 2 for those declared Python-callable boundaries. The Rust-native
+source fingerprint was
+`93e2572c8f7fb9fd142b8cc7118d59f38f42e0ad+source-fnv1a64-26d37a031534df21`.
+The installed package tree SHA-256 was
+`7d068308752ab50dc02c5046972923a77c8361a1a54a211a481481c36258d469`, wheel
+SHA-256 `4ab944cba1080aef3adf0a150d6c12baf24a991f7725fb70a7c493f8c0011fb9`,
 and manifest SHA-256
-`441a35dba2315fd3cc1baca6a6d529d6eaee886cb6a1c852842845c9a7f6f983`. Full run
-identity and case-level evidence are recorded in
+`52bad50bda22a8d2519acf40817882ba95d892c0a836ccb46e7566dadce79cfe`. Full
+run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
 readiness.
@@ -73,8 +74,8 @@ the package wheel SHA-256 was
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 800 source rows: 312 existing input
-mappings, 50 reasoned `not_applicable` rows, and 438 fixture backlog rows.
+The generated coverage matrix has 800 source rows: 313 existing input
+mappings, 50 reasoned `not_applicable` rows, and 437 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

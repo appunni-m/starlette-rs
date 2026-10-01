@@ -883,6 +883,11 @@ def _canonical_message(message: dict[str, Any]) -> dict[str, Any]:
 def _sync_request_observer_response(
     request: Any, spec: dict[str, Any], state: dict[str, Any]
 ) -> Any:
+    endpoint = state["route_endpoint"]
+    partial_depth = 0
+    while isinstance(endpoint, functools.partial):
+        partial_depth += 1
+        endpoint = endpoint.func
     path_value = request.path_params[spec["path_parameter"]]
     context_value = state["context_var"].get()
     caller_thread_id = state["caller_thread_id"]
@@ -892,11 +897,15 @@ def _sync_request_observer_response(
     with state["lock"]:
         state["invocation_count"] += 1
         state["observation"] = {
+            "route_endpoint_type": type(state["route_endpoint"]).__name__,
+            "partial_depth": partial_depth,
             "path_param": {"value": _json_safe(path_value), "type": type(path_value).__name__},
             "context_value": context_value,
             "different_worker_thread": current_thread_id != caller_thread_id,
             "invocation_count": state["invocation_count"],
         }
+    if "error_message" in spec:
+        raise RuntimeError(spec["error_message"])
     from starlette.responses import PlainTextResponse
 
     return PlainTextResponse(content=spec["response_content"])
@@ -931,6 +940,8 @@ async def _async_request_callable_observer_response(
     }
     state["observation"] = observation
     state["request_observations"].append(observation)
+    if "error_message" in spec:
+        raise RuntimeError(spec["error_message"])
     from starlette.responses import PlainTextResponse
 
     return PlainTextResponse(content=spec["response_content"])
@@ -1529,13 +1540,20 @@ def _materialize_application(
 
             route_endpoint = make_request_endpoint(response_spec)
         elif response_spec["kind"] == "async-request-callable-observer":
-            if set(response_spec) != {
+            callable_fields = {
                 "kind",
                 "callable_kind",
                 "path_parameter",
                 "response_content",
-            }:
+            }
+            if "error_message" in response_spec:
+                callable_fields.add("error_message")
+            if set(response_spec) != callable_fields:
                 raise ValueError("async request callable observer input does not match its schema")
+            if "error_message" in response_spec and not isinstance(
+                response_spec["error_message"], str
+            ):
+                raise ValueError("async request callable error_message must be a string")
             async_callable_state: dict[str, Any] = {
                 "caller_event_loop": None,
                 "caller_task": None,
@@ -1726,8 +1744,14 @@ def _materialize_application(
                 "context_value",
                 "response_content",
             }
+            if "error_message" in response_spec:
+                required_fields.add("error_message")
             if set(response_spec) != required_fields:
                 raise ValueError("sync request observer input does not match its declared schema")
+            if "error_message" in response_spec and not isinstance(
+                response_spec["error_message"], str
+            ):
+                raise ValueError("sync request observer error_message must be a string")
             sync_state: dict[str, Any] = {
                 "context_var": contextvars.ContextVar(response_spec["context_var_name"]),
                 "context_value": response_spec["context_value"],
@@ -1767,6 +1791,7 @@ def _materialize_application(
                 )
             else:
                 raise ValueError(f"unsupported sync endpoint callable kind: {callable_kind!r}")
+            sync_state["route_endpoint"] = route_endpoint
         elif response_spec["kind"] == "sync-request-cancellation-observer":
             required_fields = {"kind", "response_content"}
             if set(response_spec) != required_fields:
@@ -1836,14 +1861,27 @@ def _materialize_application(
                 )
 
             class ASGICallableInstanceObserver:
-                def __init__(self, content: str) -> None:
+                def __init__(self, content: str, observations: list[dict[str, Any]]) -> None:
                     self.content = content
+                    self.observations = observations
 
                 async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+                    self.observations.append(
+                        {
+                            "route_endpoint_type": type(self).__name__,
+                            "scope_type": type(scope).__name__,
+                            "scope_type_value": scope.get("type"),
+                            "path": scope.get("path"),
+                            "receive_callable": callable(receive),
+                            "send_callable": callable(send),
+                        }
+                    )
                     response = PlainTextResponse(content=self.content)
                     await response(scope, receive, send)
 
-            route_endpoint = ASGICallableInstanceObserver(response_spec["response_content"])
+            route_endpoint = ASGICallableInstanceObserver(
+                response_spec["response_content"], request_observations
+            )
         elif response_spec["kind"] == "async-call-boundary-observer":
             _exact_object(
                 response_spec,
@@ -1890,10 +1928,23 @@ def _materialize_application(
                 raise ValueError("ASGI callable action sequence must be a non-empty array")
 
             class ASGICallableActionSequence:
-                def __init__(self, actions: list[dict[str, Any]]) -> None:
+                def __init__(
+                    self, actions: list[dict[str, Any]], observations: list[dict[str, Any]]
+                ) -> None:
                     self.actions = actions
+                    self.observations = observations
 
                 async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+                    self.observations.append(
+                        {
+                            "route_endpoint_type": type(self).__name__,
+                            "scope_type": type(scope).__name__,
+                            "scope_type_value": scope.get("type"),
+                            "path": scope.get("path"),
+                            "receive_callable": callable(receive),
+                            "send_callable": callable(send),
+                        }
+                    )
                     for index, action in enumerate(self.actions):
                         action_kind, value = _materialize_asgi_action(action, index)
                         if action_kind == "send":
@@ -1901,7 +1952,9 @@ def _materialize_application(
                         else:
                             raise value
 
-            route_endpoint = ASGICallableActionSequence(response_spec["actions"])
+            route_endpoint = ASGICallableActionSequence(
+                response_spec["actions"], request_observations
+            )
         else:
             raise ValueError(f"unsupported endpoint kind: {response_spec['kind']!r}")
         routes.append(

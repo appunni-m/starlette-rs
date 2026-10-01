@@ -263,23 +263,30 @@ def check_fixture_backlog(
             check_evidence_refs(row["evidence_refs"], path, [upstream, target_root])
 
             fixture_path = row["fixture_path"].strip()
+            fixture_entries = [entry.strip() for entry in fixture_path.split(";")]
+            if fixture_path and any(not entry for entry in fixture_entries):
+                raise AtlasError(f"{path}: fixture_path contains an empty path for {row['backlog_id']}")
+            if len(fixture_entries) != len(set(fixture_entries)):
+                raise AtlasError(f"{path}: fixture_path repeats a path for {row['backlog_id']}")
             if row["fixture_status"] == "existing":
-                if not fixture_path:
+                if not fixture_entries or fixture_entries == [""]:
                     raise AtlasError(
                         f"{path}: existing fixture path missing for {row['backlog_id']}"
                     )
-                resolved = (target_root / fixture_path).resolve()
                 fixture_root = (target_root / "tests/fixtures/sources/parity").resolve()
-                if fixture_root not in resolved.parents or not resolved.is_file():
-                    raise AtlasError(
-                        f"{path}: existing source is missing or outside authored parity inputs"
-                    )
-                if resolved.suffix != ".yaml":
-                    raise AtlasError(f"{path}: committed parity sources must use .yaml files")
-                if resolved not in validated_fixtures:
-                    check_input_fixture(resolved, manifest)
-                    validated_fixtures.add(resolved)
-            elif fixture_path:
+                for fixture_entry in fixture_entries:
+                    resolved = (target_root / fixture_entry).resolve()
+                    if fixture_root not in resolved.parents or not resolved.is_file():
+                        raise AtlasError(
+                            f"{path}: existing source is missing or outside authored parity inputs: "
+                            f"{fixture_entry}"
+                        )
+                    if resolved.suffix != ".yaml":
+                        raise AtlasError(f"{path}: committed parity sources must use .yaml files")
+                    if resolved not in validated_fixtures:
+                        check_input_fixture(resolved, manifest)
+                        validated_fixtures.add(resolved)
+            elif fixture_entries != [""]:
                 raise AtlasError(f"{path}: fixture_path is only valid for existing inputs")
             if row["fixture_status"] == "not_applicable":
                 if not row["exclusion_reason"].strip():
