@@ -407,6 +407,7 @@ struct PyWebSocketTestSession {
     app_to_client_receive: Option<Py<PyAny>>,
     task: Option<Py<PyAny>>,
     accepted_subprotocol: Option<String>,
+    extra_headers: Option<Py<PyAny>>,
     accepted: bool,
     client_closed: bool,
 }
@@ -435,6 +436,7 @@ impl PyWebSocketTestSession {
             app_to_client_receive: None,
             task: None,
             accepted_subprotocol: None,
+            extra_headers: None,
             accepted: false,
             client_closed: false,
         }
@@ -448,6 +450,7 @@ impl PyWebSocketTestSession {
         }
         self.accepted = false;
         self.client_closed = false;
+        self.extra_headers = None;
 
         if let Some(portal) = self.shared_portal.as_ref() {
             self.portal = Some(portal.clone_ref(py));
@@ -516,6 +519,7 @@ impl PyWebSocketTestSession {
                     .filter(|value| !value.is_none())
                     .map(|value| value.extract::<String>())
                     .transpose()?;
+                self.extra_headers = message.get_item("headers")?.map(|value| value.unbind());
                 self.accepted = true;
                 Ok(())
             }
@@ -689,6 +693,13 @@ impl PyWebSocketTestSession {
     #[getter]
     fn accepted_subprotocol(&self) -> Option<String> {
         self.accepted_subprotocol.clone()
+    }
+
+    #[getter]
+    fn extra_headers(&self, py: Python<'_>) -> Py<PyAny> {
+        self.extra_headers
+            .as_ref()
+            .map_or_else(|| py.None(), |headers| headers.clone_ref(py))
     }
 
     fn __enter__(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<Self>> {

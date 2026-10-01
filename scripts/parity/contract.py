@@ -230,6 +230,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.query-params-raw-path",
     "application_query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-query-params",
     "handshake": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accept-handshake",
+    "extra_headers": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.extra-headers",
     "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
     "binary_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.binary-message-exchange",
     "cleanup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.context-cleanup",
@@ -10006,15 +10007,16 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "TestClient WebSocket query-params flow requires an inline query, observed query_string, and one text receive_json action"
             )
-        if flow_kind == "application-close" and (
-            len(session_actions) != 1
-            or not isinstance(session_actions[0], dict)
-            or session_actions[0].get("operation") != "receive_text"
-            or session_actions[0].get("capture_disconnect") is not True
-        ):
-            raise ContractError(
-                "TestClient application-close flow requires receive_text to capture disconnect details"
-            )
+        if flow_kind == "application-close":
+            if not no_client_actions and (
+                len(session_actions) != 1
+                or not isinstance(session_actions[0], dict)
+                or session_actions[0].get("operation") != "receive_text"
+                or session_actions[0].get("capture_disconnect") is not True
+            ):
+                raise ContractError(
+                    "TestClient application-close flow requires receive_text to capture disconnect details"
+                )
         if flow_kind == "json-exchange":
             if not client_json_exchange:
                 raise ContractError(
@@ -10073,10 +10075,15 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                 }
             )
         elif flow_kind == "application-close":
-            close_action = app_actions[0]["actions"][1]
-            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_code"])
-            if "reason" in close_action:
-                expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_reason"])
+            if no_client_actions:
+                expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["extra_headers"])
+            else:
+                close_action = app_actions[0]["actions"][1]
+                expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_code"])
+                if "reason" in close_action:
+                    expected_covers.add(
+                        TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_reason"]
+                    )
         elif flow_kind == "client-close-disconnect":
             expected_covers.update(
                 {
@@ -10093,6 +10100,11 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     ],
                 }
             )
+        flow_accept = next(
+            action for action in app_actions[0]["actions"] if action["operation"] == "accept"
+        )
+        if "headers_base64_pairs" in flow_accept:
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["extra_headers"])
         if set(case["covers"]) != expected_covers:
             raise ContractError("TestClient WebSocket covers must match the app flow")
         return
@@ -10175,6 +10187,8 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     }
     if "params" in websocket:
         expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["query_params"])
+    if "headers_base64_pairs" in accept_message:
+        expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["extra_headers"])
     if set(case["covers"]) != expected_covers:
         raise ContractError("TestClient WebSocket covers must match the input frame workflow")
 

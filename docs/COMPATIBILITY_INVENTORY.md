@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 669 input-only cases across 77 files,
-covering 93 operations and 702 parity requirements. It includes Rust-backed
+The active parity manifest indexes 671 input-only cases across 77 files,
+covering 93 operations and 703 parity requirements. It includes Rust-backed
 `CommaSeparatedStrings` parsing, sequence formatting, quoting, Unicode
 representation, Python string-subclass boundary inputs, and lone-surrogate
 strings; a three-request
@@ -105,8 +105,8 @@ This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 370 existing input
-mappings, 50 reasoned `not_applicable` rows, and 382 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 372 existing input
+mappings, 50 reasoned `not_applicable` rows, and 380 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -255,13 +255,14 @@ and field-mutation probes map to their pinned source behavior without claiming
 additional upstream test rows. All six inputs pass live source/package comparison in the latest full-slice run.
 Direct debug construction, non-HTTP pass-through, errors after response start,
 background-task errors, and other built-in/user middleware combinations remain open. The
-active TestClient contract compares fourteen input-driven HTTP request/response
-cases over thirteen requirements, including exception identity and
-cause/context chaining, five context-managed lifespan cases over eleven
+active TestClient contract compares twenty-five input-driven HTTP request/response
+cases over twenty-six requirements, including exception identity and
+cause/context chaining, six context-managed lifespan cases over eleven
 requirements, including an input-driven Starlette async-context-manager
 callback mapped to `tests/test_applications.py::test_app_async_cm_lifespan` and
-`docs/lifespan.md:142-158`, and eleven WebSocket session inputs over sixteen
-requirements. Those inputs cover text and binary exchange, compact JSON text
+`docs/lifespan.md:142-158`, and sixteen WebSocket session inputs over twenty
+requirements. Those inputs cover text and binary exchange, accepted handshake
+headers through `WebSocketTestSession.extra_headers`, compact JSON text
 and UTF-8 binary JSON frames, streamed denial responses, concurrent JSON
 receive progress while the app is blocked, disconnect exception fields,
 close-triggered cancellation, app completion, portal thread cleanup, and
@@ -269,8 +270,10 @@ parsed query parameters. The two WebSocket lifecycle inputs map to
 `tests/test_testclient.py::test_websocket_blocking_receive` and
 `test_websocket_not_block_on_close`; their authored input and exact output
 observations are described in [the parity contract](PARITY.md#testclient-websocket-blocking-receive-and-close-teardown).
-The JSON text and binary cases are input-mapped to the documented
-`WebSocketTestSession.send_json()` and `receive_json()` methods. All eleven
+The additional-header cases map to `tests/test_websockets.py::test_additional_headers`
+and `test_no_additional_headers`; their live outputs preserve the accepted header
+pairs and the empty list. The JSON text and binary cases are input-mapped to the documented
+`WebSocketTestSession.send_json()` and `receive_json()` methods. All sixteen
 active WebSocket inputs are included in the latest full-slice run, and the
 Python-package comparisons pass. TestClient streaming bodies, lifespan
 re-entry behavior, close-message errors, and explicit close reasons remain in

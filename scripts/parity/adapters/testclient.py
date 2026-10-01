@@ -639,10 +639,12 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             for action in actions:
                 operation = action["operation"]
                 if operation == "accept":
-                    await websocket.accept(
-                        action.get("subprotocol"),
-                        _decoded_pairs(action.get("headers_base64_pairs", [])),
-                    )
+                    accept_kwargs = {}
+                    if "subprotocol" in action:
+                        accept_kwargs["subprotocol"] = action["subprotocol"]
+                    if "headers_base64_pairs" in action:
+                        accept_kwargs["headers"] = _decoded_pairs(action["headers_base64_pairs"])
+                    await websocket.accept(**accept_kwargs)
                 elif operation == "observe_query_params":
                     query_params_value = dict(websocket.query_params)
                     application_values.append(
@@ -733,6 +735,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     request_headers = dict(websocket_input["headers"])
     action_results: list[dict[str, Any]] = []
     accepted_subprotocol = None
+    accepted_extra_headers = None
     denial_response = None
     websocket_kwargs = {"headers": request_headers}
     if "params" in websocket_input:
@@ -744,6 +747,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             **websocket_kwargs,
         ) as session:
             accepted_subprotocol = session.accepted_subprotocol
+            accepted_extra_headers = session.extra_headers
             for action in websocket_input["actions"]:
                 try:
                     if action["operation"] == "send_text":
@@ -795,6 +799,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         "send_messages": send_observations,
         "session": {
             "accepted_subprotocol": accepted_subprotocol,
+            "extra_headers": _safe(accepted_extra_headers),
             "actions": action_results,
         },
         "denial_response": denial_response,

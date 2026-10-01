@@ -8,6 +8,7 @@
       "covers": [
         "starlette.testclient.TestClient.websocket-session.scope-projection",
         "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.extra-headers",
         "starlette.testclient.TestClient.websocket-session.binary-message-exchange",
         "starlette.testclient.TestClient.websocket-session.context-cleanup"
       ],

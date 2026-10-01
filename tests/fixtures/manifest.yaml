@@ -20052,7 +20052,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.testclient.TestClient.websocket_connect, WebSocketTestSession.send_text, receive_text, send_bytes, and receive_bytes",
-            "signature": "websocket_connect(url, subprotocols=None, **kwargs) -> WebSocketTestSession; synchronous session context manager with text/byte/JSON actions; a pre-acceptance HTTP denial raises WebSocketDenialResponse",
+            "signature": "websocket_connect(url, subprotocols=None, **kwargs) -> WebSocketTestSession; synchronous session context manager with accepted_subprotocol and extra_headers handshake attributes, text/byte/JSON actions, and WebSocketDenialResponse for pre-acceptance HTTP denial",
             "parameters": [
               {
                 "id": "app",
@@ -20195,7 +20195,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.testclient.TestClient.websocket_connect",
-              "signature": "websocket_connect(url, subprotocols=None, **kwargs) -> WebSocketTestSession; send_text/receive_text, send_bytes/receive_bytes, send_json(data, mode=\"text\"), receive_json(mode=\"text\"), close(code=1000, reason=None)",
+              "signature": "websocket_connect(url, subprotocols=None, **kwargs) -> WebSocketTestSession; accepted_subprotocol/extra_headers, send_text/receive_text, send_bytes/receive_bytes, send_json(data, mode=\"text\"), receive_json(mode=\"text\"), close(code=1000, reason=None)",
               "support": {
                 "status": "supported"
               }
@@ -20239,6 +20239,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.accept-handshake",
               "dimension": "success_path",
               "description": "Send websocket.connect when the session context starts, accept the supplied app handshake, and expose its selected subprotocol through accepted_subprotocol. Pinned source: starlette/testclient.py:102-117,259-267,656-677; tests/test_testclient.py::test_websocket_blocking_receive.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.extra-headers",
+              "dimension": "boundary",
+              "description": "Expose the ordered headers from the accepted websocket handshake through WebSocketTestSession.extra_headers, including an empty list when WebSocket.accept() receives no additional headers. Pinned source: starlette/testclient.py:102-118; starlette/websockets.py:100-110; tests/test_websockets.py::test_additional_headers and ::test_no_additional_headers.",
               "lanes": [
                 "parity"
               ],

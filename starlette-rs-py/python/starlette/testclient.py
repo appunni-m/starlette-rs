@@ -47,6 +47,10 @@ class WebSocketTestSession:
     def accepted_subprotocol(self) -> str | None:
         return self._runtime.accepted_subprotocol
 
+    @property
+    def extra_headers(self) -> Any:
+        return self._runtime.extra_headers
+
     def __enter__(self) -> WebSocketTestSession:
         self._runtime.__enter__()
         return self
