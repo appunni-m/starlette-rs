@@ -5156,10 +5156,6 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
         if path in file_paths:
             raise ContractError("StaticFiles configuration-check file paths must be unique")
         file_paths.add(path)
-    if directory_kind == "directory" and not file_paths:
-        raise ContractError(
-            "StaticFiles configuration-check directory roots must contain an input-defined file"
-        )
     if directory_kind != "directory" and files:
         raise ContractError("StaticFiles configuration-check files require a directory root")
 
@@ -5196,16 +5192,15 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
         requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["lazy_not_directory"]
     elif (
         directory_kind == "directory"
-        and not case["check_dir"]
         and len(calls) == 2
         and all(
             call["scope"].get("method") == "GET"
             and call["scope"].get("root_path") == ""
             and isinstance(call["scope"].get("path"), str)
             and call["scope"]["path"].startswith("/")
-            and call["scope"]["path"][1:] in file_paths
             for call in calls
         )
+        and calls[0]["scope"]["path"] == calls[1]["scope"]["path"]
     ):
         requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["repeated_call"]
     else:

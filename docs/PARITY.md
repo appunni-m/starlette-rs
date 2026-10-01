@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 612 input-only cases in 70 indexed files, covering 86 operations and 646 parity requirements. Recent additions include Config boolean and integer casts; TestClient debug-response observations; and Rust-backed `iterate_in_threadpool` with worker-thread advancement, exhaustion, PEP 479 errors, and async-generator operation errors. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases also pass live source/package comparisons in the latest run recorded below.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 615 input-only cases in 70 indexed files, covering 87 operations and 651 parity requirements. Recent additions include Rust-backed `iterate_in_threadpool` and `run_until_first_complete`, plus StaticFiles constructor, lazy-configuration, and repeated-call inputs. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases also pass live source/package comparisons in the latest run recorded below.
 
 The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, middleware registration and ordering; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State behavior; direct Request body, stream, JSON, and form consumption; responses and background tasks, including cancellation and post-construction FileResponse assignments; WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, schemas, and one Python-package Jinja2 workflow. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
@@ -10,28 +10,29 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `d54f762e-aac1-461e-8a2d-59223eeb62ca`.
-It ran from `2026-10-01T11:41:22.953Z` to `2026-10-01T11:43:08.422Z` against
+The latest full-slice parity run is `be92517c-40b2-4e6e-bb2b-4c235d89d314`.
+It ran from `2026-10-01T12:56:18.428Z` to `2026-10-01T12:58:50.716Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-612-case/646-requirement manifest. It selected 777 profile comparisons: 773
-executed and passed, zero failed, zero infrastructure errors, and four
-Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed 610 of 610 selected comparisons; Rust-native passed 163 of 167. The
-four native `not_run` rows are synchronous Request endpoint, bound-method
-endpoint, partial endpoint, and callable-instance ASGI dispatch. `make test`
-exits with status 2 because those declared rows remain `not_run`.
+615-case/651-requirement manifest. It selected 780 profile comparisons: 776
+passed, zero failed, zero infrastructure errors, and four Rust-native
+Python-callable rows were `not_run`. The Python-package profile passed all
+613 selected comparisons; Rust-native passed 163 of 167. The four native
+`not_run` rows are synchronous Request endpoint, bound-method endpoint,
+partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
+status 2 because those declared rows remain `not_run`.
 
-The clean target revision was
-`4d30ff8fc25759ad997ffd35123b5825bfb3b80d`; the Rust-native fingerprint was
-`4d30ff8fc25759ad997ffd35123b5825bfb3b80d+source-fnv1a64-811143778bc6e93d`.
+The Rust-native fingerprint was
+`7c4b332237fdd2ef44a53df2fd124f3b5802ef10+source-fnv1a64-811143778bc6e93d`.
 The installed package tree SHA-256 was
-`dffaa7741f4d16359398dc3e1b787ec97ff01d947161cba797b5295e7288fad6`, and the
+`b24e3d1c67f36a09aadb6c121b22b3ffb94a6d5b6e68cd70ff4759c5bf31cc19`, and the
 wheel SHA-256 was
-`d241bcafeda8e79666ed84ac35c4742bcc0697c2c876547fc6900847e690d7f5`. The
+`f867e9890f93f80b236f23491c3b13070a543ab1b017e490f928456bed1ff3b3`. The
 manifest SHA-256 was
-`d0cdcf4555575e3782be2874d2330ecf261782d57c34312e93e1e089907a2cfd`. Strict
-aggregation remains `not_proven` because the full compatibility denominator
-is incomplete and four Rust-native rows are `not_run`.
+`0ff9429bcac0f3804ac80574567ec3dc4c4f3cb09b2d5dd26fa7656d1e15b574`. The
+four StaticFiles configuration-check comparisons also pass against the
+pinned source. Strict aggregation remains `not_proven` because the full
+compatibility denominator is incomplete and four Rust-native rows are
+`not_run`.
 
 ## Input-only cases
 
@@ -531,35 +532,45 @@ facades forward to Rust-owned policy and middleware state handling. These
 cases cover 19 declared requirements and do not claim complete authentication
 API parity.
 
-[`static-files.yaml`](../tests/fixtures/sources/parity/static-files.yaml)
-contains 22 input-defined `StaticFiles` ASGI-call cases,
+[`static-files.yaml`](../tests/fixtures/sources/parity/static-files.yaml) and
+[`static-files-symlink-asgi.yaml`](../tests/fixtures/sources/parity/static-files-symlink-asgi.yaml)
+together contain 28 input-defined `StaticFiles` ASGI-call cases,
 [`static-files-lookup.yaml`](../tests/fixtures/sources/parity/static-files-lookup.yaml)
 compares 15 direct `lookup_path` calls, including Unix and UNC-style absolute-path rejection,
 parent traversal, a symlinked configured root, and internal and external file
 and directory symlinks with both `follow_symlink` settings. The observations
-include the resolved relative path and file metadata. A package-only case in
+include the resolved relative path and file metadata. Four package-only cases
+in [`static-files-config.yaml`](../tests/fixtures/sources/parity/static-files-config.yaml)
+compare constructor-time missing-directory failure, lazy checks for missing
+and non-directory roots, and `config_checked` across repeated missing-path
+requests. A package-only case in
 [`static-files-async-boundary.yaml`](../tests/fixtures/sources/parity/static-files-async-boundary.yaml)
 gates the bound `lookup_path` override and observes the callback running on an
-AnyIO worker while the event loop progresses. Eighteen ASGI-call cases apply
-to both target profiles, with two package-only package-discovery cases and two
-Rust-native explicit-root cases. The two path-limit cases exercise an
+AnyIO worker while the event loop progresses. The ASGI-call inputs select 26
+comparisons on each target profile; package-discovery cases use Python's
+`importlib`, and Rust-native explicit-root cases use supplied roots. The two
+path-limit cases exercise an
 overlong first root with both `follow_symlink` settings and verify that its
 404 preempts a later configured root containing the requested asset. Two more
 cases remove search permission from an existing asset's root and compare the
 401 exception with both symlink settings. Together
 with the 15 lookup cases on each profile and the package-only async-boundary
-case, they produce 75 profile comparisons: 37 Rust-native and 38 Python-package.
+and four configuration cases, they produce 87 profile comparisons: 41
+Rust-native and 46 Python-package.
 They cover rooted GET and HEAD,
 HTML index redirects and 404 fallback, 401/404/405 outcomes, date and ETag
 validators, validator precedence, package assets, absolute-path rejection,
 file/directory metadata, path traversal and symlink containment, external file
 and directory symlink serving, bound override dispatch, the resulting ASGI response, and path-limit error precedence. Python
 package discovery is exercised through `importlib` on the Python package
-profile; Rust-native package cases pass explicit roots. All 75 selected
-StaticFiles comparisons passed in the latest run, including all 30 direct
-lookup comparisons. These cases do not
-cover the full 36-function upstream StaticFiles suite. Known gaps include
-constructor errors, permission conditions beyond root-search denial, subclass hooks beyond `lookup_path`, a
+profile; Rust-native package cases pass explicit roots. All 87 selected
+StaticFiles comparisons passed in run `be92517c-40b2-4e6e-bb2b-4c235d89d314`,
+including all 30 direct lookup comparisons. Four package-only configuration
+inputs match the pinned constructor-missing-directory, lazy missing-root,
+lazy file-root, and repeated-request checks at `tests/test_staticfiles.py:124-165`.
+These cases do not cover the full 36-function upstream StaticFiles suite.
+Known gaps include constructor errors beyond the missing-directory case,
+permission conditions beyond root-search denial, subclass hooks beyond `lookup_path`, a
 separate scheduling assertion for `check_config`, cross-platform
 `os.stat_result` fields and Windows path normalization and semantics, and
 remaining validator branches.
