@@ -52,8 +52,8 @@ wheel and tree hashes, and case-level evidence are in
 [Migration parity contract and evidence](PARITY.md). This bounded run does not
 establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 800 source rows: 314 input mappings,
-50 source-backed `not_applicable` rows, and 436 fixture-backlog rows. These
+The generated coverage matrix contains 800 source rows: 315 input mappings,
+50 source-backed `not_applicable` rows, and 435 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.

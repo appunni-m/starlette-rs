@@ -33,11 +33,17 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 800 source rows: 314 existing input mappings,
-50 source-backed `not_applicable` rows, and 436 fixture-backlog rows. Derive
+The current coverage matrix has 800 source rows: 315 existing input mappings,
+50 source-backed `not_applicable` rows, and 435 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
+
+The `Starlette.max_body_size` behavior row is mapped to the four live
+application/route limit inputs in
+[`route-body-limits.yaml`](../../tests/fixtures/sources/parity/route-body-limits.yaml).
+They compare inherited, zero, raised, and lowered limits with single or
+fragmented request bodies and exact response events.
 
 The latest Request.form inputs compare default and custom multipart part-size
 limits through direct and mounted consumers, including short-circuiting before

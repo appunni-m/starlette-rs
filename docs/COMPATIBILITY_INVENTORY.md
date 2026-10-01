@@ -75,8 +75,8 @@ the package wheel SHA-256 was
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 800 source rows: 314 existing input
-mappings, 50 reasoned `not_applicable` rows, and 436 fixture backlog rows.
+The generated coverage matrix has 800 source rows: 315 existing input
+mappings, 50 reasoned `not_applicable` rows, and 435 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
