@@ -142,6 +142,7 @@ TESTCLIENT_REQUIREMENTS = {
     "mounted_static_files": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-static-files",
     "mounted_router_urls": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-router-url-sequence",
     "starlette_host_routing": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-routing",
+    "starlette_host_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-method-registration",
 }
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
@@ -1457,12 +1458,18 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and observation["path"]
                         in {"application_debug", "debug_exception_name_present"}
                     )
+                    testclient_application_host = (
+                        condition["input_key"] == "asgi_app.host_name"
+                        and key == TESTCLIENT_OPERATION_KEY
+                        and observation["path"] in {"application_routes", "host_route_observations"}
+                    )
                     if (
                         not response_header_probe
                         and not file_response_scheduling_probe
                         and not router_scope_probe
                         and not testclient_lifespan_callback_trace
                         and not testclient_application_debug
+                        and not testclient_application_host
                     ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
@@ -8151,6 +8158,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     is_starlette_app_static_mount = app_kind == "starlette-app-static-mount"
     is_router_mounted_response = app_kind == "router-mounted-response"
     is_starlette_app_host_route = app_kind == "starlette-app-host-route"
+    is_starlette_app_host_method = app_kind == "starlette-app-host-method"
 
     def validate_request(value: Any, context: str) -> dict[str, Any]:
         request_keys = {"method", "url", "headers_base64_pairs", "body_base64"}
@@ -8350,24 +8358,29 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             )
         exception_spec = None
         messages = []
-    elif is_starlette_app_host_route:
+    elif is_starlette_app_host_route or is_starlette_app_host_method:
+        host_route_fields = {
+            "kind",
+            "host_pattern",
+            "host_parameter",
+            "allowed_hosts",
+            "route_path",
+            "endpoint_prefix",
+            "scope_fields",
+        }
+        if is_starlette_app_host_method:
+            host_route_fields.add("host_name")
         asgi_app = _exact(
             raw_asgi_app,
-            {
-                "kind",
-                "host_pattern",
-                "host_parameter",
-                "allowed_hosts",
-                "route_path",
-                "endpoint_prefix",
-                "scope_fields",
-            },
+            host_route_fields,
             "TestClient Starlette Host route app",
         )
         host_pattern = _string(asgi_app["host_pattern"], "TestClient Host route pattern")
         host_parameter = _string(asgi_app["host_parameter"], "TestClient Host route parameter")
         route_path = _string(asgi_app["route_path"], "TestClient Host child route path")
         _string(asgi_app["endpoint_prefix"], "TestClient Host endpoint prefix")
+        if is_starlette_app_host_method and asgi_app["host_name"] is not None:
+            _string(asgi_app["host_name"], "TestClient Starlette.host route name")
         allowed_hosts = asgi_app["allowed_hosts"]
         request_host = urlsplit(settings["base_url"]).hostname
         if (
@@ -8481,6 +8494,11 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if is_starlette_app_host_route:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_host_routing"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["scope"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_starlette_app_host_method:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_host_routing"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_host_method_registration"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["scope"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if exception_spec is not None:

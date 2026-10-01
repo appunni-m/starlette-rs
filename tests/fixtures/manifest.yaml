@@ -17968,6 +17968,30 @@
                   }
                 },
                 {
+                  "path": "application_routes",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.host_name"
+                  }
+                },
+                {
+                  "path": "host_route_observations",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.host_name"
+                  }
+                },
+                {
                   "path": "application_debug",
                   "value_types": [
                     "boolean"
@@ -18211,6 +18235,17 @@
               "id": "starlette.testclient.TestClient.request-response.starlette-host-routing",
               "dimension": "success_path",
               "description": "Route an HTTPS TestClient request through Starlette TrustedHostMiddleware, a host-parameter Host route, a child Router, and a synchronous endpoint that returns the captured subdomain. Upstream: tests/test_applications.py::test_subdomain_route; starlette/applications.py:63-107; starlette/routing.py:466-490.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.starlette-host-method-registration",
+              "dimension": "boundary",
+              "description": "Register a parameterized Host route through Starlette.host, observe the resulting application.routes entry and child route, then dispatch a matching HTTPS TestClient request and capture the converted child path_params and response events. Upstream: starlette/applications.py:101-102; starlette/routing.py:466-490.",
               "lanes": [
                 "parity"
               ],

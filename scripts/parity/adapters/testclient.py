@@ -53,6 +53,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     asgi_events: list[dict[str, Any]] = []
     app_exception_state: dict[str, BaseException] = {}
     sync_endpoint_state: dict[str, Any] | None = None
+    host_route_observations: list[dict[str, Any]] = []
     starlette_application: Any = None
     temporary_filesystem: tempfile.TemporaryDirectory[str] | None = None
 
@@ -180,7 +181,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await starlette_application(scope, receive, observed_send)
 
-    elif app_input["kind"] == "starlette-app-host-route":
+    elif app_input["kind"] in {"starlette-app-host-route", "starlette-app-host-method"}:
         from starlette.applications import Starlette
         from starlette.middleware import Middleware
         from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -189,18 +190,35 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
         def endpoint(request: Any) -> Any:
             value = request.path_params[app_input["host_parameter"]]
+            host_route_observations.append(
+                {
+                    "host_header": request.headers.get("host"),
+                    "path": request.scope["path"],
+                    "path_params": _safe(request.path_params),
+                    "scope_type": request.scope["type"],
+                }
+            )
             return PlainTextResponse(f"{app_input['endpoint_prefix']}{value}")
 
         child_router = Router(routes=[Route(app_input["route_path"], endpoint=endpoint)])
-        starlette_application = Starlette(
-            routes=[Host(app_input["host_pattern"], app=child_router)],
-            middleware=[
-                Middleware(
-                    TrustedHostMiddleware,
-                    allowed_hosts=app_input["allowed_hosts"],
-                )
-            ],
-        )
+        middleware = [
+            Middleware(
+                TrustedHostMiddleware,
+                allowed_hosts=app_input["allowed_hosts"],
+            )
+        ]
+        if app_input["kind"] == "starlette-app-host-method":
+            starlette_application = Starlette(middleware=middleware)
+            starlette_application.host(
+                app_input["host_pattern"],
+                app=child_router,
+                name=app_input["host_name"],
+            )
+        else:
+            starlette_application = Starlette(
+                routes=[Host(app_input["host_pattern"], app=child_router)],
+                middleware=middleware,
+            )
 
         async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
             record_scope(scope)
@@ -393,6 +411,24 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         result["debug_exception_name_present"] = (
             response is not None and app_input["exception"]["class"] in response.text
         )
+    if app_input["kind"] == "starlette-app-host-method":
+        result["application_routes"] = [
+            {
+                "type": type(route).__name__,
+                "host": getattr(route, "host", None),
+                "name": route.name,
+                "child_routes": [
+                    {
+                        "type": type(child).__name__,
+                        "path": getattr(child, "path", None),
+                        "name": child.name,
+                    }
+                    for child in getattr(route, "routes", [])
+                ],
+            }
+            for route in starlette_application.routes
+        ]
+        result["host_route_observations"] = host_route_observations
     observation = {"step_id": "request-response", "status": "ok", "value": result}
     if captured_error is not None:
         cause = captured_error.__cause__

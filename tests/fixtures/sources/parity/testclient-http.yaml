@@ -1054,13 +1054,14 @@
       }
     },
     {
-      "case_id": "starlette.testclient.TestClient.request-response.starlette-host-subdomain",
+      "case_id": "starlette.testclient.TestClient.request-response.starlette-host-method-subdomain",
       "surface": "starlette.testclient.TestClient",
       "operation": "request-response",
       "covers": [
         "starlette.testclient.TestClient.request-response.response-and-debug",
         "starlette.testclient.TestClient.request-response.scope-projection",
-        "starlette.testclient.TestClient.request-response.starlette-host-routing"
+        "starlette.testclient.TestClient.request-response.starlette-host-routing",
+        "starlette.testclient.TestClient.request-response.starlette-host-method-registration"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -1087,9 +1088,10 @@
         "body_base64": ""
       },
       "asgi_app": {
-        "kind": "starlette-app-host-route",
+        "kind": "starlette-app-host-method",
         "host_pattern": "{subdomain}.example.org",
         "host_parameter": "subdomain",
+        "host_name": "subdomains",
         "allowed_hosts": [
           "testserver",
           "*.example.org"
