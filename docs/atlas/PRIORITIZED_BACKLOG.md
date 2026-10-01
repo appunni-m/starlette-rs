@@ -8,7 +8,7 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 596 input-only cases in 70 indexed files,
+The active contract contains 607 input-only cases in 70 indexed files,
 covering 85 operations and 639 parity requirements. Five async Request endpoint
 callable-shape and failure cases, the two direct `run_in_threadpool` cases,
 synchronous Request endpoint worker cancellation and failure, ASGI callable-
@@ -17,10 +17,12 @@ instance success and failure, two direct State consumer sequences,
 `Starlette.add_exception_handler` workflows, six direct ServerErrorMiddleware
 cases, three TestClient exception-chain cases, and a default middleware-boundary
 trace pass live source/package comparison. Latest integrated run
-`e0590d0d-c751-4ecf-aa7b-cb6ce6e592a0` passed all 751 executed comparisons out of 755 selected, with zero
-failures or infrastructure errors and four Rust-native Python-callable rows
-`not_run`. The Python package passed 594/594; Rust-native passed 157/161. The
-four native `not_run` rows are sync endpoint, bound-method, partial, and
+`e227d107-1e71-47d9-b0db-d35d0ab43ce5` passed 768 of 772 selected comparisons,
+with zero failures or infrastructure errors and four Rust-native Python-
+callable rows `not_run`. The Python package passed 605/605; Rust-native passed
+163/167. The added routing converter, WebSocket convenience, and route-body-
+limit cases passed their selected profiles. The four native `not_run` rows are
+synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make test` exits with status 2 for those
 declared rows. Full run identities and package hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
@@ -33,17 +35,17 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 800 source rows: 318 existing input mappings,
-50 source-backed `not_applicable` rows, and 432 fixture-backlog rows. Derive
+The current coverage matrix has 800 source rows: 321 existing input mappings,
+50 source-backed `not_applicable` rows, and 429 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 
-The `Starlette.max_body_size` behavior row is mapped to the four live
+The `Starlette.max_body_size` behavior row is mapped to five live
 application/route limit inputs in
 [`route-body-limits.yaml`](../../tests/fixtures/sources/parity/route-body-limits.yaml).
-They compare inherited, zero, raised, and lowered limits with single or
-fragmented request bodies and exact response events.
+They compare inherited, zero, raised, and lowered limits, plus declared
+content-length precheck behavior, with request bodies and exact response events.
 
 The `Starlette.mount()` behavior row is mapped to the named StaticFiles
 registration and GET/POST dispatch in
