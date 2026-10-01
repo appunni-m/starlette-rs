@@ -60,6 +60,9 @@
   configuration, and CI quality gates. Do not weaken or blanket-disable them
   to clear a failure. Any necessary lint exception must be narrowly scoped and
   carry a code comment explaining the specific compatibility or safety reason.
+- Keep explicit Rust panic paths out of runtime code. The workspace denies
+  `clippy::panic`; return a typed error for recoverable failures and retain
+  invariant assertions only when they cannot be triggered by valid public input.
 - Adapters dispatch by the manifest operation and derive every stimulus from
   the supplied input. A `case_id`, workload ID, requirement ID, or result
   artifact must never select hard-coded inputs, outputs, expected status, or a
