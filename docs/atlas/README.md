@@ -25,16 +25,17 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 647 input-only cases across
-75 indexed files, 91 operations, and 682 requirements. The latest full-slice
-run `0cbbc7c8-34ee-45a0-965f-3d203615d999` passed 826 of 830 selected profile
+active and incomplete. The current contract has 648 input-only cases across
+75 indexed files, 91 operations, and 683 requirements. The latest full-slice
+run `5acb83cd-2065-46bd-ae0d-9f1df23a5338` passed 827 of 831 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 645/645; Rust-native
-passed 181/185. All eight selected `CommaSeparatedStrings` comparisons pass.
-The four native rows are synchronous Request endpoint, bound-method endpoint,
-partial endpoint, and callable-instance ASGI dispatch. Behavior for lone
-surrogate Python strings remains unverified at the PyO3 UTF-8 `String` boundary.
-Full run and wheel identities are recorded in
+Python-callable rows `not_run`. The Python package passed 646/646; Rust-native
+passed 181/185. All nine selected `CommaSeparatedStrings` comparisons pass,
+including lone-surrogate strings through parsing, sequence values, and subclass
+`__repr__`. The PyO3 boundary uses UTF-32LE with `surrogatepass`; parsing and
+formatting remain Rust-owned. The four native rows are synchronous Request
+endpoint, bound-method endpoint, partial endpoint, and callable-instance ASGI
+dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 

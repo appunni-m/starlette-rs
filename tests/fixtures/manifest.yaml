@@ -5444,6 +5444,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.datastructures.CommaSeparatedStrings.python-lone-surrogate-strings",
+              "dimension": "boundary",
+              "description": "Preserve lone-surrogate code points through comma parsing, sequence values, string formatting, and a Python str subclass __repr__. Pinned source: starlette/datastructures.py:231-250; Python str permits unpaired surrogate code points.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

@@ -90,7 +90,11 @@ def _json_bytes(document: Any) -> bytes:
         text = json.dumps(document, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
     except (TypeError, ValueError) as exc:
         raise ContractError(f"input source cannot be serialized as JSON: {exc}") from exc
-    return text.encode("utf-8")
+    try:
+        return text.encode("utf-8")
+    except UnicodeEncodeError:
+        escaped = json.dumps(document, indent=2, ensure_ascii=True, allow_nan=False) + "\n"
+        return escaped.encode("ascii")
 
 
 def _validate_sources(

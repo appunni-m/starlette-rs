@@ -490,6 +490,7 @@ COMMA_SEPARATED_STRINGS_REQUIREMENTS = {
     "malformed": "starlette.datastructures.CommaSeparatedStrings.shlex-malformed-input-errors",
     "unicode_repr": "starlette.datastructures.CommaSeparatedStrings.python-unicode-repr-categories",
     "string_subclass": "starlette.datastructures.CommaSeparatedStrings.python-string-subclass-sequence-values",
+    "lone_surrogate": "starlette.datastructures.CommaSeparatedStrings.python-lone-surrogate-strings",
 }
 FORM_DATA_MULTIDICT_LOOKUPS_OPERATION = (
     "starlette.datastructures.FormData",
@@ -17062,14 +17063,21 @@ def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:
         "string",
         "shlex-edge-string",
         "unicode-repr-string",
+        "surrogate-string",
         "malformed-string",
         "sequence",
+        "surrogate-sequence",
         "sequence-subclass",
     }
     exercised: set[str] = set()
     has_valid_input = False
     has_sequence_subclass = False
     has_python_error_boundary = False
+    has_lone_surrogate = False
+
+    def contains_lone_surrogate(value: str) -> bool:
+        return any(0xD800 <= ord(character) <= 0xDFFF for character in value)
+
     for index, raw_input in enumerate(inputs):
         context = f"CommaSeparatedStrings inputs[{index}]"
         if not isinstance(raw_input, dict) or not isinstance(raw_input.get("kind"), str):
@@ -17077,9 +17085,22 @@ def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:
         kind = raw_input["kind"]
         if kind not in kinds:
             raise ContractError(f"{context}.kind is unsupported")
-        if kind in {"string", "shlex-edge-string", "unicode-repr-string", "malformed-string"}:
+        if kind in {
+            "string",
+            "shlex-edge-string",
+            "unicode-repr-string",
+            "surrogate-string",
+            "malformed-string",
+        }:
             item = _exact(raw_input, {"kind", "value"}, context)
             _string(item["value"], f"{context}.value")
+            contains_surrogate = contains_lone_surrogate(item["value"])
+            if kind == "surrogate-string":
+                if not contains_surrogate:
+                    raise ContractError(f"{context}.value must include a lone surrogate")
+                has_lone_surrogate = True
+            elif contains_surrogate:
+                raise ContractError(f"{context} must use the explicit surrogate-string input kind")
             if kind == "malformed-string":
                 has_python_error_boundary = True
                 exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["malformed"])
@@ -17095,13 +17116,22 @@ def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:
                             f"{context}.value must include the declared format, unassigned, and tag characters"
                         )
                     exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["unicode_repr"])
-        elif kind == "sequence":
+        elif kind in {"sequence", "surrogate-sequence"}:
             item = _exact(raw_input, {"kind", "items"}, context)
             sequence_items = item["items"]
             if not isinstance(sequence_items, list) or any(
                 not isinstance(value, str) for value in sequence_items
             ):
                 raise ContractError(f"{context}.items must be an array of strings")
+            contains_surrogate = any(contains_lone_surrogate(value) for value in sequence_items)
+            if kind == "surrogate-sequence":
+                if not contains_surrogate:
+                    raise ContractError(f"{context}.items must include a lone surrogate")
+                has_lone_surrogate = True
+            elif contains_surrogate:
+                raise ContractError(
+                    f"{context} must use the explicit surrogate-sequence input kind"
+                )
             has_valid_input = True
             exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["constructor_sequence"])
         else:
@@ -17123,6 +17153,11 @@ def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:
             has_sequence_subclass = True
             exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["constructor_sequence"])
             exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["string_subclass"])
+            if any(map(contains_lone_surrogate, [*sequence_items, *repr_suffixes])):
+                has_lone_surrogate = True
+
+    if has_lone_surrogate:
+        exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["lone_surrogate"])
 
     index_probes = case["index_probes"]
     if not isinstance(index_probes, list) or any(type(index) is not int for index in index_probes):
@@ -17139,7 +17174,7 @@ def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:
         raise ContractError("CommaSeparatedStrings cases use no assets and select snapshot")
     expected_profiles = (
         ["python-package-cpython312"]
-        if has_sequence_subclass or has_python_error_boundary
+        if has_sequence_subclass or has_python_error_boundary or has_lone_surrogate
         else ["rust-native-local", "python-package-cpython312"]
     )
     if case["target_profiles"] != expected_profiles:

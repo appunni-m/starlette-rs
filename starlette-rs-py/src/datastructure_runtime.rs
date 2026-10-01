@@ -12,8 +12,8 @@ use pyo3::exceptions::{
     PyAssertionError, PyAttributeError, PyKeyError, PyRuntimeError, PyValueError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
-use starlette_rs::CommaSeparatedStrings as NativeCommaSeparatedStrings;
+use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
+use starlette_rs::PythonCodePointStrings as NativePythonCodePointStrings;
 
 use crate::awaitable::into_python_awaitable;
 
@@ -58,7 +58,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 /// Python conversion and protocol methods for the Rust-owned value type.
 #[pyclass(name = "CommaSeparatedStrings")]
 pub(crate) struct PyCommaSeparatedStrings {
-    inner: NativeCommaSeparatedStrings,
+    inner: NativePythonCodePointStrings,
     python_items: Option<Vec<Py<PyAny>>>,
 }
 
@@ -67,7 +67,8 @@ impl PyCommaSeparatedStrings {
     #[new]
     fn new(value: &Bound<'_, PyAny>) -> PyResult<Self> {
         let (inner, python_items) = if value.is_instance_of::<PyString>() {
-            let inner = NativeCommaSeparatedStrings::parse(&value.extract::<String>()?)
+            let codepoints = python_string_to_codepoints(value)?;
+            let inner = NativePythonCodePointStrings::parse(&codepoints)
                 .map_err(|error| PyValueError::new_err(error.to_string()))?;
             (inner, None)
         } else {
@@ -75,11 +76,13 @@ impl PyCommaSeparatedStrings {
             let mut python_items = Vec::new();
             for item in value.try_iter()? {
                 let item = item?;
-                native_items.push(item.extract::<String>()?);
-                python_items.push(item.unbind());
+                let item_string = item.cast_into::<PyString>()?;
+                native_items.push(python_string_to_codepoints(item_string.as_any())?);
+                python_items.push(item_string.into_any().unbind());
             }
             (
-                NativeCommaSeparatedStrings::from_items(native_items),
+                NativePythonCodePointStrings::from_items(native_items)
+                    .map_err(|error| PyValueError::new_err(error.to_string()))?,
                 Some(python_items),
             )
         };
@@ -106,21 +109,26 @@ impl PyCommaSeparatedStrings {
             .map(Bound::unbind)
     }
 
-    fn __str__(&self, py: Python<'_>) -> PyResult<String> {
-        match &self.python_items {
-            Some(items) => Ok(self
+    fn __str__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
+        let value = match &self.python_items {
+            Some(items) => self
                 .inner
-                .as_string_with_item_reprs(&python_item_reprs(py, items)?)),
-            None => Ok(self.inner.as_string()),
-        }
+                .as_string_with_item_reprs(&python_item_reprs(py, items)?),
+            None => self.inner.as_string(),
+        };
+        codepoints_to_python_string(py, &value)
     }
 
-    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+    fn __repr__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
         self.class_repr(py, "CommaSeparatedStrings")
     }
 
     #[pyo3(name = "_repr_for_class")]
-    fn repr_for_class(&self, py: Python<'_>, class_name: &str) -> PyResult<String> {
+    fn repr_for_class<'py>(
+        &self,
+        py: Python<'py>,
+        class_name: &str,
+    ) -> PyResult<Bound<'py, PyString>> {
         self.class_repr(py, class_name)
     }
 }
@@ -129,24 +137,74 @@ impl PyCommaSeparatedStrings {
     fn as_python_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         match &self.python_items {
             Some(items) => PyList::new(py, items.iter().map(|item| item.clone_ref(py))),
-            None => PyList::new(py, self.inner.items()),
+            None => {
+                let items = self
+                    .inner
+                    .items()
+                    .iter()
+                    .map(|item| codepoints_to_python_string(py, item).map(Bound::into_any))
+                    .collect::<PyResult<Vec<_>>>()?;
+                PyList::new(py, items)
+            }
         }
     }
 
-    fn class_repr(&self, py: Python<'_>, class_name: &str) -> PyResult<String> {
-        match &self.python_items {
-            Some(items) => Ok(self
-                .inner
-                .repr_with_item_reprs(class_name, &python_item_reprs(py, items)?)),
-            None => Ok(self.inner.repr(class_name)),
-        }
+    fn class_repr<'py>(&self, py: Python<'py>, class_name: &str) -> PyResult<Bound<'py, PyString>> {
+        let value = match &self.python_items {
+            Some(items) => NativePythonCodePointStrings::repr_with_item_reprs(
+                class_name,
+                &python_item_reprs(py, items)?,
+            ),
+            None => self.inner.repr(class_name),
+        };
+        codepoints_to_python_string(py, &value)
     }
 }
 
-fn python_item_reprs(py: Python<'_>, items: &[Py<PyAny>]) -> PyResult<Vec<String>> {
+fn python_string_to_codepoints(value: &Bound<'_, PyAny>) -> PyResult<Vec<u32>> {
+    let py = value.py();
+    let encode = py.get_type::<PyString>().getattr("encode")?;
+    let encoded = encode
+        .call1((value, "utf-32-le", "surrogatepass"))?
+        .cast_into::<PyBytes>()?;
+    let chunks = encoded.as_bytes().chunks_exact(4);
+    if !chunks.remainder().is_empty() {
+        return Err(PyValueError::new_err(
+            "UTF-32 conversion returned an incomplete code point",
+        ));
+    }
+    chunks
+        .map(|chunk| {
+            let bytes = <[u8; 4]>::try_from(chunk).map_err(|_| {
+                PyValueError::new_err("UTF-32 conversion returned an incomplete code point")
+            })?;
+            Ok(u32::from_le_bytes(bytes))
+        })
+        .collect()
+}
+
+fn codepoints_to_python_string<'py>(
+    py: Python<'py>,
+    codepoints: &[u32],
+) -> PyResult<Bound<'py, PyString>> {
+    let mut bytes = Vec::with_capacity(codepoints.len() * 4);
+    for codepoint in codepoints {
+        bytes.extend_from_slice(&codepoint.to_le_bytes());
+    }
+    PyString::from_encoded_object(
+        PyBytes::new(py, &bytes).as_any(),
+        Some(c"utf-32-le"),
+        Some(c"surrogatepass"),
+    )
+}
+
+fn python_item_reprs(py: Python<'_>, items: &[Py<PyAny>]) -> PyResult<Vec<Vec<u32>>> {
     items
         .iter()
-        .map(|item| item.bind(py).repr()?.extract::<String>())
+        .map(|item| {
+            let repr = item.bind(py).repr()?;
+            python_string_to_codepoints(repr.as_any())
+        })
         .collect()
 }
 

@@ -13,6 +13,7 @@ def run_comma_separated_strings_case(case: dict[str, Any], value_type: type[Any]
             "string",
             "shlex-edge-string",
             "unicode-repr-string",
+            "surrogate-string",
             "malformed-string",
         }:
             value = input_spec["value"]

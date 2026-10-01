@@ -184,6 +184,53 @@
       "observations": [
         "snapshot"
       ]
+    },
+    {
+      "case_id": "starlette.datastructures.CommaSeparatedStrings.consumer-sequence.lone-surrogates",
+      "surface": "starlette.datastructures.CommaSeparatedStrings",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.CommaSeparatedStrings.constructor-string",
+        "starlette.datastructures.CommaSeparatedStrings.constructor-sequence",
+        "starlette.datastructures.CommaSeparatedStrings.sequence-observations",
+        "starlette.datastructures.CommaSeparatedStrings.string-and-repr",
+        "starlette.datastructures.CommaSeparatedStrings.python-string-subclass-sequence-values",
+        "starlette.datastructures.CommaSeparatedStrings.python-lone-surrogate-strings"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "kind": "surrogate-string",
+          "value": "prefix,\ud800,middle,\udfff"
+        },
+        {
+          "kind": "surrogate-sequence",
+          "items": [
+            "\ud800",
+            "middle",
+            "\udfff"
+          ]
+        },
+        {
+          "kind": "sequence-subclass",
+          "items": [
+            "subclass"
+          ],
+          "repr_suffixes": [
+            "\ud800"
+          ]
+        }
+      ],
+      "index_probes": [
+        0,
+        -1
+      ],
+      "observations": [
+        "snapshot"
+      ]
     }
   ]
 }

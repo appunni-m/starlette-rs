@@ -41,7 +41,9 @@ pub use application::{
     ApplicationCallError, ApplicationError, ApplicationRoute, DispatchResult, HttpScope, Starlette,
 };
 pub use asgi::{AsgiScopeKind, classify_scope};
-pub use comma_separated_strings::{CommaSeparatedStrings, CommaSeparatedStringsParseError};
+pub use comma_separated_strings::{
+    CommaSeparatedStrings, CommaSeparatedStringsParseError, PythonCodePointStrings,
+};
 pub use connection::{ConnectionUrlError, connection_url};
 pub use exception_handlers::ExceptionHandlerTable;
 pub use file_response::{

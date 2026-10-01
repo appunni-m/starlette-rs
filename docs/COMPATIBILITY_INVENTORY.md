@@ -17,10 +17,11 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 647 input-only cases across 75 files,
-covering 91 operations and 682 parity requirements. It includes Rust-backed
+The active parity manifest indexes 648 input-only cases across 75 files,
+covering 91 operations and 683 parity requirements. It includes Rust-backed
 `CommaSeparatedStrings` parsing, sequence formatting, quoting, Unicode
-representation, and Python string-subclass boundary inputs; a three-request
+representation, Python string-subclass boundary inputs, and lone-surrogate
+strings; a three-request
 CORSMiddleware origin-isolation sequence and two
 Python-package-only direct `run_in_threadpool` cases, synchronous Request
 endpoint worker cancellation and failure, five async Request endpoint callable
@@ -51,29 +52,32 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `0cbbc7c8-34ee-45a0-965f-3d203615d999`. It ran from
-`2026-10-01T17:32:32.493Z` to `2026-10-01T17:35:04.640Z` and selected 830
-profile comparisons: 826 passed, zero failed, zero infrastructure errors,
+The latest full-slice run is `5acb83cd-2065-46bd-ae0d-9f1df23a5338`. It ran from
+`2026-10-01T17:53:30.013Z` to `2026-10-01T17:55:55.518Z` and selected 831
+profile comparisons: 827 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
-passed all 645 selected comparisons; Rust-native passed 181 of 185. All eight
-new `CommaSeparatedStrings` comparisons passed. The four native `not_run` rows
-are synchronous Request endpoint, bound-method endpoint, partial endpoint,
-and callable-instance ASGI dispatch. `make test` exits with status 2 for those
-declared Python-callable boundaries. The Rust-native source fingerprint was
-`d7980ddc1c44e3dac9a7e103c7859c994f637243+source-fnv1a64-7200f9cf1e05b571`.
+passed all 646 selected comparisons; Rust-native passed 181 of 185. All nine
+`CommaSeparatedStrings` profile comparisons passed, including the new
+lone-surrogate inputs. The four native `not_run` rows are synchronous Request
+endpoint, bound-method endpoint, partial endpoint, and callable-instance ASGI
+dispatch. `make test` exits with status 2 for those declared Python-callable
+boundaries. The Rust-native source fingerprint was
+`0aa2ddb04fa792ac3a57d04ce8f0763c0c64e007+source-fnv1a64-b3bbd3ddb65860b2`.
 The installed package tree SHA-256 was
-`9ffc9a46cef15744f40e0cdf5b19ef373617a1e283d04f8d2e83503dce8526fc`, wheel
-SHA-256 `a6c03a0e899e61eb1dbe1583b38a245e5091cf0d424087cb0996caab99418d3f`,
+`bde48f939a9906c910480c00c2aaeab13c7fe732c5b0dfd8edbb2b9e69203b44`, wheel
+SHA-256 `9739159516a5b435b833dd6e4bdeb53d767f235f08827d3faa0fe10f2f1d0203`,
 and manifest SHA-256
-`3574e8aa910898b4b6271230dc2ffa74bb8291eaeb8703f1d6c6ceef3ef3c8ea`. Full
+`2e7c09041f5e4626d64f772a5855f4ee362b2ed9be364859f74af78f80587844`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
 readiness.
 
-`CommaSeparatedStrings` behavior for lone-surrogate strings remains unverified:
-Rust's UTF-8 `String` cannot hold lone surrogate code points from Python. The
-compatibility package currently fails that input during PyO3 string conversion.
+Rust owns lone-surrogate parsing and formatting through a code-point sequence;
+the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
+`String` cannot encode unpaired surrogates. The input-only source/package
+comparison covers direct parsing, sequence values, and a subclass `__repr__`
+containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run,
 `6807b591-c0de-476b-82ab-6e61572c4b41`, measured all 74 declared workloads:

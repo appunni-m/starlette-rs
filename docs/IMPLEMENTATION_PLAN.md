@@ -32,10 +32,10 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 647 input-only cases in 75 indexed files,
-covering 91 operations and 682 requirements, including Rust-backed
-`CommaSeparatedStrings` parsing, quoting, sequence formatting, and Python
-string-subclass boundary behavior, the direct
+The active parity contract contains 648 input-only cases in 75 indexed files,
+covering 91 operations and 683 requirements, including Rust-backed
+`CommaSeparatedStrings` parsing, quoting, sequence formatting, Python
+string-subclass boundary behavior, and lone-surrogate values, the direct
 `starlette.concurrency.run_in_threadpool` helper, synchronous Request endpoint
 worker cancellation and failure, five async Request endpoint callable shapes
 and failure, ASGI callable-instance success and failure, `Starlette.host()` and
@@ -48,9 +48,9 @@ round trip for `test_request_cookies`, including every active
 parameter from the edge-case and malformed-cookie source rows.
 The six direct ServerErrorMiddleware inputs and three TestClient exception-
 chain cases also pass in the latest run. Run
-`0cbbc7c8-34ee-45a0-965f-3d203615d999` selected 830 comparisons: 826 passed,
+`5acb83cd-2065-46bd-ae0d-9f1df23a5338` selected 831 comparisons: 827 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
-Python-callable rows `not_run`. The installed Python package passed 645/645;
+Python-callable rows `not_run`. The installed Python package passed 646/646;
 Rust-native passed 181/185. The four native `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for these declared rows. The
