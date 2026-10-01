@@ -1810,6 +1810,16 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"{octx} permits AnyIO cancellation-message normalization only for run_until_first_complete event traces"
                             )
+                    elif normalization_kind == "starlette-lifespan-router-frame":
+                        _exact(normalization_spec, {"kind"}, f"{octx}.normalization")
+                        if (
+                            key != TESTCLIENT_LIFESPAN_OPERATION_KEY
+                            or observation["path"] != "lifespan_send_messages"
+                            or comparison["kind"] != "ordered"
+                        ):
+                            raise ContractError(
+                                f"{octx} permits Starlette Router.lifespan frame normalization only for ordered TestClient lifespan messages"
+                            )
                     elif normalization_kind == "sequence":
                         _exact(
                             normalization_spec,
@@ -4550,15 +4560,81 @@ def _validate_static_files_case_stimulus(
             raise ContractError("StaticFiles calls must contain at least two request inputs")
         base_case = {key: value for key, value in case.items() if key != "calls"}
         derived_covers: set[str] = set()
+        call_scopes: list[dict[str, Any]] = []
         for index, call in enumerate(calls):
             call = _exact(
                 call,
                 {"scope", "incoming", "send"},
                 f"StaticFiles calls[{index}]",
             )
+            call_scopes.append(call["scope"])
             derived_covers.update(
                 _validate_static_files_case_stimulus({**base_case, **call}, validate_covers=False)
             )
+
+        # Derive the source test's date-comparison ordering from the request
+        # sequence itself: the same direct asset receives a matching later
+        # If-Modified-Since value, followed by a non-matching earlier value.
+        # Keep this structural so requirement IDs never choose fixture inputs.
+        if len(call_scopes) == 2:
+            first_scope, second_scope = call_scopes
+            first_path = first_scope.get("path")
+            second_path = second_scope.get("path")
+            root_path = first_scope.get("root_path")
+            route_path = first_path
+            if root_path and isinstance(first_path, str) and first_path.startswith(root_path):
+                if first_path == root_path:
+                    route_path = ""
+                elif first_path[len(root_path) :].startswith("/"):
+                    route_path = first_path[len(root_path) :]
+            normalized_path = (
+                "/".join(part for part in route_path.split("/") if part not in {"", "."}) or "."
+            )
+            selected_file = next(
+                (
+                    file_input
+                    for file_input in base_case["files"]
+                    if file_input["path"] == normalized_path
+                ),
+                None,
+            )
+
+            def if_modified_since(scope: dict[str, Any]) -> float | None:
+                for encoded_name, encoded_value in scope.get("headers_base64_pairs", []):
+                    try:
+                        name = (
+                            base64.b64decode(encoded_name, validate=True).decode("latin-1").lower()
+                        )
+                        if name != "if-modified-since":
+                            continue
+                        value = base64.b64decode(encoded_value, validate=True).decode("latin-1")
+                        return parsedate_to_datetime(value).timestamp()
+                    except (TypeError, ValueError, OverflowError, OSError):
+                        return None
+                return None
+
+            first_request_date = if_modified_since(first_scope)
+            second_request_date = if_modified_since(second_scope)
+            if (
+                selected_file is not None
+                and first_scope.get("type") == second_scope.get("type") == "http"
+                and first_scope.get("method") == second_scope.get("method") == "GET"
+                and first_path == second_path
+                and first_scope.get("root_path") == second_scope.get("root_path")
+                and first_request_date is not None
+                and second_request_date is not None
+                and first_request_date >= float(selected_file["mtime_seconds"])
+                and second_request_date < float(selected_file["mtime_seconds"])
+                and not any(
+                    base64.b64decode(name, validate=True).decode("latin-1").lower()
+                    == "if-none-match"
+                    for scope in (first_scope, second_scope)
+                    for name, _value in scope.get("headers_base64_pairs", [])
+                )
+            ):
+                derived_covers.add(
+                    f"{STATIC_FILES_SURFACE}.asgi-call.last-modified-condition-order"
+                )
         if validate_covers and set(case["covers"]) != derived_covers:
             raise ContractError(
                 "StaticFiles call-sequence covers must match its input-derived request behaviors"
@@ -6568,12 +6644,51 @@ def _validate_reverse_route_node(
             )
         return node
     if kind == "mount":
-        node = _exact(node, {"kind", "path", "name", "routes"}, context)
+        mount_keys = {"kind", "path", "name", "routes"}
+        if "middleware" in node:
+            mount_keys.add("middleware")
+        node = _exact(node, mount_keys, context)
         _validate_reverse_path(node["path"], custom, f"{context}.path")
         if node["name"] is not None:
             _string(node["name"], f"{context}.name")
         if not isinstance(node["routes"], list):
             raise ContractError(f"{context}.routes must be an array")
+        if "middleware" in node:
+            middleware = node["middleware"]
+            if not isinstance(middleware, list):
+                raise ContractError(f"{context}.middleware must be an array")
+            for index, raw in enumerate(middleware):
+                middleware_context = f"{context}.middleware[{index}]"
+                spec = _exact(
+                    raw,
+                    {"kind", "scope_key", "scope_value", "response_header"},
+                    middleware_context,
+                )
+                if spec["kind"] != "scope-and-response-header":
+                    raise ContractError(
+                        f"{middleware_context}.kind must be scope-and-response-header"
+                    )
+                _string(spec["scope_key"], f"{middleware_context}.scope_key")
+                if isinstance(spec["scope_value"], (dict, list)):
+                    raise ContractError(f"{middleware_context}.scope_value must be a JSON scalar")
+                header = spec["response_header"]
+                if (
+                    not isinstance(header, list)
+                    or len(header) != 2
+                    or any(not isinstance(value, str) or not value for value in header)
+                    or ":" in header[0]
+                    or any("\r" in value or "\n" in value for value in header)
+                ):
+                    raise ContractError(
+                        f"{middleware_context}.response_header must be a valid [name, value] pair"
+                    )
+                try:
+                    header[0].encode("ascii")
+                    header[1].encode("latin-1")
+                except UnicodeEncodeError as exc:
+                    raise ContractError(
+                        f"{middleware_context}.response_header must use ASGI-compatible bytes"
+                    ) from exc
         for index, route in enumerate(node["routes"]):
             _validate_reverse_route_node(
                 route,
@@ -6923,12 +7038,33 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
             derived.add(rid("mismatch"))
     elif surface == "starlette.applications.Starlette" and found:
         derived.add(rid("forwarder"))
+        candidate_ids = {id(route) for _index, route in candidates}
+        middleware_paths = _reverse_candidate_middleware_paths(graph, candidate_ids)
+        if middleware_paths and middleware_paths[0]:
+            derived.add(rid("mount-routes-with-middleware"))
     elif surface == HOST_SURFACE and found:
         if lookup["name"] == graph["name"]:
             derived.add(rid("direct-path"))
         else:
             derived.add(rid("nested-route"))
     return derived
+
+
+def _reverse_candidate_middleware_paths(
+    node: dict[str, Any], candidates: set[int], inherited_middleware: bool = False
+) -> list[bool]:
+    """Return middleware ancestry for matching candidates in route-list order."""
+    has_middleware = inherited_middleware or (
+        node["kind"] == "mount" and bool(node.get("middleware"))
+    )
+    if id(node) in candidates:
+        return [has_middleware]
+    if node["kind"] in {"http-route", "websocket-route"}:
+        return []
+    paths: list[bool] = []
+    for route in node.get("routes", []):
+        paths.extend(_reverse_candidate_middleware_paths(route, candidates, has_middleware))
+    return paths
 
 
 def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
@@ -10162,8 +10298,10 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             {"kind", "scope_fields", "callback"},
             "TestClient Starlette lifespan app",
         )
-        if client_operations != ["enter", "exit"]:
-            raise ContractError("Starlette lifespan callback case must enter then exit TestClient")
+        if client_operations not in (["enter", "exit"], ["enter"]):
+            raise ContractError(
+                "Starlette lifespan callback case must enter and optionally exit TestClient"
+            )
         scope_fields = asgi_app["scope_fields"]
         if (
             not isinstance(scope_fields, list)
@@ -10174,16 +10312,28 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "Starlette lifespan scope_fields must select type and optional state"
             )
-        callback = _exact(
-            asgi_app["callback"], {"entry_effect", "exit_effect"}, "Lifespan callback"
-        )
-        for key in ("entry_effect", "exit_effect"):
-            _string(callback[key], f"Lifespan callback {key}")
-        expected_covers = {
-            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
-            TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown"],
-            TESTCLIENT_LIFESPAN_REQUIREMENTS["application_callback"],
-        }
+        if client_operations == ["enter", "exit"]:
+            callback = _exact(
+                asgi_app["callback"], {"entry_effect", "exit_effect"}, "Lifespan callback"
+            )
+            for key in ("entry_effect", "exit_effect"):
+                _string(callback[key], f"Lifespan callback {key}")
+            expected_covers = {
+                TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
+                TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown"],
+                TESTCLIENT_LIFESPAN_REQUIREMENTS["application_callback"],
+            }
+        else:
+            callback = _exact(asgi_app["callback"], {"entry_error"}, "Lifespan callback")
+            error = _exact(
+                callback["entry_error"],
+                {"exception_type", "message"},
+                "Lifespan callback entry error",
+            )
+            if error["exception_type"] != "RuntimeError":
+                raise ContractError("Starlette lifespan callback errors currently use RuntimeError")
+            _string(error["message"], "Lifespan callback entry error message")
+            expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"]}
         covers = case["covers"]
         if (
             not isinstance(covers, list)

@@ -1863,10 +1863,21 @@ fn apply_middleware_inner(
             .try_iter()?
         {
             let item = item?;
-            let item = item.cast::<PyTuple>()?;
-            let middleware_type = item.get_item(0)?;
-            let positional = item.get_item(1)?;
-            let keyword_object = item.get_item(2)?;
+            let mut fields = item.try_iter()?;
+            let middleware_type = fields.next().transpose()?.ok_or_else(|| {
+                PyValueError::new_err("not enough values to unpack (expected 3, got 0)")
+            })?;
+            let positional = fields.next().transpose()?.ok_or_else(|| {
+                PyValueError::new_err("not enough values to unpack (expected 3, got 1)")
+            })?;
+            let keyword_object = fields.next().transpose()?.ok_or_else(|| {
+                PyValueError::new_err("not enough values to unpack (expected 3, got 2)")
+            })?;
+            if fields.next().transpose()?.is_some() {
+                return Err(PyValueError::new_err(
+                    "too many values to unpack (expected 3)",
+                ));
+            }
             let keyword = keyword_object.cast::<PyDict>()?;
             let mut arguments = vec![app];
             for value in positional.try_iter()? {

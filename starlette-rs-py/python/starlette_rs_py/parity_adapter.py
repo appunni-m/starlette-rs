@@ -6369,6 +6369,47 @@ def _reverse_url_path_value(url_path: Any) -> dict[str, str]:
     return {"path": str(url_path), "protocol": url_path.protocol, "host": url_path.host}
 
 
+def _build_reverse_route_middleware(specs: list[dict[str, Any]]) -> list[Any]:
+    from starlette.middleware import Middleware
+
+    configurations = []
+    for spec in specs:
+
+        class InputScopeAndResponseHeaderMiddleware:
+            def __init__(
+                self,
+                app: Any,
+                *,
+                scope_key: str,
+                scope_value: Any,
+                response_header: list[str],
+            ) -> None:
+                self.app = app
+                self.scope_key = scope_key
+                self.scope_value = scope_value
+                self.response_header = tuple(value.encode("latin-1") for value in response_header)
+
+            async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+                scope[self.scope_key] = self.scope_value
+
+                async def modified_send(message: dict[str, Any]) -> None:
+                    if message["type"] == "http.response.start":
+                        message["headers"].append(self.response_header)
+                    await send(message)
+
+                await self.app(scope, receive, modified_send)
+
+        configurations.append(
+            Middleware(
+                InputScopeAndResponseHeaderMiddleware,
+                scope_key=spec["scope_key"],
+                scope_value=spec["scope_value"],
+                response_header=spec["response_header"],
+            )
+        )
+    return configurations
+
+
 def _request_url_value(request: Any, lookup: dict[str, Any]) -> dict[str, Any]:
     try:
         return {"url": str(request.url_for(lookup["name"], **lookup["path_params"]))}
@@ -6410,12 +6451,16 @@ def _build_reverse_route_node(
             ]
         )
     if kind == "mount":
+        mount_arguments = {}
+        if "middleware" in node:
+            mount_arguments["middleware"] = _build_reverse_route_middleware(node["middleware"])
         return Mount(
             node["path"],
             routes=[
                 _build_reverse_route_node(child, lookup, observation) for child in node["routes"]
             ],
             name=node["name"],
+            **mount_arguments,
         )
     if kind == "starlette-app":
         return Starlette(

@@ -198,6 +198,50 @@
       }
     },
     {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.starlette-callback-startup-error",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.startup-error-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "enter"
+        }
+      ],
+      "asgi_app": {
+        "kind": "starlette-lifespan",
+        "scope_fields": [
+          "type"
+        ],
+        "callback": {
+          "entry_error": {
+            "exception_type": "RuntimeError",
+            "message": "Startup error"
+          }
+        }
+      }
+    },
+    {
       "case_id": "starlette.testclient.TestClient.lifespan-context.shutdown-error",
       "surface": "starlette.testclient.TestClient",
       "operation": "lifespan-context",

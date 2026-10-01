@@ -79,25 +79,55 @@ pub(crate) fn into_python_awaitable_with_reuse_error<M>(
 where
     M: AwaitableStateMachine,
 {
-    Py::new(py, PythonAwaitable::new(machine, reuse_error)).map(|awaitable| awaitable.into_any())
+    Py::new(
+        py,
+        PythonAwaitable {
+            driver: AwaitableDriver::new(Box::new(machine), reuse_error),
+        },
+    )
+    .map(|awaitable| awaitable.into_any())
+}
+
+/// Wrap a thread-safe state machine whose Python traceback may outlive the
+/// event-loop thread that drives it.
+pub(crate) fn into_sendable_python_awaitable<M>(py: Python<'_>, machine: M) -> PyResult<Py<PyAny>>
+where
+    M: AwaitableStateMachine + Send + Sync,
+{
+    Py::new(
+        py,
+        SendablePythonAwaitable {
+            driver: AwaitableDriver::new(
+                Box::new(machine),
+                "cannot reuse already awaited coroutine",
+            ),
+        },
+    )
+    .map(|awaitable| awaitable.into_any())
 }
 
 #[pyclass(unsendable)]
 struct PythonAwaitable {
-    machine: Option<Box<dyn AwaitableStateMachine>>,
+    driver: AwaitableDriver<dyn AwaitableStateMachine>,
+}
+
+#[pyclass]
+struct SendablePythonAwaitable {
+    driver: AwaitableDriver<dyn AwaitableStateMachine + Send + Sync>,
+}
+
+struct AwaitableDriver<M: AwaitableStateMachine + ?Sized> {
+    machine: Option<Box<M>>,
     active_iterator: Option<Py<PyAny>>,
     started: bool,
     finished: bool,
     reuse_error: &'static str,
 }
 
-impl PythonAwaitable {
-    fn new<M>(machine: M, reuse_error: &'static str) -> Self
-    where
-        M: AwaitableStateMachine,
-    {
+impl<M: AwaitableStateMachine + ?Sized> AwaitableDriver<M> {
+    fn new(machine: Box<M>, reuse_error: &'static str) -> Self {
         Self {
-            machine: Some(Box::new(machine)),
+            machine: Some(machine),
             active_iterator: None,
             started: false,
             finished: false,
@@ -281,11 +311,11 @@ impl PythonAwaitable {
     }
 
     fn __next__(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.handle_send(py, py.None())
+        self.driver.handle_send(py, py.None())
     }
 
     fn send(&mut self, py: Python<'_>, value: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        PythonAwaitable::handle_send(self, py, value)
+        self.driver.handle_send(py, value)
     }
 
     #[pyo3(signature = (exception_type, value=None, traceback=None))]
@@ -296,11 +326,47 @@ impl PythonAwaitable {
         value: Option<Py<PyAny>>,
         traceback: Option<Py<PyAny>>,
     ) -> PyResult<Py<PyAny>> {
-        PythonAwaitable::handle_throw(self, py, exception_type, value, traceback)
+        self.driver
+            .handle_throw(py, exception_type, value, traceback)
     }
 
     fn close(&mut self, py: Python<'_>) -> PyResult<()> {
-        PythonAwaitable::handle_close(self, py)
+        self.driver.handle_close(py)
+    }
+}
+
+#[pymethods]
+impl SendablePythonAwaitable {
+    fn __await__(self_: Py<Self>) -> Py<Self> {
+        self_
+    }
+
+    fn __iter__(self_: Py<Self>) -> Py<Self> {
+        self_
+    }
+
+    fn __next__(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.driver.handle_send(py, py.None())
+    }
+
+    fn send(&mut self, py: Python<'_>, value: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        self.driver.handle_send(py, value)
+    }
+
+    #[pyo3(signature = (exception_type, value=None, traceback=None))]
+    fn throw(
+        &mut self,
+        py: Python<'_>,
+        exception_type: Py<PyAny>,
+        value: Option<Py<PyAny>>,
+        traceback: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        self.driver
+            .handle_throw(py, exception_type, value, traceback)
+    }
+
+    fn close(&mut self, py: Python<'_>) -> PyResult<()> {
+        self.driver.handle_close(py)
     }
 }
 

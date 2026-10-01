@@ -3,6 +3,7 @@
 use std::fs::{self, Metadata};
 use std::io;
 use std::path::{Component, Path, PathBuf};
+use std::time::SystemTime;
 
 use crate::{FileMetadata, FileResponse, FileResponseError, FileResponseOptions};
 
@@ -513,12 +514,59 @@ fn is_not_modified(
         return false;
     };
     match (
-        httpdate::parse_http_date(if_modified_since.trim()),
-        httpdate::parse_http_date(last_modified.trim()),
+        parse_http_date_ignoring_weekday(&if_modified_since),
+        parse_http_date_ignoring_weekday(&last_modified),
     ) {
-        (Ok(request_time), Ok(modified_time)) => request_time >= modified_time,
+        (Some(request_time), Some(modified_time)) => request_time >= modified_time,
         _ => false,
     }
+}
+
+fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
+    const ABBREVIATED_WEEKDAYS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const FULL_WEEKDAYS: [&str; 7] = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ];
+
+    let value = value.trim();
+    if let Ok(timestamp) = httpdate::parse_http_date(value) {
+        return Some(timestamp);
+    }
+
+    let (weekday, rest, comma_separated) = if let Some((weekday, rest)) = value.split_once(',') {
+        (weekday, rest, true)
+    } else {
+        let (weekday, rest) = value.split_once(char::is_whitespace)?;
+        (weekday, rest, false)
+    };
+    let replacements = if ABBREVIATED_WEEKDAYS
+        .iter()
+        .any(|candidate| candidate.eq_ignore_ascii_case(weekday))
+    {
+        &ABBREVIATED_WEEKDAYS[..]
+    } else if FULL_WEEKDAYS
+        .iter()
+        .any(|candidate| candidate.eq_ignore_ascii_case(weekday))
+    {
+        &FULL_WEEKDAYS[..]
+    } else {
+        return None;
+    };
+
+    replacements.iter().find_map(|replacement| {
+        let normalized = if comma_separated {
+            format!("{replacement},{rest}")
+        } else {
+            format!("{replacement}{rest}")
+        };
+        httpdate::parse_http_date(&normalized).ok()
+    })
 }
 
 fn header(headers: &[(Vec<u8>, Vec<u8>)], name: &[u8]) -> Option<String> {

@@ -2519,6 +2519,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.applications.Starlette.url_path_for.mount-routes-with-middleware",
+              "dimension": "success_path",
+              "description": "Starlette.url_path_for finds a child Route in a Mount configured with routes and AddHeadersMiddleware. The lookup observes the mounted child path without dispatching the middleware. Upstream: tests/test_routing.py:831-847, 890-892; starlette/routing.py:372-392, 427-452.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -17291,6 +17302,18 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.last-modified-condition-order",
+              "dimension": "parameter_combination",
+              "description": "Run two ordered GET calls against the same input-defined asset: an If-Modified-Since date after its mtime followed by one before its mtime, and compare both live response tapes. Upstream: tests/test_staticfiles.py::test_staticfiles_304_with_last_modified_compare_last_req.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-etag-match",
               "dimension": "parameter_combination",
               "description": "Supply an If-None-Match value for an input-defined asset and compare live response events. Upstream: tests/test_staticfiles.py::test_staticfiles_304_with_etag_match.",
@@ -20485,6 +20508,9 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "normalization": {
+                    "kind": "starlette-lifespan-router-frame"
                   }
                 },
                 {
@@ -20688,7 +20714,7 @@
             {
               "id": "starlette.testclient.TestClient.lifespan-context.startup-error-propagation",
               "dimension": "error_path",
-              "description": "When the lifespan task raises during startup, entering TestClient propagates the app error and tears down the portal. Pinned source: starlette/testclient.py:679-722; tests/test_testclient.py::test_error_on_startup.",
+              "description": "When the lifespan task raises during startup, entering TestClient propagates the app error and tears down the portal. For ordered failure messages, the declared normalization removes the source-only Router.lifespan traceback frame, which has no Rust runtime frame counterpart. Pinned source: starlette/testclient.py:679-722; starlette/routing.py:639-653; tests/test_testclient.py::test_error_on_startup.",
               "lanes": [
                 "parity"
               ],

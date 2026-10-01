@@ -10,6 +10,7 @@ use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    into_sendable_python_awaitable,
 };
 
 create_exception!(_core, WebSocketUpgrade, PyException);
@@ -71,7 +72,7 @@ struct LifespanTaskCallable {
 #[pymethods]
 impl LifespanTaskCallable {
     fn __call__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             LifespanTaskMachine {
                 runner: self.runner.clone_ref(py),

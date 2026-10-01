@@ -803,6 +803,69 @@
       "observations": [
         "reverse-url"
       ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.url_path_for.mount-routes-with-middleware",
+      "surface": "starlette.applications.Starlette",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.applications.Starlette.url_path_for.forwarder",
+        "starlette.applications.Starlette.url_path_for.mount-routes-with-middleware"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "starlette-app",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/http",
+            "name": null,
+            "middleware": [
+              {
+                "kind": "scope-and-response-header",
+                "scope_key": "add_headers_middleware",
+                "scope_value": true,
+                "response_header": [
+                  "X-Test",
+                  "Set by middleware"
+                ]
+              }
+            ],
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "name": "route",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          },
+          {
+            "kind": "http-route",
+            "path": "/home",
+            "name": null,
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "route",
+        "path_params": {}
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
     }
   ]
 }

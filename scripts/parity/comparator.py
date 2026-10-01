@@ -710,6 +710,55 @@ def _normalize_file_response_temp_path(
     )
 
 
+_ROUTER_LIFESPAN_FRAME = re.compile(
+    r"""^\s*File ["'][^"']*(?:/|\\)starlette(?:/|\\)routing\.py["'], line \d+, in lifespan\s*$"""
+)
+
+
+def _normalize_starlette_lifespan_router_frame(value: Any) -> Any:
+    """Remove Starlette's source-only Router.lifespan frame from failure events."""
+    if not isinstance(value, list):
+        return value
+
+    normalized_events: list[Any] = []
+    for event in value:
+        if (
+            not isinstance(event, dict)
+            or event.get("type") not in {"lifespan.startup.failed", "lifespan.shutdown.failed"}
+            or not isinstance(event.get("message"), str)
+        ):
+            normalized_events.append(event)
+            continue
+
+        lines = event["message"].splitlines(keepends=True)
+        normalized_lines: list[str] = []
+        skip_source_line = False
+        skip_caret_line = False
+        for line in lines:
+            if _ROUTER_LIFESPAN_FRAME.match(line.rstrip("\r\n")):
+                skip_source_line = True
+                continue
+            if skip_source_line:
+                skip_source_line = False
+                if line.startswith("    ") and not line.lstrip().startswith("File "):
+                    skip_caret_line = True
+                    continue
+            if skip_caret_line:
+                skip_caret_line = False
+                if re.fullmatch(r"[ \t]*\^+[ \t]*(?:\r?\n)?", line):
+                    continue
+            normalized_lines.append(line)
+
+        normalized_message = "".join(normalized_lines)
+        if normalized_message == event["message"]:
+            normalized_events.append(event)
+        else:
+            normalized_event = dict(event)
+            normalized_event["message"] = normalized_message
+            normalized_events.append(normalized_event)
+    return normalized_events
+
+
 def compare_workflows(
     case: dict[str, Any], operation: dict[str, Any], source: Any, target: Any
 ) -> tuple[str, list[dict[str, Any]]]:
@@ -944,6 +993,17 @@ def compare_workflows(
                             )
                         left_field = _normalize_anyio_cancel_scope_message(left_field)
                         right_field = _normalize_anyio_cancel_scope_message(right_field)
+                    elif kind == "starlette-lifespan-router-frame":
+                        if (
+                            case.get("surface") != "starlette.testclient.TestClient"
+                            or case.get("operation") != "lifespan-context"
+                            or path != "lifespan_send_messages"
+                        ):
+                            raise ContractError(
+                                "Starlette lifespan traceback normalization is only allowed for TestClient lifespan send messages"
+                            )
+                        left_field = _normalize_starlette_lifespan_router_frame(left_field)
+                        right_field = _normalize_starlette_lifespan_router_frame(right_field)
                     else:
                         raise ContractError(
                             f"unsupported normalization for {path}: {normalization_step!r}"

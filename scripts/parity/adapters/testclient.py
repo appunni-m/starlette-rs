@@ -832,11 +832,18 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
 
     @contextlib.asynccontextmanager
     async def lifespan(_app: Any) -> Any:
-        lifecycle_trace.append(app_input["callback"]["entry_effect"])
+        callback = app_input["callback"]
+        if "entry_error" in callback:
+            error = callback["entry_error"]
+            lifecycle_trace.append(f"startup-error:{error['exception_type']}")
+            exception_type = getattr(builtins, error["exception_type"])
+            raise exception_type(error["message"])
+
+        lifecycle_trace.append(callback["entry_effect"])
         try:
             yield
         finally:
-            lifecycle_trace.append(app_input["callback"]["exit_effect"])
+            lifecycle_trace.append(callback["exit_effect"])
 
     starlette_app = Starlette(lifespan=lifespan)
 
@@ -853,8 +860,8 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
             lifespan_send_messages.append(_safe(message))
             await send(message)
 
-        await starlette_app(scope, observed_receive, observed_send)
         lifespan_scopes.append(record_scope(scope))
+        await starlette_app(scope, observed_receive, observed_send)
 
     client = TestClient(
         instrumented_app,
