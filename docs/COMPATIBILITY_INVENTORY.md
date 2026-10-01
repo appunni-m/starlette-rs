@@ -38,8 +38,8 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `be92517c-40b2-4e6e-bb2b-4c235d89d314`. It ran from
-`2026-10-01T12:56:18.428Z` to `2026-10-01T12:58:50.716Z` and selected 780
+The latest full-slice run is `0d0dedaa-f97c-4403-8e18-a6ad58129bbd`. It ran from
+`2026-10-01T13:39:11.926Z` to `2026-10-01T13:41:27.877Z` and selected 780
 profile comparisons: 776 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
 passed all 613 selected comparisons; Rust-native passed 163 of 167. The four
@@ -47,12 +47,12 @@ native `not_run` rows are synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
 status 2 for those declared Python-callable boundaries. The Rust-native source
 fingerprint was
-`7c4b332237fdd2ef44a53df2fd124f3b5802ef10+source-fnv1a64-811143778bc6e93d`.
+`5672d83b425e9ab599a04838cf266e15e8dffefb+source-fnv1a64-811143778bc6e93d`.
 The installed package tree SHA-256 was
-`b24e3d1c67f36a09aadb6c121b22b3ffb94a6d5b6e68cd70ff4759c5bf31cc19`, wheel
-SHA-256 `f867e9890f93f80b236f23491c3b13070a543ab1b017e490f928456bed1ff3b3`,
+`f5baa3ee72434b60ea0c5a0b6c4abd32660fa5b5de94fe17d30312efacecf849`, wheel
+SHA-256 `1762f94474ed9a0d4e41049b78667901ed17c5b2fa594d7ea5700925905088c0`,
 and manifest SHA-256
-`0ff9429bcac0f3804ac80574567ec3dc4c4f3cb09b2d5dd26fa7656d1e15b574`. Full
+`f8675143ea83299025a8f611aed5cb624344588b0b7300861e0b00e40682409b`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
@@ -304,7 +304,8 @@ The active contract adds eight input-only SessionMiddleware workflows for the
 `python-package-cpython312` profile. They compare signed-cookie persistence and
 replay, invalid-signature fallback, `max_age` expiry/default/`None` settings,
 cookie name/path/SameSite/Domain/Secure attributes, access and modification
-flags for direct `Session` mutations, `Vary: Cookie` behavior, clearing,
+flags for direct `Session` mutations including `popitem` and in-place union,
+`Vary: Cookie` behavior, clearing,
 WebSocket cookie loading, lifespan pass-through, and the public `Secret` key
 wrapper's redacted representation, string conversion, truth value, and signing
 use. The inputs replay the earlier live `Set-Cookie` value dynamically and
@@ -318,6 +319,12 @@ behavior, documented `Secret` representation and truth behavior, and the
 Python's standard-library `json.dumps` and `json.loads` to preserve the Python
 JSON byte representation used by the pinned implementation. The authored
 SessionMiddleware workflows compare those calls through the live source oracle.
+The latest run also invokes `popitem()` and `|=` on `request.session` and
+compares their return values, identity, flags, response headers, and subsequent
+replay of the original cookie. Starlette 1.6.0 inherits both methods from
+`dict`; they mutate session contents without setting `modified`, while access
+through `request.session` sets `accessed`. Rust forwards to the built-in dict
+operations, preserving this behavior without Python-side branching.
 The codec remains a Python-specific compatibility boundary. The public status
 of `SessionMiddleware.signer` is unresolved: upstream assigns this attribute,
 but the compatibility inventory has not established it as supported public API.

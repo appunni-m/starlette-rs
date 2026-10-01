@@ -42,7 +42,7 @@ sequences, two `Starlette.add_exception_handler` workflows, one URL
 query-parameter operations input, and one default middleware-boundary trace.
 The six direct ServerErrorMiddleware inputs and three TestClient exception-
 chain inputs pass live source/package comparison. Latest integrated run
-`be92517c-40b2-4e6e-bb2b-4c235d89d314` selected 780 comparisons: 776 passed,
+`0d0dedaa-f97c-4403-8e18-a6ad58129bbd` selected 780 comparisons: 776 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
 Python-callable rows `not_run`. The installed Python package passed 613/613;
 Rust-native passed 163/167. The four native `not_run` rows are synchronous
@@ -143,6 +143,19 @@ The nested success case also found and fixed a Rust package-dispatch bug that
 removed an inherited `path` key when stripping Mount's internal catch-all
 capture. The Python Starlette facade remains a pass-through; no upstream
 Starlette runtime dependency was added.
+
+## Completed bounded goal: inherited Session dictionary operations
+
+The Session facade now forwards inherited `dict.popitem()` and `Session |=
+values` operations through Rust. Rust invokes the built-in `dict` methods to
+preserve mapping and pair-sequence inputs, return values, identity, and native
+dict mutation semantics without Python wrapper branching. Input-driven oracle
+comparisons confirm Starlette 1.6.0 leaves `modified` false for these inherited
+operations. Access through `request.session` still sets `accessed`, adds
+`Vary: Cookie`, and leaves the signed cookie unchanged for the next request.
+The package comparisons pass in full-slice run
+`0d0dedaa-f97c-4403-8e18-a6ad58129bbd`; this adds evidence for these methods,
+not full SessionMiddleware parity.
 
 ## 2. Initial ASGI-to-response vertical slice (partial)
 

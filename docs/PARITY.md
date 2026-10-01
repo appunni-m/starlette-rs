@@ -10,8 +10,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `be92517c-40b2-4e6e-bb2b-4c235d89d314`.
-It ran from `2026-10-01T12:56:18.428Z` to `2026-10-01T12:58:50.716Z` against
+The latest full-slice parity run is `0d0dedaa-f97c-4403-8e18-a6ad58129bbd`.
+It ran from `2026-10-01T13:39:11.926Z` to `2026-10-01T13:41:27.877Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
 615-case/651-requirement manifest. It selected 780 profile comparisons: 776
 passed, zero failed, zero infrastructure errors, and four Rust-native
@@ -22,13 +22,13 @@ partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
 status 2 because those declared rows remain `not_run`.
 
 The Rust-native fingerprint was
-`7c4b332237fdd2ef44a53df2fd124f3b5802ef10+source-fnv1a64-811143778bc6e93d`.
+`5672d83b425e9ab599a04838cf266e15e8dffefb+source-fnv1a64-811143778bc6e93d`.
 The installed package tree SHA-256 was
-`b24e3d1c67f36a09aadb6c121b22b3ffb94a6d5b6e68cd70ff4759c5bf31cc19`, and the
+`f5baa3ee72434b60ea0c5a0b6c4abd32660fa5b5de94fe17d30312efacecf849`, and the
 wheel SHA-256 was
-`f867e9890f93f80b236f23491c3b13070a543ab1b017e490f928456bed1ff3b3`. The
+`1762f94474ed9a0d4e41049b78667901ed17c5b2fa594d7ea5700925905088c0`. The
 manifest SHA-256 was
-`0ff9429bcac0f3804ac80574567ec3dc4c4f3cb09b2d5dd26fa7656d1e15b574`. The
+`f8675143ea83299025a8f611aed5cb624344588b0b7300861e0b00e40682409b`. The
 four StaticFiles configuration-check comparisons also pass against the
 pinned source. Strict aggregation remains `not_proven` because the full
 compatibility denominator is incomplete and four Rust-native rows are
@@ -564,7 +564,7 @@ file/directory metadata, path traversal and symlink containment, external file
 and directory symlink serving, bound override dispatch, the resulting ASGI response, and path-limit error precedence. Python
 package discovery is exercised through `importlib` on the Python package
 profile; Rust-native package cases pass explicit roots. All 87 selected
-StaticFiles comparisons passed in run `be92517c-40b2-4e6e-bb2b-4c235d89d314`,
+StaticFiles comparisons passed in run `0d0dedaa-f97c-4403-8e18-a6ad58129bbd`,
 including all 30 direct lookup comparisons. Four package-only configuration
 inputs match the pinned constructor-missing-directory, lazy missing-root,
 lazy file-root, and repeated-request checks at `tests/test_staticfiles.py:124-165`.
@@ -729,7 +729,9 @@ The timer measures in-loop `await app(scope, receive, send)`. It includes fixtur
 
 ## SessionMiddleware input slice
 
-[`session-middleware.yaml`](../tests/fixtures/sources/parity/session-middleware.yaml) adds eight input-only workflows for the installed Python-package profile. The inputs cover a signed-cookie write/read/clear round trip, a malformed signature fallback, the pinned negative `max_age` expiry case, custom name/path/SameSite/Domain/Secure attributes with `max_age=None`, direct `Session` mutation flag behavior for set, delete, clear, pop, setdefault, and update, signed-cookie loading into a WebSocket scope, lifespan pass-through, and the documented `Secret` key wrapper's redacted representation, string conversion, truthiness, and signing use. A later request receives the earlier response's live `Set-Cookie` value through the `previous-set-cookie` source selector; no cookie value or output is authored in the fixture. These workflows map to the pinned session tests, the source branches for WebSocket and lifespan scopes, and the configuration and middleware documentation; they remain a bounded SessionMiddleware slice rather than full Starlette parity.
+[`session-middleware.yaml`](../tests/fixtures/sources/parity/session-middleware.yaml) defines input-only workflows for the installed Python-package profile. The inputs cover a signed-cookie write/read/clear round trip, a malformed signature fallback, the pinned negative `max_age` expiry case, custom name/path/SameSite/Domain/Secure attributes with `max_age=None`, direct `Session` mutation flag behavior for set, delete, clear, pop, popitem, setdefault, update, and in-place union, signed-cookie loading into a WebSocket scope, lifespan pass-through, and the documented `Secret` key wrapper's redacted representation, string conversion, truthiness, and signing use. A later request receives the earlier response's live `Set-Cookie` value through the `previous-set-cookie` source selector; no cookie value or output is authored in the fixture. These workflows map to the pinned session tests, the source branches for WebSocket and lifespan scopes, and the configuration and middleware documentation; they remain a bounded SessionMiddleware slice rather than full Starlette parity.
+
+Run `0d0dedaa-f97c-4403-8e18-a6ad58129bbd` also compares inherited `dict.popitem()` and `Session |= values` through the actual `request.session`, including a mapping and a pair sequence. Both match Starlette 1.6.0 exactly. Those inherited operations leave `modified` false; accessing `request.session` sets `accessed`, so the response includes `Vary: Cookie` without emitting `Set-Cookie`. Follow-up requests replay the original signed cookie unchanged. The Python methods forward to Rust, which invokes the built-in `dict` operations to retain the source's mapping, pair-sequence, return-value, and identity behavior.
 
 Rust owns cookie signing and verification, expiry and clearing decisions, response header behavior, the documented `Secret` representation and truth behavior, and session mutation state. The PyO3 value-conversion boundary calls Python's standard-library `json.dumps` and `json.loads` from the Rust session core to preserve the source's Python JSON byte representation before signing and after verification. The SessionMiddleware input workflows compare those boundaries against the pinned source. The WebSocket case observes the loaded scope session through the public `WebSocket` wrapper while leaving Session access and modification flags false. The lifespan case drives startup/shutdown completion messages from fixture input and compares exact event order. This codec dependency remains a documented Python compatibility boundary. The public status of the upstream `SessionMiddleware.signer` attribute remains unresolved and is tracked as an API candidate in the compatibility inventory.
 
