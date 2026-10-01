@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 634 input-only cases in 72 indexed files, covering 88 operations and 665 parity requirements. Recent additions include Rust-backed `iterate_in_threadpool` and `run_until_first_complete`, StaticFiles constructor, lazy-configuration, and repeated-call inputs, a three-request CORSMiddleware origin-isolation workflow, and 16 Request.cookies inputs for lenient parsing, all active edge/invalid parameter strings, repeated Cookie fields, quoted backslash-plus-LF handling, and Python dict cache/mutation behavior. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases also pass live source/package comparisons in the latest run recorded below.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 635 input-only cases in 72 indexed files, covering 88 operations and 666 parity requirements. Recent additions include Rust-backed `iterate_in_threadpool` and `run_until_first_complete`, StaticFiles constructor, lazy-configuration, and repeated-call inputs, a three-request CORSMiddleware origin-isolation workflow, 16 Request.cookies inputs for lenient parsing, all active edge/invalid parameter strings, repeated Cookie fields, quoted backslash-plus-LF handling, and Python dict cache/mutation behavior, plus a TestClient cookie-persistence round trip for `test_request_cookies`. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases also pass live source/package comparisons in the latest run recorded below.
 
 The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, middleware registration and ordering; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State behavior; direct Request body, stream, JSON, and form consumption; responses and background tasks, including cancellation and post-construction FileResponse assignments; WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, schemas, and one Python-package Jinja2 workflow. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
@@ -10,13 +10,13 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `a647bc8a-30a6-49a7-b6a1-f87ced1388ca`.
-It ran from `2026-10-01T15:38:28.960Z` to `2026-10-01T15:40:48.747Z` against
+The latest full-slice parity run is `df0051d6-23e6-4605-b615-7825c01b848a`.
+It ran from `2026-10-01T15:52:29.493Z` to `2026-10-01T15:54:59.381Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-634-case/665-requirement manifest. It selected 814 profile comparisons: 810
+635-case/666-requirement manifest. It selected 815 profile comparisons: 811
 passed, zero failed, zero infrastructure errors, and four Rust-native
 Python-callable rows were `not_run`. The Python-package profile passed all
-632 selected comparisons; Rust-native passed 178 of 182. The four native
+633 selected comparisons; Rust-native passed 178 of 182. The four native
 `not_run` rows are synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
 status 2 because those declared rows remain `not_run`.
@@ -26,9 +26,9 @@ The Rust-native fingerprint was
 The installed package tree SHA-256 was
 `cf5a985e7c8f71e139c82412a7fe614469872537f842f4d03a1e3b3986e704e5`, and the
 wheel SHA-256 was
-`17d815e28cf0dc2e5becabb89c2ba4d1d0c09b9792ef170e921b37690ad3016f`. The
+`dfbf3d76db12274fabce0af6b0abccf7bff08da1cb3ffde97004bfb39982e4f7`. The
 manifest SHA-256 was
-`093b94fab9f33bee3dc22baf108db71911b4d8d3bee422098e5f2245e1dddab7`. All 16
+`a123319c1ca1daf9b4587d7e0d7a759040b54d937b638f5b7e395d5289ec9ae5`. All 16
 Request.cookies inputs passed their selected oracle comparisons: the 12
 parameterized edge/invalid strings matched on both profiles, and the
 mutable-cache probe confirmed the package exposes a built-in dict, preserves
@@ -50,9 +50,20 @@ strings, multiple raw Cookie fields, and a quoted backslash followed by LF.
 The package-only probe observes the live object type, repeated-access
 identity, and input-defined assignment and deletion through `Request.cookies`.
 All 31 selected profile comparisons pass in run
-`a647bc8a-30a6-49a7-b6a1-f87ced1388ca`. The two parameterized source rows are
-now mapped; the distinct sequential absent-cookie behavior in
-`test_request_cookies` remains in the generated fixture backlog.
+`df0051d6-23e6-4605-b615-7825c01b848a`. The two parameterized source rows map
+to the individual active inputs. The sequential absent-cookie behavior is
+covered separately by the TestClient workflow below.
+
+### TestClient cookie persistence round trip
+
+[`testclient-http.yaml`](../tests/fixtures/sources/parity/testclient-http.yaml)
+defines one input-driven ASGI app and two empty GET requests through the same
+TestClient. The app reads `Request.cookies`, responds from the cookie when
+present, and sets the configured cookie on the first response. Observations
+include both request scopes and headers, both responses, and ordered ASGI send
+events. The source and installed-package results match exactly in run
+`df0051d6-23e6-4605-b615-7825c01b848a`; the source test row is now mapped in the
+generated coverage matrix.
 
 ### Async Request endpoint callable shapes
 

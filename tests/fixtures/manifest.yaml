@@ -18893,6 +18893,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.cookie-persistence-round-trip",
+              "dimension": "protocol_variant",
+              "description": "Use one TestClient for two requests: read Request.cookies, set a response cookie when absent, then compare the client-generated Cookie header and the next Request.cookies-derived response. Upstream: tests/test_requests.py::test_request_cookies; starlette/testclient.py:377-420.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.mounted-static-files",
               "dimension": "feature",
               "description": "Mount input-defined StaticFiles beneath a Starlette app and compare the TestClient file GET and method-not-allowed POST responses through the app middleware stack. Upstream: tests/test_applications.py::test_app_mount; starlette/applications.py:78-83; starlette/routing.py:147-190; starlette/staticfiles.py:130-141.",

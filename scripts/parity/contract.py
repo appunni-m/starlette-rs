@@ -188,6 +188,7 @@ TESTCLIENT_REQUIREMENTS = {
     "app_debug_response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.debug-error-response",
     "starlette_trusted_host": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-trusted-host-middleware",
     "request_sequence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-up-request-sequence",
+    "cookie_round_trip": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.cookie-persistence-round-trip",
     "mounted_static_files": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-static-files",
     "starlette_mount_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-mount-method-registration",
     "mounted_router_urls": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-router-url-sequence",
@@ -8553,6 +8554,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         "starlette-app-static-mount-method",
     }
     is_router_mounted_response = app_kind == "router-mounted-response"
+    is_cookie_round_trip = app_kind == "request-cookie-round-trip"
     is_starlette_app_host_route = app_kind == "starlette-app-host-route"
     is_starlette_app_host_method = app_kind == "starlette-app-host-method"
 
@@ -8595,9 +8597,11 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             validate_request(value, f"TestClient followup_requests[{index}]")
             for index, value in enumerate(case["followup_requests"])
         ]
-        if not (is_starlette_app_static_mount or is_router_mounted_response):
+        if not (
+            is_starlette_app_static_mount or is_router_mounted_response or is_cookie_round_trip
+        ):
             raise ContractError(
-                "TestClient followup_requests require a mounted StaticFiles or Router app input"
+                "TestClient followup_requests require a supported multi-request app input"
             )
     if is_sync_route:
         asgi_app = _exact(
@@ -8767,6 +8771,38 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             )
         exception_spec = None
         messages = []
+    elif is_cookie_round_trip:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {
+                "kind",
+                "cookie_name",
+                "cookie_value",
+                "fallback_content",
+                "media_type",
+                "scope_fields",
+            },
+            "TestClient Request cookie round-trip app",
+        )
+        if not _string(asgi_app["cookie_name"], "TestClient cookie name"):
+            raise ContractError("TestClient cookie name must be non-empty")
+        _string(asgi_app["cookie_value"], "TestClient cookie value")
+        _string(asgi_app["fallback_content"], "TestClient cookie fallback content")
+        _string(asgi_app["media_type"], "TestClient cookie response media type")
+        requests = [request, *followup_requests]
+        if len(followup_requests) != 1 or any(
+            item["method"] != "GET"
+            or item.get("client_method") != "get"
+            or item["url"] != request["url"]
+            or item["headers_base64_pairs"]
+            or base64.b64decode(item["body_base64"])
+            for item in requests
+        ):
+            raise ContractError(
+                "TestClient cookie round-trip must issue two empty GETs to the same URL without supplied Cookie headers"
+            )
+        exception_spec = None
+        messages = []
     elif is_starlette_app_host_route or is_starlette_app_host_method:
         host_route_fields = {
             "kind",
@@ -8901,6 +8937,10 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_mount_method_registration"])
     if is_router_mounted_response:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_router_urls"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_cookie_round_trip:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["cookie_round_trip"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if is_starlette_app_host_route:

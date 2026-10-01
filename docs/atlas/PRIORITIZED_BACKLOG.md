@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 634 input-only cases in 72 indexed files,
-covering 88 operations and 665 parity requirements. The three-request CORS
+The active contract contains 635 input-only cases in 72 indexed files,
+covering 88 operations and 666 parity requirements. The three-request CORS
 origin-isolation input, five async Request endpoint
 callable-shape and failure cases, the two direct `run_in_threadpool` cases,
 `iterate_in_threadpool` iteration and async-generator protocol behavior,
@@ -18,10 +18,11 @@ cancellation and failure, ASGI callable-instance success and failure, direct
 State sequences, application registration workflows, six direct
 ServerErrorMiddleware cases, three TestClient exception-chain cases, a
 default middleware-boundary trace, and sixteen Request.cookies inputs pass live
-source/package comparison. Latest integrated run
-`a647bc8a-30a6-49a7-b6a1-f87ced1388ca` passed 810 of 814 selected comparisons,
+source/package comparison, including the sequential TestClient cookie
+round-trip from `test_request_cookies`. Latest integrated run
+`df0051d6-23e6-4605-b615-7825c01b848a` passed 811 of 815 selected comparisons,
 with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 632/632;
+Python-callable rows `not_run`. The Python package passed 633/633;
 Rust-native passed 178/182. The four native `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for those declared rows. Full run
@@ -36,8 +37,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 342 existing input mappings,
-50 source-backed `not_applicable` rows, and 410 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 343 existing input mappings,
+50 source-backed `not_applicable` rows, and 409 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

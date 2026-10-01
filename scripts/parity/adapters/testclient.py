@@ -327,6 +327,28 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await starlette_application(scope, receive, observed_send)
 
+    elif app_input["kind"] == "request-cookie-round-trip":
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            request = Request(scope, receive)
+            cookie_value = request.cookies.get(app_input["cookie_name"])
+            if cookie_value:
+                response = Response(cookie_value, media_type=app_input["media_type"])
+            else:
+                response = Response(
+                    app_input["fallback_content"], media_type=app_input["media_type"]
+                )
+                response.set_cookie(app_input["cookie_name"], app_input["cookie_value"])
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await response(scope, receive, observed_send)
+
     elif app_input["kind"] == "asgi2":
 
         def app(scope: dict[str, Any]) -> Any:

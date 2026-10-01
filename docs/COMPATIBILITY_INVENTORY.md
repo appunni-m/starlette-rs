@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 634 input-only cases across 72 files,
-covering 88 operations and 665 parity requirements. It includes a three-request
+The active parity manifest indexes 635 input-only cases across 72 files,
+covering 88 operations and 666 parity requirements. It includes a three-request
 CORSMiddleware origin-isolation sequence and two
 Python-package-only direct `run_in_threadpool` cases, synchronous Request
 endpoint worker cancellation and failure, five async Request endpoint callable
@@ -35,8 +35,9 @@ backslash-plus-line-feed handling, and Python-package dict type/cache/mutation
 behavior. The mapping probe is package-only because the
 Rust-native API exposes its additive Rust `Cookies` type rather than a Python
 mapping. The parameterized `test_cookies_edge_cases` and
-`test_cookies_invalid` rows remain in the generated fixture backlog; these four
-inputs do not claim all of their source parameters.
+`test_cookies_invalid` rows now map every active parameter string to an
+input-only case. The sequential `test_request_cookies` flow is mapped to a
+separate TestClient cookie-persistence round trip.
 The authored cases span
 the Starlette ASGI application and route inventory, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
@@ -48,11 +49,11 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `a647bc8a-30a6-49a7-b6a1-f87ced1388ca`. It ran from
-`2026-10-01T15:38:28.960Z` to `2026-10-01T15:40:48.747Z` and selected 814
-profile comparisons: 810 passed, zero failed, zero infrastructure errors,
+The latest full-slice run is `df0051d6-23e6-4605-b615-7825c01b848a`. It ran from
+`2026-10-01T15:52:29.493Z` to `2026-10-01T15:54:59.381Z` and selected 815
+profile comparisons: 811 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
-passed all 632 selected comparisons; Rust-native passed 178 of 182. The four
+passed all 633 selected comparisons; Rust-native passed 178 of 182. The four
 native `not_run` rows are synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
 status 2 for those declared Python-callable boundaries. The Rust-native source
@@ -60,9 +61,9 @@ fingerprint was
 `9c667d53c54d3d02ba17c1bcd05b025a7150a32c+source-fnv1a64-2a57c4edf0b8b34f`.
 The installed package tree SHA-256 was
 `cf5a985e7c8f71e139c82412a7fe614469872537f842f4d03a1e3b3986e704e5`, wheel
-SHA-256 `17d815e28cf0dc2e5becabb89c2ba4d1d0c09b9792ef170e921b37690ad3016f`,
+SHA-256 `dfbf3d76db12274fabce0af6b0abccf7bff08da1cb3ffde97004bfb39982e4f7`,
 and manifest SHA-256
-`093b94fab9f33bee3dc22baf108db71911b4d8d3bee422098e5f2245e1dddab7`. Full
+`a123319c1ca1daf9b4587d7e0d7a759040b54d937b638f5b7e395d5289ec9ae5`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
@@ -88,8 +89,8 @@ This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 342 existing input
-mappings, 50 reasoned `not_applicable` rows, and 410 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 343 existing input
+mappings, 50 reasoned `not_applicable` rows, and 409 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
