@@ -525,6 +525,11 @@ FILE_RESPONSE_SINGLE_RANGE_VIEW_REQUIREMENT = (
 FILE_RESPONSE_MULTIPLE_RANGE_VIEW_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.multiple-range-header-view-isolation"
 )
+FILE_RESPONSE_CALL_TIME_REQUIREMENTS = {
+    "path": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.mutable-path",
+    "status_code": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.mutable-status-code",
+    "stat_result": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.mutable-stat-result",
+}
 RESPONSE_HEADER_VIEW_REQUIREMENT = (
     f"{RESPONSE_SURFACE}.{RESPONSE_OPERATION}.headers-property-cache-and-raw-alias"
 )
@@ -3864,6 +3869,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             "max_ranges",
             "header_view_probe",
             "scheduling",
+            "call_time_field_assignments",
         )
         if key in case
     }
@@ -3931,6 +3937,73 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         type(case["max_ranges"]) is not int or not 0 <= case["max_ranges"] <= 1_000
     ):
         raise ContractError("FileResponse.max_ranges must be an integer from 0 to 1000")
+    if "call_time_field_assignments" in case:
+        assignments = case["call_time_field_assignments"]
+        if (
+            not isinstance(assignments, dict)
+            or len(assignments) != 1
+            or next(iter(assignments), None) not in FILE_RESPONSE_CALL_TIME_REQUIREMENTS
+        ):
+            raise ContractError(
+                "FileResponse call_time_field_assignments must assign exactly one declared field"
+            )
+        field, value = next(iter(assignments.items()))
+        if field == "path":
+            path_input = _exact(
+                value,
+                {"kind", "name", "contents_base64"},
+                "FileResponse call-time path",
+            )
+            if path_input["kind"] != "temporary-file":
+                raise ContractError(
+                    "FileResponse call-time path.kind must select a temporary fixture file"
+                )
+            path_name = _string(path_input["name"], "FileResponse call-time path.name")
+            if (
+                path_name in {".", ".."}
+                or "/" in path_name
+                or "\\" in path_name
+                or Path(path_name).name != path_name
+                or path_name == name
+            ):
+                raise ContractError("FileResponse call-time path.name must be a different basename")
+            encoded_path_contents = _string(
+                path_input["contents_base64"],
+                "FileResponse call-time path.contents_base64",
+            )
+            try:
+                base64.b64decode(encoded_path_contents, validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError(
+                    "FileResponse call-time path.contents_base64 must be valid base64"
+                ) from exc
+        elif field == "status_code":
+            if type(value) is not int or not 100 <= value <= 599:
+                raise ContractError("FileResponse call-time status_code must be an HTTP status")
+        elif value is not None:
+            stat_input = _exact(
+                value,
+                {"size", "mtime_seconds"},
+                "FileResponse call-time stat_result",
+            )
+            if type(stat_input["size"]) is not int or not 0 <= stat_input["size"] <= 2**64 - 1:
+                raise ContractError(
+                    "FileResponse call-time stat_result.size must be an unsigned integer"
+                )
+            if type(stat_input["mtime_seconds"]) not in {int, float} or not math.isfinite(
+                stat_input["mtime_seconds"]
+            ):
+                raise ContractError(
+                    "FileResponse call-time stat_result.mtime_seconds must be finite"
+                )
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError(
+                "FileResponse call-time field assignments select the Python package target"
+            )
+        if case["covers"] != [FILE_RESPONSE_CALL_TIME_REQUIREMENTS[field]]:
+            raise ContractError(
+                "FileResponse call-time assignments must map their matching field requirement"
+            )
 
     scope_spec = case["scope"]
     scope_keys = {
@@ -9788,7 +9861,13 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = expected_case_keys | (
             {
                 key
-                for key in ("chunk_size", "max_ranges", "header_view_probe", "scheduling")
+                for key in (
+                    "chunk_size",
+                    "max_ranges",
+                    "header_view_probe",
+                    "scheduling",
+                    "call_time_field_assignments",
+                )
                 if key in case
             }
         )

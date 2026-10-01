@@ -517,6 +517,27 @@ impl FileResponse {
         self.max_ranges = max_ranges;
     }
 
+    /// Creates a call-local copy using Starlette's current mutable file fields.
+    ///
+    /// Existing headers and the constructor-selected media type are retained.
+    /// Starlette reads path, status code, and stat result at call time without
+    /// rebuilding those constructor values.
+    #[must_use]
+    pub fn with_call_time_fields(
+        &self,
+        path: PathBuf,
+        display_path: impl Into<String>,
+        status_code: u16,
+        stat_override: Option<FileMetadata>,
+    ) -> Self {
+        let mut response = self.clone();
+        response.path = path;
+        response.display_path = display_path.into();
+        response.status_code = status_code;
+        response.stat_override = stat_override;
+        response
+    }
+
     /// Returns the explicit or extension-guessed content type.
     #[must_use]
     pub fn media_type(&self) -> &str {

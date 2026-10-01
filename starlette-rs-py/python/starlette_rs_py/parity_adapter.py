@@ -3970,6 +3970,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         case_keys.add("header_view_probe")
     if "scheduling" in case:
         case_keys.add("scheduling")
+    if "call_time_field_assignments" in case:
+        case_keys.add("call_time_field_assignments")
     _exact_object(
         case,
         case_keys,
@@ -4075,6 +4077,33 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 mtime_seconds,
             )
         )
+        field_assignments = dict(case.get("call_time_field_assignments", {}))
+        for field, value in field_assignments.items():
+            if field == "path":
+                path_spec = value
+                value = Path(directory) / path_spec["name"]
+                value.write_bytes(
+                    _decode_base64(
+                        path_spec["contents_base64"],
+                        "FileResponse call-time path contents_base64",
+                    )
+                )
+            if field == "stat_result" and value is not None:
+                value = os.stat_result(
+                    (
+                        stat.S_IFREG | 0o644,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        value["size"],
+                        value["mtime_seconds"],
+                        value["mtime_seconds"],
+                        value["mtime_seconds"],
+                    )
+                )
+            field_assignments[field] = value
         response_class = (
             type("ConfiguredFileResponse", (FileResponse,), {"max_ranges": case["max_ranges"]})
             if "max_ranges" in case
@@ -4088,6 +4117,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             filename=filename,
             stat_result=stat_result,
         )
+        for field, value in field_assignments.items():
+            setattr(response, field, value)
         if "chunk_size" in case:
             response.chunk_size = case["chunk_size"]
         header_view_probe_value = None

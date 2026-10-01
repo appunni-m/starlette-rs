@@ -8,14 +8,14 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 569 input-only cases in 64 indexed files,
-covering 80 operations and 608 parity requirements. Latest integrated run
-`0830ea04-2e56-47d9-b1da-b0cfbf64e1e8` passed all 724 executed comparisons out
-of 728 selected, with zero failures or infrastructure errors and four
-Rust-native Python-callable rows `not_run`. The Python package passed 567/567;
+The active contract contains 572 input-only cases in 64 indexed files,
+covering 80 operations and 611 parity requirements. Latest integrated run
+`7f506068-123d-4db2-a008-42fbf946c1cf` passed all 727 executed comparisons out
+of 731 selected, with zero failures or infrastructure errors and four
+Rust-native Python-callable rows `not_run`. The Python package passed 570/570;
 Rust-native passed 157/161. The run includes same-client mounted-Router URL
 and HTTPS Host-route flows, plus app-level body limits on a fragmented body
-without Content-Length and at a zero-byte limit. The four native `not_run` rows
+without Content-Length and at a zero-byte limit, plus call-time FileResponse path, status-code, and stat-result assignments. The four native `not_run` rows
 are sync endpoint, bound-method, partial, and callable-instance Request
 dispatch. `make parity-run` exits with status 2 for those declared rows. Full
 run identities and package hashes are recorded in

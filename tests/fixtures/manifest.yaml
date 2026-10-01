@@ -10010,6 +10010,39 @@
               ]
             },
             {
+              "id": "starlette.responses.FileResponse.asgi-call.mutable-path",
+              "dimension": "boundary",
+              "description": "Assign an input-defined public FileResponse.path after construction and compare the bytes read from the current path. Pinned source: starlette/responses.py:311,341-357,387-399.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.mutable-status-code",
+              "dimension": "boundary",
+              "description": "Assign an input-defined public FileResponse.status_code after construction and compare the emitted response-start status. Pinned source: starlette/responses.py:311-312,341,387-388.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.mutable-stat-result",
+              "dimension": "boundary",
+              "description": "Replace the public FileResponse.stat_result after construction, then compare range selection using the current st_size while preserving constructor-time header defaults. Pinned source: starlette/responses.py:327-339,348-380.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.FileResponse.asgi-call.async-file-open-scheduling",
               "dimension": "boundary",
               "description": "With synthetic regular-file stat metadata, serve a GET response from a POSIX FIFO whose separate process writer checks an input-timed event-loop marker before releasing input bytes. Compare that marker observation and the complete ASGI response events and body. Pinned source: docs/threadpool.md:5-6,11-14; starlette/responses.py:348-360,387-399.",

@@ -226,7 +226,16 @@ impl PyFileResponse {
         receive: Py<PyAny>,
         send: Py<PyAny>,
         background: Option<Py<PyAny>>,
+        call_time_fields: (Py<PyAny>, u16, Option<Py<PyAny>>),
     ) -> PyResult<Py<PyAny>> {
+        let (path, status_code, stat_result) = call_time_fields;
+        let path = path.bind(py);
+        let native_path = path_from_python(path)?;
+        let display_path = path.str()?.to_str()?.to_owned();
+        let stat_override = stat_metadata(py, stat_result)?;
+        let response =
+            self.inner
+                .with_call_time_fields(native_path, display_path, status_code, stat_override);
         let scope_type = scope
             .get_item("type")?
             .ok_or_else(|| PyValueError::new_err("ASGI scope is missing 'type'"))?
@@ -257,7 +266,7 @@ impl PyFileResponse {
         let driver = Py::new(
             py,
             PyFileResponseCallDriver::new(
-                self.inner.clone(),
+                response,
                 FileResponseHeaderViews {
                     view: view_headers,
                     raw: raw_headers,

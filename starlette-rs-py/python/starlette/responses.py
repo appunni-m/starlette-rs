@@ -205,7 +205,13 @@ class FileResponse(Response):
     ) -> None:
         self._inner.set_streaming_options(self.chunk_size, self.max_ranges)
         self._sync_raw_headers()
-        await self._inner.asgi_call(scope, receive, send, self.background)
+        await self._inner.asgi_call(
+            scope,
+            receive,
+            send,
+            self.background,
+            (self.path, self.status_code, self.stat_result),
+        )
 
 
 class RedirectResponse(Response):
