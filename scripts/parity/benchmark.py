@@ -74,11 +74,11 @@ def _parity_gate(
         for row in result["comparisons"]
         if row["case_id"] == case_id and row["target_profile"] in target_profiles
     ]
+    # Gate this workload on its declared input/profile comparisons. The full
+    # parity artifact also retains unrelated failures and unsupported rows;
+    # those remain visible without invalidating an independently passing gate.
     passed = not (
-        result["status"] != "completed"
-        or result["summary"]["failed"]
-        or result["summary"]["not_run"]
-        or result["summary"]["infrastructure_errors"]
+        result["status"] in {"cancelled", "invalid"}
         or len(comparisons) != len(target_profiles)
         or any(row["outcome"] != "pass" for row in comparisons)
     )

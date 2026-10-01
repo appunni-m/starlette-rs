@@ -4,7 +4,8 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use pyo3::exceptions::{
-    PyAssertionError, PyKeyError, PyOSError, PyRuntimeError, PyStopAsyncIteration, PyValueError,
+    PyAssertionError, PyKeyError, PyOSError, PyRuntimeError, PyStopAsyncIteration, PyTypeError,
+    PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyModule, PySet, PySetMethods, PyString};
@@ -760,6 +761,7 @@ struct PyWebSocketIterator {
     disconnect_error: Py<PyAny>,
     finished: Rc<Cell<bool>>,
     running: Rc<Cell<bool>>,
+    started: Rc<Cell<bool>>,
 }
 
 impl PyWebSocketIterator {
@@ -769,6 +771,7 @@ impl PyWebSocketIterator {
             disconnect_error,
             finished: Rc::new(Cell::new(false)),
             running: Rc::new(Cell::new(false)),
+            started: Rc::new(Cell::new(false)),
         }
     }
 }
@@ -779,6 +782,7 @@ fn websocket_iterator_next(slf: Py<PyWebSocketIterator>, py: Python<'_>) -> PyRe
     let disconnect_error = borrowed.disconnect_error.clone_ref(py);
     let finished = borrowed.finished.clone();
     let running = borrowed.running.clone();
+    let started = borrowed.started.clone();
     drop(borrowed);
     into_python_awaitable(
         py,
@@ -787,6 +791,8 @@ fn websocket_iterator_next(slf: Py<PyWebSocketIterator>, py: Python<'_>) -> PyRe
             disconnect_error,
             finished,
             running,
+            started,
+            send_value: py.None(),
             pending: false,
         },
     )
@@ -802,8 +808,26 @@ impl PyWebSocketIterator {
         websocket_iterator_next(slf, py)
     }
 
-    fn asend(slf: Py<Self>, py: Python<'_>, _value: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        websocket_iterator_next(slf, py)
+    fn asend(slf: Py<Self>, py: Python<'_>, value: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        let borrowed = slf.borrow(py);
+        let callback = borrowed.callback.clone_ref(py);
+        let disconnect_error = borrowed.disconnect_error.clone_ref(py);
+        let finished = borrowed.finished.clone();
+        let running = borrowed.running.clone();
+        let started = borrowed.started.clone();
+        drop(borrowed);
+        into_python_awaitable(
+            py,
+            WebSocketIteratorStep {
+                callback,
+                disconnect_error,
+                finished,
+                running,
+                started,
+                send_value: value,
+                pending: false,
+            },
+        )
     }
 
     fn athrow(slf: Py<Self>, py: Python<'_>, exception: Py<PyAny>) -> PyResult<Py<PyAny>> {
@@ -904,6 +928,8 @@ struct WebSocketIteratorStep {
     disconnect_error: Py<PyAny>,
     finished: Rc<Cell<bool>>,
     running: Rc<Cell<bool>>,
+    started: Rc<Cell<bool>>,
+    send_value: Py<PyAny>,
     pending: bool,
 }
 
@@ -942,6 +968,13 @@ impl WebSocketIteratorStep {
                 "anext(): asynchronous generator is already running",
             ));
         }
+        if !self.started.get() && !self.send_value.bind(py).is_none() {
+            self.running.set(false);
+            return Err(PyTypeError::new_err(
+                "can't send non-None value to a just-started async generator",
+            ));
+        }
+        self.started.set(true);
         match self.callback.bind(py).call0() {
             Ok(awaitable) => {
                 self.pending = true;

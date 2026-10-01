@@ -203,18 +203,26 @@ The six cases in `websocket-protocol.yaml` drive raw `WebSocket.receive()` and
 return, invalid transition, receive after disconnect, binary exchange, and a
 connected send callback raising `OSError`. They select the complete ordered
 receive/send ASGI callback tape for the Python-package profile, including each
-attempted send when the callback raises. The six cases in
-`websocket-state-sequence.yaml` duplicate those action sequences and compare
-each action's outcome and optional exact error message plus both final states
-across source, Python package, and Rust-native profiles; they exclude payloads,
-callback tapes, and Python exception metadata. The three cases in
-`websocket-route-dispatch.yaml` cover a matched root-path route, an unmatched
+attempted send when the callback raises. The ten cases in
+`websocket-state-sequence.yaml` duplicate those action sequences and add direct
+denial-response start, continued-body, final-body, and duplicate-start
+transitions. They compare each action's outcome and optional exact error message
+plus both final states across source, Python package, and Rust-native profiles;
+they exclude payloads, callback tapes, and Python exception metadata. The three
+cases in `websocket-route-dispatch.yaml` cover a matched root-path route, an unmatched
 WebSocket Router close, and a standalone `WebSocketRoute` called with an HTTP
 scope. They select route scope, ASGI events, response status, and response
 bytes for the Python-package profile. The inputs contain no expected outputs.
-All 21 WebSocket comparisons passed in the run above. JSON convenience
-methods, iterators, and denial-response behavior remain package-test-only and
-in the parity backlog.
+The `websocket-convenience.yaml` inputs exercise JSON and typed methods,
+iterator controls (including `asend(non-None)` before the first yield), and
+denial-response callbacks for the Python-package profile. They compare live
+source and installed-package results, callback order, and final state; the
+manifest does not claim a Rust-native Python convenience-iterator surface.
+The full run at `build/parity/parity-result.json` executed 836 comparisons: all
+836 passed, with four declared Rust-native Python-callable comparisons left
+`not_run` and zero failures or infrastructure errors. The complete WebSocket
+source backlog remains in `fixture-backlog.csv`; similar method names do not
+close source rows whose stimuli or observation selectors differ.
 
 The separate Router/GZip benchmark lane completed all 74 source-versus-package
 workloads. Its result is documented in [Benchmark mapping](../BENCHMARKS.md);

@@ -237,7 +237,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 802 source rows:
-334 `existing` mappings, 418 `backlog` rows, and 50 reasoned `not_applicable`
+354 `existing` mappings, 398 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity

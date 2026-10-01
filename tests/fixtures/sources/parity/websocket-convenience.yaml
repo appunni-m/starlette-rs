@@ -739,6 +739,75 @@
       ]
     },
     {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iterator-asend-non-none",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iterator.asend"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "asend-non-none",
+          "method": "iterator-control",
+          "arguments": {
+            "iterator": "iter_text",
+            "control": "asend",
+            "value": "sent to a fresh async generator"
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
+    },
+    {
       "case_id": "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow",
       "surface": "starlette.websockets.WebSocket",
       "operation": "convenience-sequence",

@@ -18420,6 +18420,54 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.websocket.state.denial-response-start",
+              "dimension": "protocol_variant",
+              "description": "Send websocket.http.response.start while the application is connecting and compare the exact action outcome and RESPONSE state. Upstream: starlette/websockets.py::WebSocket.send, lines 63-76 at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.denial-response-body-continuation",
+              "dimension": "protocol_variant",
+              "description": "Send a websocket.http.response.body with more_body true after the denial response starts and compare the exact action outcomes and retained RESPONSE state. Upstream: starlette/websockets.py::WebSocket.send, lines 90-96 at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.denial-response-body-final",
+              "dimension": "protocol_variant",
+              "description": "Send a terminal websocket.http.response.body after the denial response starts and compare the DISCONNECTED state. Upstream: starlette/websockets.py::WebSocket.send, lines 90-96 at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.denial-response-invalid-message",
+              "dimension": "error_path",
+              "description": "Attempt a second websocket.http.response.start while in RESPONSE and compare the exact error message and unchanged state. Upstream: starlette/websockets.py::WebSocket.send, lines 90-91 and tests/test_websockets.py::test_send_response_duplicate_start at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -18720,7 +18768,7 @@
             {
               "id": "starlette.websocket.api.iterator.asend",
               "dimension": "boundary",
-              "description": "Call asend(None) on the public WebSocket text iterator and observe its returned value or public error.",
+              "description": "Call asend(None) or asend(non-None) on the public WebSocket text iterator and observe its yielded value, callback effect, or public error.",
               "lanes": [
                 "parity"
               ],

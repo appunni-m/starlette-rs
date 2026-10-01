@@ -2570,6 +2570,10 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     application_state = "CONNECTING"
     terminal_receive_count = 0
     send_oserror_action_valid = False
+    denial_response_started = False
+    denial_response_body_continued = False
+    denial_response_body_finished = False
+    denial_response_invalid_message = False
     for index, action in enumerate(actions):
         context = f"WebSocket actions[{index}]"
         if not isinstance(action, dict):
@@ -2629,14 +2633,18 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                     application_state = "DISCONNECTED"
                 elif message_type == "websocket.http.response.start":
                     application_state = "RESPONSE"
+                    denial_response_started = True
             elif application_state == "CONNECTED" and message_type == "websocket.close":
                 application_state = "DISCONNECTED"
-            elif (
-                application_state == "RESPONSE"
-                and message_type == "websocket.http.response.body"
-                and not action["message"].get("more_body", False)
-            ):
-                application_state = "DISCONNECTED"
+            elif application_state == "RESPONSE":
+                if message_type == "websocket.http.response.body":
+                    if action["message"].get("more_body", False):
+                        denial_response_body_continued = True
+                    else:
+                        denial_response_body_finished = True
+                        application_state = "DISCONNECTED"
+                else:
+                    denial_response_invalid_message = True
         else:
             raise ContractError(
                 f"{context}.action is unsupported by the Rust-equivalent raw protocol surface; "
@@ -2709,6 +2717,15 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
         coverage.add(f"{requirement_prefix}.binary-exchange")
     if send_oserror_action_valid and incoming_types[:1] == ["websocket.connect"]:
         coverage.add(f"{requirement_prefix}.send-oserror-disconnect")
+    if operation == WEBSOCKET_STATE_OPERATION:
+        if denial_response_started:
+            coverage.add("starlette.websocket.state.denial-response-start")
+        if denial_response_body_continued:
+            coverage.add("starlette.websocket.state.denial-response-body-continuation")
+        if denial_response_body_finished:
+            coverage.add("starlette.websocket.state.denial-response-body-final")
+        if denial_response_invalid_message:
+            coverage.add("starlette.websocket.state.denial-response-invalid-message")
     unexercised = set(case["covers"]) - coverage
     if unexercised:
         raise ContractError(
@@ -2974,14 +2991,15 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             if iterator_method not in {"iter_text", "iter_bytes", "iter_json"}:
                 raise ContractError(f"{context}.arguments.iterator is not a declared iterator")
             if control == "asend":
-                if arguments["value"] is not None:
-                    raise ContractError(f"{context}.arguments.value must be null for asend")
                 if application_state != "CONNECTED":
                     raise ContractError(f"{context} asend requires a connected WebSocket")
-                payload = "bytes_base64" if arguments["iterator"] == "iter_bytes" else "text"
-                message_type = receive_input(context, payload)
-                if message_type == "websocket.disconnect":
-                    raise ContractError(f"{context} asend stimulus must include a yielded message")
+                if arguments["value"] is None:
+                    payload = "bytes_base64" if arguments["iterator"] == "iter_bytes" else "text"
+                    message_type = receive_input(context, payload)
+                    if message_type == "websocket.disconnect":
+                        raise ContractError(
+                            f"{context} asend(None) stimulus must include a yielded message"
+                        )
             elif control == "athrow":
                 exception = _exact(
                     arguments["exception"], {"class", "message"}, f"{context}.arguments.exception"
