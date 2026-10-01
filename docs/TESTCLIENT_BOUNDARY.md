@@ -75,12 +75,13 @@ Each slice is authored as input-only YAML under `tests/fixtures/sources/` and
 is run against the pinned source and installed package in isolated processes.
 Stimuli come from the input definition; adapters may not use case IDs to
 choose requests, scopes, responses, or outcomes. The HTTP request/response
-slice has seven data-driven cases covering six requirements; the lifespan
-slice has one case; the WebSocket slice has eight cases covering the declared
-text, binary, JSON, denial, lifecycle, and cleanup requirements. They compare
-ordered callbacks and public results against the pinned source. Streaming
-request bodies and other unmapped TestClient and WebSocket behavior need
-separate input definitions.
+slice has ten data-driven cases covering eleven requirements, including
+post-construction `app.debug` mutation and traceback responses; the lifespan
+slice has five cases covering eleven requirements; the WebSocket slice has
+eleven cases covering sixteen declared text, binary, JSON, denial, lifecycle,
+and cleanup requirements. They compare ordered callbacks and public results
+against the pinned source. Streaming request bodies and other unmapped
+TestClient and WebSocket behavior need separate input definitions.
 
 The pinned source provides additional mappings in `tests/test_testclient.py`
 and `docs/testclient.md`; those source rows remain visible in the fixture

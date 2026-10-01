@@ -18,29 +18,29 @@ hashes, active input-catalog and manifest hashes, and a target checkout
 identity containing the Git revision, dirty marker, and working-tree SHA-256.
 It verifies that this identity remains unchanged during the run.
 
-The latest invocation, `7935c644-465b-491a-8db7-4b34050a217f`, ran from
-`2026-10-01T00:28:53.156Z` to `2026-10-01T00:32:29.986Z`. It completed all 74
+The latest invocation, `fdbc7e5d-5556-498c-86be-794897a14bfc`, ran from
+`2026-10-01T01:46:47.884Z` to `2026-10-01T01:50:22.432Z`. It completed all 74
 source/package workloads: six Router and 68 GZip, with zero failed and zero
 not-run workloads. Its correctness preflight,
-`7c6e6929-b60a-45e0-973c-ba5a247e7b1f`, selected 719 comparisons: 715 passed,
+`e14095ce-c405-4b0d-97ac-a23d64e025dc`, selected 723 comparisons: 719 passed,
 zero failed or hit infrastructure errors, and four Rust-native Python-callable
-cases were `not_run`. The installed Python-package profile passed all 558
+cases were `not_run`. The installed Python-package profile passed all 562
 selected comparisons; Rust-native passed 157 of 161. Rust-native remained
 `not_run` for all 74 workload boundaries. The source/package median
-per-workload ratios were 0.781 for Router and 0.974 for GZip; the pinned source
-median was lower in five of six Router workloads and 59 of 68 GZip workloads.
+per-workload ratios were 0.773 for Router and 0.970 for GZip; the pinned source
+median was lower in five of six Router workloads and 61 of 68 GZip workloads.
 These are local, workload-specific timer results, not a general performance
 claim.
 
 The target checkout was clean revision
-`9dbf014fcff4d16f61b270d98d24b2c7579bb45a`, with working-tree SHA-256
-`9134eb7463ca6ffa5300867d16b4ea764f8c5e73d1e6b611ca3342605e32040b`. The
+`74fc946fbff4f0c8433ab22de32191461efe1942`, with working-tree SHA-256
+`c3f362f556407c5b96cd6185602d24afa340e996b92272eb3ffe4dcfe1994a5b`. The
 manifest SHA-256 is
-`e143b3714c7a75406108506a6531b7a20ecb8d2e1a9dc2211757b0d5ddb855fa`; the
+`a92db75be8bbc434af7da85123efb190b13a65e2253e864d9ffb2638172cc91c`; the
 benchmark input catalog SHA-256 is
 `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`, and the
 package wheel artifact SHA-256 is
-`d25432e1647c6b6aa396c7da21c39d7694c2a615e87e8ec3889779575b8f3307`. The
+`54368e4db88c2a70aa60b7df134f8bc47ba708c33b0c9b33090f56a3b62709b9`. The
 installed target-file tree SHA-256 was
 `a1f6617731f5d75dd7b119a29ca7f04fa8d6fcd48448ce96575f873a811385a3`. The
 benchmark results are paired local measurements, not CodSpeed CPU, memory, or
@@ -98,8 +98,9 @@ are ignored local outputs and are not committed.
 
 | Evidence | Artifact | Result |
 | --- | --- | --- |
-| Router/GZip upstream runner, latest invocation | `build/parity/upstream-benchmark-result.json` | `completed`; run `7935c644-465b-491a-8db7-4b34050a217f`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 Rust-native workloads unsupported |
-| Router/GZip upstream runner, preceding invocation | `build/parity/upstream-benchmark-result.json` | `completed`; run `a4014be0-3606-464a-b00e-b6983fe293e6`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 Rust-native workloads unsupported |
+| Router/GZip upstream runner, latest invocation | `build/parity/upstream-benchmark-result.json` | `completed`; run `fdbc7e5d-5556-498c-86be-794897a14bfc`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 Rust-native workloads unsupported |
+| Router/GZip upstream runner, preceding invocation | `build/parity/upstream-benchmark-result.json` | `completed`; run `7935c644-465b-491a-8db7-4b34050a217f`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 Rust-native workloads unsupported |
+| Router/GZip upstream runner, earlier invocation | `build/parity/upstream-benchmark-result.json` | `completed`; run `a4014be0-3606-464a-b00e-b6983fe293e6`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 Rust-native workloads unsupported |
 | Router/GZip upstream runner, earlier invocation | `build/parity/upstream-benchmark-result.json` | `completed`; run `9f7518bc-cf46-4d84-a890-7ab4c19644f3`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 Rust-native workloads unsupported |
 | Router/GZip upstream runner, earlier measured invocation | `build/parity/upstream-benchmark-result.json` | `completed`; run `d9efb40c-0585-4f5d-bed7-9b30cb6cdd03`; 74/74 source/package workloads measured, 0 failed, 0 not-run; 74 Rust-native workloads unsupported |
 | Router/GZip upstream runner, earlier invocation | `build/parity/upstream-benchmark-result.json` | Historical `not_proven`; run `fb8e8c4c-8ac0-462e-b4a2-123648d00c3d`; 0/74 timed because three declared WebSocket package cases were `not_run` |

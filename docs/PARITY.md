@@ -8,8 +8,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `00154311-5e5f-4aa3-8fd5-7b4748241744`.
-It ran from `2026-10-01T01:42:34.125Z` to `2026-10-01T01:44:56.022Z` against
+The latest full-slice parity run is `e14095ce-c405-4b0d-97ac-a23d64e025dc`.
+It ran from `2026-10-01T01:46:51.550Z` to `2026-10-01T01:48:55.462Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
 564-case/603-requirement manifest. It selected 723 profile comparisons: 719
 passed, zero failed, zero infrastructure errors, and four Rust-native
@@ -22,11 +22,11 @@ and normalizes dynamic frame paths, line numbers, and body length; raw source
 and target bodies remain in the result artifact. The four Rust-native
 `not_run` rows are sync endpoint, bound-method, partial, and callable-instance
 Request dispatch cases. `make parity-run` exits with status 2 for those
-declared `not_run` rows. The target was dirty at base revision
-`2f9d500a6eff2e0355b9623c9e145d1a9ca1f8be`; the package tree SHA-256 was
+declared `not_run` rows. The target checkout was clean at revision
+`74fc946fbff4f0c8433ab22de32191461efe1942`; the package tree SHA-256 was
 `9562aa76a92f1bf1d9e37669439d92450183fb2695b3d5de804d1ed9b2c94a5a`, and the
 wheel SHA-256 was
-`384dc2024e90a1d2386427cecebc9995779b2fa5927bffc2820cad57879de3db`.
+`54368e4db88c2a70aa60b7df134f8bc47ba708c33b0c9b33090f56a3b62709b9`.
 Manifest SHA-256: `a92db75be8bbc434af7da85123efb190b13a65e2253e864d9ffb2638172cc91c`.
 Strict aggregation reports `not_proven` because the full compatibility
 denominator remains incomplete.
@@ -635,7 +635,7 @@ and the Python `starlette.testclient` methods forward to it.
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 556 Python-package comparisons passed.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 562 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 

@@ -10,7 +10,7 @@ incomplete.
 
 The active contract contains 564 input-only cases in 64 indexed files,
 covering 80 operations and 603 parity requirements. Latest integrated run
-`00154311-5e5f-4aa3-8fd5-7b4748241744` passed 719 of 723 selected comparisons,
+`e14095ce-c405-4b0d-97ac-a23d64e025dc` passed 719 of 723 selected comparisons,
 with zero failures or infrastructure errors and four Rust-native
 Python-callable rows `not_run`. The Python package passed 562/562;
 Rust-native passed 157/161. The run includes TestClient parity for the
