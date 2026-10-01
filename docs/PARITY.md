@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 622 input-only cases in 72 indexed files, covering 88 operations and 665 parity requirements. Recent additions include Rust-backed `iterate_in_threadpool` and `run_until_first_complete`, StaticFiles constructor, lazy-configuration, and repeated-call inputs, a three-request CORSMiddleware origin-isolation workflow, and four Request.cookies inputs for lenient parsing, repeated Cookie fields, quoted backslash-plus-LF handling, and Python dict cache/mutation behavior. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases also pass live source/package comparisons in the latest run recorded below.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 634 input-only cases in 72 indexed files, covering 88 operations and 665 parity requirements. Recent additions include Rust-backed `iterate_in_threadpool` and `run_until_first_complete`, StaticFiles constructor, lazy-configuration, and repeated-call inputs, a three-request CORSMiddleware origin-isolation workflow, and 16 Request.cookies inputs for lenient parsing, all active edge/invalid parameter strings, repeated Cookie fields, quoted backslash-plus-LF handling, and Python dict cache/mutation behavior. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases also pass live source/package comparisons in the latest run recorded below.
 
 The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, middleware registration and ordering; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State behavior; direct Request body, stream, JSON, and form consumption; responses and background tasks, including cancellation and post-construction FileResponse assignments; WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, schemas, and one Python-package Jinja2 workflow. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
@@ -10,29 +10,30 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `33e60258-d96b-4e8f-8cb5-28501bf7f124`.
-It ran from `2026-10-01T15:27:13.163Z` to `2026-10-01T15:29:26.876Z` against
+The latest full-slice parity run is `a647bc8a-30a6-49a7-b6a1-f87ced1388ca`.
+It ran from `2026-10-01T15:38:28.960Z` to `2026-10-01T15:40:48.747Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-622-case/665-requirement manifest. It selected 790 profile comparisons: 786
+634-case/665-requirement manifest. It selected 814 profile comparisons: 810
 passed, zero failed, zero infrastructure errors, and four Rust-native
 Python-callable rows were `not_run`. The Python-package profile passed all
-620 selected comparisons; Rust-native passed 166 of 170. The four native
+632 selected comparisons; Rust-native passed 178 of 182. The four native
 `not_run` rows are synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
 status 2 because those declared rows remain `not_run`.
 
 The Rust-native fingerprint was
-`87f732c1700b5ca752ac1d47c3919ddf74f43dd8+source-fnv1a64-2a57c4edf0b8b34f`.
+`9c667d53c54d3d02ba17c1bcd05b025a7150a32c+source-fnv1a64-2a57c4edf0b8b34f`.
 The installed package tree SHA-256 was
 `cf5a985e7c8f71e139c82412a7fe614469872537f842f4d03a1e3b3986e704e5`, and the
 wheel SHA-256 was
-`a550ca611adb006ad20bd506d549895a7194a17c8abeea07e1cda07b8aaf2b86`. The
+`17d815e28cf0dc2e5becabb89c2ba4d1d0c09b9792ef170e921b37690ad3016f`. The
 manifest SHA-256 was
-`093b94fab9f33bee3dc22baf108db71911b4d8d3bee422098e5f2245e1dddab7`. The
-four new Request.cookies inputs passed exact oracle comparisons on every
-selected profile; the mutable-cache probe confirmed the package exposes a
-built-in dict, preserves cached identity, and applies the input-defined set
-and delete operations. Strict aggregation remains `not_proven` because the
+`093b94fab9f33bee3dc22baf108db71911b4d8d3bee422098e5f2245e1dddab7`. All 16
+Request.cookies inputs passed their selected oracle comparisons: the 12
+parameterized edge/invalid strings matched on both profiles, and the
+mutable-cache probe confirmed the package exposes a built-in dict, preserves
+cached identity, and applies the input-defined set and delete operations.
+Strict aggregation remains `not_proven` because the
 full compatibility denominator is incomplete and four Rust-native rows are
 `not_run`.
 
@@ -41,15 +42,17 @@ full compatibility denominator is incomplete and four Rust-native rows are
 ### Request.cookies parsing and Python mapping boundary
 
 [`request-cookies.yaml`](../tests/fixtures/sources/parity/request-cookies.yaml)
-defines three cookie parsing inputs selected on both profiles and one
+defines 15 cookie parsing inputs selected on both profiles and one
 Python-package-only mapping probe. The shared inputs observe ordered cookie
 items for a structured JSON-like cookie with duplicate and unnamed segments,
-multiple raw Cookie fields, and a quoted backslash followed by LF. The
-package-only probe observes the live object type, repeated-access identity,
-and input-defined assignment and deletion through `Request.cookies`. All four
-cases pass exact comparisons in run
-`33e60258-d96b-4e8f-8cb5-28501bf7f124`. The parameterized upstream edge-case
-and invalid-cookie rows remain in the generated fixture backlog.
+all seven `test_cookies_edge_cases` strings, all five `test_cookies_invalid`
+strings, multiple raw Cookie fields, and a quoted backslash followed by LF.
+The package-only probe observes the live object type, repeated-access
+identity, and input-defined assignment and deletion through `Request.cookies`.
+All 31 selected profile comparisons pass in run
+`a647bc8a-30a6-49a7-b6a1-f87ced1388ca`. The two parameterized source rows are
+now mapped; the distinct sequential absent-cookie behavior in
+`test_request_cookies` remains in the generated fixture backlog.
 
 ### Async Request endpoint callable shapes
 

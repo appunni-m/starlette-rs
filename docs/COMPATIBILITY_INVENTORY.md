@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 622 input-only cases across 72 files,
+The active parity manifest indexes 634 input-only cases across 72 files,
 covering 88 operations and 665 parity requirements. It includes a three-request
 CORSMiddleware origin-isolation sequence and two
 Python-package-only direct `run_in_threadpool` cases, synchronous Request
@@ -27,11 +27,12 @@ shapes and failure, ASGI callable-instance success and failure, two direct
 registration and dispatch, two
 `Starlette.add_exception_handler`
 workflows, and one URL query-parameter operations input. The six direct ServerErrorMiddleware inputs and three TestClient exception-
-chain inputs pass live source/package comparison in the latest run. Four
+chain inputs pass live source/package comparison in the latest run. Sixteen
 Request.cookies inputs also pass their selected comparisons: an Okta-style
-JSON-like value with duplicate and unnamed segments, multiple raw Cookie
-fields, quoted backslash-plus-line-feed handling, and Python-package dict
-type/cache/mutation behavior. The mapping probe is package-only because the
+JSON-like value with duplicate and unnamed segments, all 12 active edge and
+malformed parameter strings, multiple raw Cookie fields, quoted
+backslash-plus-line-feed handling, and Python-package dict type/cache/mutation
+behavior. The mapping probe is package-only because the
 Rust-native API exposes its additive Rust `Cookies` type rather than a Python
 mapping. The parameterized `test_cookies_edge_cases` and
 `test_cookies_invalid` rows remain in the generated fixture backlog; these four
@@ -47,19 +48,19 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `33e60258-d96b-4e8f-8cb5-28501bf7f124`. It ran from
-`2026-10-01T15:27:13.163Z` to `2026-10-01T15:29:26.876Z` and selected 790
-profile comparisons: 786 passed, zero failed, zero infrastructure errors,
+The latest full-slice run is `a647bc8a-30a6-49a7-b6a1-f87ced1388ca`. It ran from
+`2026-10-01T15:38:28.960Z` to `2026-10-01T15:40:48.747Z` and selected 814
+profile comparisons: 810 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
-passed all 620 selected comparisons; Rust-native passed 166 of 170. The four
+passed all 632 selected comparisons; Rust-native passed 178 of 182. The four
 native `not_run` rows are synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
 status 2 for those declared Python-callable boundaries. The Rust-native source
 fingerprint was
-`87f732c1700b5ca752ac1d47c3919ddf74f43dd8+source-fnv1a64-2a57c4edf0b8b34f`.
+`9c667d53c54d3d02ba17c1bcd05b025a7150a32c+source-fnv1a64-2a57c4edf0b8b34f`.
 The installed package tree SHA-256 was
 `cf5a985e7c8f71e139c82412a7fe614469872537f842f4d03a1e3b3986e704e5`, wheel
-SHA-256 `a550ca611adb006ad20bd506d549895a7194a17c8abeea07e1cda07b8aaf2b86`,
+SHA-256 `17d815e28cf0dc2e5becabb89c2ba4d1d0c09b9792ef170e921b37690ad3016f`,
 and manifest SHA-256
 `093b94fab9f33bee3dc22baf108db71911b4d8d3bee422098e5f2245e1dddab7`. Full
 run identity and case-level evidence are recorded in
@@ -87,8 +88,8 @@ This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 340 existing input
-mappings, 50 reasoned `not_applicable` rows, and 412 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 342 existing input
+mappings, 50 reasoned `not_applicable` rows, and 410 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
