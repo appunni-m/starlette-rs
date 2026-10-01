@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 653 input-only cases in 75 indexed files,
-covering 91 operations and 687 parity requirements. Rust-backed
+The active contract contains 657 input-only cases in 76 indexed files,
+covering 93 operations and 692 parity requirements. Rust-backed
 `CommaSeparatedStrings` parsing and sequence formatting, including lone
 surrogate values, are included, alongside
 the three-request CORS
@@ -22,10 +22,11 @@ State sequences, application registration workflows, six direct
 ServerErrorMiddleware cases, three TestClient exception-chain cases, a
 default middleware-boundary trace, and sixteen Request.cookies inputs pass live
 source/package comparison, including the sequential TestClient cookie
-round-trip from `test_request_cookies`. Latest integrated run
-`f386b6b5-485b-4914-aad3-89bc05e12085` passed 836 of 840 selected comparisons,
-with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 651/651;
+round-trip from `test_request_cookies`. Added direct `GZipResponder` inputs and
+invalid WebSocket JSON-mode inputs pass exact source/package comparison.
+Latest integrated run `9c5440db-d796-4f4c-b4d8-cf19834d4e78` passed 840 of 844
+selected comparisons, with zero failures or infrastructure errors and four
+Rust-native Python-callable rows `not_run`. The Python package passed 655/655;
 Rust-native passed 185/189. The four native `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for those declared rows. Full run
@@ -40,8 +41,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 354 existing input mappings,
-50 source-backed `not_applicable` rows, and 398 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 357 existing input mappings,
+50 source-backed `not_applicable` rows, and 395 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

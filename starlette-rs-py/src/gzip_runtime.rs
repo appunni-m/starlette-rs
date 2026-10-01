@@ -60,16 +60,19 @@ pub(crate) struct PyGzipMiddlewareRuntime {
     app: Py<PyAny>,
     config: Py<PyAny>,
     offload_body: Py<PyAny>,
+    gzip_always: bool,
 }
 
 #[pymethods]
 impl PyGzipMiddlewareRuntime {
     #[new]
-    fn new(app: Py<PyAny>, config: Py<PyAny>, offload_body: Py<PyAny>) -> Self {
+    #[pyo3(signature = (app, config, offload_body, gzip_always=false))]
+    fn new(app: Py<PyAny>, config: Py<PyAny>, offload_body: Py<PyAny>, gzip_always: bool) -> Self {
         Self {
             app,
             config,
             offload_body,
+            gzip_always,
         }
     }
 
@@ -87,6 +90,7 @@ impl PyGzipMiddlewareRuntime {
                 app: runtime.app.clone_ref(py),
                 config: runtime.config.clone_ref(py),
                 offload_body: runtime.offload_body.clone_ref(py),
+                gzip_always: runtime.gzip_always,
                 scope,
                 receive,
                 send,
@@ -100,6 +104,7 @@ struct GzipMiddlewareCall {
     app: Py<PyAny>,
     config: Py<PyAny>,
     offload_body: Py<PyAny>,
+    gzip_always: bool,
     scope: Py<PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
@@ -133,17 +138,20 @@ impl GzipMiddlewareCall {
             .ok_or_else(|| PyKeyError::new_err("type"))?
             .extract::<String>()?;
 
-        let send = if scope_type == "http" {
-            let request_headers = scope
-                .get_item("headers")?
-                .ok_or_else(|| PyKeyError::new_err("headers"))?
-                .extract::<Vec<GzipHeader>>()?;
-            let request_headers = gzip_headers_to_python(py, &request_headers)?;
-            let responder = self
-                .config
-                .bind(py)
-                .call_method1("responder", (request_headers,))?
-                .unbind();
+        let send = if scope_type == "http" || self.gzip_always {
+            let config = self.config.bind(py);
+            let responder = if self.gzip_always {
+                config.call_method0("gzip_responder")?.unbind()
+            } else {
+                let request_headers = scope
+                    .get_item("headers")?
+                    .ok_or_else(|| PyKeyError::new_err("headers"))?
+                    .extract::<Vec<GzipHeader>>()?;
+                let request_headers = gzip_headers_to_python(py, &request_headers)?;
+                config
+                    .call_method1("responder", (request_headers,))?
+                    .unbind()
+            };
             let initial_message = PyDict::new(py).into_any().unbind();
             Py::new(
                 py,

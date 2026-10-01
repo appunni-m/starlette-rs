@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 653 input-only cases across 75 files,
-covering 91 operations and 687 parity requirements. It includes Rust-backed
+The active parity manifest indexes 657 input-only cases across 76 files,
+covering 93 operations and 692 parity requirements. It includes Rust-backed
 `CommaSeparatedStrings` parsing, sequence formatting, quoting, Unicode
 representation, Python string-subclass boundary inputs, and lone-surrogate
 strings; a three-request
@@ -48,26 +48,29 @@ async endpoint loop/task/thread ownership and cancellation, StaticFiles,
 WebSockets, exceptions, status constants, endpoints,
 authentication, middleware (including the default middleware-boundary trace and bounded WSGIMiddleware,
 SessionMiddleware, and BaseHTTPMiddleware workflows), configuration,
-schemas, and one bounded Python-package Jinja2 template workflow. The exact
+schemas, one bounded Python-package Jinja2 template workflow, direct
+`GZipResponder` construction and compression inputs, and invalid WebSocket
+JSON-mode inputs. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `f386b6b5-485b-4914-aad3-89bc05e12085`. It ran from
-`2026-10-01T19:01:22.249Z` to `2026-10-01T19:03:46.447Z` and selected 840
-profile comparisons: 836 passed, zero failed, zero infrastructure errors,
+The latest full-slice run is `9c5440db-d796-4f4c-b4d8-cf19834d4e78`. It ran from
+`2026-10-01T19:29:33.556Z` to `2026-10-01T19:32:26.140Z` and selected 844
+profile comparisons: 840 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
-passed all 651 selected comparisons; Rust-native passed 185 of 189. All nine
-`CommaSeparatedStrings` profile comparisons passed, including the new
-lone-surrogate inputs. The four native `not_run` rows are synchronous Request
-endpoint, bound-method endpoint, partial endpoint, and callable-instance ASGI
-dispatch. `make test` exits with status 2 for those declared Python-callable
-boundaries. The Rust-native source fingerprint was
-`33e711f5cd37e65b9a8ef1601c65e004b34e812a+source-fnv1a64-b3bbd3ddb65860b2`.
+passed all 655 selected comparisons; Rust-native passed 185 of 189. The direct
+`GZipResponder` exclusion-normalization and no-negotiation compression cases,
+plus both invalid WebSocket JSON-mode cases, passed exact source/package
+comparison. The four native `not_run` rows are synchronous Request endpoint,
+bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
+`make test` exits with status 2 for those declared Python-callable boundaries.
+The Rust-native source fingerprint was
+`d009a3f33b3d3174f83551a6c99bf1e07063ae93+source-fnv1a64-704730bcd90dfac8`.
 The installed package tree SHA-256 was
-`68c1bb11108aace159050bd9eacf35ba270d76d1971ce8372a9b5cf9be519e81`, wheel
-SHA-256 `0e4202c0a55bde6b5aa488bbd701e5ce0f6d5a6476d4e1de7d912e35c6e6b142`,
+`f8d6f6bf66de21ca12a7580fb220877b2b386154bb8f1865f2d828565d06515d`; wheel
+SHA-256 `3011558c41d0d23bf3d6af43c2272fdd4c231d96f82c11401c00b908dac55a3e`,
 and manifest SHA-256
-`c272e2924b69a4b2404af5b1233fa8558dd2b99fb322084ee11957ac13220134`. Full
+`d5c069c0c978d2abc19d6c3b8a7bad9fd358956260b5d017432f7b54f2291535`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
@@ -99,8 +102,8 @@ This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 354 existing input
-mappings, 50 reasoned `not_applicable` rows, and 398 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 357 existing input
+mappings, 50 reasoned `not_applicable` rows, and 395 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -269,9 +272,10 @@ active WebSocket inputs are included in the latest full-slice run, and the
 Python-package comparisons pass. TestClient streaming bodies, lifespan
 re-entry behavior, close-message errors, and explicit close reasons remain in
 the fixture backlog.
-`asgi-core.app.test_app_debug` stays in backlog because its input constructs
-the app with debug enabled rather than setting debug after construction. The
-parity artifact status for that historical run was `completed`; the four
+`asgi-core.app.test_app_debug` is mapped to the TestClient input that mutates
+debug after construction; direct debug-enabled construction remains a separate
+documentation backlog item. The parity artifact status for the latest run is
+`completed`; the four
 explicitly unsupported Rust-native callable rows kept its all-target gate
 incomplete. The current Router/GZip source/package benchmark lane is
 `completed` for all 74 declared workloads, but does not establish full
@@ -622,9 +626,11 @@ and the legacy `httpx` TestClient backend.
 - The GZip module has a TODO for a future `DEFAULT_EXCLUDED_CONTENT_TYPE`
   rename while the pinned export is plural; see
   `middleware.alias.gzip-exclusion-constant`.
-- The upstream-internal `GZipResponder` import is absent from the compatibility
-  package; the current exact parity slice covers the public `GZipMiddleware`
-  boundary only.
+- `GZipResponder` is upstream-internal machinery with a direct upstream test
+  import. The compatibility package now forwards construction and ASGI calls
+  through Rust, with exact input coverage for exclusion normalization and
+  direct compression without negotiation. Its remaining internal attributes
+  and methods stay outside this bounded compatibility slice.
 - The docs say async Jinja2 context processors are unsupported without
   specifying whether use errors, is ignored, or is awaited; see
   `doc.templates.async-context-processor-constraint`.

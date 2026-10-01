@@ -251,6 +251,15 @@ impl GzipConfig {
     pub fn responder(&self, request_headers: &[GzipHeader]) -> GzipResponder {
         GzipResponder::new(self.clone(), Self::accepts_gzip(request_headers))
     }
+
+    /// Creates a response transformer with GZip enabled regardless of request headers.
+    ///
+    /// This backs Starlette's direct `GZipResponder` compatibility surface;
+    /// middleware negotiation continues to use [`Self::responder`].
+    #[must_use]
+    pub fn gzip_responder(&self) -> GzipResponder {
+        GzipResponder::new(self.clone(), true)
+    }
 }
 
 /// A response-start event buffered while GZip middleware inspects headers.

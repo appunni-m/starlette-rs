@@ -2319,8 +2319,8 @@ def _literal_arguments(
     return values
 
 
-def _materialize_gzip_middleware(arguments: dict[str, Any]) -> Any:
-    from starlette.middleware.gzip import GZipMiddleware
+def _materialize_gzip_middleware(arguments: dict[str, Any], *, responder: bool = False) -> Any:
+    from starlette.middleware.gzip import GZipMiddleware, GZipResponder
 
     app_spec = _exact_object(arguments["app"], {"kind", "messages"}, "GZipMiddleware app")
     if app_spec["kind"] != "asgi-response-sequence" or not isinstance(app_spec["messages"], list):
@@ -2379,7 +2379,8 @@ def _materialize_gzip_middleware(arguments: dict[str, Any]) -> Any:
     if "exclude_content_types" in arguments:
         constructor_arguments["exclude_content_types"] = tuple(arguments["exclude_content_types"])
 
-    return GZipMiddleware(response_app, **constructor_arguments)
+    middleware_type = GZipResponder if responder else GZipMiddleware
+    return middleware_type(response_app, **constructor_arguments)
 
 
 def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
@@ -2666,28 +2667,30 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
 
 def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
     steps = case["steps"]
+    responder = case["surface"] == "starlette.middleware.gzip.GZipResponder"
+    instance_step = "responder" if responder else "middleware"
     if (
         len(steps) != 2
-        or [step.get("step_id") for step in steps] != ["middleware", "dispatch"]
+        or [step.get("step_id") for step in steps] != [instance_step, "dispatch"]
         or [step.get("operation") for step in steps] != ["__init__", "__call__"]
         or any(step.get("surface") != case["surface"] for step in steps)
         or steps[0].get("receiver") is not None
-        or steps[1].get("receiver") != {"kind": "binding", "step_id": "middleware"}
+        or steps[1].get("receiver") != {"kind": "binding", "step_id": instance_step}
     ):
-        raise ValueError("GZipMiddleware cases must construct then dispatch the public middleware")
+        raise ValueError("GZip cases must construct then dispatch the declared ASGI callable")
     if case["execution_schedule"] != ["dispatch"] or case["observations"] != ["dispatch"]:
         raise ValueError("GZipMiddleware cases must observe one dispatch step")
 
     constructor_arguments = _literal_arguments(
         steps[0],
         {"app", "minimum_size", "compresslevel", "thread_minimum_size", "exclude_content_types"},
-        "GZipMiddleware constructor",
+        "GZip constructor",
         optional={"minimum_size", "compresslevel", "thread_minimum_size", "exclude_content_types"},
     )
-    dispatch_arguments = _literal_arguments(
-        steps[1], {"scope", "receive", "send"}, "GZipMiddleware dispatch"
-    )
-    middleware = _materialize_gzip_middleware(constructor_arguments)
+    if responder and "minimum_size" not in constructor_arguments:
+        raise ValueError("GZipResponder constructor requires minimum_size")
+    dispatch_arguments = _literal_arguments(steps[1], {"scope", "receive", "send"}, "GZip dispatch")
+    middleware = _materialize_gzip_middleware(constructor_arguments, responder=responder)
     value = asyncio.run(_invoke(middleware, dispatch_arguments, [], [], None, False))
     selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
     return {
@@ -10697,7 +10700,10 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         if case["operation"] != "__call__":
             raise ValueError("WSGIMiddleware cases must call its public ASGI interface")
         return _run_wsgi_case(case)
-    if case.get("surface") == "starlette.middleware.gzip.GZipMiddleware":
+    if case.get("surface") in {
+        "starlette.middleware.gzip.GZipMiddleware",
+        "starlette.middleware.gzip.GZipResponder",
+    }:
         _exact_object(
             case,
             {
@@ -10714,7 +10720,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             "parity case",
         )
         if case["operation"] != "__call__":
-            raise ValueError("GZipMiddleware cases must call its public ASGI interface")
+            raise ValueError("GZip cases must call the declared ASGI interface")
         return _run_gzip_case(case)
     if case.get("surface") == BODY_LIMIT_SURFACE:
         _exact_object(

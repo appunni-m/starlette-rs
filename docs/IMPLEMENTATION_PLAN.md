@@ -32,8 +32,8 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 653 input-only cases in 75 indexed files,
-covering 91 operations and 687 requirements, including Rust-backed
+The active parity contract contains 657 input-only cases in 76 indexed files,
+covering 93 operations and 692 requirements, including Rust-backed
 `CommaSeparatedStrings` parsing, quoting, sequence formatting, Python
 string-subclass boundary behavior, and lone-surrogate values, the direct
 `starlette.concurrency.run_in_threadpool` helper, synchronous Request endpoint
@@ -46,12 +46,14 @@ isolation workflow, one default middleware-boundary trace, sixteen Request.cooki
 parser and dictionary-boundary inputs, and the TestClient cookie-persistence
 round trip for `test_request_cookies`, including every active
 parameter from the edge-case and malformed-cookie source rows. New WebSocket
-inputs add four denial-response state transitions and a fresh-iterator
-`asend(non-None)` error boundary. The six direct ServerErrorMiddleware inputs and three TestClient exception-
-chain cases also pass in the latest run. Run
-`f386b6b5-485b-4914-aad3-89bc05e12085` selected 840 comparisons: 836 passed,
+inputs add four denial-response state transitions, a fresh-iterator
+`asend(non-None)` error boundary, and invalid JSON-mode cases. Direct
+`GZipResponder` package inputs cover configured exclusion normalization and
+compression without negotiation. The six direct ServerErrorMiddleware inputs
+and three TestClient exception-chain cases also pass in the latest run. Run
+`9c5440db-d796-4f4c-b4d8-cf19834d4e78` selected 844 comparisons: 840 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
-Python-callable rows `not_run`. The installed Python package passed 651/651;
+Python-callable rows `not_run`. The installed Python package passed 655/655;
 Rust-native passed 185/189. The four native `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for these declared rows. The
@@ -59,8 +61,8 @@ complete run identity, wheel and tree hashes, and case-level evidence are in
 [Migration parity contract and evidence](PARITY.md). This bounded run does not
 establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 802 source rows: 354 input mappings,
-50 source-backed `not_applicable` rows, and 398 fixture-backlog rows. These
+The generated coverage matrix contains 802 source rows: 357 input mappings,
+50 source-backed `not_applicable` rows, and 395 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.

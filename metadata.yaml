@@ -310,6 +310,20 @@
       ]
     },
     {
+      "surface_id": "starlette.middleware.gzip.GZipResponder",
+      "source_path": "starlette/middleware/gzip.py:180",
+      "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.middleware.gzip.GZipResponder.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.middleware.gzip.GZipResponder.__call__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.middleware.errors.ServerErrorMiddleware",
       "source_path": "starlette/middleware/errors.py:127",
       "operations": [

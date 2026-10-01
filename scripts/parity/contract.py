@@ -123,6 +123,10 @@ WEBSOCKET_SURFACE = "starlette.websockets.WebSocket"
 WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
 WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
+WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS = {
+    "receive": "starlette.websocket.api.receive.json.invalid-mode",
+    "send": "starlette.websocket.api.send.json.invalid-mode",
+}
 WEBSOCKET_ENDPOINT_SURFACE = "starlette.endpoints.WebSocketEndpoint"
 WEBSOCKET_ENDPOINT_OPERATION = "dispatch"
 WEBSOCKET_ENDPOINT_OPERATION_KEY = (
@@ -980,6 +984,12 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
     ): frozenset({"starlette.datastructures.UploadFile.spooled-file-rollover"}),
 }
 GZIP_SURFACE = "starlette.middleware.gzip.GZipMiddleware"
+GZIP_RESPONDER_SURFACE = "starlette.middleware.gzip.GZipResponder"
+GZIP_RESPONDER_REQUIREMENTS = {
+    "construct": f"{GZIP_RESPONDER_SURFACE}.construct",
+    "direct-compression": f"{GZIP_RESPONDER_SURFACE}.direct-compression-without-negotiation",
+    "excluded-content-type": f"{GZIP_RESPONDER_SURFACE}.excluded-content-type-normalization",
+}
 WSGI_SURFACE = "starlette.middleware.wsgi.WSGIMiddleware"
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
@@ -995,6 +1005,7 @@ SERVER_ERROR_MIDDLEWARE_REQUIREMENTS = {
 }
 ASGI_MIDDLEWARE_SURFACES = {
     GZIP_SURFACE,
+    GZIP_RESPONDER_SURFACE,
     WSGI_SURFACE,
     CORS_SURFACE,
     HTTPS_REDIRECT_SURFACE,
@@ -2029,6 +2040,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             HTTPS_REDIRECT_SURFACE,
                             TRUSTED_HOST_SURFACE,
                             SERVER_ERROR_MIDDLEWARE_SURFACE,
+                            GZIP_RESPONDER_SURFACE,
                             WSGI_SURFACE,
                         }
                         or (surface["id"], operation["id"]) in VALUE_FORMATTING_OPERATIONS
@@ -2847,14 +2859,17 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                     )
                 mode = arguments.get("mode", "text")
                 mode = _string(mode, f"{context}.arguments.mode")
-                if mode not in {"text", "binary"}:
-                    raise ContractError(f"{context}.arguments.mode must be text or binary")
-                payload = "text" if mode == "text" else "bytes_base64"
-                exercised.add(f"starlette.websocket.api.receive.json.{mode}")
+                invalid_mode = mode not in {"text", "binary"}
+                if invalid_mode:
+                    exercised.add(WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS["receive"])
+                else:
+                    payload = "text" if mode == "text" else "bytes_base64"
+                    exercised.add(f"starlette.websocket.api.receive.json.{mode}")
             else:
                 if arguments:
                     raise ContractError(f"{context}.arguments must be empty for {method}")
                 mode = None
+                invalid_mode = False
                 payload = "text" if method == "receive_text" else "bytes_base64"
                 exercised.add(
                     "starlette.websocket.api.receive.text"
@@ -2863,9 +2878,10 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                 )
             if application_state != "CONNECTED":
                 raise ContractError(f"{context} requires a connected WebSocket")
-            message_type = receive_input(context, payload)
-            if message_type == "websocket.disconnect":
-                exercised.add("starlette.websocket.api.disconnect.details")
+            if not invalid_mode:
+                message_type = receive_input(context, payload)
+                if message_type == "websocket.disconnect":
+                    exercised.add("starlette.websocket.api.disconnect.details")
         elif method in {"iter_text", "iter_bytes", "iter_json"}:
             if arguments:
                 raise ContractError(f"{context}.arguments must be empty for {method}")
@@ -2900,8 +2916,9 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                 mode = arguments.get("mode", "text")
                 mode = _string(mode, f"{context}.arguments.mode")
                 if mode not in {"text", "binary"}:
-                    raise ContractError(f"{context}.arguments.mode must be text or binary")
-                exercised.add(f"starlette.websocket.api.send.json.{mode}")
+                    exercised.add(WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS["send"])
+                else:
+                    exercised.add(f"starlette.websocket.api.send.json.{mode}")
             else:
                 if set(arguments) - {"code", "reason"}:
                     raise ContractError(f"{context}.arguments has fields unsupported by close")
@@ -10834,6 +10851,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             )
     case_id = _string(case["case_id"], "case.case_id")
     is_gzip = case["surface"] == GZIP_SURFACE
+    is_gzip_responder = case["surface"] == GZIP_RESPONDER_SURFACE
     is_protocol_middleware = case["surface"] in ASGI_MIDDLEWARE_SURFACES
     is_middleware_construction = is_protocol_middleware and case["operation"] == "__init__"
     is_body_limit = case["surface"] == BODY_LIMIT_SURFACE
@@ -10905,6 +10923,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_gzip:
         if case["operation"] != "__call__":
             raise ContractError("GZipMiddleware parity cases must call its public ASGI interface")
+    elif is_gzip_responder:
+        if case["operation"] != "__call__":
+            raise ContractError("GZipResponder parity cases must call its ASGI interface")
     elif is_protocol_middleware:
         if case["operation"] not in {"__call__", "__init__"}:
             raise ContractError("ASGI middleware cases must use a declared public operation")
@@ -11029,6 +11050,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     selected_profile_ids = set(selected_profiles)
     if is_websocket_endpoint and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("WebSocketEndpoint dispatch selects only the Python-package profile")
+    if is_gzip_responder and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError(
+            "GZipResponder compatibility cases select only the Python-package profile"
+        )
     if is_http_endpoint and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("HTTPEndpoint dispatch selects only the Python-package profile")
     if is_session_workflow and selected_profiles != ["python-package-cpython312"]:
@@ -11346,6 +11371,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_middleware_construction
         else (step_ids,)
         if is_cors_state_sequence
+        else (["responder", "dispatch"],)
+        if is_gzip_responder
         else (["middleware", "dispatch"],)
         if is_protocol_middleware
         else (
@@ -11574,7 +11601,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     lifespan_only = step_ids == ["application", "lifecycle"]
     if lifespan_only:
         _validate_lifespan_only_case(case, app_args)
-    if is_gzip:
+    if is_gzip or is_gzip_responder:
         _validate_gzip_constructor_stimulus(app_args)
     elif is_protocol_middleware:
         _validate_asgi_middleware_constructor(case["surface"], app_args)
@@ -11608,7 +11635,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_starlette_add_route_workflow and step["operation"] in {"add_route", "url_path_for"}:
             continue
         if is_protocol_middleware:
-            if is_gzip:
+            if is_gzip or is_gzip_responder:
                 _validate_dispatch_stimulus(step_args, request_dispatch=True)
             else:
                 _validate_asgi_middleware_dispatch(case["surface"], step_args)
@@ -11719,13 +11746,14 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError(
             "execution_schedule does not match the scopes and protocol messages in the steps"
         )
-    exercised = (
-        _asgi_middleware_semantic_coverage(case)
-        if is_protocol_middleware and not is_gzip
-        else _gzip_semantic_coverage(case)
-        if is_gzip
-        else _semantic_coverage(case)
-    )
+    if is_gzip_responder:
+        exercised = _gzip_responder_semantic_coverage(case)
+    elif is_protocol_middleware and not is_gzip:
+        exercised = _asgi_middleware_semantic_coverage(case)
+    elif is_gzip:
+        exercised = _gzip_semantic_coverage(case)
+    else:
+        exercised = _semantic_coverage(case)
     unexercised = set(covers) - exercised
     if unexercised:
         raise ContractError(
@@ -18434,6 +18462,61 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
     return coverage
 
 
+def _gzip_responder_semantic_coverage(case: dict[str, Any]) -> set[str]:
+    constructor_args = {
+        key: descriptor["value"] for key, descriptor in case["steps"][0]["arguments"].items()
+    }
+    dispatch_args = {
+        key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
+    }
+    messages = constructor_args["app"]["messages"]
+    response_start = messages[0]
+    response_headers = _gzip_header_pairs(
+        response_start["headers_base64_pairs"], "GZipResponder response start headers"
+    )
+    request_headers = _gzip_header_pairs(
+        dispatch_args["scope"]["headers_base64_pairs"], "GZipResponder request headers"
+    )
+
+    def header_value(headers: list[tuple[bytes, bytes]], name: bytes) -> bytes | None:
+        return next((value for header_name, value in headers if header_name.lower() == name), None)
+
+    response_content_type = header_value(response_headers, b"content-type") or b""
+    media_type = response_content_type.partition(b";")[0].strip().lower().decode("latin-1")
+    configured = constructor_args.get("exclude_content_types")
+    normalized_exclusions = {item.partition(";")[0].strip().lower() for item in configured or []}
+    media_family = media_type.partition("/")[0] + "/*"
+    excluded = media_type in normalized_exclusions or media_family in normalized_exclusions
+    content_encoded = header_value(response_headers, b"content-encoding") is not None
+    partial_response = response_start["status"] == 206
+    body_messages = [message for message in messages[1:] if message["type"] == "http.response.body"]
+    body_length = sum(
+        len(base64.b64decode(message["body_base64"], validate=True)) for message in body_messages
+    )
+    minimum_size = constructor_args["minimum_size"]
+    coverage = {GZIP_RESPONDER_REQUIREMENTS["construct"]}
+
+    if (
+        configured
+        and body_messages
+        and body_length >= minimum_size
+        and excluded
+        and not content_encoded
+        and not partial_response
+    ):
+        coverage.add(GZIP_RESPONDER_REQUIREMENTS["excluded-content-type"])
+    if (
+        body_messages
+        and body_length >= minimum_size
+        and not excluded
+        and not content_encoded
+        and not partial_response
+        and header_value(request_headers, b"accept-encoding") is None
+    ):
+        coverage.add(GZIP_RESPONDER_REQUIREMENTS["direct-compression"])
+    return coverage
+
+
 def _route_path_matches(route_path: str, request_path: str) -> bool:
     return _route_template_matches(route_path, request_path)
 
@@ -18469,6 +18552,8 @@ def _starlette_add_route_semantic_coverage(case: dict[str, Any]) -> set[str]:
 def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     if case["surface"] == GZIP_SURFACE:
         return _gzip_semantic_coverage(case)
+    if case["surface"] == GZIP_RESPONDER_SURFACE:
+        return _gzip_responder_semantic_coverage(case)
     if any(step.get("operation") == "add_exception_handler" for step in case["steps"]):
         return _starlette_add_exception_handler_semantic_coverage(case)
     if any(step.get("operation") == "add_middleware" for step in case["steps"]):

@@ -1076,6 +1076,12 @@ impl PyGzipConfig {
             inner: self.inner.responder(&request_headers),
         }
     }
+
+    fn gzip_responder(&self) -> PyGzipResponder {
+        PyGzipResponder {
+            inner: self.inner.gzip_responder(),
+        }
+    }
 }
 
 #[pyclass(name = "GzipResponder")]

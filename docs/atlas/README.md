@@ -25,24 +25,26 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 653 input-only cases across
-75 indexed files, 91 operations, and 687 requirements. The latest full-slice
-run `f386b6b5-485b-4914-aad3-89bc05e12085` passed 836 of 840 selected profile
+active and incomplete. The current contract has 657 input-only cases across
+76 indexed files, 93 operations, and 692 requirements. The latest full-slice
+run `9c5440db-d796-4f4c-b4d8-cf19834d4e78` passed 840 of 844 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 651/651; Rust-native
+Python-callable rows `not_run`. The Python package passed 655/655; Rust-native
 passed 185/189. All nine selected `CommaSeparatedStrings` comparisons pass,
 including lone-surrogate strings through parsing, sequence values, and subclass
 `__repr__`. The PyO3 boundary uses UTF-32LE with `surrogatepass`; parsing and
-formatting remain Rust-owned. The WebSocket state sequence now covers ten
-cases, including four denial-response transitions; the package-only convenience
-input checks fresh-iterator `asend(non-None)`. The four native rows are synchronous Request
+formatting remain Rust-owned. The WebSocket state sequence covers ten cases,
+including four denial-response transitions; package-only convenience inputs
+check fresh-iterator `asend(non-None)` and invalid JSON modes. GZip adds direct
+package-profile `GZipResponder` checks for exclusion normalization and
+compression without negotiation. The four native rows are synchronous Request
 endpoint, bound-method endpoint, partial endpoint, and callable-instance ASGI
 dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 354 existing input
-mappings, 50 reasoned `not_applicable` rows, and 398 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 357 existing input
+mappings, 50 reasoned `not_applicable` rows, and 395 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest Router/GZip run `bf490edc-60e2-4ca1-ba23-12fd9a46546f` measured all
@@ -288,8 +290,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 516 `supported`, 285
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 802
-source rows: 354 existing input mappings, 50 reasoned `not_applicable`
-entries, and 398 input-only backlog rows. Derive these changing counts from
+source rows: 357 existing input mappings, 50 reasoned `not_applicable`
+entries, and 395 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

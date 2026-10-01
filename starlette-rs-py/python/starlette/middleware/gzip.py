@@ -54,3 +54,35 @@ class GZipMiddleware:
         send: Callable[..., Any],
     ) -> None:
         await self._runtime(scope, receive, send)
+
+
+class GZipResponder:
+    """Forward an ASGI response stream through Rust's GZip responder."""
+
+    content_encoding = "gzip"
+
+    def __init__(
+        self,
+        app: Callable[..., Any],
+        minimum_size: int,
+        compresslevel: int = 9,
+        *,
+        thread_minimum_size: int = 128 * 1024,
+        exclude_content_types: tuple[str, ...] = DEFAULT_EXCLUDED_CONTENT_TYPES,
+    ) -> None:
+        self.app = app
+        self.config = _core.GzipConfig(
+            minimum_size,
+            compresslevel,
+            thread_minimum_size,
+            list(exclude_content_types),
+        )
+        self._runtime = _core.GZipMiddlewareRuntime(self.app, self.config, _offload_gzip_body, True)
+
+    async def __call__(
+        self,
+        scope: dict[str, Any],
+        receive: Callable[..., Any],
+        send: Callable[..., Any],
+    ) -> None:
+        await self._runtime(scope, receive, send)
