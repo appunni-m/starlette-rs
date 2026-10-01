@@ -8,24 +8,22 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 608 input-only cases in 70 indexed files,
-covering 85 operations and 639 parity requirements. Five async Request endpoint
+The active contract contains 612 input-only cases in 70 indexed files,
+covering 86 operations and 646 parity requirements. Five async Request endpoint
 callable-shape and failure cases, the two direct `run_in_threadpool` cases,
-synchronous Request endpoint worker cancellation and failure, ASGI callable-
-instance success and failure, two direct State consumer sequences,
-`Starlette.host()` and `Starlette.mount()` registration and dispatch, two
-`Starlette.add_exception_handler` workflows, six direct ServerErrorMiddleware
-cases, three TestClient exception-chain cases, and a default middleware-boundary
-trace pass live source/package comparison. The URL query-parameter case is also
-mapped and passes. Latest integrated run
-`6699cb5d-e7c5-4fb4-bf2b-188395466d2c` passed 769 of 773 selected comparisons,
-with zero failures or infrastructure errors and four Rust-native Python-
-callable rows `not_run`. The Python package passed 606/606; Rust-native passed
-163/167. The added routing converter, WebSocket convenience, and route-body-
-limit cases passed their selected profiles. The four native `not_run` rows are
-synchronous Request endpoint, bound-method endpoint, partial endpoint, and
-callable-instance ASGI dispatch. `make test` exits with status 2 for those
-declared rows. Full run identities and package hashes are recorded in
+`iterate_in_threadpool` iteration and async-generator protocol behavior,
+Config casts, TestClient debug responses, synchronous Request endpoint worker
+cancellation and failure, ASGI callable-instance success and failure, direct
+State sequences, application registration workflows, six direct
+ServerErrorMiddleware cases, three TestClient exception-chain cases, and a
+default middleware-boundary trace pass live source/package comparison.
+Latest integrated run `d54f762e-aac1-461e-8a2d-59223eeb62ca` passed 773 of 777
+selected comparisons, with zero failures or infrastructure errors and four
+Rust-native Python-callable rows `not_run`. The Python package passed 610/610;
+Rust-native passed 163/167. The four native `not_run` rows are synchronous
+Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
+ASGI dispatch. `make test` exits with status 2 for those declared rows. Full run
+identities and package hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
@@ -36,8 +34,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 800 source rows: 322 existing input mappings,
-50 source-backed `not_applicable` rows, and 428 fixture-backlog rows. Derive
+The current coverage matrix has 800 source rows: 326 existing input mappings,
+50 source-backed `not_applicable` rows, and 424 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
