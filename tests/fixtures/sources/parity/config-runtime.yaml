@@ -57,6 +57,39 @@
       "observations": ["lookup-results"]
     },
     {
+      "case_id": "starlette.config.Config.value-resolution.boolean-and-integer-casts",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.file-precedence",
+        "starlette.config.Config.default-values",
+        "starlette.config.Config.bool-cast",
+        "starlette.config.Config.invalid-bool-error"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "config": {
+        "env_prefix": "",
+        "environ": {
+          "BOOL_TRUE": "true",
+          "BOOL_FALSE": "false",
+          "BOOL_ONE": "1",
+          "BOOL_INVALID": "2"
+        },
+        "env_file_lines": ["BOOL_AS_INT=0"]
+      },
+      "lookups": [
+        {"key": "BOOL_TRUE", "cast": "bool"},
+        {"key": "BOOL_FALSE", "cast": "bool"},
+        {"key": "BOOL_ONE", "cast": "bool"},
+        {"key": "BOOL_AS_INT", "cast": "bool"},
+        {"key": "BOOL_AS_INT", "cast": "int"},
+        {"key": "BOOL_INVALID", "cast": "bool"},
+        {"key": "DEFAULTED_BOOL_AS_INTEGER", "cast": "int", "default": true}
+      ],
+      "observations": ["lookup-results"]
+    },
+    {
       "case_id": "starlette.config.Environ.mapping-sequence.reads-freeze-keys-and-preserve-mapping-operations",
       "surface": "starlette.config.Environ",
       "operation": "mapping-sequence",

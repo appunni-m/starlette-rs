@@ -235,6 +235,85 @@
       }
     },
     {
+      "case_id": "starlette.testclient.TestClient.request-response.debug-info-response-extension",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.request-message"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
+        ],
+        "receive_count": 1,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9wbGFpbg=="
+              ]
+            ]
+          },
+          {
+            "type": "http.response.debug",
+            "info": {
+              "fragment": "header",
+              "blocks": [
+                "nav",
+                "title"
+              ]
+            }
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "SGVsbG8sIHdvcmxkIQ==",
+            "more_body": false
+          }
+        ]
+      }
+    },
+    {
       "case_id": "starlette.testclient.TestClient.request-response.timeout-deprecation-warning",
       "surface": "starlette.testclient.TestClient",
       "operation": "request-response",
@@ -1110,6 +1189,54 @@
           "headers",
           "client",
           "server"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.server-error-middleware-debug-text",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "client_method": "get",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "server-error-middleware",
+        "debug": true,
+        "exception": {
+          "class": "RuntimeError",
+          "message": "Something went wrong"
+        },
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "headers"
         ]
       }
     }

@@ -6,12 +6,15 @@
 //! remain in Rust.
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyRuntimeError, PyStopAsyncIteration, PyStopIteration};
+use pyo3::exceptions::{PyRuntimeError, PyStopAsyncIteration, PyStopIteration, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyList, PyModule, PyTuple};
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    into_python_awaitable_with_reuse_error, normalize_throw,
 };
 
 #[pyclass(name = "BackgroundTask", unsendable)]
@@ -191,11 +194,433 @@ fn run_in_threadpool(
     )
 }
 
+/// Return a Rust-owned async iterator that advances a synchronous Python
+/// iterator in AnyIO's worker pool.
+#[pyfunction]
+fn iterate_in_threadpool(py: Python<'_>, iterable: Py<PyAny>) -> PyResult<Py<PyAny>> {
+    let sentinel = py.import("builtins")?.getattr("object")?.call0()?.unbind();
+    Py::new(
+        py,
+        PyThreadpoolAsyncIterator {
+            iterable: Rc::new(RefCell::new(Some(iterable))),
+            iterator: Rc::new(RefCell::new(None)),
+            awaiting: Rc::new(RefCell::new(None)),
+            sentinel,
+            finished: Rc::new(Cell::new(false)),
+            running: Rc::new(Cell::new(false)),
+            started: Rc::new(Cell::new(false)),
+        },
+    )
+    .map(|iterator| iterator.into_any())
+}
+
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyBackgroundTask>()?;
     module.add_class::<PyBackgroundTasks>()?;
+    module.add_class::<PyThreadpoolAsyncIterator>()?;
     module.add_function(wrap_pyfunction!(run_in_threadpool, module)?)?;
+    module.add_function(wrap_pyfunction!(iterate_in_threadpool, module)?)?;
     Ok(())
+}
+
+#[pyclass(name = "ThreadpoolAsyncIterator", unsendable)]
+struct PyThreadpoolAsyncIterator {
+    iterable: Rc<RefCell<Option<Py<PyAny>>>>,
+    iterator: Rc<RefCell<Option<Py<PyAny>>>>,
+    awaiting: Rc<RefCell<Option<Py<PyAny>>>>,
+    sentinel: Py<PyAny>,
+    finished: Rc<Cell<bool>>,
+    running: Rc<Cell<bool>>,
+    started: Rc<Cell<bool>>,
+}
+
+#[pymethods]
+impl PyThreadpoolAsyncIterator {
+    fn __aiter__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    fn __anext__(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        threadpool_iterator_advance(slf, py, py.None())
+    }
+
+    fn asend(slf: Py<Self>, py: Python<'_>, value: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        threadpool_iterator_advance(slf, py, value)
+    }
+
+    #[pyo3(signature = (exception_type, value=None, traceback=None))]
+    fn athrow(
+        slf: Py<Self>,
+        py: Python<'_>,
+        exception_type: Py<PyAny>,
+        value: Option<Py<PyAny>>,
+        traceback: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let borrowed = slf.borrow(py);
+        let owner = slf.clone_ref(py);
+        let iterable = borrowed.iterable.clone();
+        let iterator = borrowed.iterator.clone();
+        let started = borrowed.started.clone();
+        let running = borrowed.running.clone();
+        let finished = borrowed.finished.clone();
+        drop(borrowed);
+        into_python_awaitable_with_reuse_error(
+            py,
+            ThreadpoolIteratorThrow {
+                exception_type,
+                value,
+                traceback,
+                owner,
+                iterable,
+                iterator,
+                started,
+                running,
+                finished,
+            },
+            "cannot reuse already awaited athrow()/asend()",
+        )
+    }
+
+    fn aclose(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let borrowed = slf.borrow(py);
+        let owner = slf.clone_ref(py);
+        let iterable = borrowed.iterable.clone();
+        let iterator = borrowed.iterator.clone();
+        let running = borrowed.running.clone();
+        let finished = borrowed.finished.clone();
+        drop(borrowed);
+        into_python_awaitable_with_reuse_error(
+            py,
+            ThreadpoolIteratorClose {
+                owner,
+                iterable,
+                iterator,
+                running,
+                finished,
+            },
+            "cannot reuse already awaited aclose()/athrow()",
+        )
+    }
+
+    #[getter]
+    fn ag_running(&self) -> bool {
+        self.running.get()
+    }
+
+    #[getter]
+    fn ag_await(&self, py: Python<'_>) -> Py<PyAny> {
+        self.awaiting
+            .borrow()
+            .as_ref()
+            .map_or_else(|| py.None(), |awaitable| awaitable.clone_ref(py))
+    }
+
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.sentinel)?;
+        if let Some(iterable) = self.iterable.borrow().as_ref() {
+            visit.call(iterable)?;
+        }
+        if let Some(iterator) = self.iterator.borrow().as_ref() {
+            visit.call(iterator)?;
+        }
+        if let Some(awaitable) = self.awaiting.borrow().as_ref() {
+            visit.call(awaitable)?;
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        *self.iterable.borrow_mut() = None;
+        self.sentinel = py.None();
+        *self.iterator.borrow_mut() = None;
+        *self.awaiting.borrow_mut() = None;
+        self.finished.set(true);
+    }
+}
+
+fn threadpool_iterator_advance(
+    iterator: Py<PyThreadpoolAsyncIterator>,
+    py: Python<'_>,
+    value: Py<PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let borrowed = iterator.borrow(py);
+    let machine = ThreadpoolIteratorAdvance {
+        owner: iterator.clone_ref(py),
+        iterable: borrowed.iterable.clone(),
+        iterator: borrowed.iterator.clone(),
+        awaiting: borrowed.awaiting.clone(),
+        sentinel: borrowed.sentinel.clone_ref(py),
+        finished: borrowed.finished.clone(),
+        running: borrowed.running.clone(),
+        started: borrowed.started.clone(),
+        value,
+        pending: false,
+    };
+    drop(borrowed);
+    into_python_awaitable_with_reuse_error(
+        py,
+        machine,
+        "cannot reuse already awaited __anext__()/asend()",
+    )
+}
+
+struct ThreadpoolIteratorAdvance {
+    owner: Py<PyThreadpoolAsyncIterator>,
+    iterable: Rc<RefCell<Option<Py<PyAny>>>>,
+    iterator: Rc<RefCell<Option<Py<PyAny>>>>,
+    awaiting: Rc<RefCell<Option<Py<PyAny>>>>,
+    sentinel: Py<PyAny>,
+    finished: Rc<Cell<bool>>,
+    running: Rc<Cell<bool>>,
+    started: Rc<Cell<bool>>,
+    value: Py<PyAny>,
+    pending: bool,
+}
+
+impl ThreadpoolIteratorAdvance {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        if self.finished.get() {
+            return Err(PyStopAsyncIteration::new_err(()));
+        }
+        if self.running.get() {
+            return Err(PyRuntimeError::new_err(
+                "anext(): asynchronous generator is already running",
+            ));
+        }
+        if !self.started.get() && !self.value.bind(py).is_none() {
+            return Err(PyTypeError::new_err(
+                "can't send non-None value to a just-started async generator",
+            ));
+        }
+
+        self.running.set(true);
+        self.started.set(true);
+        let existing_iterator = self
+            .iterator
+            .borrow()
+            .as_ref()
+            .map(|iterator| iterator.clone_ref(py));
+        let iterator = match existing_iterator {
+            Some(iterator) => iterator,
+            None => {
+                let iterable = match self.iterable.borrow().as_ref() {
+                    Some(iterable) => iterable.clone_ref(py),
+                    None => {
+                        self.finished.set(true);
+                        return Err(PyStopAsyncIteration::new_err(()));
+                    }
+                };
+                let iterator = match py
+                    .import("builtins")
+                    .and_then(|builtins| builtins.getattr("iter"))
+                    .and_then(|iter| iter.call1((iterable.bind(py),)))
+                {
+                    Ok(iterator) => iterator.unbind(),
+                    Err(error) => {
+                        self.finish();
+                        return Err(async_generator_escape(py, error));
+                    }
+                };
+                *self.iterator.borrow_mut() = Some(iterator.clone_ref(py));
+                iterator
+            }
+        };
+        let run_sync = match py
+            .import("anyio.to_thread")
+            .and_then(|module| module.getattr("run_sync"))
+        {
+            Ok(run_sync) => run_sync,
+            Err(error) => {
+                self.finish();
+                return Err(async_generator_escape(py, error));
+            }
+        };
+        let next = match py
+            .import("builtins")
+            .and_then(|builtins| builtins.getattr("next"))
+        {
+            Ok(next) => next,
+            Err(error) => {
+                self.finish();
+                return Err(async_generator_escape(py, error));
+            }
+        };
+        let awaitable = match run_sync.call1((next, iterator, self.sentinel.bind(py))) {
+            Ok(awaitable) => awaitable,
+            Err(error) => {
+                self.finish();
+                return Err(async_generator_escape(py, error));
+            }
+        };
+        self.pending = true;
+        *self.awaiting.borrow_mut() = Some(awaitable.clone().unbind());
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn finish(&mut self) {
+        self.pending = false;
+        self.finished.set(true);
+        self.iterator.borrow_mut().take();
+        self.iterable.borrow_mut().take();
+        self.awaiting.borrow_mut().take();
+        self.running.set(false);
+    }
+}
+
+impl AwaitableStateMachine for ThreadpoolIteratorAdvance {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        let _owner = &self.owner;
+        match input {
+            MachineResume::Start => self.start(py),
+            MachineResume::Value(value) if self.pending => {
+                self.pending = false;
+                self.awaiting.borrow_mut().take();
+                if value.bind(py).is(self.sentinel.bind(py)) {
+                    self.finish();
+                    Err(PyStopAsyncIteration::new_err(()))
+                } else {
+                    self.running.set(false);
+                    Ok(MachineAction::Complete(value))
+                }
+            }
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                if self.pending {
+                    self.finish();
+                }
+                Err(async_generator_escape(py, error))
+            }
+            MachineResume::Value(_) => Err(PyRuntimeError::new_err(
+                "threadpool iterator resumed without a pending operation",
+            )),
+        }
+    }
+
+    fn throw_before_start(&mut self, _py: Python<'_>) {
+        self.finish();
+    }
+}
+
+struct ThreadpoolIteratorThrow {
+    exception_type: Py<PyAny>,
+    value: Option<Py<PyAny>>,
+    traceback: Option<Py<PyAny>>,
+    owner: Py<PyThreadpoolAsyncIterator>,
+    iterable: Rc<RefCell<Option<Py<PyAny>>>>,
+    iterator: Rc<RefCell<Option<Py<PyAny>>>>,
+    started: Rc<Cell<bool>>,
+    running: Rc<Cell<bool>>,
+    finished: Rc<Cell<bool>>,
+}
+
+impl AwaitableStateMachine for ThreadpoolIteratorThrow {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        let _owner = &self.owner;
+        match input {
+            MachineResume::Start => {
+                if self.running.get() {
+                    return Err(PyRuntimeError::new_err(
+                        "athrow(): asynchronous generator is already running",
+                    ));
+                }
+                self.running.set(true);
+                let error = match normalize_throw(
+                    py,
+                    self.exception_type.clone_ref(py),
+                    self.value.as_ref().map(|value| value.clone_ref(py)),
+                    self.traceback
+                        .as_ref()
+                        .map(|traceback| traceback.clone_ref(py)),
+                ) {
+                    Ok(error) => error,
+                    Err(error) => {
+                        self.running.set(false);
+                        return Err(error);
+                    }
+                };
+                self.finished.set(true);
+                self.iterable.borrow_mut().take();
+                self.iterator.borrow_mut().take();
+                self.running.set(false);
+                if self.started.get()
+                    && (error.is_instance_of::<PyStopIteration>(py)
+                        || error.is_instance_of::<PyStopAsyncIteration>(py))
+                {
+                    Err(async_generator_escape(py, error))
+                } else {
+                    Err(error)
+                }
+            }
+            MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                Err(error)
+            }
+        }
+    }
+
+    fn throw_before_start(&mut self, _py: Python<'_>) {
+        self.finished.set(true);
+        self.iterable.borrow_mut().take();
+        self.iterator.borrow_mut().take();
+        self.running.set(false);
+    }
+}
+
+struct ThreadpoolIteratorClose {
+    owner: Py<PyThreadpoolAsyncIterator>,
+    iterable: Rc<RefCell<Option<Py<PyAny>>>>,
+    iterator: Rc<RefCell<Option<Py<PyAny>>>>,
+    running: Rc<Cell<bool>>,
+    finished: Rc<Cell<bool>>,
+}
+
+impl AwaitableStateMachine for ThreadpoolIteratorClose {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        let _owner = &self.owner;
+        match input {
+            MachineResume::Start => {
+                if self.running.get() {
+                    return Err(PyRuntimeError::new_err(
+                        "aclose(): asynchronous generator is already running",
+                    ));
+                }
+                self.running.set(true);
+                self.finished.set(true);
+                self.iterable.borrow_mut().take();
+                self.iterator.borrow_mut().take();
+                self.running.set(false);
+                Ok(MachineAction::Complete(py.None()))
+            }
+            MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                Err(error)
+            }
+        }
+    }
+
+    fn throw_before_start(&mut self, _py: Python<'_>) {
+        self.finished.set(true);
+        self.iterable.borrow_mut().take();
+        self.iterator.borrow_mut().take();
+        self.running.set(false);
+    }
+}
+
+fn async_generator_escape(py: Python<'_>, error: PyErr) -> PyErr {
+    let exception_name = if error.is_instance_of::<PyStopIteration>(py) {
+        "StopIteration"
+    } else if error.is_instance_of::<PyStopAsyncIteration>(py) {
+        "StopAsyncIteration"
+    } else {
+        return error;
+    };
+    async_generator_escape_error(py, exception_name, error)
+}
+
+fn async_generator_escape_error(py: Python<'_>, exception_name: &str, cause: PyErr) -> PyErr {
+    let error = PyRuntimeError::new_err(format!("async generator raised {exception_name}"));
+    error.set_context(py, Some(cause.clone_ref(py)));
+    error.set_cause(py, Some(cause));
+    error
 }
 
 struct BackgroundTaskCall {

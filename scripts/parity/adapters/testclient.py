@@ -153,6 +153,28 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await starlette_application(scope, receive, observed_send)
 
+    elif app_input["kind"] == "server-error-middleware":
+        from starlette.middleware.errors import ServerErrorMiddleware
+
+        exception_type = getattr(builtins, app_input["exception"]["class"])
+
+        async def raising_app(_scope: dict[str, Any], _receive: Any, _send: Any) -> None:
+            raise exception_type(app_input["exception"]["message"])
+
+        server_error_middleware = ServerErrorMiddleware(
+            raising_app,
+            debug=app_input["debug"],
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await server_error_middleware(scope, receive, observed_send)
+
     elif app_input["kind"] == "starlette-app-trusted-host":
         from starlette.applications import Starlette
         from starlette.middleware import Middleware

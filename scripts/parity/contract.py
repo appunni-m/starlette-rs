@@ -65,6 +65,8 @@ CASE_KEYS = {
 THREADPOOL_SURFACE = "starlette.concurrency"
 THREADPOOL_OPERATION = "run_in_threadpool"
 THREADPOOL_OPERATION_KEY = (THREADPOOL_SURFACE, THREADPOOL_OPERATION)
+ITERATE_THREADPOOL_OPERATION = "iterate_in_threadpool"
+ITERATE_THREADPOOL_OPERATION_KEY = (THREADPOOL_SURFACE, ITERATE_THREADPOOL_OPERATION)
 THREADPOOL_REQUIREMENTS = {
     "arguments_result": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.arguments-result",
     "exception_identity": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.exception-identity",
@@ -72,6 +74,27 @@ THREADPOOL_REQUIREMENTS = {
     "event_loop_progress": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.event-loop-progress",
 }
 THREADPOOL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {"call"}
+ITERATE_THREADPOOL_REQUIREMENTS = {
+    "items_order": f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.items-order",
+    "worker_thread": f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.worker-thread",
+    "exhaustion": f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.exhaustion",
+    "invalid_athrow_preserves_iteration": (
+        f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.invalid-athrow-preserves-iteration"
+    ),
+    "athrow_stop_async_iteration_pep479": (
+        f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.athrow-stop-async-iteration-pep479"
+    ),
+    "athrow_stop_iteration_pep479": (
+        f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.athrow-stop-iteration-pep479"
+    ),
+    "pre_start_throw_closes_iterator": (
+        f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.pre-start-throw-closes-iterator"
+    ),
+}
+ITERATE_THREADPOOL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "iterable",
+    "protocol",
+}
 WEBSOCKET_SURFACE = "starlette.websockets.WebSocket"
 WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
@@ -1793,6 +1816,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             TESTCLIENT_WEBSOCKET_OPERATION_KEY,
                             TESTCLIENT_LIFESPAN_OPERATION_KEY,
                             THREADPOOL_OPERATION_KEY,
+                            ITERATE_THREADPOOL_OPERATION_KEY,
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
                             STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY,
                             STARLETTE_ADD_EXCEPTION_HANDLER_OPERATION_KEY,
@@ -8165,6 +8189,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     app_kind = raw_asgi_app.get("kind") if isinstance(raw_asgi_app, dict) else None
     is_sync_route = app_kind == "starlette-route"
     is_starlette_app_debug = app_kind == "starlette-app-debug"
+    is_server_error_middleware = app_kind == "server-error-middleware"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
     is_starlette_app_static_mount_method = app_kind == "starlette-app-static-mount-method"
     is_starlette_app_static_mount = app_kind in {
@@ -8261,6 +8286,16 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "TestClient Starlette debug input must enable debug after construction and return the GET error response"
             )
+        exception_spec = asgi_app["exception"]
+        messages = []
+    elif is_server_error_middleware:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "debug", "exception", "scope_fields"},
+            "TestClient ServerErrorMiddleware app",
+        )
+        if type(asgi_app["debug"]) is not bool:
+            raise ContractError("TestClient ServerErrorMiddleware debug must be boolean")
         exception_spec = asgi_app["exception"]
         messages = []
     elif is_starlette_app_trusted_host:
@@ -9769,6 +9804,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == THREADPOOL_OPERATION_KEY
     )
+    is_iterate_threadpool = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == ITERATE_THREADPOOL_OPERATION_KEY
+    )
     is_websocket = isinstance(case, dict) and case.get("surface") == WEBSOCKET_SURFACE
     is_websocket_endpoint = (
         isinstance(case, dict)
@@ -9938,7 +9977,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     )
     is_route_body_limit_workflow = _is_route_body_limit_workflow(case)
     expected_case_keys = (
-        THREADPOOL_CASE_KEYS
+        ITERATE_THREADPOOL_CASE_KEYS
+        if is_iterate_threadpool
+        else THREADPOOL_CASE_KEYS
         if is_threadpool
         else WEBSOCKET_CASE_KEYS
         if is_websocket
@@ -10280,6 +10321,15 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             raise ContractError("run_in_threadpool cases must use the declared public operation")
         if case["observations"] != [THREADPOOL_OPERATION]:
             raise ContractError("run_in_threadpool cases must select the direct-call observation")
+    elif is_iterate_threadpool:
+        if (case["surface"], case["operation"]) != ITERATE_THREADPOOL_OPERATION_KEY:
+            raise ContractError(
+                "iterate_in_threadpool cases must use the declared public operation"
+            )
+        if case["observations"] != [ITERATE_THREADPOOL_OPERATION]:
+            raise ContractError(
+                "iterate_in_threadpool cases must select the async-iterator observation"
+            )
     elif is_default_receive:
         if case["observations"] != ["receive"]:
             raise ContractError("default receive cases must select the receive observation")
@@ -10374,6 +10424,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError("Request body/stream/json cases select only the Python-package profile")
     if is_threadpool and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("run_in_threadpool cases select only the Python-package profile")
+    if is_iterate_threadpool and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError("iterate_in_threadpool cases select only the Python-package profile")
     if is_starlette_add_exception_handler_workflow and selected_profiles != [
         "python-package-cpython312"
     ]:
@@ -10477,6 +10529,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
 
     if is_threadpool:
         _validate_threadpool_case(case)
+        return case
+    if is_iterate_threadpool:
+        _validate_iterate_threadpool_case(case)
         return case
     if is_value_formatting:
         _validate_value_formatting_case(case)
@@ -11354,6 +11409,203 @@ def _validate_threadpool_case(case: dict[str, Any]) -> None:
     if set(case["covers"]) != expected_requirements:
         raise ContractError(
             "run_in_threadpool covers must match the input-defined callable behavior"
+        )
+
+
+def _validate_iterate_threadpool_case(case: dict[str, Any]) -> None:
+    iterable = _exact(case["iterable"], {"items"}, "iterate_in_threadpool iterable input")
+    items = iterable["items"]
+    if not isinstance(items, list) or len(items) > 256:
+        raise ContractError("iterate_in_threadpool items must be a bounded JSON array")
+    _validate_threadpool_json(items, "iterate_in_threadpool items")
+    protocol = _exact(
+        case["protocol"],
+        {"streams", "actions"},
+        "iterate_in_threadpool protocol input",
+    )
+    streams = protocol["streams"]
+    actions = protocol["actions"]
+    if not isinstance(streams, list) or not streams or len(streams) > 16:
+        raise ContractError(
+            "iterate_in_threadpool protocol streams must be a bounded non-empty list"
+        )
+    stream_ids: set[str] = set()
+    for index, raw_stream in enumerate(streams):
+        stream = _exact(
+            raw_stream,
+            {"stream_id", "items"},
+            f"iterate_in_threadpool protocol stream {index}",
+        )
+        stream_id = _string(
+            stream["stream_id"],
+            f"iterate_in_threadpool protocol stream {index} stream_id",
+        )
+        if stream_id in stream_ids:
+            raise ContractError("iterate_in_threadpool protocol stream IDs must be unique")
+        stream_ids.add(stream_id)
+        stream_items = stream["items"]
+        if not isinstance(stream_items, list) or len(stream_items) > 256:
+            raise ContractError(
+                f"iterate_in_threadpool protocol stream {stream_id!r} items must be a bounded list"
+            )
+        _validate_threadpool_json(
+            stream_items,
+            f"iterate_in_threadpool protocol stream {stream_id!r} items",
+        )
+    if not isinstance(actions, list) or not actions or len(actions) > 128:
+        raise ContractError(
+            "iterate_in_threadpool protocol actions must be a bounded non-empty list"
+        )
+    for index, raw_action in enumerate(actions):
+        if not isinstance(raw_action, dict):
+            raise ContractError(f"iterate_in_threadpool protocol action {index} must be an object")
+        operation = raw_action.get("operation")
+        if operation == "next":
+            action = _exact(
+                raw_action,
+                {"stream_id", "operation"},
+                f"iterate_in_threadpool protocol action {index}",
+            )
+        elif operation == "athrow":
+            action = _exact(
+                raw_action,
+                {"stream_id", "operation", "arguments"},
+                f"iterate_in_threadpool protocol action {index}",
+            )
+            arguments = action["arguments"]
+            if not isinstance(arguments, list) or not 1 <= len(arguments) <= 3:
+                raise ContractError(
+                    f"iterate_in_threadpool protocol action {index} athrow arguments must contain one to three values"
+                )
+            for argument_index, raw_argument in enumerate(arguments):
+                if not isinstance(raw_argument, dict):
+                    raise ContractError(
+                        f"iterate_in_threadpool protocol action {index} athrow argument {argument_index} must be an object"
+                    )
+                argument_kind = raw_argument.get("kind")
+                if argument_kind == "exception-class":
+                    argument = _exact(
+                        raw_argument,
+                        {"kind", "name"},
+                        f"iterate_in_threadpool protocol action {index} athrow argument {argument_index}",
+                    )
+                    exception_name = _string(
+                        argument["name"],
+                        f"iterate_in_threadpool protocol action {index} athrow argument {argument_index} name",
+                    )
+                    if exception_name not in {"StopAsyncIteration", "StopIteration"}:
+                        raise ContractError(
+                            f"iterate_in_threadpool protocol action {index} uses an unsupported exception class"
+                        )
+                elif argument_kind == "value":
+                    argument = _exact(
+                        raw_argument,
+                        {"kind", "value"},
+                        f"iterate_in_threadpool protocol action {index} athrow argument {argument_index}",
+                    )
+                    _validate_threadpool_json(
+                        argument["value"],
+                        f"iterate_in_threadpool protocol action {index} athrow argument {argument_index} value",
+                    )
+                else:
+                    raise ContractError(
+                        f"iterate_in_threadpool protocol action {index} athrow argument {argument_index} kind must be exception-class or value"
+                    )
+        elif operation == "throw-before-start":
+            action = _exact(
+                raw_action,
+                {
+                    "stream_id",
+                    "operation",
+                    "awaitable_operation",
+                    "awaitable_arguments",
+                    "throw_arguments",
+                },
+                f"iterate_in_threadpool protocol action {index}",
+            )
+            awaitable_operation = _string(
+                action["awaitable_operation"],
+                f"iterate_in_threadpool protocol action {index} awaitable_operation",
+            )
+            if awaitable_operation not in {"__anext__", "asend", "athrow", "aclose"}:
+                raise ContractError(
+                    f"iterate_in_threadpool protocol action {index} uses an unsupported awaitable operation"
+                )
+            awaitable_arguments = action["awaitable_arguments"]
+            throw_arguments = action["throw_arguments"]
+            if not isinstance(awaitable_arguments, list) or len(awaitable_arguments) > 3:
+                raise ContractError(
+                    f"iterate_in_threadpool protocol action {index} awaitable arguments must be a bounded list"
+                )
+            if awaitable_operation in {"__anext__", "aclose"} and awaitable_arguments:
+                raise ContractError(
+                    f"iterate_in_threadpool protocol action {index} {awaitable_operation} takes no arguments"
+                )
+            if awaitable_operation == "asend" and len(awaitable_arguments) != 1:
+                raise ContractError(
+                    f"iterate_in_threadpool protocol action {index} asend requires one argument"
+                )
+            if awaitable_operation == "athrow" and not 1 <= len(awaitable_arguments) <= 3:
+                raise ContractError(
+                    f"iterate_in_threadpool protocol action {index} athrow requires one to three arguments"
+                )
+            if not isinstance(throw_arguments, list) or not 1 <= len(throw_arguments) <= 3:
+                raise ContractError(
+                    f"iterate_in_threadpool protocol action {index} throw arguments must contain one to three values"
+                )
+            for argument_index, raw_argument in enumerate([*awaitable_arguments, *throw_arguments]):
+                if not isinstance(raw_argument, dict):
+                    raise ContractError(
+                        f"iterate_in_threadpool protocol action {index} argument {argument_index} must be an object"
+                    )
+                argument_kind = raw_argument.get("kind")
+                if argument_kind == "exception-class":
+                    argument = _exact(
+                        raw_argument,
+                        {"kind", "name"},
+                        f"iterate_in_threadpool protocol action {index} argument {argument_index}",
+                    )
+                    exception_name = _string(
+                        argument["name"],
+                        f"iterate_in_threadpool protocol action {index} argument {argument_index} name",
+                    )
+                    if exception_name not in {
+                        "StopAsyncIteration",
+                        "StopIteration",
+                        "ValueError",
+                    }:
+                        raise ContractError(
+                            f"iterate_in_threadpool protocol action {index} uses an unsupported exception class"
+                        )
+                elif argument_kind == "value":
+                    argument = _exact(
+                        raw_argument,
+                        {"kind", "value"},
+                        f"iterate_in_threadpool protocol action {index} argument {argument_index}",
+                    )
+                    _validate_threadpool_json(
+                        argument["value"],
+                        f"iterate_in_threadpool protocol action {index} argument {argument_index} value",
+                    )
+                else:
+                    raise ContractError(
+                        f"iterate_in_threadpool protocol action {index} argument {argument_index} kind must be exception-class or value"
+                    )
+        else:
+            raise ContractError(
+                f"iterate_in_threadpool protocol action {index} operation must be next, athrow, or throw-before-start"
+            )
+        stream_id = _string(
+            action["stream_id"],
+            f"iterate_in_threadpool protocol action {index} stream_id",
+        )
+        if stream_id not in stream_ids:
+            raise ContractError(
+                f"iterate_in_threadpool protocol action {index} references an unknown stream"
+            )
+    if set(case["covers"]) != set(ITERATE_THREADPOOL_REQUIREMENTS.values()):
+        raise ContractError(
+            "iterate_in_threadpool covers must match its item, worker, exhaustion, throw, and async-generator protocol observations"
         )
 
 

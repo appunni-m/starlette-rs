@@ -59,6 +59,165 @@
         "start_timeout_ms": 5000,
         "release_timeout_ms": 5000
       }
+    },
+    {
+      "case_id": "starlette.concurrency.iterate_in_threadpool.iterable-items-worker-exhaustion",
+      "surface": "starlette.concurrency",
+      "operation": "iterate_in_threadpool",
+      "covers": [
+        "starlette.concurrency.iterate_in_threadpool.items-order",
+        "starlette.concurrency.iterate_in_threadpool.worker-thread",
+        "starlette.concurrency.iterate_in_threadpool.exhaustion",
+        "starlette.concurrency.iterate_in_threadpool.invalid-athrow-preserves-iteration",
+        "starlette.concurrency.iterate_in_threadpool.athrow-stop-async-iteration-pep479",
+        "starlette.concurrency.iterate_in_threadpool.athrow-stop-iteration-pep479",
+        "starlette.concurrency.iterate_in_threadpool.pre-start-throw-closes-iterator"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["iterate_in_threadpool"],
+      "iterable": {
+        "items": [0, 1, 2]
+      },
+      "protocol": {
+        "streams": [
+          {
+            "stream_id": "invalid-throw",
+            "items": [10, 11]
+          },
+          {
+            "stream_id": "stop-async-iteration",
+            "items": [20, 21]
+          },
+          {
+            "stream_id": "stop-iteration",
+            "items": [30, 31]
+          },
+          {
+            "stream_id": "throw-before-start-anext",
+            "items": [40, 41]
+          },
+          {
+            "stream_id": "throw-before-start-asend",
+            "items": [50, 51]
+          },
+          {
+            "stream_id": "throw-before-start-athrow",
+            "items": [60, 61]
+          },
+          {
+            "stream_id": "throw-before-start-aclose",
+            "items": [70, 71]
+          }
+        ],
+        "actions": [
+          {
+            "stream_id": "invalid-throw",
+            "operation": "next"
+          },
+          {
+            "stream_id": "invalid-throw",
+            "operation": "athrow",
+            "arguments": [
+              {
+                "kind": "value",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "stream_id": "invalid-throw",
+            "operation": "next"
+          },
+          {
+            "stream_id": "stop-async-iteration",
+            "operation": "next"
+          },
+          {
+            "stream_id": "stop-async-iteration",
+            "operation": "athrow",
+            "arguments": [
+              {
+                "kind": "exception-class",
+                "name": "StopAsyncIteration"
+              }
+            ]
+          },
+          {
+            "stream_id": "stop-iteration",
+            "operation": "next"
+          },
+          {
+            "stream_id": "stop-iteration",
+            "operation": "athrow",
+            "arguments": [
+              {
+                "kind": "exception-class",
+                "name": "StopIteration"
+              }
+            ]
+          },
+          {
+            "stream_id": "throw-before-start-anext",
+            "operation": "throw-before-start",
+            "awaitable_operation": "__anext__",
+            "awaitable_arguments": [],
+            "throw_arguments": [
+              {"kind": "exception-class", "name": "ValueError"},
+              {"kind": "value", "value": "anext-before-start"}
+            ]
+          },
+          {
+            "stream_id": "throw-before-start-anext",
+            "operation": "next"
+          },
+          {
+            "stream_id": "throw-before-start-asend",
+            "operation": "throw-before-start",
+            "awaitable_operation": "asend",
+            "awaitable_arguments": [{"kind": "value", "value": null}],
+            "throw_arguments": [
+              {"kind": "exception-class", "name": "ValueError"},
+              {"kind": "value", "value": "asend-before-start"}
+            ]
+          },
+          {
+            "stream_id": "throw-before-start-asend",
+            "operation": "next"
+          },
+          {
+            "stream_id": "throw-before-start-athrow",
+            "operation": "throw-before-start",
+            "awaitable_operation": "athrow",
+            "awaitable_arguments": [
+              {"kind": "exception-class", "name": "ValueError"},
+              {"kind": "value", "value": "generator-error"}
+            ],
+            "throw_arguments": [
+              {"kind": "exception-class", "name": "ValueError"},
+              {"kind": "value", "value": "athrow-before-start"}
+            ]
+          },
+          {
+            "stream_id": "throw-before-start-athrow",
+            "operation": "next"
+          },
+          {
+            "stream_id": "throw-before-start-aclose",
+            "operation": "throw-before-start",
+            "awaitable_operation": "aclose",
+            "awaitable_arguments": [],
+            "throw_arguments": [
+              {"kind": "exception-class", "name": "ValueError"},
+              {"kind": "value", "value": "aclose-before-start"}
+            ]
+          },
+          {
+            "stream_id": "throw-before-start-aclose",
+            "operation": "next"
+          }
+        ]
+      }
     }
   ]
 }

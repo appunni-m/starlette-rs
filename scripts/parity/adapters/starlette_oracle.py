@@ -10451,6 +10451,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.concurrency import run_threadpool_case
 
         return run_threadpool_case(case, run_in_threadpool)
+    if (
+        case.get("surface") == "starlette.concurrency"
+        and case.get("operation") == "iterate_in_threadpool"
+    ):
+        from starlette.concurrency import iterate_in_threadpool
+
+        from scripts.parity.adapters.concurrency import run_iterate_in_threadpool_case
+
+        return run_iterate_in_threadpool_case(case, iterate_in_threadpool)
     if case.get("surface") == TESTCLIENT_SURFACE and case.get("operation") in {
         TESTCLIENT_OPERATION,
         TESTCLIENT_WEBSOCKET_OPERATION,

@@ -49,6 +49,12 @@ pub(crate) enum MachineAction {
 pub(crate) trait AwaitableStateMachine: 'static {
     /// Advance the state machine after startup or completion of a delegated awaitable.
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction>;
+
+    /// Notify a state machine when a valid exception is thrown into its unstarted awaitable.
+    ///
+    /// Most Rust awaitables have no externally visible state before they start. Async
+    /// generator operation awaitables can close their owning generator in this case.
+    fn throw_before_start(&mut self, _py: Python<'_>) {}
 }
 
 /// Wrap a Rust state machine in an awaitable driven by the caller's Python task.
@@ -203,6 +209,9 @@ impl PythonAwaitable {
     ) -> PyResult<Py<PyAny>> {
         let error = normalize_throw(py, exception_type, value, traceback)?;
         if !self.started {
+            if let Some(machine) = self.machine.as_mut() {
+                machine.throw_before_start(py);
+            }
             self.finish();
             return Err(error);
         }
@@ -337,7 +346,7 @@ fn throw_error(iterator: &Bound<'_, PyAny>, py: Python<'_>, error: PyErr) -> PyR
         .map(Bound::unbind)
 }
 
-fn normalize_throw(
+pub(crate) fn normalize_throw(
     py: Python<'_>,
     exception_type: Py<PyAny>,
     value: Option<Py<PyAny>>,
@@ -355,7 +364,15 @@ fn normalize_throw(
         }
         exception_type.clone().unbind()
     } else {
-        let exception_class = exception_type.cast::<PyType>()?;
+        let exception_class = match exception_type.cast::<PyType>() {
+            Ok(exception_class) => exception_class,
+            Err(_) => {
+                let type_name = python_type_name(py, exception_type)?;
+                return Err(PyTypeError::new_err(format!(
+                    "exceptions must be classes or instances deriving from BaseException, not {type_name}"
+                )));
+            }
+        };
         let constructed = match value {
             Some(value) if value.bind(py).is_instance_of::<PyBaseException>() => value,
             Some(value) if !value.bind(py).is_none() => {
@@ -364,9 +381,10 @@ fn normalize_throw(
             _ => exception_class.call0()?.unbind(),
         };
         if !constructed.bind(py).is_instance_of::<PyBaseException>() {
-            return Err(PyTypeError::new_err(
-                "exceptions must derive from BaseException",
-            ));
+            let type_name = python_type_name(py, constructed.bind(py))?;
+            return Err(PyTypeError::new_err(format!(
+                "exceptions must be classes or instances deriving from BaseException, not {type_name}"
+            )));
         }
         constructed
     };
@@ -377,4 +395,12 @@ fn normalize_throw(
         error.set_traceback(py, Some(traceback));
     }
     Ok(error)
+}
+
+fn python_type_name(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<String> {
+    py.import("builtins")?
+        .getattr("type")?
+        .call1((value,))?
+        .getattr("__name__")?
+        .extract()
 }

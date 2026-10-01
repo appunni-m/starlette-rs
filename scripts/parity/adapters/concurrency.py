@@ -167,3 +167,138 @@ def run_threadpool_case(
             }
         ],
     }
+
+
+def run_iterate_in_threadpool_case(
+    case: dict[str, Any], iterate_in_threadpool: Callable[[Any], Any]
+) -> dict[str, Any]:
+    """Drive the input-defined iterable and async-generator protocol actions."""
+
+    async def run() -> dict[str, Any]:
+        caller_thread_id = threading.get_ident()
+        trace: list[dict[str, Any]] = []
+
+        def thread_role() -> str:
+            return "caller" if threading.get_ident() == caller_thread_id else "worker"
+
+        class InputIterable:
+            def __init__(self, items: list[Any], stream_trace: list[dict[str, Any]]) -> None:
+                self.items = items
+                self.trace = stream_trace
+                self.index = 0
+
+            def __iter__(self) -> InputIterable:
+                self.trace.append({"event": "iter", "thread_role": thread_role()})
+                return self
+
+            def __next__(self) -> Any:
+                index = self.index
+                role = thread_role()
+                if index >= len(self.items):
+                    self.trace.append(
+                        {
+                            "event": "next",
+                            "index": index,
+                            "thread_role": role,
+                            "outcome": "stop-iteration",
+                        }
+                    )
+                    raise StopIteration
+                value = self.items[index]
+                self.index += 1
+                self.trace.append(
+                    {
+                        "event": "next",
+                        "index": index,
+                        "thread_role": role,
+                        "outcome": "yield",
+                        "value": _json_safe(value),
+                    }
+                )
+                return value
+
+        items = case["iterable"]["items"]
+        yielded_items: list[Any] = []
+        async for value in iterate_in_threadpool(InputIterable(items, trace)):
+            yielded_items.append(_json_safe(value))
+
+        streams = {
+            stream["stream_id"]: iterate_in_threadpool(InputIterable(stream["items"], []))
+            for stream in case["protocol"]["streams"]
+        }
+        exception_types = {
+            "StopAsyncIteration": StopAsyncIteration,
+            "StopIteration": StopIteration,
+            "ValueError": ValueError,
+        }
+
+        def decode_arguments(arguments: list[dict[str, Any]]) -> list[Any]:
+            return [
+                exception_types[argument["name"]]
+                if argument["kind"] == "exception-class"
+                else argument["value"]
+                for argument in arguments
+            ]
+
+        protocol_trace: list[dict[str, Any]] = []
+        for action in case["protocol"]["actions"]:
+            stream = streams[action["stream_id"]]
+            operation = action["operation"]
+            record: dict[str, Any] = {
+                "stream_id": action["stream_id"],
+                "operation": operation,
+            }
+            try:
+                if operation == "next":
+                    value = await stream.__anext__()
+                    record.update({"status": "ok", "value": _json_safe(value)})
+                elif operation == "athrow":
+                    await stream.athrow(*decode_arguments(action["arguments"]))
+                    record["status"] = "ok"
+                else:
+                    awaitable = getattr(stream, action["awaitable_operation"])(
+                        *decode_arguments(action["awaitable_arguments"])
+                    )
+                    awaitable.throw(*decode_arguments(action["throw_arguments"]))
+                    record["status"] = "ok"
+            except StopAsyncIteration:
+                record["status"] = "exhausted"
+            except BaseException as error:
+                cause = error.__cause__
+                record.update(
+                    {
+                        "status": "error",
+                        "error": {
+                            "class": type(error).__name__,
+                            "message": str(error),
+                            "cause": (
+                                {
+                                    "class": type(cause).__name__,
+                                    "message": str(cause),
+                                }
+                                if cause is not None
+                                else None
+                            ),
+                            "suppress_context": bool(error.__suppress_context__),
+                        },
+                    }
+                )
+            protocol_trace.append(record)
+        return {
+            "yielded_items": yielded_items,
+            "iteration_trace": trace,
+            "termination": "exhausted",
+            "protocol_trace": protocol_trace,
+        }
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "iterate_in_threadpool",
+                "status": "ok",
+                "value": asyncio.run(run()),
+            }
+        ],
+    }

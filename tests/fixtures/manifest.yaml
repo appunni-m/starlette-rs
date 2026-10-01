@@ -3098,6 +3098,201 @@
             "applicability": "not_applicable",
             "reason": "Direct callable scheduling is outside the declared benchmark workloads."
           }
+        },
+        {
+          "id": "iterate_in_threadpool",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.concurrency.iterate_in_threadpool",
+            "signature": "async iterate_in_threadpool(iterator: Iterable[T]) -> AsyncIterator[T]",
+            "parameters": [
+              {
+                "id": "iterator",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "iterator",
+              "observations": [
+                {
+                  "path": "yielded_items",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "iteration_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "termination",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "protocol_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "The helper consumes arbitrary Python iterables and returns a Python async iterator; the Rust-native profile does not accept Python iteration protocols.",
+                "authority": "Project boundary policy: arbitrary Python objects and their event-loop iteration remain in the CPython package boundary."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.concurrency.iterate_in_threadpool",
+              "signature": "iterate_in_threadpool(iterator) -> asynchronous iterator",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.concurrency.iterate_in_threadpool.items-order",
+              "dimension": "success_path",
+              "description": "Yield each input iterable item once and in iteration order. Pinned source: starlette/concurrency.py:51-59; tests/test_concurrency.py:49-55.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.iterate_in_threadpool.worker-thread",
+              "dimension": "boundary",
+              "description": "Call synchronous iterator next steps on an AnyIO worker thread while creating the iterator at the async caller boundary. Pinned source: starlette/concurrency.py:54-57.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.iterate_in_threadpool.exhaustion",
+              "dimension": "protocol_variant",
+              "description": "Translate worker-thread StopIteration into clean async-iterator exhaustion without yielding an extra item. Pinned source: starlette/concurrency.py:38-59.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.iterate_in_threadpool.invalid-athrow-preserves-iteration",
+              "dimension": "error_path",
+              "description": "An invalid athrow argument raises TypeError without closing the async generator, so the next input item remains available. Pinned source: starlette/concurrency.py:51-59; native async-generator protocol exercised by input-defined actions against the pinned interpreter.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.iterate_in_threadpool.athrow-stop-async-iteration-pep479",
+              "dimension": "error_path",
+              "description": "A started async generator receiving StopAsyncIteration through athrow surfaces the PEP 479 RuntimeError and preserves the original exception as its cause. Pinned function: starlette/concurrency.py:51-59; live oracle behavior is derived from the native async-generator protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.iterate_in_threadpool.athrow-stop-iteration-pep479",
+              "dimension": "error_path",
+              "description": "A started async generator receiving StopIteration through athrow surfaces the PEP 479 RuntimeError and preserves the original exception as its cause. Pinned function: starlette/concurrency.py:51-59; live oracle behavior is derived from the native async-generator protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.iterate_in_threadpool.pre-start-throw-closes-iterator",
+              "dimension": "protocol_variant",
+              "description": "Throwing into an unstarted __anext__, asend, athrow, or aclose awaitable closes the owning async iterator before later iteration. This behavior comes from the pinned CPython 3.12 async-generator protocol used by the Starlette helper.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Async iteration through the Python thread-pool boundary is outside the active benchmark workloads."
+          }
         }
       ]
     },
