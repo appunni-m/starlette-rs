@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 566 input-only cases in 64 indexed files, covering 80 operations and 606 parity requirements. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware and mounted StaticFiles through TestClient, input-defined follow-up requests on one TestClient instance, `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 568 input-only cases in 64 indexed files, covering 80 operations and 608 parity requirements. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,27 +8,28 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `31ada42d-e45e-44e6-9ed0-70923b29ed44`.
-It ran from `2026-10-01T02:25:26.064Z` to `2026-10-01T02:27:50.892Z` against
+The latest full-slice parity run is `795ba35d-173f-4547-84ab-4e20cbe5c34d`.
+It ran from `2026-10-01T02:43:38.977Z` to `2026-10-01T02:46:01.128Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-566-case/606-requirement manifest. It selected 725 profile comparisons: 721
+568-case/608-requirement manifest. It selected 727 profile comparisons: 723
 passed, zero failed, zero infrastructure errors, and four Rust-native
-Python-callable rows were `not_run`. The Python package passed all 564 selected
-comparisons; Rust-native passed 157 of 161. The mounted-StaticFiles TestClient
-workflow passed exactly: the same app and client returned GET 200 with
-`<file content>` and then POST 405 with `Method Not Allowed`; ordered headers
-and all four ASGI events matched. The configured-TrustedHost TestClient case
-also continues to pass. The four Rust-native `not_run` rows are sync endpoint,
-bound-method, partial, and callable-instance Request dispatch cases.
+Python-callable rows were `not_run`. The Python package passed all 566 selected
+comparisons; Rust-native passed 157 of 161. The new mounted-Router TestClient
+workflow matched all four GETs, including the initial 307 redirect followed to
+`http://testserver/users/`, the 200 child response, and the 404 prefix-boundary
+miss. The new HTTPS Host-route workflow returned `Subdomain: foo` with matching
+scope and ASGI events. The earlier mounted-StaticFiles sequence also continues
+to pass. The four Rust-native `not_run` rows are sync endpoint, bound-method,
+partial, and callable-instance Request dispatch cases.
 `make parity-run` exits with status 2 for those declared `not_run` rows. The
-target source was based on revision `0d6c594b7561bdf46b7e4cbb0a13e25113129842`
+target source was based on revision `743f21276bf2b5eb941afce3be4f3b396b4d5d99`
 with a dirty worktree SHA-256 of
-`7d2ee29a2b75fe11cb6d5a458e2df7f830dc7e371aa0642299415d0de9243edb`; the
+`0d7d07bee985ed2a096ac6d30bbf86d645867f8609f33efe008543da0ed4c596`; the
 installed package tree SHA-256 was
 `9562aa76a92f1bf1d9e37669439d92450183fb2695b3d5de804d1ed9b2c94a5a`, and the
 wheel SHA-256 was
-`8e7ee2099f8108c87d04a53c0aeeae50e5eb5aeb4fb66b723a6b2e1d39932d92`.
-Manifest SHA-256: `c1e530fb1658cb3a12b800e8ce54a679791550946f28e2e2d3e4c205cf726741`.
+`8de51a1362e9594b4ca835cafa7f973be9af1674db69e0ff95e897838a973d55`.
+Manifest SHA-256: `b07f61880744f6c4cac830a9e18f2b68a8669ac2500461fd7fc0d50cc30c091b`.
 Strict aggregation reports `not_proven` because the full compatibility
 denominator remains incomplete.
 
@@ -621,9 +622,11 @@ The `parity-input@18` contract added a TestClient workflow that constructs `Star
 
 The `parity-input@19` contract added an input-defined Starlette app with `TrustedHostMiddleware` configured in its middleware stack, then sent the pinned invalid-host TestClient request. The observations include the live Host scope, HTTPX response, and emitted ASGI events.
 
-The `parity-input@20` contract adds an input-defined sequence of TestClient follow-up requests and a Starlette app that mounts StaticFiles. The `test_app_mount` workflow keeps one app and TestClient instance for GET then POST, supplies file contents and a fixed modification time as inputs, and compares each live response and the ordered ASGI effects. All active authored parity inputs were migrated by `make migrate-parity-inputs-v19-v20`; the migrator changes only the top-level schema header and supports `--check`.
+The `parity-input@20` contract added an input-defined sequence of TestClient follow-up requests and a Starlette app that mounts StaticFiles. The `test_app_mount` workflow keeps one app and TestClient instance for GET then POST, supplies file contents and a fixed modification time as inputs, and compares each live response and the ordered ASGI effects. All active authored parity inputs were migrated by `make migrate-parity-inputs-v19-v20`; the migrator changes only the top-level schema header and supports `--check`.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. The prior `parity-input@16`, `@18`, and `@19` runs are historical; the current `parity-input@20` run above records the current source/package comparison and four explicitly unsupported Rust-native callable rows. The benchmark correctness gate accepts only a clean target identity. Generated results are local ignored artifacts and are not checked in.
+The current `parity-input@21` contract adds TestClient app shapes for a named Router Mount and a Starlette Host route. The mounted-URL case derives four GETs from input and records each HTTPX response URL, including the final URL after the `/users` slash redirect. The Host-route case supplies the HTTPS base URL, allowed hosts, host pattern, child route, and endpoint prefix as input. It also records `response.url` for every TestClient response. All indexed authored inputs were migrated by `make migrate-parity-inputs-v20-v21`; the migrator changes only the top-level schema header and supports `--check`.
+
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. The prior `parity-input@16` through `@20` runs are historical; the current `parity-input@21` run above records the current source/package comparison and four explicitly unsupported Rust-native callable rows. The benchmark correctness gate accepts only a clean target identity. Generated results are local ignored artifacts and are not checked in.
 
 ### TestClient exception policy
 
@@ -658,11 +661,26 @@ Starlette app and TestClient. The source and package both return 200 with
 the ordered four-event ASGI trace match exactly. The fixture stores only file
 bytes and metadata, not expected outputs.
 
+### TestClient mounted Router URLs and host routing
+
+[`testclient-http.yaml`](../tests/fixtures/sources/parity/testclient-http.yaml)
+also maps `tests/test_routing.py::test_mount_urls`: one TestClient calls
+`/users`, `/users/`, `/users/a`, and `/usersa` against an input-defined Router
+with a named Mount and PlainTextResponse child. The first call follows the
+slash redirect and records final URL `http://testserver/users/`; all four
+responses and five ASGI request scopes match the pinned source exactly.
+Another input maps `tests/test_applications.py::test_subdomain_route` through
+Starlette, TrustedHostMiddleware, Host, a child Router, and a synchronous
+endpoint. The source and package both return `Subdomain: foo` for the HTTPS
+host `foo.example.org`, with the request scope and ordered ASGI events equal.
+The existing app-level `url_path_for` input is also linked to
+`tests/test_applications.py::test_url_path_for` in the source atlas.
+
 ### TestClient WebSocket blocking receive and close teardown
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 564 Python-package comparisons passed.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 566 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 

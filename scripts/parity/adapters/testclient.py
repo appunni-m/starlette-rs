@@ -163,6 +163,37 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await starlette_application(scope, receive, observed_send)
 
+    elif app_input["kind"] == "starlette-app-host-route":
+        from starlette.applications import Starlette
+        from starlette.middleware import Middleware
+        from starlette.middleware.trustedhost import TrustedHostMiddleware
+        from starlette.responses import PlainTextResponse
+        from starlette.routing import Host, Route, Router
+
+        def endpoint(request: Any) -> Any:
+            value = request.path_params[app_input["host_parameter"]]
+            return PlainTextResponse(f"{app_input['endpoint_prefix']}{value}")
+
+        child_router = Router(routes=[Route(app_input["route_path"], endpoint=endpoint)])
+        starlette_application = Starlette(
+            routes=[Host(app_input["host_pattern"], app=child_router)],
+            middleware=[
+                Middleware(
+                    TrustedHostMiddleware,
+                    allowed_hosts=app_input["allowed_hosts"],
+                )
+            ],
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await starlette_application(scope, receive, observed_send)
+
     elif app_input["kind"] == "starlette-app-static-mount":
         from starlette.applications import Starlette
         from starlette.routing import Mount
@@ -182,6 +213,30 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                 Mount(
                     app_input["mount_path"],
                     StaticFiles(directory=str(directory)),
+                )
+            ]
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await starlette_application(scope, receive, observed_send)
+
+    elif app_input["kind"] == "router-mounted-response":
+        from starlette.responses import PlainTextResponse
+        from starlette.routing import Mount, Router
+
+        mounted_response = PlainTextResponse(app_input["content"])
+        starlette_application = Router(
+            routes=[
+                Mount(
+                    app_input["mount_path"],
+                    app=mounted_response,
+                    name=app_input["mount_name"],
                 )
             ]
         )
@@ -227,6 +282,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     def response_observation(value: Any) -> dict[str, Any]:
         return {
             "status_code": value.status_code,
+            "url": str(value.url),
             "headers": value.headers.multi_items(),
             "body_base64": base64.b64encode(value.content).decode("ascii"),
             "extensions": _safe(value.extensions),

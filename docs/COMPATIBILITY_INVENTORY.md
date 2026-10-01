@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 566 input-only cases across 64 files,
-covering 80 operations and 606 parity requirements. The authored cases span
+The active parity manifest indexes 568 input-only cases across 64 files,
+covering 80 operations and 608 parity requirements. The authored cases span
 the Starlette ASGI application and route inventory, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
@@ -29,17 +29,17 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `31ada42d-e45e-44e6-9ed0-70923b29ed44`. It
-selected 725 profile comparisons: 721 passed, zero failed, zero infrastructure
+The latest full-slice run is `795ba35d-173f-4547-84ab-4e20cbe5c34d`. It
+selected 727 profile comparisons: 723 passed, zero failed, zero infrastructure
 errors, and four Rust-native Python-callable rows were `not_run`. The Python
-package passed all 564 selected comparisons; Rust-native passed 157 of 161.
-This run includes configured TrustedHostMiddleware and a mounted StaticFiles
-GET/POST sequence through one TestClient. The target package tree SHA-256 was
+package passed all 566 selected comparisons; Rust-native passed 157 of 161.
+This run includes a mounted Router URL sequence and HTTPS Host-route dispatch
+through TestClient. The target package tree SHA-256 was
 `9562aa76a92f1bf1d9e37669439d92450183fb2695b3d5de804d1ed9b2c94a5a`, the
 wheel SHA-256 was
-`8e7ee2099f8108c87d04a53c0aeeae50e5eb5aeb4fb66b723a6b2e1d39932d92`, and the
+`8de51a1362e9594b4ca835cafa7f973be9af1674db69e0ff95e897838a973d55`, and the
 manifest SHA-256 was
-`c1e530fb1658cb3a12b800e8ce54a679791550946f28e2e2d3e4c205cf726741`. The four
+`b07f61880744f6c4cac830a9e18f2b68a8669ac2500461fd7fc0d50cc30c091b`. The four
 native `not_run` rows are sync endpoint, bound-method, partial, and
 callable-instance Request dispatch cases. `make parity-run` exits with status
 2 for those declared Python-callable boundaries. Full run identity and wheel
@@ -64,8 +64,8 @@ the package wheel SHA-256 was
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 800 source rows: 303 existing input
-mappings, 50 reasoned `not_applicable` rows, and 447 fixture backlog rows.
+The generated coverage matrix has 800 source rows: 306 existing input
+mappings, 50 reasoned `not_applicable` rows, and 444 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

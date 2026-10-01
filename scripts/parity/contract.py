@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@20"
+INPUT_SCHEMA = "migration-parity/parity-input@21"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -129,6 +129,8 @@ TESTCLIENT_REQUIREMENTS = {
     "starlette_trusted_host": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-trusted-host-middleware",
     "request_sequence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-up-request-sequence",
     "mounted_static_files": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-static-files",
+    "mounted_router_urls": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-router-url-sequence",
+    "starlette_host_routing": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-routing",
 }
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
@@ -8000,6 +8002,8 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     is_starlette_app_debug = app_kind == "starlette-app-debug"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
     is_starlette_app_static_mount = app_kind == "starlette-app-static-mount"
+    is_router_mounted_response = app_kind == "router-mounted-response"
+    is_starlette_app_host_route = app_kind == "starlette-app-host-route"
 
     def validate_request(value: Any, context: str) -> dict[str, Any]:
         request_keys = {"method", "url", "headers_base64_pairs", "body_base64"}
@@ -8040,9 +8044,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             validate_request(value, f"TestClient followup_requests[{index}]")
             for index, value in enumerate(case["followup_requests"])
         ]
-        if not is_starlette_app_static_mount:
+        if not (is_starlette_app_static_mount or is_router_mounted_response):
             raise ContractError(
-                "TestClient followup_requests are only declared for the mounted StaticFiles input"
+                "TestClient followup_requests require a mounted StaticFiles or Router app input"
             )
     if is_sync_route:
         asgi_app = _exact(
@@ -8160,6 +8164,88 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             )
         exception_spec = None
         messages = []
+    elif is_router_mounted_response:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "mount_path", "mount_name", "content", "scope_fields"},
+            "TestClient Router Mount app",
+        )
+        mount_path = _string(asgi_app["mount_path"], "TestClient Router Mount mount_path")
+        mount_name = _string(asgi_app["mount_name"], "TestClient Router Mount mount_name")
+        _string(asgi_app["content"], "TestClient Router Mount response content")
+        if (
+            not mount_path.startswith("/")
+            or mount_path == "/"
+            or mount_path.endswith("/")
+            or "?" in mount_path
+            or "#" in mount_path
+            or not mount_name
+        ):
+            raise ContractError("TestClient Router Mount input must use a named non-root path")
+        requests = [request, *followup_requests]
+        mount_prefix = mount_path.rstrip("/")
+        expected_paths = [
+            mount_path,
+            f"{mount_prefix}/",
+            f"{mount_prefix}/a",
+            f"{mount_prefix}a",
+        ]
+        if len(requests) != len(expected_paths) or any(
+            item["method"] != "GET"
+            or item.get("client_method") != "get"
+            or item["headers_base64_pairs"]
+            or base64.b64decode(item["body_base64"])
+            or urlsplit(item["url"]).path != expected_path
+            for item, expected_path in zip(requests, expected_paths, strict=True)
+        ):
+            raise ContractError(
+                "TestClient Router Mount input must issue the four empty GETs from test_mount_urls"
+            )
+        exception_spec = None
+        messages = []
+    elif is_starlette_app_host_route:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {
+                "kind",
+                "host_pattern",
+                "host_parameter",
+                "allowed_hosts",
+                "route_path",
+                "endpoint_prefix",
+                "scope_fields",
+            },
+            "TestClient Starlette Host route app",
+        )
+        host_pattern = _string(asgi_app["host_pattern"], "TestClient Host route pattern")
+        host_parameter = _string(asgi_app["host_parameter"], "TestClient Host route parameter")
+        route_path = _string(asgi_app["route_path"], "TestClient Host child route path")
+        _string(asgi_app["endpoint_prefix"], "TestClient Host endpoint prefix")
+        allowed_hosts = asgi_app["allowed_hosts"]
+        request_host = urlsplit(settings["base_url"]).hostname
+        if (
+            not host_parameter
+            or host_pattern.count("{" + host_parameter + "}") != 1
+            or not isinstance(allowed_hosts, list)
+            or not allowed_hosts
+            or any(not isinstance(host, str) or not host for host in allowed_hosts)
+            or route_path != "/"
+            or request["method"] != "GET"
+            or request.get("client_method") != "get"
+            or urlsplit(request["url"]).path != route_path
+            or request["headers_base64_pairs"]
+            or base64.b64decode(request["body_base64"])
+            or request_host is None
+            or "https" != urlsplit(settings["base_url"]).scheme
+            or not any(
+                host.startswith("*.") and request_host.endswith(host[1:]) for host in allowed_hosts
+            )
+        ):
+            raise ContractError(
+                "TestClient Starlette Host route input must match the pinned HTTPS subdomain workflow"
+            )
+        exception_spec = None
+        messages = []
     else:
         asgi_app_keys = {"kind", "scope_fields", "receive_count", "messages"}
         if isinstance(raw_asgi_app, dict) and "exception" in raw_asgi_app:
@@ -8241,6 +8327,14 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     if is_starlette_app_static_mount:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_static_files"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_router_mounted_response:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_router_urls"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_starlette_app_host_route:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_host_routing"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["scope"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if exception_spec is not None:
         exception_spec = _exact(

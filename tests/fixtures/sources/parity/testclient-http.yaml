@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@20",
+  "schema": "migration-parity/parity-input@21",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.asgi3-default-client",
@@ -781,6 +781,137 @@
         "scope_fields": [
           "type",
           "method",
+          "path",
+          "root_path",
+          "headers",
+          "client",
+          "server"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.router-mounted-url-sequence",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
+        "starlette.testclient.TestClient.request-response.mounted-router-url-sequence",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/users",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "followup_requests": [
+        {
+          "method": "GET",
+          "client_method": "get",
+          "url": "/users/",
+          "headers_base64_pairs": [],
+          "body_base64": ""
+        },
+        {
+          "method": "GET",
+          "client_method": "get",
+          "url": "/users/a",
+          "headers_base64_pairs": [],
+          "body_base64": ""
+        },
+        {
+          "method": "GET",
+          "client_method": "get",
+          "url": "/usersa",
+          "headers_base64_pairs": [],
+          "body_base64": ""
+        }
+      ],
+      "asgi_app": {
+        "kind": "router-mounted-response",
+        "mount_path": "/users",
+        "mount_name": "users",
+        "content": "OK",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "root_path",
+          "headers",
+          "client",
+          "server"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.starlette-host-subdomain",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.starlette-host-routing"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "https://foo.example.org/",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "starlette-app-host-route",
+        "host_pattern": "{subdomain}.example.org",
+        "host_parameter": "subdomain",
+        "allowed_hosts": [
+          "testserver",
+          "*.example.org"
+        ],
+        "route_path": "/",
+        "endpoint_prefix": "Subdomain: ",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
           "path",
           "root_path",
           "headers",

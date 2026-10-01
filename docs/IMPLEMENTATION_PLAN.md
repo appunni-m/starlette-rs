@@ -32,20 +32,20 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 566 input-only cases in 64 indexed files,
-covering 80 operations and 606 requirements. Latest integrated run
-`31ada42d-e45e-44e6-9ed0-70923b29ed44` selected 725 comparisons: 721 passed,
+The active parity contract contains 568 input-only cases in 64 indexed files,
+covering 80 operations and 608 requirements. Latest integrated run
+`795ba35d-173f-4547-84ab-4e20cbe5c34d` selected 727 comparisons: 723 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
-Python-callable rows `not_run`. The installed Python package passed 564/564;
-Rust-native passed 157/161. This run adds the mounted StaticFiles TestClient
-sequence and compares GET then POST through the same app and client.
+Python-callable rows `not_run`. The installed Python package passed 566/566;
+Rust-native passed 157/161. This run adds the mounted Router URL sequence and
+HTTPS Host-route dispatch through TestClient.
 `make parity-run` exits with status 2 for the four declared native `not_run`
 rows. The complete run identity, wheel/tree hashes, and case-level evidence
 are in [Migration parity contract and evidence](PARITY.md). This bounded run
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 800 source rows: 303 input mappings,
-50 source-backed `not_applicable` rows, and 447 fixture-backlog rows. These
+The generated coverage matrix contains 800 source rows: 306 input mappings,
+50 source-backed `not_applicable` rows, and 444 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.

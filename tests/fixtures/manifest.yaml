@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@20",
+      "input_schema": "migration-parity/parity-input@21",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -17057,7 +17057,7 @@
             {
               "id": "starlette.testclient.TestClient.request-response.response-and-debug",
               "dimension": "success_path",
-              "description": "Translate input ASGI response-start, debug, and body messages into the public HTTPX response status, ordered headers, body, and response extensions. Pinned source: starlette/testclient.py:327-367; tests/test_testclient.py::test_debug_info_in_response_extensions.",
+              "description": "Translate input ASGI response-start, debug, and body messages into the public HTTPX response URL, status, ordered headers, body, and response extensions. Pinned source: starlette/testclient.py:327-367; tests/test_testclient.py::test_debug_info_in_response_extensions.",
               "lanes": [
                 "parity"
               ],
@@ -17167,7 +17167,7 @@
             {
               "id": "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
               "dimension": "protocol_variant",
-              "description": "Execute the input-defined follow-up HTTP requests through the same synchronous TestClient and Starlette app, comparing their ordered responses and ASGI effects. Upstream: tests/test_applications.py::test_app_mount; starlette/testclient.py:422-452.",
+              "description": "Execute input-defined follow-up HTTP requests through the same synchronous TestClient and ASGI app, comparing ordered responses and ASGI effects. Upstream: tests/test_applications.py::test_app_mount; tests/test_routing.py::test_mount_urls; starlette/testclient.py:422-452.",
               "lanes": [
                 "parity"
               ],
@@ -17179,6 +17179,28 @@
               "id": "starlette.testclient.TestClient.request-response.mounted-static-files",
               "dimension": "feature",
               "description": "Mount input-defined StaticFiles beneath a Starlette app and compare the TestClient file GET and method-not-allowed POST responses through the app middleware stack. Upstream: tests/test_applications.py::test_app_mount; starlette/applications.py:78-83; starlette/routing.py:147-190; starlette/staticfiles.py:130-141.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.mounted-router-url-sequence",
+              "dimension": "protocol_variant",
+              "description": "Through one TestClient and a Router with a named Mount, issue GET requests to the mount path, its slash form, a child path, and a prefix-sharing non-match. Compare each response, the redirected final response URL, and the ordered ASGI effects. Upstream: tests/test_routing.py::test_mount_urls; starlette/routing.py:363-425; starlette/testclient.py:422-452.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.starlette-host-routing",
+              "dimension": "success_path",
+              "description": "Route an HTTPS TestClient request through Starlette TrustedHostMiddleware, a host-parameter Host route, a child Router, and a synchronous endpoint that returns the captured subdomain. Upstream: tests/test_applications.py::test_subdomain_route; starlette/applications.py:63-107; starlette/routing.py:466-490.",
               "lanes": [
                 "parity"
               ],
