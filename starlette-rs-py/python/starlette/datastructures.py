@@ -253,20 +253,24 @@ class URLPath(str):
 
 
 class State:
-    """Attribute and mapping access to mutable connection state."""
+    """
+    An object that can be used to store arbitrary state.
 
-    __slots__ = ("_state",)
+    Used for `request.state` and `app.state`.
+    """
 
-    def __init__(self, state: dict[str, Any] | None = None) -> None:
+    _state: dict[str, Any]
+
+    def __init__(self, state: dict[str, Any] | None = None):
         object.__setattr__(self, "_state", _core._state_new(state))
 
-    def __setattr__(self, key: str, value: Any) -> None:
+    def __setattr__(self, key: Any, value: Any) -> None:
         _core._state_set(self._state, key, value)
 
-    def __getattr__(self, key: str) -> Any:
+    def __getattr__(self, key: Any) -> Any:
         return _core._state_getattr(self._state, self.__class__.__name__, key)
 
-    def __delattr__(self, key: str) -> None:
+    def __delattr__(self, key: Any) -> None:
         _core._state_delete(self._state, key)
 
     def __getitem__(self, key: str) -> Any:

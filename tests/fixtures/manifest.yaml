@@ -281,6 +281,7 @@
       "build/parity/inputs/parity/url-scope.json",
       "build/parity/inputs/parity/url-components.json",
       "build/parity/inputs/parity/datastructures-headers.json",
+      "build/parity/inputs/parity/datastructures-state.json",
       "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/lifespan-generators.json",
@@ -4224,6 +4225,228 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "MutableHeaders construction and mutations are outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.datastructures.State",
+      "kind": "type",
+      "source_path": "starlette/datastructures.py:664",
+      "storage_slug": "starlette-datastructures-State",
+      "operations": [
+        {
+          "id": "consumer-sequence",
+          "kind": "value_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.State.__init__, State.__setattr__, State.__getattr__, State.__delattr__, State.__getitem__, State.__setitem__, State.__delitem__, State.__iter__, and State.__len__",
+            "signature": "State(state=None); attribute and mapping access, iteration, and length",
+            "parameters": [
+              {
+                "id": "instances",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "consumer-sequence",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "State is the Python starlette.* compatibility wrapper contract and has no direct Rust-native object surface.",
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.State",
+              "signature": "State(state=None); attribute and item access, iteration, and length",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.State.constructor-retains-mapping",
+              "dimension": "boundary",
+              "description": "Retain a caller-supplied mapping as State storage, with mutations observable through the original mapping. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.State.attribute-set-get",
+              "dimension": "protocol_variant",
+              "description": "Read back values written through attribute access. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.State.attribute-delete",
+              "dimension": "protocol_variant",
+              "description": "Delete an attribute backed by State storage. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.State.missing-attribute-error",
+              "dimension": "error_path",
+              "description": "Raise AttributeError with the source class and message for a missing State attribute. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.State.item-set-get",
+              "dimension": "protocol_variant",
+              "description": "Read back values written through item access. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.State.item-to-attribute-alias",
+              "dimension": "boundary",
+              "description": "Expose an item written through mapping access through attribute access. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.State.item-delete",
+              "dimension": "protocol_variant",
+              "description": "Delete an item from State storage. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.State.missing-item-error",
+              "dimension": "error_path",
+              "description": "Raise KeyError for missing item reads or deletion. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.State.iteration-and-length",
+              "dimension": "protocol_variant",
+              "description": "Preserve insertion order during iteration and report the current State length. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.State.instance-dict",
+              "dimension": "boundary",
+              "description": "Preserve ordinary instance __dict__ and vars() behavior on State objects. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.State.default-constructor-isolation",
+              "dimension": "parameter_combination",
+              "description": "Create independent empty mappings for State instances constructed without an initial mapping. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "The State consumer-sequence input comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Small State object operations are outside the declared benchmark workloads."
           }
         }
       ]

@@ -1,0 +1,71 @@
+{
+  "schema": "migration-parity/parity-input@22",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.State.consumer-sequence.mapping-lifecycle",
+      "surface": "starlette.datastructures.State",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.State.constructor-retains-mapping",
+        "starlette.datastructures.State.attribute-set-get",
+        "starlette.datastructures.State.attribute-delete",
+        "starlette.datastructures.State.missing-attribute-error",
+        "starlette.datastructures.State.item-set-get",
+        "starlette.datastructures.State.item-to-attribute-alias",
+        "starlette.datastructures.State.item-delete",
+        "starlette.datastructures.State.missing-item-error",
+        "starlette.datastructures.State.iteration-and-length",
+        "starlette.datastructures.State.instance-dict"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "state",
+          "initial_state": {"old": "foo"}
+        }
+      ],
+      "actions": [
+        {"action_id": "set-attribute", "receiver": "state", "call": "set-attribute", "arguments": ["new", "value"]},
+        {"action_id": "get-attribute", "receiver": "state", "call": "get-attribute", "arguments": ["new"]},
+        {"action_id": "delete-attribute", "receiver": "state", "call": "delete-attribute", "arguments": ["new"]},
+        {"action_id": "missing-attribute", "receiver": "state", "call": "get-attribute", "arguments": ["new"]},
+        {"action_id": "set-item", "receiver": "state", "call": "set-item", "arguments": ["dict_key", "dict_value"]},
+        {"action_id": "get-item", "receiver": "state", "call": "get-item", "arguments": ["dict_key"]},
+        {"action_id": "item-through-attribute", "receiver": "state", "call": "get-attribute", "arguments": ["dict_key"]},
+        {"action_id": "set-another-item", "receiver": "state", "call": "set-item", "arguments": ["another_key", "another_value"]},
+        {"action_id": "iterate", "receiver": "state", "call": "iterate", "arguments": []},
+        {"action_id": "length-before-delete", "receiver": "state", "call": "length", "arguments": []},
+        {"action_id": "delete-item", "receiver": "state", "call": "delete-item", "arguments": ["dict_key"]},
+        {"action_id": "length-after-delete", "receiver": "state", "call": "length", "arguments": []},
+        {"action_id": "missing-item", "receiver": "state", "call": "get-item", "arguments": ["dict_key"]},
+        {"action_id": "delete-missing-item", "receiver": "state", "call": "delete-item", "arguments": ["absent"]},
+        {"action_id": "instance-dict", "receiver": "state", "call": "vars", "arguments": []}
+      ],
+      "observations": ["consumer-sequence"]
+    },
+    {
+      "case_id": "starlette.datastructures.State.consumer-sequence.default-constructor-isolation",
+      "surface": "starlette.datastructures.State",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.State.default-constructor-isolation",
+        "starlette.datastructures.State.missing-item-error",
+        "starlette.datastructures.State.iteration-and-length"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {"instance_id": "first", "initial_state": null},
+        {"instance_id": "second", "initial_state": null}
+      ],
+      "actions": [
+        {"action_id": "write-first", "receiver": "first", "call": "set-item", "arguments": ["key", "value"]},
+        {"action_id": "read-second-keys", "receiver": "second", "call": "iterate", "arguments": []},
+        {"action_id": "read-second-length", "receiver": "second", "call": "length", "arguments": []},
+        {"action_id": "read-second-missing", "receiver": "second", "call": "get-item", "arguments": ["key"]}
+      ],
+      "observations": ["consumer-sequence"]
+    }
+  ]
+}

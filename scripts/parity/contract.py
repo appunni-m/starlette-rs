@@ -331,6 +331,33 @@ HEADERS_OPERATIONS = {
     (MUTABLE_HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION),
 }
 HEADERS_OBSERVATIONS = {"action-trace", "instance-snapshots", "scope-snapshots"}
+STATE_SURFACE = "starlette.datastructures.State"
+STATE_CONSUMER_OPERATION = "consumer-sequence"
+STATE_OPERATION_KEY = (STATE_SURFACE, STATE_CONSUMER_OPERATION)
+STATE_REQUIREMENTS = {
+    "constructor_mapping": f"{STATE_SURFACE}.constructor-retains-mapping",
+    "attribute_set_get": f"{STATE_SURFACE}.attribute-set-get",
+    "attribute_delete": f"{STATE_SURFACE}.attribute-delete",
+    "missing_attribute": f"{STATE_SURFACE}.missing-attribute-error",
+    "item_set_get": f"{STATE_SURFACE}.item-set-get",
+    "item_alias": f"{STATE_SURFACE}.item-to-attribute-alias",
+    "item_delete": f"{STATE_SURFACE}.item-delete",
+    "missing_item": f"{STATE_SURFACE}.missing-item-error",
+    "iteration_length": f"{STATE_SURFACE}.iteration-and-length",
+    "instance_dict": f"{STATE_SURFACE}.instance-dict",
+    "default_isolation": f"{STATE_SURFACE}.default-constructor-isolation",
+}
+STATE_ACTIONS = {
+    "set-attribute",
+    "get-attribute",
+    "delete-attribute",
+    "set-item",
+    "get-item",
+    "delete-item",
+    "iterate",
+    "length",
+    "vars",
+}
 HEADERS_ACTIONS = {
     "iterate",
     "len",
@@ -384,6 +411,7 @@ RUST_OWNED_PYTHON_OPERATIONS = (
         URL_SCOPE_OPERATION,
         URL_COMPONENTS_OPERATION,
         *HEADERS_OPERATIONS,
+        STATE_OPERATION_KEY,
         *WSGI_BOUNDARY_OPERATIONS,
     }
 )
@@ -10046,6 +10074,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             URL_COMPONENTS_OPERATION: {"url", "actions"},
             (HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION): {"instances"},
             (MUTABLE_HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION): {"instances"},
+            STATE_OPERATION_KEY: {"instances", "actions"},
             WSGI_BUILD_ENVIRON_OPERATION: {"scope", "body_base64", "environ_probes"},
             WSGI_MODULE_IMPORT_OPERATION: {"module_name"},
         }[(case["surface"], case["operation"])]
@@ -10431,6 +10460,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             _validate_url_components_case(case)
         elif (case["surface"], case["operation"]) in HEADERS_OPERATIONS:
             _validate_headers_case(case)
+        elif (case["surface"], case["operation"]) == STATE_OPERATION_KEY:
+            _validate_state_case(case)
         elif (case["surface"], case["operation"]) in WSGI_BOUNDARY_OPERATIONS:
             _validate_wsgi_boundary_case(case)
         else:
@@ -14725,6 +14756,182 @@ def _validate_header_argument(value: Any, instance_ids: set[str], context: str) 
     if isinstance(value, (str, int, float, bool)) or value is None:
         return None
     raise ContractError(f"{context} is not a declared header argument value")
+
+
+def _validate_state_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("State consumer-sequence parity targets the Python package profile")
+    if case["assets"] != []:
+        raise ContractError("State consumer-sequence cases do not use external assets")
+    if case["observations"] != ["consumer-sequence"]:
+        raise ContractError("State observations must select consumer-sequence")
+
+    instances = case["instances"]
+    if not isinstance(instances, list) or not instances:
+        raise ContractError("State instances must be a non-empty array")
+    instance_ids: set[str] = set()
+    current_keys: dict[str, list[str]] = {}
+    provided_mapping: dict[str, bool] = {}
+    empty_instances: set[str] = set()
+    for index, instance_value in enumerate(instances):
+        context = f"State instances[{index}]"
+        instance = _exact(instance_value, {"instance_id", "initial_state"}, context)
+        instance_id = _string(instance["instance_id"], f"{context}.instance_id")
+        if not instance_id or instance_id in instance_ids:
+            raise ContractError(f"{context}.instance_id must be non-empty and unique")
+        instance_ids.add(instance_id)
+        initial_state = instance["initial_state"]
+        if initial_state is None:
+            current_keys[instance_id] = []
+            provided_mapping[instance_id] = False
+            empty_instances.add(instance_id)
+        elif isinstance(initial_state, dict):
+            _validate_threadpool_json(initial_state, f"{context}.initial_state")
+            if any(not isinstance(key, str) for key in initial_state):
+                raise ContractError(f"{context}.initial_state keys must be strings")
+            current_keys[instance_id] = list(initial_state)
+            provided_mapping[instance_id] = True
+        else:
+            raise ContractError(f"{context}.initial_state must be a mapping or null")
+
+    actions = case["actions"]
+    if not isinstance(actions, list) or not actions:
+        raise ContractError("State actions must be a non-empty array")
+    action_ids: set[str] = set()
+    attribute_set_keys: dict[str, set[str]] = {instance_id: set() for instance_id in instance_ids}
+    attribute_get_keys: dict[str, set[str]] = {instance_id: set() for instance_id in instance_ids}
+    attribute_delete_keys: dict[str, set[str]] = {
+        instance_id: set() for instance_id in instance_ids
+    }
+    item_set_keys: dict[str, set[str]] = {instance_id: set() for instance_id in instance_ids}
+    item_get_keys: dict[str, set[str]] = {instance_id: set() for instance_id in instance_ids}
+    item_delete_keys: dict[str, set[str]] = {instance_id: set() for instance_id in instance_ids}
+    missing_attributes: set[str] = set()
+    missing_items: set[str] = set()
+    iterated: set[str] = set()
+    measured_length: set[str] = set()
+    inspected_instances: set[str] = set()
+    mutated_provided_mappings: set[str] = set()
+    written_instances: set[str] = set()
+    read_missing_instances: set[str] = set()
+
+    for index, action_value in enumerate(actions):
+        context = f"State actions[{index}]"
+        action = _exact(action_value, {"action_id", "receiver", "call", "arguments"}, context)
+        action_id = _string(action["action_id"], f"{context}.action_id")
+        receiver = _string(action["receiver"], f"{context}.receiver")
+        call = _string(action["call"], f"{context}.call")
+        arguments = action["arguments"]
+        if not action_id or action_id in action_ids:
+            raise ContractError(f"{context}.action_id must be non-empty and unique")
+        action_ids.add(action_id)
+        if receiver not in instance_ids:
+            raise ContractError(f"{context}.receiver must refer to a declared instance")
+        if call not in STATE_ACTIONS or not isinstance(arguments, list):
+            raise ContractError(f"{context} must use a declared State action and argument array")
+        expected_arity = (
+            {2}
+            if call in {"set-attribute", "set-item"}
+            else {1}
+            if call in {"get-attribute", "delete-attribute", "get-item", "delete-item"}
+            else {0}
+        )
+        if len(arguments) not in expected_arity:
+            raise ContractError(f"{context}.arguments has invalid arity for {call}")
+        for argument_index, argument in enumerate(arguments):
+            _validate_threadpool_json(argument, f"{context}.arguments[{argument_index}]")
+        if call in {
+            "set-attribute",
+            "get-attribute",
+            "delete-attribute",
+            "set-item",
+            "get-item",
+            "delete-item",
+        } and not isinstance(arguments[0], str):
+            raise ContractError(f"{context}.arguments[0] must be a string key")
+
+        if call in {"set-attribute", "set-item"}:
+            key = arguments[0]
+            keys = current_keys[receiver]
+            if key not in keys:
+                keys.append(key)
+            if call == "set-attribute":
+                attribute_set_keys[receiver].add(key)
+            else:
+                item_set_keys[receiver].add(key)
+            written_instances.add(receiver)
+            if provided_mapping[receiver]:
+                mutated_provided_mappings.add(receiver)
+        elif call in {"get-attribute", "get-item"}:
+            key = arguments[0]
+            if key in current_keys[receiver]:
+                if call == "get-attribute":
+                    attribute_get_keys[receiver].add(key)
+                else:
+                    item_get_keys[receiver].add(key)
+            elif call == "get-attribute":
+                missing_attributes.add(receiver)
+            else:
+                missing_items.add(receiver)
+                read_missing_instances.add(receiver)
+        elif call in {"delete-attribute", "delete-item"}:
+            key = arguments[0]
+            keys = current_keys[receiver]
+            if key in keys:
+                keys.remove(key)
+                if call == "delete-attribute":
+                    attribute_delete_keys[receiver].add(key)
+                else:
+                    item_delete_keys[receiver].add(key)
+                if provided_mapping[receiver]:
+                    mutated_provided_mappings.add(receiver)
+            elif call == "delete-item":
+                missing_items.add(receiver)
+        elif call == "iterate":
+            iterated.add(receiver)
+        elif call == "length":
+            measured_length.add(receiver)
+        elif call == "vars":
+            inspected_instances.add(receiver)
+
+    exercised: set[str] = set()
+    if mutated_provided_mappings:
+        exercised.add(STATE_REQUIREMENTS["constructor_mapping"])
+    if any(attribute_set_keys[item] & attribute_get_keys[item] for item in instance_ids):
+        exercised.add(STATE_REQUIREMENTS["attribute_set_get"])
+    if any(attribute_set_keys[item] & attribute_delete_keys[item] for item in instance_ids):
+        exercised.add(STATE_REQUIREMENTS["attribute_delete"])
+    if missing_attributes:
+        exercised.add(STATE_REQUIREMENTS["missing_attribute"])
+    if any(item_set_keys[item] & item_get_keys[item] for item in instance_ids):
+        exercised.add(STATE_REQUIREMENTS["item_set_get"])
+    if any(item_set_keys[item] & attribute_get_keys[item] for item in instance_ids):
+        exercised.add(STATE_REQUIREMENTS["item_alias"])
+    if any(item_set_keys[item] & item_delete_keys[item] for item in instance_ids):
+        exercised.add(STATE_REQUIREMENTS["item_delete"])
+    if missing_items:
+        exercised.add(STATE_REQUIREMENTS["missing_item"])
+    if any(iterated & measured_length):
+        exercised.add(STATE_REQUIREMENTS["iteration_length"])
+    if inspected_instances:
+        exercised.add(STATE_REQUIREMENTS["instance_dict"])
+    default_state_write_and_independent_read = any(
+        written != missing
+        for written in written_instances & empty_instances
+        for missing in read_missing_instances & empty_instances
+    )
+    if (
+        len(empty_instances) >= 2
+        and default_state_write_and_independent_read
+        and empty_instances & iterated & measured_length
+    ):
+        exercised.add(STATE_REQUIREMENTS["default_isolation"])
+
+    if set(case["covers"]) != exercised:
+        raise ContractError(
+            "State case covers must match its input-defined constructors and actions; "
+            f"expected {sorted(exercised)}"
+        )
 
 
 def _validate_headers_case(case: dict[str, Any]) -> None:

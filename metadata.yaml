@@ -114,6 +114,16 @@
       ]
     },
     {
+      "surface_id": "starlette.datastructures.State",
+      "source_path": "starlette/datastructures.py:664",
+      "operations": [
+        {
+          "operation_id": "consumer-sequence",
+          "source_path": "starlette.datastructures.State.__init__, State.__setattr__, State.__getattr__, State.__delattr__, State.__getitem__, State.__setitem__, State.__delitem__, State.__iter__, and State.__len__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.datastructures.Headers",
       "source_path": "starlette/datastructures.py:500",
       "operations": [
