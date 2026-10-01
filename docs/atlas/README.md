@@ -25,15 +25,17 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 648 input-only cases across
-75 indexed files, 91 operations, and 683 requirements. The latest full-slice
-run `c45bc2af-4d8f-472c-9c25-d40b7dd31df9` passed 827 of 831 selected profile
+active and incomplete. The current contract has 653 input-only cases across
+75 indexed files, 91 operations, and 687 requirements. The latest full-slice
+run `6a2c4c4d-b453-400c-8b0b-a5d57b55d828` passed 836 of 840 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 646/646; Rust-native
-passed 181/185. All nine selected `CommaSeparatedStrings` comparisons pass,
+Python-callable rows `not_run`. The Python package passed 651/651; Rust-native
+passed 185/189. All nine selected `CommaSeparatedStrings` comparisons pass,
 including lone-surrogate strings through parsing, sequence values, and subclass
 `__repr__`. The PyO3 boundary uses UTF-32LE with `surrogatepass`; parsing and
-formatting remain Rust-owned. The four native rows are synchronous Request
+formatting remain Rust-owned. The WebSocket state sequence now covers ten
+cases, including four denial-response transitions; the package-only convenience
+input checks fresh-iterator `asend(non-None)`. The four native rows are synchronous Request
 endpoint, bound-method endpoint, partial endpoint, and callable-instance ASGI
 dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
@@ -43,11 +45,11 @@ The generated coverage matrix has 802 source rows: 354 existing input
 mappings, 50 reasoned `not_applicable` rows, and 398 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `dc0379a4-ebe9-4ff3-bff6-04a2afafcc8f` measured all
+The latest Router/GZip run `bf490edc-60e2-4ca1-ba23-12fd9a46546f` measured all
 74 source/package workloads after clean parity preflight
-`c45bc2af-4d8f-472c-9c25-d40b7dd31df9`. Median per-workload source/package
-ratios were 0.779 for Router and 0.973 for GZip; source latency was lower on
-five of six Router workloads and 60 of 68 GZip workloads. All 74
+`6a2c4c4d-b453-400c-8b0b-a5d57b55d828`. Median per-workload source/package
+ratios were 0.761 for Router and 0.969 for GZip; source latency was lower on
+five of six Router workloads and 58 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.

@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 648 input-only cases in 75 indexed files,
-covering 91 operations and 683 parity requirements. Rust-backed
+The active contract contains 653 input-only cases in 75 indexed files,
+covering 91 operations and 687 parity requirements. Rust-backed
 `CommaSeparatedStrings` parsing and sequence formatting, including lone
 surrogate values, are included, alongside
 the three-request CORS
@@ -23,10 +23,10 @@ ServerErrorMiddleware cases, three TestClient exception-chain cases, a
 default middleware-boundary trace, and sixteen Request.cookies inputs pass live
 source/package comparison, including the sequential TestClient cookie
 round-trip from `test_request_cookies`. Latest integrated run
-`c45bc2af-4d8f-472c-9c25-d40b7dd31df9` passed 827 of 831 selected comparisons,
+`6a2c4c4d-b453-400c-8b0b-a5d57b55d828` passed 836 of 840 selected comparisons,
 with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 646/646;
-Rust-native passed 181/185. The four native `not_run` rows are synchronous
+Python-callable rows `not_run`. The Python package passed 651/651;
+Rust-native passed 185/189. The four native `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for those declared rows. Full run
 identities and package hashes are recorded in
