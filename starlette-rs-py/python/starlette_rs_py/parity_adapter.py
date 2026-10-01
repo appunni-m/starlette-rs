@@ -5688,32 +5688,42 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if media_type is not None and not isinstance(media_type, str):
         raise ValueError("Response media_type must be a string or null")
 
-    scope_spec = _exact_object(
-        case["scope"],
-        {
-            "type",
-            "asgi",
-            "http_version",
-            "method",
-            "scheme",
-            "path",
-            "raw_path_base64",
-            "query_string_base64",
-            "root_path",
-            "headers_base64_pairs",
-            "client",
-            "server",
-        },
-        "Response HTTP scope",
-    )
-    if scope_spec["type"] != "http":
-        raise ValueError("Response ASGI-call requires an HTTP scope")
+    scope_fields = {
+        "type",
+        "asgi",
+        "http_version",
+        "scheme",
+        "path",
+        "raw_path_base64",
+        "query_string_base64",
+        "root_path",
+        "headers_base64_pairs",
+        "client",
+        "server",
+    }
+    if case["scope"].get("type") == "http":
+        scope_fields.add("method")
+    elif case["scope"].get("type") == "websocket":
+        scope_fields.add("subprotocols")
+    else:
+        raise ValueError("Response ASGI-call requires an HTTP or WebSocket scope")
+    scope_spec = _exact_object(case["scope"], scope_fields, "Response ASGI-call scope")
+    if scope_spec["type"] == "websocket" and surface != STREAMING_RESPONSE_SURFACE:
+        raise ValueError("WebSocket scope is supported only for StreamingResponse")
     asgi_spec = _exact_object(scope_spec["asgi"], {"version", "spec_version"}, "ASGI version")
     if any(not isinstance(asgi_spec[key], str) for key in asgi_spec):
         raise ValueError("ASGI versions must be strings")
-    for field in ("http_version", "method", "scheme", "path", "root_path"):
+    scope_string_fields = ["http_version", "scheme", "path", "root_path"]
+    if scope_spec["type"] == "http":
+        scope_string_fields.append("method")
+    for field in scope_string_fields:
         if not isinstance(scope_spec[field], str):
-            raise ValueError(f"Response HTTP scope.{field} must be a string")
+            raise ValueError(f"Response scope.{field} must be a string")
+    if scope_spec["type"] == "websocket" and (
+        not isinstance(scope_spec["subprotocols"], list)
+        or any(not isinstance(item, str) for item in scope_spec["subprotocols"])
+    ):
+        raise ValueError("Response WebSocket scope subprotocols must be strings")
     headers = scope_spec["headers_base64_pairs"]
     if not isinstance(headers, list) or any(
         not isinstance(pair, list)
@@ -5826,7 +5836,15 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     execution_trace = (
         [] if streaming == "async-generator" or background_values is not None else None
     )
-    background_execution_trace = [] if background_tasks_spec is not None else None
+    background_execution_trace = (
+        []
+        if background_tasks_spec is not None
+        or (
+            surface == STREAMING_RESPONSE_SURFACE
+            and case["operation"] == STREAMING_RESPONSE_TRACE_OPERATION
+        )
+        else None
+    )
     event_loop_thread_id: list[int | None] = [None]
     background_started = asyncio.Event() if background_control is not None else None
     synchronous_background_control = (
@@ -5948,7 +5966,10 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             "asgi_event_order": [],
             "asgi_events": [],
         }
-        if surface == RESPONSE_SURFACE:
+        if surface == RESPONSE_SURFACE or (
+            surface == STREAMING_RESPONSE_SURFACE
+            and case["operation"] == STREAMING_RESPONSE_TRACE_OPERATION
+        ):
             partial_value["background_execution_trace"] = background_execution_trace
         return {
             "case_id": case["case_id"],
@@ -6052,19 +6073,28 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             raise
         captured_error = exc
     events = [_canonical_message(message) for message in sent]
+    response_prefix = (
+        "websocket.http.response" if scope_spec["type"] == "websocket" else "http.response"
+    )
+    response_start_type = f"{response_prefix}.start"
+    response_body_type = f"{response_prefix}.body"
     response_start = next(
-        (message for message in sent if message["type"] == "http.response.start"), None
+        (message for message in sent if message["type"] == response_start_type), None
     )
     response_start_event = next(
-        (event for event in events if event["type"] == "http.response.start"), None
+        (event for event in events if event["type"] == response_start_type), None
     )
     response_body = b"".join(
-        message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+        message.get("body", b"") for message in sent if message["type"] == response_body_type
     )
     observation = {
         "response_status": response_start["status"] if response_start is not None else None,
         "ordered_repeated_headers": (
-            response_start_event["headers"] if response_start_event is not None else []
+            response_start_event.get(
+                "headers", response_start_event.get("headers_base64_pairs", [])
+            )
+            if response_start_event is not None
+            else []
         ),
         "response_bytes": (
             {
@@ -6079,7 +6109,10 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if execution_trace is not None:
         observation["execution_trace"] = execution_trace
-    if surface == RESPONSE_SURFACE:
+    if surface == RESPONSE_SURFACE or (
+        surface == STREAMING_RESPONSE_SURFACE
+        and case["operation"] == STREAMING_RESPONSE_TRACE_OPERATION
+    ):
         observation["background_execution_trace"] = background_execution_trace
     if header_view_probe_value is not None:
         observation["header_view_probe"] = header_view_probe_value

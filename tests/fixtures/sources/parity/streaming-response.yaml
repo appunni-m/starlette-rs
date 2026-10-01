@@ -732,6 +732,72 @@
         "asgi-call"
       ],
       "streaming": "async-iterable"
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "asgi-call-with-execution-trace",
+      "covers": [
+        "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "content": {
+        "kind": "chunks",
+        "value": [
+          {
+            "kind": "base64-bytes",
+            "value": "Y2h1bms="
+          }
+        ]
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": null,
+      "background": {
+        "kind": "single-task",
+        "tasks": [
+          {
+            "mode": "sync",
+            "args": [],
+            "kwargs": {},
+            "failure": null
+          }
+        ]
+      },
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "streaming": "async-generator"
     }
   ]
 }

@@ -5289,6 +5289,13 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("case is outside the declared StreamingResponse asgi-call operation")
     if case["observations"] != [STREAMING_RESPONSE_OPERATION]:
         raise ContractError("StreamingResponse observations must select asgi-call")
+    scope_input = case["scope"]
+    if not isinstance(scope_input, dict) or scope_input.get("type") not in (
+        "http",
+        "websocket",
+    ):
+        raise ContractError("StreamingResponse scope must be HTTP or WebSocket")
+    websocket_scope = scope_input["type"] == "websocket"
     _validate_cookie_actions(case)
     if type(case["status_code"]) is not int or case["status_code"] != 200:
         raise ContractError("StreamingResponse status_code must be 200 for this input slice")
@@ -5348,20 +5355,49 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("StreamingResponse.media_type must be a string or null")
 
     background = case.get("background")
+    background_task = False
     if background is not None:
-        background = _exact(
-            background,
-            {"kind", "values"},
-            "StreamingResponse background recorder",
-        )
-        if background["kind"] != "async-values-recorder":
+        if not isinstance(background, dict):
+            raise ContractError("StreamingResponse background must be an object")
+        if background.get("kind") == "async-values-recorder":
+            background = _exact(
+                background,
+                {"kind", "values"},
+                "StreamingResponse background recorder",
+            )
+            if (
+                not isinstance(background["values"], list)
+                or not background["values"]
+                or any(not isinstance(value, str) for value in background["values"])
+            ):
+                raise ContractError("StreamingResponse background values must be non-empty strings")
+        elif background.get("kind") == "single-task":
+            background = _exact(
+                background,
+                {"kind", "tasks"},
+                "StreamingResponse background task",
+            )
+            if not isinstance(background["tasks"], list) or len(background["tasks"]) != 1:
+                raise ContractError("StreamingResponse background requires one declared task")
+            task = _exact(
+                background["tasks"][0],
+                {"mode", "args", "kwargs", "failure"},
+                "StreamingResponse background task input",
+            )
+            if (
+                task["mode"] != "sync"
+                or task["args"] != []
+                or task["kwargs"] != {}
+                or task["failure"] is not None
+            ):
+                raise ContractError(
+                    "StreamingResponse WebSocket background task must be one successful sync callback"
+                )
+            background_task = True
+        else:
             raise ContractError("StreamingResponse background kind is unsupported")
-        if (
-            not isinstance(background["values"], list)
-            or not background["values"]
-            or any(not isinstance(value, str) for value in background["values"])
-        ):
-            raise ContractError("StreamingResponse background values must be non-empty strings")
+    if background_task and not websocket_scope:
+        raise ContractError("StreamingResponse task background input requires a WebSocket scope")
 
     stream_lifecycle = case.get("stream_lifecycle")
     if stream_lifecycle is not None:
@@ -5456,7 +5492,30 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         (),
         "text/plain",
     )
-    if case["streaming"] == "sync":
+    websocket_generator_stimulus = (
+        (("base64-bytes", "Y2h1bms="),),
+        (),
+        None,
+    )
+    if websocket_scope:
+        websocket_requirement = (
+            "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background"
+        )
+        if (
+            case["streaming"] != "async-generator"
+            or repeating_chunks
+            or stimulus != websocket_generator_stimulus
+            or not background_task
+            or stream_lifecycle is not None
+            or receive_behavior is not None
+            or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
+            or case["target_profiles"] != ["python-package-cpython312"]
+            or set(case["covers"]) != {websocket_requirement}
+        ):
+            raise ContractError(
+                "WebSocket StreamingResponse input is limited to its declared async-generator/background case"
+            )
+    elif case["streaming"] == "sync":
         if (
             repeating_chunks
             or stimulus not in allowed_sync
@@ -5575,8 +5634,18 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             and receive_behavior["kind"] == "disconnect-after-body-bytes"
         ),
     )
-    if case["scope"]["query_string_base64"] != "" or case["scope"]["headers_base64_pairs"] != []:
-        raise ContractError("Response asgi-call scope uses the direct HTTP baseline")
+    if not websocket_scope:
+        if (
+            case["scope"]["query_string_base64"] != ""
+            or case["scope"]["headers_base64_pairs"] != []
+        ):
+            raise ContractError("Response asgi-call scope uses the direct HTTP baseline")
+    elif (
+        case["scope"]["query_string_base64"] != ""
+        or case["scope"]["headers_base64_pairs"] != []
+        or case["scope"]["subprotocols"] != []
+    ):
+        raise ContractError("WebSocket response scope uses the direct WebSocket baseline")
 
 
 def _route_method_matches(route: dict[str, Any], method: str) -> bool:

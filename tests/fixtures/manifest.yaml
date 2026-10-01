@@ -13449,6 +13449,15 @@
                   "comparison": {
                     "kind": "ordered"
                   }
+                },
+                {
+                  "path": "background_execution_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 }
               ],
               "error": {
@@ -13476,10 +13485,11 @@
               "signature": "StreamingResponse::from_chunks(status_code, byte_chunks, media_type, ordered_headers) -> Result<StreamingResponse, ResponseError>; StreamingResponse::asgi_events() -> Vec<StreamingResponseEvent>",
               "support": {
                 "status": "partial",
-                "reason": "Rust-native framing has no producer/background lifecycle trace at this boundary.",
+                "reason": "Rust-native framing has no producer/background lifecycle trace or ASGI scope dispatch at this boundary.",
                 "missing_requirements": [
                   "starlette.responses.StreamingResponse.asgi-call.async-generator-background",
-                  "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation"
+                  "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation",
+                  "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background"
                 ]
               }
             },
@@ -13508,6 +13518,17 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation",
               "dimension": "protocol_variant",
               "description": "Run an async generator that yields its input chunks after the declared event-loop checkpoint, under an ASGI 2.3 scope. Block receive until the input-defined body-byte threshold has been sent, then return http.disconnect. Observe partial ASGI events, the generator's cancellation and finally recorder, and the supplied background recorder through StreamingResponse.__call__. Pinned sources: tests/test_responses.py::test_streaming_response_stops_if_receiving_http_disconnect; starlette/responses.py::StreamingResponse.__call__, listen_for_disconnect, stream_response; starlette/background.py::BackgroundTask.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background",
+              "dimension": "protocol_variant",
+              "description": "Invoke StreamingResponse.__call__ with a WebSocket ASGI scope, stream the source test's single bytes chunk from an async generator, and run one sync background callback after the response events. Capture response start/body event types, status, ordered headers, body bytes, stream yields, and the background callback trace. Pinned source: tests/test_responses.py::test_streaming_response_runs_background_on_websocket_scope; starlette/responses.py::StreamingResponse.__call__.",
               "lanes": [
                 "parity"
               ],
