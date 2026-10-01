@@ -7209,35 +7209,56 @@ def _run_static_files_configuration_case(case: dict[str, Any]) -> dict[str, Any]
 
 
 def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
+    request_sequence = "calls" in case
+    expected_fields = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "directory",
+        "path_limit_stress",
+        "permission_denial_stress",
+        "filesystem",
+        "packages",
+        "files",
+        "html",
+        "check_dir",
+        "follow_symlink",
+        "observations",
+    }
+    if request_sequence:
+        expected_fields.add("calls")
+    else:
+        expected_fields.update({"scope", "incoming", "send"})
     _strict_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "directory",
-            "path_limit_stress",
-            "permission_denial_stress",
-            "filesystem",
-            "packages",
-            "files",
-            "html",
-            "check_dir",
-            "follow_symlink",
-            "scope",
-            "incoming",
-            "send",
-            "observations",
-        },
+        expected_fields,
         "StaticFiles asgi-call case",
     )
     if case["surface"] != STATIC_FILES_SURFACE or case["operation"] != RESPONSE_OPERATION:
         raise ValueError("workflow is outside the declared StaticFiles asgi-call operation")
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ValueError("StaticFiles observations must select asgi-call")
+    if request_sequence:
+        call_specs = case["calls"]
+        if not isinstance(call_specs, list) or len(call_specs) < 2:
+            raise ValueError("StaticFiles calls must contain at least two request inputs")
+        if (
+            case["path_limit_stress"] is not None
+            or case["permission_denial_stress"] is not None
+            or case["filesystem"] is not None
+        ):
+            raise ValueError(
+                "StaticFiles request sequences do not combine with stress or filesystem inputs"
+            )
+        for index, call in enumerate(call_specs):
+            _strict_object(call, {"scope", "incoming", "send"}, f"StaticFiles calls[{index}]")
+            if call["incoming"] != [] or call["send"] != {"kind": "capture-asgi-send"}:
+                raise ValueError("StaticFiles calls require empty receive and captured send")
+    else:
+        call_specs = [{"scope": case["scope"], "incoming": case["incoming"], "send": case["send"]}]
 
     from starlette.exceptions import HTTPException
     from starlette.staticfiles import StaticFiles
@@ -7316,6 +7337,83 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                 check_dir=case["check_dir"],
                 follow_symlink=case["follow_symlink"],
             )
+            if request_sequence:
+
+                async def observe_call(call: dict[str, Any]) -> dict[str, Any]:
+                    scope = _make_scope(call["scope"])
+                    sent: list[dict[str, Any]] = []
+
+                    async def receive() -> dict[str, Any]:
+                        return {"type": "http.disconnect"}
+
+                    async def send(message: dict[str, Any]) -> None:
+                        sent.append(message)
+
+                    captured_error: Exception | None = None
+                    try:
+                        await application(scope, receive, send)
+                    except Exception as exc:
+                        if not isinstance(exc, HTTPException):
+                            raise
+                        captured_error = exc
+                    events = [_canonical_message(message) for message in sent]
+                    response_start = next(
+                        (message for message in sent if message["type"] == "http.response.start"),
+                        None,
+                    )
+                    response_start_event = next(
+                        (event for event in events if event["type"] == "http.response.start"),
+                        None,
+                    )
+                    response_body = b"".join(
+                        message.get("body", b"")
+                        for message in sent
+                        if message["type"] == "http.response.body"
+                    )
+                    observation = {
+                        "response_status": (
+                            response_start["status"] if response_start is not None else None
+                        ),
+                        "ordered_repeated_headers": (
+                            response_start_event["headers"]
+                            if response_start_event is not None
+                            else []
+                        ),
+                        "response_bytes": {
+                            "encoding": "base64",
+                            "data": base64.b64encode(response_body).decode("ascii"),
+                        },
+                        "asgi_event_order": [event["type"] for event in events],
+                        "asgi_events": events,
+                    }
+                    if captured_error is None:
+                        return {"status": "ok", "value": observation}
+                    error = _dispatch_error(captured_error)
+                    error["code"] = captured_error.status_code
+                    return {
+                        "status": "error",
+                        "error": error,
+                        "partial_value": observation,
+                    }
+
+                async def observe_sequence() -> list[dict[str, Any]]:
+                    results = []
+                    for call in call_specs:
+                        results.append(await observe_call(call))
+                    return results
+
+                request_observations = asyncio.run(observe_sequence())
+                return {
+                    "case_id": case["case_id"],
+                    "status": "completed",
+                    "observations": [
+                        {
+                            "step_id": RESPONSE_OPERATION,
+                            "status": "ok",
+                            "value": {"requests": request_observations},
+                        }
+                    ],
+                }
             scope = _make_scope(case["scope"])
             sent: list[dict[str, Any]] = []
 

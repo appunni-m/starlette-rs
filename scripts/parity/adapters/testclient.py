@@ -653,7 +653,11 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                 elif operation == "send_query_params_json":
                     await websocket.send_json({"params": query_params_value})
                 elif operation == "close":
-                    await websocket.close()
+                    close_code = action.get("code", 1000)
+                    if "reason" in action:
+                        await websocket.close(close_code, action["reason"])
+                    else:
+                        await websocket.close(close_code)
                 elif operation == "send_scope_bytes":
                     await websocket.send_bytes(scope[action["field"]])
                 elif operation == "receive_json":
@@ -741,25 +745,40 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         ) as session:
             accepted_subprotocol = session.accepted_subprotocol
             for action in websocket_input["actions"]:
-                if action["operation"] == "send_text":
-                    value = session.send_text(action["text"])
-                elif action["operation"] == "send_bytes":
-                    value = session.send_bytes(base64.b64decode(action["data_base64"]))
-                elif action["operation"] == "send_json":
-                    value = session.send_json(action["value"], action.get("mode", "text"))
-                elif action["operation"] == "receive_text":
-                    value = session.receive_text()
-                elif action["operation"] == "receive_bytes":
-                    value = session.receive_bytes()
-                elif action["operation"] == "receive_json":
-                    value = session.receive_json(action.get("mode", "text"))
-                elif action["operation"] == "close":
-                    value = session.close(action.get("code", 1000), action.get("reason"))
-                else:
-                    raise ValueError(
-                        f"unsupported TestClient WebSocket action: {action['operation']!r}"
+                try:
+                    if action["operation"] == "send_text":
+                        value = session.send_text(action["text"])
+                    elif action["operation"] == "send_bytes":
+                        value = session.send_bytes(base64.b64decode(action["data_base64"]))
+                    elif action["operation"] == "send_json":
+                        value = session.send_json(action["value"], action.get("mode", "text"))
+                    elif action["operation"] == "receive_text":
+                        value = session.receive_text()
+                    elif action["operation"] == "receive_bytes":
+                        value = session.receive_bytes()
+                    elif action["operation"] == "receive_json":
+                        value = session.receive_json(action.get("mode", "text"))
+                    elif action["operation"] == "close":
+                        value = session.close(action.get("code", 1000), action.get("reason"))
+                    else:
+                        raise ValueError(
+                            f"unsupported TestClient WebSocket action: {action['operation']!r}"
+                        )
+                except WebSocketDisconnect as error:
+                    if not action.get("capture_disconnect", False):
+                        raise
+                    action_results.append(
+                        {
+                            "operation": action["operation"],
+                            "disconnect": {
+                                "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                                "code": error.code,
+                                "reason": error.reason,
+                            },
+                        }
                     )
-                action_results.append({"operation": action["operation"], "value": _safe(value)})
+                else:
+                    action_results.append({"operation": action["operation"], "value": _safe(value)})
     except WebSocketDenialResponse as exception:
         exception_type = type(exception)
         denial_response = {

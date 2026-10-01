@@ -8117,6 +8117,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.cors.CORSMiddleware.allow-all-except-credentials",
+              "dimension": "parameter_combination",
+              "description": "Handle an input-defined wildcard preflight and simple request, then a request without Origin, with wildcard origins, methods, and headers and credentials disabled. Pinned source: tests/middleware/test_cors.py::test_cors_allow_all_except_credentials.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.cors.CORSMiddleware.regex-fullmatch-origin",
               "dimension": "boundary",
               "description": "Match configured origin regular expressions using full-string semantics.",
@@ -16972,6 +16983,9 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "scope"
                   }
                 },
                 {
@@ -16981,6 +16995,9 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "scope"
                   }
                 },
                 {
@@ -16990,6 +17007,9 @@
                   ],
                   "comparison": {
                     "kind": "bytes"
+                  },
+                  "condition": {
+                    "input_key": "scope"
                   }
                 },
                 {
@@ -16999,6 +17019,9 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "scope"
                   }
                 },
                 {
@@ -17008,6 +17031,21 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "scope"
+                  }
+                },
+                {
+                  "path": "requests",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "calls"
                   }
                 }
               ],
@@ -17256,6 +17294,18 @@
               "id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-etag-match",
               "dimension": "parameter_combination",
               "description": "Supply an If-None-Match value for an input-defined asset and compare live response events. Upstream: tests/test_staticfiles.py::test_staticfiles_304_with_etag_match.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-etag-mismatch",
+              "dimension": "parameter_combination",
+              "description": "Run two ordered ASGI calls against one input-defined StaticFiles instance: capture the first GET response, then issue GET with the source test's literal unrelated If-None-Match value. Compare both live response event tapes. Upstream: tests/test_staticfiles.py::test_staticfiles_200_with_etag_mismatch.",
               "lanes": [
                 "parity"
               ],
@@ -20243,6 +20293,28 @@
               "id": "starlette.testclient.TestClient.websocket-session.client-close-code-reason",
               "dimension": "boundary",
               "description": "Forward the declared client close code and reason into the app receive stream; compare the raw websocket.disconnect event and the WebSocketDisconnect fields captured by receive_text(). Pinned source: starlette/testclient.py:181-182; starlette/websockets.py:36-50; tests/test_websockets.py::test_client_close.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.application-close-code",
+              "dimension": "boundary",
+              "description": "Forward an application WebSocket close code to the client and compare the received WebSocketDisconnect code. Pinned source: tests/test_websockets.py::test_application_close; starlette/websockets.py:36-50.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.application-close-reason",
+              "dimension": "boundary",
+              "description": "Forward an application WebSocket close reason to the client and compare the received WebSocketDisconnect reason. Pinned source: tests/test_websockets.py::test_websocket_close_reason; starlette/websockets.py:36-50.",
               "lanes": [
                 "parity"
               ],

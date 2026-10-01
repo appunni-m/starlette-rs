@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 657 input-only cases in 76 indexed files, covering 93 operations and 692 parity requirements. Recent additions include Rust-backed `CommaSeparatedStrings`, including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles constructor, lazy-configuration, and repeated-call inputs; a three-request CORSMiddleware origin-isolation workflow; 16 Request.cookies inputs for lenient parsing; all active edge/invalid parameter strings; repeated Cookie fields; quoted backslash-plus-LF handling; Python dict cache/mutation behavior; and a TestClient cookie-persistence round trip for `test_request_cookies`. New WebSocket inputs cover the fresh-iterator `asend(non-None)` boundary, four denial-response state transitions, and invalid JSON modes. GZip now has direct `GZipResponder` package-profile inputs for configured exclusion normalization and compression without negotiation. The latest full-slice result is recorded below.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 666 input-only cases in 77 indexed files, covering 93 operations and 700 parity requirements. Recent additions include Rust-backed `CommaSeparatedStrings`, including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles constructor, lazy-configuration, repeated-call, and two-request ETag-mismatch inputs; three-call CORSMiddleware origin-isolation and wildcard-without-credentials workflows; 16 Request.cookies inputs for lenient parsing; all active edge/invalid parameter strings; repeated Cookie fields; quoted backslash-plus-LF handling; Python dict cache/mutation behavior; and a TestClient cookie-persistence round trip for `test_request_cookies`. New WebSocket inputs cover the fresh-iterator `asend(non-None)` boundary, four denial-response state transitions, application close code and reason, and invalid JSON modes. GZip now has direct `GZipResponder` package-profile inputs for configured exclusion normalization and compression without negotiation. The latest full-slice result is recorded below.
 
 The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, middleware registration and ordering; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State behavior; direct Request body, stream, JSON, and form consumption; responses and background tasks, including cancellation and post-construction FileResponse assignments; WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, schemas, and one Python-package Jinja2 workflow. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
@@ -10,27 +10,28 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `9c5440db-d796-4f4c-b4d8-cf19834d4e78`.
-It ran from `2026-10-01T19:29:33.556Z` to `2026-10-01T19:32:26.140Z` against
+The latest full-slice parity run is `0c6a7de9-d5f7-44db-83b1-4d1ec0a3472a`.
+It ran from `2026-10-01T21:26:41.122Z` to `2026-10-01T21:28:46.171Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-657-case/692-requirement manifest. It selected 844 profile comparisons: 840
+666-case/700-requirement manifest. It selected 856 profile comparisons: 852
 passed, zero failed, zero infrastructure errors, and four Rust-native
 Python-callable rows were `not_run`. The Python-package profile passed all
-655 selected comparisons; Rust-native passed 185 of 189. The added direct
-`GZipResponder` exclusion-normalization and no-negotiation compression cases,
-plus both invalid WebSocket JSON-mode cases, passed exact source/package
-comparison. The four native `not_run` rows are synchronous Request endpoint,
+664 selected comparisons; Rust-native passed 188 of 192. The new StaticFiles
+two-request ETag mismatch, CORS wildcard-without-credentials sequence, and
+TestClient application close code/reason cases passed their selected live
+comparisons. The four native `not_run` rows are synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
-`make test` exits with status 2 because those declared rows remain `not_run`.
+`make parity-run` exits with status 2 because those declared rows remain
+`not_run`; they are not parity failures.
 
 The Rust-native fingerprint was
-`d009a3f33b3d3174f83551a6c99bf1e07063ae93+source-fnv1a64-704730bcd90dfac8`.
+`00b98e94afcf8e1fd7aabd5d41a09b4f56fb7f9c+source-fnv1a64-9111041f97b1e495`.
 The installed package tree SHA-256 was
-`f8d6f6bf66de21ca12a7580fb220877b2b386154bb8f1865f2d828565d06515d`; its
+`abeaf1aae4138a98bd9ad2e37370bfc393d462f697fc86af271669dc1c42c503`; its
 wheel SHA-256 was
-`3011558c41d0d23bf3d6af43c2272fdd4c231d96f82c11401c00b908dac55a3e`. The
+`26c7fe6b5f11178b607d8cbeb146d7f9245d22f1d18e251c1b7bb63d20377ef4`. The
 manifest SHA-256 was
-`d5c069c0c978d2abc19d6c3b8a7bad9fd358956260b5d017432f7b54f2291535`.
+`1712f0b627d1fd709d928dda0d9c291cd732bbd60450622a21cb9e52e3230456`.
 Strict aggregation remains `not_proven` because the full compatibility
 denominator is incomplete and four Rust-native rows are `not_run`.
 
@@ -591,7 +592,7 @@ API parity.
 
 [`static-files.yaml`](../tests/fixtures/sources/parity/static-files.yaml) and
 [`static-files-symlink-asgi.yaml`](../tests/fixtures/sources/parity/static-files-symlink-asgi.yaml)
-together contain 28 input-defined `StaticFiles` ASGI-call cases,
+together contain 29 input-defined `StaticFiles` ASGI-call cases,
 [`static-files-lookup.yaml`](../tests/fixtures/sources/parity/static-files-lookup.yaml)
 compares 15 direct `lookup_path` calls, including Unix and UNC-style absolute-path rejection,
 parent traversal, a symlinked configured root, and internal and external file
@@ -603,7 +604,7 @@ and non-directory roots, and `config_checked` across repeated missing-path
 requests. A package-only case in
 [`static-files-async-boundary.yaml`](../tests/fixtures/sources/parity/static-files-async-boundary.yaml)
 gates the bound `lookup_path` override and observes the callback running on an
-AnyIO worker while the event loop progresses. The ASGI-call inputs select 26
+AnyIO worker while the event loop progresses. The ASGI-call inputs select 27
 comparisons on each target profile; package-discovery cases use Python's
 `importlib`, and Rust-native explicit-root cases use supplied roots. The two
 path-limit cases exercise an
@@ -612,16 +613,17 @@ overlong first root with both `follow_symlink` settings and verify that its
 cases remove search permission from an existing asset's root and compare the
 401 exception with both symlink settings. Together
 with the 15 lookup cases on each profile and the package-only async-boundary
-and four configuration cases, they produce 87 profile comparisons: 41
-Rust-native and 46 Python-package.
+and four configuration cases, they produce 89 profile comparisons: 42
+Rust-native and 47 Python-package.
 They cover rooted GET and HEAD,
 HTML index redirects and 404 fallback, 401/404/405 outcomes, date and ETag
-validators, validator precedence, package assets, absolute-path rejection,
+validators including the two-request ETag-mismatch sequence, validator
+precedence, package assets, absolute-path rejection,
 file/directory metadata, path traversal and symlink containment, external file
 and directory symlink serving, bound override dispatch, the resulting ASGI response, and path-limit error precedence. Python
 package discovery is exercised through `importlib` on the Python package
-profile; Rust-native package cases pass explicit roots. All 87 selected
-StaticFiles comparisons passed in run `2b78c6dd-a6b3-4a96-941d-7ccec76f9518`,
+profile; Rust-native package cases pass explicit roots. All 89 selected
+StaticFiles comparisons passed in run `0c6a7de9-d5f7-44db-83b1-4d1ec0a3472a`,
 including all 30 direct lookup comparisons. Four package-only configuration
 inputs match the pinned constructor-missing-directory, lazy missing-root,
 lazy file-root, and repeated-request checks at `tests/test_staticfiles.py:124-165`.

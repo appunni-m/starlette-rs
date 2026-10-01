@@ -237,6 +237,8 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "blocking_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.blocking-receive-progress",
     "disconnect_details": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.disconnect-details",
     "client_close": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.client-close-code-reason",
+    "application_close_code": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-close-code",
+    "application_close_reason": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-close-reason",
     "cancellation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.close-triggered-cancellation",
     "portal_cleanup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.portal-cleanup",
     "send_json_text": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.send-json-text-frame",
@@ -715,6 +717,9 @@ STATIC_FILES_ASGI_CALL_CASE_KEYS = STATIC_FILES_CASE_KEYS | {
     "permission_denial_stress",
     "filesystem",
 }
+STATIC_FILES_ASGI_CALL_SEQUENCE_CASE_KEYS = (
+    STATIC_FILES_ASGI_CALL_CASE_KEYS - {"scope", "incoming", "send"}
+) | {"calls"}
 STATIC_FILES_LOOKUP_PATH_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "directory",
     "files",
@@ -1682,6 +1687,23 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and observation["path"]
                         in {"application_mount_routes", "mount_scope_observations"}
                     )
+                    static_files_single_call = (
+                        condition["input_key"] == "scope"
+                        and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
+                        and observation["path"]
+                        in {
+                            "response_status",
+                            "ordered_repeated_headers",
+                            "response_bytes",
+                            "asgi_event_order",
+                            "asgi_events",
+                        }
+                    )
+                    static_files_call_sequence = (
+                        condition["input_key"] == "calls"
+                        and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
+                        and observation["path"] == "requests"
+                    )
                     if (
                         not response_header_probe
                         and not file_response_scheduling_probe
@@ -1690,6 +1712,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_application_debug
                         and not testclient_application_host
                         and not testclient_application_mount
+                        and not static_files_single_call
+                        and not static_files_call_sequence
                     ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
@@ -4512,7 +4536,35 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             )
 
 
-def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
+def _validate_static_files_case_stimulus(
+    case: dict[str, Any], *, validate_covers: bool = True
+) -> set[str]:
+    if "calls" in case:
+        _exact(
+            case,
+            STATIC_FILES_ASGI_CALL_SEQUENCE_CASE_KEYS,
+            "StaticFiles asgi-call sequence case",
+        )
+        calls = case["calls"]
+        if not isinstance(calls, list) or len(calls) < 2:
+            raise ContractError("StaticFiles calls must contain at least two request inputs")
+        base_case = {key: value for key, value in case.items() if key != "calls"}
+        derived_covers: set[str] = set()
+        for index, call in enumerate(calls):
+            call = _exact(
+                call,
+                {"scope", "incoming", "send"},
+                f"StaticFiles calls[{index}]",
+            )
+            derived_covers.update(
+                _validate_static_files_case_stimulus({**base_case, **call}, validate_covers=False)
+            )
+        if validate_covers and set(case["covers"]) != derived_covers:
+            raise ContractError(
+                "StaticFiles call-sequence covers must match its input-derived request behaviors"
+            )
+        return derived_covers
+
     _exact(case, STATIC_FILES_ASGI_CALL_CASE_KEYS, "StaticFiles asgi-call case")
     if case["surface"] != STATIC_FILES_SURFACE or case["operation"] != RESPONSE_OPERATION:
         raise ContractError("case is outside the declared StaticFiles asgi-call operation")
@@ -4802,7 +4854,34 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
                 ):
                     derived.add("conditional-weak-etag-list")
                 else:
-                    derived.add("conditional-etag-match")
+                    asset_inputs = [
+                        *files,
+                        *(file_input for package in packages for file_input in package["files"]),
+                    ]
+                    selected_asset = next(
+                        (
+                            file_input
+                            for file_input in asset_inputs
+                            if file_input["path"] == normalized_path
+                        ),
+                        None,
+                    )
+                    if selected_asset is None:
+                        raise ContractError(
+                            "StaticFiles If-None-Match inputs require an input-defined selected asset"
+                        )
+                    contents = base64.b64decode(selected_asset["contents_base64"], validate=True)
+                    etag_base = f"{float(selected_asset['mtime_seconds'])}-{len(contents)}".encode()
+                    selected_etag = f'"{hashlib.md5(etag_base, usedforsecurity=False).hexdigest()}"'
+                    matches_selected_etag = any(
+                        tag.strip().removeprefix("W/") == selected_etag
+                        for tag in request_headers["if-none-match"].split(",")
+                    )
+                    derived.add(
+                        "conditional-etag-match"
+                        if matches_selected_etag
+                        else "conditional-etag-mismatch"
+                    )
             elif conditional_match:
                 derived.add("conditional-date-match")
             elif selected_files[normalized_path][1]:
@@ -4836,10 +4915,11 @@ def _validate_static_files_case_stimulus(case: dict[str, Any]) -> None:
     if not derived:
         raise ContractError("StaticFiles input must select a declared live response behavior")
     expected_covers = {f"{STATIC_FILES_SURFACE}.asgi-call.{item}" for item in derived}
-    if set(case["covers"]) != expected_covers:
+    if validate_covers and set(case["covers"]) != expected_covers:
         raise ContractError(
             "StaticFiles case claims requirements not selected by its configured files and request"
         )
+    return expected_covers
 
 
 def _static_files_workspace_path(root: str, relative_path: str, context: str) -> str:
@@ -9324,8 +9404,20 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                 mode = _string(action.get("mode", "text"), f"{item_context}.mode")
                 if mode not in {"text", "binary"}:
                     raise ContractError(f"{item_context}.mode must be text or binary")
-            elif operation in {"observe_query_params", "send_query_params_json", "close"}:
+            elif operation in {"observe_query_params", "send_query_params_json"}:
                 _exact(value, {"operation"}, item_context)
+            elif operation == "close":
+                action = _exact(
+                    value,
+                    {"operation"} | (value.keys() & {"code", "reason"}),
+                    item_context,
+                )
+                if "code" in action and (
+                    type(action["code"]) is not int or not 0 <= action["code"] <= 65535
+                ):
+                    raise ContractError(f"{item_context}.code must fit an unsigned 16-bit integer")
+                if "reason" in action:
+                    _string(action["reason"], f"{item_context}.reason")
             elif operation == "receive_json":
                 action = _exact(
                     value,
@@ -9405,6 +9497,11 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
         return "client-close-disconnect"
     if application_query_params_flow:
         return "application-query-params"
+    if len(actions) == 2 and [action.get("operation") for action in actions] == [
+        "accept",
+        "close",
+    ]:
+        return "application-close"
     if len(actions) == 2 and actions[1].get("operation") == "wait_forever":
         return "cancellation"
     if len(actions) == 2 and [action.get("operation") for action in actions] == [
@@ -9585,6 +9682,16 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         elif session_actions[0].get("operation") == "receive_bytes":
             _exact(session_actions[0], {"operation"}, "TestClient WebSocket bytes receive action")
             client_binary_receive_workflow = True
+        elif session_actions[0].get("operation") == "receive_text":
+            receive_action = _exact(
+                session_actions[0],
+                {"operation"} | (session_actions[0].keys() & {"capture_disconnect"}),
+                "TestClient WebSocket disconnect receive action",
+            )
+            if receive_action.get("capture_disconnect") is not True:
+                raise ContractError(
+                    "TestClient WebSocket receive_text must capture application-close disconnect details"
+                )
         else:
             receive_action = _exact(
                 session_actions[0],
@@ -9763,6 +9870,15 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "TestClient WebSocket query-params flow requires an inline query, observed query_string, and one text receive_json action"
             )
+        if flow_kind == "application-close" and (
+            len(session_actions) != 1
+            or not isinstance(session_actions[0], dict)
+            or session_actions[0].get("operation") != "receive_text"
+            or session_actions[0].get("capture_disconnect") is not True
+        ):
+            raise ContractError(
+                "TestClient application-close flow requires receive_text to capture disconnect details"
+            )
         if flow_kind == "json-exchange":
             if not client_json_exchange:
                 raise ContractError(
@@ -9793,7 +9909,11 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
         }
-        if flow_kind not in {"application-query-params", "client-close-disconnect"}:
+        if flow_kind not in {
+            "application-query-params",
+            "application-close",
+            "client-close-disconnect",
+        }:
             expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"])
         if flow_kind == "blocking-receive":
             expected_covers.update(
@@ -9816,6 +9936,11 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["receive_json_text"],
                 }
             )
+        elif flow_kind == "application-close":
+            close_action = app_actions[0]["actions"][1]
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_code"])
+            if "reason" in close_action:
+                expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_reason"])
         elif flow_kind == "client-close-disconnect":
             expected_covers.update(
                 {
@@ -10687,6 +10812,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_redirect_response
         else FILE_RESPONSE_CASE_KEYS
         if is_file_response
+        else STATIC_FILES_ASGI_CALL_SEQUENCE_CASE_KEYS
+        if is_static_files and "calls" in case
         else STATIC_FILES_ASGI_CALL_CASE_KEYS
         if is_static_files
         else STATIC_FILES_ASYNC_BOUNDARY_CASE_KEYS
@@ -18200,6 +18327,76 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
                 and not origin_is_allowed(sequence_origins[1])
             ):
                 covered.add(suffix("reused-instance-origin-isolation"))
+            sequence_dispatches = [
+                {name: descriptor["value"] for name, descriptor in step["arguments"].items()}
+                for step in case["steps"][1:]
+            ]
+            sequence_methods = [sequence_scope.get("method") for sequence_scope in sequence_scopes]
+            preflight_headers = (
+                decoded_headers(sequence_scopes[0]) if len(sequence_scopes) == 3 else {}
+            )
+            simple_headers = (
+                decoded_headers(sequence_scopes[1]) if len(sequence_scopes) == 3 else {}
+            )
+            no_origin_headers = (
+                decoded_headers(sequence_scopes[2]) if len(sequence_scopes) == 3 else {}
+            )
+            response_input = constructor["app"]
+            response_messages = response_input.get("messages", [])
+            response_start = response_messages[0] if response_messages else {}
+            response_body = response_messages[1] if len(response_messages) > 1 else {}
+            response_headers = {
+                base64.b64decode(name, validate=True).decode("latin-1").lower(): base64.b64decode(
+                    value, validate=True
+                ).decode("latin-1")
+                for name, value in response_start.get("headers_base64_pairs", [])
+            }
+            if (
+                constructor["allow_origins"] == ["*"]
+                and constructor["allow_methods"] == ["*"]
+                and constructor["allow_headers"] == ["*"]
+                and constructor["allow_credentials"] is False
+                and constructor["allow_origin_regex"] is None
+                and constructor["allow_private_network"] is False
+                and constructor["expose_headers"] == ["X-Status"]
+                and len(sequence_scopes) == 3
+                and all(sequence_scope["type"] == "http" for sequence_scope in sequence_scopes)
+                and sequence_methods[0] == "OPTIONS"
+                and sequence_methods[1] == "GET"
+                and sequence_methods[2] == "GET"
+                and all(sequence_scope["path"] == "/" for sequence_scope in sequence_scopes)
+                and sequence_origins[0] is not None
+                and sequence_origins[0] == sequence_origins[1]
+                and sequence_origins[2] is None
+                and set(preflight_headers)
+                == {
+                    "origin",
+                    "access-control-request-method",
+                    "access-control-request-headers",
+                }
+                and preflight_headers.get("access-control-request-method") == "GET"
+                and preflight_headers.get("access-control-request-headers") == "X-Example"
+                and set(simple_headers) == {"origin"}
+                and not no_origin_headers
+                and response_input.get("kind") == "asgi-response-sequence"
+                and response_start.get("type") == "http.response.start"
+                and response_start.get("status") == 200
+                and response_headers
+                == {"content-length": "8", "content-type": "text/plain; charset=utf-8"}
+                and response_body
+                == {
+                    "type": "http.response.body",
+                    "body_base64": "SG9tZXBhZ2U=",
+                    "more_body": False,
+                }
+                and all(
+                    dispatch["receive"]
+                    == [{"type": "http.request", "body_base64": "", "more_body": False}]
+                    and dispatch["send"] == {"kind": "capture-asgi-send"}
+                    for dispatch in sequence_dispatches
+                )
+            ):
+                covered.add(suffix("allow-all-except-credentials"))
         if scope["type"] != "http":
             covered.add(suffix("non-http-passthrough"))
             return covered

@@ -2841,52 +2841,77 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
 }
 
 fn run_static_files_case(case: &Value) -> Result<Value, String> {
-    let case = exact_object(
-        case,
-        &[
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "directory",
-            "path_limit_stress",
-            "permission_denial_stress",
-            "filesystem",
-            "packages",
-            "files",
-            "html",
-            "check_dir",
-            "follow_symlink",
-            "scope",
-            "incoming",
-            "send",
-            "observations",
-        ],
-        "StaticFiles asgi-call case",
-    )?;
+    let request_sequence = case.get("calls").is_some();
+    let mut expected_fields = vec![
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "directory",
+        "path_limit_stress",
+        "permission_denial_stress",
+        "filesystem",
+        "packages",
+        "files",
+        "html",
+        "check_dir",
+        "follow_symlink",
+        "observations",
+    ];
+    if request_sequence {
+        expected_fields.push("calls");
+    } else {
+        expected_fields.extend(["scope", "incoming", "send"]);
+    }
+    let case = exact_object(case, &expected_fields, "StaticFiles asgi-call case")?;
     let case_id = string_field(case, "case_id", "StaticFiles asgi-call case")?;
     if string_field(case, "surface", "StaticFiles asgi-call case")? != STATIC_FILES_SURFACE
         || string_field(case, "operation", "StaticFiles asgi-call case")? != RESPONSE_OPERATION
         || case.get("observations") != Some(&json!([RESPONSE_OPERATION]))
         || case.get("assets") != Some(&json!([]))
-        || case.get("incoming") != Some(&json!([]))
+        || (!request_sequence && case.get("incoming") != Some(&json!([])))
     {
         return Err(String::from(
             "case is outside the StaticFiles ASGI-call contract",
         ));
     }
+    let call_inputs: Vec<&Map<String, Value>> = if request_sequence {
+        let calls = case
+            .get("calls")
+            .and_then(Value::as_array)
+            .filter(|calls| calls.len() >= 2)
+            .ok_or_else(|| String::from("StaticFiles calls must contain at least two requests"))?;
+        calls
+            .iter()
+            .map(|call| {
+                let call = exact_object(call, &["scope", "incoming", "send"], "StaticFiles call")?;
+                if call.get("incoming") != Some(&json!([])) {
+                    return Err(String::from(
+                        "StaticFiles call incoming input must be empty",
+                    ));
+                }
+                validate_capture_send(
+                    call.get("send")
+                        .ok_or_else(|| String::from("StaticFiles call send input is missing"))?,
+                )?;
+                Ok(call)
+            })
+            .collect::<Result<Vec<_>, String>>()?
+    } else {
+        validate_capture_send(
+            case.get("send")
+                .ok_or_else(|| String::from("StaticFiles ASGI-call send input is missing"))?,
+        )?;
+        vec![case]
+    };
     validate_string_array(case, "covers", "StaticFiles covers", false)?;
     validate_string_array(
         case,
         "target_profiles",
         "StaticFiles target_profiles",
         false,
-    )?;
-    validate_capture_send(
-        case.get("send")
-            .ok_or_else(|| String::from("StaticFiles ASGI-call send input is missing"))?,
     )?;
     let directory_name = string_field(case, "directory", "StaticFiles case")?;
     if directory_name.is_empty()
@@ -2929,11 +2954,21 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
     let filesystem = case
         .get("filesystem")
         .ok_or_else(|| String::from("StaticFiles filesystem input is missing"))?;
-    let null_path = case
-        .get("scope")
-        .and_then(|scope| scope.get("path"))
-        .and_then(Value::as_str)
-        .is_some_and(|path| path.contains('\0'));
+    if request_sequence
+        && (!filesystem.is_null()
+            || path_limit_stress.is_some()
+            || permission_denial_stress.is_some())
+    {
+        return Err(String::from(
+            "StaticFiles call sequences do not combine with filesystem or stress inputs",
+        ));
+    }
+    let null_path = call_inputs.iter().any(|call| {
+        call.get("scope")
+            .and_then(|scope| scope.get("path"))
+            .and_then(Value::as_str)
+            .is_some_and(|path| path.contains('\0'))
+    });
     if file_inputs.is_empty() && package_inputs.is_empty() && filesystem.is_null() && !null_path {
         return Err(String::from(
             "StaticFiles must configure an asset or filesystem input unless the input path contains a NUL byte",
@@ -2952,14 +2987,16 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
         (temporary_directory, root, Vec::new())
     };
 
-    let (scope, pathsend_extension) = validated_file_response_scope(
-        case.get("scope")
+    let first_call = call_inputs
+        .first()
+        .ok_or_else(|| String::from("StaticFiles ASGI-call has no requests"))?;
+    let (scope, _) = validated_file_response_scope(
+        first_call
+            .get("scope")
             .ok_or_else(|| String::from("StaticFiles ASGI-call scope is missing"))?,
     )?;
     let scope_path = string_field(&scope, "path", "StaticFiles HTTP scope")?;
     let root_path = string_field(&scope, "root_path", "StaticFiles HTTP scope")?;
-    let method = string_field(&scope, "method", "StaticFiles HTTP scope")?;
-    let request_headers = parse_scope_request_headers(&scope, "StaticFiles HTTP scope")?;
     let path = NativeStaticFiles::get_path(scope_path, root_path);
     let root = match path_limit_stress {
         Some(stress) => {
@@ -3001,22 +3038,88 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
     } else {
         None
     };
-    let selected_result = static_files.get_response(&path, scope_path, method, &request_headers);
+    let request_observations = call_inputs
+        .iter()
+        .map(|call| observe_static_files_call(&static_files, call))
+        .collect::<Result<Vec<_>, _>>()?;
     drop(permission_guard);
-    let selected = match selected_result {
+    drop(temporary_directory);
+    if request_sequence {
+        return Ok(json!({
+            "case_id": case_id,
+            "status": "completed",
+            "observations": [{
+                "step_id": RESPONSE_OPERATION,
+                "status": "ok",
+                "value": {"requests": request_observations},
+            }],
+        }));
+    }
+    let request_observation = request_observations
+        .first()
+        .ok_or_else(|| String::from("StaticFiles ASGI-call has no response observation"))?;
+    let response_status = request_observation
+        .get("status")
+        .and_then(Value::as_str)
+        .ok_or_else(|| String::from("StaticFiles response observation has no status"))?;
+    let observation_item = match response_status {
+        "ok" => json!({
+            "step_id": RESPONSE_OPERATION,
+            "status": "ok",
+            "value": request_observation
+                .get("value")
+                .ok_or_else(|| String::from("StaticFiles response observation has no value"))?,
+        }),
+        "error" => json!({
+            "step_id": RESPONSE_OPERATION,
+            "status": "error",
+            "error": request_observation
+                .get("error")
+                .ok_or_else(|| String::from("StaticFiles error observation has no error"))?,
+            "partial_value": request_observation
+                .get("partial_value")
+                .ok_or_else(|| String::from("StaticFiles error observation has no partial value"))?,
+        }),
+        _ => {
+            return Err(String::from(
+                "StaticFiles response observation status is invalid",
+            ));
+        }
+    };
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [observation_item],
+    }))
+}
+
+fn observe_static_files_call(
+    static_files: &NativeStaticFiles,
+    request: &Map<String, Value>,
+) -> Result<Value, String> {
+    let (scope, pathsend_extension) = validated_file_response_scope(
+        request
+            .get("scope")
+            .ok_or_else(|| String::from("StaticFiles call scope is missing"))?,
+    )?;
+    let scope_path = string_field(&scope, "path", "StaticFiles HTTP scope")?;
+    let root_path = string_field(&scope, "root_path", "StaticFiles HTTP scope")?;
+    let method = string_field(&scope, "method", "StaticFiles HTTP scope")?;
+    let request_headers = parse_scope_request_headers(&scope, "StaticFiles HTTP scope")?;
+    let path = NativeStaticFiles::get_path(scope_path, root_path);
+    let selected = match static_files.get_response(&path, scope_path, method, &request_headers) {
         Ok(selected) => selected,
         Err(StaticFilesError::MethodNotAllowed) => {
-            return Ok(static_files_error_result(
-                case_id,
+            return Ok(static_files_call_error_observation(
                 405,
                 "Method Not Allowed",
             ));
         }
         Err(StaticFilesError::NotFound) => {
-            return Ok(static_files_error_result(case_id, 404, "Not Found"));
+            return Ok(static_files_call_error_observation(404, "Not Found"));
         }
         Err(StaticFilesError::PermissionDenied) => {
-            return Ok(static_files_error_result(case_id, 401, "Unauthorized"));
+            return Ok(static_files_call_error_observation(401, "Unauthorized"));
         }
         Err(error) => return Err(format!("StaticFiles request failed: {error:?}")),
     };
@@ -3130,27 +3233,43 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
             )
         }
     };
-    drop(temporary_directory);
     let event_order = events
         .iter()
         .filter_map(|event| event.get("type").and_then(Value::as_str))
         .map(str::to_owned)
         .collect::<Vec<_>>();
     Ok(json!({
-        "case_id": case_id,
-        "status": "completed",
-        "observations": [{
-            "step_id": RESPONSE_OPERATION,
-            "status": "ok",
-            "value": {
-                "response_status": response_status,
-                "ordered_repeated_headers": ordered_headers,
-                "response_bytes": {"encoding": "base64", "data": encode_base64(&response_bytes)},
-                "asgi_event_order": event_order,
-                "asgi_events": events,
-            },
-        }],
+        "status": "ok",
+        "value": {
+            "response_status": response_status,
+            "ordered_repeated_headers": ordered_headers,
+            "response_bytes": {"encoding": "base64", "data": encode_base64(&response_bytes)},
+            "asgi_event_order": event_order,
+            "asgi_events": events,
+        },
     }))
+}
+
+fn static_files_call_error_observation(status_code: u16, detail: &str) -> Value {
+    json!({
+        "status": "error",
+        "error": {
+            "class": "starlette.exceptions.HTTPException",
+            "kind": "exception",
+            "message": format!("{status_code}: {detail}"),
+            "stage": "dispatch",
+            "code": status_code,
+            "cause": null,
+            "suppress_context": false,
+        },
+        "partial_value": {
+            "response_status": null,
+            "ordered_repeated_headers": [],
+            "response_bytes": {"encoding": "base64", "data": ""},
+            "asgi_event_order": [],
+            "asgi_events": [],
+        },
+    })
 }
 
 fn parse_static_files_path_limit_stress(
@@ -3593,34 +3712,6 @@ fn static_files_skipped_result(case_id: &str, reason: &str) -> Value {
             "step_id": RESPONSE_OPERATION,
             "status": "skipped",
             "reason": reason,
-        }],
-    })
-}
-
-fn static_files_error_result(case_id: &str, status_code: u16, detail: &str) -> Value {
-    let message = format!("{status_code}: {detail}");
-    json!({
-        "case_id": case_id,
-        "status": "completed",
-        "observations": [{
-            "step_id": RESPONSE_OPERATION,
-            "status": "error",
-            "error": {
-                "class": "starlette.exceptions.HTTPException",
-                "kind": "exception",
-                "message": message,
-                "stage": "dispatch",
-                "code": status_code,
-                "cause": null,
-                "suppress_context": false,
-            },
-            "partial_value": {
-                "response_status": null,
-                "ordered_repeated_headers": [],
-                "response_bytes": {"encoding": "base64", "data": ""},
-                "asgi_event_order": [],
-                "asgi_events": [],
-            },
         }],
     })
 }
