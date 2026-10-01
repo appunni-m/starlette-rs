@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 595 input-only cases across 70 files,
-covering 85 operations and 638 parity requirements. It includes two
+The active parity manifest indexes 596 input-only cases across 70 files,
+covering 85 operations and 639 parity requirements. It includes two
 Python-package-only direct `run_in_threadpool` cases, synchronous Request
 endpoint worker cancellation and failure, five async Request endpoint callable
 shapes and failure, ASGI callable-instance success and failure, two direct
@@ -32,28 +32,28 @@ the Starlette ASGI application and route inventory, routing and reverse URLs, UR
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
 WebSockets, exceptions, status constants, endpoints,
-authentication, middleware (including bounded WSGIMiddleware,
+authentication, middleware (including the default middleware-boundary trace and bounded WSGIMiddleware,
 SessionMiddleware, and BaseHTTPMiddleware workflows), configuration,
 schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `3183a3e4-7257-462a-b401-33a06c978c4f`. It ran
-from `2026-10-01T08:31:34.152Z` to `2026-10-01T08:34:04.569Z` and selected 754
-profile comparisons: 750 executed and passed, zero failed, zero infrastructure
+The latest full-slice run is `e0590d0d-c751-4ecf-aa7b-cb6ce6e592a0`. It ran from
+`2026-10-01T08:54:43.186Z` to `2026-10-01T08:56:52.988Z` and selected 755
+profile comparisons: 751 executed and passed, zero failed, zero infrastructure
 errors, and four Rust-native Python-callable rows were `not_run`. The Python
-package passed all 593 selected comparisons; Rust-native passed 157 of 161.
-The host and mount registration inputs, and the callable failure workflows,
-passed exact source/package comparison. The four native `not_run`
-rows are sync endpoint, bound-method, partial, and callable-instance ASGI
-dispatch. `make test` exits with status 2 for those declared Python-callable
-boundaries. The Rust-native source fingerprint was
-`cedabb1fbe201eeb96cc4187f99510dea5d9a18d+source-fnv1a64-26d37a031534df21`.
+package passed all 594 selected comparisons; Rust-native passed 157 of 161.
+The host and mount registration inputs, default middleware-boundary trace, and
+the callable failure workflows passed exact source/package comparison. The
+four native `not_run` rows are sync endpoint, bound-method, partial, and
+callable-instance ASGI dispatch. `make test` exits with status 2 for those
+declared Python-callable boundaries. The Rust-native source fingerprint was
+`6fec565bd26619ef5db1d756c43c4cb9855d624e+source-fnv1a64-811143778bc6e93d`.
 The installed package tree SHA-256 was
-`7d068308752ab50dc02c5046972923a77c8361a1a54a211a481481c36258d469`, wheel
-SHA-256 `a677742efb8eb4f2f6bf8d395e351b6d08ab8e195b5955e162a1040774cb9fc6`,
+`5a87a47288ea5b7ae0298491b2d3a2f6f5f03cbfa7c85567bb7d860bfb467f71`, wheel
+SHA-256 `934d247e4226a079a7e760bf04dbaa49d1e3658a5d724ffa9d2418a3f6d1cb21`,
 and manifest SHA-256
-`03393cc4af98b242d83b87d92d56bc1b2e1030e231400b528f32c2767eff3437`. Full
+`e2dc437f1909c4ecfa7d5a4546a55efdd7544ac58ddc4cf2e152a1743df2cd12`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
@@ -76,8 +76,8 @@ the package wheel SHA-256 was
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 800 source rows: 316 existing input
-mappings, 50 reasoned `not_applicable` rows, and 434 fixture backlog rows.
+The generated coverage matrix has 800 source rows: 318 existing input
+mappings, 50 reasoned `not_applicable` rows, and 432 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -225,7 +225,7 @@ maps to `tests/middleware/test_errors.py::test_handler`; the default-response
 and field-mutation probes map to their pinned source behavior without claiming
 additional upstream test rows. All six inputs pass live source/package comparison in the latest full-slice run.
 Direct debug construction, non-HTTP pass-through, errors after response start,
-background-task errors, and arbitrary middleware ordering remain open. The
+background-task errors, and other built-in/user middleware combinations remain open. The
 active TestClient contract compares fourteen input-driven HTTP request/response
 cases over thirteen requirements, including exception identity and
 cause/context chaining, five context-managed lifespan cases over eleven

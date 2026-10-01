@@ -8,22 +8,21 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 595 input-only cases in 70 indexed files,
-covering 85 operations and 638 parity requirements. Five async Request endpoint
+The active contract contains 596 input-only cases in 70 indexed files,
+covering 85 operations and 639 parity requirements. Five async Request endpoint
 callable-shape and failure cases, the two direct `run_in_threadpool` cases,
 synchronous Request endpoint worker cancellation and failure, ASGI callable-
 instance success and failure, two direct State consumer sequences,
 `Starlette.host()` and `Starlette.mount()` registration and dispatch, two
 `Starlette.add_exception_handler` workflows, six direct ServerErrorMiddleware
-cases, and three TestClient exception-chain cases pass live source/package
-comparison. Latest integrated run
-`3183a3e4-7257-462a-b401-33a06c978c4f` passed all 750 executed comparisons out
-of 754 selected, with zero failures or infrastructure errors and four
-Rust-native Python-callable rows `not_run`. The Python package passed 593/593;
-Rust-native passed 157/161. The four native `not_run` rows are sync endpoint,
-bound-method, partial, and callable-instance ASGI dispatch. `make test`
-exits with status 2 for those declared rows. Full run identities and package
-hashes are recorded in
+cases, three TestClient exception-chain cases, and a default middleware-boundary
+trace pass live source/package comparison. Latest integrated run
+`e0590d0d-c751-4ecf-aa7b-cb6ce6e592a0` passed all 751 executed comparisons out of 755 selected, with zero
+failures or infrastructure errors and four Rust-native Python-callable rows
+`not_run`. The Python package passed 594/594; Rust-native passed 157/161. The
+four native `not_run` rows are sync endpoint, bound-method, partial, and
+callable-instance ASGI dispatch. `make test` exits with status 2 for those
+declared rows. Full run identities and package hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
@@ -34,8 +33,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 800 source rows: 316 existing input mappings,
-50 source-backed `not_applicable` rows, and 434 fixture-backlog rows. Derive
+The current coverage matrix has 800 source rows: 318 existing input mappings,
+50 source-backed `not_applicable` rows, and 432 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

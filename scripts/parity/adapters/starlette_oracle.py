@@ -10040,6 +10040,37 @@ def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
 def _input_defined_middleware_callback(marker: dict[str, Any], trace: list[dict[str, Any]]) -> Any:
     callable_kind = marker["callable_kind"]
     name = marker["name"]
+    boundary_trace = marker.get("boundary_trace", False)
+
+    async def call_middleware(
+        app: Any, scope: Any, receive: Any, send: Any, call_event: dict[str, Any]
+    ) -> None:
+        trace.append(call_event)
+        if not boundary_trace:
+            await app(scope, receive, send)
+            return
+
+        trace.append({"event": "enter", "name": name, "scope_type": scope["type"]})
+
+        async def observed_send(message: Any) -> None:
+            trace.append({"event": "send", "name": name, "message": _canonical_message(message)})
+            await send(message)
+
+        try:
+            await app(scope, receive, observed_send)
+        except BaseException as exc:
+            trace.append(
+                {
+                    "event": "exception",
+                    "name": name,
+                    "exception_type": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                    "exception_message": str(exc),
+                }
+            )
+            raise
+        finally:
+            trace.append({"event": "exit", "name": name})
+
     if callable_kind == "class":
 
         class InputDefinedMiddleware:
@@ -10056,7 +10087,11 @@ def _input_defined_middleware_callback(marker: dict[str, Any], trace: list[dict[
                 )
 
             async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-                trace.append(
+                await call_middleware(
+                    self.app,
+                    scope,
+                    receive,
+                    send,
                     {
                         "event": "call",
                         "callable_kind": callable_kind,
@@ -10064,9 +10099,8 @@ def _input_defined_middleware_callback(marker: dict[str, Any], trace: list[dict[
                         "args": (),
                         "kwargs": {},
                         "scope_type": scope["type"],
-                    }
+                    },
                 )
-                await self.app(scope, receive, send)
 
         InputDefinedMiddleware.__name__ = name
         return InputDefinedMiddleware
@@ -10083,7 +10117,11 @@ def _input_defined_middleware_callback(marker: dict[str, Any], trace: list[dict[
         )
 
         async def middleware(scope: Any, receive: Any, send: Any) -> None:
-            trace.append(
+            await call_middleware(
+                app,
+                scope,
+                receive,
+                send,
                 {
                     "event": "call",
                     "callable_kind": callable_kind,
@@ -10091,9 +10129,8 @@ def _input_defined_middleware_callback(marker: dict[str, Any], trace: list[dict[
                     "args": (),
                     "kwargs": {},
                     "scope_type": scope["type"],
-                }
+                },
             )
-            await app(scope, receive, send)
 
         return middleware
 
@@ -10119,6 +10156,14 @@ def _run_starlette_add_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     middleware_trace: list[dict[str, Any]] = []
     callbacks: dict[tuple[str, str], Any] = {}
+    capture_dispatch_error = any(
+        step.get("operation") == "add_middleware"
+        and step.get("arguments", {})
+        .get("middleware_class", {})
+        .get("value", {})
+        .get("boundary_trace", False)
+        for step in steps
+    )
 
     async def run_steps() -> list[dict[str, Any]]:
         observations: list[dict[str, Any]] = []
@@ -10148,6 +10193,7 @@ def _run_starlette_add_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                     route_endpoint,
                     False,
                     sync_endpoint_states=sync_endpoint_states,
+                    capture_dispatch_error=capture_dispatch_error,
                 )
                 value = {
                     "workflow_observation": {

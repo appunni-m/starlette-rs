@@ -674,6 +674,7 @@ STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS = {
     "factory_keyword_arguments": "starlette.applications.Starlette.add_middleware.factory-keyword-arguments",
     "after_start_error": "starlette.applications.Starlette.add_middleware.after-start-error",
     "per_application_stack_cache": "starlette.applications.Starlette.add_middleware.per-application-stack-cache",
+    "boundary_order": "starlette.applications.Starlette.add_middleware.middleware-boundary-order",
 }
 STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY = (
     "starlette.applications.Starlette",
@@ -12092,6 +12093,7 @@ def _starlette_add_middleware_semantic_coverage(case: dict[str, Any]) -> set[str
     app_ids = [step["step_id"] for step in case["steps"] if step.get("operation") == "__init__"]
     registrations: dict[str, list[dict[str, Any]]] = {app_id: [] for app_id in app_ids}
     dispatches: dict[str, list[dict[str, Any]]] = {app_id: [] for app_id in app_ids}
+    app_inputs: dict[str, dict[str, Any]] = {}
     dispatched: set[str] = set()
     after_start: list[dict[str, Any]] = []
     coverage: set[str] = set()
@@ -12101,6 +12103,9 @@ def _starlette_add_middleware_semantic_coverage(case: dict[str, Any]) -> set[str
 
     for step in case["steps"]:
         operation = step.get("operation")
+        if operation == "__init__":
+            app_inputs[step["step_id"]] = input_for(step)
+            continue
         if operation not in {"add_middleware", "__call__"}:
             continue
         app_id = step["receiver"]["step_id"]
@@ -12117,6 +12122,28 @@ def _starlette_add_middleware_semantic_coverage(case: dict[str, Any]) -> set[str
         dispatch_types = [
             step["arguments"]["scope"]["value"]["type"] for step in dispatches[app_id]
         ]
+        app_input = app_inputs[app_id]
+        route = app_input["routes"][0]
+        boundary_dispatches = [input_for(step) for step in dispatches[app_id]]
+        if (
+            len(definitions) == 2
+            and app_input["debug"] is False
+            and app_input["exception_handlers"] == []
+            and all(
+                item["middleware_class"]["callable_kind"] == "class"
+                and item["middleware_class"].get("boundary_trace") is True
+                for item in definitions
+            )
+            and len({item["middleware_class"]["name"] for item in definitions}) == 2
+            and route["kind"] == "http-route"
+            and route["methods"] == ["GET"]
+            and route["endpoint"].get("kind") == "raise-runtime-error"
+            and len(boundary_dispatches) == 2
+            and all(item["scope"]["type"] == "http" for item in boundary_dispatches)
+            and [item["scope"]["method"] for item in boundary_dispatches] == ["POST", "GET"]
+            and all(item["scope"]["path"] == route["path"] for item in boundary_dispatches)
+        ):
+            coverage.add(STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["boundary_order"])
         if (
             len(definitions) >= 2
             and all(item["middleware_class"]["callable_kind"] == "class" for item in definitions)
@@ -12243,11 +12270,13 @@ def _validate_starlette_add_middleware_workflow(case: dict[str, Any]) -> None:
         if (
             arguments["middleware_class"].get("kind") != "literal"
             or not isinstance(marker, dict)
-            or set(marker) != {"kind", "callable_kind", "name"}
+            or set(marker) - {"kind", "callable_kind", "name", "boundary_trace"}
+            or not {"kind", "callable_kind", "name"} <= set(marker)
             or marker["kind"] != "input-defined-middleware"
             or marker["callable_kind"] not in {"class", "factory"}
             or not isinstance(marker["name"], str)
             or not marker["name"]
+            or ("boundary_trace" in marker and type(marker["boundary_trace"]) is not bool)
         ):
             raise ContractError(
                 "middleware callable must use an input-defined class or factory marker"

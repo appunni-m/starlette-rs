@@ -32,28 +32,29 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 595 input-only cases in 70 indexed files,
-covering 85 operations and 638 requirements, including the direct
+The active parity contract contains 596 input-only cases in 70 indexed files,
+covering 85 operations and 639 requirements, including the direct
 `starlette.concurrency.run_in_threadpool` helper, synchronous Request endpoint
 worker cancellation and failure, five async Request endpoint callable shapes
 and failure, ASGI callable-instance success and failure, `Starlette.host()` and
-`Starlette.mount()` registration and dispatch, two direct `State`
-consumer sequences, and two `Starlette.add_exception_handler` workflows. The
-six direct ServerErrorMiddleware inputs and three TestClient exception-chain
-inputs pass live source/package comparison. Latest integrated run
-`3183a3e4-7257-462a-b401-33a06c978c4f` selected 754 comparisons: 750 executed
-and passed, zero failed, zero infrastructure errors, and four declared
-Rust-native Python-callable rows `not_run`. The installed Python package passed
-593/593, and Rust-native passed 157/161. The host/mount registration inputs and
-callable failure cases passed exact package/source comparison. The four native `not_run` rows are sync
-endpoint, bound-method, partial, and callable-instance ASGI dispatch. `make
-test` exits with status 2 for these declared rows. The complete run identity,
-wheel and tree hashes, and case-level evidence are in
+`Starlette.mount()` registration and dispatch, two direct `State` consumer
+sequences, two `Starlette.add_exception_handler` workflows, and one default
+middleware-boundary trace. The six direct ServerErrorMiddleware inputs and
+three TestClient exception-chain inputs pass live source/package comparison.
+Latest integrated run `e0590d0d-c751-4ecf-aa7b-cb6ce6e592a0` selected 755 comparisons: 751 executed and
+passed, zero failed, zero infrastructure errors, and four declared Rust-native
+Python-callable rows `not_run`. The installed Python package passed 594/594,
+and Rust-native passed 157/161. The host/mount registration inputs, default
+middleware-boundary trace, and callable failure cases passed exact
+package/source comparison. The four native `not_run` rows are sync endpoint,
+bound-method, partial, and callable-instance ASGI dispatch. `make test` exits
+with status 2 for these declared rows. The complete run identity, wheel and
+tree hashes, and case-level evidence are in
 [Migration parity contract and evidence](PARITY.md). This bounded run does not
 establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 800 source rows: 316 input mappings,
-50 source-backed `not_applicable` rows, and 434 fixture-backlog rows. These
+The generated coverage matrix contains 800 source rows: 318 input mappings,
+50 source-backed `not_applicable` rows, and 432 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.
@@ -284,7 +285,7 @@ mutations. All six pass live source/package comparison in run
 `tests/middleware/test_errors.py::test_handler`; the other cases are additional
 source-backed behavior probes. Direct debug construction, non-HTTP
 pass-through, response-already-started failures, background-task errors, and
-arbitrary middleware ordering remain open. Further work includes broader
+other built-in/user middleware combinations remain open. Further work includes broader
 HTTP/WebSocket connection and request-body behavior, streaming backpressure
 and iterator lifecycle, route-local middleware, nested Host reverse lookup,
 broader WebSocket exception flows beyond the three declared cases, remaining
@@ -533,7 +534,7 @@ handler input is mapped to an upstream test function,
 the pinned `ServerErrorMiddleware` source contract. All six inputs pass exact
 source/package comparison in run `30a58707-ee2a-4146-b14d-2f0b104af348`. Direct debug construction,
 non-HTTP pass-through, an error after response start, background-task errors,
-and arbitrary middleware ordering remain outside this bounded input set.
+and other built-in/user middleware combinations remain outside this bounded input set.
 
 The recorded evidence does not establish general exception propagation or
 identity beyond the selected chained-error, same-request body-cache, and

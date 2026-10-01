@@ -1011,6 +1011,241 @@
         "second-register-noop",
         "second-http"
       ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.add_middleware.middleware-boundary-order",
+      "surface": "starlette.applications.Starlette",
+      "operation": "add_middleware",
+      "covers": [
+        "starlette.applications.Starlette.add_middleware.middleware-boundary-order"
+      ],
+      "execution_schedule": [
+        "middleware-registration",
+        "dispatch",
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/failure",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "raise-runtime-error",
+                    "message": "middleware boundary failure"
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "register-outer",
+          "surface": "starlette.applications.Starlette",
+          "operation": "add_middleware",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "middleware_class": {
+              "kind": "literal",
+              "value": {
+                "kind": "input-defined-middleware",
+                "callable_kind": "class",
+                "name": "OuterMiddleware",
+                "boundary_trace": true
+              }
+            },
+            "args": {
+              "kind": "literal",
+              "value": []
+            },
+            "kwargs": {
+              "kind": "literal",
+              "value": {}
+            }
+          }
+        },
+        {
+          "step_id": "register-inner",
+          "surface": "starlette.applications.Starlette",
+          "operation": "add_middleware",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "middleware_class": {
+              "kind": "literal",
+              "value": {
+                "kind": "input-defined-middleware",
+                "callable_kind": "class",
+                "name": "InnerMiddleware",
+                "boundary_trace": true
+              }
+            },
+            "args": {
+              "kind": "literal",
+              "value": []
+            },
+            "kwargs": {
+              "kind": "literal",
+              "value": {}
+            }
+          }
+        },
+        {
+          "step_id": "dispatch-method-miss",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "scheme": "http",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ],
+                "method": "POST",
+                "path": "/failure",
+                "raw_path_base64": "L2ZhaWx1cmU="
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch-unhandled-error",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "scheme": "http",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ],
+                "method": "GET",
+                "path": "/failure",
+                "raw_path_base64": "L2ZhaWx1cmU="
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "register-outer",
+        "register-inner",
+        "dispatch-method-miss",
+        "dispatch-unhandled-error"
+      ]
     }
   ]
 }

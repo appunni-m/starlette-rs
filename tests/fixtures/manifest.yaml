@@ -2029,6 +2029,13 @@
               "description": "Build and cache middleware independently for each Starlette application while reusing each application's stack across repeated calls. Upstream: starlette/applications.py:92-107; tests/test_applications.py:465-504.",
               "lanes": ["parity"],
               "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.applications.Starlette.add_middleware.middleware-boundary-order",
+              "dimension": "boundary",
+              "description": "Trace user middleware around a handled method-miss response and an unhandled RuntimeError. The 405 response passes through user middleware inside ExceptionMiddleware, while the ServerErrorMiddleware 500 response is sent outside user middleware before the original error propagates. Upstream: starlette/applications.py:63-83; starlette/middleware/errors.py:149-187; starlette/middleware/exceptions.py:47-63; tests/test_applications.py:224-242.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
             }
           ],
           "parity": {
