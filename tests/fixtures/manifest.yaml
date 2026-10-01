@@ -253,6 +253,7 @@
       "build/parity/inputs/parity/asgi-callable-http-exceptions.json",
       "build/parity/inputs/parity/asgi-exception-handlers.json",
       "build/parity/inputs/parity/asgi-server-errors.json",
+      "build/parity/inputs/parity/server-error-middleware.json",
       "build/parity/inputs/parity/websocket-protocol.json",
       "build/parity/inputs/parity/websocket-route-dispatch.json",
       "build/parity/inputs/parity/websocket-state-sequence.json",
@@ -7170,6 +7171,458 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only correctness slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.errors.ServerErrorMiddleware",
+      "kind": "type",
+      "source_path": "starlette/middleware/errors.py:127",
+      "storage_slug": "starlette-middleware-errors-ServerErrorMiddleware",
+      "operations": [
+        {
+          "id": "__init__",
+          "kind": "constructor",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.errors.ServerErrorMiddleware.__init__",
+            "signature": "ServerErrorMiddleware(app, handler=None, debug=False)",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "app",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "handler",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "debug",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": false
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "instance_class",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "app_is_input_callable",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "handler_is_input_callable",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "debug",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation is the Python starlette.* compatibility middleware constructor, outside the native Rust consumer API.",
+                "authority": "AGENTS.md: keep the documented starlette.* Python compatibility surface and make the Rust-native API additive."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.errors.ServerErrorMiddleware",
+              "signature": "ServerErrorMiddleware(app, handler=None, debug=False)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.construct",
+              "dimension": "parameter_combination",
+              "description": "Construct the public ServerErrorMiddleware from an input-defined ASGI app, optional handler, and debug flag, then inspect its public instance fields.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "These direct middleware inputs make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "These direct middleware inputs declare no benchmark workload."
+          }
+        },
+        {
+          "id": "__call__",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.errors.ServerErrorMiddleware.__call__",
+            "signature": "async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "normalization": {
+                    "kind": "sequence",
+                    "steps": [
+                      {
+                        "kind": "starlette-debug-traceback"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "normalization": {
+                    "kind": "starlette-debug-traceback"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "bytes"
+                  },
+                  "normalization": {
+                    "kind": "starlette-debug-traceback"
+                  }
+                },
+                {
+                  "path": "selected_app_calls",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "selected_handler_calls",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "handler_received_original_exception",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "propagated_error",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "propagated_same_app_exception",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "propagated_same_handler_exception",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "server_error_observation",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation is the Python starlette.* compatibility middleware constructor, outside the native Rust consumer API.",
+                "authority": "AGENTS.md: keep the documented starlette.* Python compatibility surface and make the Rust-native API additive."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.errors.ServerErrorMiddleware.__call__",
+              "signature": "async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.direct-call",
+              "dimension": "error_path",
+              "description": "Call a directly constructed ServerErrorMiddleware with an input-defined ASGI app that raises; invoke the synchronous custom handler, emit its exact JSON response, and re-raise the same exception object.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.default-response",
+              "dimension": "error_path",
+              "description": "Call a directly constructed ServerErrorMiddleware with a raising app and no handler or debug mode; emit the default 500 response and re-raise the original exception object. Source: starlette/middleware/errors.py::ServerErrorMiddleware.error_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.mutable-app",
+              "dimension": "boundary",
+              "description": "Honor the public app field value present when __call__ begins after the app was replaced following middleware construction.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.mutable-handler",
+              "dimension": "boundary",
+              "description": "Select the public handler field value present when __call__ begins after a custom handler was installed following construction.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.mutable-debug",
+              "dimension": "boundary",
+              "description": "Select debug traceback behavior from the public debug field value present when __call__ begins, ahead of a configured handler.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "These direct middleware inputs make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "These direct middleware inputs declare no benchmark workload."
           }
         }
       ]

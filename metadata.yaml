@@ -258,6 +258,20 @@
       ]
     },
     {
+      "surface_id": "starlette.middleware.errors.ServerErrorMiddleware",
+      "source_path": "starlette/middleware/errors.py:127",
+      "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.middleware.errors.ServerErrorMiddleware.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.middleware.errors.ServerErrorMiddleware.__call__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.middleware.wsgi",
       "source_path": "starlette/middleware/wsgi.py",
       "operations": [

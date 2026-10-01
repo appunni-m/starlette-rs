@@ -32,20 +32,22 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 568 input-only cases in 64 indexed files,
-covering 80 operations and 608 requirements. Latest integrated run
-`795ba35d-173f-4547-84ab-4e20cbe5c34d` selected 727 comparisons: 723 passed,
+The active parity contract contains 581 input-only cases in 65 indexed files,
+covering 82 operations and 618 requirements. The six direct
+ServerErrorMiddleware inputs and three TestClient exception-chain inputs pass
+live source/package comparison. Latest integrated run
+`459eb6e1-ddf0-457f-baf0-b40bb71f48b1` selected 740 comparisons: 736 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
-Python-callable rows `not_run`. The installed Python package passed 566/566;
-Rust-native passed 157/161. This run adds the mounted Router URL sequence and
-HTTPS Host-route dispatch through TestClient.
-`make parity-run` exits with status 2 for the four declared native `not_run`
-rows. The complete run identity, wheel/tree hashes, and case-level evidence
-are in [Migration parity contract and evidence](PARITY.md). This bounded run
-does not establish full Starlette parity or release readiness.
+Python-callable rows `not_run`. The installed Python package passed 579/579;
+Rust-native passed 157/161. The four native `not_run` rows are sync endpoint,
+bound-method, partial, and callable-instance Request dispatch. `make parity-run`
+exits with status 2 for these declared rows. The complete run identity, wheel
+and tree hashes, and case-level evidence are in
+[Migration parity contract and evidence](PARITY.md). This bounded run does not
+establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 800 source rows: 306 input mappings,
-50 source-backed `not_applicable` rows, and 444 fixture-backlog rows. These
+The generated coverage matrix contains 800 source rows: 307 input mappings,
+50 source-backed `not_applicable` rows, and 443 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.
@@ -268,15 +270,21 @@ four finite synchronous StreamingResponse cases, and the async-iterator,
 memoryview-chunk, and custom-async-iterable StreamingResponse cases in section 6
 pass source/package parity; the synchronous cases also pass against Rust-native.
 Four Rust-native observations remain explicitly `not_run`; the full Starlette
-replacement is still incomplete. Later work includes broader HTTP/WebSocket
-connection and request-body behavior, streaming backpressure and iterator
-lifecycle, route-local middleware, nested Host reverse lookup,
-direct `ServerErrorMiddleware` call-boundary
-parity, broader WebSocket exception flows beyond the three declared cases,
-remaining TestClient exception-propagation modes, arbitrary middleware
-ordering, middleware
-composition, authentication, additional synchronous background-cancellation
-schedules, context variables, and broader background-task error interactions.
+replacement is still incomplete. Six direct `ServerErrorMiddleware` inputs are
+now authored for the Python-package profile: construction, custom-handler and
+default-response calls, and post-construction `.app`, `.handler`, and `.debug`
+mutations. They have not yet been run through the live source/package
+comparison. The custom-handler input maps to the pinned
+`tests/middleware/test_errors.py::test_handler`; the other cases are additional
+source-backed behavior probes. Direct debug construction, non-HTTP
+pass-through, response-already-started failures, background-task errors, and
+arbitrary middleware ordering remain open. Further work includes broader
+HTTP/WebSocket connection and request-body behavior, streaming backpressure
+and iterator lifecycle, route-local middleware, nested Host reverse lookup,
+broader WebSocket exception flows beyond the three declared cases, remaining
+TestClient exception-propagation modes, middleware composition,
+authentication, additional synchronous background-cancellation schedules,
+context variables, and broader background-task error interactions.
 
 ## 4. Optional and edge features
 
@@ -496,11 +504,23 @@ package profile in run `480437e5-e1f4-4e25-91a5-1453ba82ea69`. The two debug cas
 declared stable traceback
 projection for response bodies and ASGI events, and normalize `Content-Length`
 only for those cases; raw bodies remain in the result artifact. These cases do
-not cover direct `ServerErrorMiddleware` invocation, arbitrary middleware
-ordering, or broader WebSocket exception workflows. The separate
+not by themselves cover direct `ServerErrorMiddleware` invocation, arbitrary
+middleware ordering, or broader WebSocket exception workflows. The separate
 `asgi-core.app.test_app_debug` TestClient case now sets debug after construction
 and passes source/package comparison. The raw protocol and route-dispatch cases
 pass in their declared profiles. Full replacement parity remains open.
+
+[`server-error-middleware.yaml`](../tests/fixtures/sources/parity/server-error-middleware.yaml)
+adds six direct public-surface inputs: constructor field observation, direct
+synchronous custom-handler dispatch, direct default-response dispatch, and
+post-construction `.app`, `.handler`, and `.debug` mutation. Only the custom-
+handler input is mapped to an upstream test function,
+`tests/middleware/test_errors.py::test_handler`; the other cases are tied to
+the pinned `ServerErrorMiddleware` source contract. These inputs are authored
+but have not yet been run through the source/package comparator, so they add
+declared stimulus coverage without verified parity. Direct debug construction,
+non-HTTP pass-through, an error after response start, background-task errors,
+and arbitrary middleware ordering remain outside this bounded input set.
 
 The recorded evidence does not establish general exception propagation or
 identity beyond the selected chained-error, same-request body-cache, and

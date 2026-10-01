@@ -41,35 +41,37 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 /// a TestClient portal thread other than the one that built the stack.
 #[pyclass(name = "ServerErrorMiddlewareRuntime")]
 struct PyServerErrorMiddlewareRuntime {
-    app: Py<PyAny>,
-    handlers: Py<PyAny>,
-    policy: Py<PyAny>,
+    policy_source: ServerErrorPolicySource,
     request_type: Py<PyAny>,
     response_type: Py<PyAny>,
 }
 
-#[pymethods]
-impl PyServerErrorMiddlewareRuntime {
-    #[new]
-    fn new(
-        app: Py<PyAny>,
+enum ServerErrorPolicySource {
+    Direct,
+    Shared {
         handlers: Py<PyAny>,
         policy: Py<PyAny>,
-        request_type: Py<PyAny>,
-        response_type: Py<PyAny>,
-    ) -> Self {
-        Self {
-            app,
-            handlers,
-            policy,
-            request_type,
-            response_type,
+    },
+}
+
+impl ServerErrorPolicySource {
+    fn clone_ref(&self, py: Python<'_>) -> Self {
+        match self {
+            Self::Direct => Self::Direct,
+            Self::Shared { handlers, policy } => Self::Shared {
+                handlers: handlers.clone_ref(py),
+                policy: policy.clone_ref(py),
+            },
         }
     }
+}
 
+#[pymethods]
+impl PyServerErrorMiddlewareRuntime {
     fn __call__(
         slf: Py<Self>,
         py: Python<'_>,
+        middleware: Py<PyAny>,
         scope: Py<PyAny>,
         receive: Py<PyAny>,
         send: Py<PyAny>,
@@ -78,9 +80,8 @@ impl PyServerErrorMiddlewareRuntime {
         into_python_awaitable(
             py,
             ServerErrorCall {
-                app: runtime.app.clone_ref(py),
-                handlers: runtime.handlers.clone_ref(py),
-                policy: runtime.policy.clone_ref(py),
+                middleware,
+                policy_source: runtime.policy_source.clone_ref(py),
                 request_type: runtime.request_type.clone_ref(py),
                 response_type: runtime.response_type.clone_ref(py),
                 scope,
@@ -95,29 +96,31 @@ impl PyServerErrorMiddlewareRuntime {
     }
 }
 
-/// Construct direct `ServerErrorMiddleware(app, handler, debug)` state.
+impl PyServerErrorMiddlewareRuntime {
+    fn new(
+        policy_source: ServerErrorPolicySource,
+        request_type: Py<PyAny>,
+        response_type: Py<PyAny>,
+    ) -> Self {
+        Self {
+            policy_source,
+            request_type,
+            response_type,
+        }
+    }
+}
+
+/// Construct a direct middleware runtime that reads public fields per call.
 #[pyfunction(name = "_new_server_error_middleware_runtime")]
 fn new_server_error_middleware_runtime(
     py: Python<'_>,
-    app: Py<PyAny>,
-    handler: Option<Py<PyAny>>,
-    debug: bool,
     request_type: Py<PyAny>,
     response_type: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    let core = py.import("starlette_rs_py._core")?;
-    let policy = core.getattr("ServerErrorPolicy")?.call1((debug,))?;
-    let handlers = PyList::empty(py);
-    if let Some(handler) = handler {
-        policy.call_method1("register_handler", (0,))?;
-        handlers.append(handler)?;
-    }
     Py::new(
         py,
         PyServerErrorMiddlewareRuntime::new(
-            app,
-            handlers.into_any().unbind(),
-            policy.unbind(),
+            ServerErrorPolicySource::Direct,
             request_type,
             response_type,
         ),
@@ -129,7 +132,6 @@ fn new_server_error_middleware_runtime(
 #[pyfunction(name = "_server_error_middleware_runtime_with_policy")]
 fn server_error_middleware_runtime_with_policy(
     py: Python<'_>,
-    app: Py<PyAny>,
     handlers: Py<PyAny>,
     policy: Py<PyAny>,
     request_type: Py<PyAny>,
@@ -137,7 +139,11 @@ fn server_error_middleware_runtime_with_policy(
 ) -> PyResult<Py<PyAny>> {
     Py::new(
         py,
-        PyServerErrorMiddlewareRuntime::new(app, handlers, policy, request_type, response_type),
+        PyServerErrorMiddlewareRuntime::new(
+            ServerErrorPolicySource::Shared { handlers, policy },
+            request_type,
+            response_type,
+        ),
     )
     .map(|runtime| runtime.into_any())
 }
@@ -210,9 +216,8 @@ enum ServerErrorPending {
 }
 
 struct ServerErrorCall {
-    app: Py<PyAny>,
-    handlers: Py<PyAny>,
-    policy: Py<PyAny>,
+    middleware: Py<PyAny>,
+    policy_source: ServerErrorPolicySource,
     request_type: Py<PyAny>,
     response_type: Py<PyAny>,
     scope: Py<PyAny>,
@@ -276,11 +281,11 @@ impl ServerErrorCall {
         } else {
             ServerErrorPending::Passthrough
         });
-        match self
-            .app
-            .bind(py)
-            .call1((self.scope.bind(py), self.receive.bind(py), send.bind(py)))
-        {
+        let application_call =
+            self.middleware.bind(py).getattr("app").and_then(|app| {
+                app.call1((self.scope.bind(py), self.receive.bind(py), send.bind(py)))
+            });
+        match application_call {
             Ok(awaitable) => Ok(MachineAction::Await(awaitable.unbind())),
             Err(error) => match self.pending.take() {
                 Some(ServerErrorPending::Passthrough) => Err(error),
@@ -310,7 +315,8 @@ impl ServerErrorCall {
         let request = self.request_type.bind(py).call1((self.scope.bind(py),))?;
         let headers = request.getattr("headers")?;
         let accept = headers.call_method1("get", ("accept", ""))?;
-        let plan = self.policy.bind(py).call_method1("plan", (accept,))?;
+        let (handlers, policy) = self.current_policy(py)?;
+        let plan = policy.bind(py).call_method1("plan", (accept,))?;
         let plan = plan.cast::<PyTuple>()?;
         let plan_name = plan.get_item(0)?.extract::<String>()?;
         let handler_index = plan.get_item(1)?.extract::<Option<usize>>()?;
@@ -332,7 +338,7 @@ impl ServerErrorCall {
                     error.set_cause(py, Some(original));
                     return Err(error);
                 };
-                let handler = self.handlers.bind(py).get_item(handler_index)?;
+                let handler = handlers.bind(py).get_item(handler_index)?;
                 let is_async = crate::background::is_async_callable(py, &handler)?;
                 let awaitable = if is_async {
                     handler.call1((request, exception))?
@@ -377,6 +383,29 @@ impl ServerErrorCall {
         };
 
         self.send_response_or_reraise(py, response)
+    }
+
+    fn current_policy(&self, py: Python<'_>) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
+        match &self.policy_source {
+            ServerErrorPolicySource::Direct => {
+                let middleware = self.middleware.bind(py);
+                let debug = middleware.getattr("debug")?.is_truthy()?;
+                let core = py.import("starlette_rs_py._core")?;
+                let policy = core.getattr("ServerErrorPolicy")?.call1((debug,))?;
+                let handlers = PyList::empty(py);
+                if !debug {
+                    let handler = middleware.getattr("handler")?;
+                    if !handler.is_none() {
+                        policy.call_method1("register_handler", (0,))?;
+                        handlers.append(handler)?;
+                    }
+                }
+                Ok((handlers.into_any().unbind(), policy.unbind()))
+            }
+            ServerErrorPolicySource::Shared { handlers, policy } => {
+                Ok((handlers.clone_ref(py), policy.clone_ref(py)))
+            }
+        }
     }
 
     fn finish_error_response(

@@ -827,6 +827,15 @@ WSGI_SURFACE = "starlette.middleware.wsgi.WSGIMiddleware"
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
+SERVER_ERROR_MIDDLEWARE_SURFACE = "starlette.middleware.errors.ServerErrorMiddleware"
+SERVER_ERROR_MIDDLEWARE_REQUIREMENTS = {
+    "construct": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.construct",
+    "direct-call": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.direct-call",
+    "default-response": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.default-response",
+    "mutable-app": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.mutable-app",
+    "mutable-handler": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.mutable-handler",
+    "mutable-debug": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.mutable-debug",
+}
 ASGI_MIDDLEWARE_SURFACES = {
     GZIP_SURFACE,
     WSGI_SURFACE,
@@ -1505,6 +1514,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             "ordered_repeated_headers",
                             "asgi_events",
                         } and step_kinds == ["allow-methods-as-set", "starlette-debug-traceback"]
+                        direct_server_error_traceback = (
+                            key == (SERVER_ERROR_MIDDLEWARE_SURFACE, "__call__")
+                            and observation["path"] == "asgi_events"
+                            and step_kinds == ["starlette-debug-traceback"]
+                        )
                         file_response_sequence = (
                             key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
                             and observation["path"] == "asgi_events"
@@ -1512,7 +1526,9 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             == ["multipart-range-boundary", "file-response-temp-path"]
                         )
                         if comparison["kind"] != "ordered" or not (
-                            standard_sequence or file_response_sequence
+                            standard_sequence
+                            or direct_server_error_traceback
+                            or file_response_sequence
                         ):
                             raise ContractError(
                                 f"{octx} permits only the declared ordered header or ASGI event normalization sequence"
@@ -1729,6 +1745,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             CORS_SURFACE,
                             HTTPS_REDIRECT_SURFACE,
                             TRUSTED_HOST_SURFACE,
+                            SERVER_ERROR_MIDDLEWARE_SURFACE,
                             WSGI_SURFACE,
                         }
                         or (surface["id"], operation["id"]) in VALUE_FORMATTING_OPERATIONS
@@ -9652,6 +9669,8 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
 
 
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
+    if isinstance(case, dict) and case.get("surface") == SERVER_ERROR_MIDDLEWARE_SURFACE:
+        return _validate_server_error_middleware_case(case, manifest)
     is_websocket = isinstance(case, dict) and case.get("surface") == WEBSOCKET_SURFACE
     is_websocket_endpoint = (
         isinstance(case, dict)
@@ -11012,6 +11031,194 @@ def _validate_server_error_application(args: dict[str, Any]) -> None:
             )
     elif any(key == {"kind": "exception-class", "name": "HTTPException"} for key in keys):
         raise ContractError("RuntimeError server-error cases do not use HTTPException handlers")
+
+
+def _validate_server_error_middleware_app(value: Any, context: str) -> None:
+    if not isinstance(value, dict):
+        raise ContractError(f"{context} must be an input-defined ASGI callable")
+    kind = value.get("kind")
+    if kind == "raise-runtime-error":
+        app = _exact(value, {"kind", "label", "message"}, context)
+        _string(app["label"], f"{context}.label")
+        _string(app["message"], f"{context}.message")
+        return
+    if kind == "asgi-response-sequence":
+        app = _exact(value, {"kind", "label", "messages"}, context)
+        _string(app["label"], f"{context}.label")
+        _validate_asgi_middleware_app({"kind": app["kind"], "messages": app["messages"]})
+        return
+    raise ContractError(f"{context} must use a declared ASGI app kind")
+
+
+def _validate_server_error_middleware_handler(value: Any, context: str) -> None:
+    if value is None:
+        return
+    handler = _exact(
+        value,
+        {"kind", "callable_kind", "label", "status_code", "content"},
+        context,
+    )
+    if (
+        handler["kind"] != "json-server-error-response"
+        or handler["callable_kind"] not in {"sync", "async"}
+        or not isinstance(handler["label"], str)
+        or type(handler["status_code"]) is not int
+        or not 100 <= handler["status_code"] <= 599
+        or not isinstance(handler["content"], dict)
+    ):
+        raise ContractError(f"{context} must describe a JSON server-error response callable")
+
+
+def _validate_server_error_middleware_case(
+    case: dict[str, Any], manifest: dict[str, Any]
+) -> dict[str, Any]:
+    operation_id = case.get("operation")
+    if operation_id not in {"__init__", "__call__"}:
+        raise ContractError(
+            "ServerErrorMiddleware cases must construct or call the public middleware"
+        )
+    case_keys = CASE_KEYS - {"steps", "execution_schedule"}
+    case_keys |= {"constructor"}
+    if operation_id == "__call__":
+        case_keys |= {"assignments", "dispatch"}
+    _exact(case, case_keys, "ServerErrorMiddleware case")
+    _string(case["case_id"], "ServerErrorMiddleware case.case_id")
+    if not case["case_id"].startswith(f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.{operation_id}."):
+        raise ContractError("ServerErrorMiddleware case ID must identify its public operation")
+    if case["assets"] != [] or case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError(
+            "direct ServerErrorMiddleware inputs select only the package profile and no assets"
+        )
+    if case["observations"] != (["construct"] if operation_id == "__init__" else ["dispatch"]):
+        raise ContractError("ServerErrorMiddleware observations must select its declared operation")
+
+    operation = next(
+        (
+            item
+            for surface in manifest["surfaces"]
+            if surface["id"] == SERVER_ERROR_MIDDLEWARE_SURFACE
+            for item in surface["operations"]
+            if item["id"] == operation_id
+        ),
+        None,
+    )
+    if operation is None:
+        raise ContractError("ServerErrorMiddleware input refers to an undeclared operation")
+    declared_requirements = {item["id"]: item for item in operation["requirements"]}
+    covers = case["covers"]
+    if (
+        not isinstance(covers, list)
+        or any(not isinstance(item, str) for item in covers)
+        or len(covers) != len(set(covers))
+    ):
+        raise ContractError("ServerErrorMiddleware covers must be unique requirement IDs")
+
+    constructor = _exact(
+        case["constructor"], {"app", "handler", "debug"}, "ServerErrorMiddleware constructor input"
+    )
+    _validate_server_error_middleware_app(constructor["app"], "ServerErrorMiddleware app")
+    _validate_server_error_middleware_handler(
+        constructor["handler"], "ServerErrorMiddleware handler"
+    )
+    if type(constructor["debug"]) is not bool:
+        raise ContractError("ServerErrorMiddleware debug input must be boolean")
+
+    if operation_id == "__init__":
+        exercised = {SERVER_ERROR_MIDDLEWARE_REQUIREMENTS["construct"]}
+    else:
+        assignments = case["assignments"]
+        if not isinstance(assignments, list) or len(assignments) > 1:
+            raise ContractError(
+                "ServerErrorMiddleware calls permit at most one declared field assignment"
+            )
+        assignment_fields: list[str] = []
+        for index, raw_assignment in enumerate(assignments):
+            assignment = _exact(
+                raw_assignment,
+                {"field", "value"},
+                f"ServerErrorMiddleware assignment[{index}]",
+            )
+            field = assignment["field"]
+            if field not in {"app", "handler", "debug"} or field in assignment_fields:
+                raise ContractError(
+                    "ServerErrorMiddleware assignment field is unknown or duplicated"
+                )
+            assignment_fields.append(field)
+            if field == "app":
+                _validate_server_error_middleware_app(
+                    assignment["value"], f"ServerErrorMiddleware assignment[{index}].value"
+                )
+            elif field == "handler":
+                _validate_server_error_middleware_handler(
+                    assignment["value"], f"ServerErrorMiddleware assignment[{index}].value"
+                )
+            elif type(assignment["value"]) is not bool:
+                raise ContractError("ServerErrorMiddleware debug assignment must be boolean")
+
+        dispatch = _exact(
+            case["dispatch"], {"scope", "receive", "send"}, "ServerErrorMiddleware dispatch input"
+        )
+        if not isinstance(dispatch["scope"], dict) or dispatch["scope"].get("type") != "http":
+            raise ContractError("direct ServerErrorMiddleware error probes require an HTTP scope")
+        _validate_asgi_middleware_dispatch(SERVER_ERROR_MIDDLEWARE_SURFACE, dispatch)
+
+        if not assignment_fields:
+            if constructor["app"]["kind"] != "raise-runtime-error" or constructor["debug"]:
+                raise ContractError("direct call inputs must raise with debug mode disabled")
+            requirement_key = (
+                "direct-call" if constructor["handler"] is not None else "default-response"
+            )
+            exercised = {SERVER_ERROR_MIDDLEWARE_REQUIREMENTS[requirement_key]}
+        elif assignment_fields == ["app"]:
+            if (
+                constructor["app"]["kind"] != "asgi-response-sequence"
+                or assignments[0]["value"]["kind"] != "raise-runtime-error"
+                or constructor["handler"] is None
+                or constructor["debug"]
+            ):
+                raise ContractError(
+                    "mutable-app input must replace the original ASGI app before dispatch"
+                )
+            exercised = {SERVER_ERROR_MIDDLEWARE_REQUIREMENTS["mutable-app"]}
+        elif assignment_fields == ["handler"]:
+            if (
+                constructor["app"]["kind"] != "raise-runtime-error"
+                or constructor["handler"] is not None
+                or assignments[0]["value"] is None
+                or constructor["debug"]
+            ):
+                raise ContractError(
+                    "mutable-handler input must install a custom handler before dispatch"
+                )
+            exercised = {SERVER_ERROR_MIDDLEWARE_REQUIREMENTS["mutable-handler"]}
+        elif assignment_fields == ["debug"]:
+            if (
+                constructor["app"]["kind"] != "raise-runtime-error"
+                or constructor["handler"] is None
+                or constructor["debug"]
+                or assignments[0]["value"] is not True
+            ):
+                raise ContractError("mutable-debug input must enable debug before dispatch")
+            exercised = {SERVER_ERROR_MIDDLEWARE_REQUIREMENTS["mutable-debug"]}
+        else:
+            raise ContractError("ServerErrorMiddleware input selects one public field mutation")
+
+    for requirement_id in exercised:
+        requirement = declared_requirements.get(requirement_id)
+        if (
+            requirement is None
+            or "parity" not in requirement["lanes"]
+            or "python-package-cpython312" not in requirement["target_profiles"]
+        ):
+            raise ContractError(
+                f"ServerErrorMiddleware requirement is not declared for this operation/profile: {requirement_id}"
+            )
+    if set(covers) != exercised:
+        raise ContractError(
+            "ServerErrorMiddleware covers must match its declared constructor/call-time inputs: "
+            f"expected={sorted(exercised)}, actual={sorted(covers)}"
+        )
+    return case
 
 
 def _validate_lifespan_marker(marker: Any) -> str:

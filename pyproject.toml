@@ -49,7 +49,10 @@ target-version = "py310"
 extend-exclude = ["build", "dist", "target"]
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "I", "B", "UP", "RUF"]
+# The extra groups were checked with pinned Ruff 0.16.8 and have no existing
+# findings. Broader groups such as ALL, SIM, PERF, and S have substantial
+# current noise or migration debt and are intentionally not enabled wholesale.
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "RUF", "A", "ASYNC", "DTZ", "PIE"]
 
 # The app inspects callable objects' `__call__` method and intentionally loads
 # the compatibility modules before the extension import. The request and route

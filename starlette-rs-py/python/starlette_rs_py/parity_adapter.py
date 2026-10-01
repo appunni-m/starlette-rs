@@ -72,6 +72,7 @@ WSGI_SURFACE = "starlette.middleware.wsgi.WSGIMiddleware"
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
+SERVER_ERROR_MIDDLEWARE_SURFACE = "starlette.middleware.errors.ServerErrorMiddleware"
 SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
 SESSION_WORKFLOW_OPERATION = "session-workflow"
 BASE_HTTP_SURFACE = "starlette.middleware.base.BaseHTTPMiddleware"
@@ -2091,6 +2092,159 @@ def _materialize_protocol_middleware(surface: str, arguments: dict[str, Any]) ->
             app, **{key: value for key, value in arguments.items() if key != "app"}
         )
     raise ValueError(f"unsupported ASGI middleware surface: {surface}")
+
+
+def _materialize_server_error_middleware_app(
+    spec: dict[str, Any], app_calls: list[str], app_exceptions: list[BaseException]
+) -> Any:
+    label = spec["label"]
+    if spec["kind"] == "asgi-response-sequence":
+        response_app = _materialize_asgi_sequence_app(
+            {"kind": spec["kind"], "messages": spec["messages"]}
+        )
+
+        async def app(scope: Any, receive: Any, send: Any) -> None:
+            app_calls.append(label)
+            await response_app(scope, receive, send)
+
+        return app
+
+    async def app(_scope: Any, _receive: Any, _send: Any) -> None:
+        app_calls.append(label)
+        error = RuntimeError(spec["message"])
+        app_exceptions.append(error)
+        raise error
+
+    return app
+
+
+def _materialize_server_error_middleware_handler(
+    spec: dict[str, Any] | None,
+    handler_calls: list[str],
+    handler_exceptions: list[BaseException],
+) -> Any:
+    if spec is None:
+        return None
+    from starlette.responses import JSONResponse
+
+    def record_call(exc: BaseException) -> None:
+        handler_calls.append(spec["label"])
+        handler_exceptions.append(exc)
+
+    if spec["callable_kind"] == "async":
+
+        async def handler(_request: Any, exc: BaseException) -> Any:
+            record_call(exc)
+            return JSONResponse(content=spec["content"], status_code=spec["status_code"])
+
+    else:
+
+        def handler(_request: Any, exc: BaseException) -> Any:
+            record_call(exc)
+            return JSONResponse(content=spec["content"], status_code=spec["status_code"])
+
+    return handler
+
+
+def _run_server_error_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.middleware.errors import ServerErrorMiddleware
+
+    constructor = case["constructor"]
+    app_calls: list[str] = []
+    app_exceptions: list[BaseException] = []
+    handler_calls: list[str] = []
+    handler_exceptions: list[BaseException] = []
+
+    def materialize_app(spec: dict[str, Any]) -> Any:
+        return _materialize_server_error_middleware_app(spec, app_calls, app_exceptions)
+
+    def materialize_handler(spec: dict[str, Any] | None) -> Any:
+        return _materialize_server_error_middleware_handler(spec, handler_calls, handler_exceptions)
+
+    app = materialize_app(constructor["app"])
+    handler = materialize_handler(constructor["handler"])
+    middleware = ServerErrorMiddleware(app, handler=handler, debug=constructor["debug"])
+    if case["operation"] == "__init__":
+        value = {
+            "instance_class": f"{type(middleware).__module__}.{type(middleware).__qualname__}",
+            "app_is_input_callable": middleware.app is app,
+            "handler_is_input_callable": middleware.handler is handler,
+            "debug": middleware.debug,
+        }
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": [{"step_id": "construct", "status": "ok", "value": value}],
+        }
+
+    for assignment in case["assignments"]:
+        field = assignment["field"]
+        if field == "app":
+            setattr(middleware, field, materialize_app(assignment["value"]))
+        elif field == "handler":
+            setattr(middleware, field, materialize_handler(assignment["value"]))
+        else:
+            setattr(middleware, field, assignment["value"])
+
+    dispatch = case["dispatch"]
+    scope = _make_scope(dispatch["scope"])
+    incoming = [_make_message(message) for message in dispatch["receive"]]
+    received = 0
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        nonlocal received
+        if received < len(incoming):
+            message = incoming[received]
+            received += 1
+            return message
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    if dispatch["send"] != {"kind": "capture-asgi-send"}:
+        raise ValueError("ServerErrorMiddleware send input must select the ASGI event collector")
+    captured_exception: BaseException | None = None
+    try:
+        asyncio.run(middleware(scope, receive, send))
+    except Exception as exc:
+        captured_exception = exc
+
+    events = [_canonical_message(message) for message in sent]
+    start = next((event for event in events if event["type"] == "http.response.start"), None)
+    body = b"".join(
+        base64.b64decode(event["body"]["data"], validate=True)
+        for event in events
+        if event["type"] == "http.response.body"
+    )
+    middleware._parity_server_error_handler_calls = handler_calls
+    value = {
+        "asgi_events": events,
+        "response_status": start["status"] if start is not None else None,
+        "ordered_repeated_headers": start["headers"] if start is not None else [],
+        "response_bytes": {"encoding": "base64", "data": base64.b64encode(body).decode("ascii")},
+        "selected_app_calls": list(app_calls),
+        "selected_handler_calls": list(handler_calls),
+        "handler_received_original_exception": [
+            any(exc is original for original in app_exceptions) for exc in handler_exceptions
+        ],
+        "propagated_error": _dispatch_error(captured_exception) if captured_exception else None,
+        "propagated_same_app_exception": any(
+            captured_exception is original for original in app_exceptions
+        ),
+        "propagated_same_handler_exception": any(
+            captured_exception is handled for handled in handler_exceptions
+        ),
+        "server_error_observation": _server_error_observation(
+            middleware, start, body, captured_exception
+        ),
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "dispatch", "status": "ok", "value": value}],
+    }
 
 
 def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
@@ -9784,6 +9938,8 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         return _run_route_dispatch_case(case)
     if case.get("surface") in {CORS_SURFACE, HTTPS_REDIRECT_SURFACE, TRUSTED_HOST_SURFACE}:
         return _run_protocol_middleware_case(case)
+    if case.get("surface") == SERVER_ERROR_MIDDLEWARE_SURFACE:
+        return _run_server_error_middleware_case(case)
     if case.get("surface") == WSGI_SURFACE:
         _exact_object(
             case,

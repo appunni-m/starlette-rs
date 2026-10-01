@@ -17,8 +17,10 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 568 input-only cases across 64 files,
-covering 80 operations and 608 parity requirements. The authored cases span
+The active parity manifest indexes 581 input-only cases across 65 files,
+covering 82 operations and 618 parity requirements. The six direct
+ServerErrorMiddleware inputs and three TestClient exception-chain inputs pass
+live source/package comparison in the latest run. The authored cases span
 the Starlette ASGI application and route inventory, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
@@ -29,18 +31,18 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `795ba35d-173f-4547-84ab-4e20cbe5c34d`. It
-selected 727 profile comparisons: 723 passed, zero failed, zero infrastructure
+The latest full-slice run is `459eb6e1-ddf0-457f-baf0-b40bb71f48b1`. It
+selected 740 profile comparisons: 736 passed, zero failed, zero infrastructure
 errors, and four Rust-native Python-callable rows were `not_run`. The Python
-package passed all 566 selected comparisons; Rust-native passed 157 of 161.
-This run includes a mounted Router URL sequence and HTTPS Host-route dispatch
-through TestClient. The target package tree SHA-256 was
-`9562aa76a92f1bf1d9e37669439d92450183fb2695b3d5de804d1ed9b2c94a5a`, the
+package passed all 579 selected comparisons; Rust-native passed 157 of 161.
+All six direct ServerErrorMiddleware and all three TestClient exception-chain
+inputs passed on the package profile. The target package tree SHA-256 was
+`d12708e0007589aee038ecf52c835988bcc49c6d4601de2a266bf47d38a2cf9e`, the
 wheel SHA-256 was
-`8de51a1362e9594b4ca835cafa7f973be9af1674db69e0ff95e897838a973d55`, and the
-manifest SHA-256 was
-`b07f61880744f6c4cac830a9e18f2b68a8669ac2500461fd7fc0d50cc30c091b`. The four
-native `not_run` rows are sync endpoint, bound-method, partial, and
+`d58b6d8ed74ada9b3f554c6e45c1966f86aabfab83bf5617bb60c8f65c580fb2`, and
+the manifest SHA-256 was
+`c52f247962d6e2504df8fd307ea34a5500ede988e43ed109c03b62af1b93dca1`. The
+four native `not_run` rows are sync endpoint, bound-method, partial, and
 callable-instance Request dispatch cases. `make parity-run` exits with status
 2 for those declared Python-callable boundaries. Full run identity and wheel
 hash are recorded in [Migration parity contract and evidence](PARITY.md). This
@@ -64,8 +66,8 @@ the package wheel SHA-256 was
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 800 source rows: 306 existing input
-mappings, 50 reasoned `not_applicable` rows, and 444 fixture backlog rows.
+The generated coverage matrix has 800 source rows: 307 existing input
+mappings, 50 reasoned `not_applicable` rows, and 443 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -205,9 +207,35 @@ targets, three package-profile route-dispatch cases, and the 16
 convenience/close cases described above. Three additional package-profile
 cases cover the built-in `WebSocketException` close path, an `HTTPException`
 denial response, and a registered synchronous WebSocket close handler. These
-map to the pinned `test_websocket_raise_*` workflows. Direct
-`ServerErrorMiddleware` invocation and arbitrary middleware ordering remain
-outside the active contract. The active TestClient contract compares fourteen input-driven HTTP request/response cases over thirteen requirements, including exception identity and cause/context chaining, five context-managed lifespan cases over eleven requirements, including an input-driven Starlette async-context-manager callback mapped to `tests/test_applications.py::test_app_async_cm_lifespan` and `docs/lifespan.md:142-158`, and eleven WebSocket session inputs over sixteen requirements. Those inputs cover text and binary exchange, compact JSON text and UTF-8 binary JSON frames, streamed denial responses, concurrent JSON receive progress while the app is blocked, disconnect exception fields, close-triggered cancellation, app completion, portal thread cleanup, and parsed query parameters. The two WebSocket lifecycle inputs map to `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close`; their authored input and exact output observations are described in [the parity contract](PARITY.md#testclient-websocket-blocking-receive-and-close-teardown). The JSON text and binary cases are input-mapped to the documented `WebSocketTestSession.send_json()` and `receive_json()` methods. All eleven active WebSocket inputs are included in the latest full-slice run, and the Python-package comparisons pass. TestClient streaming bodies, lifespan re-entry behavior, close-message errors, and explicit close reasons remain in the fixture backlog.
+map to the pinned `test_websocket_raise_*` workflows. A separate six-case,
+Python-package-only input set now exercises direct `ServerErrorMiddleware`
+construction, custom-handler and default-response calls, and call-time reads
+after `.app`, `.handler`, or `.debug` mutation. The direct custom-handler case
+maps to `tests/middleware/test_errors.py::test_handler`; the default-response
+and field-mutation probes map to their pinned source behavior without claiming
+additional upstream test rows. All six inputs pass live source/package comparison in the latest full-slice run.
+Direct debug construction, non-HTTP pass-through, errors after response start,
+background-task errors, and arbitrary middleware ordering remain open. The
+active TestClient contract compares fourteen input-driven HTTP request/response
+cases over thirteen requirements, including exception identity and
+cause/context chaining, five context-managed lifespan cases over eleven
+requirements, including an input-driven Starlette async-context-manager
+callback mapped to `tests/test_applications.py::test_app_async_cm_lifespan` and
+`docs/lifespan.md:142-158`, and eleven WebSocket session inputs over sixteen
+requirements. Those inputs cover text and binary exchange, compact JSON text
+and UTF-8 binary JSON frames, streamed denial responses, concurrent JSON
+receive progress while the app is blocked, disconnect exception fields,
+close-triggered cancellation, app completion, portal thread cleanup, and
+parsed query parameters. The two WebSocket lifecycle inputs map to
+`tests/test_testclient.py::test_websocket_blocking_receive` and
+`test_websocket_not_block_on_close`; their authored input and exact output
+observations are described in [the parity contract](PARITY.md#testclient-websocket-blocking-receive-and-close-teardown).
+The JSON text and binary cases are input-mapped to the documented
+`WebSocketTestSession.send_json()` and `receive_json()` methods. All eleven
+active WebSocket inputs are included in the latest full-slice run, and the
+Python-package comparisons pass. TestClient streaming bodies, lifespan
+re-entry behavior, close-message errors, and explicit close reasons remain in
+the fixture backlog.
 `asgi-core.app.test_app_debug` stays in backlog because its input constructs
 the app with debug enabled rather than setting debug after construction. The
 parity artifact status for that historical run was `completed`; the four

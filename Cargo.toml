@@ -58,3 +58,9 @@ needless_range_loop = "deny"
 unnecessary_cast = "deny"
 cast_possible_truncation = "deny"
 cast_sign_loss = "deny"
+# Calibrated pedantic checks with no current workspace findings. These catch
+# hand-written panic branches, panics hidden inside fallible APIs, and
+# side-effects that would disappear when debug assertions are disabled.
+manual_assert = "deny"
+panic_in_result_fn = "deny"
+debug_assert_with_mut_call = "deny"

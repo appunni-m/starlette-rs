@@ -1,0 +1,252 @@
+{
+  "schema": "migration-parity/parity-input@22",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__init__.direct-construction",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__init__",
+      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.construct"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "asgi-response-sequence",
+          "label": "constructed-app",
+          "messages": [
+            {"type": "http.response.start", "status": 204, "headers_base64_pairs": []},
+            {"type": "http.response.body", "body_base64": "", "more_body": false}
+          ]
+        },
+        "handler": null,
+        "debug": false
+      },
+      "observations": ["construct"]
+    },
+    {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.direct-custom-handler",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__call__",
+      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.direct-call"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "raise-runtime-error",
+          "label": "test-handler-app",
+          "message": "Something went wrong"
+        },
+        "handler": {
+          "kind": "json-server-error-response",
+          "callable_kind": "sync",
+          "label": "test-handler-error-500",
+          "status_code": 500,
+          "content": {"detail": "Server Error"}
+        },
+        "debug": false
+      },
+      "assignments": [],
+      "dispatch": {
+        "scope": {
+          "type": "http",
+          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [],
+          "client": ["127.0.0.1", 12345],
+          "server": ["testserver", 80]
+        },
+        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
+        "send": {"kind": "capture-asgi-send"}
+      },
+      "observations": ["dispatch"]
+    },
+    {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.direct-default-response",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__call__",
+      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.default-response"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "raise-runtime-error",
+          "label": "default-response-app",
+          "message": "direct default response probe"
+        },
+        "handler": null,
+        "debug": false
+      },
+      "assignments": [],
+      "dispatch": {
+        "scope": {
+          "type": "http",
+          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [],
+          "client": ["127.0.0.1", 12345],
+          "server": ["testserver", 80]
+        },
+        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
+        "send": {"kind": "capture-asgi-send"}
+      },
+      "observations": ["dispatch"]
+    },
+    {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.mutable-app",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__call__",
+      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.mutable-app"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "asgi-response-sequence",
+          "label": "original-app",
+          "messages": [
+            {"type": "http.response.start", "status": 202, "headers_base64_pairs": []},
+            {"type": "http.response.body", "body_base64": "b3JpZ2luYWwgYXBw", "more_body": false}
+          ]
+        },
+        "handler": {
+          "kind": "json-server-error-response",
+          "callable_kind": "sync",
+          "label": "replacement-app-handler",
+          "status_code": 500,
+          "content": {"detail": "replacement app selected"}
+        },
+        "debug": false
+      },
+      "assignments": [
+        {
+          "field": "app",
+          "value": {
+            "kind": "raise-runtime-error",
+            "label": "replacement-app",
+            "message": "replacement app probe"
+          }
+        }
+      ],
+      "dispatch": {
+        "scope": {
+          "type": "http",
+          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [],
+          "client": ["127.0.0.1", 12345],
+          "server": ["testserver", 80]
+        },
+        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
+        "send": {"kind": "capture-asgi-send"}
+      },
+      "observations": ["dispatch"]
+    },
+    {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.mutable-handler",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__call__",
+      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.mutable-handler"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "raise-runtime-error",
+          "label": "handler-mutation-app",
+          "message": "replacement handler probe"
+        },
+        "handler": null,
+        "debug": false
+      },
+      "assignments": [
+        {
+          "field": "handler",
+          "value": {
+            "kind": "json-server-error-response",
+            "callable_kind": "async",
+            "label": "replacement-handler",
+            "status_code": 500,
+            "content": {"detail": "replacement handler selected"}
+          }
+        }
+      ],
+      "dispatch": {
+        "scope": {
+          "type": "http",
+          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [],
+          "client": ["127.0.0.1", 12345],
+          "server": ["testserver", 80]
+        },
+        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
+        "send": {"kind": "capture-asgi-send"}
+      },
+      "observations": ["dispatch"]
+    },
+    {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.mutable-debug",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__call__",
+      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.mutable-debug"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "raise-runtime-error",
+          "label": "debug-mutation-app",
+          "message": "replacement debug probe"
+        },
+        "handler": {
+          "kind": "json-server-error-response",
+          "callable_kind": "sync",
+          "label": "configured-handler-not-selected",
+          "status_code": 500,
+          "content": {"detail": "debug must take precedence"}
+        },
+        "debug": false
+      },
+      "assignments": [{"field": "debug", "value": true}],
+      "dispatch": {
+        "scope": {
+          "type": "http",
+          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [["YWNjZXB0", "dGV4dC9wbGFpbg=="]],
+          "client": ["127.0.0.1", 12345],
+          "server": ["testserver", 80]
+        },
+        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
+        "send": {"kind": "capture-asgi-send"}
+      },
+      "observations": ["dispatch"]
+    }
+  ]
+}

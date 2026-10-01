@@ -24,9 +24,6 @@ class ServerErrorMiddleware:
         self.handler = handler
         self.debug = debug
         self._runtime = _core._new_server_error_middleware_runtime(
-            app,
-            handler,
-            debug,
             Request,
             Response,
         )
@@ -44,7 +41,6 @@ class ServerErrorMiddleware:
         middleware.handler = None
         middleware.debug = False
         middleware._runtime = _core._server_error_middleware_runtime_with_policy(
-            app,
             exception_handlers,
             policy,
             Request,
@@ -58,4 +54,4 @@ class ServerErrorMiddleware:
         receive: Callable[..., Any],
         send: Callable[..., Any],
     ) -> None:
-        await self._runtime(scope, receive, send)
+        await self._runtime(self, scope, receive, send)

@@ -8,24 +8,22 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 575 input-only cases in 64 indexed files,
-covering 80 operations and 612 parity requirements. Three TestClient
-exception-chain inputs were added after the latest integrated run and remain
-unverified by a new source/package comparison. Latest integrated run
-`7f506068-123d-4db2-a008-42fbf946c1cf` passed all 727 executed comparisons out
-of 731 selected, with zero failures or infrastructure errors and four
-Rust-native Python-callable rows `not_run`. The Python package passed 570/570;
-Rust-native passed 157/161. The run includes same-client mounted-Router URL
-and HTTPS Host-route flows, plus app-level body limits on a fragmented body
-without Content-Length and at a zero-byte limit, plus call-time FileResponse path, status-code, and stat-result assignments. The four native `not_run` rows
-are sync endpoint, bound-method, partial, and callable-instance Request
-dispatch. `make parity-run` exits with status 2 for those declared rows. Full
-run identities and package hashes are recorded in
+The active contract contains 581 input-only cases in 65 indexed files,
+covering 82 operations and 618 parity requirements. The six direct
+ServerErrorMiddleware cases and three TestClient exception-chain cases pass
+live source/package comparison. Latest integrated run
+`459eb6e1-ddf0-457f-baf0-b40bb71f48b1` passed all 736 executed comparisons out
+of 740 selected, with zero failures or infrastructure errors and four
+Rust-native Python-callable rows `not_run`. The Python package passed 579/579;
+Rust-native passed 157/161. The four native `not_run` rows are sync endpoint,
+bound-method, partial, and callable-instance Request dispatch.
+`make parity-run` exits with status 2 for those declared rows. Full run
+identities and package hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The current coverage matrix has 800 source rows: 306 existing input mappings,
-50 source-backed `not_applicable` rows, and 444 fixture-backlog rows. Derive
+The current coverage matrix has 800 source rows: 307 existing input mappings,
+50 source-backed `not_applicable` rows, and 443 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
@@ -107,8 +105,11 @@ passed: six protocol-tape cases on the Python package, six state projections
 on both targets, and three route-dispatch cases on the Python package. Later
 inputs add convenience/close behavior and three app-level exception flows:
 the built-in close handler, an HTTP denial response, and a custom close handler.
-TestClient propagation, TestClient WebSocket sessions, direct middleware
-invocation, and arbitrary middleware ordering remain open.
+TestClient propagation and TestClient WebSocket sessions remain open. Six
+direct `ServerErrorMiddleware` inputs are now authored for construction,
+custom/default handler dispatch, and post-construction field mutation; they
+have not yet been run through the source/package comparator. Arbitrary
+middleware ordering remains open.
 
 ## P2 — Scoped ASGI and WebSocket workflows (bounded parity recorded)
 
