@@ -283,6 +283,7 @@
       "build/parity/inputs/parity/url-query-operations.json",
       "build/parity/inputs/parity/url-scope.json",
       "build/parity/inputs/parity/url-components.json",
+      "build/parity/inputs/parity/urlpath-absolute.json",
       "build/parity/inputs/parity/datastructures-headers.json",
       "build/parity/inputs/parity/datastructures-state.json",
       "build/parity/inputs/parity/query-params.json",
@@ -5132,6 +5133,185 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.datastructures.URLPath",
+      "kind": "type",
+      "source_path": "starlette/datastructures.py:175",
+      "storage_slug": "starlette-datastructures-URLPath",
+      "operations": [
+        {
+          "id": "make-absolute-url",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.URLPath.make_absolute_url",
+            "signature": "make_absolute_url(self, base_url: str | URL) -> URL",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "base_url",
+                "style": "positional",
+                "value_types": [
+                  "string",
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "sequence",
+              "observations": [
+                {
+                  "path": "absolute-url-results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "URLPath is part of the Python starlette.* compatibility surface and has no direct Rust-native object API.",
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.URLPath.make_absolute_url",
+              "signature": "make_absolute_url(self, base_url: str | URL) -> URL",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.URLPath.make_absolute_url.protocol-scheme-selection",
+              "dimension": "protocol_variant",
+              "description": "Select http/https for HTTP routes and ws/wss for WebSocket routes from insecure and secure bases. Pinned source: starlette/datastructures.py:190-193; starlette/routing.py:260-269,342-351; tests/test_routing.py::test_url_path_for.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URLPath.make_absolute_url.base-scheme-inheritance",
+              "dimension": "protocol_variant",
+              "description": "Preserve the supplied base scheme for URLPaths with an empty protocol, including direct Host paths. Pinned source: starlette/datastructures.py:194-198; starlette/routing.py:493-511; tests/test_routing.py::test_hosts.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URLPath.make_absolute_url.route-host-override",
+              "dimension": "parameter_combination",
+              "description": "Use a host-associated URLPath authority in place of the base authority. Pinned source: starlette/datastructures.py:199-200; starlette/routing.py:493-511; tests/test_routing.py::test_hosts.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URLPath.make_absolute_url.base-authority-fallback",
+              "dimension": "parameter_combination",
+              "description": "Use the base URL authority when the route-generated URLPath has no host override. Pinned source: starlette/datastructures.py:199-200; tests/test_routing.py::test_url_path_for.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URLPath.make_absolute_url.base-path-concatenation",
+              "dimension": "parameter_combination",
+              "description": "Append the route path after the base path and remove a trailing slash from the base path; base query and fragment are excluded from the constructed URL. Pinned source: starlette/datastructures.py:201-202; tests/test_routing.py::test_url_path_for.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URLPath.make_absolute_url.accepted-base-url-types",
+              "dimension": "boundary",
+              "description": "Accept either a base URL string or a Starlette URL object. Pinned source: starlette/datastructures.py:185-186; tests/test_routing.py::test_url_path_for.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URLPath.make_absolute_url.base-query-fragment-omission",
+              "dimension": "parameter_combination",
+              "description": "Discard query and fragment components from the base URL when constructing the absolute route URL. Pinned source: starlette/datastructures.py:201-202.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "URLPath absolute URL construction is outside the declared benchmark workloads."
           }
         }
       ]

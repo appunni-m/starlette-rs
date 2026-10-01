@@ -377,6 +377,24 @@ URL_COMPONENTS_OPERATION = (
     "starlette.datastructures.URL",
     "component-and-replacement-sequence",
 )
+URLPATH_ABSOLUTE_OPERATION = (
+    "starlette.datastructures.URLPath",
+    "make-absolute-url",
+)
+URLPATH_ABSOLUTE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "route_graph",
+    "lookups",
+    "base_urls",
+}
+URLPATH_ABSOLUTE_REQUIREMENTS = {
+    "scheme": "starlette.datastructures.URLPath.make_absolute_url.protocol-scheme-selection",
+    "base_scheme": "starlette.datastructures.URLPath.make_absolute_url.base-scheme-inheritance",
+    "host_override": "starlette.datastructures.URLPath.make_absolute_url.route-host-override",
+    "base_authority": "starlette.datastructures.URLPath.make_absolute_url.base-authority-fallback",
+    "base_path": "starlette.datastructures.URLPath.make_absolute_url.base-path-concatenation",
+    "base_types": "starlette.datastructures.URLPath.make_absolute_url.accepted-base-url-types",
+    "query_fragment": "starlette.datastructures.URLPath.make_absolute_url.base-query-fragment-omission",
+}
 HEADERS_SURFACE = "starlette.datastructures.Headers"
 MUTABLE_HEADERS_SURFACE = "starlette.datastructures.MutableHeaders"
 HEADERS_CONSUMER_OPERATION = "consumer-sequence"
@@ -464,6 +482,7 @@ RUST_OWNED_PYTHON_OPERATIONS = (
         URL_QUERY_OPERATION,
         URL_SCOPE_OPERATION,
         URL_COMPONENTS_OPERATION,
+        URLPATH_ABSOLUTE_OPERATION,
         *HEADERS_OPERATIONS,
         STATE_OPERATION_KEY,
         *WSGI_BOUNDARY_OPERATIONS,
@@ -6354,6 +6373,59 @@ def _reverse_route_candidates(
     raise ContractError("reverse route graph has an unsupported node")
 
 
+def _urlpath_route_profiles(
+    node: dict[str, Any],
+    name: str,
+    path_params: dict[str, Any],
+    custom: dict[str, dict[str, Any]],
+    *,
+    host_override: bool = False,
+) -> list[tuple[str, bool]]:
+    """Describe matching URLPath protocol and host inputs in route order."""
+    kind = node["kind"]
+    if kind in {"http-route", "websocket-route"}:
+        expected = {key for key, _ in _validate_reverse_path(node["path"], custom, "route path")}
+        return (
+            [(kind, host_override)] if node["name"] == name and expected == set(path_params) else []
+        )
+    if kind in {"router", "starlette-app"}:
+        return [
+            profile
+            for route in node["routes"]
+            for profile in _urlpath_route_profiles(
+                route, name, path_params, custom, host_override=host_override
+            )
+        ]
+    if kind == "host-route":
+        host_parameters = {
+            key for key, _ in _validate_reverse_path("/" + node["host"], custom, "Host.host")
+        }
+        if node["name"] is not None and name == node["name"]:
+            direct_parameters = host_parameters | {"path"}
+            return (
+                [("", True)]
+                if "path" in path_params and direct_parameters == set(path_params)
+                else []
+            )
+        if node["name"] is None:
+            child_name = name
+        elif name.startswith(node["name"] + ":"):
+            child_name = name[len(node["name"]) + 1 :]
+        else:
+            return []
+        remaining = {key: value for key, value in path_params.items() if key not in host_parameters}
+        return [
+            profile
+            for route in node["routes"]
+            for profile in _urlpath_route_profiles(
+                route, child_name, remaining, custom, host_override=True
+            )
+        ]
+    raise ContractError(
+        "URLPath absolute-URL route graphs support Router, Starlette, Route, WebSocketRoute, and Host"
+    )
+
+
 def _reverse_route_nodes(node: dict[str, Any]) -> list[dict[str, Any]]:
     if node["kind"] in {"router", "starlette-app", "mount", "host-route"}:
         result: list[dict[str, Any]] = []
@@ -10322,6 +10394,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             URL_QUERY_OPERATION: {"url", "actions"},
             URL_SCOPE_OPERATION: {"scope"},
             URL_COMPONENTS_OPERATION: {"url", "actions"},
+            URLPATH_ABSOLUTE_OPERATION: {"route_graph", "lookups", "base_urls"},
             (HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION): {"instances"},
             (MUTABLE_HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION): {"instances"},
             STATE_OPERATION_KEY: {"instances", "actions"},
@@ -10755,6 +10828,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             _validate_url_scope_case(case)
         elif (case["surface"], case["operation"]) == URL_COMPONENTS_OPERATION:
             _validate_url_components_case(case)
+        elif (case["surface"], case["operation"]) == URLPATH_ABSOLUTE_OPERATION:
+            _validate_urlpath_absolute_case(case)
         elif (case["surface"], case["operation"]) in HEADERS_OPERATIONS:
             _validate_headers_case(case)
         elif (case["surface"], case["operation"]) == STATE_OPERATION_KEY:
@@ -15678,6 +15753,85 @@ def _validate_url_components_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "URL component case claims requirements not exercised by its input: "
             f"{sorted(unexercised)}"
+        )
+
+
+def _validate_urlpath_absolute_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("URLPath absolute-URL parity currently targets the Python package")
+    if case["assets"] != [] or case["observations"] != ["absolute-url-results"]:
+        raise ContractError(
+            "URLPath absolute-URL cases use no assets and select absolute-url-results"
+        )
+
+    graph = _validate_reverse_route_node(
+        case["route_graph"], "URLPath route_graph", {}, allow_observer=False
+    )
+    lookups = case["lookups"]
+    if not isinstance(lookups, list) or not lookups:
+        raise ContractError("URLPath lookups must be a non-empty array")
+    profiles: list[tuple[str, bool]] = []
+    for index, raw_lookup in enumerate(lookups):
+        context = f"URLPath lookups[{index}]"
+        lookup = _exact(raw_lookup, {"name", "path_params"}, context)
+        _string(lookup["name"], f"{context}.name")
+        path_params = lookup["path_params"]
+        if not isinstance(path_params, dict):
+            raise ContractError(f"{context}.path_params must be an object")
+        for name, value in path_params.items():
+            _string(name, f"{context}.path parameter name")
+            if isinstance(value, (dict, list)):
+                raise ContractError(f"{context}.path parameter values must be JSON scalars")
+        candidates = _urlpath_route_profiles(graph, lookup["name"], path_params, {})
+        if not candidates:
+            raise ContractError(f"{context} must resolve through the supplied route graph")
+        profiles.append(candidates[0])
+
+    raw_base_urls = case["base_urls"]
+    if not isinstance(raw_base_urls, list) or not raw_base_urls:
+        raise ContractError("URLPath base_urls must be a non-empty array")
+    base_urls = []
+    for index, raw_base_url in enumerate(raw_base_urls):
+        context = f"URLPath base_urls[{index}]"
+        base_url = _exact(raw_base_url, {"kind", "value"}, context)
+        if base_url["kind"] not in {"string", "url"}:
+            raise ContractError(f"{context}.kind must be string or url")
+        value = _string(base_url["value"], f"{context}.value")
+        try:
+            parsed = urlsplit(value)
+        except ValueError as exc:
+            raise ContractError(f"{context}.value must be a valid absolute URL") from exc
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ContractError(f"{context}.value must have an HTTP(S) scheme and authority")
+        base_urls.append((base_url["kind"], parsed))
+
+    schemes = {base.scheme for _kind, base in base_urls}
+    protocols = {protocol for protocol, _host in profiles}
+    has_host_override = any(host for _protocol, host in profiles)
+    has_base_authority_fallback = any(
+        not host and any(base.netloc for _kind, base in base_urls) for _protocol, host in profiles
+    )
+    base_paths = {base.path for _kind, base in base_urls}
+    base_types = {kind for kind, _base in base_urls}
+    derived: set[str] = set()
+    if {"http-route", "websocket-route"} <= protocols and {"http", "https"} <= schemes:
+        derived.add(URLPATH_ABSOLUTE_REQUIREMENTS["scheme"])
+    if "" in protocols and {"http", "https"} <= schemes:
+        derived.add(URLPATH_ABSOLUTE_REQUIREMENTS["base_scheme"])
+    if has_host_override:
+        derived.add(URLPATH_ABSOLUTE_REQUIREMENTS["host_override"])
+    if has_base_authority_fallback:
+        derived.add(URLPATH_ABSOLUTE_REQUIREMENTS["base_authority"])
+    if any(path not in {"", "/"} for path in base_paths):
+        derived.add(URLPATH_ABSOLUTE_REQUIREMENTS["base_path"])
+    if base_types == {"string", "url"}:
+        derived.add(URLPATH_ABSOLUTE_REQUIREMENTS["base_types"])
+    if any(base.query and base.fragment for _kind, base in base_urls):
+        derived.add(URLPATH_ABSOLUTE_REQUIREMENTS["query_fragment"])
+    if set(case["covers"]) != derived:
+        raise ContractError(
+            "URLPath absolute-URL coverage must be derived from route and base URL inputs: "
+            f"expected {sorted(derived)}"
         )
 
 

@@ -1,0 +1,73 @@
+{
+  "schema": "migration-parity/parity-input@22",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.URLPath.make-absolute-url.route-and-base-variants",
+      "surface": "starlette.datastructures.URLPath",
+      "operation": "make-absolute-url",
+      "covers": [
+        "starlette.datastructures.URLPath.make_absolute_url.accepted-base-url-types",
+        "starlette.datastructures.URLPath.make_absolute_url.base-authority-fallback",
+        "starlette.datastructures.URLPath.make_absolute_url.base-path-concatenation",
+        "starlette.datastructures.URLPath.make_absolute_url.base-query-fragment-omission",
+        "starlette.datastructures.URLPath.make_absolute_url.base-scheme-inheritance",
+        "starlette.datastructures.URLPath.make_absolute_url.protocol-scheme-selection",
+        "starlette.datastructures.URLPath.make_absolute_url.route-host-override"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/users/{username:str}",
+            "name": "user",
+            "methods": ["GET"],
+            "observer": null
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/rooms/{room:str}",
+            "name": "socket",
+            "observer": null
+          },
+          {
+            "kind": "host-route",
+            "host": "{subdomain}.example.org",
+            "name": "tenant",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/profile",
+                "name": "profile",
+                "methods": ["GET"],
+                "observer": null
+              }
+            ]
+          }
+        ]
+      },
+      "lookups": [
+        {"name": "user", "path_params": {"username": "ada"}},
+        {"name": "socket", "path_params": {"room": "blue"}},
+        {
+          "name": "tenant",
+          "path_params": {"path": "/archive", "subdomain": "files"}
+        },
+        {"name": "tenant:profile", "path_params": {"subdomain": "api"}}
+      ],
+      "base_urls": [
+        {
+          "kind": "string",
+          "value": "https://base.example/root_path/?source=string#fragment"
+        },
+        {
+          "kind": "url",
+          "value": "http://origin.example/api/?source=url#anchor"
+        }
+      ],
+      "observations": ["absolute-url-results"]
+    }
+  ]
+}

@@ -10675,6 +10675,13 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.url_components import run_url_components_case
 
         return run_url_components_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.datastructures.URLPath",
+        "make-absolute-url",
+    ):
+        from scripts.parity.adapters.urlpath_absolute import run_urlpath_absolute_case
+
+        return run_urlpath_absolute_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in {
         ("starlette.datastructures.Headers", "consumer-sequence"),
         ("starlette.datastructures.MutableHeaders", "consumer-sequence"),

@@ -184,6 +184,16 @@
       ]
     },
     {
+      "surface_id": "starlette.datastructures.URLPath",
+      "source_path": "starlette/datastructures.py:175",
+      "operations": [
+        {
+          "operation_id": "make-absolute-url",
+          "source_path": "starlette.datastructures.URLPath.make_absolute_url"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.endpoints.WebSocketEndpoint",
       "source_path": "starlette/endpoints.py:58",
       "operations": [
