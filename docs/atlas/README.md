@@ -29,13 +29,14 @@ active and incomplete. The current contract has 583 input-only cases across
 66 indexed files, 83 operations, and 622 requirements. Two direct
 `run_in_threadpool` cases, six direct ServerErrorMiddleware cases, and three
 TestClient exception-chain cases pass live source/package comparison in the
-latest full-slice run `2fcdaf8f-f4c0-4b41-9f3f-f2e058feba51`. It passed all 738
-executed profile comparisons out of 742 selected, with zero failures or
-infrastructure errors and four Rust-native Python-callable rows `not_run`. The
-Python package passed 581/581; Rust-native passed 157/161. The four native
-`not_run` rows are sync endpoint, bound-method, partial, and callable-instance
-Request dispatch.
-`make parity-run` exits with status 2 for those declared rows. Full run and
+latest full-slice run `49e6b69e-e09e-4c82-9ad4-160ef8fc9a64`. Both target
+profiles were clean at revision `acb06796a6dd4691940d1a782a8c1d065203e6c1`.
+It passed all 738 executed profile comparisons out of 742 selected, with zero
+failures or infrastructure errors and four Rust-native Python-callable rows
+`not_run`. The Python package passed 581/581; Rust-native passed 157/161. The
+four native `not_run` rows are sync endpoint, bound-method, partial, and
+callable-instance Request dispatch.
+`make test` exits with status 2 for those declared rows. Full run and
 wheel identities are recorded in [Migration parity contract and
 evidence](../PARITY.md). This bounded evidence does not establish full Starlette
 parity or release readiness.

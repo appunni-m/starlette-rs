@@ -37,14 +37,15 @@ covering 83 operations and 622 requirements, including the direct
 `starlette.concurrency.run_in_threadpool` helper. The six direct
 ServerErrorMiddleware inputs and three TestClient exception-chain inputs pass
 live source/package comparison. Latest integrated run
-`2fcdaf8f-f4c0-4b41-9f3f-f2e058feba51` selected 742 comparisons: 738 passed,
+`49e6b69e-e09e-4c82-9ad4-160ef8fc9a64` selected 742 comparisons: 738 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
-Python-callable rows `not_run`. The installed Python package passed 581/581;
-Rust-native passed 157/161. The two direct `run_in_threadpool` cases passed on
-the package profile. The four native `not_run` rows are sync endpoint,
-bound-method, partial, and callable-instance Request dispatch. `make parity-run`
-exits with status 2 for these declared rows. The complete run identity, wheel
-and tree hashes, and case-level evidence are in
+Python-callable rows `not_run`. Both target profiles were clean at revision
+`acb06796a6dd4691940d1a782a8c1d065203e6c1`; the installed Python package
+passed 581/581, and Rust-native passed 157/161. The two direct
+`run_in_threadpool` cases passed on the package profile. The four native
+`not_run` rows are sync endpoint, bound-method, partial, and callable-instance
+Request dispatch. `make test` exits with status 2 for these declared rows. The
+complete run identity, wheel and tree hashes, and case-level evidence are in
 [Migration parity contract and evidence](PARITY.md). This bounded run does not
 establish full Starlette parity or release readiness.
 

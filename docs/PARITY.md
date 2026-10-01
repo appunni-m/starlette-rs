@@ -8,8 +8,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `2fcdaf8f-f4c0-4b41-9f3f-f2e058feba51`.
-It ran from `2026-10-01T05:07:32.156Z` to `2026-10-01T05:09:45.434Z` against
+The latest full-slice parity run is `49e6b69e-e09e-4c82-9ad4-160ef8fc9a64`.
+It ran from `2026-10-01T05:16:09.182Z` to `2026-10-01T05:18:32.697Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
 583-case/622-requirement manifest. It selected 742 profile comparisons: 738
 passed, zero failed, zero infrastructure errors, and four Rust-native
@@ -18,14 +18,14 @@ Rust-native passed 157 of 161. Both direct `run_in_threadpool` cases passed,
 as did all six direct ServerErrorMiddleware cases and all three TestClient
 exception-chain cases. The four Rust-native `not_run` rows are sync endpoint,
 bound-method, partial, and callable-instance Request dispatch cases.
-`make parity-run` exits with status 2 for those declared `not_run` rows. The
-target source revision was `865edd45e2af851a2cc9138039157994238cda6a` with
-working-tree SHA-256
-`318d56bd8d0853995ff3c60cdcb629591698d610505806f6910b958c3553254a`; the
-installed package tree SHA-256 was
+`make test` exits with status 2 for those declared `not_run` rows. Both target
+profiles were clean at revision `acb06796a6dd4691940d1a782a8c1d065203e6c1`;
+the Rust-native source fingerprint was
+`acb06796a6dd4691940d1a782a8c1d065203e6c1+source-fnv1a64-26d37a031534df21`.
+The installed package tree SHA-256 was
 `327d73c6e7a374642f7c05be59c1517e31c0e9bdee0a748360939cc959133e9c`, the
 wheel SHA-256 was
-`f96b101ee9280a5f12f424eab2a34d44d7cdb53ab8a10fb90cb85b31d598842d`, and the
+`70bb1df5e16fe13e72a2bb02000a9d054d24dcf57fda735d2d4a6b1d01bdedfe`, and the
 manifest SHA-256 was
 `91264a4901c2211e68cc5c2d6657115cf19d85d8c8cfe5ef0dc397c2747ced40`.
 Strict aggregation reports `not_proven` because the full compatibility

@@ -32,23 +32,24 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `2fcdaf8f-f4c0-4b41-9f3f-f2e058feba51`. It
-selected 742 profile comparisons: 738 passed, zero failed, zero infrastructure
-errors, and four Rust-native Python-callable rows were `not_run`. The Python
-package passed all 581 selected comparisons; Rust-native passed 157 of 161.
+The latest full-slice run is `49e6b69e-e09e-4c82-9ad4-160ef8fc9a64`. It ran
+from `2026-10-01T05:16:09.182Z` to `2026-10-01T05:18:32.697Z` and selected 742
+profile comparisons: 738 passed, zero failed, zero infrastructure errors, and
+four Rust-native Python-callable rows were `not_run`. The Python package passed
+all 581 selected comparisons; Rust-native passed 157 of 161. Both target
+profiles were clean at revision
+`acb06796a6dd4691940d1a782a8c1d065203e6c1`; the Rust-native source fingerprint
+was `acb06796a6dd4691940d1a782a8c1d065203e6c1+source-fnv1a64-26d37a031534df21`.
 The two direct `run_in_threadpool` cases, all six direct ServerErrorMiddleware
 cases, and all three TestClient exception-chain inputs passed on the package
-profile. The target source was dirty at revision
-`865edd45e2af851a2cc9138039157994238cda6a` with working-tree SHA-256
-`318d56bd8d0853995ff3c60cdcb629591698d610505806f6910b958c3553254a`; the
-installed package tree SHA-256 was
+profile. The installed package tree SHA-256 was
 `327d73c6e7a374642f7c05be59c1517e31c0e9bdee0a748360939cc959133e9c`, the wheel
 SHA-256 was
-`f96b101ee9280a5f12f424eab2a34d44d7cdb53ab8a10fb90cb85b31d598842d`, and the
+`70bb1df5e16fe13e72a2bb02000a9d054d24dcf57fda735d2d4a6b1d01bdedfe`, and the
 manifest SHA-256 was
 `91264a4901c2211e68cc5c2d6657115cf19d85d8c8cfe5ef0dc397c2747ced40`. The four
 native `not_run` rows are sync endpoint, bound-method, partial, and
-callable-instance Request dispatch cases. `make parity-run` exits with status
+callable-instance Request dispatch cases. `make test` exits with status
 2 for those declared Python-callable boundaries. Full run and wheel hash are
 recorded in [Migration parity contract and evidence](PARITY.md). This bounded
 evidence does not establish full Starlette parity or release readiness.
