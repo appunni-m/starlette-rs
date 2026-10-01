@@ -130,6 +130,35 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await starlette_application(scope, receive, observed_send)
 
+    elif app_input["kind"] == "starlette-app-trusted-host":
+        from starlette.applications import Starlette
+        from starlette.middleware import Middleware
+        from starlette.middleware.trustedhost import TrustedHostMiddleware
+        from starlette.responses import PlainTextResponse
+        from starlette.routing import Route
+
+        def endpoint(_request: Any) -> Any:
+            return PlainTextResponse(app_input["endpoint"]["content"])
+
+        starlette_application = Starlette(
+            routes=[Route(app_input["path"], endpoint)],
+            middleware=[
+                Middleware(
+                    TrustedHostMiddleware,
+                    allowed_hosts=app_input["allowed_hosts"],
+                )
+            ],
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await starlette_application(scope, receive, observed_send)
+
     elif app_input["kind"] == "asgi2":
 
         def app(scope: dict[str, Any]) -> Any:
@@ -201,7 +230,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             None if sync_endpoint_state is None else sync_endpoint_state["observation"]
         ),
     }
-    if starlette_application is not None:
+    if app_input["kind"] == "starlette-app-debug":
         result["application_debug"] = bool(starlette_application.debug)
         result["debug_exception_name_present"] = (
             response is not None and app_input["exception"]["class"] in response.text

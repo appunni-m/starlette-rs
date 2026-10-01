@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@18"
+INPUT_SCHEMA = "migration-parity/parity-input@19"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -126,6 +126,7 @@ TESTCLIENT_REQUIREMENTS = {
     "sync_route_worker_thread": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-worker-thread",
     "app_debug_mutation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.application-debug-mutation",
     "app_debug_response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.debug-error-response",
+    "starlette_trusted_host": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-trusted-host-middleware",
 }
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
@@ -8015,6 +8016,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     app_kind = raw_asgi_app.get("kind") if isinstance(raw_asgi_app, dict) else None
     is_sync_route = app_kind == "starlette-route"
     is_starlette_app_debug = app_kind == "starlette-app-debug"
+    is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
     if is_sync_route:
         asgi_app = _exact(
             raw_asgi_app,
@@ -8059,6 +8061,34 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 "TestClient Starlette debug input must enable debug after construction and return the GET error response"
             )
         exception_spec = asgi_app["exception"]
+        messages = []
+    elif is_starlette_app_trusted_host:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "allowed_hosts", "path", "endpoint", "scope_fields"},
+            "TestClient Starlette TrustedHost app",
+        )
+        route_path = _string(asgi_app["path"], "TestClient TrustedHost route path")
+        allowed_hosts = asgi_app["allowed_hosts"]
+        endpoint = _exact(
+            asgi_app["endpoint"],
+            {"kind", "content"},
+            "TestClient TrustedHost route endpoint",
+        )
+        if (
+            not route_path.startswith("/")
+            or request["method"] != "GET"
+            or urlsplit(request["url"]).path != route_path
+            or not isinstance(allowed_hosts, list)
+            or not allowed_hosts
+            or any(not isinstance(host, str) or not host for host in allowed_hosts)
+            or endpoint["kind"] != "sync-plain-text-response"
+        ):
+            raise ContractError(
+                "TestClient Starlette TrustedHost input must define a GET route and allowed-host list"
+            )
+        _string(endpoint["content"], "TestClient TrustedHost endpoint content")
+        exception_spec = None
         messages = []
     else:
         asgi_app_keys = {"kind", "scope_fields", "receive_count", "messages"}
@@ -8135,6 +8165,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     if is_starlette_app_debug:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_mutation"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_response"])
+    if is_starlette_app_trusted_host:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_trusted_host"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if exception_spec is not None:
         exception_spec = _exact(
             exception_spec,

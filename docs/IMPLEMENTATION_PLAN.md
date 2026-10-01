@@ -32,20 +32,20 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 564 input-only cases in 64 indexed files,
-covering 80 operations and 603 requirements. Latest integrated run
-`e14095ce-c405-4b0d-97ac-a23d64e025dc` selected 723 comparisons: 719 passed,
+The active parity contract contains 565 input-only cases in 64 indexed files,
+covering 80 operations and 604 requirements. Latest integrated run
+`2079f8f4-a413-4730-9aaf-3ed7dffa6e79` selected 724 comparisons: 720 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
-Python-callable rows `not_run`. The installed Python package passed 562/562;
-Rust-native passed 157/161. This run adds TestClient parity for setting
-`app.debug=True` after construction and checking the resulting 500 traceback
-response. `make parity-run` exits with status 2 for the four declared native
-`not_run` rows. The complete run identity, wheel/tree hashes, and case-level
-evidence are in [Migration parity contract and evidence](PARITY.md). This
-bounded run does not establish full Starlette parity or release readiness.
+Python-callable rows `not_run`. The installed Python package passed 563/563;
+Rust-native passed 157/161. This run adds TestClient parity for the configured
+Starlette `TrustedHostMiddleware` stack and its invalid-host response.
+`make parity-run` exits with status 2 for the four declared native `not_run`
+rows. The complete run identity, wheel/tree hashes, and case-level evidence
+are in [Migration parity contract and evidence](PARITY.md). This bounded run
+does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 800 source rows: 301 input mappings,
-50 source-backed `not_applicable` rows, and 449 fixture-backlog rows. These
+The generated coverage matrix contains 800 source rows: 302 input mappings,
+50 source-backed `not_applicable` rows, and 448 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.

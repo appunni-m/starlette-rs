@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@18",
+  "schema": "migration-parity/parity-input@19",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.asgi3-default-client",
@@ -667,6 +667,61 @@
           "server",
           "state",
           "extensions"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.starlette-trusted-host-invalid-host",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.starlette-trusted-host-middleware"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://incorrecthost",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/func",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "starlette-app-trusted-host",
+        "allowed_hosts": [
+          "testserver",
+          "*.example.org"
+        ],
+        "path": "/func",
+        "endpoint": {
+          "kind": "sync-plain-text-response",
+          "content": "Hello, world!"
+        },
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "headers",
+          "client",
+          "server"
         ]
       }
     }

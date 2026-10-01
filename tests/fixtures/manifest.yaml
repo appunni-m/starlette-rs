@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@18",
+      "input_schema": "migration-parity/parity-input@19",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -17126,6 +17126,17 @@
               "id": "starlette.testclient.TestClient.request-response.debug-error-response",
               "dimension": "error_path",
               "description": "With debug enabled after construction and TestClient server exceptions suppressed, compare the routed RuntimeError response, traceback body, and emitted ASGI events. Upstream: tests/test_applications.py::test_app_debug; starlette/applications.py:63-64,92-96; starlette/middleware/errors.py::debug_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.starlette-trusted-host-middleware",
+              "dimension": "error_path",
+              "description": "Build a Starlette application with TrustedHostMiddleware in its configured middleware stack, then use TestClient with an input-defined disallowed Host and compare the response and emitted ASGI events. Upstream: tests/test_applications.py::test_middleware; starlette/applications.py:92-107; starlette/middleware/trustedhost.py:31-66.",
               "lanes": [
                 "parity"
               ],
