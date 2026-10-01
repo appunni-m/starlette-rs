@@ -26,6 +26,31 @@
         }
       ],
       "observations": ["action-results"]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.query-parameter-operations.test-url-query-params",
+      "surface": "starlette.datastructures.URL",
+      "operation": "query-parameter-operations",
+      "covers": [
+        "starlette.datastructures.URL.include_query_params",
+        "starlette.datastructures.URL.replace_query_params",
+        "starlette.datastructures.URL.remove_query_params"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "url": "https://example.org/path/?page=3",
+      "actions": [
+        {"method": "include_query_params", "kwargs": {"page": 4}},
+        {"method": "include_query_params", "kwargs": {"search": "testing"}},
+        {"method": "replace_query_params", "kwargs": {"order": "name"}},
+        {"method": "remove_query_params", "args": ["order"]},
+        {
+          "method": "include_query_params",
+          "kwargs": {"page": 4, "search": "testing"}
+        },
+        {"method": "remove_query_params", "args": [["page", "search"]]}
+      ],
+      "observations": ["action-results"]
     }
   ]
 }
