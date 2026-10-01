@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 666 input-only cases across 77 files,
-covering 93 operations and 700 parity requirements. It includes Rust-backed
+The active parity manifest indexes 669 input-only cases across 77 files,
+covering 93 operations and 702 parity requirements. It includes Rust-backed
 `CommaSeparatedStrings` parsing, sequence formatting, quoting, Unicode
 representation, Python string-subclass boundary inputs, and lone-surrogate
 strings; a three-request
@@ -50,28 +50,30 @@ authentication, middleware (including the default middleware-boundary trace and 
 SessionMiddleware, and BaseHTTPMiddleware workflows), configuration,
 schemas, one bounded Python-package Jinja2 template workflow, direct
 `GZipResponder` construction and compression inputs, and invalid WebSocket
-JSON-mode inputs. The exact
+JSON-mode inputs. The latest batch adds middleware-configured Mount URL lookup,
+ordered StaticFiles Last-Modified requests, and TestClient startup-error
+propagation. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `0c6a7de9-d5f7-44db-83b1-4d1ec0a3472a`. It ran from
-`2026-10-01T21:26:41.122Z` to `2026-10-01T21:28:46.171Z` and selected 856
-profile comparisons: 852 passed, zero failed, zero infrastructure errors,
+The latest full-slice correctness preflight is
+`79171c4c-f061-4355-9a2f-903ba26287b7`. It ran from
+`2026-10-01T22:31:48.278Z` to `2026-10-01T22:33:59.176Z` and selected 860
+profile comparisons: 856 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
-passed all 664 selected comparisons; Rust-native passed 188 of 192. The new
-StaticFiles two-request ETag mismatch, CORS wildcard-without-credentials
-sequence, and TestClient application close code/reason cases passed their
-selected live comparisons. The four native `not_run` rows are synchronous
-Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
-ASGI dispatch. `make parity-run` exits with status 2 because those declared
-Python-callable boundaries remain `not_run`; they are not parity failures.
-The Rust-native source fingerprint was
-`00b98e94afcf8e1fd7aabd5d41a09b4f56fb7f9c+source-fnv1a64-9111041f97b1e495`.
+passed all 667 selected comparisons; Rust-native passed 189 of 193. The new
+Mount URL lookup, StaticFiles date-order sequence, and TestClient startup-error
+case passed their selected live comparisons. The four native `not_run` rows
+are synchronous Request endpoint, bound-method endpoint, partial endpoint, and
+callable-instance ASGI dispatch. `make parity-run` exits with status 2 because
+those declared Python-callable boundaries remain `not_run`; they are not
+parity failures. The Rust-native source fingerprint was
+`3e832fb3f063ded427bcacb50b8245a0a8a6b877+source-fnv1a64-9ef5071d66376854`.
 The installed package tree SHA-256 was
-`abeaf1aae4138a98bd9ad2e37370bfc393d462f697fc86af271669dc1c42c503`; wheel
-SHA-256 `26c7fe6b5f11178b607d8cbeb146d7f9245d22f1d18e251c1b7bb63d20377ef4`,
+`06b973dd7e4bbcfc42c9fb5bc6bd4ee9b91d50c1adacde635b7822f778619f56`; wheel
+SHA-256 `ec26359a8faa898b81e1896407a9bcdbd56215543a3a3adfec4750fcf354b4b5`,
 and manifest SHA-256
-`1712f0b627d1fd709d928dda0d9c291cd732bbd60450622a21cb9e52e3230456`. Full
+`74ae26352b543bb1e72829f618f7e0aaff3ae65af0842141a77b4f08ccf70654`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
@@ -84,27 +86,27 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run,
-`fa125b3f-afd9-42d6-b454-9e3725113a2a`, measured all 74 declared workloads:
+`4d1fece3-358c-49a3-8890-4d84c4c0d9c9`, measured all 74 declared workloads:
 six Router and 68 GZip, with zero failures or skipped measurements. Its clean
-correctness preflight `940b8d48-d856-411c-b2e5-0f15b12af8de` selected 856
-comparisons: 852 passed, zero failed or hit infrastructure errors, and four
+correctness preflight `79171c4c-f061-4355-9a2f-903ba26287b7` selected 860
+comparisons: 856 passed, zero failed or hit infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 664/664 and Rust-native passed 188/192. Rust-native remains `not_run`
+passed 667/667 and Rust-native passed 189/193. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. The median per-workload
-source/package ratios were 0.765 for Router and 0.970 for GZip; source was
-faster in five of six Router workloads and 62 of 68 GZip workloads. All 74
+source/package ratios were 0.762 for Router and 0.967 for GZip; source was
+faster in five of six Router workloads and 55 of 68 GZip workloads. All 74
 source/package observations had matching normalized hashes. The clean target
-checkout was revision `5e2377295e8321d0e66d3308da426dd055a6c383` with
+checkout was revision `3e832fb3f063ded427bcacb50b8245a0a8a6b877` with
 working-tree SHA-256
-`05ead14f16db89773afec6c4e7d692fdca541afdfe88a68a76ad4dc3d8eb7b0f`; the
+`5d16e7aa8c21bfef57ef27702e236960af71dadf17f839698a861b9d50d7dc04`; the
 target wheel SHA-256 was
-`c97a3d5fa9b10fccae3053284b3990332c71dc12f260892ff8e42af08aa619c8`.
+`ec26359a8faa898b81e1896407a9bcdbd56215543a3a3adfec4750fcf354b4b5`.
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 367 existing input
-mappings, 50 reasoned `not_applicable` rows, and 385 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 370 existing input
+mappings, 50 reasoned `not_applicable` rows, and 382 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 666 input-only cases in 77 indexed files, covering 93 operations and 700 parity requirements. Recent additions include Rust-backed `CommaSeparatedStrings`, including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles constructor, lazy-configuration, repeated-call, and two-request ETag-mismatch inputs; three-call CORSMiddleware origin-isolation and wildcard-without-credentials workflows; 16 Request.cookies inputs for lenient parsing; all active edge/invalid parameter strings; repeated Cookie fields; quoted backslash-plus-LF handling; Python dict cache/mutation behavior; and a TestClient cookie-persistence round trip for `test_request_cookies`. New WebSocket inputs cover the fresh-iterator `asend(non-None)` boundary, four denial-response state transitions, application close code and reason, and invalid JSON modes. GZip now has direct `GZipResponder` package-profile inputs for configured exclusion normalization and compression without negotiation. The latest full-slice result is recorded below.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 669 input-only cases in 77 indexed files, covering 93 operations and 702 parity requirements. Recent additions include a middleware-configured Mount URL lookup, ordered StaticFiles `If-Modified-Since` requests, and a TestClient lifespan startup error; the Rust runtime now accepts iterable Starlette middleware configs, parses dates with mismatched weekday labels like the pinned Python oracle, and uses a Send+Sync awaitable for the TestClient portal task whose traceback crosses threads. Existing inputs cover Rust-backed `CommaSeparatedStrings` including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles configuration and conditional responses; CORSMiddleware origin-isolation and wildcard-without-credentials; Request.cookies edge, invalid, and mapping cases; WebSocket denial and close transitions; direct `GZipResponder`; and broad application, request, response, middleware, and routing boundaries. The latest full-slice result is recorded below.
 
 The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, middleware registration and ordering; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State behavior; direct Request body, stream, JSON, and form consumption; responses and background tasks, including cancellation and post-construction FileResponse assignments; WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, schemas, and one Python-package Jinja2 workflow. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
@@ -10,32 +10,52 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `0c6a7de9-d5f7-44db-83b1-4d1ec0a3472a`.
-It ran from `2026-10-01T21:26:41.122Z` to `2026-10-01T21:28:46.171Z` against
+The latest full-slice parity preflight is `79171c4c-f061-4355-9a2f-903ba26287b7`.
+It ran from `2026-10-01T22:31:48.278Z` to `2026-10-01T22:33:59.176Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-666-case/700-requirement manifest. It selected 856 profile comparisons: 852
+669-case/702-requirement manifest. It selected 860 profile comparisons: 856
 passed, zero failed, zero infrastructure errors, and four Rust-native
 Python-callable rows were `not_run`. The Python-package profile passed all
-664 selected comparisons; Rust-native passed 188 of 192. The new StaticFiles
-two-request ETag mismatch, CORS wildcard-without-credentials sequence, and
-TestClient application close code/reason cases passed their selected live
-comparisons. The four native `not_run` rows are synchronous Request endpoint,
+667 selected comparisons; Rust-native passed 189 of 193. The new Mount URL
+lookup, StaticFiles date-order sequence, and TestClient startup-error cases
+passed. The four native `not_run` rows are synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 `make parity-run` exits with status 2 because those declared rows remain
 `not_run`; they are not parity failures.
 
+For `lifespan_send_messages`, the manifest declares a narrow
+`starlette-lifespan-router-frame` normalization: it removes only the
+source-only `starlette.routing.Router.lifespan` traceback frame and its source
+context lines from startup/shutdown failure messages. Rust implements this
+protocol without that Python frame; all other event fields and traceback frames
+remain exact.
+
 The Rust-native fingerprint was
-`00b98e94afcf8e1fd7aabd5d41a09b4f56fb7f9c+source-fnv1a64-9111041f97b1e495`.
+`3e832fb3f063ded427bcacb50b8245a0a8a6b877+source-fnv1a64-9ef5071d66376854`.
 The installed package tree SHA-256 was
-`abeaf1aae4138a98bd9ad2e37370bfc393d462f697fc86af271669dc1c42c503`; its
+`06b973dd7e4bbcfc42c9fb5bc6bd4ee9b91d50c1adacde635b7822f778619f56`; its
 wheel SHA-256 was
-`26c7fe6b5f11178b607d8cbeb146d7f9245d22f1d18e251c1b7bb63d20377ef4`. The
+`ec26359a8faa898b81e1896407a9bcdbd56215543a3a3adfec4750fcf354b4b5`. The
 manifest SHA-256 was
-`1712f0b627d1fd709d928dda0d9c291cd732bbd60450622a21cb9e52e3230456`.
+`74ae26352b543bb1e72829f618f7e0aaff3ae65af0842141a77b4f08ccf70654`.
 Strict aggregation remains `not_proven` because the full compatibility
 denominator is incomplete and four Rust-native rows are `not_run`.
 
 ## Input-only cases
+
+### Mount lookup, StaticFiles dates, and TestClient startup failures
+
+The reverse-URL fixture places a named Route inside a Mount configured with
+`Middleware` and confirms `Starlette.url_path_for()` returns `/http/`; Rust now
+unpacks the public iterable middleware spec instead of requiring a tuple. The
+StaticFiles fixture sends the pinned test's two ordered `If-Modified-Since`
+headers to one fixed-mtime asset; its first date has a weekday label that
+disagrees with the calendar date, which Python accepts and the Rust parser now
+handles. The TestClient fixture supplies a startup callback that raises an
+input-defined `RuntimeError`; the Send+Sync awaitable removes the cross-thread
+drop warning, while the declared traceback normalization is limited to the
+source-only Router frame described above. All three cases pass their selected
+live comparisons in preflight `79171c4c-f061-4355-9a2f-903ba26287b7`.
 
 ### `CommaSeparatedStrings` parser and sequence boundary
 
