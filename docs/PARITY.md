@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 615 input-only cases in 70 indexed files, covering 87 operations and 654 parity requirements. Recent additions include Rust-backed `iterate_in_threadpool` and `run_until_first_complete`, plus StaticFiles constructor, lazy-configuration, and repeated-call inputs. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases also pass live source/package comparisons in the latest run recorded below.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 616 input-only cases in 70 indexed files, covering 87 operations and 655 parity requirements. Recent additions include Rust-backed `iterate_in_threadpool` and `run_until_first_complete`, StaticFiles constructor, lazy-configuration, and repeated-call inputs, plus a three-request CORSMiddleware origin-isolation workflow. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases also pass live source/package comparisons in the latest run recorded below.
 
 The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, middleware registration and ordering; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State behavior; direct Request body, stream, JSON, and form consumption; responses and background tasks, including cancellation and post-construction FileResponse assignments; WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, schemas, and one Python-package Jinja2 workflow. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
@@ -10,25 +10,25 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `0ea94ae4-e925-4227-b3a6-77bdb862ad64`.
-It ran from `2026-10-01T13:59:06.673Z` to `2026-10-01T14:01:54.708Z` against
+The latest full-slice parity run is `2b78c6dd-a6b3-4a96-941d-7ccec76f9518`.
+It ran from `2026-10-01T14:29:02.168Z` to `2026-10-01T14:31:22.671Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-615-case/654-requirement manifest. It selected 780 profile comparisons: 776
+616-case/655-requirement manifest. It selected 781 profile comparisons: 777
 passed, zero failed, zero infrastructure errors, and four Rust-native
 Python-callable rows were `not_run`. The Python-package profile passed all
-613 selected comparisons; Rust-native passed 163 of 167. The four native
+614 selected comparisons; Rust-native passed 163 of 167. The four native
 `not_run` rows are synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
 status 2 because those declared rows remain `not_run`.
 
 The Rust-native fingerprint was
-`483b510cab12052ddcfdc60d02b8dfd364a8dc85+source-fnv1a64-811143778bc6e93d`.
+`b6a3d733e90210e76ba28266b0300edd87c239c0+source-fnv1a64-811143778bc6e93d`.
 The installed package tree SHA-256 was
-`0fed915b088feee55e7d7c8d3a52ed31833a06ac28fd4a6a61eb4d6fecd278a1`, and the
+`feba537af8b52d167b0861da8345a34afd97c07bb7398d50cd9d12eded4ae3bc`, and the
 wheel SHA-256 was
-`16065642524d44ee579eb4c6aa6b29148b962e2ae148c63865411a9d4ec6e91f`. The
+`b045efe7083400dd5ee56a2a437831937b67903046780eea02dc35aad407a92b`. The
 manifest SHA-256 was
-`6928ec05ccd47b55dfb31ff883f70f0c28239dc097d09c24fcf383b1bcc6dd98`. The
+`a19040129f4df28e5560221ff58acc0177092f8866da95cdaa04b9f2e6e5af40`. The
 four StaticFiles configuration-check comparisons also pass against the
 pinned source. Strict aggregation remains `not_proven` because the full
 compatibility denominator is incomplete and four Rust-native rows are
@@ -113,6 +113,19 @@ exception, and exit. All five workflows passed exact source/package comparison
 in run `d54f762e-aac1-461e-8a2d-59223eeb62ca`. The two-application workflow
 maps the constructor-count behavior in upstream `test_middleware_stack_init`;
 other built-in/user middleware combinations remain open.
+
+### CORSMiddleware request-origin isolation
+
+[`cors-middleware.yaml`](../tests/fixtures/sources/parity/cors-middleware.yaml)
+reuses one `CORSMiddleware` instance for three HTTP dispatches: an allowed
+origin, a denied origin, then the same allowed origin again. Each response's
+ordered ASGI headers, body bytes, and event order are compared independently.
+The pinned source and installed package add `Access-Control-Allow-Origin` to
+the first and third response and leave it off the denied response; the final
+allowed request retains its header after the denied request. The case passes
+exactly in run `2b78c6dd-a6b3-4a96-941d-7ccec76f9518` and maps
+`tests/middleware/test_cors.py::test_cors_allowed_origin_does_not_leak_between_requests`
+at lines 474-492. This case exercises the Python-package profile only.
 
 ### Exception-handler registration and middleware-stack snapshots
 
@@ -564,7 +577,7 @@ file/directory metadata, path traversal and symlink containment, external file
 and directory symlink serving, bound override dispatch, the resulting ASGI response, and path-limit error precedence. Python
 package discovery is exercised through `importlib` on the Python package
 profile; Rust-native package cases pass explicit roots. All 87 selected
-StaticFiles comparisons passed in run `0ea94ae4-e925-4227-b3a6-77bdb862ad64`,
+StaticFiles comparisons passed in run `2b78c6dd-a6b3-4a96-941d-7ccec76f9518`,
 including all 30 direct lookup comparisons. Four package-only configuration
 inputs match the pinned constructor-missing-directory, lazy missing-root,
 lazy file-root, and repeated-request checks at `tests/test_staticfiles.py:124-165`.
@@ -731,7 +744,7 @@ The timer measures in-loop `await app(scope, receive, send)`. It includes fixtur
 
 [`session-middleware.yaml`](../tests/fixtures/sources/parity/session-middleware.yaml) defines input-only workflows for the installed Python-package profile. The inputs cover a signed-cookie write/read/clear round trip, a malformed signature fallback, the pinned negative `max_age` expiry case, custom name/path/SameSite/Domain/Secure attributes with `max_age=None`, direct `Session` mutation flag behavior for set, delete, clear, pop, popitem, setdefault, update, and in-place union, signed-cookie loading into a WebSocket scope, lifespan pass-through, and the documented `Secret` key wrapper's redacted representation, string conversion, truthiness, and signing use. A later request receives the earlier response's live `Set-Cookie` value through the `previous-set-cookie` source selector; no cookie value or output is authored in the fixture. These workflows map to the pinned session tests, the source branches for WebSocket and lifespan scopes, and the configuration and middleware documentation; they remain a bounded SessionMiddleware slice rather than full Starlette parity.
 
-Run `0ea94ae4-e925-4227-b3a6-77bdb862ad64` compares inherited `dict.popitem()` and `Session |= values` through the actual `request.session`, including mapping and pair-sequence inputs and their failure paths. The empty `popitem()` raises `KeyError`; union with a non-iterable raises `TypeError`; and union over a valid pair followed by a malformed pair applies the first pair before raising `ValueError`. Source and package match exactly on exception class and message, the partial session contents, `accessed=True`, `modified=False`, the absence of response events after the error, and the later request's session view. The Python methods forward to Rust, which invokes built-in `dict` operations to retain mapping, pair-sequence, partial-mutation, return-value, and identity behavior.
+Run `2b78c6dd-a6b3-4a96-941d-7ccec76f9518` compares inherited `dict.popitem()` and `Session |= values` through the actual `request.session`, including mapping and pair-sequence inputs and their failure paths. The empty `popitem()` raises `KeyError`; union with a non-iterable raises `TypeError`; and union over a valid pair followed by a malformed pair applies the first pair before raising `ValueError`. Source and package match exactly on exception class and message, the partial session contents, `accessed=True`, `modified=False`, the absence of response events after the error, and the later request's session view. The Python methods forward to Rust, which invokes built-in `dict` operations to retain mapping, pair-sequence, partial-mutation, return-value, and identity behavior.
 
 Rust owns cookie signing and verification, expiry and clearing decisions, response header behavior, the documented `Secret` representation and truth behavior, and session mutation state. The PyO3 value-conversion boundary calls Python's standard-library `json.dumps` and `json.loads` from the Rust session core to preserve the source's Python JSON byte representation before signing and after verification. The SessionMiddleware input workflows compare those boundaries against the pinned source. The WebSocket case observes the loaded scope session through the public `WebSocket` wrapper while leaving Session access and modification flags false. The lifespan case drives startup/shutdown completion messages from fixture input and compares exact event order. This codec dependency remains a documented Python compatibility boundary. The public status of the upstream `SessionMiddleware.signer` attribute remains unresolved and is tracked as an API candidate in the compatibility inventory.
 

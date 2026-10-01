@@ -17,8 +17,9 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 615 input-only cases across 70 files,
-covering 87 operations and 654 parity requirements. It includes two
+The active parity manifest indexes 616 input-only cases across 70 files,
+covering 87 operations and 655 parity requirements. It includes a three-request
+CORSMiddleware origin-isolation sequence and two
 Python-package-only direct `run_in_threadpool` cases, synchronous Request
 endpoint worker cancellation and failure, five async Request endpoint callable
 shapes and failure, ASGI callable-instance success and failure, two direct
@@ -38,21 +39,21 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `0ea94ae4-e925-4227-b3a6-77bdb862ad64`. It ran from
-`2026-10-01T13:59:06.673Z` to `2026-10-01T14:01:54.708Z` and selected 780
-profile comparisons: 776 passed, zero failed, zero infrastructure errors,
+The latest full-slice run is `2b78c6dd-a6b3-4a96-941d-7ccec76f9518`. It ran from
+`2026-10-01T14:29:02.168Z` to `2026-10-01T14:31:22.671Z` and selected 781
+profile comparisons: 777 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
-passed all 613 selected comparisons; Rust-native passed 163 of 167. The four
+passed all 614 selected comparisons; Rust-native passed 163 of 167. The four
 native `not_run` rows are synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
 status 2 for those declared Python-callable boundaries. The Rust-native source
 fingerprint was
-`483b510cab12052ddcfdc60d02b8dfd364a8dc85+source-fnv1a64-811143778bc6e93d`.
+`b6a3d733e90210e76ba28266b0300edd87c239c0+source-fnv1a64-811143778bc6e93d`.
 The installed package tree SHA-256 was
-`0fed915b088feee55e7d7c8d3a52ed31833a06ac28fd4a6a61eb4d6fecd278a1`, wheel
-SHA-256 `16065642524d44ee579eb4c6aa6b29148b962e2ae148c63865411a9d4ec6e91f`,
+`feba537af8b52d167b0861da8345a34afd97c07bb7398d50cd9d12eded4ae3bc`, wheel
+SHA-256 `b045efe7083400dd5ee56a2a437831937b67903046780eea02dc35aad407a92b`,
 and manifest SHA-256
-`6928ec05ccd47b55dfb31ff883f70f0c28239dc097d09c24fcf383b1bcc6dd98`. Full
+`a19040129f4df28e5560221ff58acc0177092f8866da95cdaa04b9f2e6e5af40`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
@@ -78,8 +79,8 @@ This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 334 existing input
-mappings, 50 reasoned `not_applicable` rows, and 418 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 335 existing input
+mappings, 50 reasoned `not_applicable` rows, and 417 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -319,7 +320,7 @@ behavior, documented `Secret` representation and truth behavior, and the
 Python's standard-library `json.dumps` and `json.loads` to preserve the Python
 JSON byte representation used by the pinned implementation. The authored
 SessionMiddleware workflows compare those calls through the live source oracle.
-Run `0ea94ae4-e925-4227-b3a6-77bdb862ad64` also invokes `popitem()` and `|=` on
+Run `2b78c6dd-a6b3-4a96-941d-7ccec76f9518` also invokes `popitem()` and `|=` on
 `request.session`, including an empty-session `KeyError`, a non-iterable union
 `TypeError`, and a malformed pair sequence that partially mutates before its
 `ValueError`. Source and package match on the exception class/message, session

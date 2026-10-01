@@ -1009,6 +1009,23 @@ GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES = (
 )
 
 
+def _is_cors_dispatch_sequence(case: dict[str, Any]) -> bool:
+    steps = case.get("steps")
+    return (
+        case.get("surface") == CORS_SURFACE
+        and case.get("operation") == "__call__"
+        and isinstance(steps, list)
+        and len(steps) == 4
+        and all(isinstance(step, dict) for step in steps)
+        and steps[0].get("surface") == CORS_SURFACE
+        and steps[0].get("operation") == "__init__"
+        and all(
+            step.get("surface") == CORS_SURFACE and step.get("operation") == "__call__"
+            for step in steps[1:]
+        )
+    )
+
+
 class ContractError(ValueError):
     """A malformed or incompatible parity contract or evidence artifact."""
 
@@ -10812,8 +10829,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         _validate_streaming_response_case_stimulus(case)
         return case
 
+    is_cors_state_sequence = _is_cors_dispatch_sequence(case)
     if not isinstance(case["steps"], list) or (
         len(case["steps"]) not in {2, 3}
+        and not is_cors_state_sequence
         and not (is_starlette_add_route_workflow and len(case["steps"]) == 4)
         and not is_starlette_add_middleware_workflow
         and not is_starlette_add_exception_handler_workflow
@@ -10860,6 +10879,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_starlette_add_exception_handler_workflow
         else (["construct"],)
         if is_middleware_construction
+        else (step_ids,)
+        if is_cors_state_sequence
         else (["middleware", "dispatch"],)
         if is_protocol_middleware
         else (
@@ -11157,9 +11178,13 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             raise ContractError("ASGI middleware construction cases must schedule one construction")
         expected_schedule = ["construct"]
     elif is_protocol_middleware:
-        if dispatch_args["scope"]["type"] not in {"http", "websocket"} or schedule != ["dispatch"]:
+        expected_protocol_schedule = step_ids[1:] if is_cors_state_sequence else ["dispatch"]
+        if (
+            dispatch_args["scope"]["type"] not in {"http", "websocket"}
+            or schedule != expected_protocol_schedule
+        ):
             raise ContractError("ASGI middleware cases must dispatch one HTTP or WebSocket scope")
-        expected_schedule = ["dispatch"]
+        expected_schedule = expected_protocol_schedule
     elif step_ids == ["application", "lifecycle"]:
         if dispatch_args["scope"]["type"] != "lifespan":
             raise ContractError("lifespan-only workflow must use a lifespan scope")
@@ -17208,6 +17233,7 @@ def _validate_asgi_middleware_dispatch(surface: str, args: dict[str, Any]) -> No
 
 def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
     surface = case["surface"]
+    is_cors_state_sequence = _is_cors_dispatch_sequence(case)
     constructor = {
         name: descriptor["value"] for name, descriptor in case["steps"][0]["arguments"].items()
     }
@@ -17265,6 +17291,34 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
 
     headers = decoded_headers(scope)
     if surface == CORS_SURFACE:
+        if is_cors_state_sequence:
+            sequence_scopes = [
+                {name: descriptor["value"] for name, descriptor in step["arguments"].items()}[
+                    "scope"
+                ]
+                for step in case["steps"][1:]
+            ]
+            sequence_origins = [
+                decoded_headers(sequence_scope).get("origin") for sequence_scope in sequence_scopes
+            ]
+            origin_regex = constructor["allow_origin_regex"]
+            regex = re.compile(origin_regex) if origin_regex else None
+
+            def origin_is_allowed(value: str | None) -> bool:
+                return value is not None and (
+                    "*" in constructor["allow_origins"]
+                    or value in constructor["allow_origins"]
+                    or (regex is not None and regex.fullmatch(value) is not None)
+                )
+
+            if (
+                all(sequence_scope["type"] == "http" for sequence_scope in sequence_scopes)
+                and len(sequence_origins) == 3
+                and sequence_origins[0] == sequence_origins[2]
+                and origin_is_allowed(sequence_origins[0])
+                and not origin_is_allowed(sequence_origins[1])
+            ):
+                covered.add(suffix("reused-instance-origin-isolation"))
         if scope["type"] != "http":
             covered.add(suffix("non-http-passthrough"))
             return covered

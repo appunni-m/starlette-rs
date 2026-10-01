@@ -2657,15 +2657,26 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                 {"step_id": "construct", "status": "ok", "value": {"constructed": True}}
             ],
         }
-    dispatch_arguments = _literal_arguments(
-        steps[1], {"scope", "receive", "send"}, f"{case['surface']} dispatch"
-    )
-    value = asyncio.run(_invoke(middleware, dispatch_arguments, [], [], None, False))
-    selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
+
+    async def invoke_dispatches() -> list[dict[str, Any]]:
+        observations = []
+        for dispatch_step in steps[1:]:
+            dispatch_arguments = _literal_arguments(
+                dispatch_step,
+                {"scope", "receive", "send"},
+                f"{case['surface']} dispatch",
+            )
+            value = await _invoke(middleware, dispatch_arguments, [], [], None, False)
+            selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
+            observations.append(
+                {"step_id": dispatch_step["step_id"], "status": "ok", "value": selected}
+            )
+        return observations
+
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [{"step_id": "dispatch", "status": "ok", "value": selected}],
+        "observations": asyncio.run(invoke_dispatches()),
     }
 
 

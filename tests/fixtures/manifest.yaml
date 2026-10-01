@@ -7586,6 +7586,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.cors.CORSMiddleware.reused-instance-origin-isolation",
+              "dimension": "protocol_variant",
+              "description": "Keep allowed-origin response headers request-local when one CORSMiddleware instance handles allowed, denied, then allowed requests.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.cors.CORSMiddleware.regex-fullmatch-origin",
               "dimension": "boundary",
               "description": "Match configured origin regular expressions using full-string semantics.",

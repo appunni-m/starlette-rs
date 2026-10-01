@@ -25,11 +25,11 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 615 input-only cases across
-70 indexed files, 87 operations, and 654 requirements. The latest full-slice
-run `0ea94ae4-e925-4227-b3a6-77bdb862ad64` passed 776 of 780 selected profile
+active and incomplete. The current contract has 616 input-only cases across
+70 indexed files, 87 operations, and 655 requirements. The latest full-slice
+run `2b78c6dd-a6b3-4a96-941d-7ccec76f9518` passed 777 of 781 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 613/613; Rust-native
+Python-callable rows `not_run`. The Python package passed 614/614; Rust-native
 passed 163/167. The four native rows are synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 The new StaticFiles configuration cases passed on the Python-package profile.
@@ -37,8 +37,8 @@ Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 334 existing input
-mappings, 50 reasoned `not_applicable` rows, and 418 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 335 existing input
+mappings, 50 reasoned `not_applicable` rows, and 417 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest Router/GZip run `e279f32f-6c93-40e3-a1ae-c50d60293c95` measured all
@@ -284,8 +284,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 516 `supported`, 285
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 802
-source rows: 334 existing input mappings, 50 reasoned `not_applicable`
-entries, and 418 input-only backlog rows. Derive these changing counts from
+source rows: 335 existing input mappings, 50 reasoned `not_applicable`
+entries, and 417 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded
