@@ -4998,6 +4998,18 @@ struct RequestObserver {
     media_type: String,
 }
 
+struct RequestCookiesObserver {
+    probe_kind: String,
+    response_content: String,
+    status_code: u16,
+    media_type: String,
+}
+
+enum RequestDispatchObserver {
+    Request(RequestObserver),
+    Cookies(RequestCookiesObserver),
+}
+
 struct RequestScope {
     query_string: Vec<u8>,
     headers: RequestHeaders,
@@ -5194,7 +5206,7 @@ fn run_request_case(case: &Value) -> Result<Value, String> {
 
 fn build_request_application(
     step: &Value,
-) -> Result<(RouteTable, Response, Option<RequestObserver>), String> {
+) -> Result<(RouteTable, Response, Option<RequestDispatchObserver>), String> {
     let arguments = step_arguments(step, "application", "__init__", None)?;
     exact_keys(
         arguments,
@@ -5339,7 +5351,63 @@ fn build_request_application(
                 std::iter::empty::<(String, String)>(),
             )
             .map_err(|error| error.to_string())?;
-            (response, Some(observer))
+            (response, Some(RequestDispatchObserver::Request(observer)))
+        }
+        "request-cookies-observer" => {
+            let endpoint = exact_object(
+                endpoint_value,
+                &[
+                    "kind",
+                    "probe",
+                    "response_content",
+                    "status_code",
+                    "media_type",
+                ],
+                "request cookies observer endpoint",
+            )?;
+            let probe = exact_object(
+                endpoint
+                    .get("probe")
+                    .ok_or_else(|| String::from("request cookies observer probe is missing"))?,
+                &["kind"],
+                "request cookies observer probe",
+            )?;
+            let probe_kind = string_field(probe, "kind", "request cookies observer probe")?;
+            if probe_kind != "items" {
+                return Err(String::from(
+                    "Rust-native request cookies observer supports only the items probe",
+                ));
+            }
+            let observer = RequestCookiesObserver {
+                probe_kind: probe_kind.to_owned(),
+                response_content: string_field(
+                    endpoint,
+                    "response_content",
+                    "request cookies observer endpoint",
+                )?
+                .to_owned(),
+                status_code: endpoint
+                    .get("status_code")
+                    .and_then(Value::as_u64)
+                    .and_then(|status| u16::try_from(status).ok())
+                    .ok_or_else(|| {
+                        String::from("request cookies observer status_code must be a u16")
+                    })?,
+                media_type: string_field(
+                    endpoint,
+                    "media_type",
+                    "request cookies observer endpoint",
+                )?
+                .to_owned(),
+            };
+            let response = Response::from_content(
+                observer.status_code,
+                observer.response_content.as_bytes().to_vec(),
+                Some(&observer.media_type),
+                std::iter::empty::<(String, String)>(),
+            )
+            .map_err(|error| error.to_string())?;
+            (response, Some(RequestDispatchObserver::Cookies(observer)))
         }
         "http-exception" => {
             let endpoint = exact_object(
@@ -5517,8 +5585,22 @@ fn request_observations(
     scope: &RequestScope,
     chunks: &[(Vec<u8>, bool)],
     path_params: &[(String, String)],
-    observer: &RequestObserver,
+    observer: &RequestDispatchObserver,
 ) -> Result<Value, String> {
+    if let RequestDispatchObserver::Cookies(observer) = observer {
+        if observer.probe_kind != "items" {
+            return Err(String::from(
+                "unsupported Rust-native request cookies probe",
+            ));
+        }
+        let cookies = Cookies::from_headers(&scope.headers);
+        return Ok(json!({"cookies": cookies.items()}));
+    }
+    let RequestDispatchObserver::Request(observer) = observer else {
+        return Err(String::from(
+            "request dispatch observer kind is inconsistent",
+        ));
+    };
     let path_parameter = path_params
         .iter()
         .find(|(name, _)| name == &observer.path_parameter)

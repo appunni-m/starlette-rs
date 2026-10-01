@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 616 input-only cases across 70 files,
-covering 87 operations and 655 parity requirements. It includes a three-request
+The active parity manifest indexes 622 input-only cases across 72 files,
+covering 88 operations and 665 parity requirements. It includes a three-request
 CORSMiddleware origin-isolation sequence and two
 Python-package-only direct `run_in_threadpool` cases, synchronous Request
 endpoint worker cancellation and failure, five async Request endpoint callable
@@ -27,7 +27,15 @@ shapes and failure, ASGI callable-instance success and failure, two direct
 registration and dispatch, two
 `Starlette.add_exception_handler`
 workflows, and one URL query-parameter operations input. The six direct ServerErrorMiddleware inputs and three TestClient exception-
-chain inputs pass live source/package comparison in the latest run.
+chain inputs pass live source/package comparison in the latest run. Four
+Request.cookies inputs also pass their selected comparisons: an Okta-style
+JSON-like value with duplicate and unnamed segments, multiple raw Cookie
+fields, quoted backslash-plus-line-feed handling, and Python-package dict
+type/cache/mutation behavior. The mapping probe is package-only because the
+Rust-native API exposes its additive Rust `Cookies` type rather than a Python
+mapping. The parameterized `test_cookies_edge_cases` and
+`test_cookies_invalid` rows remain in the generated fixture backlog; these four
+inputs do not claim all of their source parameters.
 The authored cases span
 the Starlette ASGI application and route inventory, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
@@ -39,21 +47,21 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `2b78c6dd-a6b3-4a96-941d-7ccec76f9518`. It ran from
-`2026-10-01T14:29:02.168Z` to `2026-10-01T14:31:22.671Z` and selected 781
-profile comparisons: 777 passed, zero failed, zero infrastructure errors,
+The latest full-slice run is `33e60258-d96b-4e8f-8cb5-28501bf7f124`. It ran from
+`2026-10-01T15:27:13.163Z` to `2026-10-01T15:29:26.876Z` and selected 790
+profile comparisons: 786 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
-passed all 614 selected comparisons; Rust-native passed 163 of 167. The four
+passed all 620 selected comparisons; Rust-native passed 166 of 170. The four
 native `not_run` rows are synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
 status 2 for those declared Python-callable boundaries. The Rust-native source
 fingerprint was
-`b6a3d733e90210e76ba28266b0300edd87c239c0+source-fnv1a64-811143778bc6e93d`.
+`87f732c1700b5ca752ac1d47c3919ddf74f43dd8+source-fnv1a64-2a57c4edf0b8b34f`.
 The installed package tree SHA-256 was
-`feba537af8b52d167b0861da8345a34afd97c07bb7398d50cd9d12eded4ae3bc`, wheel
-SHA-256 `b045efe7083400dd5ee56a2a437831937b67903046780eea02dc35aad407a92b`,
+`cf5a985e7c8f71e139c82412a7fe614469872537f842f4d03a1e3b3986e704e5`, wheel
+SHA-256 `a550ca611adb006ad20bd506d549895a7194a17c8abeea07e1cda07b8aaf2b86`,
 and manifest SHA-256
-`a19040129f4df28e5560221ff58acc0177092f8866da95cdaa04b9f2e6e5af40`. Full
+`093b94fab9f33bee3dc22baf108db71911b4d8d3bee422098e5f2245e1dddab7`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
@@ -79,8 +87,8 @@ This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 335 existing input
-mappings, 50 reasoned `not_applicable` rows, and 417 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 340 existing input
+mappings, 50 reasoned `not_applicable` rows, and 412 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -365,7 +373,7 @@ The candidate rows, source line numbers, signatures, defaults, constructors,
 special methods, candidate re-exports, and documentary evidence are in
 [`api-surface.csv`](api-surface.csv). The merged
 [`API review`](atlas/api-review.csv) dispositions each of its 999 rows with
-evidence: 515 `supported`, 286 `private/internal`, and 198 `uncertain`. The
+evidence: 516 `supported`, 285 `private/internal`, and 198 `uncertain`. The
 catalog's original `audit_status` field records inventory provenance; use the
 merged disposition and rationale for the compatibility classification. The
 root package defines only `__version__ = "1.6.0"`; it has no convenience

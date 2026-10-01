@@ -206,10 +206,17 @@ impl PyHTTPConnection {
         }
         let native_headers = self.native_headers(py)?;
         let cookies_type = py.import("starlette_rs_py._core")?.getattr("Cookies")?;
-        let cookies = cookies_type
+        let parsed_cookies = cookies_type
             .getattr("from_headers")?
-            .call1((native_headers,))?
-            .unbind();
+            .call1((native_headers,))?;
+        let cookie_items = parsed_cookies
+            .call_method0("items")?
+            .extract::<Vec<(String, String)>>()?;
+        let cookies = PyDict::new(py);
+        for (key, value) in cookie_items {
+            cookies.set_item(key, value)?;
+        }
+        let cookies = cookies.into_any().unbind();
         self.cookies = Some(cookies.clone_ref(py));
         Ok(cookies)
     }

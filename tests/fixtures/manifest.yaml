@@ -265,6 +265,7 @@
       "build/parity/inputs/parity/router-cache-invalidation.json",
       "build/parity/inputs/parity/router-class-based-endpoints.json",
       "build/parity/inputs/parity/request-path-param-types.json",
+      "build/parity/inputs/parity/request-cookies.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
       "build/parity/inputs/parity/reverse-url-routing.json",
       "build/parity/inputs/parity/redirect-response.json",
@@ -1480,7 +1481,8 @@
                   "starlette.request.path-param-float",
                   "starlette.request.path-param-uuid",
                   "starlette.request.path-param-path",
-                  "starlette.request.path-param-int-digit-limit"
+                  "starlette.request.path-param-int-digit-limit",
+                  "starlette.request.cookies-dict-semantics"
                 ]
               }
             },
@@ -1539,6 +1541,29 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.cookies-lenient-parsing",
+              "dimension": "input_family",
+              "description": "Parse non-strict Cookie header inputs, including a structured JSON-like value, multiple Cookie fields, and a quoted backslash followed by line feed. Upstream: starlette/requests.py::cookie_parser; starlette/datastructures.py::Headers.getlist; tests/test_requests.py::test_cookie_lenient_parsing and test_multiple_cookie_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.cookies-dict-semantics",
+              "dimension": "boundary",
+              "description": "`Request.cookies` is a cached built-in dict: repeated access preserves object identity, items remain ordered, item assignment changes subsequent reads, and item deletion removes a present cookie. Upstream: starlette/requests.py:150-159; docs/requests.md:69-75.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },

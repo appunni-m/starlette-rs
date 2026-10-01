@@ -1510,6 +1510,74 @@ def _materialize_application(
                 return endpoint
 
             route_endpoint = make_request_endpoint(response_spec)
+        elif response_spec["kind"] == "request-cookies-observer":
+            _strict_object(
+                response_spec,
+                {"kind", "probe", "response_content", "status_code", "media_type"},
+                "request cookies observer endpoint",
+            )
+            probe = response_spec["probe"]
+            if not isinstance(probe, dict) or not isinstance(probe.get("kind"), str):
+                raise ValueError("request cookies observer probe must be an object with a kind")
+            if probe["kind"] == "items":
+                _strict_object(probe, {"kind"}, "request cookies items probe")
+            elif probe["kind"] == "mapping-actions":
+                _strict_object(probe, {"kind", "actions"}, "request cookies mapping probe")
+                actions = probe["actions"]
+                if not isinstance(actions, list):
+                    raise ValueError("request cookies mapping actions must be a list")
+                for action in actions:
+                    if not isinstance(action, dict) or action.get("operation") not in {
+                        "set",
+                        "delete",
+                    }:
+                        raise ValueError("request cookies mapping action must be set or delete")
+                    action_fields = (
+                        {"operation", "key", "value"}
+                        if action["operation"] == "set"
+                        else {"operation", "key"}
+                    )
+                    _strict_object(action, action_fields, "request cookies mapping action")
+                    if not isinstance(action["key"], str) or (
+                        action["operation"] == "set" and not isinstance(action["value"], str)
+                    ):
+                        raise ValueError("request cookies mapping action fields must be strings")
+            else:
+                raise ValueError("unsupported request cookies observer probe kind")
+
+            def make_request_cookies_endpoint(spec: dict[str, Any]) -> Any:
+                async def endpoint(request: Any) -> Any:
+                    cookies = request.cookies
+                    if spec["probe"]["kind"] == "items":
+                        request_observations.append(
+                            {"cookies": [[key, value] for key, value in cookies.items()]}
+                        )
+                    else:
+                        initial_items = [[key, value] for key, value in cookies.items()]
+                        same_object = cookies is request.cookies
+                        for action in spec["probe"]["actions"]:
+                            if action["operation"] == "set":
+                                cookies[action["key"]] = action["value"]
+                            else:
+                                del cookies[action["key"]]
+                        request_observations.append(
+                            {
+                                "is_builtin_dict": type(cookies) is dict,
+                                "same_object": same_object,
+                                "initial_items": initial_items,
+                                "final_items": [[key, value] for key, value in cookies.items()],
+                                "same_after_actions": cookies is request.cookies,
+                            }
+                        )
+                    return PlainTextResponse(
+                        content=spec["response_content"],
+                        status_code=spec["status_code"],
+                        media_type=spec["media_type"],
+                    )
+
+                return endpoint
+
+            route_endpoint = make_request_cookies_endpoint(response_spec)
         elif response_spec["kind"] == "async-request-callable-observer":
             callable_fields = {
                 "kind",

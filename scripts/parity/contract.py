@@ -829,6 +829,8 @@ REQUEST_OBSERVER_ENDPOINT = {
     "status_code": 200,
     "media_type": "text/plain",
 }
+REQUEST_COOKIES_LENIENT_REQUIREMENT = "starlette.request.cookies-lenient-parsing"
+REQUEST_COOKIES_DICT_REQUIREMENT = "starlette.request.cookies-dict-semantics"
 REQUEST_CONNECTION_PROPERTY_REQUIREMENTS = {
     "app": "starlette.request.connection-property-app-identity",
     "session": "starlette.request.connection-property-missing-session",
@@ -1215,6 +1217,80 @@ def _validate_request_state_endpoint(endpoint: Any) -> dict[str, Any]:
     except (TypeError, ValueError) as exc:
         raise ContractError("request state value must be JSON-compatible") from exc
     return endpoint
+
+
+def _validate_request_cookies_observer(endpoint: Any) -> dict[str, Any]:
+    endpoint = _exact(
+        endpoint,
+        {"kind", "probe", "response_content", "status_code", "media_type"},
+        "request cookies observer endpoint",
+    )
+    if endpoint["kind"] != "request-cookies-observer":
+        raise ContractError("Request cookies endpoint must use the declared observer kind")
+    _string(endpoint["response_content"], "request cookies observer response content")
+    if type(endpoint["status_code"]) is not int or not 100 <= endpoint["status_code"] <= 599:
+        raise ContractError("request cookies observer status_code must be an HTTP status")
+    _string(endpoint["media_type"], "request cookies observer media type")
+
+    probe = endpoint["probe"]
+    if not isinstance(probe, dict):
+        raise ContractError("request cookies observer probe must be an object")
+    if probe.get("kind") == "items":
+        _exact(probe, {"kind"}, "request cookies items probe")
+        return endpoint
+    if probe.get("kind") != "mapping-actions":
+        raise ContractError("request cookies observer probe kind is unsupported")
+    probe = _exact(probe, {"kind", "actions"}, "request cookies mapping-actions probe")
+    actions = probe["actions"]
+    if not isinstance(actions, list) or len(actions) != 2:
+        raise ContractError("request cookies mapping-actions probe needs one set and one delete")
+    set_action = _exact(
+        actions[0],
+        {"operation", "key", "value"},
+        "request cookies mapping set action",
+    )
+    delete_action = _exact(
+        actions[1],
+        {"operation", "key"},
+        "request cookies mapping delete action",
+    )
+    if set_action["operation"] != "set" or delete_action["operation"] != "delete":
+        raise ContractError("request cookies mapping actions must set then delete")
+    _string(set_action["key"], "request cookies mapping set key")
+    if not isinstance(set_action["value"], str):
+        raise ContractError("request cookies mapping set value must be a string")
+    _string(delete_action["key"], "request cookies mapping delete key")
+    return endpoint
+
+
+def _request_cookie_header_values(scope: dict[str, Any]) -> list[str]:
+    return [
+        base64.b64decode(value, validate=True).decode("latin-1")
+        for name, value in scope["headers_base64_pairs"]
+        if base64.b64decode(name, validate=True).decode("latin-1").casefold() == "cookie"
+    ]
+
+
+def _validate_request_cookies_observer_dispatch(
+    endpoint: dict[str, Any], dispatch_arguments: dict[str, Any]
+) -> None:
+    cookie_values = _request_cookie_header_values(dispatch_arguments["scope"])
+    if not cookie_values or not any(cookie_values):
+        raise ContractError("request cookies observer requires a non-empty Cookie header input")
+    if endpoint["probe"]["kind"] == "items":
+        return
+
+    cookie_names = {
+        segment.partition("=")[0].strip()
+        for value in cookie_values
+        for segment in value.split(";")
+        if "=" in segment
+    }
+    set_action, delete_action = endpoint["probe"]["actions"]
+    if set_action["key"] in cookie_names:
+        raise ContractError("request cookies mapping set key must be absent from input cookies")
+    if delete_action["key"] not in cookie_names:
+        raise ContractError("request cookies mapping delete key must be present in input cookies")
 
 
 def _unique_ids(rows: Any, field: str, context: str) -> set[str]:
@@ -11306,6 +11382,23 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         else case["steps"][-1]
     )
     dispatch_args = {key: descriptor["value"] for key, descriptor in dispatch["arguments"].items()}
+    routes = app_args.get("routes") if isinstance(app_args, dict) else None
+    cookie_endpoint = (
+        routes[0].get("endpoint")
+        if isinstance(routes, list) and routes and isinstance(routes[0], dict)
+        else None
+    )
+    if (
+        isinstance(cookie_endpoint, dict)
+        and cookie_endpoint.get("kind") == "request-cookies-observer"
+    ):
+        _validate_request_cookies_observer_dispatch(cookie_endpoint, dispatch_args)
+        if cookie_endpoint["probe"]["kind"] == "mapping-actions" and case["target_profiles"] != [
+            "python-package-cpython312"
+        ]:
+            raise ContractError(
+                "request cookies mapping-actions probe is specific to the Python package profile"
+            )
     if is_route_body_limit_workflow:
         _validate_route_body_limit_workflow(case)
     if not is_protocol_middleware and app_args["routes"][0]["kind"] == "websocket-route":
@@ -12640,6 +12733,11 @@ def _validate_application_stimulus(
                 raise ContractError(
                     "Request observer endpoint input differs from its declared values"
                 )
+            return
+        if isinstance(endpoint, dict) and endpoint.get("kind") == "request-cookies-observer":
+            _validate_request_cookies_observer(endpoint)
+            if route["path"] != "/items/{item_id:int}":
+                raise ContractError("Request cookies observer uses the int route boundary")
             return
         if isinstance(endpoint, dict) and endpoint.get("kind") == "async-request-callable-observer":
             fields = {"kind", "callable_kind", "path_parameter", "response_content"}
@@ -18217,6 +18315,13 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                 pass
             else:
                 coverage.add("starlette.request.json-chunked-body")
+    elif endpoint["kind"] == "request-cookies-observer":
+        cookie_values = _request_cookie_header_values(scope)
+        if cookie_values and any(cookie_values):
+            if endpoint["probe"]["kind"] == "items":
+                coverage.add(REQUEST_COOKIES_LENIENT_REQUIREMENT)
+            elif endpoint["probe"]["kind"] == "mapping-actions":
+                coverage.add(REQUEST_COOKIES_DICT_REQUIREMENT)
     elif endpoint["kind"] == "request-connection-property":
         property_name = endpoint["property"]
         if property_name == "app":

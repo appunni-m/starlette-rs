@@ -419,6 +419,10 @@ fn unquote_cookie_value(value: &str) -> String {
             characters.next();
             characters.next();
         } else if let Some(escaped) = characters.next() {
+            if escaped == '\n' {
+                // Python's regex `.` does not match LF, preserving this slash.
+                result.push('\\');
+            }
             result.push(escaped);
         } else {
             // Python's regular expression does not match a final lone slash.
