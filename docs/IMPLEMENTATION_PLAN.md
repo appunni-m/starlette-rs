@@ -337,21 +337,21 @@ dependencies feature-gated and unsupported coverage source-backed.
 The pinned Starlette 1.6.0 Router/GZip workload catalog contains six Router
 and 68 GZip benchmark IDs. All 74 have input-only descriptors and exact
 source-versus-installed-package correctness gates. Latest run
-`bf490edc-60e2-4ca1-ba23-12fd9a46546f` ran from
-`2026-10-01T18:37:56.913Z` to `2026-10-01T18:42:18.099Z` and measured all
+`842f5c47-f124-4f44-bbe5-7cde81520ce5` ran from
+`2026-10-01T19:43:40.198Z` to `2026-10-01T19:47:38.253Z` and measured all
 74 source/package workloads with zero failures and zero not-run rows. Its clean
-correctness preflight, `6a2c4c4d-b453-400c-8b0b-a5d57b55d828`, used the active
-653-case/687-requirement manifest (SHA-256
-`c272e2924b69a4b2404af5b1233fa8558dd2b99fb322084ee11957ac13220134`) and
-selected 840 comparisons: 836 passed, zero failed, zero infrastructure errors,
-and four Rust-native Python-callable rows were `not_run` (package 651/651;
+correctness preflight, `68b6b818-05c1-4e30-bf0f-dfc93a8c3949`, used the active
+657-case/692-requirement manifest (SHA-256
+`d5c069c0c978d2abc19d6c3b8a7bad9fd358956260b5d017432f7b54f2291535`) and
+selected 844 comparisons: 840 passed, zero failed, zero infrastructure errors,
+and four Rust-native Python-callable rows were `not_run` (package 655/655;
 Rust-native 185 passed, 4 not_run). The target was clean at commit
-`f72290ba1701ade7e5d9e46565366010be98b2d0` with working-tree SHA-256
-`d85de7a4c40e04198d88ed9a3726f6c9bcb9931e3c8d6081e54bf76712d5a579`; the
+`f4d46afd8303382343c8284558e1e15f62215d02` with working-tree SHA-256
+`8f01d92a0bd00d44d1373ca0c1c2fa94e365362cb8c81e4c23c524c9ee0f80e7`; the
 target wheel SHA-256 is
-`f99a06973d01842c13361b007c98d5d016f0318c416f3a701e517d47141c2686`. The
-median per-workload source/package ratios were 0.761 for Router and 0.969 for
-GZip; source was faster in five of six Router workloads and 58 of 68 GZip
+`f8fbe9d00fa91db2177b2e658dd03cb45c63f254fd100f4ae75896d69f06c35f`. The
+median per-workload source/package ratios were 0.878 for Router and 0.975 for
+GZip; source was faster in three of six Router workloads and 57 of 68 GZip
 workloads. All 74 source/package observation hashes matched.
 
 Rust-native remains `not_run` for all 74 because its public API does not expose

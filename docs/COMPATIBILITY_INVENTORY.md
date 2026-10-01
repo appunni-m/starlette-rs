@@ -83,21 +83,21 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run,
-`bf490edc-60e2-4ca1-ba23-12fd9a46546f`, measured all 74 declared workloads:
+`842f5c47-f124-4f44-bbe5-7cde81520ce5`, measured all 74 declared workloads:
 six Router and 68 GZip, with zero failures or skipped measurements. Its clean
-correctness preflight `6a2c4c4d-b453-400c-8b0b-a5d57b55d828` selected 840
-comparisons: 836 passed, zero failed or hit infrastructure errors, and four
+correctness preflight `68b6b818-05c1-4e30-bf0f-dfc93a8c3949` selected 844
+comparisons: 840 passed, zero failed or hit infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 651/651 and Rust-native passed 185/189. Rust-native remains `not_run`
+passed 655/655 and Rust-native passed 185/189. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. The median per-workload
-source/package ratios were 0.761 for Router and 0.969 for GZip; source was
-faster in five of six Router workloads and 58 of 68 GZip workloads. All 74
+source/package ratios were 0.878 for Router and 0.975 for GZip; source was
+faster in three of six Router workloads and 57 of 68 GZip workloads. All 74
 source/package observations had matching normalized hashes. The clean target
-checkout was revision `f72290ba1701ade7e5d9e46565366010be98b2d0` with
+checkout was revision `f4d46afd8303382343c8284558e1e15f62215d02` with
 working-tree SHA-256
-`d85de7a4c40e04198d88ed9a3726f6c9bcb9931e3c8d6081e54bf76712d5a579`; the
+`8f01d92a0bd00d44d1373ca0c1c2fa94e365362cb8c81e4c23c524c9ee0f80e7`; the
 target wheel SHA-256 was
-`f99a06973d01842c13361b007c98d5d016f0318c416f3a701e517d47141c2686`.
+`f8fbe9d00fa91db2177b2e658dd03cb45c63f254fd100f4ae75896d69f06c35f`.
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
