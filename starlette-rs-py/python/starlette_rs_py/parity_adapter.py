@@ -4075,7 +4075,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.convertors import Convertor, register_url_convertor
     from starlette.endpoints import HTTPEndpoint
-    from starlette.responses import PlainTextResponse
+    from starlette.responses import PlainTextResponse, Response
     from starlette.routing import Host, Mount, Route, Router
 
     for spec in case.get("custom_convertors", []):
@@ -4172,6 +4172,29 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
             endpoint_class = type("InputHTTPEndpoint", (HTTPEndpoint,), class_attributes)
             return Route(route_spec["path"], endpoint=endpoint_class, methods=route_spec["methods"])
 
+        if response_spec.get("kind") == "sync-plain-text-response":
+            if set(response_spec) != {
+                "kind",
+                "content",
+                "status_code",
+                "media_type",
+                "cookies",
+            }:
+                raise ValueError("synchronous plain-text route response has unsupported fields")
+
+            def endpoint(request: Any) -> Any:
+                route_index_observations.append(route_index)
+                response = Response(
+                    content=response_spec["content"],
+                    status_code=response_spec["status_code"],
+                    media_type=response_spec["media_type"],
+                )
+                for cookie in response_spec["cookies"]:
+                    response.set_cookie(key=cookie["key"], value=cookie["value"])
+                return response
+
+            return Route(route_spec["path"], endpoint=endpoint, methods=route_spec["methods"])
+
         if response_spec["kind"] not in {"plain-text-response", "converted-path-response"}:
             raise ValueError(f"unsupported route endpoint input: {response_spec['kind']!r}")
 
@@ -4194,8 +4217,8 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
             if set(route_spec) != {"kind", "path", "routes"}:
                 raise ValueError("nested Mount input has unsupported fields")
             nested_routes = route_spec["routes"]
-            if not isinstance(nested_routes, list) or not nested_routes:
-                raise ValueError("nested Mount routes must be a non-empty array")
+            if not isinstance(nested_routes, list):
+                raise ValueError("nested Mount routes must be an array")
             return Mount(
                 route_spec["path"],
                 routes=[make_mount_child(child, route_index) for child in nested_routes],
@@ -4329,6 +4352,15 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                     elif mutation["operation"] == "route-list-append":
                         route = make_route(mutation["route"], len(app.routes))
                         app.routes.append(route)
+                    elif mutation["operation"] == "mount-app-add-route":
+                        route_spec = mutation["route"]
+                        mounted_router = app.routes[mutation["mount_route_index"]].app
+                        route = make_route(route_spec, len(mounted_router.routes))
+                        mounted_router.add_route(
+                            route_spec["path"],
+                            endpoint=route.endpoint,
+                            methods=route_spec["methods"],
+                        )
                     else:
                         raise ValueError("unsupported Router route mutation")
                 observation, _scope = await dispatch(step)

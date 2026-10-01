@@ -603,6 +603,7 @@ ROUTER_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"execution_schedule", "scope", "incomi
 ROUTER_SEQUENCE_REQUIREMENTS = {
     "append_route": "starlette.routing.Router.route-dispatch.live-route-list-append",
     "mutate_methods": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
+    "mount_child_add_route": "starlette.routing.Router.route-dispatch.mount-child-router-live-route-add",
 }
 ROUTER_MOUNT_REQUIREMENTS = {
     "dispatch": "starlette.routing.Router.route-dispatch.mount-route-dispatch",
@@ -3420,7 +3421,7 @@ def _validate_http_route_input(
             or len(methods) != len(set(methods))
         ):
             raise ContractError(f"{context}.methods must be a non-empty unique string list")
-    if endpoint["kind"] == "plain-text-response":
+    if endpoint["kind"] in {"plain-text-response", "sync-plain-text-response"}:
         endpoint = _exact(
             endpoint,
             {"kind", "content", "status_code", "media_type", "cookies"},
@@ -6203,6 +6204,30 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
                     route_methods.add("HEAD")
                 methods.append(route_methods)
                 derived.add(ROUTER_SEQUENCE_REQUIREMENTS["append_route"])
+            elif operation == "mount-app-add-route":
+                mutation = _exact(
+                    raw_mutation,
+                    {"operation", "mount_route_index", "route"},
+                    mutation_context,
+                )
+                mount_route_index = mutation["mount_route_index"]
+                if (
+                    type(mount_route_index) is not int
+                    or mount_route_index < 0
+                    or mount_route_index >= len(routes)
+                    or routes[mount_route_index]["kind"] != "mount"
+                    or routes[mount_route_index]["routes"]
+                ):
+                    raise ContractError(
+                        f"{mutation_context} must add a route to an initially empty mounted Router"
+                    )
+                route = _validate_http_route_input(
+                    mutation["route"], f"{mutation_context}.route", {}
+                )
+                if route["methods"] is None:
+                    raise ContractError(f"{mutation_context}.route must declare HTTP methods")
+                routes[mount_route_index]["routes"].append(route)
+                derived.add(ROUTER_SEQUENCE_REQUIREMENTS["mount_child_add_route"])
             else:
                 raise ContractError(f"{mutation_context}.operation is unsupported")
 
@@ -6320,8 +6345,8 @@ def _validate_mount_route_input(route: Any, context: str) -> dict[str, Any]:
     route = _exact(route, {"kind", "path", "routes"}, context)
     if not isinstance(route["path"], str) or not route["path"].startswith("/"):
         raise ContractError(f"{context}.path must be an absolute Mount route path")
-    if not isinstance(route["routes"], list) or not route["routes"]:
-        raise ContractError(f"{context}.routes must contain at least one child route")
+    if not isinstance(route["routes"], list):
+        raise ContractError(f"{context}.routes must be an array")
     return {
         "kind": route["kind"],
         "path": route["path"],

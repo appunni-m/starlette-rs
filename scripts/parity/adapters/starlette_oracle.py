@@ -6039,7 +6039,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 
     from starlette.convertors import CONVERTOR_TYPES, Convertor, register_url_convertor
     from starlette.endpoints import HTTPEndpoint
-    from starlette.responses import PlainTextResponse
+    from starlette.responses import PlainTextResponse, Response
     from starlette.routing import Host, Mount, Route, Router
 
     previous_convertors = {
@@ -6124,6 +6124,28 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             EndpointClass = type("InputHTTPEndpoint", (HTTPEndpoint,), class_attributes)
             return EndpointClass
 
+        if endpoint_spec.get("kind") == "sync-plain-text-response":
+            _strict_object(
+                endpoint_spec,
+                {"kind", "content", "status_code", "media_type", "cookies"},
+                "synchronous plain-text route response",
+            )
+
+            def endpoint(request: Any) -> Any:
+                if is_router:
+                    route_index_observations.append(route_index)
+                response = Response(
+                    content=endpoint_spec["content"],
+                    status_code=endpoint_spec["status_code"],
+                    media_type=endpoint_spec["media_type"],
+                )
+                for cookie in endpoint_spec["cookies"]:
+                    _strict_object(cookie, {"key", "value"}, "route response cookie")
+                    response.set_cookie(key=cookie["key"], value=cookie["value"])
+                return response
+
+            return endpoint
+
         async def endpoint(request: Any) -> Any:
             if is_router:
                 route_index_observations.append(route_index)
@@ -6179,8 +6201,8 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         if kind == "mount":
             _strict_object(route_spec, {"kind", "path", "routes"}, "Nested Mount input")
             nested_routes = route_spec["routes"]
-            if not isinstance(nested_routes, list) or not nested_routes:
-                raise ValueError("Nested Mount routes must be a non-empty array")
+            if not isinstance(nested_routes, list):
+                raise ValueError("Nested Mount routes must be an array")
             return Mount(
                 route_spec["path"],
                 routes=[make_mount_child(child, route_index) for child in nested_routes],
@@ -6340,6 +6362,16 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                                 make_endpoint(route_spec["endpoint"], route_index),
                                 methods=route_spec["methods"],
                             )
+                        )
+                    elif mutation["operation"] == "mount-app-add-route":
+                        route_spec = mutation["route"]
+                        mounted_router = application.routes[mutation["mount_route_index"]].app
+                        mounted_router.add_route(
+                            route_spec["path"],
+                            endpoint=make_endpoint(
+                                route_spec["endpoint"], len(mounted_router.routes)
+                            ),
+                            methods=route_spec["methods"],
                         )
                     else:
                         raise ValueError("unsupported Router route mutation")

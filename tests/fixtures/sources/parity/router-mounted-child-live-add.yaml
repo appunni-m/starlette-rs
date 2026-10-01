@@ -1,0 +1,115 @@
+{
+  "schema": "migration-parity/parity-input@22",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.mount-child-live-add-route",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Mount.route-dispatch.scope-extension",
+        "starlette.routing.Router.route-dispatch.mount-route-dispatch",
+        "starlette.routing.Router.route-dispatch.mount-child-router-live-route-add"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "mount",
+          "path": "/http",
+          "routes": []
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "mounted-empty-router",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/http/inner",
+            "raw_path_base64": "L2h0dHAvaW5uZXI=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        },
+        {
+          "step_id": "add-child-route-and-request",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/http/inner",
+            "raw_path_base64": "L2h0dHAvaW5uZXI=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": [
+            {
+              "operation": "mount-app-add-route",
+              "mount_route_index": 0,
+              "route": {
+                "kind": "http-route",
+                "path": "/inner",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "sync-plain-text-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain",
+                  "cookies": []
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "mounted-empty-router",
+        "add-child-route-and-request"
+      ]
+    }
+  ]
+}

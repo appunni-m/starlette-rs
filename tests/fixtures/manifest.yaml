@@ -266,6 +266,7 @@
       "build/parity/inputs/parity/router-converter-dispatch.json",
       "build/parity/inputs/parity/router-slash-redirect.json",
       "build/parity/inputs/parity/router-cache-invalidation.json",
+      "build/parity/inputs/parity/router-mounted-child-live-add.json",
       "build/parity/inputs/parity/router-class-based-endpoints.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/request-cookies.json",
@@ -15552,6 +15553,7 @@
                   "starlette.routing.Router.route-dispatch.custom-converter-override",
                   "starlette.routing.Router.route-dispatch.live-route-list-append",
                   "starlette.routing.Router.route-dispatch.live-route-method-mutation",
+                  "starlette.routing.Router.route-dispatch.mount-child-router-live-route-add",
                   "starlette.routing.Router.route-dispatch.mount-route-dispatch",
                   "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss",
                   "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
@@ -15848,6 +15850,17 @@
               "id": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
               "dimension": "boundary",
               "description": "After a prior dispatch, adding a method to an existing Route.methods set makes the route accept that method. Upstream: starlette/routing.py::Route.matches and Route.handle.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.mount-child-router-live-route-add",
+              "dimension": "boundary",
+              "description": "After a Router is mounted with an initially empty child Router, adding a child Route through the mounted Router makes it available to the next request. Upstream: starlette/routing.py::Mount.__init__, Router.add_route, and tests/test_routing.py::test_add_route_to_app_after_mount.",
               "lanes": [
                 "parity"
               ],

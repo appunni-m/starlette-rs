@@ -121,14 +121,12 @@
       ],
       "assets": [],
       "middleware": {
-        "class_name": "TraceMiddleware",
+        "class_name": "CustomMiddleware",
         "args": [
-          "request-trace",
-          3
+          "foo"
         ],
         "kwargs": {
-          "enabled": true,
-          "label": "outer"
+          "bar": 123
         }
       },
       "observations": [
