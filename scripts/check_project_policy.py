@@ -11,7 +11,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS_ROOT = ROOT / "tests"
-FIXTURE_ROOT = TESTS_ROOT / "fixtures"
 RUST_PACKAGE_ROOTS = (ROOT / "starlette-rs", ROOT / "starlette-rs-py")
 PYTHON_SOURCE_ROOTS = (
     ROOT / "scripts",
@@ -40,8 +39,9 @@ PYTHON_RUNTIME_CONTROL_FLOW = tuple(
     if (node_type := getattr(ast, name, None)) is not None
 )
 RUST_TEST_ATTRIBUTES = re.compile(
-    r"^\s*#\[\s*(?:cfg\s*\(\s*test\s*\)|"
-    r"(?:tokio::|async_std::)?test(?:\s*\([^]]*\))?|rstest)\s*\]",
+    r"^\s*#\[\s*(?:"
+    r"cfg\s*\(\s*(?:test|(?:all|any)\s*\([^]]*\btest\b[^]]*\))\s*\)|"
+    r"(?:tokio::|async_std::)?test(?:\s*\([^]]*\))?|rstest|test_case)\s*\]",
     re.MULTILINE,
 )
 RUST_TEST_MODULE = re.compile(r"^\s*mod\s+tests\s*(?:\{|;)", re.MULTILINE)
@@ -148,7 +148,7 @@ def main() -> int:
     check_generated_parity_json(violations)
 
     for path in TESTS_ROOT.rglob("*"):
-        if not path.is_file() or path.is_relative_to(FIXTURE_ROOT):
+        if not path.is_file():
             continue
         if path.suffix in {".py", ".rs"}:
             violations.append(
@@ -166,7 +166,6 @@ def main() -> int:
                     f"{path.relative_to(ROOT)}:{line}: conventional Rust unit-test "
                     "harnesses are disallowed; use live parity inputs"
                 )
-
     for path in python_sources():
         if path.name.startswith("test_"):
             violations.append(

@@ -8,22 +8,22 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 581 input-only cases in 65 indexed files,
-covering 82 operations and 618 parity requirements. The six direct
-ServerErrorMiddleware cases and three TestClient exception-chain cases pass
-live source/package comparison. Latest integrated run
-`30a58707-ee2a-4146-b14d-2f0b104af348` passed all 736 executed comparisons out
-of 740 selected, with zero failures or infrastructure errors and four
-Rust-native Python-callable rows `not_run`. The Python package passed 579/579;
-Rust-native passed 157/161. The four native `not_run` rows are sync endpoint,
-bound-method, partial, and callable-instance Request dispatch.
+The active contract contains 583 input-only cases in 66 indexed files,
+covering 83 operations and 622 parity requirements. The two direct
+`run_in_threadpool` cases, six direct ServerErrorMiddleware cases, and three
+TestClient exception-chain cases pass live source/package comparison. Latest
+integrated run `2fcdaf8f-f4c0-4b41-9f3f-f2e058feba51` passed all 738 executed
+comparisons out of 742 selected, with zero failures or infrastructure errors
+and four Rust-native Python-callable rows `not_run`. The Python package passed
+581/581; Rust-native passed 157/161. The four native `not_run` rows are sync
+endpoint, bound-method, partial, and callable-instance Request dispatch.
 `make parity-run` exits with status 2 for those declared rows. Full run
 identities and package hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The current coverage matrix has 800 source rows: 307 existing input mappings,
-50 source-backed `not_applicable` rows, and 443 fixture-backlog rows. Derive
+The current coverage matrix has 800 source rows: 309 existing input mappings,
+50 source-backed `not_applicable` rows, and 441 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

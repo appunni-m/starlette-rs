@@ -60,6 +60,16 @@ CASE_KEYS = {
     "observations",
     "execution_schedule",
 }
+THREADPOOL_SURFACE = "starlette.concurrency"
+THREADPOOL_OPERATION = "run_in_threadpool"
+THREADPOOL_OPERATION_KEY = (THREADPOOL_SURFACE, THREADPOOL_OPERATION)
+THREADPOOL_REQUIREMENTS = {
+    "arguments_result": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.arguments-result",
+    "exception_identity": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.exception-identity",
+    "worker_thread": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.worker-thread",
+    "event_loop_progress": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.event-loop-progress",
+}
+THREADPOOL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {"call"}
 WEBSOCKET_SURFACE = "starlette.websockets.WebSocket"
 WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
@@ -1555,6 +1565,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == BASE_HTTP_CONTEXTVARS_OPERATION_KEY
                 or key == STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY
                 or key == WEBSOCKET_ENDPOINT_OPERATION_KEY
+                or key == THREADPOOL_OPERATION_KEY
                 or key in AUTHENTICATION_OPERATIONS
                 else {
                     "class",
@@ -1720,6 +1731,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             TESTCLIENT_OPERATION_KEY,
                             TESTCLIENT_WEBSOCKET_OPERATION_KEY,
                             TESTCLIENT_LIFESPAN_OPERATION_KEY,
+                            THREADPOOL_OPERATION_KEY,
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
                             STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY,
                             STARLETTE_ROUTES_OPERATION_KEY,
@@ -9671,6 +9683,10 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     if isinstance(case, dict) and case.get("surface") == SERVER_ERROR_MIDDLEWARE_SURFACE:
         return _validate_server_error_middleware_case(case, manifest)
+    is_threadpool = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == THREADPOOL_OPERATION_KEY
+    )
     is_websocket = isinstance(case, dict) and case.get("surface") == WEBSOCKET_SURFACE
     is_websocket_endpoint = (
         isinstance(case, dict)
@@ -9830,7 +9846,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     )
     is_route_body_limit_workflow = _is_route_body_limit_workflow(case)
     expected_case_keys = (
-        WEBSOCKET_CASE_KEYS
+        THREADPOOL_CASE_KEYS
+        if is_threadpool
+        else WEBSOCKET_CASE_KEYS
         if is_websocket
         else HTTP_ENDPOINT_CASE_KEYS
         if is_http_endpoint
@@ -10164,6 +10182,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_authentication:
         if (case["surface"], case["operation"]) not in AUTHENTICATION_OPERATIONS:
             raise ContractError("authentication cases must use a declared public operation")
+    elif is_threadpool:
+        if (case["surface"], case["operation"]) != THREADPOOL_OPERATION_KEY:
+            raise ContractError("run_in_threadpool cases must use the declared public operation")
+        if case["observations"] != [THREADPOOL_OPERATION]:
+            raise ContractError("run_in_threadpool cases must select the direct-call observation")
     elif is_default_receive:
         if case["observations"] != ["receive"]:
             raise ContractError("default receive cases must select the receive observation")
@@ -10255,6 +10278,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError("TestClient lifespan cases select only the Python-package profile")
     if is_request_body_stream_json and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("Request body/stream/json cases select only the Python-package profile")
+    if is_threadpool and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError("run_in_threadpool cases select only the Python-package profile")
     requirements: dict[str, dict[str, Any]] = {}
     operations: dict[tuple[str, str], dict[str, Any]] = {}
     for surface in manifest["surfaces"]:
@@ -10350,6 +10375,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 f"case target profiles exceed requirement applicability: {requirement_id}"
             )
 
+    if is_threadpool:
+        _validate_threadpool_case(case)
+        return case
     if is_value_formatting:
         _validate_value_formatting_case(case)
         return case
@@ -11067,6 +11095,109 @@ def _validate_server_error_middleware_handler(value: Any, context: str) -> None:
         or not isinstance(handler["content"], dict)
     ):
         raise ContractError(f"{context} must describe a JSON server-error response callable")
+
+
+def _validate_threadpool_case(case: dict[str, Any]) -> None:
+    call = _exact(
+        case["call"],
+        {
+            "call_id",
+            "args",
+            "kwargs",
+            "callable_behavior",
+            "event_loop_checkpoints",
+            "start_timeout_ms",
+            "release_timeout_ms",
+        },
+        "run_in_threadpool call input",
+    )
+    _string(call["call_id"], "run_in_threadpool call_id")
+    if not isinstance(call["args"], list):
+        raise ContractError("run_in_threadpool args must be a JSON array")
+    _validate_threadpool_json(call["args"], "run_in_threadpool args")
+    if not isinstance(call["kwargs"], dict):
+        raise ContractError("run_in_threadpool kwargs must be a JSON object")
+    _validate_threadpool_json(call["kwargs"], "run_in_threadpool kwargs")
+
+    callable_behavior = call["callable_behavior"]
+    if not isinstance(callable_behavior, dict):
+        raise ContractError("run_in_threadpool callable_behavior must be an object")
+    behavior_kind = callable_behavior.get("kind")
+    if behavior_kind == "return":
+        callable_behavior = _exact(
+            callable_behavior,
+            {"kind", "value"},
+            "run_in_threadpool returning callable behavior",
+        )
+        _validate_threadpool_json(
+            callable_behavior["value"], "run_in_threadpool callback return value"
+        )
+        expected_requirements = {
+            THREADPOOL_REQUIREMENTS["arguments_result"],
+            THREADPOOL_REQUIREMENTS["worker_thread"],
+            THREADPOOL_REQUIREMENTS["event_loop_progress"],
+        }
+    elif behavior_kind == "raise":
+        callable_behavior = _exact(
+            callable_behavior,
+            {"kind", "exception_type", "message"},
+            "run_in_threadpool raising callable behavior",
+        )
+        if callable_behavior["exception_type"] not in {
+            "LookupError",
+            "RuntimeError",
+            "TypeError",
+            "ValueError",
+        }:
+            raise ContractError("run_in_threadpool exception type is not an allowed builtin")
+        if not isinstance(callable_behavior["message"], str):
+            raise ContractError("run_in_threadpool exception message must be a string")
+        expected_requirements = {
+            THREADPOOL_REQUIREMENTS["exception_identity"],
+            THREADPOOL_REQUIREMENTS["worker_thread"],
+            THREADPOOL_REQUIREMENTS["event_loop_progress"],
+        }
+    else:
+        raise ContractError("run_in_threadpool callable behavior kind must be return or raise")
+
+    checkpoints = call["event_loop_checkpoints"]
+    if (
+        not isinstance(checkpoints, list)
+        or not checkpoints
+        or any(not isinstance(marker, str) or not marker for marker in checkpoints)
+        or len(checkpoints) != len(set(checkpoints))
+    ):
+        raise ContractError(
+            "run_in_threadpool event_loop_checkpoints must be unique non-empty strings"
+        )
+    for timeout_key in ("start_timeout_ms", "release_timeout_ms"):
+        timeout = call[timeout_key]
+        if type(timeout) is not int or not 1 <= timeout <= 30000:
+            raise ContractError(f"run_in_threadpool {timeout_key} must be between 1 and 30000")
+    if set(case["covers"]) != expected_requirements:
+        raise ContractError(
+            "run_in_threadpool covers must match the input-defined callable behavior"
+        )
+
+
+def _validate_threadpool_json(value: Any, context: str) -> None:
+    if value is None or isinstance(value, (bool, int, str)):
+        return
+    if isinstance(value, float):
+        if math.isfinite(value):
+            return
+        raise ContractError(f"{context} numbers must be finite")
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            _validate_threadpool_json(item, f"{context}[{index}]")
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ContractError(f"{context} object keys must be strings")
+            _validate_threadpool_json(item, f"{context}.{key}")
+        return
+    raise ContractError(f"{context} must contain only JSON-compatible values")
 
 
 def _validate_server_error_middleware_case(

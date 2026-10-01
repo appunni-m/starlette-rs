@@ -1,0 +1,64 @@
+{
+  "schema": "migration-parity/parity-input@22",
+  "cases": [
+    {
+      "case_id": "starlette.concurrency.run_in_threadpool.arguments-result-worker-progress",
+      "surface": "starlette.concurrency",
+      "operation": "run_in_threadpool",
+      "covers": [
+        "starlette.concurrency.run_in_threadpool.arguments-result",
+        "starlette.concurrency.run_in_threadpool.worker-thread",
+        "starlette.concurrency.run_in_threadpool.event-loop-progress"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["run_in_threadpool"],
+      "call": {
+        "call_id": "arguments-result",
+        "args": ["input-positional", 27],
+        "kwargs": {
+          "label": "input-keyword",
+          "enabled": true
+        },
+        "callable_behavior": {
+          "kind": "return",
+          "value": {
+            "source": "callback-input",
+            "values": [3, "four"]
+          }
+        },
+        "event_loop_checkpoints": ["loop-turn-a", "loop-turn-b"],
+        "start_timeout_ms": 5000,
+        "release_timeout_ms": 5000
+      }
+    },
+    {
+      "case_id": "starlette.concurrency.run_in_threadpool.exception-identity-worker-progress",
+      "surface": "starlette.concurrency",
+      "operation": "run_in_threadpool",
+      "covers": [
+        "starlette.concurrency.run_in_threadpool.exception-identity",
+        "starlette.concurrency.run_in_threadpool.worker-thread",
+        "starlette.concurrency.run_in_threadpool.event-loop-progress"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["run_in_threadpool"],
+      "call": {
+        "call_id": "exception-identity",
+        "args": ["raised-positional"],
+        "kwargs": {
+          "label": "raised-keyword"
+        },
+        "callable_behavior": {
+          "kind": "raise",
+          "exception_type": "LookupError",
+          "message": "input-defined worker failure"
+        },
+        "event_loop_checkpoints": ["error-loop-turn-a", "error-loop-turn-b"],
+        "start_timeout_ms": 5000,
+        "release_timeout_ms": 5000
+      }
+    }
+  ]
+}

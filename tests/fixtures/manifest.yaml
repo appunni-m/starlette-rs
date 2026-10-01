@@ -304,7 +304,8 @@
       "build/parity/inputs/parity/testclient-websocket.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
       "build/parity/inputs/parity/testclient-lifespan-context.json",
-      "build/parity/inputs/parity/application-routes.json"
+      "build/parity/inputs/parity/application-routes.json",
+      "build/parity/inputs/parity/concurrency.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -2809,6 +2810,172 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Authentication is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.concurrency",
+      "kind": "module",
+      "source_path": "starlette/concurrency.py:32",
+      "storage_slug": "starlette-concurrency-module",
+      "operations": [
+        {
+          "id": "run_in_threadpool",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.concurrency.run_in_threadpool",
+            "signature": "async run_in_threadpool(func, *args, **kwargs) -> T",
+            "parameters": [
+              {
+                "id": "func",
+                "style": "positional",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "args",
+                "style": "variadic_positional",
+                "value_types": [
+                  "any_json"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
+                }
+              },
+              {
+                "id": "kwargs",
+                "style": "variadic_keyword",
+                "value_types": [
+                  "any_json"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": {}
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "call",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "execution_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This direct helper boundary requires invoking arbitrary Python callables; the Rust-native profile does not accept Python callables.",
+                "authority": "Project boundary policy: arbitrary Python callables are exercised only through the CPython package boundary."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.concurrency.run_in_threadpool",
+              "signature": "run_in_threadpool(func, *args, **kwargs) -> awaitable result",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.concurrency.run_in_threadpool.arguments-result",
+              "dimension": "boundary",
+              "description": "Forward case-supplied positional and keyword arguments to the synchronous callback and return its value unchanged. Pinned source: starlette/concurrency.py:32-34.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.run_in_threadpool.exception-identity",
+              "dimension": "error_path",
+              "description": "Propagate the callback exception with its class, message, and object identity preserved. Pinned source: starlette/concurrency.py:32-34.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.run_in_threadpool.worker-thread",
+              "dimension": "boundary",
+              "description": "Invoke a synchronous callback on a worker thread distinct from the event-loop caller. Pinned source: starlette/concurrency.py:32-34; docs/threadpool.md:11-14.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.run_in_threadpool.event-loop-progress",
+              "dimension": "boundary",
+              "description": "Keep event-loop checkpoints runnable while the synchronous worker callback waits on its input-defined release gate. Pinned source: starlette/concurrency.py:32-34; docs/threadpool.md:11-14.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Direct callable scheduling is outside the declared benchmark workloads."
           }
         }
       ]

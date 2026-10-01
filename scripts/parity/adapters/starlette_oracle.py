@@ -9946,6 +9946,15 @@ def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if (
+        case.get("surface") == "starlette.concurrency"
+        and case.get("operation") == "run_in_threadpool"
+    ):
+        from starlette.concurrency import run_in_threadpool
+
+        from scripts.parity.adapters.concurrency import run_threadpool_case
+
+        return run_threadpool_case(case, run_in_threadpool)
     if case.get("surface") == TESTCLIENT_SURFACE and case.get("operation") in {
         TESTCLIENT_OPERATION,
         TESTCLIENT_WEBSOCKET_OPERATION,

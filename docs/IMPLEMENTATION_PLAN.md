@@ -32,22 +32,24 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 581 input-only cases in 65 indexed files,
-covering 82 operations and 618 requirements. The six direct
+The active parity contract contains 583 input-only cases in 66 indexed files,
+covering 83 operations and 622 requirements, including the direct
+`starlette.concurrency.run_in_threadpool` helper. The six direct
 ServerErrorMiddleware inputs and three TestClient exception-chain inputs pass
 live source/package comparison. Latest integrated run
-`30a58707-ee2a-4146-b14d-2f0b104af348` selected 740 comparisons: 736 passed,
+`2fcdaf8f-f4c0-4b41-9f3f-f2e058feba51` selected 742 comparisons: 738 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
-Python-callable rows `not_run`. The installed Python package passed 579/579;
-Rust-native passed 157/161. The four native `not_run` rows are sync endpoint,
+Python-callable rows `not_run`. The installed Python package passed 581/581;
+Rust-native passed 157/161. The two direct `run_in_threadpool` cases passed on
+the package profile. The four native `not_run` rows are sync endpoint,
 bound-method, partial, and callable-instance Request dispatch. `make parity-run`
 exits with status 2 for these declared rows. The complete run identity, wheel
 and tree hashes, and case-level evidence are in
 [Migration parity contract and evidence](PARITY.md). This bounded run does not
 establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 800 source rows: 307 input mappings,
-50 source-backed `not_applicable` rows, and 443 fixture-backlog rows. These
+The generated coverage matrix contains 800 source rows: 309 input mappings,
+50 source-backed `not_applicable` rows, and 441 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.

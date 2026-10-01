@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 581 input-only cases in 65 indexed files, covering 82 operations and 618 parity requirements. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases pass live source/package comparisons in the latest run recorded below. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation and post-construction FileResponse field assignments; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 583 input-only cases in 66 indexed files, covering 83 operations and 622 parity requirements, including two Python-package-only direct `run_in_threadpool` cases. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases pass live source/package comparisons in the latest run recorded below. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation and post-construction FileResponse field assignments; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; one Python-package Jinja2 template workflow, and direct thread-pool callable forwarding and scheduling. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,25 +8,26 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `30a58707-ee2a-4146-b14d-2f0b104af348`.
-It ran from `2026-10-01T04:30:16.512Z` to `2026-10-01T04:32:29.980Z` against
+The latest full-slice parity run is `2fcdaf8f-f4c0-4b41-9f3f-f2e058feba51`.
+It ran from `2026-10-01T05:07:32.156Z` to `2026-10-01T05:09:45.434Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-581-case/618-requirement manifest. It selected 740 profile comparisons: 736
+583-case/622-requirement manifest. It selected 742 profile comparisons: 738
 passed, zero failed, zero infrastructure errors, and four Rust-native
-Python-callable rows were `not_run`. The Python package passed all 579 selected
-comparisons; Rust-native passed 157 of 161. All six direct
-ServerErrorMiddleware cases and all three TestClient exception-chain cases
-passed on the Python package. The four Rust-native `not_run` rows are sync
-endpoint, bound-method, partial, and callable-instance Request dispatch cases.
+Python-callable rows were `not_run`. All 581 Python-package comparisons passed;
+Rust-native passed 157 of 161. Both direct `run_in_threadpool` cases passed,
+as did all six direct ServerErrorMiddleware cases and all three TestClient
+exception-chain cases. The four Rust-native `not_run` rows are sync endpoint,
+bound-method, partial, and callable-instance Request dispatch cases.
 `make parity-run` exits with status 2 for those declared `not_run` rows. The
-target checkout was clean at revision `007b1bab93990c011271bbb782294a0ba09fb022`
-with working-tree SHA-256
-`c56704dafd9649422f6cff7bf8487722c0e4b028d1eef4e00ba4805d33c1a66b`; the
+target source revision was `865edd45e2af851a2cc9138039157994238cda6a` with
+working-tree SHA-256
+`318d56bd8d0853995ff3c60cdcb629591698d610505806f6910b958c3553254a`; the
 installed package tree SHA-256 was
-`d12708e0007589aee038ecf52c835988bcc49c6d4601de2a266bf47d38a2cf9e`, and the
+`327d73c6e7a374642f7c05be59c1517e31c0e9bdee0a748360939cc959133e9c`, the
 wheel SHA-256 was
-`27c9638aece89c36d5f740a7568967aa92ec363ce6f510edde287fb04bd875ab`.
-Manifest SHA-256: `c52f247962d6e2504df8fd307ea34a5500ede988e43ed109c03b62af1b93dca1`.
+`f96b101ee9280a5f12f424eab2a34d44d7cdb53ab8a10fb90cb85b31d598842d`, and the
+manifest SHA-256 was
+`91264a4901c2211e68cc5c2d6657115cf19d85d8c8cfe5ef0dc397c2747ced40`.
 Strict aggregation reports `not_proven` because the full compatibility
 denominator remains incomplete.
 
@@ -77,6 +78,18 @@ holds an input-defined synchronous callback in the AnyIO worker thread until the
 response task has received cancellation. The latest clean full-profile run
 matches the ordered ASGI send, worker entry and release, worker completion, and
 propagated `CancelledError` exactly.
+
+### Direct `run_in_threadpool` callable behavior
+
+[`concurrency.yaml`](../tests/fixtures/sources/parity/concurrency.yaml) adds two
+Python-package-only calls through the public `starlette.concurrency` helper.
+Each callback, argument list, keyword mapping, and returning or raising behavior
+is constructed from input. A synchronous callback waits behind an input-defined
+release gate while the event loop records input-defined checkpoints. The
+consumer observations compare forwarded arguments, result or propagated
+exception identity, worker-versus-caller thread role, and the execution trace
+exactly against pinned Starlette 1.6.0. These two cases cover the declared
+boundaries only; they do not establish complete thread-pool parity.
 
 ### Response background tasks: bounded parity
 
