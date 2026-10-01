@@ -274,6 +274,9 @@ SESSION_REQUIREMENTS = {
     "domain_secure_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.domain-secure-attributes",
     "cookie_subpath": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.cookie-subpath",
     "mutation_flags": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.session-mutation-flags",
+    "empty_popitem_error": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.popitem-empty-error",
+    "union_noniterable_error": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.in-place-union-noniterable-error",
+    "union_partial_pair_error": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.in-place-union-partial-pair-error",
     "vary_on_access": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.vary-cookie-on-access",
     "no_access": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.no-access-no-vary",
     "set_cookie_modification": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.set-cookie-only-on-modification",
@@ -6659,21 +6662,34 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _validate_session_union_values(values: Any, context: str) -> None:
-    if isinstance(values, dict):
-        if any(not isinstance(key, str) for key in values):
-            raise ContractError(f"{context} mapping keys must be strings")
-    elif isinstance(values, list):
-        if any(
-            not isinstance(pair, list) or len(pair) != 2 or not isinstance(pair[0], str)
-            for pair in values
-        ):
-            raise ContractError(f"{context} must contain string-key pairs")
-    else:
-        raise ContractError(f"{context} must be a mapping or pair sequence")
+    if isinstance(values, dict) and any(not isinstance(key, str) for key in values):
+        raise ContractError(f"{context} mapping keys must be strings")
     try:
         json.dumps(values, allow_nan=False)
     except (TypeError, ValueError) as exc:
         raise ContractError(f"{context} must be JSON-compatible") from exc
+
+
+def _session_union_has_valid_pair_shape(values: Any) -> bool:
+    return isinstance(values, dict) or (
+        isinstance(values, list)
+        and all(
+            isinstance(pair, list) and len(pair) == 2 and isinstance(pair[0], str)
+            for pair in values
+        )
+    )
+
+
+def _session_union_has_partial_pair_error(values: Any) -> bool:
+    if not isinstance(values, list):
+        return False
+    valid_pair_seen = False
+    for pair in values:
+        if isinstance(pair, list) and len(pair) == 2 and isinstance(pair[0], str):
+            valid_pair_seen = True
+        else:
+            return valid_pair_seen
+    return False
 
 
 def _validate_session_workflow_case(case: dict[str, Any]) -> None:
@@ -7122,8 +7138,27 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         and setdefault_missing
         and update_empty
         and update_nonempty
+        and any(
+            action["mutation"]["kind"] == "in-place-union"
+            and _session_union_has_valid_pair_shape(action["mutation"]["values"])
+            for action in mutation_actions
+        )
     ):
         requirements.add(SESSION_REQUIREMENTS["mutation_flags"])
+
+    for request in requests:
+        action = request["action"]
+        if action["kind"] != "session-operation":
+            continue
+        mutation = action["mutation"]
+        if mutation["kind"] == "popitem" and request["cookie_source"] is None:
+            requirements.add(SESSION_REQUIREMENTS["empty_popitem_error"])
+        elif mutation["kind"] == "in-place-union":
+            values = mutation["values"]
+            if not isinstance(values, (dict, list, str)):
+                requirements.add(SESSION_REQUIREMENTS["union_noniterable_error"])
+            if _session_union_has_partial_pair_error(values):
+                requirements.add(SESSION_REQUIREMENTS["union_partial_pair_error"])
 
     if set(case["covers"]) != requirements:
         raise ContractError(
@@ -18272,6 +18307,85 @@ def validate_workflow_result(value: Any, expected_case_id: str, context: str) ->
     return value
 
 
+def _validate_session_workflow_result(
+    case: dict[str, Any], result: dict[str, Any], context: str
+) -> None:
+    if result["status"] != "completed":
+        return
+    observations = [
+        item for item in result["observations"] if item.get("step_id") == SESSION_WORKFLOW_OPERATION
+    ]
+    if len(observations) != 1 or observations[0]["status"] != "ok":
+        raise ContractError(f"{context} must contain one completed Session workflow value")
+    value = _exact(
+        observations[0]["value"],
+        {"secret_key_observation", "requests"},
+        f"{context}.value",
+    )
+    rows = value["requests"]
+    if not isinstance(rows, list) or len(rows) != len(case["requests"]):
+        raise ContractError(f"{context}.requests must match the input request count")
+    request_fields = {
+        "request_id",
+        "action",
+        "outcome",
+        "error",
+        "session",
+        "accessed",
+        "modified",
+        "mutation_result",
+        "response_status",
+        "response_headers",
+        "response_bytes",
+        "asgi_event_order",
+        "asgi_events",
+    }
+    for index, (row, request) in enumerate(zip(rows, case["requests"], strict=True)):
+        row_context = f"{context}.requests[{index}]"
+        _exact(row, request_fields, row_context)
+        if row["request_id"] != request["request_id"]:
+            raise ContractError(f"{row_context}.request_id differs from its input")
+        if row["action"] != request["action"]["kind"]:
+            raise ContractError(f"{row_context}.action differs from its input")
+        if row["outcome"] not in {"ok", "error"}:
+            raise ContractError(f"{row_context}.outcome is invalid")
+        error = row["error"]
+        if error is not None:
+            _exact(error, {"class", "message"}, f"{row_context}.error")
+            _string(error["class"], f"{row_context}.error.class")
+            _string(error["message"], f"{row_context}.error.message")
+        if (row["outcome"] == "error") != (error is not None):
+            raise ContractError(f"{row_context}.outcome and error do not agree")
+        if row["outcome"] == "error":
+            if request["action"]["kind"] != "session-operation":
+                raise ContractError(f"{row_context} records an error outside Session operations")
+            if (
+                row["response_status"] is not None
+                or row["response_headers"]
+                or row["response_bytes"] != {"encoding": "base64", "data": ""}
+                or row["asgi_event_order"]
+                or row["asgi_events"]
+            ):
+                raise ContractError(f"{row_context} emitted response data after an escaped error")
+        if row["accessed"] is not None and not isinstance(row["accessed"], bool):
+            raise ContractError(f"{row_context}.accessed must be boolean or null")
+        if row["modified"] is not None and not isinstance(row["modified"], bool):
+            raise ContractError(f"{row_context}.modified must be boolean or null")
+        if (
+            not isinstance(row["response_headers"], list)
+            or not isinstance(row["asgi_event_order"], list)
+            or not isinstance(row["asgi_events"], list)
+        ):
+            raise ContractError(f"{row_context} response observations must be arrays")
+        if not isinstance(row["response_bytes"], dict):
+            raise ContractError(f"{row_context}.response_bytes must be an object")
+        _exact(row["response_bytes"], {"encoding", "data"}, f"{row_context}.response_bytes")
+        if row["response_bytes"]["encoding"] != "base64" or not isinstance(
+            row["response_bytes"]["data"], str
+        ):
+            raise ContractError(f"{row_context}.response_bytes is malformed")
+
+
 def _validate_sha256(value: Any, context: str) -> None:
     if (
         not isinstance(value, str)
@@ -20704,6 +20818,12 @@ def _validate_parity_result_against_active_contract(
 
         source = comparison["source"]
         target = comparison["target"]
+        if (
+            case["surface"] == SESSION_MIDDLEWARE_SURFACE
+            and case["operation"] == SESSION_WORKFLOW_OPERATION
+        ):
+            _validate_session_workflow_result(case, source, f"{context}.source")
+            _validate_session_workflow_result(case, target, f"{context}.target")
         both_completed = source["status"] == target["status"] == "completed"
         if command_id == "oracle-only":
             if target["status"] != "skipped":

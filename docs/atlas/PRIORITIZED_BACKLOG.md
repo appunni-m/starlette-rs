@@ -9,7 +9,7 @@ incomplete.
 ## Current parity snapshot
 
 The active contract contains 615 input-only cases in 70 indexed files,
-covering 87 operations and 651 parity requirements. Five async Request endpoint
+covering 87 operations and 654 parity requirements. Five async Request endpoint
 callable-shape and failure cases, the two direct `run_in_threadpool` cases,
 `iterate_in_threadpool` iteration and async-generator protocol behavior,
 Config casts, TestClient debug responses, synchronous Request endpoint worker
@@ -17,7 +17,7 @@ cancellation and failure, ASGI callable-instance success and failure, direct
 State sequences, application registration workflows, six direct
 ServerErrorMiddleware cases, three TestClient exception-chain cases, and a
 default middleware-boundary trace pass live source/package comparison.
-Latest integrated run `be92517c-40b2-4e6e-bb2b-4c235d89d314` passed 776 of 780
+Latest integrated run `0ea94ae4-e925-4227-b3a6-77bdb862ad64` passed 776 of 780
 selected comparisons, with zero failures or infrastructure errors and four
 Rust-native Python-callable rows `not_run`. The Python package passed 613/613;
 Rust-native passed 163/167. The four native `not_run` rows are synchronous

@@ -33,7 +33,7 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract contains 615 input-only cases in 70 indexed files,
-covering 87 operations and 651 requirements, including the direct
+covering 87 operations and 654 requirements, including the direct
 `starlette.concurrency.run_in_threadpool` helper, synchronous Request endpoint
 worker cancellation and failure, five async Request endpoint callable shapes
 and failure, ASGI callable-instance success and failure, `Starlette.host()` and
@@ -42,7 +42,7 @@ sequences, two `Starlette.add_exception_handler` workflows, one URL
 query-parameter operations input, and one default middleware-boundary trace.
 The six direct ServerErrorMiddleware inputs and three TestClient exception-
 chain inputs pass live source/package comparison. Latest integrated run
-`0d0dedaa-f97c-4403-8e18-a6ad58129bbd` selected 780 comparisons: 776 passed,
+`0ea94ae4-e925-4227-b3a6-77bdb862ad64` selected 780 comparisons: 776 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
 Python-callable rows `not_run`. The installed Python package passed 613/613;
 Rust-native passed 163/167. The four native `not_run` rows are synchronous
@@ -144,7 +144,7 @@ removed an inherited `path` key when stripping Mount's internal catch-all
 capture. The Python Starlette facade remains a pass-through; no upstream
 Starlette runtime dependency was added.
 
-## Completed bounded goal: inherited Session dictionary operations
+## Completed bounded goal: Session inherited dictionary operations and errors
 
 The Session facade now forwards inherited `dict.popitem()` and `Session |=
 values` operations through Rust. Rust invokes the built-in `dict` methods to
@@ -153,9 +153,13 @@ dict mutation semantics without Python wrapper branching. Input-driven oracle
 comparisons confirm Starlette 1.6.0 leaves `modified` false for these inherited
 operations. Access through `request.session` still sets `accessed`, adds
 `Vary: Cookie`, and leaves the signed cookie unchanged for the next request.
-The package comparisons pass in full-slice run
-`0d0dedaa-f97c-4403-8e18-a6ad58129bbd`; this adds evidence for these methods,
-not full SessionMiddleware parity.
+The same live workflow observes empty `popitem()`, non-iterable `|=`, and a
+malformed pair sequence that mutates the session before raising. Oracle and
+package match exactly on the error class/message, partial state, flags, absent
+response events, and the state seen by a subsequent request. The package
+comparisons pass in full-slice run
+`0ea94ae4-e925-4227-b3a6-77bdb862ad64`; this adds bounded evidence, not full
+SessionMiddleware parity.
 
 ## 2. Initial ASGI-to-response vertical slice (partial)
 

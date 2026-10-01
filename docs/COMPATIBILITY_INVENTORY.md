@@ -18,7 +18,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 checked in; the run IDs and counts below describe their recorded executions.
 
 The active parity manifest indexes 615 input-only cases across 70 files,
-covering 87 operations and 651 parity requirements. It includes two
+covering 87 operations and 654 parity requirements. It includes two
 Python-package-only direct `run_in_threadpool` cases, synchronous Request
 endpoint worker cancellation and failure, five async Request endpoint callable
 shapes and failure, ASGI callable-instance success and failure, two direct
@@ -38,8 +38,8 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `0d0dedaa-f97c-4403-8e18-a6ad58129bbd`. It ran from
-`2026-10-01T13:39:11.926Z` to `2026-10-01T13:41:27.877Z` and selected 780
+The latest full-slice run is `0ea94ae4-e925-4227-b3a6-77bdb862ad64`. It ran from
+`2026-10-01T13:59:06.673Z` to `2026-10-01T14:01:54.708Z` and selected 780
 profile comparisons: 776 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
 passed all 613 selected comparisons; Rust-native passed 163 of 167. The four
@@ -47,12 +47,12 @@ native `not_run` rows are synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
 status 2 for those declared Python-callable boundaries. The Rust-native source
 fingerprint was
-`5672d83b425e9ab599a04838cf266e15e8dffefb+source-fnv1a64-811143778bc6e93d`.
+`483b510cab12052ddcfdc60d02b8dfd364a8dc85+source-fnv1a64-811143778bc6e93d`.
 The installed package tree SHA-256 was
-`f5baa3ee72434b60ea0c5a0b6c4abd32660fa5b5de94fe17d30312efacecf849`, wheel
-SHA-256 `1762f94474ed9a0d4e41049b78667901ed17c5b2fa594d7ea5700925905088c0`,
+`0fed915b088feee55e7d7c8d3a52ed31833a06ac28fd4a6a61eb4d6fecd278a1`, wheel
+SHA-256 `16065642524d44ee579eb4c6aa6b29148b962e2ae148c63865411a9d4ec6e91f`,
 and manifest SHA-256
-`f8675143ea83299025a8f611aed5cb624344588b0b7300861e0b00e40682409b`. Full
+`6928ec05ccd47b55dfb31ff883f70f0c28239dc097d09c24fcf383b1bcc6dd98`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
@@ -319,12 +319,15 @@ behavior, documented `Secret` representation and truth behavior, and the
 Python's standard-library `json.dumps` and `json.loads` to preserve the Python
 JSON byte representation used by the pinned implementation. The authored
 SessionMiddleware workflows compare those calls through the live source oracle.
-The latest run also invokes `popitem()` and `|=` on `request.session` and
-compares their return values, identity, flags, response headers, and subsequent
-replay of the original cookie. Starlette 1.6.0 inherits both methods from
-`dict`; they mutate session contents without setting `modified`, while access
-through `request.session` sets `accessed`. Rust forwards to the built-in dict
-operations, preserving this behavior without Python-side branching.
+Run `0ea94ae4-e925-4227-b3a6-77bdb862ad64` also invokes `popitem()` and `|=` on
+`request.session`, including an empty-session `KeyError`, a non-iterable union
+`TypeError`, and a malformed pair sequence that partially mutates before its
+`ValueError`. Source and package match on the exception class/message, session
+contents, flags, absence of response events, and subsequent request state.
+Starlette 1.6.0 inherits both methods from `dict`; they mutate session contents
+without setting `modified`, while access through `request.session` sets
+`accessed`. Rust forwards to the built-in dict operations, preserving this
+behavior without Python-side branching.
 The codec remains a Python-specific compatibility boundary. The public status
 of `SessionMiddleware.signer` is unresolved: upstream assigns this attribute,
 but the compatibility inventory has not established it as supported public API.

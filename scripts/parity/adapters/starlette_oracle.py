@@ -4434,12 +4434,20 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             elif action_kind == "session-operation":
                 session = request.session
                 mutation = action["mutation"]
-                if mutation["kind"] == "popitem":
-                    mutation_result = session.popitem()
-                elif mutation["kind"] == "in-place-union":
-                    original_session = session
-                    session |= mutation["values"]
-                    mutation_result = session is original_session
+                try:
+                    if mutation["kind"] == "popitem":
+                        mutation_result = session.popitem()
+                    elif mutation["kind"] == "in-place-union":
+                        original_session = session
+                        session |= mutation["values"]
+                        mutation_result = session is original_session
+                except Exception as exc:
+                    current["session"] = _json_safe(dict(session))
+                    current["accessed"] = session.accessed
+                    current["modified"] = session.modified
+                    current["mutation_result"] = _json_safe(mutation_result)
+                    current["error"] = _error_snapshot(exc)
+                    raise
                 session_value = dict(session)
             else:
                 session_value = None
@@ -4703,6 +4711,7 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     "accessed": None,
                     "modified": None,
                     "mutation_result": None,
+                    "error": None,
                 }
             )
 
@@ -4720,7 +4729,11 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             async def send(message: dict[str, Any], _sent: list[dict[str, Any]] = sent) -> None:
                 _sent.append(message)
 
-            await middleware(scope, receive, send)
+            try:
+                await middleware(scope, receive, send)
+            except Exception:
+                if current["error"] is None:
+                    raise
             events = [_canonical_message(message) for message in sent]
             start = next(
                 (message for message in sent if message["type"] == "http.response.start"),
@@ -4757,6 +4770,8 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 {
                     "request_id": request_id,
                     "action": action["kind"],
+                    "outcome": "error" if current["error"] is not None else "ok",
+                    "error": current["error"],
                     "session": current["session"],
                     "accessed": current["accessed"],
                     "modified": current["modified"],

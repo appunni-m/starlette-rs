@@ -10,8 +10,11 @@
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.clear-existing-session",
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.default-cookie-attributes",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.in-place-union-noniterable-error",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.in-place-union-partial-pair-error",
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-default",
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.no-access-no-vary",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.popitem-empty-error",
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.set-cookie-only-on-modification",
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.signed-cookie-round-trip",
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access"
@@ -397,6 +400,259 @@
         },
         {
           "request_id": "in-place-union-cookie-still-original",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "write-session"
+          },
+          "action": {
+            "kind": "view"
+          }
+        },
+        {
+          "request_id": "empty-popitem-error",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "session-operation",
+            "mutation": {
+              "kind": "popitem"
+            }
+          }
+        },
+        {
+          "request_id": "view-after-empty-popitem-error",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "view"
+          }
+        },
+        {
+          "request_id": "noniterable-union-error",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "write-session"
+          },
+          "action": {
+            "kind": "session-operation",
+            "mutation": {
+              "kind": "in-place-union",
+              "values": 42
+            }
+          }
+        },
+        {
+          "request_id": "view-after-noniterable-union-error",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "write-session"
+          },
+          "action": {
+            "kind": "view"
+          }
+        },
+        {
+          "request_id": "partial-pair-union-error",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "previous-set-cookie",
+            "request_id": "write-session"
+          },
+          "action": {
+            "kind": "session-operation",
+            "mutation": {
+              "kind": "in-place-union",
+              "values": [
+                [
+                  "scope",
+                  "partial"
+                ],
+                [
+                  "malformed"
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "request_id": "view-after-partial-pair-union-error",
           "scope": {
             "type": "http",
             "asgi": {

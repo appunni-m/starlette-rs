@@ -9377,6 +9377,39 @@
               ]
             },
             {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.popitem-empty-error",
+              "dimension": "error_path",
+              "description": "Observe the error when popitem is applied to an empty request session, then continue with a later request in the same workflow. Upstream: starlette/middleware/sessions.py:90-125; starlette/requests.py:169-176.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.in-place-union-noniterable-error",
+              "dimension": "error_path",
+              "description": "Observe the error from an in-place union operand that is not iterable, including session state and a subsequent request. Upstream: starlette/middleware/sessions.py:90-125; starlette/requests.py:169-176.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.in-place-union-partial-pair-error",
+              "dimension": "error_path",
+              "description": "Observe an in-place union that applies a valid pair before a malformed pair raises, then inspect session state and continue a later request. Upstream: starlette/middleware/sessions.py:90-125; starlette/requests.py:169-176.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access",
               "dimension": "success_path",
               "description": "Add Vary: Cookie when request handling accesses the session. Upstream: tests/middleware/test_session.py:227-248.",
