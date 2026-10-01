@@ -6091,6 +6091,21 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         and any(not _route_template_parameters(route["path"]) for route in matched)
     ):
         derived.add("starlette.routing.Router.route-dispatch.static-parameter-order")
+    same_path_method_fallthrough = any(
+        earlier["kind"] == "http-route"
+        and _route_template_matches(earlier["path"], route_path, custom_convertors)
+        and not _route_method_matches(earlier, method)
+        and any(
+            later["kind"] == "http-route"
+            and later["path"] == earlier["path"]
+            and _route_method_matches(later, method)
+            and _route_template_matches(later["path"], route_path, custom_convertors)
+            for later in routes[earlier_index + 1 :]
+        )
+        for earlier_index, earlier in enumerate(routes)
+    )
+    if same_path_method_fallthrough:
+        derived.add("starlette.routing.Router.route-dispatch.duplicate-path-method-fallthrough")
     claimed = set(case["covers"])
     if not claimed <= derived:
         raise ContractError(
@@ -18480,7 +18495,6 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
     if (
         gzip_accepted
         and bool(body_messages)
-        and body_lengths[0] >= minimum_size
         and configured_excluded
         and not content_encoded
         and not partial_response
@@ -18489,7 +18503,6 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
     if (
         gzip_accepted
         and bool(body_messages)
-        and body_lengths[0] >= minimum_size
         and default_excluded
         and not content_encoded
         and not partial_response

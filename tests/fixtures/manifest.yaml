@@ -15673,6 +15673,18 @@
               ]
             },
             {
+              "id": "starlette.routing.Router.route-dispatch.duplicate-path-method-fallthrough",
+              "dimension": "success_path",
+              "description": "When an earlier Route matches an exact path but not the request method, continue to a later Route with the same path that fully matches. Upstream: starlette/routing.py::Route.matches and Router.app; tests/test_routing.py::test_router_duplicate_path.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.routing.Router.route-dispatch.root-path-match",
               "dimension": "parameter",
               "description": "Router removes a matching root_path prefix at a path boundary before route matching.",
