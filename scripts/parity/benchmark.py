@@ -18,6 +18,7 @@ from .contract import (
     BENCHMARK_INPUT_SCHEMA,
     INPUT_SCHEMA,
     ContractError,
+    _smoke_parity_gate_passed,
     load_manifest,
     sha256_file,
     validate_benchmark_inputs,
@@ -77,11 +78,7 @@ def _parity_gate(
     # Gate this workload on its declared input/profile comparisons. The full
     # parity artifact also retains unrelated failures and unsupported rows;
     # those remain visible without invalidating an independently passing gate.
-    passed = not (
-        result["status"] in {"cancelled", "invalid"}
-        or len(comparisons) != len(target_profiles)
-        or any(row["outcome"] != "pass" for row in comparisons)
-    )
+    passed = _smoke_parity_gate_passed(result["status"], comparisons, sorted(target_profiles))
     return {
         "status": "pass" if passed else "failed",
         "case_id": case_id,

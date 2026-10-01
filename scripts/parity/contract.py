@@ -19465,6 +19465,21 @@ def _pinned_source_file_sha256(upstream: Path, relative_path: str) -> str:
     return hashlib.sha256(result.stdout).hexdigest()
 
 
+def _smoke_parity_gate_passed(
+    result_status: str,
+    comparisons: list[dict[str, Any]],
+    profiles: list[str],
+) -> bool:
+    expected_profiles = set(profiles)
+    observed_profiles = {row["target_profile"] for row in comparisons}
+    return not (
+        result_status in {"cancelled", "invalid"}
+        or len(comparisons) != len(expected_profiles)
+        or observed_profiles != expected_profiles
+        or any(row["outcome"] != "pass" for row in comparisons)
+    )
+
+
 def _validate_smoke_parity_gate(
     root: Path,
     workload: dict[str, Any],
@@ -19492,14 +19507,7 @@ def _validate_smoke_parity_gate(
         for row in parity_result["comparisons"]
         if row["case_id"] == case_id and row["target_profile"] in profiles
     ]
-    passed = not (
-        parity_result["status"] != "completed"
-        or parity_result["summary"]["failed"]
-        or parity_result["summary"]["not_run"]
-        or parity_result["summary"]["infrastructure_errors"]
-        or len(comparisons) != len(profiles)
-        or any(row["outcome"] != "pass" for row in comparisons)
-    )
+    passed = _smoke_parity_gate_passed(parity_result["status"], comparisons, profiles)
     expected_gate = {
         "status": "pass" if passed else "failed",
         "case_id": case_id,
@@ -19858,10 +19866,8 @@ def _validate_benchmark_result_artifact(
         if error["id"] is not None:
             _string(error["id"], f"benchmark correctness gate.infrastructure_errors[{index}].id")
     if gate["status"] == "pass" and (
-        gate_summary["failed"]
-        or gate_summary["not_run"]
-        or gate_summary["infrastructure_errors"]
-        or len(outcomes) != 2
+        outcome_profiles != expected_profiles
+        or len(outcomes) != len(expected_profiles)
         or any(item["outcome"] != "pass" for item in outcomes)
     ):
         raise ContractError("passing benchmark correctness gate requires both exact target passes")
