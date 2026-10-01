@@ -10666,7 +10666,7 @@
             {
               "id": "starlette.request.stream-client-disconnect",
               "dimension": "error_path",
-              "description": "Return http.disconnect from the receive callback during Request.stream() and preserve ClientDisconnect and disconnect state. Pinned source: starlette/requests.py::Request.stream; tests/test_requests.py::test_request_disconnect.",
+              "description": "Return http.disconnect from the receive callback while Request.stream() or Request.body() reads it, and preserve ClientDisconnect and disconnect state. Pinned source: starlette/requests.py::Request.body and Request.stream; tests/test_requests.py::test_request_disconnect.",
               "lanes": [
                 "parity"
               ],

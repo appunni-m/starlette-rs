@@ -7,8 +7,10 @@ import builtins
 import hashlib
 import json
 import math
+import os
 import re
 import statistics
+import subprocess
 import sys
 from datetime import datetime
 from email import policy as email_policy
@@ -13571,7 +13573,9 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["json_decode_error"])
     if len(set(stream_ids)) > 1:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_interleaving"])
-    if stream_positions and any(message["type"] == "http.disconnect" for message in receive):
+    if (stream_positions or direct_body_positions) and any(
+        message["type"] == "http.disconnect" for message in receive
+    ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_client_disconnect"])
     if (
         0 in blocked_receive_calls
@@ -17810,7 +17814,173 @@ def _validate_worker_identity(identity: Any, subject_id: str, context: str) -> N
     _validate_sha256(worker["wheel_sha256"], f"{context}.wheel_sha256")
 
 
-def _validate_benchmark_result_artifact(value: Any) -> dict[str, Any]:
+def _artifact_path(root: Path, relative_path: str, context: str) -> Path:
+    relative = Path(relative_path)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ContractError(f"{context} path must remain repository-relative")
+    active_root = root.resolve()
+    path = (active_root / relative).resolve()
+    try:
+        path.relative_to(active_root)
+    except ValueError as exc:
+        raise ContractError(f"{context} path escapes the active repository") from exc
+    if not path.is_file():
+        raise ContractError(f"{context} file is missing: {relative_path}")
+    return path
+
+
+def _active_result_inputs(
+    root: Path, manifest_path: Path | None
+) -> tuple[
+    Path,
+    dict[str, Any],
+    list[tuple[Path, dict[str, Any]]],
+    list[tuple[Path, dict[str, Any]]],
+]:
+    root = root.resolve()
+    active_manifest_path = manifest_path or (root / "tests/fixtures/manifest.yaml")
+    if not active_manifest_path.is_absolute():
+        active_manifest_path = root / active_manifest_path
+    active_manifest_path = active_manifest_path.resolve()
+    try:
+        active_manifest_path.relative_to(root)
+    except ValueError as exc:
+        raise ContractError("active parity manifest must be inside the repository root") from exc
+    manifest = load_manifest(active_manifest_path)
+    validate_manifest(manifest)
+    from .generate_inputs import _check_generated, _validate_sources
+
+    _check_generated(root, _validate_sources(root, manifest))
+    indexed_inputs, cases = validate_inputs(root, manifest)
+    benchmark_inputs = validate_benchmark_inputs(root, manifest, cases)
+    return active_manifest_path, manifest, indexed_inputs, benchmark_inputs
+
+
+def _canonical_json_sha256(value: Any) -> str:
+    encoded = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _load_referenced_parity_result(
+    root: Path,
+    relative_path: str,
+    expected_sha256: str,
+    manifest_path: Path,
+    context: str,
+) -> tuple[dict[str, Any], str]:
+    path = _artifact_path(root, relative_path, context)
+    actual_sha256 = sha256_file(path)
+    if actual_sha256 != expected_sha256:
+        raise ContractError(f"{context} digest differs from its referenced parity result")
+    result = load_json(path)
+    result = _validate_parity_result_artifact(result, root=root, manifest_path=manifest_path)
+    if result["identity"]["command"]["command_id"] != "parity":
+        raise ContractError(f"{context} must reference a live parity run")
+    return result, actual_sha256
+
+
+def _pinned_upstream_root(root: Path) -> Path:
+    configured = os.environ.get("STARLETTE_ORACLE_ROOT")
+    upstream = Path(configured).resolve() if configured else (root.resolve().parent / "starlette")
+    if not upstream.is_dir():
+        raise ContractError(
+            "validating upstream benchmark evidence requires the pinned Starlette checkout "
+            "(set STARLETTE_ORACLE_ROOT)"
+        )
+    try:
+        revision = subprocess.run(
+            ["git", "-C", str(upstream), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ContractError(f"cannot inspect pinned Starlette checkout: {exc}") from exc
+    if revision != ORACLE_COMMIT:
+        raise ContractError(f"expected pinned Starlette checkout {ORACLE_COMMIT}, found {revision}")
+    return upstream
+
+
+def _pinned_source_file_sha256(upstream: Path, relative_path: str) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(upstream), "show", f"{ORACLE_COMMIT}:{relative_path}"],
+            check=True,
+            capture_output=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ContractError(
+            f"cannot read pinned Starlette source file {relative_path}: {exc}"
+        ) from exc
+    return hashlib.sha256(result.stdout).hexdigest()
+
+
+def _validate_smoke_parity_gate(
+    root: Path,
+    workload: dict[str, Any],
+    gate: dict[str, Any],
+    manifest_path: Path,
+) -> None:
+    case_id = workload["input"]["case_id"]
+    profiles = sorted(
+        subject["id"] for subject in workload["subjects"] if subject["kind"] == "target_profile"
+    )
+    parity_result, digest = _load_referenced_parity_result(
+        root,
+        gate["parity_result_path"],
+        gate["parity_result_sha256"],
+        manifest_path,
+        "smoke benchmark correctness gate",
+    )
+    if (
+        parity_result["identity"]["run_id"] != gate["parity_run_id"]
+        or parity_result["summary"] != gate["summary"]
+    ):
+        raise ContractError("smoke benchmark gate identity differs from its parity result")
+    comparisons = [
+        row
+        for row in parity_result["comparisons"]
+        if row["case_id"] == case_id and row["target_profile"] in profiles
+    ]
+    passed = not (
+        parity_result["status"] != "completed"
+        or parity_result["summary"]["failed"]
+        or parity_result["summary"]["not_run"]
+        or parity_result["summary"]["infrastructure_errors"]
+        or len(comparisons) != len(profiles)
+        or any(row["outcome"] != "pass" for row in comparisons)
+    )
+    expected_gate = {
+        "status": "pass" if passed else "failed",
+        "case_id": case_id,
+        "parity_run_id": parity_result["identity"]["run_id"],
+        "parity_result_path": gate["parity_result_path"],
+        "parity_result_sha256": digest,
+        "profiles": profiles,
+        "summary": parity_result["summary"],
+        "oracles": parity_result["identity"]["oracles"],
+        "targets": parity_result["identity"]["targets"],
+        "comparison_outcomes": [
+            {"target_profile": row["target_profile"], "outcome": row["outcome"]}
+            for row in comparisons
+        ],
+        "infrastructure_errors": parity_result["infrastructure_errors"],
+    }
+    if gate != expected_gate:
+        raise ContractError("smoke benchmark correctness gate differs from its live parity result")
+
+
+def _validate_benchmark_result_artifact(
+    value: Any, root: Path | None = None, manifest_path: Path | None = None
+) -> dict[str, Any]:
     _exact(
         value,
         {"schema", "identity", "status", "summary", "workloads", "upstream_suite"},
@@ -17839,14 +18009,39 @@ def _validate_benchmark_result_artifact(value: Any) -> dict[str, Any]:
         },
         "benchmark result.identity",
     )
+    if root is None:
+        command = identity.get("command")
+        command_cwd = command.get("cwd") if isinstance(command, dict) else None
+        if not isinstance(command_cwd, str) or not Path(command_cwd).is_absolute():
+            raise ContractError(
+                "benchmark result integrity validation requires the active repository root"
+            )
+        root = Path(command_cwd)
+    root = root.resolve()
     for name in ("run_id", "started_at", "finished_at"):
         _string(identity[name], f"benchmark result.identity.{name}")
-    manifest = _exact(
+    manifest_identity = _exact(
         identity["manifest"], {"path", "schema", "sha256"}, "benchmark identity.manifest"
     )
-    if manifest["path"] != "tests/fixtures/manifest.yaml" or manifest["schema"] != MANIFEST_SCHEMA:
+    if (
+        manifest_identity["path"] != "tests/fixtures/manifest.yaml"
+        or manifest_identity["schema"] != MANIFEST_SCHEMA
+    ):
         raise ContractError("benchmark result manifest identity differs from the active contract")
-    _validate_sha256(manifest["sha256"], "benchmark identity.manifest.sha256")
+    _validate_sha256(manifest_identity["sha256"], "benchmark identity.manifest.sha256")
+
+    (
+        active_manifest_path,
+        active_manifest,
+        indexed_inputs,
+        active_benchmark_inputs,
+    ) = _active_result_inputs(root, manifest_path)
+    if (
+        manifest_identity["path"] != active_manifest_path.relative_to(root).as_posix()
+        or manifest_identity["schema"] != active_manifest["schema"]
+        or manifest_identity["sha256"] != sha256_file(active_manifest_path)
+    ):
+        raise ContractError("benchmark result manifest differs from the active manifest")
 
     benchmark_inputs = identity["benchmark_inputs"]
     if not isinstance(benchmark_inputs, list) or len(benchmark_inputs) != 1:
@@ -17863,6 +18058,20 @@ def _validate_benchmark_result_artifact(value: Any) -> dict[str, Any]:
     ):
         raise ContractError("benchmark result input identity is outside the indexed benchmark lane")
     _validate_sha256(benchmark_input["sha256"], "benchmark identity.benchmark_inputs[0].sha256")
+    benchmark_input_path = _artifact_path(root, benchmark_input["path"], "benchmark input")
+    indexed_benchmark_by_path = {
+        path.resolve(): document for path, document in active_benchmark_inputs
+    }
+    if benchmark_input_path not in indexed_benchmark_by_path:
+        raise ContractError("benchmark result input is not indexed by the active manifest")
+    if sha256_file(benchmark_input_path) != benchmark_input["sha256"]:
+        raise ContractError("benchmark result input digest differs from the active input")
+    active_benchmark_document = indexed_benchmark_by_path[benchmark_input_path]
+    if active_benchmark_document.get("schema") != BENCHMARK_INPUT_SCHEMA:
+        raise ContractError("smoke benchmark result references a non-smoke benchmark input")
+    if len(active_benchmark_document.get("workloads", [])) != 1:
+        raise ContractError("active smoke benchmark input must contain exactly one workload")
+    active_workload = active_benchmark_document["workloads"][0]
 
     parity_case_input = _exact(
         identity["parity_case_input"],
@@ -17878,6 +18087,25 @@ def _validate_benchmark_result_artifact(value: Any) -> dict[str, Any]:
         raise ContractError("benchmark parity case identity is outside the parity input lane")
     _validate_sha256(parity_case_input["sha256"], "benchmark parity input.sha256")
     _validate_sha256(parity_case_input["case_sha256"], "benchmark parity input.case_sha256")
+    parity_case_path = _artifact_path(
+        root, parity_case_input["path"], "benchmark parity case input"
+    )
+    indexed_parity_by_path = {path.resolve(): document for path, document in indexed_inputs}
+    if parity_case_path not in indexed_parity_by_path:
+        raise ContractError("benchmark parity case input is not indexed by the active manifest")
+    if sha256_file(parity_case_path) != parity_case_input["sha256"]:
+        raise ContractError("benchmark parity input digest differs from the active input")
+    matching_active_cases = [
+        case
+        for case in indexed_parity_by_path[parity_case_path]["cases"]
+        if case.get("case_id") == parity_case_input["case_id"]
+    ]
+    if len(matching_active_cases) != 1:
+        raise ContractError("benchmark parity case ID does not resolve in its active input")
+    if _canonical_json_sha256(matching_active_cases[0]) != parity_case_input["case_sha256"]:
+        raise ContractError("benchmark parity case digest differs from the active case")
+    if active_workload["input"] != {"kind": "parity_case", "case_id": parity_case_input["case_id"]}:
+        raise ContractError("benchmark workload does not reference the active parity case")
 
     source_validation = _exact(
         identity["source_validation"],
@@ -18095,6 +18323,7 @@ def _validate_benchmark_result_artifact(value: Any) -> dict[str, Any]:
         or any(item["outcome"] != "pass" for item in outcomes)
     ):
         raise ContractError("passing benchmark correctness gate requires both exact target passes")
+    _validate_smoke_parity_gate(root, active_workload, gate, active_manifest_path)
 
     adapter = _exact(
         identity["native_parity_adapter"],
@@ -18195,7 +18424,9 @@ def _validate_benchmark_result_artifact(value: Any) -> dict[str, Any]:
         or any(not isinstance(part, str) for part in command["argv"])
     ):
         raise ContractError("benchmark command argv must be a non-empty string array")
-    _string(command["cwd"], "benchmark command.cwd")
+    command_cwd = _string(command["cwd"], "benchmark command.cwd")
+    if not Path(command_cwd).is_absolute() or Path(command_cwd).resolve() != root:
+        raise ContractError("benchmark command cwd differs from the active repository root")
 
     workloads = value["workloads"]
     if not isinstance(workloads, list) or len(workloads) != 1:
@@ -19129,6 +19360,20 @@ def _validate_upstream_benchmark_result_artifact(value: Any, root: Path) -> dict
     if observed_source_files != expected_source_files:
         raise ContractError("upstream benchmark source-file identity differs from the pinned suite")
 
+    upstream_root = _pinned_upstream_root(active_root)
+    for index, row in enumerate(source_files):
+        relative_path = expected_source_files[index]
+        pinned_sha256 = _pinned_source_file_sha256(upstream_root, relative_path)
+        source_path = _artifact_path(upstream_root, relative_path, "pinned benchmark source")
+        if sha256_file(source_path) != pinned_sha256:
+            raise ContractError(
+                f"pinned benchmark source differs from commit {ORACLE_COMMIT}: {relative_path}"
+            )
+        if row["sha256"] != pinned_sha256:
+            raise ContractError(
+                f"upstream benchmark result source hash differs from pinned commit: {relative_path}"
+            )
+
     gate = _exact(
         identity["parity_gate"],
         {"path", "run_id", "sha256", "summary"},
@@ -19146,6 +19391,21 @@ def _validate_upstream_benchmark_result_artifact(value: Any, root: Path) -> dict
     )
     for name, count in gate_summary.items():
         _validate_nonnegative_integer(count, f"upstream benchmark parity_gate.summary.{name}")
+    if gate["run_id"] is None:
+        raise ContractError("upstream benchmark correctness gate must identify its parity run")
+    parity_gate_result, gate_sha256 = _load_referenced_parity_result(
+        active_root,
+        gate["path"],
+        gate["sha256"],
+        active_manifest_path,
+        "upstream benchmark correctness gate",
+    )
+    if (
+        parity_gate_result["identity"]["run_id"] != gate["run_id"]
+        or parity_gate_result["summary"] != gate["summary"]
+        or gate_sha256 != gate["sha256"]
+    ):
+        raise ContractError("upstream benchmark gate identity differs from its live parity result")
 
     environments = identity["prepared_environments"]
     environment_ids = ["starlette-oracle-cpython312", "starlette-rs-py-cpython312"]
@@ -19224,7 +19484,11 @@ def _validate_upstream_benchmark_result_artifact(value: Any, root: Path) -> dict
     # fixed by the result interface.
     if len(argv) < 4 or argv[-3:] != ["-m", "scripts.parity.cli", "benchmark-upstream"]:
         raise ContractError("upstream benchmark command identity does not name its CLI")
-    _string(command["cwd"], "upstream benchmark identity.command.cwd")
+    command_cwd = _string(command["cwd"], "upstream benchmark identity.command.cwd")
+    if not Path(command_cwd).is_absolute() or Path(command_cwd).resolve() != active_root:
+        raise ContractError(
+            "upstream benchmark command cwd differs from the active repository root"
+        )
 
     rows = result["workloads"]
     if not isinstance(rows, list) or len(rows) != len(UPSTREAM_WORKLOAD_IDS):
@@ -19864,20 +20128,12 @@ def _validate_parity_result_against_active_contract(
             )
 
 
-def validate_result_artifact(
+def _validate_parity_result_artifact(
     value: Any,
     *,
     root: Path | None = None,
     manifest_path: Path | None = None,
 ) -> dict[str, Any]:
-    if isinstance(value, dict) and value.get("schema") == UPSTREAM_BENCHMARK_RESULT_SCHEMA:
-        if root is None:
-            raise ContractError(
-                "validating an upstream benchmark result requires the active repository root"
-            )
-        return _validate_upstream_benchmark_result_artifact(value, root)
-    if isinstance(value, dict) and value.get("schema") == BENCHMARK_RESULT_SCHEMA:
-        return _validate_benchmark_result_artifact(value)
     _exact(
         value,
         {"schema", "identity", "status", "summary", "comparisons", "infrastructure_errors"},
@@ -20075,3 +20331,20 @@ def validate_result_artifact(
         )
     _validate_parity_result_against_active_contract(value, root, manifest_path)
     return value
+
+
+def validate_result_artifact(
+    value: Any,
+    *,
+    root: Path | None = None,
+    manifest_path: Path | None = None,
+) -> dict[str, Any]:
+    if isinstance(value, dict) and value.get("schema") == UPSTREAM_BENCHMARK_RESULT_SCHEMA:
+        if root is None:
+            raise ContractError(
+                "validating an upstream benchmark result requires the active repository root"
+            )
+        return _validate_upstream_benchmark_result_artifact(value, root)
+    if isinstance(value, dict) and value.get("schema") == BENCHMARK_RESULT_SCHEMA:
+        return _validate_benchmark_result_artifact(value, root, manifest_path)
+    return _validate_parity_result_artifact(value, root=root, manifest_path=manifest_path)

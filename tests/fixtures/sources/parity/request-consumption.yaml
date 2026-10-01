@@ -464,6 +464,35 @@
       ]
     },
     {
+      "case_id": "starlette.requests.Request.body-stream-json.body-receives-client-disconnect",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-client-disconnect"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.disconnect"
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
       "case_id": "starlette.requests.Request.body-stream-json.overlapping-body-and-stream-receives",
       "surface": "starlette.requests.Request",
       "operation": "body-stream-json",
