@@ -493,6 +493,122 @@
           "message": "application failed"
         }
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.routed-sync-endpoint-get",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.routed-sync-endpoint-get",
+        "starlette.testclient.TestClient.request-response.routed-sync-endpoint-worker-thread"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/func",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "starlette-route",
+        "path": "/func",
+        "methods": null,
+        "endpoint": {
+          "kind": "sync-plain-text-response",
+          "content": "Hello, world!"
+        },
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.routed-sync-endpoint-head",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.routed-sync-endpoint-head",
+        "starlette.testclient.TestClient.request-response.routed-sync-endpoint-worker-thread"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "HEAD",
+        "url": "/func",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "starlette-route",
+        "path": "/func",
+        "methods": null,
+        "endpoint": {
+          "kind": "sync-plain-text-response",
+          "content": "Hello, world!"
+        },
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
+        ]
+      }
     }
   ]
 }

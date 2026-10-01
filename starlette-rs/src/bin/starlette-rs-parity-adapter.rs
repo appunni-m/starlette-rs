@@ -5983,6 +5983,7 @@ fn finish_lifespan(
         "lifecycle_and_cleanup_effects": session.trace,
         "server_error_observation": {"handler_calls": [], "debug_traceback": null},
         "deprecation_warnings": [],
+        "sync_endpoint_observations": null,
     });
     Ok(LifecycleResult { value })
 }
@@ -6125,6 +6126,7 @@ fn run_dispatch(
         "lifecycle_and_cleanup_effects": lifecycle_trace,
         "server_error_observation": {"handler_calls": [], "debug_traceback": null},
         "deprecation_warnings": [],
+        "sync_endpoint_observations": null,
     }))
 }
 

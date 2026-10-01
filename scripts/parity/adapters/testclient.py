@@ -47,6 +47,8 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     app_input = case["asgi_app"]
     scope_observations: list[dict[str, Any]] = []
     receive_observations: list[dict[str, Any]] = []
+    asgi_events: list[dict[str, Any]] = []
+    sync_endpoint_state: dict[str, Any] | None = None
 
     def record_scope(scope: dict[str, Any]) -> None:
         scope_observations.append(
@@ -58,12 +60,52 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             message = await receive()
             receive_observations.append(_safe(message))
         for message in app_input["messages"]:
-            await send(_message(message))
+            message = _message(message)
+            asgi_events.append(_safe(message))
+            await send(message)
         if "exception" in app_input:
             exception_type = getattr(builtins, app_input["exception"]["class"])
             raise exception_type(app_input["exception"]["message"])
 
-    if app_input["kind"] == "asgi2":
+    if app_input["kind"] == "starlette-route":
+        from starlette.applications import Starlette
+        from starlette.responses import PlainTextResponse
+        from starlette.routing import Route
+
+        sync_endpoint_state = {
+            "caller_thread_id": None,
+            "invocation_count": 0,
+            "observation": None,
+            "lock": threading.Lock(),
+        }
+
+        def endpoint(_request: Any) -> Any:
+            caller_thread_id = sync_endpoint_state["caller_thread_id"]
+            if caller_thread_id is None:
+                raise RuntimeError("sync route endpoint ran without a caller thread identity")
+            with sync_endpoint_state["lock"]:
+                sync_endpoint_state["invocation_count"] += 1
+                sync_endpoint_state["observation"] = {
+                    "different_worker_thread": threading.get_ident() != caller_thread_id,
+                    "invocation_count": sync_endpoint_state["invocation_count"],
+                }
+            return PlainTextResponse(app_input["endpoint"]["content"])
+
+        route_app = Starlette(
+            routes=[Route(app_input["path"], endpoint, methods=app_input["methods"])]
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            sync_endpoint_state["caller_thread_id"] = threading.get_ident()
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await route_app(scope, receive, observed_send)
+
+    elif app_input["kind"] == "asgi2":
 
         def app(scope: dict[str, Any]) -> Any:
             record_scope(scope)
@@ -129,6 +171,10 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         "receive_messages": receive_observations,
         "deprecation_warnings": deprecation_warnings,
         "response": response_value,
+        "asgi_events": asgi_events,
+        "sync_endpoint_observations": (
+            None if sync_endpoint_state is None else sync_endpoint_state["observation"]
+        ),
     }
     observation = {"step_id": "request-response", "status": "ok", "value": result}
     if captured_error is not None:

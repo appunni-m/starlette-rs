@@ -1368,6 +1368,38 @@ def _materialize_application(
                 return endpoint
 
             route_endpoint = make_endpoint(response_spec)
+        elif response_spec["kind"] == "sync-plain-text-response":
+            _exact_object(
+                response_spec,
+                {"kind", "content"},
+                "synchronous plain-text response endpoint",
+            )
+            sync_state = {
+                "caller_thread_id": None,
+                "invocation_count": 0,
+                "observation": None,
+                "lock": threading.Lock(),
+            }
+            sync_endpoint_states.append(sync_state)
+
+            def make_sync_endpoint(spec: dict[str, Any], state: dict[str, Any]) -> Any:
+                def endpoint(_request: Any) -> Any:
+                    caller_thread_id = state["caller_thread_id"]
+                    if caller_thread_id is None:
+                        raise RuntimeError(
+                            "sync route endpoint ran without a caller thread identity"
+                        )
+                    with state["lock"]:
+                        state["invocation_count"] += 1
+                        state["observation"] = {
+                            "different_worker_thread": threading.get_ident() != caller_thread_id,
+                            "invocation_count": state["invocation_count"],
+                        }
+                    return PlainTextResponse(spec["content"])
+
+                return endpoint
+
+            route_endpoint = make_sync_endpoint(response_spec, sync_state)
         elif response_spec["kind"] == "request-body-echo":
             _exact_object(response_spec, {"kind"}, "request-body echo endpoint")
 
@@ -1798,8 +1830,9 @@ async def _invoke(
     try:
         for state in sync_endpoint_states or []:
             state["caller_thread_id"] = threading.get_ident()
-            token = state["context_var"].set(state["context_value"])
-            context_tokens.append((state, token))
+            if "context_var" in state:
+                token = state["context_var"].set(state["context_value"])
+                context_tokens.append((state, token))
         if cancel_after_endpoint_entry:
             if boundary_state is None:
                 raise RuntimeError("cancellation schedule requires the declared async endpoint")
@@ -1895,6 +1928,7 @@ async def _invoke(
             )
         return result
     result["deprecation_warnings"] = list(getattr(app, "_parity_lifespan_warnings", []))
+    result["sync_endpoint_observations"] = _observed_sync_endpoint(sync_endpoint_states or [])
     return result
 
 
@@ -3409,6 +3443,7 @@ async def _invoke_lifespan_around_dispatch(
         "lifecycle_and_cleanup_effects": list(lifecycle_trace),
         "server_error_observation": {"handler_calls": [], "debug_traceback": None},
         "deprecation_warnings": list(getattr(app, "_parity_lifespan_warnings", [])),
+        "sync_endpoint_observations": None,
     }
     return lifecycle_value, dispatch_value
 
@@ -3481,6 +3516,7 @@ async def _invoke_lifespan_only(
         "lifecycle_and_cleanup_effects": list(lifecycle_trace),
         "server_error_observation": {"handler_calls": [], "debug_traceback": None},
         "deprecation_warnings": list(getattr(app, "_parity_lifespan_warnings", [])),
+        "sync_endpoint_observations": None,
     }
     if captured_exception is None:
         return value
@@ -9803,12 +9839,23 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             [step["step_id"] for step in steps] == ["application", "dispatch"]
             and schedule != ["dispatch"]
         )
+        or (
+            [step["step_id"] for step in steps] == ["application", "dispatch-get", "dispatch-head"]
+            and (
+                schedule != ["dispatch-get", "dispatch-head"]
+                or steps[0]["arguments"]["routes"]["value"][0]["kind"] != "http-route"
+                or steps[0]["arguments"]["routes"]["value"][0]["endpoint"]["kind"]
+                != "sync-plain-text-response"
+                or steps[0]["arguments"]["routes"]["value"][0]["methods"] is not None
+            )
+        )
     ):
         raise ValueError("execution schedule does not match the ASGI workflow steps")
     elif [step["step_id"] for step in steps] not in (
         ["application", "lifecycle"],
         ["application", "lifecycle", "dispatch"],
         ["application", "dispatch"],
+        ["application", "dispatch-get", "dispatch-head"],
     ):
         raise ValueError("target adapter received a workflow outside the declared ASGI slice")
     app_arguments = {name: item["value"] for name, item in steps[0]["arguments"].items()}
@@ -9862,6 +9909,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         results = []
         for step in steps[1:]:
             arguments = {name: item["value"] for name, item in step["arguments"].items()}
+            if endpoint_kind == "sync-plain-text-response":
+                for state in sync_endpoint_states:
+                    with state["lock"]:
+                        state["invocation_count"] = 0
+                        state["observation"] = None
             value = await _invoke(
                 app,
                 arguments,

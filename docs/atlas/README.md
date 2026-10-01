@@ -25,14 +25,14 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 560 input-only cases across
-64 indexed files, 80 operations, and 597 requirements. The latest clean
-full-slice run is `7c6e6929-b60a-45e0-973c-ba5a247e7b1f`: 715 of 719 profile
+active and incomplete. The current contract has 563 input-only cases across
+64 indexed files, 80 operations, and 601 requirements. The latest full-slice
+run is `db6b17b7-1f26-4507-9527-52b4c2c71646`: 718 of 722 profile
 comparisons passed, with zero failures or infrastructure errors and four
-Rust-native Python-callable rows `not_run`. The Python package passed 558/558;
-Rust-native passed 157/161. The run used clean target revision
-`9dbf014fcff4d16f61b270d98d24b2c7579bb45a` and manifest SHA-256
-`e143b3714c7a75406108506a6531b7a20ecb8d2e1a9dc2211757b0d5ddb855fa`. Full
+Rust-native Python-callable rows `not_run`. The Python package passed 561/561;
+Rust-native passed 157/161. The target source tree was dirty at base revision
+`0217eefde8cc9f2f9ee4bb22b7ce27099f9d18e9`; manifest SHA-256
+`339622c0aa9289e08a63fcc3e5bc1b6b6e6ada42031bc2d585a0bdc5af5f6fbb`. Full
 run and wheel identities are recorded in [Migration parity contract and
 evidence](../PARITY.md). The four native `not_run` rows are sync endpoint,
 bound-method, partial, and callable-instance Request dispatch. `make parity-run`
@@ -231,8 +231,8 @@ selector. A related route or response example is not enough to claim coverage
 for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
-and observes it. The checked-in generated `coverage-matrix.csv` has 799 source rows:
-299 `existing` mappings, 450 `backlog` rows, and 50 reasoned `not_applicable`
+and observes it. The checked-in generated `coverage-matrix.csv` has 800 source rows:
+301 `existing` mappings, 449 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -279,9 +279,9 @@ and input-only fixture paths. It writes `api-review.csv`,
 For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 516 `supported`, 285
-`private/internal`, and 198 `uncertain` candidates. The coverage matrix has 799
-source rows: 299 existing input mappings, 50 reasoned `not_applicable`
-entries, and 450 input-only backlog rows. Derive these changing counts from
+`private/internal`, and 198 `uncertain` candidates. The coverage matrix has 800
+source rows: 301 existing input mappings, 50 reasoned `not_applicable`
+entries, and 449 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

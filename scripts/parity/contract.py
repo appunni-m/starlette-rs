@@ -17,7 +17,7 @@ from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, unquote_to_bytes
+from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
 INPUT_SCHEMA = "migration-parity/parity-input@17"
@@ -121,6 +121,9 @@ TESTCLIENT_REQUIREMENTS = {
     "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
+    "sync_route_get": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-get",
+    "sync_route_head": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-head",
+    "sync_route_worker_thread": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-worker-thread",
 }
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
@@ -7994,12 +7997,41 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     validate_base64(request["body_base64"], "TestClient request.body_base64")
 
     raw_asgi_app = case["asgi_app"]
-    asgi_app_keys = {"kind", "scope_fields", "receive_count", "messages"}
-    if isinstance(raw_asgi_app, dict) and "exception" in raw_asgi_app:
-        asgi_app_keys.add("exception")
-    asgi_app = _exact(raw_asgi_app, asgi_app_keys, "TestClient ASGI app")
-    if asgi_app["kind"] not in {"asgi2", "asgi3"}:
-        raise ContractError("TestClient ASGI app kind must be asgi2 or asgi3")
+    is_sync_route = isinstance(raw_asgi_app, dict) and raw_asgi_app.get("kind") == "starlette-route"
+    if is_sync_route:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "path", "methods", "endpoint", "scope_fields"},
+            "TestClient Starlette route app",
+        )
+        route_path = _string(asgi_app["path"], "TestClient route path")
+        endpoint = _exact(
+            asgi_app["endpoint"],
+            {"kind", "content"},
+            "TestClient synchronous route endpoint",
+        )
+        if (
+            not route_path.startswith("/")
+            or asgi_app["methods"] is not None
+            or endpoint["kind"] != "sync-plain-text-response"
+            or request["method"] not in {"GET", "HEAD"}
+            or urlsplit(request["url"]).path != route_path
+        ):
+            raise ContractError(
+                "TestClient Starlette route input must use a default-method GET/HEAD sync route"
+            )
+        _string(endpoint["content"], "TestClient synchronous endpoint content")
+        messages = []
+        exception_spec = None
+    else:
+        asgi_app_keys = {"kind", "scope_fields", "receive_count", "messages"}
+        if isinstance(raw_asgi_app, dict) and "exception" in raw_asgi_app:
+            asgi_app_keys.add("exception")
+        asgi_app = _exact(raw_asgi_app, asgi_app_keys, "TestClient ASGI app")
+        if asgi_app["kind"] not in {"asgi2", "asgi3"}:
+            raise ContractError("TestClient ASGI app kind must be asgi2 or asgi3")
+        messages = asgi_app["messages"]
+        exception_spec = asgi_app.get("exception")
     scope_fields = asgi_app["scope_fields"]
     allowed_scope_fields = {
         "type",
@@ -8026,35 +8058,43 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         or len(scope_fields) != len(set(scope_fields))
     ):
         raise ContractError("TestClient ASGI app scope_fields must be unique supported scope keys")
-    if type(asgi_app["receive_count"]) is not int or asgi_app["receive_count"] != 1:
-        raise ContractError("This TestClient request workflow consumes exactly one request message")
-    messages = asgi_app["messages"]
-    exception_spec = asgi_app.get("exception")
-    if not isinstance(messages, list) or (
-        len(messages) not in {2, 3} and not (exception_spec is not None and not messages)
-    ):
-        raise ContractError(
-            "TestClient ASGI app must send a complete response, or raise before sending one"
+    if not is_sync_route:
+        if type(asgi_app["receive_count"]) is not int or asgi_app["receive_count"] != 1:
+            raise ContractError(
+                "This TestClient request workflow consumes exactly one request message"
+            )
+        if not isinstance(messages, list) or (
+            len(messages) not in {2, 3} and not (exception_spec is not None and not messages)
+        ):
+            raise ContractError(
+                "TestClient ASGI app must send a complete response, or raise before sending one"
+            )
+        if messages and (
+            not isinstance(messages[0], dict)
+            or messages[0].get("type") != "http.response.start"
+            or not isinstance(messages[-1], dict)
+            or messages[-1].get("type") != "http.response.body"
+        ):
+            raise ContractError("TestClient ASGI response must start before its final body")
+        if (
+            sum(
+                isinstance(message, dict) and message.get("type") == "http.response.debug"
+                for message in messages
+            )
+            > 1
+        ):
+            raise ContractError("TestClient ASGI response may contain one debug message")
+    expected_covers = {TESTCLIENT_REQUIREMENTS["scope"]}
+    if not is_sync_route:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["receive"])
+    else:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["sync_route_worker_thread"])
+        expected_covers.add(
+            TESTCLIENT_REQUIREMENTS[
+                "sync_route_get" if request["method"] == "GET" else "sync_route_head"
+            ]
         )
-    if messages and (
-        not isinstance(messages[0], dict)
-        or messages[0].get("type") != "http.response.start"
-        or not isinstance(messages[-1], dict)
-        or messages[-1].get("type") != "http.response.body"
-    ):
-        raise ContractError("TestClient ASGI response must start before its final body")
-    if (
-        sum(
-            isinstance(message, dict) and message.get("type") == "http.response.debug"
-            for message in messages
-        )
-        > 1
-    ):
-        raise ContractError("TestClient ASGI response may contain one debug message")
-    expected_covers = {
-        TESTCLIENT_REQUIREMENTS["scope"],
-        TESTCLIENT_REQUIREMENTS["receive"],
-    }
     if exception_spec is not None:
         exception_spec = _exact(
             exception_spec,
@@ -10088,6 +10128,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_protocol_middleware
         else (
             ["application", "dispatch"],
+            ["application", "dispatch-get", "dispatch-head"],
             ["application", "lifecycle", "dispatch"],
             ["application", "lifecycle"],
         )
@@ -10355,6 +10396,16 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         ]
     elif is_starlette_add_middleware_workflow:
         expected_schedule = _starlette_add_middleware_expected_schedule(case)
+    elif step_ids == ["application", "dispatch-get", "dispatch-head"]:
+        if (
+            app_args["routes"][0]["kind"] != "http-route"
+            or app_args["routes"][0]["endpoint"]["kind"] != "sync-plain-text-response"
+            or app_args["routes"][0]["methods"] is not None
+        ):
+            raise ContractError(
+                "GET/HEAD route workflow requires a synchronous endpoint with default methods"
+            )
+        expected_schedule = ["dispatch-get", "dispatch-head"]
     elif app_args["routes"][0]["endpoint"] == ASYNC_CALL_BOUNDARY_ENDPOINT:
         if step_ids != ["application", "dispatch"]:
             raise ContractError("async boundary cancellation uses one direct request dispatch")
@@ -11007,15 +11058,31 @@ def _validate_application_stimulus(
         route["kind"] != "http-route"
         or not isinstance(route["path"], str)
         or not route["path"].startswith("/")
-        or not isinstance(route["methods"], list)
-        or not route["methods"]
-        or any(
-            not isinstance(method, str) or not method or method != method.upper()
-            for method in route["methods"]
+        or (
+            route["methods"] is not None
+            and (
+                not isinstance(route["methods"], list)
+                or not route["methods"]
+                or any(
+                    not isinstance(method, str) or not method or method != method.upper()
+                    for method in route["methods"]
+                )
+                or len(route["methods"]) != len(set(route["methods"]))
+            )
         )
-        or len(route["methods"]) != len(set(route["methods"]))
     ):
         raise ContractError("route input must define a unique-method absolute HTTP route")
+    endpoint_kind = route["endpoint"].get("kind") if isinstance(route["endpoint"], dict) else None
+    if endpoint_kind == "sync-plain-text-response":
+        endpoint = _exact(
+            route["endpoint"],
+            {"kind", "content"},
+            "synchronous plain-text endpoint input",
+        )
+        if route["methods"] is not None:
+            raise ContractError("synchronous plain-text route input must use default Route methods")
+        _string(endpoint["content"], "synchronous plain-text endpoint content")
+        return
     endpoint = _exact(
         route["endpoint"],
         {"kind", "content", "status_code", "media_type", "cookies"},
@@ -11023,6 +11090,10 @@ def _validate_application_stimulus(
     )
     if endpoint["kind"] != "plain-text-response":
         raise ContractError("endpoint input must define a plain-text response")
+    if route["methods"] is None:
+        raise ContractError(
+            "only synchronous plain-text route inputs may use default Route methods"
+        )
     _string(endpoint["content"], "plain-text endpoint content")
     if type(endpoint["status_code"]) is not int or not 100 <= endpoint["status_code"] <= 599:
         raise ContractError("plain-text endpoint status_code must be an HTTP status code")
@@ -15677,7 +15748,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         return {"starlette.asgi.websocket-exception.custom-handler"}
     method = scope["method"]
     path_matches = _route_path_matches(route["path"], path)
-    methods = set(route["methods"])
+    methods = {"GET"} if route["methods"] is None else set(route["methods"])
     if "GET" in methods:
         methods.add("HEAD")
     method_matches = method in methods
@@ -15691,6 +15762,30 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         and method_matches
     ):
         coverage.add("starlette.applications.Starlette.__call__.async-route-return-response")
+    if (
+        case["operation"] == "__call__"
+        and case["target_profiles"] == ["python-package-cpython312"]
+        and route["kind"] == "http-route"
+        and endpoint["kind"] == "sync-plain-text-response"
+        and route["methods"] is None
+        and path_matches
+    ):
+        observed_methods = set()
+        for step in case["steps"]:
+            if step.get("operation") != "__call__":
+                continue
+            step_arguments = {
+                key: descriptor["value"] for key, descriptor in step["arguments"].items()
+            }
+            step_scope = step_arguments["scope"]
+            if (
+                step_scope.get("type") == "http"
+                and _route_path_matches(route["path"], step_scope["path"])
+                and step_scope["method"] in methods
+            ):
+                observed_methods.add(step_scope["method"])
+        if {"GET", "HEAD"} <= observed_methods:
+            coverage.add("starlette.applications.Starlette.__call__.sync-route-return-response")
 
     if case["operation"] == "__call__":
         handlers = app_arguments["exception_handlers"]
