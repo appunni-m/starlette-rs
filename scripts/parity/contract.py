@@ -785,6 +785,8 @@ SYNC_ENDPOINT_REQUIREMENTS = {
     "callable_form": "starlette.routing.sync-endpoint-callable-form",
     "worker_cancellation": "starlette.routing.sync-endpoint-worker-cancellation",
 }
+ASYNC_ENDPOINT_CALLABLE_REQUIREMENT = "starlette.routing.async-endpoint-callable-form"
+ASYNC_ENDPOINT_CALLABLE_KINDS = {"function", "bound_method", "partial", "nested_partial"}
 ASGI_CALLABLE_INSTANCE_REQUIREMENT = "starlette.routing.asgi-callable-instance-dispatch"
 ASGI_CALLABLE_INSTANCE_ENDPOINT = {
     "kind": "asgi-callable-instance-observer",
@@ -11682,6 +11684,22 @@ def _validate_application_stimulus(
                     "Request observer endpoint input differs from its declared values"
                 )
             return
+        if isinstance(endpoint, dict) and endpoint.get("kind") == "async-request-callable-observer":
+            endpoint = _exact(
+                endpoint,
+                {"kind", "callable_kind", "path_parameter", "response_content"},
+                "async request callable observer endpoint",
+            )
+            if (
+                endpoint["callable_kind"] not in ASYNC_ENDPOINT_CALLABLE_KINDS
+                or route["path"] != "/items/{item_id:int}"
+                or endpoint["path_parameter"] != "item_id"
+                or not isinstance(endpoint["response_content"], str)
+            ):
+                raise ContractError(
+                    "async endpoint callable input must use the declared int route and callable forms"
+                )
+            return
         if isinstance(endpoint, dict) and endpoint.get("kind") == "request-connection-property":
             endpoint = _exact(
                 endpoint,
@@ -16952,6 +16970,8 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         )
         if endpoint["callable_kind"] in {"bound_method", "partial"}:
             coverage.add(SYNC_ENDPOINT_REQUIREMENTS["callable_form"])
+    elif endpoint["kind"] == "async-request-callable-observer":
+        coverage.add(ASYNC_ENDPOINT_CALLABLE_REQUIREMENT)
     elif endpoint["kind"] == "sync-request-cancellation-observer":
         coverage.update(
             SYNC_ENDPOINT_REQUIREMENTS[key]

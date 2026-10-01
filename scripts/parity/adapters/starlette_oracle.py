@@ -863,6 +863,40 @@ def _sync_request_observer_response(
     return PlainTextResponse(content=spec["response_content"])
 
 
+async def _async_request_callable_observer_response(
+    request: Any, spec: dict[str, Any], state: dict[str, Any]
+) -> Any:
+    endpoint = state["route_endpoint"]
+    partial_depth = 0
+    while isinstance(endpoint, functools.partial):
+        partial_depth += 1
+        endpoint = endpoint.func
+
+    current_loop = asyncio.get_running_loop()
+    current_task = asyncio.current_task()
+    current_thread_id = threading.get_ident()
+    state["invocation_count"] += 1
+    path_value = request.path_params[spec["path_parameter"]]
+    observation = {
+        "route_endpoint_type": type(state["route_endpoint"]).__name__,
+        "partial_depth": partial_depth,
+        "request_argument_type": (f"{type(request).__module__}.{type(request).__qualname__}"),
+        "path_param": {
+            "value": _json_safe(path_value),
+            "type": type(path_value).__name__,
+        },
+        "same_event_loop": current_loop is state["caller_event_loop"],
+        "same_request_task": current_task is state["caller_task"],
+        "same_thread": current_thread_id == state["caller_thread_id"],
+        "invocation_count": state["invocation_count"],
+    }
+    state["observation"] = observation
+    state["request_observations"].append(observation)
+    from starlette.responses import PlainTextResponse
+
+    return PlainTextResponse(content=spec["response_content"])
+
+
 def _sync_request_cancellation_response(
     _request: Any, spec: dict[str, Any], state: dict[str, Any]
 ) -> Any:
@@ -1452,6 +1486,68 @@ def _materialize_application(
                 return endpoint
 
             route_endpoint = make_request_endpoint(response_spec)
+        elif response_spec["kind"] == "async-request-callable-observer":
+            _strict_object(
+                response_spec,
+                {"kind", "callable_kind", "path_parameter", "response_content"},
+                "async request callable observer endpoint",
+            )
+            async_callable_state: dict[str, Any] = {
+                "caller_event_loop": None,
+                "caller_task": None,
+                "caller_thread_id": None,
+                "invocation_count": 0,
+                "observation": None,
+                "request_observations": request_observations,
+            }
+            callable_kind = response_spec["callable_kind"]
+            if callable_kind == "function":
+
+                def make_async_function_endpoint(
+                    spec: dict[str, Any], state: dict[str, Any]
+                ) -> Any:
+                    async def endpoint(request: Any) -> Any:
+                        return await _async_request_callable_observer_response(request, spec, state)
+
+                    return endpoint
+
+                route_endpoint = make_async_function_endpoint(response_spec, async_callable_state)
+                route_endpoint._parity_async_request_callable_state = async_callable_state
+            elif callable_kind == "bound_method":
+
+                class AsyncBoundMethodEndpoint:
+                    def __init__(self, spec: dict[str, Any], state: dict[str, Any]) -> None:
+                        self.spec = spec
+                        self.state = state
+
+                    async def endpoint(self, request: Any) -> Any:
+                        return await _async_request_callable_observer_response(
+                            request, self.spec, self.state
+                        )
+
+                route_endpoint = AsyncBoundMethodEndpoint(
+                    response_spec, async_callable_state
+                ).endpoint
+                route_endpoint.__func__._parity_async_request_callable_state = async_callable_state
+            elif callable_kind == "partial":
+                route_endpoint = functools.partial(
+                    _async_request_callable_observer_response,
+                    spec=response_spec,
+                    state=async_callable_state,
+                )
+                route_endpoint._parity_async_request_callable_state = async_callable_state
+            elif callable_kind == "nested_partial":
+                route_endpoint = functools.partial(
+                    functools.partial(
+                        _async_request_callable_observer_response,
+                        spec=response_spec,
+                    ),
+                    state=async_callable_state,
+                )
+                route_endpoint._parity_async_request_callable_state = async_callable_state
+            else:
+                raise ValueError(f"unsupported async endpoint callable kind: {callable_kind!r}")
+            async_callable_state["route_endpoint"] = route_endpoint
         elif response_spec["kind"] == "request-connection-property":
             if set(response_spec) != {"kind", "property"}:
                 raise ValueError("request connection-property input does not match its schema")
@@ -1848,6 +1944,15 @@ async def _invoke(
     context_tokens: list[tuple[dict[str, Any], contextvars.Token[Any]]] = []
     captured_exception: BaseException | None = None
     async_endpoint_observations: dict[str, Any] | None = None
+    async_request_callable_state = getattr(
+        route_endpoint, "_parity_async_request_callable_state", None
+    )
+    if async_request_callable_state is None:
+        async_request_callable_state = getattr(
+            getattr(route_endpoint, "__func__", None),
+            "_parity_async_request_callable_state",
+            None,
+        )
     boundary_state = getattr(route_endpoint, "_parity_async_boundary_state", None)
     sync_cancellation_state = getattr(route_endpoint, "_parity_sync_cancellation_state", None)
     try:
@@ -1856,6 +1961,10 @@ async def _invoke(
             if "context_var" in state:
                 token = state["context_var"].set(state["context_value"])
                 context_tokens.append((state, token))
+        if async_request_callable_state is not None:
+            async_request_callable_state["caller_event_loop"] = asyncio.get_running_loop()
+            async_request_callable_state["caller_task"] = asyncio.current_task()
+            async_request_callable_state["caller_thread_id"] = threading.get_ident()
         if cancel_after_endpoint_entry:
             server_loop = asyncio.get_running_loop()
             server_thread_id = threading.get_ident()

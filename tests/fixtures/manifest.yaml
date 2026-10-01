@@ -243,6 +243,7 @@
       "build/parity/inputs/parity/asgi-http-get-text.json",
       "build/parity/inputs/parity/application-middleware.json",
       "build/parity/inputs/parity/asgi-request-items.json",
+      "build/parity/inputs/parity/asgi-request-callable-shapes.json",
       "build/parity/inputs/parity/asgi-request-cancellation.json",
       "build/parity/inputs/parity/asgi-call-boundary.json",
       "build/parity/inputs/parity/request-runtime.json",
@@ -1462,13 +1463,14 @@
               "signature": "Run the declared routing and request-data workflow through the Rust-native adapter and observe the selected request and ASGI values.",
               "support": {
                 "status": "partial",
-                "reason": "The Rust-native profile cannot invoke arbitrary Python endpoint callables; the synchronous Request endpoint boundary and ASGI callable-instance dispatch observations are unsupported.",
+                "reason": "The Rust-native profile cannot invoke arbitrary Python endpoint callables; synchronous and async Request endpoint boundaries and ASGI callable-instance dispatch observations are unsupported.",
                 "missing_requirements": [
                   "starlette.routing.sync-endpoint-contextvar-propagation",
                   "starlette.routing.sync-endpoint-worker-thread",
                   "starlette.routing.sync-endpoint-single-invocation",
                   "starlette.routing.sync-endpoint-worker-cancellation",
                   "starlette.routing.sync-endpoint-callable-form",
+                  "starlette.routing.async-endpoint-callable-form",
                   "starlette.routing.asgi-callable-instance-dispatch",
                   "starlette.routing.asgi-callable-http-exception-before-start",
                   "starlette.routing.asgi-callable-http-exception-after-start",
@@ -1706,6 +1708,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.async-endpoint-callable-form",
+              "dimension": "boundary",
+              "description": "Route async Request endpoints supplied as a function, bound method, functools.partial, or nested functools.partial. Observe the actual callable type, partial depth, Request argument and path parameter, live response events, and execution on the caller event loop, task, and thread. Upstream: starlette/routing.py::request_response; starlette/_utils.py::is_async_callable; tests/test__utils.py::test_async_func, test_async_method, test_async_partial, and test_async_nested_partial.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },
