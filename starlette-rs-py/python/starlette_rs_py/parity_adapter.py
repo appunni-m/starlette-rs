@@ -10173,6 +10173,15 @@ def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if (
         case.get("surface") == "starlette.concurrency"
+        and case.get("operation") == "run_until_first_complete"
+    ):
+        from starlette.concurrency import run_until_first_complete
+
+        from scripts.parity.adapters.concurrency import run_until_first_complete_case
+
+        return run_until_first_complete_case(case, run_until_first_complete)
+    if (
+        case.get("surface") == "starlette.concurrency"
         and case.get("operation") == "run_in_threadpool"
     ):
         from starlette.concurrency import run_in_threadpool

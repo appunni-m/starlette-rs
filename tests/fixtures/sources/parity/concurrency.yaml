@@ -218,6 +218,151 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.concurrency.run_until_first_complete.first-completion-deprecation-warning",
+      "surface": "starlette.concurrency",
+      "operation": "run_until_first_complete",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "run_until_first_complete"
+      ],
+      "kwargs_container": "mappingproxy",
+      "covers": [
+        "starlette.concurrency.run_until_first_complete.first-completion-cancels-peers",
+        "starlette.concurrency.run_until_first_complete.kwargs-mapping",
+        "starlette.concurrency.run_until_first_complete.deprecation-warning"
+      ],
+      "events": [
+        "peer-ready",
+        "winner-finished",
+        "peer-would-finish"
+      ],
+      "tasks": [
+        {
+          "task_id": "winner",
+          "actions": [
+            {
+              "action": "wait-event",
+              "event_id": "peer-ready"
+            },
+            {
+              "action": "set-event",
+              "event_id": "winner-finished"
+            }
+          ]
+        },
+        {
+          "task_id": "peer",
+          "actions": [
+            {
+              "action": "set-event",
+              "event_id": "peer-ready"
+            },
+            {
+              "action": "wait-event",
+              "event_id": "winner-finished"
+            },
+            {
+              "action": "checkpoint"
+            },
+            {
+              "action": "set-event",
+              "event_id": "peer-would-finish"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "starlette.concurrency.run_until_first_complete.child-exception-cancels-peer",
+      "surface": "starlette.concurrency",
+      "operation": "run_until_first_complete",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "run_until_first_complete"
+      ],
+      "covers": [
+        "starlette.concurrency.run_until_first_complete.child-exception-propagation",
+        "starlette.concurrency.run_until_first_complete.deprecation-warning"
+      ],
+      "events": [
+        "peer-release",
+        "peer-would-finish"
+      ],
+      "tasks": [
+        {
+          "task_id": "waiting-peer",
+          "actions": [
+            {
+              "action": "wait-event",
+              "event_id": "peer-release"
+            },
+            {
+              "action": "checkpoint"
+            },
+            {
+              "action": "set-event",
+              "event_id": "peer-would-finish"
+            }
+          ]
+        },
+        {
+          "task_id": "failing-task",
+          "actions": [
+            {
+              "action": "checkpoint"
+            },
+            {
+              "action": "raise-exception",
+              "exception_type": "RuntimeError",
+              "message": "input-defined child failure"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "starlette.concurrency.run_until_first_complete.external-cancellation-finalizes-peers",
+      "surface": "starlette.concurrency",
+      "operation": "run_until_first_complete",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "run_until_first_complete"
+      ],
+      "covers": [
+        "starlette.concurrency.run_until_first_complete.external-cancellation-finalization",
+        "starlette.concurrency.run_until_first_complete.deprecation-warning"
+      ],
+      "events": [
+        "cancel-start",
+        "never-release"
+      ],
+      "external_cancel_after_event_id": "cancel-start",
+      "tasks": [
+        {
+          "task_id": "blocked-callback",
+          "actions": [
+            {
+              "action": "set-event",
+              "event_id": "cancel-start"
+            },
+            {
+              "action": "wait-event",
+              "event_id": "never-release"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

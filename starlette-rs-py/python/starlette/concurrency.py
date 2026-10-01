@@ -11,6 +11,12 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
+async def run_until_first_complete(
+    *args: tuple[Callable, dict],  # type: ignore[type-arg]
+) -> None:
+    await _core.run_until_first_complete(*args)
+
+
 async def run_in_threadpool(func: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
     """Run a synchronous Python callable in AnyIO's worker thread pool."""
     return await _core.run_in_threadpool(func, *args, **kwargs)

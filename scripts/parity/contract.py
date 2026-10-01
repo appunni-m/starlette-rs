@@ -65,6 +65,26 @@ CASE_KEYS = {
 THREADPOOL_SURFACE = "starlette.concurrency"
 THREADPOOL_OPERATION = "run_in_threadpool"
 THREADPOOL_OPERATION_KEY = (THREADPOOL_SURFACE, THREADPOOL_OPERATION)
+RUN_UNTIL_FIRST_COMPLETE_OPERATION = "run_until_first_complete"
+RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY = (
+    THREADPOOL_SURFACE,
+    RUN_UNTIL_FIRST_COMPLETE_OPERATION,
+)
+RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS = {
+    "first_completion": (
+        f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.first-completion-cancels-peers"
+    ),
+    "deprecation_warning": (
+        f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.deprecation-warning"
+    ),
+    "kwargs_mapping": (f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.kwargs-mapping"),
+    "child_exception": (
+        f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.child-exception-propagation"
+    ),
+    "external_cancellation": (
+        f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.external-cancellation-finalization"
+    ),
+}
 ITERATE_THREADPOOL_OPERATION = "iterate_in_threadpool"
 ITERATE_THREADPOOL_OPERATION_KEY = (THREADPOOL_SURFACE, ITERATE_THREADPOOL_OPERATION)
 THREADPOOL_REQUIREMENTS = {
@@ -74,6 +94,10 @@ THREADPOOL_REQUIREMENTS = {
     "event_loop_progress": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.event-loop-progress",
 }
 THREADPOOL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {"call"}
+RUN_UNTIL_FIRST_COMPLETE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "events",
+    "tasks",
+}
 ITERATE_THREADPOOL_REQUIREMENTS = {
     "items_order": f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.items-order",
     "worker_thread": f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.worker-thread",
@@ -1374,8 +1398,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
             if operation["classification"] not in {"endpoint", "non_endpoint"}:
                 raise ContractError(f"{context}.classification is invalid")
             lifecycle = _exact(operation["lifecycle"], {"status"}, f"{context}.lifecycle")
-            if lifecycle["status"] != "current":
-                raise ContractError("this first slice only includes current API operations")
+            if not isinstance(lifecycle["status"], str) or lifecycle["status"] not in {
+                "current",
+                "deprecated",
+            }:
+                raise ContractError(f"{context}.lifecycle.status is invalid")
             key = (surface["id"], operation["id"])
             if key in operation_rows:
                 raise ContractError(f"duplicate operation: {key}")
@@ -1590,6 +1617,16 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"{octx} permits temporary-root normalization only for FileResponse ASGI events"
                             )
+                    elif normalization_kind == "anyio-cancel-scope-message":
+                        _exact(normalization_spec, {"kind"}, f"{octx}.normalization")
+                        if (
+                            key != RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY
+                            or observation["path"] != "event_trace"
+                            or comparison["kind"] != "ordered"
+                        ):
+                            raise ContractError(
+                                f"{octx} permits AnyIO cancellation-message normalization only for run_until_first_complete event traces"
+                            )
                     elif normalization_kind == "sequence":
                         _exact(
                             normalization_spec,
@@ -1645,6 +1682,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
                 or key == REQUEST_BODY_STREAM_JSON_OPERATION
+                or key == RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY
                 or key == BASE_HTTP_WORKFLOW_OPERATION_KEY
                 or key == BASE_HTTP_CONTEXTVARS_OPERATION_KEY
                 or key == STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY
@@ -1815,6 +1853,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             TESTCLIENT_OPERATION_KEY,
                             TESTCLIENT_WEBSOCKET_OPERATION_KEY,
                             TESTCLIENT_LIFESPAN_OPERATION_KEY,
+                            RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY,
                             THREADPOOL_OPERATION_KEY,
                             ITERATE_THREADPOOL_OPERATION_KEY,
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
@@ -9804,6 +9843,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == THREADPOOL_OPERATION_KEY
     )
+    is_run_until_first_complete = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY
+    )
     is_iterate_threadpool = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == ITERATE_THREADPOOL_OPERATION_KEY
@@ -9977,7 +10020,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     )
     is_route_body_limit_workflow = _is_route_body_limit_workflow(case)
     expected_case_keys = (
-        ITERATE_THREADPOOL_CASE_KEYS
+        RUN_UNTIL_FIRST_COMPLETE_CASE_KEYS
+        if is_run_until_first_complete
+        else ITERATE_THREADPOOL_CASE_KEYS
         if is_iterate_threadpool
         else THREADPOOL_CASE_KEYS
         if is_threadpool
@@ -10222,7 +10267,19 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = expected_case_keys | {
             key for key in ("background", "receive_behavior", "stream_lifecycle") if key in case
         }
+    if is_run_until_first_complete and "external_cancel_after_event_id" in case:
+        expected_case_keys = expected_case_keys | {"external_cancel_after_event_id"}
+    if is_run_until_first_complete and "kwargs_container" in case:
+        expected_case_keys = expected_case_keys | {"kwargs_container"}
     _exact(case, expected_case_keys, "case")
+    if is_run_until_first_complete and "kwargs_container" in case:
+        if _string(case["kwargs_container"], "run_until_first_complete kwargs_container") not in {
+            "dict",
+            "mappingproxy",
+        }:
+            raise ContractError(
+                "run_until_first_complete kwargs_container must be dict or mappingproxy"
+            )
     case_id = _string(case["case_id"], "case.case_id")
     is_gzip = case["surface"] == GZIP_SURFACE
     is_protocol_middleware = case["surface"] in ASGI_MIDDLEWARE_SURFACES
@@ -10321,6 +10378,15 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             raise ContractError("run_in_threadpool cases must use the declared public operation")
         if case["observations"] != [THREADPOOL_OPERATION]:
             raise ContractError("run_in_threadpool cases must select the direct-call observation")
+    elif is_run_until_first_complete:
+        if (case["surface"], case["operation"]) != RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY:
+            raise ContractError(
+                "run_until_first_complete cases must use the declared public operation"
+            )
+        if case["observations"] != [RUN_UNTIL_FIRST_COMPLETE_OPERATION]:
+            raise ContractError(
+                "run_until_first_complete cases must select the direct-call observation"
+            )
     elif is_iterate_threadpool:
         if (case["surface"], case["operation"]) != ITERATE_THREADPOOL_OPERATION_KEY:
             raise ContractError(
@@ -10424,6 +10490,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError("Request body/stream/json cases select only the Python-package profile")
     if is_threadpool and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("run_in_threadpool cases select only the Python-package profile")
+    if is_run_until_first_complete and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError("run_until_first_complete cases select only the Python-package profile")
     if is_iterate_threadpool and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("iterate_in_threadpool cases select only the Python-package profile")
     if is_starlette_add_exception_handler_workflow and selected_profiles != [
@@ -10527,6 +10595,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 f"case target profiles exceed requirement applicability: {requirement_id}"
             )
 
+    if is_run_until_first_complete:
+        _validate_run_until_first_complete_case(case)
+        return case
     if is_threadpool:
         _validate_threadpool_case(case)
         return case
@@ -11409,6 +11480,248 @@ def _validate_threadpool_case(case: dict[str, Any]) -> None:
     if set(case["covers"]) != expected_requirements:
         raise ContractError(
             "run_in_threadpool covers must match the input-defined callable behavior"
+        )
+
+
+def _validate_run_until_first_complete_case(case: dict[str, Any]) -> None:
+    events = case["events"]
+    if (
+        not isinstance(events, list)
+        or not events
+        or len(events) > 32
+        or any(not isinstance(event_id, str) or not event_id for event_id in events)
+        or len(events) != len(set(events))
+    ):
+        raise ContractError(
+            "run_until_first_complete events must be unique non-empty IDs in a bounded array"
+        )
+    event_ids = set(events)
+    tasks = case["tasks"]
+    if not isinstance(tasks, list) or not 1 <= len(tasks) <= 8:
+        raise ContractError("run_until_first_complete tasks must contain one to eight callbacks")
+
+    task_ids: set[str] = set()
+    action_rows: list[tuple[int, str, list[dict[str, Any]]]] = []
+    set_events: set[str] = set()
+    raise_actions: list[tuple[int, str, int]] = []
+    for task_index, raw_task in enumerate(tasks):
+        context = f"run_until_first_complete tasks[{task_index}]"
+        task = _exact(raw_task, {"task_id", "actions"}, context)
+        task_id = _string(task["task_id"], f"{context}.task_id")
+        if not task_id or task_id in task_ids:
+            raise ContractError("run_until_first_complete task IDs must be unique and non-empty")
+        task_ids.add(task_id)
+        actions = task["actions"]
+        if not isinstance(actions, list) or not actions or len(actions) > 64:
+            raise ContractError(f"{context}.actions must be a bounded non-empty array")
+        validated_actions: list[dict[str, Any]] = []
+        for action_index, raw_action in enumerate(actions):
+            action_context = f"{context}.actions[{action_index}]"
+            if not isinstance(raw_action, dict):
+                raise ContractError(f"{action_context} must be an object")
+            action_kind = raw_action.get("action")
+            if isinstance(action_kind, str) and action_kind in {"set-event", "wait-event"}:
+                action = _exact(raw_action, {"action", "event_id"}, action_context)
+                event_id = _string(action["event_id"], f"{action_context}.event_id")
+                if event_id not in event_ids:
+                    raise ContractError(f"{action_context}.event_id references an undeclared event")
+                if action_kind == "set-event":
+                    set_events.add(event_id)
+            elif action_kind == "checkpoint":
+                action = _exact(raw_action, {"action"}, action_context)
+            elif action_kind == "raise-exception":
+                action = _exact(
+                    raw_action,
+                    {"action", "exception_type", "message"},
+                    action_context,
+                )
+                exception_type = action["exception_type"]
+                if not isinstance(exception_type, str) or exception_type not in {
+                    "LookupError",
+                    "RuntimeError",
+                    "TypeError",
+                    "ValueError",
+                }:
+                    raise ContractError(
+                        f"{action_context}.exception_type is not an allowed builtin"
+                    )
+                if not isinstance(action["message"], str):
+                    raise ContractError(f"{action_context}.message must be a string")
+                raise_actions.append((task_index, task_id, action_index))
+            else:
+                raise ContractError(
+                    f"{action_context}.action must be set-event, wait-event, checkpoint, or raise-exception"
+                )
+            validated_actions.append(action)
+        action_rows.append((task_index, task_id, validated_actions))
+
+    external_cancel_event = None
+    if "external_cancel_after_event_id" in case:
+        external_cancel_event = _string(
+            case["external_cancel_after_event_id"],
+            "run_until_first_complete external_cancel_after_event_id",
+        )
+        if external_cancel_event not in event_ids:
+            raise ContractError(
+                "run_until_first_complete external cancellation references an undeclared event"
+            )
+
+    if not set_events and not raise_actions and external_cancel_event is None:
+        raise ContractError(
+            "run_until_first_complete callback inputs need a completion, failure, or cancellation stimulus"
+        )
+
+    expected_requirements = {RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS["deprecation_warning"]}
+    if case.get("kwargs_container") == "mappingproxy":
+        expected_requirements.add(RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS["kwargs_mapping"])
+    if raise_actions:
+        if external_cancel_event is not None or len(raise_actions) != 1:
+            raise ContractError(
+                "run_until_first_complete child-failure inputs require one raise action and no external cancellation"
+            )
+        failing_index, _, raise_index = raise_actions[0]
+        if failing_index == 0 or not any(
+            action["action"] == "checkpoint"
+            for action in action_rows[failing_index][2][:raise_index]
+        ):
+            raise ContractError(
+                "a later run_until_first_complete child must checkpoint before raising"
+            )
+        never_set_wait_exists = any(
+            action["action"] == "wait-event" and action["event_id"] not in set_events
+            for task_index, _, actions in action_rows
+            if task_index < failing_index
+            for action in actions
+        )
+        if not never_set_wait_exists:
+            raise ContractError(
+                "child-failure inputs must start an earlier peer waiting on an unset event"
+            )
+        expected_requirements.add(RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS["child_exception"])
+    elif external_cancel_event is not None:
+        trigger_task = next(
+            (
+                (task_index, actions)
+                for task_index, _, actions in action_rows
+                if any(
+                    action["action"] == "set-event" and action["event_id"] == external_cancel_event
+                    for action in actions
+                )
+            ),
+            None,
+        )
+        if trigger_task is None:
+            raise ContractError(
+                "external cancellation event must be set by an input-defined callback"
+            )
+        trigger_index, trigger_actions = trigger_task
+        trigger_action_index = next(
+            index
+            for index, action in enumerate(trigger_actions)
+            if action["action"] == "set-event" and action["event_id"] == external_cancel_event
+        )
+        if not any(
+            action["action"] == "wait-event" and action["event_id"] not in set_events
+            for action in trigger_actions[trigger_action_index + 1 :]
+        ):
+            raise ContractError(
+                "external cancellation callback must block on an input event after signaling its trigger"
+            )
+        peer_rows = [
+            actions for task_index, _, actions in action_rows if task_index != trigger_index
+        ]
+        all_peers_block_after_trigger = all(
+            (
+                wait_index := next(
+                    (
+                        index
+                        for index, action in enumerate(actions)
+                        if action["action"] == "wait-event"
+                        and action["event_id"] == external_cancel_event
+                    ),
+                    None,
+                )
+            )
+            is not None
+            and (
+                checkpoint_index := next(
+                    (
+                        index
+                        for index, action in enumerate(actions[wait_index + 1 :], wait_index + 1)
+                        if action["action"] == "checkpoint"
+                    ),
+                    None,
+                )
+            )
+            is not None
+            and any(
+                action["action"] == "wait-event" and action["event_id"] not in set_events
+                for action in actions[checkpoint_index + 1 :]
+            )
+            for actions in peer_rows
+        )
+        if not all_peers_block_after_trigger:
+            raise ContractError(
+                "external cancellation inputs must keep each peer blocked after the trigger and a checkpoint"
+            )
+        expected_requirements.add(RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS["external_cancellation"])
+    else:
+        completing_task = action_rows[0] if len(action_rows[0][2]) == 2 else None
+        peer_completes_later = False
+        completing_callback_is_input_ready = False
+        if completing_task is not None:
+            completing_index, _, completing_actions = completing_task
+            completion_event = completing_actions[1].get("event_id")
+            ready_event = completing_actions[0].get("event_id")
+            completing_callback_is_input_ready = (
+                completing_actions[0]["action"] == "wait-event"
+                and completing_actions[1]["action"] == "set-event"
+                and isinstance(ready_event, str)
+                and isinstance(completion_event, str)
+                and ready_event != completion_event
+            )
+            for task_index, _, actions in action_rows:
+                if task_index <= completing_index:
+                    continue
+                if (
+                    not actions
+                    or actions[0]["action"] != "set-event"
+                    or actions[0]["event_id"] != ready_event
+                ):
+                    continue
+                wait_index = next(
+                    (
+                        index
+                        for index, action in enumerate(actions)
+                        if action["action"] == "wait-event"
+                        and action["event_id"] == completion_event
+                    ),
+                    None,
+                )
+                if wait_index is None:
+                    continue
+                checkpoint_index = next(
+                    (
+                        index
+                        for index, action in enumerate(actions[wait_index + 1 :], wait_index + 1)
+                        if action["action"] == "checkpoint"
+                    ),
+                    None,
+                )
+                if checkpoint_index is not None and any(
+                    action["action"] == "set-event" for action in actions[checkpoint_index + 1 :]
+                ):
+                    peer_completes_later = True
+                    break
+        if not completing_callback_is_input_ready or not peer_completes_later:
+            raise ContractError(
+                "first-completion inputs need a readiness handshake and a peer that waits, checkpoints, and sets a later event"
+            )
+        expected_requirements.add(RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS["first_completion"])
+
+    if set(case["covers"]) != expected_requirements:
+        raise ContractError(
+            "run_until_first_complete covers must match the input-defined completion, warning, error, or cancellation behavior"
         )
 
 

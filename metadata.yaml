@@ -65,8 +65,12 @@
     },
     {
       "surface_id": "starlette.concurrency",
-      "source_path": "starlette/concurrency.py:32",
+      "source_path": "starlette/concurrency.py:16",
       "operations": [
+        {
+          "operation_id": "run_until_first_complete",
+          "source_path": "starlette.concurrency.run_until_first_complete"
+        },
         {
           "operation_id": "run_in_threadpool",
           "source_path": "starlette.concurrency.run_in_threadpool"

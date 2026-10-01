@@ -2938,9 +2938,196 @@
     {
       "id": "starlette.concurrency",
       "kind": "module",
-      "source_path": "starlette/concurrency.py:32",
+      "source_path": "starlette/concurrency.py:16",
       "storage_slug": "starlette-concurrency-module",
       "operations": [
+        {
+          "id": "run_until_first_complete",
+          "kind": "value_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "deprecated"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.concurrency.run_until_first_complete",
+            "signature": "async run_until_first_complete(*args: tuple[Callable, dict]) -> None",
+            "parameters": [
+              {
+                "id": "args",
+                "style": "variadic_positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "event_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "normalization": {
+                    "kind": "anyio-cancel-scope-message"
+                  }
+                },
+                {
+                  "path": "event_states",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "warnings",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "construction_emitted_no_warning",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "return_value",
+                  "value_types": [
+                    "any_json"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "raised_exception",
+                  "value_types": [
+                    "any_json"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This deprecated helper accepts arbitrary Python coroutine callables and kwargs and owns their cancellation on the Python event loop.",
+                "authority": "Project boundary policy: arbitrary Python callables, event-loop ownership, cancellation, and exception propagation are exercised through the CPython package boundary."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.concurrency.run_until_first_complete",
+              "signature": "run_until_first_complete(*tasks) -> awaitable None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.concurrency.run_until_first_complete.first-completion-cancels-peers",
+              "dimension": "success_path",
+              "description": "When the first callback returns, cancel peer callbacks before their later input-defined event action. Pinned source: starlette/concurrency.py:20-27; tests/test_concurrency.py:13-28.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.run_until_first_complete.deprecation-warning",
+              "dimension": "mode",
+              "description": "Emit the pinned Starlette deprecation warning on invocation, with its public category, message, and source location; callback construction emits no warning. Event-trace cancellation messages normalize AnyIO scope IDs and task locations while preserving exception class and event order. Pinned source: starlette/concurrency.py:14-18; starlette/exceptions.py:33-39; docs/release-notes.md:819-821.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.run_until_first_complete.kwargs-mapping",
+              "dimension": "boundary",
+              "description": "Expand input callback keyword arguments from a mapping-compatible value, including MappingProxyType. Pinned source: starlette/concurrency.py:28-29.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.run_until_first_complete.child-exception-propagation",
+              "dimension": "error_path",
+              "description": "Propagate an input-defined child exception while cancelling a peer blocked on an unset input event and finalizing entered callbacks. Pinned source: starlette/concurrency.py:20-27.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.run_until_first_complete.external-cancellation-finalization",
+              "dimension": "boundary",
+              "description": "Propagate external cancellation from the caller while finalizing callbacks blocked on input-defined events. Pinned source: starlette/concurrency.py:20-27; tests/test_concurrency.py:13-28.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "The deprecated task-group helper is outside the active benchmark workloads."
+          }
+        },
         {
           "id": "run_in_threadpool",
           "kind": "value_operation",

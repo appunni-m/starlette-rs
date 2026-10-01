@@ -446,6 +446,27 @@ def _normalization_steps(normalization: dict[str, Any]) -> list[dict[str, Any]]:
     return [normalization]
 
 
+def _normalize_anyio_cancel_scope_message(value: Any) -> Any:
+    """Keep cancellation type and event order while dropping AnyIO scope/task IDs."""
+    if isinstance(value, list):
+        return [_normalize_anyio_cancel_scope_message(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+
+    normalized = {key: _normalize_anyio_cancel_scope_message(item) for key, item in value.items()}
+    exception = value.get("exception")
+    if (
+        isinstance(exception, dict)
+        and exception.get("class") == "asyncio.exceptions.CancelledError"
+        and isinstance(normalized.get("exception"), dict)
+        and "message" in normalized["exception"]
+    ):
+        normalized_exception = dict(normalized["exception"])
+        normalized_exception["message"] = "<AnyIO cancellation details>"
+        normalized["exception"] = normalized_exception
+    return normalized
+
+
 _MULTIPART_RANGE_CONTENT_TYPE = re.compile(
     rb"multipart/byteranges;\s*boundary=([0-9a-f]{26})", re.IGNORECASE
 )
@@ -912,6 +933,17 @@ def compare_workflows(
                             side="target",
                             observation_path=path,
                         )
+                    elif kind == "anyio-cancel-scope-message":
+                        if (
+                            case.get("surface") != "starlette.concurrency"
+                            or case.get("operation") != "run_until_first_complete"
+                            or path != "event_trace"
+                        ):
+                            raise ContractError(
+                                "AnyIO cancellation-message normalization is only allowed for run_until_first_complete event traces"
+                            )
+                        left_field = _normalize_anyio_cancel_scope_message(left_field)
+                        right_field = _normalize_anyio_cancel_scope_message(right_field)
                     else:
                         raise ContractError(
                             f"unsupported normalization for {path}: {normalization_step!r}"

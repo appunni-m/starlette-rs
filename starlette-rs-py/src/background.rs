@@ -6,9 +6,11 @@
 //! remain in Rust.
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyRuntimeError, PyStopAsyncIteration, PyStopIteration, PyTypeError};
+use pyo3::exceptions::{
+    PyRuntimeError, PyStopAsyncIteration, PyStopIteration, PyTypeError, PyValueError,
+};
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyDict, PyList, PyModule, PyTuple};
+use pyo3::types::{PyBool, PyDict, PyList, PyMapping, PyModule, PyTuple};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -194,6 +196,23 @@ fn run_in_threadpool(
     )
 }
 
+/// Run concurrent Python callbacks until the first callback completes.
+///
+/// Rust owns the task-group continuation and cancellation decision. AnyIO
+/// continues to own backend-specific task scheduling on the caller's loop.
+#[pyfunction]
+#[pyo3(signature = (*args))]
+fn run_until_first_complete(py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<Py<PyAny>> {
+    into_python_awaitable(
+        py,
+        RunUntilFirstComplete {
+            args: args.clone().unbind(),
+            task_group: None,
+            pending: None,
+        },
+    )
+}
+
 /// Return a Rust-owned async iterator that advances a synchronous Python
 /// iterator in AnyIO's worker pool.
 #[pyfunction]
@@ -219,8 +238,39 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyBackgroundTasks>()?;
     module.add_class::<PyThreadpoolAsyncIterator>()?;
     module.add_function(wrap_pyfunction!(run_in_threadpool, module)?)?;
+    module.add_class::<PyRunUntilFirstCompleteTask>()?;
+    module.add_function(wrap_pyfunction!(run_until_first_complete, module)?)?;
     module.add_function(wrap_pyfunction!(iterate_in_threadpool, module)?)?;
     Ok(())
+}
+
+#[pyclass(name = "_RunUntilFirstCompleteTask", unsendable)]
+struct PyRunUntilFirstCompleteTask {
+    func: Py<PyAny>,
+    cancel_scope: Py<PyAny>,
+}
+
+#[pymethods]
+impl PyRunUntilFirstCompleteTask {
+    fn __call__(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let task = slf.borrow(py);
+        let machine = RunUntilFirstCompleteTaskCall {
+            func: task.func.clone_ref(py),
+            cancel_scope: task.cancel_scope.clone_ref(py),
+        };
+        drop(task);
+        into_python_awaitable(py, machine)
+    }
+
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.func)?;
+        visit.call(&self.cancel_scope)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.func = py.None();
+        self.cancel_scope = py.None();
+    }
 }
 
 #[pyclass(name = "ThreadpoolAsyncIterator", unsendable)]
@@ -700,6 +750,189 @@ struct ThreadpoolCall {
     func: Py<PyAny>,
     args: Py<PyAny>,
     kwargs: Py<PyAny>,
+}
+
+enum RunUntilFirstCompletePending {
+    TaskGroupEnter,
+    TaskGroupExit { body_error: Option<PyErr> },
+}
+
+const RUN_UNTIL_FIRST_COMPLETE_WARNING: &str =
+    "run_until_first_complete is deprecated and will be removed in a future version.";
+
+struct RunUntilFirstComplete {
+    args: Py<PyTuple>,
+    task_group: Option<Py<PyAny>>,
+    pending: Option<RunUntilFirstCompletePending>,
+}
+
+impl RunUntilFirstComplete {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        warn_run_until_first_complete_deprecated(py)?;
+        let task_group = py.import("anyio")?.getattr("create_task_group")?.call0()?;
+        let awaitable = task_group.call_method0("__aenter__")?;
+        self.task_group = Some(task_group.unbind());
+        self.pending = Some(RunUntilFirstCompletePending::TaskGroupEnter);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn start_tasks(&self, py: Python<'_>) -> PyResult<()> {
+        let task_group = self.task_group_ref(py)?;
+        let cancel_scope = task_group.getattr("cancel_scope")?;
+        let builtins = py.import("builtins")?;
+        let tuple = builtins.getattr("tuple")?;
+        let partial = py.import("functools")?.getattr("partial")?;
+
+        for pair_value in self.args.bind(py).try_iter()? {
+            let pair = tuple.call1((pair_value?,))?;
+            let pair = pair.cast::<PyTuple>()?;
+            if pair.len() != 2 {
+                let message = if pair.len() < 2 {
+                    format!(
+                        "not enough values to unpack (expected 2, got {})",
+                        pair.len()
+                    )
+                } else {
+                    String::from("too many values to unpack (expected 2)")
+                };
+                return Err(PyValueError::new_err(message));
+            }
+
+            let func = pair.get_item(0)?;
+            let kwargs = pair.get_item(1)?;
+            let kwargs_mapping = kwargs.cast::<PyMapping>()?;
+            let kwargs_dict = PyDict::new(py);
+            kwargs_dict.update(kwargs_mapping)?;
+            let func = partial.call((func,), Some(&kwargs_dict))?.unbind();
+            let task = Py::new(
+                py,
+                PyRunUntilFirstCompleteTask {
+                    func,
+                    cancel_scope: cancel_scope.clone().unbind(),
+                },
+            )?;
+            task_group.call_method1("start_soon", (task,))?;
+        }
+
+        Ok(())
+    }
+
+    fn leave_task_group(
+        &mut self,
+        py: Python<'_>,
+        body_error: Option<PyErr>,
+    ) -> PyResult<MachineAction> {
+        let task_group = self.task_group_ref(py)?;
+        let awaitable = match body_error.as_ref() {
+            Some(error) => {
+                let traceback = error
+                    .traceback(py)
+                    .map_or_else(|| py.None().into_bound(py), Bound::into_any);
+                task_group.call_method1(
+                    "__aexit__",
+                    (error.get_type(py), error.value(py), traceback),
+                )?
+            }
+            None => task_group.call_method1("__aexit__", (py.None(), py.None(), py.None()))?,
+        };
+        self.pending = Some(RunUntilFirstCompletePending::TaskGroupExit { body_error });
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn task_group_ref<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        self.task_group
+            .as_ref()
+            .map(|task_group| task_group.bind(py).clone())
+            .ok_or_else(|| {
+                PyRuntimeError::new_err("run_until_first_complete task group is missing")
+            })
+    }
+
+    fn resume_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        match self.pending.take() {
+            Some(RunUntilFirstCompletePending::TaskGroupEnter) => {
+                self.task_group.take();
+                Err(error)
+            }
+            Some(RunUntilFirstCompletePending::TaskGroupExit { body_error }) => {
+                self.task_group.take();
+                if let Some(body_error) = body_error {
+                    error.set_context(py, Some(body_error));
+                }
+                Err(error)
+            }
+            None => Err(error),
+        }
+    }
+}
+
+impl AwaitableStateMachine for RunUntilFirstComplete {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => self.start(py),
+            MachineResume::Value(value) => match self.pending.take() {
+                Some(RunUntilFirstCompletePending::TaskGroupEnter) => match self.start_tasks(py) {
+                    Ok(()) => self.leave_task_group(py, None),
+                    Err(error) => self.leave_task_group(py, Some(error)),
+                },
+                Some(RunUntilFirstCompletePending::TaskGroupExit { body_error }) => {
+                    self.task_group.take();
+                    match body_error {
+                        Some(error) => {
+                            if value.bind(py).is_truthy()? {
+                                Ok(MachineAction::Complete(py.None()))
+                            } else {
+                                Err(error)
+                            }
+                        }
+                        None => Ok(MachineAction::Complete(py.None())),
+                    }
+                }
+                None => Err(PyRuntimeError::new_err(
+                    "run_until_first_complete resumed without a pending operation",
+                )),
+            },
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                self.resume_error(py, error)
+            }
+        }
+    }
+}
+
+struct RunUntilFirstCompleteTaskCall {
+    func: Py<PyAny>,
+    cancel_scope: Py<PyAny>,
+}
+
+impl AwaitableStateMachine for RunUntilFirstCompleteTaskCall {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start => self
+                .func
+                .bind(py)
+                .call0()
+                .map(Bound::unbind)
+                .map(MachineAction::Await),
+            MachineResume::Value(_) => {
+                self.cancel_scope.bind(py).call_method0("cancel")?;
+                Ok(MachineAction::Complete(py.None()))
+            }
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                Err(error)
+            }
+        }
+    }
+}
+
+fn warn_run_until_first_complete_deprecated(py: Python<'_>) -> PyResult<()> {
+    let category = py
+        .import("starlette.exceptions")?
+        .getattr("StarletteDeprecationWarning")?;
+    // Keep the pinned default stacklevel of 1 at the facade's await call site.
+    py.import("warnings")?
+        .getattr("warn")?
+        .call1((RUN_UNTIL_FIRST_COMPLETE_WARNING, category))?;
+    Ok(())
 }
 
 impl AwaitableStateMachine for ThreadpoolCall {

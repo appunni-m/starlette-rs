@@ -567,11 +567,17 @@ The deprecated `starlette.status` aliases and their replacements are:
 | `HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE` | `HTTP_416_RANGE_NOT_SATISFIABLE` | Emits `StarletteDeprecationWarning` on access |
 | `HTTP_422_UNPROCESSABLE_ENTITY` | `HTTP_422_UNPROCESSABLE_CONTENT` | Emits `StarletteDeprecationWarning` on access |
 
-Other deprecation behavior identified for exact compatibility includes
-`run_until_first_complete`, importing `starlette.middleware.wsgi`, generator
-and async-generator lifespan callables, `TestClient(timeout=...)`, and the
-legacy `httpx` TestClient backend. Preserve category, message, timing, and
-stack level from the pinned source.
+The pinned 1.6.0 source still exposes the deprecated
+`starlette.concurrency.run_until_first_complete` helper. The 0.19.0 release
+notes record its deprecation; its current implementation emits
+`StarletteDeprecationWarning` at `starlette/concurrency.py:17`, and
+`tests/test_concurrency.py::test_run_until_first_complete` still imports and
+exercises first-completion cancellation. Preserve callback completion,
+exception and cancellation propagation, finalization, warning category,
+message, timing, and source location. Other deprecation behavior identified
+for exact compatibility includes importing `starlette.middleware.wsgi`,
+generator and async-generator lifespan callables, `TestClient(timeout=...)`,
+and the legacy `httpx` TestClient backend.
 
 ## Unresolved points carried into implementation
 

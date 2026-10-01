@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import builtins
 import threading
+import warnings
 from collections.abc import Callable
+from types import MappingProxyType
 from typing import Any
 
 
@@ -297,6 +299,168 @@ def run_iterate_in_threadpool_case(
         "observations": [
             {
                 "step_id": "iterate_in_threadpool",
+                "status": "ok",
+                "value": asyncio.run(run()),
+            }
+        ],
+    }
+
+
+def _exception_observation(error: BaseException) -> dict[str, Any]:
+    observation: dict[str, Any] = {
+        "class": f"{type(error).__module__}.{type(error).__qualname__}",
+        "message": str(error),
+    }
+    if isinstance(error, getattr(builtins, "BaseExceptionGroup", ())):
+        observation["exceptions"] = [_exception_observation(item) for item in error.exceptions]
+    return observation
+
+
+def _warning_filename(filename: str) -> str:
+    normalized = filename.replace("\\", "/")
+    if normalized == "starlette/concurrency.py" or normalized.endswith("/starlette/concurrency.py"):
+        return "starlette/concurrency.py"
+    return normalized
+
+
+def run_until_first_complete_case(
+    case: dict[str, Any], run_until_first_complete: Callable[..., Any]
+) -> dict[str, Any]:
+    """Materialize the input-defined event and callback protocol for both Python lanes."""
+    trace: list[dict[str, Any]] = []
+
+    async def run() -> dict[str, Any]:
+        with warnings.catch_warnings(record=True) as recorded_warnings:
+            warnings.simplefilter("always")
+            events = {event_id: asyncio.Event() for event_id in case["events"]}
+
+            async def callback(task_id: str, actions: list[dict[str, Any]]) -> None:
+                trace.append({"actor": task_id, "event": "task-started"})
+                try:
+                    for action in actions:
+                        action_kind = action["action"]
+                        if action_kind == "set-event":
+                            events[action["event_id"]].set()
+                            trace.append(
+                                {
+                                    "actor": task_id,
+                                    "event": "event-set",
+                                    "event_id": action["event_id"],
+                                }
+                            )
+                        elif action_kind == "wait-event":
+                            trace.append(
+                                {
+                                    "actor": task_id,
+                                    "event": "event-wait-started",
+                                    "event_id": action["event_id"],
+                                }
+                            )
+                            await events[action["event_id"]].wait()
+                            trace.append(
+                                {
+                                    "actor": task_id,
+                                    "event": "event-wait-finished",
+                                    "event_id": action["event_id"],
+                                }
+                            )
+                        elif action_kind == "checkpoint":
+                            trace.append({"actor": task_id, "event": "checkpoint-started"})
+                            await asyncio.sleep(0)
+                            trace.append({"actor": task_id, "event": "checkpoint-finished"})
+                        else:
+                            exception_type = getattr(builtins, action["exception_type"])
+                            raise exception_type(action["message"])
+                    trace.append({"actor": task_id, "event": "task-returned"})
+                except asyncio.CancelledError as error:
+                    trace.append(
+                        {
+                            "actor": task_id,
+                            "event": "task-cancelled",
+                            "exception": _exception_observation(error),
+                        }
+                    )
+                    raise
+                except BaseException as error:
+                    trace.append(
+                        {
+                            "actor": task_id,
+                            "event": "task-raised",
+                            "exception": _exception_observation(error),
+                        }
+                    )
+                    raise
+                finally:
+                    trace.append({"actor": task_id, "event": "task-finalized"})
+
+            callbacks = []
+            for task in case["tasks"]:
+                callback_kwargs = {"task_id": task["task_id"], "actions": task["actions"]}
+                if case.get("kwargs_container") == "mappingproxy":
+                    callback_kwargs = MappingProxyType(callback_kwargs)
+                callbacks.append((callback, callback_kwargs))
+            construction_emitted_no_warning = not recorded_warnings
+            return_value: Any = None
+            raised_exception: dict[str, Any] | None = None
+
+            async def invoke() -> Any:
+                external_cancel_event = case.get("external_cancel_after_event_id")
+                if external_cancel_event is None:
+                    return await run_until_first_complete(*callbacks)
+
+                helper_task = asyncio.create_task(run_until_first_complete(*callbacks))
+
+                async def cancel_after_event() -> None:
+                    await events[external_cancel_event].wait()
+                    if not helper_task.done():
+                        trace.append(
+                            {
+                                "actor": "external-driver",
+                                "event": "helper-cancel-requested",
+                                "event_id": external_cancel_event,
+                            }
+                        )
+                        helper_task.cancel()
+
+                cancellation_driver = asyncio.create_task(cancel_after_event())
+                try:
+                    return await helper_task
+                finally:
+                    cancellation_driver.cancel()
+                    await asyncio.gather(cancellation_driver, return_exceptions=True)
+
+            try:
+                return_value = await invoke()
+            except BaseException as error:
+                raised_exception = _exception_observation(error)
+
+            warnings_observed = [
+                {
+                    "category": f"{item.category.__module__}.{item.category.__qualname__}",
+                    "message": str(item.message),
+                    "filename": _warning_filename(item.filename),
+                    "line": item.lineno,
+                }
+                for item in recorded_warnings
+            ]
+            return {
+                "event_trace": trace,
+                "event_states": [
+                    {"event_id": event_id, "is_set": event.is_set()}
+                    for event_id, event in events.items()
+                ],
+                "warnings": warnings_observed,
+                "construction_emitted_no_warning": construction_emitted_no_warning,
+                "return_value": _json_safe(return_value),
+                "raised_exception": raised_exception,
+            }
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "run_until_first_complete",
                 "status": "ok",
                 "value": asyncio.run(run()),
             }
