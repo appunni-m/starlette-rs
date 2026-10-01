@@ -11,6 +11,30 @@ from starlette_rs_py import _core
 Secret = _core.Secret
 
 
+class CommaSeparatedStrings(Sequence[str]):
+    """A sequence parsed from a comma-separated string by Rust."""
+
+    __slots__ = ("_inner",)
+
+    def __init__(self, value: str | Sequence[str]) -> None:
+        self._inner = _core.CommaSeparatedStrings(value)
+
+    def __getitem__(self, index: int | slice) -> Any:
+        return self._inner[index]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._inner)
+
+    def __len__(self) -> int:
+        return len(self._inner)
+
+    def __repr__(self) -> str:
+        return self._inner._repr_for_class(self.__class__.__name__)
+
+    def __str__(self) -> str:
+        return str(self._inner)
+
+
 class Headers(Mapping[str, str]):
     """Immutable ordered HTTP headers backed by Rust-owned semantics."""
 

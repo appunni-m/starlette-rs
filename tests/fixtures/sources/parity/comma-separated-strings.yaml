@@ -1,0 +1,189 @@
+{
+  "schema": "migration-parity/parity-input@22",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.CommaSeparatedStrings.consumer-sequence.test-csv",
+      "surface": "starlette.datastructures.CommaSeparatedStrings",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.CommaSeparatedStrings.constructor-string",
+        "starlette.datastructures.CommaSeparatedStrings.constructor-sequence",
+        "starlette.datastructures.CommaSeparatedStrings.sequence-observations",
+        "starlette.datastructures.CommaSeparatedStrings.string-and-repr"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "kind": "string",
+          "value": "\"localhost\", \"127.0.0.1\", 0.0.0.0"
+        },
+        {
+          "kind": "string",
+          "value": "'localhost', '127.0.0.1', 0.0.0.0"
+        },
+        {
+          "kind": "string",
+          "value": "localhost, 127.0.0.1, 0.0.0.0"
+        },
+        {
+          "kind": "sequence",
+          "items": [
+            "localhost",
+            "127.0.0.1",
+            "0.0.0.0"
+          ]
+        }
+      ],
+      "index_probes": [
+        0,
+        -1
+      ],
+      "observations": [
+        "snapshot"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.CommaSeparatedStrings.consumer-sequence.shlex-edges",
+      "surface": "starlette.datastructures.CommaSeparatedStrings",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.CommaSeparatedStrings.constructor-string",
+        "starlette.datastructures.CommaSeparatedStrings.sequence-observations",
+        "starlette.datastructures.CommaSeparatedStrings.string-and-repr",
+        "starlette.datastructures.CommaSeparatedStrings.shlex-quoting-comments-empty-fields"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "kind": "shlex-edge-string",
+          "value": "left\\,right, tail"
+        },
+        {
+          "kind": "shlex-edge-string",
+          "value": "\"left\\\"right\", tail"
+        },
+        {
+          "kind": "shlex-edge-string",
+          "value": "first\nsecond, tail"
+        },
+        {
+          "kind": "shlex-edge-string",
+          "value": "first, # ignored, discarded\nlast"
+        },
+        {
+          "kind": "shlex-edge-string",
+          "value": "\"\", '', value"
+        },
+        {
+          "kind": "shlex-edge-string",
+          "value": "a'bc',\"de\"f,  padded  "
+        }
+      ],
+      "index_probes": [
+        0,
+        -1
+      ],
+      "observations": [
+        "snapshot"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.CommaSeparatedStrings.consumer-sequence.unicode-repr",
+      "surface": "starlette.datastructures.CommaSeparatedStrings",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.CommaSeparatedStrings.constructor-string",
+        "starlette.datastructures.CommaSeparatedStrings.sequence-observations",
+        "starlette.datastructures.CommaSeparatedStrings.string-and-repr",
+        "starlette.datastructures.CommaSeparatedStrings.python-unicode-repr-categories"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "kind": "unicode-repr-string",
+          "value": "café, 雪, \u200b, \u0378, \udb40\udc01, line\nbreak"
+        }
+      ],
+      "index_probes": [
+        0,
+        -1
+      ],
+      "observations": [
+        "snapshot"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.CommaSeparatedStrings.consumer-sequence.sequence-subclass",
+      "surface": "starlette.datastructures.CommaSeparatedStrings",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.CommaSeparatedStrings.constructor-sequence",
+        "starlette.datastructures.CommaSeparatedStrings.sequence-observations",
+        "starlette.datastructures.CommaSeparatedStrings.string-and-repr",
+        "starlette.datastructures.CommaSeparatedStrings.python-string-subclass-sequence-values"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "kind": "sequence-subclass",
+          "items": [
+            "alpha",
+            "beta"
+          ],
+          "repr_suffixes": [
+            "left",
+            "right"
+          ]
+        }
+      ],
+      "index_probes": [
+        0,
+        -1
+      ],
+      "observations": [
+        "snapshot"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.CommaSeparatedStrings.consumer-sequence.malformed-inputs",
+      "surface": "starlette.datastructures.CommaSeparatedStrings",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.CommaSeparatedStrings.shlex-malformed-input-errors"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "kind": "malformed-string",
+          "value": "unfinished 'quote"
+        },
+        {
+          "kind": "malformed-string",
+          "value": "trailing \\"
+        }
+      ],
+      "index_probes": [],
+      "observations": [
+        "snapshot"
+      ]
+    }
+  ]
+}

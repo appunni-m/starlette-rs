@@ -16,6 +16,7 @@ use sha2 as _;
 
 mod application;
 mod asgi;
+mod comma_separated_strings;
 mod connection;
 mod exception_handlers;
 mod file_response;
@@ -40,6 +41,7 @@ pub use application::{
     ApplicationCallError, ApplicationError, ApplicationRoute, DispatchResult, HttpScope, Starlette,
 };
 pub use asgi::{AsgiScopeKind, classify_scope};
+pub use comma_separated_strings::{CommaSeparatedStrings, CommaSeparatedStringsParseError};
 pub use connection::{ConnectionUrlError, connection_url};
 pub use exception_handlers::ExceptionHandlerTable;
 pub use file_response::{

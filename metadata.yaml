@@ -166,6 +166,16 @@
       ]
     },
     {
+      "surface_id": "starlette.datastructures.CommaSeparatedStrings",
+      "source_path": "starlette/datastructures.py:225",
+      "operations": [
+        {
+          "operation_id": "consumer-sequence",
+          "source_path": "starlette.datastructures.CommaSeparatedStrings.__init__, CommaSeparatedStrings.__iter__, __getitem__, __len__, __repr__, and __str__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.datastructures.URL",
       "source_path": "starlette/datastructures.py:28",
       "operations": [

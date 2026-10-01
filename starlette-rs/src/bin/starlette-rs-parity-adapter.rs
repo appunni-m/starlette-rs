@@ -32,16 +32,18 @@ use serde_json::{Map, Number, Value, json};
 use sha1 as _;
 use sha2::{Digest, Sha256};
 use starlette_rs::{
-    ApplicationRoute, AsgiScopeKind, CookieOptions, Cookies, DEFAULT_EXCLUDED_CONTENT_TYPES,
-    DetailedRouteMatch, FileMetadata, FileResponse as NativeFileResponse, FileResponseCallInput,
-    FileResponseCallStep, FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader,
-    GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState, Mount as NativeMount,
-    MountChild, MountScope, NamedRouteError, NamedRouteTable, PathConverter, PathParameterCapture,
-    QueryParams, RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
+    ApplicationRoute, AsgiScopeKind, CommaSeparatedStrings, CookieOptions, Cookies,
+    DEFAULT_EXCLUDED_CONTENT_TYPES, DetailedRouteMatch, FileMetadata,
+    FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
+    FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader, GzipResponseStart, HostPattern,
+    HttpScope, LifespanAction, LifespanState, Mount as NativeMount, MountChild, MountScope,
+    NamedRouteError, NamedRouteTable, PathConverter, PathParameterCapture, QueryParams,
+    RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
     Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
     StaticFilesResponse, StreamingResponse, StreamingResponseEvent, WebSocketState,
     WebSocketStateMachine, classify_scope, connection_url,
 };
+use unicode_general_category as _;
 
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
 const RESPONSE_SCHEMA: &str = "migration-parity/adapter-response@1";
@@ -57,6 +59,8 @@ const STATIC_FILES_LOOKUP_PATH_OPERATION: &str = "lookup-path";
 const RESPONSE_OPERATION: &str = "asgi-call";
 const QUERY_PARAMS_SURFACE: &str = "starlette.datastructures.QueryParams";
 const QUERY_PARAMS_OPERATION: &str = "construction-and-mapping-sequence";
+const COMMA_SEPARATED_STRINGS_SURFACE: &str = "starlette.datastructures.CommaSeparatedStrings";
+const COMMA_SEPARATED_STRINGS_OPERATION: &str = "consumer-sequence";
 const HOST_SURFACE: &str = "starlette.routing.Host";
 const HOST_URL_PATH_OPERATION: &str = "url_path_for";
 const ROUTER_URL_PATH_OPERATION: &str = "url_path_for";
@@ -433,6 +437,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         (Some(QUERY_PARAMS_SURFACE), Some(QUERY_PARAMS_OPERATION)) => {
             return run_query_params_case(case);
         }
+        (Some(COMMA_SEPARATED_STRINGS_SURFACE), Some(COMMA_SEPARATED_STRINGS_OPERATION)) => {
+            return run_comma_separated_strings_case(case);
+        }
         (Some("starlette.applications.Starlette"), Some("__call__")) => {}
         _ => return Err(String::from("workflow surface or operation is unsupported")),
     }
@@ -515,6 +522,138 @@ fn run_query_params_case(case: &Value) -> Result<Value, String> {
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [{"step_id": "snapshot", "status": "ok", "value": {"snapshot": snapshot}}],
+    }))
+}
+
+fn run_comma_separated_strings_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "inputs",
+            "index_probes",
+            "observations",
+        ],
+        "CommaSeparatedStrings case",
+    )?;
+    if string_field(case, "surface", "CommaSeparatedStrings case")?
+        != COMMA_SEPARATED_STRINGS_SURFACE
+        || string_field(case, "operation", "CommaSeparatedStrings case")?
+            != COMMA_SEPARATED_STRINGS_OPERATION
+    {
+        return Err(String::from(
+            "CommaSeparatedStrings surface or operation is unsupported",
+        ));
+    }
+
+    let inputs = case
+        .get("inputs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("CommaSeparatedStrings inputs must be an array"))?;
+    let index_probes = case
+        .get("index_probes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("CommaSeparatedStrings index_probes must be an array"))?;
+    let mut instances = Vec::with_capacity(inputs.len());
+    for (input_number, input) in inputs.iter().enumerate() {
+        let input = input.as_object().ok_or_else(|| {
+            format!("CommaSeparatedStrings inputs[{input_number}] must be an object")
+        })?;
+        let kind = input.get("kind").and_then(Value::as_str).ok_or_else(|| {
+            format!("CommaSeparatedStrings inputs[{input_number}].kind must be a string")
+        })?;
+        if kind == "sequence-subclass" {
+            return Err(String::from(
+                "Python string-subclass inputs apply only to the Python-package target",
+            ));
+        }
+        let value = match kind {
+            "string" | "shlex-edge-string" | "unicode-repr-string" | "malformed-string" => {
+                let input_value = Value::Object(input.clone());
+                let input = exact_object(
+                    &input_value,
+                    &["kind", "value"],
+                    "CommaSeparatedStrings string input",
+                )?;
+                CommaSeparatedStrings::parse(string_field(
+                    input,
+                    "value",
+                    "CommaSeparatedStrings string input",
+                )?)
+            }
+            "sequence" => {
+                let input_value = Value::Object(input.clone());
+                let input = exact_object(
+                    &input_value,
+                    &["kind", "items"],
+                    "CommaSeparatedStrings sequence input",
+                )?;
+                let items = input
+                    .get("items")
+                    .and_then(Value::as_array)
+                    .ok_or_else(|| String::from("CommaSeparatedStrings items must be an array"))?
+                    .iter()
+                    .enumerate()
+                    .map(|(item_number, item)| {
+                        item.as_str().map(str::to_owned).ok_or_else(|| {
+                            format!("CommaSeparatedStrings items[{item_number}] must be a string")
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(CommaSeparatedStrings::from_items(items))
+            }
+            _ => {
+                return Err(String::from(
+                    "CommaSeparatedStrings input kind is unsupported",
+                ));
+            }
+        };
+        match value {
+            Err(error) => instances.push(json!({
+                "kind": kind,
+                "error": {"message": error.to_string()},
+            })),
+            Ok(value) => {
+                let mut indexed = Vec::with_capacity(index_probes.len());
+                for (probe_number, raw_index) in index_probes.iter().enumerate() {
+                    let index = raw_index
+                        .as_i64()
+                        .and_then(|index| isize::try_from(index).ok())
+                        .ok_or_else(|| {
+                            format!(
+                                "CommaSeparatedStrings index_probes[{probe_number}] must fit a signed platform index"
+                            )
+                        })?;
+                    let item = value.get(index).ok_or_else(|| {
+                        format!("CommaSeparatedStrings index probe {index} is out of range")
+                    })?;
+                    indexed.push(json!({"index": index, "value": item}));
+                }
+                instances.push(json!({
+                    "kind": kind,
+                    "items": value.items(),
+                    "length": value.len(),
+                    "indexed": indexed,
+                    "str": value.as_string(),
+                    "repr": value.repr("CommaSeparatedStrings"),
+                }));
+            }
+        }
+    }
+
+    Ok(json!({
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{
+            "step_id": "snapshot",
+            "status": "ok",
+            "value": {"snapshot": {"instances": instances}},
+        }],
     }))
 }
 

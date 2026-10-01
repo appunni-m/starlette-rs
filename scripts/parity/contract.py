@@ -477,6 +477,20 @@ QUERY_PARAMS_OPERATION = (
     "starlette.datastructures.QueryParams",
     "construction-and-mapping-sequence",
 )
+COMMA_SEPARATED_STRINGS_OPERATION = (
+    "starlette.datastructures.CommaSeparatedStrings",
+    "consumer-sequence",
+)
+COMMA_SEPARATED_STRINGS_REQUIREMENTS = {
+    "constructor_string": "starlette.datastructures.CommaSeparatedStrings.constructor-string",
+    "constructor_sequence": "starlette.datastructures.CommaSeparatedStrings.constructor-sequence",
+    "sequence_observations": "starlette.datastructures.CommaSeparatedStrings.sequence-observations",
+    "string_and_repr": "starlette.datastructures.CommaSeparatedStrings.string-and-repr",
+    "shlex_edges": "starlette.datastructures.CommaSeparatedStrings.shlex-quoting-comments-empty-fields",
+    "malformed": "starlette.datastructures.CommaSeparatedStrings.shlex-malformed-input-errors",
+    "unicode_repr": "starlette.datastructures.CommaSeparatedStrings.python-unicode-repr-categories",
+    "string_subclass": "starlette.datastructures.CommaSeparatedStrings.python-string-subclass-sequence-values",
+}
 FORM_DATA_MULTIDICT_LOOKUPS_OPERATION = (
     "starlette.datastructures.FormData",
     "multidict-lookups",
@@ -1806,6 +1820,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key in VALUE_FORMATTING_OPERATIONS
                 or key in RUST_OWNED_PYTHON_OPERATIONS
                 or key == QUERY_PARAMS_OPERATION
+                or key == COMMA_SEPARATED_STRINGS_OPERATION
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_CLIENT_OPERATION
                 or key == REQUEST_SCOPE_MAPPING_OPERATION
@@ -10425,6 +10440,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == QUERY_PARAMS_OPERATION
     )
+    is_comma_separated_strings = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == COMMA_SEPARATED_STRINGS_OPERATION
+    )
     is_authentication = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) in AUTHENTICATION_OPERATIONS
@@ -10746,6 +10765,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             "probe_keys",
             "comparison",
         }
+    elif is_comma_separated_strings:
+        expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+            "inputs",
+            "index_probes",
+        }
     elif is_authentication:
         input_key = {
             ("starlette.authentication", "value-operations"): "actions",
@@ -10879,6 +10903,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_query_params:
         if (case["surface"], case["operation"]) != QUERY_PARAMS_OPERATION:
             raise ContractError("QueryParams cases must use the declared constructor operation")
+    elif is_comma_separated_strings:
+        if (case["surface"], case["operation"]) != COMMA_SEPARATED_STRINGS_OPERATION:
+            raise ContractError(
+                "CommaSeparatedStrings cases must use the declared consumer operation"
+            )
     elif is_authentication:
         if (case["surface"], case["operation"]) not in AUTHENTICATION_OPERATIONS:
             raise ContractError("authentication cases must use a declared public operation")
@@ -11180,6 +11209,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_query_params:
         _validate_query_params_case(case)
+        return case
+    if is_comma_separated_strings:
+        _validate_comma_separated_strings_case(case)
         return case
     if is_authentication:
         _validate_authentication_case(case)
@@ -17019,6 +17051,109 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
     probe_keys = case["probe_keys"]
     if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
         raise ContractError("QueryParams probe_keys must contain strings")
+
+
+def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:
+    inputs = case["inputs"]
+    if not isinstance(inputs, list) or not inputs:
+        raise ContractError("CommaSeparatedStrings inputs must be a non-empty array")
+
+    kinds = {
+        "string",
+        "shlex-edge-string",
+        "unicode-repr-string",
+        "malformed-string",
+        "sequence",
+        "sequence-subclass",
+    }
+    exercised: set[str] = set()
+    has_valid_input = False
+    has_sequence_subclass = False
+    has_python_error_boundary = False
+    for index, raw_input in enumerate(inputs):
+        context = f"CommaSeparatedStrings inputs[{index}]"
+        if not isinstance(raw_input, dict) or not isinstance(raw_input.get("kind"), str):
+            raise ContractError(f"{context} must select a declared constructor input")
+        kind = raw_input["kind"]
+        if kind not in kinds:
+            raise ContractError(f"{context}.kind is unsupported")
+        if kind in {"string", "shlex-edge-string", "unicode-repr-string", "malformed-string"}:
+            item = _exact(raw_input, {"kind", "value"}, context)
+            _string(item["value"], f"{context}.value")
+            if kind == "malformed-string":
+                has_python_error_boundary = True
+                exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["malformed"])
+            else:
+                has_valid_input = True
+                exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["constructor_string"])
+                if kind == "shlex-edge-string":
+                    exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["shlex_edges"])
+                elif kind == "unicode-repr-string":
+                    unicode_probes = {"\u200b", "\u0378", "\U000e0001"}
+                    if not unicode_probes <= set(item["value"]):
+                        raise ContractError(
+                            f"{context}.value must include the declared format, unassigned, and tag characters"
+                        )
+                    exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["unicode_repr"])
+        elif kind == "sequence":
+            item = _exact(raw_input, {"kind", "items"}, context)
+            sequence_items = item["items"]
+            if not isinstance(sequence_items, list) or any(
+                not isinstance(value, str) for value in sequence_items
+            ):
+                raise ContractError(f"{context}.items must be an array of strings")
+            has_valid_input = True
+            exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["constructor_sequence"])
+        else:
+            item = _exact(raw_input, {"kind", "items", "repr_suffixes"}, context)
+            sequence_items = item["items"]
+            repr_suffixes = item["repr_suffixes"]
+            if (
+                not isinstance(sequence_items, list)
+                or not sequence_items
+                or any(not isinstance(value, str) for value in sequence_items)
+                or not isinstance(repr_suffixes, list)
+                or len(repr_suffixes) != len(sequence_items)
+                or any(not isinstance(value, str) for value in repr_suffixes)
+            ):
+                raise ContractError(
+                    f"{context} must provide matching non-empty string items and repr suffixes"
+                )
+            has_valid_input = True
+            has_sequence_subclass = True
+            exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["constructor_sequence"])
+            exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["string_subclass"])
+
+    index_probes = case["index_probes"]
+    if not isinstance(index_probes, list) or any(type(index) is not int for index in index_probes):
+        raise ContractError("CommaSeparatedStrings index_probes must contain integers")
+    if has_valid_input:
+        if not index_probes:
+            raise ContractError("valid CommaSeparatedStrings inputs require index probes")
+        exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["sequence_observations"])
+        exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["string_and_repr"])
+    elif index_probes:
+        raise ContractError("malformed CommaSeparatedStrings inputs do not select index probes")
+
+    if case["assets"] != [] or case["observations"] != ["snapshot"]:
+        raise ContractError("CommaSeparatedStrings cases use no assets and select snapshot")
+    expected_profiles = (
+        ["python-package-cpython312"]
+        if has_sequence_subclass or has_python_error_boundary
+        else ["rust-native-local", "python-package-cpython312"]
+    )
+    if case["target_profiles"] != expected_profiles:
+        raise ContractError("CommaSeparatedStrings target profiles must match its input boundary")
+    covers = case["covers"]
+    if (
+        not isinstance(covers, list)
+        or any(not isinstance(requirement, str) for requirement in covers)
+        or len(covers) != len(set(covers))
+        or set(covers) != exercised
+    ):
+        raise ContractError(
+            "CommaSeparatedStrings covers must match its constructor inputs and selected observations"
+        )
 
 
 def _validate_authentication_case(case: dict[str, Any]) -> None:

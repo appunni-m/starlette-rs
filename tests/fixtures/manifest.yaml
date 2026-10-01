@@ -290,6 +290,7 @@
       "build/parity/inputs/parity/datastructures-headers.json",
       "build/parity/inputs/parity/datastructures-state.json",
       "build/parity/inputs/parity/query-params.json",
+      "build/parity/inputs/parity/comma-separated-strings.json",
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/lifespan-generators.json",
       "build/parity/inputs/parity/authentication-runtime.json",
@@ -423,7 +424,7 @@
                 }
               }
             ],
-          "result": {
+            "result": {
               "shape": "none",
               "observations": [],
               "error": {
@@ -1974,26 +1975,44 @@
               {
                 "id": "self",
                 "style": "receiver",
-                "value_types": ["handle"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "middleware_class",
                 "style": "positional_or_keyword",
-                "value_types": ["handle"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "args",
                 "style": "variadic_positional",
-                "value_types": ["sequence"],
-                "omission": {"kind": "literal", "value": []}
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
+                }
               },
               {
                 "id": "kwargs",
                 "style": "variadic_keyword",
-                "value_types": ["mapping"],
-                "omission": {"kind": "literal", "value": {}}
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": {}
+                }
               }
             ],
             "result": {
@@ -2001,13 +2020,29 @@
               "observations": [
                 {
                   "path": "workflow_observation",
-                  "value_types": ["record"],
-                  "comparison": {"kind": "exact"}
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 }
               ],
               "error": {
-                "fields": ["class", "kind", "message", "stage", "code", "cause", "suppress_context"],
-                "message": {"mode": "exact", "transforms": [], "reason": null}
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
               }
             }
           },
@@ -2026,7 +2061,9 @@
               "target_id": "python-package",
               "path": "starlette.applications.Starlette.add_middleware",
               "signature": "add_middleware(self, middleware_class, *args, **kwargs) -> None",
-              "support": {"status": "supported"}
+              "support": {
+                "status": "supported"
+              }
             }
           ],
           "requirements": [
@@ -2034,41 +2071,63 @@
               "id": "starlette.applications.Starlette.add_middleware.positional-order-and-cache",
               "dimension": "success_path",
               "description": "Forward positional middleware arguments and preserve Starlette's insertion order while lazily building and reusing one middleware stack for an application. Upstream: starlette/applications.py:55-63,92-96; tests/test_applications.py:465-526.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.applications.Starlette.add_middleware.factory-keyword-arguments",
               "dimension": "success_path",
               "description": "Invoke middleware factory callables with the supplied positional and keyword arguments and preserve registration order. Upstream: starlette/applications.py:92-96; tests/test_applications.py:529-549.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.applications.Starlette.add_middleware.after-start-error",
               "dimension": "error_path",
               "description": "Raise the exact RuntimeError when middleware is added after the application has built its middleware stack. Upstream: starlette/applications.py:103-107; docs/applications.md.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.applications.Starlette.add_middleware.per-application-stack-cache",
               "dimension": "success_path",
               "description": "Build and cache middleware independently for each Starlette application while reusing each application's stack across repeated calls. Upstream: starlette/applications.py:92-107; tests/test_applications.py:465-504.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.applications.Starlette.add_middleware.middleware-boundary-order",
               "dimension": "boundary",
               "description": "Trace user middleware around a handled method-miss response and an unhandled RuntimeError. The 405 response passes through user middleware inside ExceptionMiddleware, while the ServerErrorMiddleware 500 response is sent outside user middleware before the original error propagates. Upstream: starlette/applications.py:63-83; starlette/middleware/errors.py:149-187; starlette/middleware/exceptions.py:47-63; tests/test_applications.py:224-242.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
-            "target_profiles": ["python-package-cpython312"]
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
           },
           "coverage": {
             "applicability": "not_applicable",
@@ -2094,20 +2153,33 @@
               {
                 "id": "self",
                 "style": "receiver",
-                "value_types": ["handle"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "exc_class_or_status_code",
                 "style": "positional_or_keyword",
-                "value_types": ["integer", "handle"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "integer",
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "handler",
                 "style": "positional_or_keyword",
-                "value_types": ["handle"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               }
             ],
             "result": {
@@ -2115,13 +2187,29 @@
               "observations": [
                 {
                   "path": "workflow_observation",
-                  "value_types": ["record"],
-                  "comparison": {"kind": "exact"}
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 }
               ],
               "error": {
-                "fields": ["class", "kind", "message", "stage", "code", "cause", "suppress_context"],
-                "message": {"mode": "exact", "transforms": [], "reason": null}
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
               }
             }
           },
@@ -2140,7 +2228,9 @@
               "target_id": "python-package",
               "path": "starlette.applications.Starlette.add_exception_handler",
               "signature": "add_exception_handler(self, exc_class_or_status_code, handler) -> None",
-              "support": {"status": "supported"}
+              "support": {
+                "status": "supported"
+              }
             }
           ],
           "requirements": [
@@ -2148,13 +2238,19 @@
               "id": "starlette.applications.Starlette.add_exception_handler.registration-and-stack-snapshot",
               "dimension": "boundary",
               "description": "Register exception-class and status-code handlers before dispatch, and register a handler after a separate app has built its middleware stack. Compare handler invocation arguments and trace, response status/headers/body, original exception type/message, and the cached-stack effect. Upstream: starlette/applications.py:77-90,109-114; starlette/middleware/exceptions.py:19-41; tests/test_applications.py; docs/applications.md.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
-            "target_profiles": ["python-package-cpython312"]
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
           },
           "coverage": {
             "applicability": "not_applicable",
@@ -2493,7 +2589,15 @@
                 }
               ],
               "error": {
-                "fields": ["class", "kind", "message", "stage", "code", "cause", "suppress_context"],
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
                 "message": {
                   "mode": "exact",
                   "transforms": [],
@@ -5160,6 +5264,202 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.datastructures.CommaSeparatedStrings",
+      "kind": "type",
+      "source_path": "starlette/datastructures.py:225",
+      "storage_slug": "starlette-datastructures-CommaSeparatedStrings",
+      "operations": [
+        {
+          "id": "consumer-sequence",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.CommaSeparatedStrings.__init__, CommaSeparatedStrings.__iter__, __getitem__, __len__, __repr__, and __str__",
+            "signature": "CommaSeparatedStrings(value: str | Sequence[str]); observe iteration, indexing, length, str(), and repr()",
+            "parameters": [
+              {
+                "id": "value",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "string",
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "index_probes",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "snapshot",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::CommaSeparatedStrings",
+              "signature": "parse, from_items, items, get, len, as_string, and repr",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.CommaSeparatedStrings",
+              "signature": "Sequence[str] constructor, iteration, indexing, len, str, and repr",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.CommaSeparatedStrings.constructor-string",
+              "dimension": "input_family",
+              "description": "Construct from comma-delimited strings and apply the pinned POSIX shell quoting rules. Pinned source: starlette/datastructures.py:225-233; tests/test_datastructures.py::test_csv.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.CommaSeparatedStrings.constructor-sequence",
+              "dimension": "input_family",
+              "description": "Construct from an input sequence and retain its ordered string items. Pinned source: starlette/datastructures.py:231-233; tests/test_datastructures.py::test_csv.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.CommaSeparatedStrings.sequence-observations",
+              "dimension": "protocol_variant",
+              "description": "Observe iteration, length, integer and negative indexing on input-created values. Pinned source: starlette/datastructures.py:235-243; tests/test_datastructures.py::test_csv.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.CommaSeparatedStrings.string-and-repr",
+              "dimension": "format",
+              "description": "Compare the public string and class representation formats from live items. Pinned source: starlette/datastructures.py:244-250; tests/test_datastructures.py::test_csv.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.CommaSeparatedStrings.shlex-quoting-comments-empty-fields",
+              "dimension": "input_family",
+              "description": "Exercise escaped commas and quotes, adjacent quoted/unquoted fragments, embedded newlines, comment markers, empty quoted fields, and post-parse whitespace trimming. Pinned source: starlette/datastructures.py:228-233; tests/test_datastructures.py::test_csv.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.CommaSeparatedStrings.shlex-malformed-input-errors",
+              "dimension": "error_path",
+              "description": "Observe the live errors for unmatched quotes and a trailing escape in the source POSIX shlex parser. Pinned source: starlette/datastructures.py:228-233.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.CommaSeparatedStrings.python-unicode-repr-categories",
+              "dimension": "format",
+              "description": "Compare Python-compatible representations of printable, format, unassigned, and tag characters using Unicode 15.0 category data. Pinned source: starlette/datastructures.py:244-250; CPython 3.12 Unicode database.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.CommaSeparatedStrings.python-string-subclass-sequence-values",
+              "dimension": "boundary",
+              "description": "Preserve input Python str subclass objects through sequence construction and invoke their live __repr__ at the PyO3 representation boundary. Pinned source: starlette/datastructures.py:231-250.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only value comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Comma-separated configuration values are outside the active benchmark workloads."
           }
         }
       ]

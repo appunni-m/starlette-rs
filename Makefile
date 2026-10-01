@@ -140,8 +140,10 @@ test: parity-run ## Run behavioral checks as live source-to-target parity only
 
 benchmark-upstream: contract-check parity-env ## Run 74 correctness-gated Starlette source/package workloads
 	$(PARITY_PYTHON) -m scripts.parity.cli benchmark-upstream
+	$(PARITY_PYTHON) -m scripts.parity.benchmark_evidence --write
 
 docs-check: ## Check local Markdown links without network access
 	$(PYTHON) scripts/check_docs.py
+	$(PARITY_PYTHON) -m scripts.parity.benchmark_evidence --check
 
 ci: lint rustdoc-check check build supply-chain-check source-inventory-check parity-run docs-check ## Run formatting, lint, compilation, supply-chain, source inventory, live parity, and docs gates

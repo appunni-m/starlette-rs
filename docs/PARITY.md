@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 635 input-only cases in 72 indexed files, covering 88 operations and 666 parity requirements. Recent additions include Rust-backed `iterate_in_threadpool` and `run_until_first_complete`, StaticFiles constructor, lazy-configuration, and repeated-call inputs, a three-request CORSMiddleware origin-isolation workflow, 16 Request.cookies inputs for lenient parsing, all active edge/invalid parameter strings, repeated Cookie fields, quoted backslash-plus-LF handling, and Python dict cache/mutation behavior, plus a TestClient cookie-persistence round trip for `test_request_cookies`. The six direct ServerErrorMiddleware cases and three TestClient exception-chain cases also pass live source/package comparisons in the latest run recorded below.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 647 input-only cases in 75 indexed files, covering 91 operations and 682 parity requirements. Recent additions include Rust-backed `CommaSeparatedStrings`, `iterate_in_threadpool`, and `run_until_first_complete`; StaticFiles constructor, lazy-configuration, and repeated-call inputs; a three-request CORSMiddleware origin-isolation workflow; 16 Request.cookies inputs for lenient parsing; all active edge/invalid parameter strings; repeated Cookie fields; quoted backslash-plus-LF handling; Python dict cache/mutation behavior; and a TestClient cookie-persistence round trip for `test_request_cookies`. The latest full-slice result is recorded below.
 
 The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, middleware registration and ordering; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State behavior; direct Request body, stream, JSON, and form consumption; responses and background tasks, including cancellation and post-construction FileResponse assignments; WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, schemas, and one Python-package Jinja2 workflow. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
@@ -10,34 +10,47 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `df0051d6-23e6-4605-b615-7825c01b848a`.
-It ran from `2026-10-01T15:52:29.493Z` to `2026-10-01T15:54:59.381Z` against
+The latest full-slice parity run is `0f291df8-8bd1-4265-9039-965c5022b71d`.
+It ran from `2026-10-01T17:25:58.643Z` to `2026-10-01T17:28:30.373Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-635-case/666-requirement manifest. It selected 815 profile comparisons: 811
+647-case/682-requirement manifest. It selected 830 profile comparisons: 826
 passed, zero failed, zero infrastructure errors, and four Rust-native
 Python-callable rows were `not_run`. The Python-package profile passed all
-633 selected comparisons; Rust-native passed 178 of 182. The four native
-`not_run` rows are synchronous Request endpoint, bound-method endpoint,
-partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
-status 2 because those declared rows remain `not_run`.
+645 selected comparisons; Rust-native passed 181 of 185. All eight selected
+`CommaSeparatedStrings` comparisons passed. The four native `not_run` rows
+are synchronous Request endpoint, bound-method endpoint, partial endpoint,
+and callable-instance ASGI dispatch. `make test` exits with status 2 because
+those declared rows remain `not_run`.
 
 The Rust-native fingerprint was
-`9c667d53c54d3d02ba17c1bcd05b025a7150a32c+source-fnv1a64-2a57c4edf0b8b34f`.
+`7005dbcabab50efa464b4229ac31497c7fd4dd12+source-fnv1a64-7200f9cf1e05b571`.
 The installed package tree SHA-256 was
-`cf5a985e7c8f71e139c82412a7fe614469872537f842f4d03a1e3b3986e704e5`, and the
+`9ffc9a46cef15744f40e0cdf5b19ef373617a1e283d04f8d2e83503dce8526fc`; its
 wheel SHA-256 was
-`dfbf3d76db12274fabce0af6b0abccf7bff08da1cb3ffde97004bfb39982e4f7`. The
+`a6c03a0e899e61eb1dbe1583b38a245e5091cf0d424087cb0996caab99418d3f`. The
 manifest SHA-256 was
-`a123319c1ca1daf9b4587d7e0d7a759040b54d937b638f5b7e395d5289ec9ae5`. All 16
-Request.cookies inputs passed their selected oracle comparisons: the 12
-parameterized edge/invalid strings matched on both profiles, and the
-mutable-cache probe confirmed the package exposes a built-in dict, preserves
-cached identity, and applies the input-defined set and delete operations.
-Strict aggregation remains `not_proven` because the
-full compatibility denominator is incomplete and four Rust-native rows are
-`not_run`.
+`3574e8aa910898b4b6271230dc2ffa74bb8291eaeb8703f1d6c6ceef3ef3c8ea`.
+Strict aggregation remains `not_proven` because the full compatibility
+denominator is incomplete and four Rust-native rows are `not_run`.
 
 ## Input-only cases
+
+### `CommaSeparatedStrings` parser and sequence boundary
+
+[`comma-separated-strings.yaml`](../tests/fixtures/sources/parity/comma-separated-strings.yaml)
+adds five input-only consumer cases sourced from
+`starlette.datastructures.CommaSeparatedStrings` and
+`tests/test_datastructures.py::test_csv`. They compare parsed strings,
+sequence access, `str()` and `repr()` for the upstream CSV examples, POSIX
+shell quoting/comments/empty fields, malformed quotes and escapes, selected
+Unicode printable categories, and Python `str` subclass identity and live
+`__repr__` behavior. The parser and formatter are implemented in Rust; the
+Python facade forwards to the PyO3 value. All eight selected native/package
+comparisons pass in run `0f291df8-8bd1-4265-9039-965c5022b71d`.
+
+Lone-surrogate Python strings remain a documented compatibility gap: PyO3's
+Rust `String` conversion cannot represent them. The scalar-value Unicode cases
+are covered, but this slice does not establish behavior for lone surrogates.
 
 ### Request.cookies parsing and Python mapping boundary
 

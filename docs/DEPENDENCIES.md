@@ -188,6 +188,21 @@ claiming streaming, incremental limit enforcement, or large-file memory parity.
 - [`encoding_rs` 0.8.35 manifest and source](https://docs.rs/crate/encoding_rs/0.8.35)
 - [`futures` 0.3.34 manifest and source](https://docs.rs/crate/futures/0.3.34)
 
+## Rust Unicode representation
+
+| Crate | Locked version | Role | Cargo manifest license / data version |
+| --- | --- | --- | --- |
+| `unicode-general-category` | `0.6.0` | Implements Python `str` printable-category rules for `CommaSeparatedStrings` item representations | Apache-2.0; Unicode 15.0 tables, matching CPython 3.12 |
+
+The exact `=0.6.0` pin is intentional: later releases update the Unicode
+category tables and can change whether a character is printable relative to
+the CPython 3.12 oracle. The runtime dependency path is
+`starlette-rs-py` → `starlette-rs` → `unicode-general-category`; Rust owns the
+category lookup and formatter, while the PyO3 boundary calls Python's built-in
+`repr` only for input `str` subclasses that override their representation. The
+crate declares no Rust MSRV. See [the `unicode-general-category` 0.6.0
+manifest and Unicode table version](https://docs.rs/crate/unicode-general-category/0.6.0).
+
 - Keep Pydantic and FastAPI outside this package.
 - Keep Rust core dependencies separate from Python runtime and build
   dependencies. Pin features and native components explicitly before a crate

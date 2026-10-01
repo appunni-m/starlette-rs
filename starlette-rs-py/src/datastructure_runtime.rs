@@ -13,10 +13,15 @@ use pyo3::exceptions::{
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
+use starlette_rs::CommaSeparatedStrings as NativeCommaSeparatedStrings;
 
 use crate::awaitable::into_python_awaitable;
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PyCommaSeparatedStrings>()?;
+    module
+        .getattr("CommaSeparatedStrings")?
+        .setattr("__module__", "starlette.datastructures")?;
     module.add_class::<PySecret>()?;
     module
         .getattr("Secret")?
@@ -48,6 +53,101 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(state_iter, module)?)?;
     module.add_function(wrap_pyfunction!(state_len, module)?)?;
     Ok(())
+}
+
+/// Python conversion and protocol methods for the Rust-owned value type.
+#[pyclass(name = "CommaSeparatedStrings")]
+pub(crate) struct PyCommaSeparatedStrings {
+    inner: NativeCommaSeparatedStrings,
+    python_items: Option<Vec<Py<PyAny>>>,
+}
+
+#[pymethods]
+impl PyCommaSeparatedStrings {
+    #[new]
+    fn new(value: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let (inner, python_items) = if value.is_instance_of::<PyString>() {
+            let inner = NativeCommaSeparatedStrings::parse(&value.extract::<String>()?)
+                .map_err(|error| PyValueError::new_err(error.to_string()))?;
+            (inner, None)
+        } else {
+            let mut native_items = Vec::new();
+            let mut python_items = Vec::new();
+            for item in value.try_iter()? {
+                let item = item?;
+                native_items.push(item.extract::<String>()?);
+                python_items.push(item.unbind());
+            }
+            (
+                NativeCommaSeparatedStrings::from_items(native_items),
+                Some(python_items),
+            )
+        };
+        Ok(Self {
+            inner,
+            python_items,
+        })
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.len()
+    }
+
+    fn __getitem__(&self, py: Python<'_>, index: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        self.as_python_list(py)?
+            .as_any()
+            .call_method1("__getitem__", (index,))
+            .map(Bound::unbind)
+    }
+
+    fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.as_python_list(py)?
+            .call_method0("__iter__")
+            .map(Bound::unbind)
+    }
+
+    fn __str__(&self, py: Python<'_>) -> PyResult<String> {
+        match &self.python_items {
+            Some(items) => Ok(self
+                .inner
+                .as_string_with_item_reprs(&python_item_reprs(py, items)?)),
+            None => Ok(self.inner.as_string()),
+        }
+    }
+
+    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        self.class_repr(py, "CommaSeparatedStrings")
+    }
+
+    #[pyo3(name = "_repr_for_class")]
+    fn repr_for_class(&self, py: Python<'_>, class_name: &str) -> PyResult<String> {
+        self.class_repr(py, class_name)
+    }
+}
+
+impl PyCommaSeparatedStrings {
+    fn as_python_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+        match &self.python_items {
+            Some(items) => PyList::new(py, items.iter().map(|item| item.clone_ref(py))),
+            None => PyList::new(py, self.inner.items()),
+        }
+    }
+
+    fn class_repr(&self, py: Python<'_>, class_name: &str) -> PyResult<String> {
+        match &self.python_items {
+            Some(items) => Ok(self
+                .inner
+                .repr_with_item_reprs(class_name, &python_item_reprs(py, items)?)),
+            None => Ok(self.inner.repr(class_name)),
+        }
+    }
+}
+
+fn python_item_reprs(py: Python<'_>, items: &[Py<PyAny>]) -> PyResult<Vec<String>> {
+    items
+        .iter()
+        .map(|item| item.bind(py).repr()?.extract::<String>())
+        .collect()
 }
 
 /// Immutable ordered form fields backed by Rust's multi-dict semantics.

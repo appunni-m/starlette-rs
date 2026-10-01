@@ -17,8 +17,10 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 635 input-only cases across 72 files,
-covering 88 operations and 666 parity requirements. It includes a three-request
+The active parity manifest indexes 647 input-only cases across 75 files,
+covering 91 operations and 682 parity requirements. It includes Rust-backed
+`CommaSeparatedStrings` parsing, sequence formatting, quoting, Unicode
+representation, and Python string-subclass boundary inputs; a three-request
 CORSMiddleware origin-isolation sequence and two
 Python-package-only direct `run_in_threadpool` cases, synchronous Request
 endpoint worker cancellation and failure, five async Request endpoint callable
@@ -49,25 +51,29 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `df0051d6-23e6-4605-b615-7825c01b848a`. It ran from
-`2026-10-01T15:52:29.493Z` to `2026-10-01T15:54:59.381Z` and selected 815
-profile comparisons: 811 passed, zero failed, zero infrastructure errors,
+The latest full-slice run is `0f291df8-8bd1-4265-9039-965c5022b71d`. It ran from
+`2026-10-01T17:25:58.643Z` to `2026-10-01T17:28:30.373Z` and selected 830
+profile comparisons: 826 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
-passed all 633 selected comparisons; Rust-native passed 178 of 182. The four
-native `not_run` rows are synchronous Request endpoint, bound-method endpoint,
-partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
-status 2 for those declared Python-callable boundaries. The Rust-native source
-fingerprint was
-`9c667d53c54d3d02ba17c1bcd05b025a7150a32c+source-fnv1a64-2a57c4edf0b8b34f`.
+passed all 645 selected comparisons; Rust-native passed 181 of 185. All eight
+new `CommaSeparatedStrings` comparisons passed. The four native `not_run` rows
+are synchronous Request endpoint, bound-method endpoint, partial endpoint,
+and callable-instance ASGI dispatch. `make test` exits with status 2 for those
+declared Python-callable boundaries. The Rust-native source fingerprint was
+`7005dbcabab50efa464b4229ac31497c7fd4dd12+source-fnv1a64-7200f9cf1e05b571`.
 The installed package tree SHA-256 was
-`cf5a985e7c8f71e139c82412a7fe614469872537f842f4d03a1e3b3986e704e5`, wheel
-SHA-256 `dfbf3d76db12274fabce0af6b0abccf7bff08da1cb3ffde97004bfb39982e4f7`,
+`9ffc9a46cef15744f40e0cdf5b19ef373617a1e283d04f8d2e83503dce8526fc`, wheel
+SHA-256 `a6c03a0e899e61eb1dbe1583b38a245e5091cf0d424087cb0996caab99418d3f`,
 and manifest SHA-256
-`a123319c1ca1daf9b4587d7e0d7a759040b54d937b638f5b7e395d5289ec9ae5`. Full
+`3574e8aa910898b4b6271230dc2ffa74bb8291eaeb8703f1d6c6ceef3ef3c8ea`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
 readiness.
+
+`CommaSeparatedStrings` behavior for lone-surrogate strings remains unverified:
+Rust's UTF-8 `String` cannot hold lone surrogate code points from Python. The
+compatibility package currently fails that input during PyO3 string conversion.
 
 The latest correctness-gated Router/GZip benchmark run,
 `e279f32f-6c93-40e3-a1ae-c50d60293c95`, measured all 74 declared workloads:
@@ -89,8 +95,8 @@ This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 343 existing input
-mappings, 50 reasoned `not_applicable` rows, and 409 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 354 existing input
+mappings, 50 reasoned `not_applicable` rows, and 398 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

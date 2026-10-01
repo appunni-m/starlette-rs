@@ -10830,6 +10830,17 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         "construction-and-mapping-sequence",
     ):
         return _run_query_params_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.datastructures.CommaSeparatedStrings",
+        "consumer-sequence",
+    ):
+        from starlette.datastructures import CommaSeparatedStrings
+
+        from scripts.parity.adapters.comma_separated_strings import (
+            run_comma_separated_strings_case,
+        )
+
+        return run_comma_separated_strings_case(case, CommaSeparatedStrings)
     if (
         isinstance(case, dict)
         and case.get("operation") == VALUE_FORMATTING_OPERATION

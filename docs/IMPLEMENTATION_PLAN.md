@@ -32,8 +32,10 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 635 input-only cases in 72 indexed files,
-covering 88 operations and 666 requirements, including the direct
+The active parity contract contains 647 input-only cases in 75 indexed files,
+covering 91 operations and 682 requirements, including Rust-backed
+`CommaSeparatedStrings` parsing, quoting, sequence formatting, and Python
+string-subclass boundary behavior, the direct
 `starlette.concurrency.run_in_threadpool` helper, synchronous Request endpoint
 worker cancellation and failure, five async Request endpoint callable shapes
 and failure, ASGI callable-instance success and failure, `Starlette.host()` and
@@ -46,18 +48,18 @@ round trip for `test_request_cookies`, including every active
 parameter from the edge-case and malformed-cookie source rows.
 The six direct ServerErrorMiddleware inputs and three TestClient exception-
 chain cases also pass in the latest run. Run
-`df0051d6-23e6-4605-b615-7825c01b848a` selected 815 comparisons: 811 passed,
+`0f291df8-8bd1-4265-9039-965c5022b71d` selected 830 comparisons: 826 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
-Python-callable rows `not_run`. The installed Python package passed 633/633;
-Rust-native passed 178/182. The four native `not_run` rows are synchronous
+Python-callable rows `not_run`. The installed Python package passed 645/645;
+Rust-native passed 181/185. The four native `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for these declared rows. The
 complete run identity, wheel and tree hashes, and case-level evidence are in
 [Migration parity contract and evidence](PARITY.md). This bounded run does not
 establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 802 source rows: 343 input mappings,
-50 source-backed `not_applicable` rows, and 409 fixture-backlog rows. These
+The generated coverage matrix contains 802 source rows: 354 input mappings,
+50 source-backed `not_applicable` rows, and 398 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.
