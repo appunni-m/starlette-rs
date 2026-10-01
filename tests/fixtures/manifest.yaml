@@ -248,6 +248,8 @@
       "build/parity/inputs/parity/asgi-request-cancellation.json",
       "build/parity/inputs/parity/asgi-call-boundary.json",
       "build/parity/inputs/parity/request-runtime.json",
+      "build/parity/inputs/parity/request-client-address.json",
+      "build/parity/inputs/parity/request-scope-interface.json",
       "build/parity/inputs/parity/request-consumption.json",
       "build/parity/inputs/parity/gzip-middleware.json",
       "build/parity/inputs/parity/body-limit-middleware.json",
@@ -11320,6 +11322,194 @@
             "applicability": "not_applicable",
             "reason": "Request body consumption is outside the active Router/GZip benchmark workloads."
           }
+        },
+        {
+          "id": "client",
+          "kind": "property_get",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.HTTPConnection.client",
+            "signature": "@property client(self) -> Address | None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "sequence",
+              "observations": [
+                {
+                  "path": "client-addresses",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python Request.client property.",
+                "blocker": "No native public Request object or Address compatibility value is declared."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.client",
+              "signature": "@property client(self) -> Address | None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.request.client-address",
+              "dimension": "boundary",
+              "description": "For HTTP scopes with a client pair, explicit null, or omitted client key, observe the live Request.client value and its Address host/port fields. Pinned source: starlette/requests.py::HTTPConnection.client; tests/test_requests.py::test_request_client; docs/requests.md:61-67.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "The Python Address compatibility value is outside the Rust-native request primitives."
+          }
+        },
+        {
+          "id": "scope-mapping",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.HTTPConnection.__getitem__, HTTPConnection.__iter__, and HTTPConnection.__len__",
+            "signature": "Request(scope) exposes keyed lookup, iteration, and length over the supplied ASGI scope.",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "scope-mapping",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose a Python Request over an arbitrary mapping scope.",
+                "blocker": "Native request primitives do not retain an arbitrary Python ASGI scope mapping."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request mapping interface",
+              "signature": "Request(scope) provides the Mapping interface for its ASGI scope.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.requests.Request.scope-mapping.minimal-http-scope",
+              "dimension": "boundary",
+              "description": "Preserve the minimal supplied HTTP scope through Request keyed access, mapping conversion, key iteration order, and length. Pinned source: starlette/requests.py::HTTPConnection mapping methods; tests/test_requests.py::test_request_scope_interface; docs/requests.md:5-33.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "The Rust-native API does not expose a Python Request over an arbitrary mapping scope."
+          }
         }
       ]
     },
@@ -18951,6 +19141,72 @@
               "id": "starlette.testclient.TestClient.request-response.starlette-host-method-registration",
               "dimension": "boundary",
               "description": "Register a parameterized Host route through Starlette.host, observe the resulting application.routes entry and child route, then dispatch a matching HTTPS TestClient request and capture the converted child path_params and response events. Upstream: starlette/applications.py:101-102; starlette/routing.py:466-490.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.request-url-string",
+              "dimension": "success_path",
+              "description": "Observe Request.method and str(Request.url) for relative and absolute HTTPX request targets, with live response and ASGI effects. Pinned source: tests/test_requests.py::test_request_url; starlette/requests.py; docs/requests.md:34-41.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.request-url-sequence",
+              "dimension": "protocol_variant",
+              "description": "Issue the relative and absolute URL requests in order through one TestClient instance and compare each live Request URL observation. Pinned source: tests/test_requests.py::test_request_url; starlette/testclient.py:422-452.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.request-query-params-mapping",
+              "dimension": "input_family",
+              "description": "Construct Request from the supplied query string and observe dict(Request.query_params) from the live endpoint response. Pinned source: tests/test_requests.py::test_request_query_params; starlette/requests.py; docs/requests.md:49-53.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.request-headers-mapping",
+              "dimension": "input_family",
+              "description": "Observe dict(Request.headers) for a supplied Host override and the live TestClient default headers. Pinned source: tests/test_requests.py::test_request_headers; starlette/requests.py; docs/requests.md:43-47.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.request-raw-path-scope-preservation",
+              "dimension": "boundary",
+              "description": "Observe the decoded ASGI scope path and original percent-encoded raw_path bytes through Request.scope. Pinned source: tests/test_requests.py::test_request_raw_path; starlette/requests.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.request-json-failure-without-receive",
+              "dimension": "error_path",
+              "description": "Construct Request without the app receive callback, call json(), and observe the live caught RuntimeError through the response and ASGI events. Pinned source: tests/test_requests.py::test_request_without_setting_receive; starlette/requests.py.",
               "lanes": [
                 "parity"
               ],

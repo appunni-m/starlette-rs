@@ -406,6 +406,14 @@
         {
           "operation_id": "body-stream-json",
           "source_path": "starlette.requests.Request.body, Request.stream, and Request.json"
+        },
+        {
+          "operation_id": "client",
+          "source_path": "starlette.requests.HTTPConnection.client"
+        },
+        {
+          "operation_id": "scope-mapping",
+          "source_path": "starlette.requests.HTTPConnection.__getitem__, HTTPConnection.__iter__, and HTTPConnection.__len__"
         }
       ]
     },

@@ -349,6 +349,43 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await response(scope, receive, observed_send)
 
+    elif app_input["kind"] == "request-observer":
+        from starlette.requests import Request
+        from starlette.responses import JSONResponse, PlainTextResponse
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            probe = app_input["probe"]
+            if probe == "url":
+                request = Request(scope, receive)
+                response = JSONResponse({"method": request.method, "url": str(request.url)})
+            elif probe == "query-params-mapping":
+                request = Request(scope, receive)
+                response = JSONResponse({"params": dict(request.query_params)})
+            elif probe == "headers-mapping":
+                request = Request(scope, receive)
+                response = JSONResponse({"headers": dict(request.headers)})
+            elif probe == "raw-path":
+                request = Request(scope, receive)
+                response = PlainTextResponse(
+                    f"{request.scope['path']}, {request.scope['raw_path']}"
+                )
+            elif probe == "json-without-receive":
+                request = Request(scope)
+                try:
+                    value = await request.json()
+                except RuntimeError as error:
+                    value = str(error)
+                response = JSONResponse({"json": value})
+            else:
+                raise ValueError(f"unsupported Request observer probe: {probe}")
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await response(scope, receive, observed_send)
+
     elif app_input["kind"] == "asgi2":
 
         def app(scope: dict[str, Any]) -> Any:

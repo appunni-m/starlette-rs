@@ -1,0 +1,25 @@
+{
+  "schema": "migration-parity/parity-input@22",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.scope-mapping.minimal-http-scope",
+      "surface": "starlette.requests.Request",
+      "operation": "scope-mapping",
+      "covers": [
+        "starlette.requests.Request.scope-mapping.minimal-http-scope"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/abc/"
+      },
+      "observations": [
+        "scope-mapping"
+      ]
+    }
+  ]
+}

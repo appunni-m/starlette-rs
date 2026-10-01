@@ -195,6 +195,14 @@ TESTCLIENT_REQUIREMENTS = {
     "starlette_host_routing": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-routing",
     "starlette_host_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-method-registration",
 }
+TESTCLIENT_REQUEST_REQUIREMENTS = {
+    "url_string": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-url-string",
+    "url_sequence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-url-sequence",
+    "query_mapping": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-query-params-mapping",
+    "headers_mapping": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-headers-mapping",
+    "raw_path": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-raw-path-scope-preservation",
+    "json_without_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-json-failure-without-receive",
+}
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
     "managed_request": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.managed-request-portal-reuse",
@@ -297,6 +305,10 @@ VALUE_FORMATTING_OPERATIONS = {
     (MIDDLEWARE_CONFIG_SURFACE, VALUE_FORMATTING_OPERATION),
 }
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
+REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
+REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
+REQUEST_CLIENT_REQUIREMENT = "starlette.request.client-address"
+REQUEST_SCOPE_MAPPING_REQUIREMENT = "starlette.requests.Request.scope-mapping.minimal-http-scope"
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
@@ -1795,6 +1807,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key in RUST_OWNED_PYTHON_OPERATIONS
                 or key == QUERY_PARAMS_OPERATION
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
+                or key == REQUEST_CLIENT_OPERATION
+                or key == REQUEST_SCOPE_MAPPING_OPERATION
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
                 or key == REQUEST_BODY_STREAM_JSON_OPERATION
@@ -2005,6 +2019,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) in RUST_OWNED_PYTHON_OPERATIONS
                         or (surface["id"], operation["id"]) in AUTHENTICATION_OPERATIONS
                         or (surface["id"], operation["id"]) == REQUEST_DEFAULT_RECEIVE_OPERATION
+                        or (surface["id"], operation["id"]) == REQUEST_CLIENT_OPERATION
+                        or (surface["id"], operation["id"]) == REQUEST_SCOPE_MAPPING_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_SEND_PUSH_PROMISE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_IS_DISCONNECTED_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_FORM_OPERATION
@@ -8555,6 +8571,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     }
     is_router_mounted_response = app_kind == "router-mounted-response"
     is_cookie_round_trip = app_kind == "request-cookie-round-trip"
+    is_request_observer = app_kind == "request-observer"
     is_starlette_app_host_route = app_kind == "starlette-app-host-route"
     is_starlette_app_host_method = app_kind == "starlette-app-host-method"
 
@@ -8598,7 +8615,10 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             for index, value in enumerate(case["followup_requests"])
         ]
         if not (
-            is_starlette_app_static_mount or is_router_mounted_response or is_cookie_round_trip
+            is_starlette_app_static_mount
+            or is_router_mounted_response
+            or is_cookie_round_trip
+            or is_request_observer
         ):
             raise ContractError(
                 "TestClient followup_requests require a supported multi-request app input"
@@ -8803,6 +8823,104 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             )
         exception_spec = None
         messages = []
+    elif is_request_observer:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "probe", "scope_fields"},
+            "TestClient Request observer app",
+        )
+        probe = _string(asgi_app["probe"], "TestClient Request observer probe")
+        observer_scope_fields = asgi_app["scope_fields"]
+        if not isinstance(observer_scope_fields, list) or any(
+            not isinstance(field, str) for field in observer_scope_fields
+        ):
+            raise ContractError("TestClient Request observer scope_fields must be strings")
+        requests = [request, *followup_requests]
+        empty_body = all(not base64.b64decode(item["body_base64"]) for item in requests)
+        if probe == "url":
+            if (
+                len(followup_requests) != 1
+                or settings["base_url"] != "http://testserver"
+                or any(
+                    item["method"] != "GET"
+                    or item.get("client_method") != "get"
+                    or item["headers_base64_pairs"]
+                    or base64.b64decode(item["body_base64"])
+                    for item in requests
+                )
+                or request["url"] != "/123?a=abc"
+                or followup_requests[0]["url"] != "https://example.org:123/"
+                or not {
+                    "type",
+                    "method",
+                    "scheme",
+                    "path",
+                    "raw_path",
+                    "query_string",
+                    "server",
+                }
+                <= set(asgi_app["scope_fields"])
+            ):
+                raise ContractError(
+                    "TestClient Request URL input must compare the pinned relative and absolute GET sequence"
+                )
+        elif probe == "query-params-mapping":
+            if (
+                followup_requests
+                or request["method"] != "GET"
+                or request.get("client_method") != "get"
+                or request["url"] != "/?a=123&b=456"
+                or request["headers_base64_pairs"]
+                or not empty_body
+                or not {"method", "path", "query_string"} <= set(asgi_app["scope_fields"])
+            ):
+                raise ContractError(
+                    "TestClient Request query mapping input must use the pinned two-key GET"
+                )
+        elif probe == "headers-mapping":
+            if (
+                followup_requests
+                or request["method"] != "GET"
+                or request.get("client_method") != "get"
+                or request["url"] != "/"
+                or request["headers_base64_pairs"] != [["aG9zdA==", "ZXhhbXBsZS5vcmc="]]
+                or not empty_body
+                or "headers" not in asgi_app["scope_fields"]
+            ):
+                raise ContractError(
+                    "TestClient Request headers mapping input must set the pinned Host header"
+                )
+        elif probe == "raw-path":
+            if (
+                followup_requests
+                or request["method"] != "GET"
+                or request.get("client_method") != "get"
+                or request["url"] != "/he%2Fllo"
+                or request["headers_base64_pairs"]
+                or not empty_body
+                or not {"path", "raw_path"} <= set(asgi_app["scope_fields"])
+            ):
+                raise ContractError(
+                    "TestClient Request raw-path input must use the pinned encoded-slash GET"
+                )
+        elif probe == "json-without-receive":
+            if (
+                followup_requests
+                or request["method"] != "POST"
+                or request.get("client_method") != "post"
+                or request["url"] != "/"
+                or request["headers_base64_pairs"]
+                != [["Y29udGVudC10eXBl", "YXBwbGljYXRpb24vanNvbg=="]]
+                or base64.b64decode(request["body_base64"]) != b'{"a":"123"}'
+                or not {"method", "path", "headers"} <= set(asgi_app["scope_fields"])
+            ):
+                raise ContractError(
+                    "TestClient Request missing-receive input must use the pinned JSON POST"
+                )
+        else:
+            raise ContractError("TestClient Request observer probe is unsupported")
+        exception_spec = None
+        messages = []
     elif is_starlette_app_host_route or is_starlette_app_host_method:
         host_route_fields = {
             "kind",
@@ -8943,6 +9061,19 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["cookie_round_trip"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_request_observer:
+        probe_requirement = {
+            "url": TESTCLIENT_REQUEST_REQUIREMENTS["url_string"],
+            "query-params-mapping": TESTCLIENT_REQUEST_REQUIREMENTS["query_mapping"],
+            "headers-mapping": TESTCLIENT_REQUEST_REQUIREMENTS["headers_mapping"],
+            "raw-path": TESTCLIENT_REQUEST_REQUIREMENTS["raw_path"],
+            "json-without-receive": TESTCLIENT_REQUEST_REQUIREMENTS["json_without_receive"],
+        }[asgi_app["probe"]]
+        expected_covers.add(probe_requirement)
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+        if asgi_app["probe"] == "url":
+            expected_covers.add(TESTCLIENT_REQUEST_REQUIREMENTS["url_sequence"])
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
     if is_starlette_app_host_route:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_host_routing"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["scope"])
@@ -10302,6 +10433,14 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_DEFAULT_RECEIVE_OPERATION
     )
+    is_request_client = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_CLIENT_OPERATION
+    )
+    is_request_scope_mapping = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_SCOPE_MAPPING_OPERATION
+    )
     is_send_push_promise = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_SEND_PUSH_PROMISE_OPERATION
@@ -10423,6 +10562,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_request_form
         else REQUEST_BODY_STREAM_JSON_CASE_KEYS
         if is_request_body_stream_json
+        else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope_cases"}
+        if is_request_client
+        else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
+        if is_request_scope_mapping
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"routes"}
         if is_application_routes
         else SESSION_WORKFLOW_CASE_KEYS
@@ -10481,6 +10624,14 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if case["observations"] != [TESTCLIENT_OPERATION]:
             raise ContractError("TestClient cases must select request-response")
         _validate_testclient_case(case)
+        return case
+    if is_request_client:
+        _exact(case, expected_case_keys, "Request.client case")
+        _validate_request_client_case(case)
+        return case
+    if is_request_scope_mapping:
+        _exact(case, expected_case_keys, "Request scope-mapping case")
+        _validate_request_scope_mapping_case(case)
         return case
     if is_testclient_lifespan:
         _exact(case, expected_case_keys, "case")
@@ -10918,7 +11069,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             if testclient_operation is not None
             else set()
         )
-        if declared_requirements != set(TESTCLIENT_REQUIREMENTS.values()):
+        expected_requirements = set(TESTCLIENT_REQUIREMENTS.values()) | set(
+            TESTCLIENT_REQUEST_REQUIREMENTS.values()
+        )
+        if declared_requirements != expected_requirements:
             raise ContractError(
                 "TestClient request-response must declare its complete requirement set"
             )
@@ -14289,6 +14443,57 @@ def _validate_default_receive_case(case: dict[str, Any]) -> None:
         raise ContractError("Request default-receive input must use an HTTP scope")
     if case["covers"] != ["starlette.request.default-empty-receive-runtime-error"]:
         raise ContractError("default receive case must cover its declared runtime-error behavior")
+
+
+def _validate_request_client_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Request.client parity currently targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["client-addresses"]:
+        raise ContractError("Request.client cases select client-addresses without assets")
+    if not case["case_id"].startswith("starlette.requests.Request.client."):
+        raise ContractError("Request.client case ID must bind to the public client property")
+    scope_cases = case["scope_cases"]
+    if not isinstance(scope_cases, list) or not scope_cases:
+        raise ContractError("Request.client scope_cases must be a non-empty array")
+    scope_ids: set[str] = set()
+    for index, value in enumerate(scope_cases):
+        context = f"Request.client scope_cases[{index}]"
+        scope_case = _exact(value, {"scope_id", "scope"}, context)
+        scope_id = _string(scope_case["scope_id"], f"{context}.scope_id")
+        if not scope_id or scope_id in scope_ids:
+            raise ContractError("Request.client scope IDs must be non-empty and unique")
+        scope_ids.add(scope_id)
+        scope = scope_case["scope"]
+        if not isinstance(scope, dict) or scope.get("type") != "http":
+            raise ContractError(f"{context}.scope must be an HTTP scope record")
+        if frozenset(scope) not in {frozenset({"type"}), frozenset({"type", "client"})}:
+            raise ContractError(f"{context}.scope may supply only type and client")
+        if "client" in scope:
+            client = scope["client"]
+            if client is not None and (
+                not isinstance(client, list)
+                or len(client) != 2
+                or not isinstance(client[0], str)
+                or type(client[1]) is not int
+                or not 0 <= client[1] <= 65535
+            ):
+                raise ContractError(f"{context}.scope.client must be a host/port pair or null")
+    if case["covers"] != [REQUEST_CLIENT_REQUIREMENT]:
+        raise ContractError("Request.client case must cover the client-address requirement")
+
+
+def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Request scope mapping parity targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["scope-mapping"]:
+        raise ContractError("Request scope-mapping cases select scope-mapping without assets")
+    if not case["case_id"].startswith("starlette.requests.Request.scope-mapping."):
+        raise ContractError("Request scope-mapping case ID must bind to the mapping interface")
+    expected_scope = {"type": "http", "method": "GET", "path": "/abc/"}
+    if case["scope"] != expected_scope:
+        raise ContractError("Request scope-mapping input must preserve the pinned minimal scope")
+    if case["covers"] != [REQUEST_SCOPE_MAPPING_REQUIREMENT]:
+        raise ContractError("Request scope-mapping case must cover its canonical requirement")
 
 
 def _validate_send_push_promise_case(case: dict[str, Any]) -> None:

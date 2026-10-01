@@ -1,0 +1,42 @@
+{
+  "schema": "migration-parity/parity-input@22",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.client.source-scopes",
+      "surface": "starlette.requests.Request",
+      "operation": "client",
+      "covers": [
+        "starlette.request.client-address"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope_cases": [
+        {
+          "scope_id": "client-tuple",
+          "scope": {
+            "type": "http",
+            "client": ["client", 42]
+          }
+        },
+        {
+          "scope_id": "client-explicit-null",
+          "scope": {
+            "type": "http",
+            "client": null
+          }
+        },
+        {
+          "scope_id": "client-omitted",
+          "scope": {
+            "type": "http"
+          }
+        }
+      ],
+      "observations": [
+        "client-addresses"
+      ]
+    }
+  ]
+}

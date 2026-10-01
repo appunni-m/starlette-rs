@@ -87,6 +87,8 @@ EXCEPTION_VALUES_SURFACE = "starlette.exceptions"
 MIDDLEWARE_CONFIG_SURFACE = "starlette.middleware.Middleware"
 VALUE_FORMATTING_OPERATION = "value-formatting"
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
+REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
+REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
@@ -10721,6 +10723,32 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) == REQUEST_DEFAULT_RECEIVE_OPERATION
     ):
         return _run_default_receive_case(case)
+    if (
+        isinstance(case, dict)
+        and (
+            case.get("surface"),
+            case.get("operation"),
+        )
+        == REQUEST_CLIENT_OPERATION
+    ):
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.request_client import run_request_client_case
+
+        return run_request_client_case(case, Request)
+    if (
+        isinstance(case, dict)
+        and (
+            case.get("surface"),
+            case.get("operation"),
+        )
+        == REQUEST_SCOPE_MAPPING_OPERATION
+    ):
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.request_scope_mapping import run_request_scope_mapping_case
+
+        return run_request_scope_mapping_case(case, Request)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_SEND_PUSH_PROMISE_OPERATION
