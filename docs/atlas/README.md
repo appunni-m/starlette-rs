@@ -27,11 +27,11 @@ with no conventional Python or Rust unit-test suite.
 The source atlas is complete, while the full Starlette replacement remains
 active and incomplete. The current contract has 560 input-only cases across
 64 indexed files, 80 operations, and 597 requirements. The latest clean
-full-slice run is `6e87e1cb-3fae-47bd-b487-0596c31aab45`: 715 of 719 profile
+full-slice run is `7c6e6929-b60a-45e0-973c-ba5a247e7b1f`: 715 of 719 profile
 comparisons passed, with zero failures or infrastructure errors and four
 Rust-native Python-callable rows `not_run`. The Python package passed 558/558;
 Rust-native passed 157/161. The run used clean target revision
-`bad73700d9d9847ea5eb224a548acd2e31047a75` and manifest SHA-256
+`9dbf014fcff4d16f61b270d98d24b2c7579bb45a` and manifest SHA-256
 `e143b3714c7a75406108506a6531b7a20ecb8d2e1a9dc2211757b0d5ddb855fa`. Full
 run and wheel identities are recorded in [Migration parity contract and
 evidence](../PARITY.md). The four native `not_run` rows are sync endpoint,
@@ -39,11 +39,11 @@ bound-method, partial, and callable-instance Request dispatch. `make parity-run`
 exits with status 2 for those declared rows. This bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The latest Router/GZip run `a4014be0-3606-464a-b00e-b6983fe293e6` measured all
+The latest Router/GZip run `7935c644-465b-491a-8db7-4b34050a217f` measured all
 74 source/package workloads after parity preflight
-`410877e9-85c4-4a6e-9af8-316adbe88763`. Median source/package ratios were
-0.748 for Router and 0.974 for GZip; source was faster on five of six Router
-workloads and 61 of 68 GZip workloads. See
+`7c6e6929-b60a-45e0-973c-ba5a247e7b1f`. Median source/package ratios were
+0.781 for Router and 0.974 for GZip; source was faster on five of six Router
+workloads and 59 of 68 GZip workloads. See
 [Benchmark mapping](../BENCHMARKS.md)
 for the timing summary and limits. These bounded results do not establish full
 compatibility.

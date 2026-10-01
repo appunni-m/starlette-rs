@@ -8,8 +8,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `6e87e1cb-3fae-47bd-b487-0596c31aab45`.
-It ran from `2026-10-01T00:12:14.443Z` to `2026-10-01T00:14:20.346Z` against
+The latest full-slice parity run is `7c6e6929-b60a-45e0-973c-ba5a247e7b1f`.
+It ran from `2026-10-01T00:28:56.752Z` to `2026-10-01T00:31:03.234Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
 560-case/597-requirement manifest. It selected 719 profile comparisons: 715
 passed, zero failed, zero infrastructure errors, and four Rust-native
@@ -17,10 +17,10 @@ Python-callable rows were `not_run`. The Python package passed all 558 selected
 comparisons; Rust-native passed 157 of 161. The async `Starlette.__call__`
 route case modeled on upstream `test_app_add_route` passed exact source/package
 comparison. The package was built from clean source revision
-`bad73700d9d9847ea5eb224a548acd2e31047a75`; the adapter verified its installed
+`9dbf014fcff4d16f61b270d98d24b2c7579bb45a`; the adapter verified its installed
 package tree before and after each workflow. Its package tree SHA-256 was
 `a1f6617731f5d75dd7b119a29ca7f04fa8d6fcd48448ce96575f873a811385a3`; wheel
-SHA-256 was `151282f14c19cea439aa64de527ac6f641b7a3c46abac763afb18ba317aed05c`.
+SHA-256 was `d25432e1647c6b6aa396c7da21c39d7694c2a615e87e8ec3889779575b8f3307`.
 The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
 and callable-instance Request dispatch cases. `make parity-run` exits with
 status 2 for those declared `not_run` rows. Manifest SHA-256:

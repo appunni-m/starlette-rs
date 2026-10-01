@@ -29,12 +29,12 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest clean full-slice run is `6e87e1cb-3fae-47bd-b487-0596c31aab45`.
+The latest clean full-slice run is `7c6e6929-b60a-45e0-973c-ba5a247e7b1f`.
 It selected 719 profile comparisons: 715 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
 `not_run`. The Python package passed all 558 selected comparisons; Rust-native
 passed 157 of 161. The run used clean target revision
-`bad73700d9d9847ea5eb224a548acd2e31047a75`, package tree SHA-256
+`9dbf014fcff4d16f61b270d98d24b2c7579bb45a`, package tree SHA-256
 `a1f6617731f5d75dd7b119a29ca7f04fa8d6fcd48448ce96575f873a811385a3`, and
 manifest SHA-256
 `e143b3714c7a75406108506a6531b7a20ecb8d2e1a9dc2211757b0d5ddb855fa`. The
@@ -46,24 +46,25 @@ bounded evidence does not establish full Starlette parity or release
 readiness.
 
 The latest correctness-gated Router/GZip benchmark run,
-`a4014be0-3606-464a-b00e-b6983fe293e6`, measured all 74 declared source/package
-workloads with zero failures or skipped workloads after preflight
-`410877e9-85c4-4a6e-9af8-316adbe88763`. The preflight selected 715 comparisons:
-711 passed, zero failed or hit infrastructure errors, and four Rust-native
-Python-callable comparisons were `not_run`; the Python-package profile passed
-all 555 comparisons. Rust-native remains separately `not_run` for all 74
-workload boundaries. The measured source/package median ratios were 0.748 for
-Router and 0.974 for GZip; source was faster in five of six Router workloads
-and 61 of 68 GZip workloads. The clean target checkout was commit
-`730040d05514c82d1a6e214a5d2b23764501ac96`, with working-tree SHA-256
-`00a1121f022a319013d1f7a7a25b646f7fc0d752a631b47b266587f27ab5271b`; the
-package wheel SHA-256 was
-`f6aad2ea591cec1c2d5c2a346871d565cc3d1f14ec9a01680af693f537e7e268`. This is
-benchmark evidence for that lane only; the full compatibility denominator
-remains incomplete. The latest source inventory check dispositioned all 999
-API candidate rows. The generated coverage matrix has 799 source rows: 299
-existing input mappings, 50 reasoned `not_applicable` rows, and 450 fixture
-backlog rows. Derive these changing counts from the generated atlas CSV files.
+`7935c644-465b-491a-8db7-4b34050a217f`, measured all 74 declared workloads:
+six Router and 68 GZip, with zero failures or skipped measurements. Its
+correctness preflight `7c6e6929-b60a-45e0-973c-ba5a247e7b1f` selected 719
+comparisons: 715 passed, zero failed or hit infrastructure errors, and four
+Rust-native Python-callable comparisons were `not_run`; the Python package
+passed 558/558 and Rust-native passed 157/161. Rust-native remains `not_run`
+for all 74 benchmark workload boundaries. The measured source/package median
+ratios were 0.781 for Router and 0.974 for GZip; source was faster in five of
+six Router workloads and 59 of 68 GZip workloads. The clean target checkout
+was revision `9dbf014fcff4d16f61b270d98d24b2c7579bb45a` with working-tree
+SHA-256 `9134eb7463ca6ffa5300867d16b4ea764f8c5e73d1e6b611ca3342605e32040b`;
+the package wheel SHA-256 was
+`d25432e1647c6b6aa396c7da21c39d7694c2a615e87e8ec3889779575b8f3307`. Strict
+aggregation validated the current parity and benchmark artifacts and reports
+`not_proven` because the full compatibility denominator remains incomplete.
+The latest source inventory check dispositioned all 999 API candidate rows.
+The generated coverage matrix has 799 source rows: 299 existing input
+mappings, 50 reasoned `not_applicable` rows, and 450 fixture backlog rows.
+Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
 `2026-09-29T23:48:10.322Z` and finished at `2026-09-29T23:49:31.637Z`. It

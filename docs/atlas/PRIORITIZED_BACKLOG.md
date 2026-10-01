@@ -10,11 +10,11 @@ incomplete.
 
 The active contract contains 560 input-only cases in 64 indexed files,
 covering 80 operations and 597 parity requirements. The latest clean full-slice
-run is `6e87e1cb-3fae-47bd-b487-0596c31aab45`: 715 of 719 selected comparisons
+run is `7c6e6929-b60a-45e0-973c-ba5a247e7b1f`: 715 of 719 selected comparisons
 passed, with zero failures or infrastructure errors and four Rust-native
 Python-callable rows `not_run`. The Python package passed 558/558; Rust-native
 passed 157/161. The run used clean target revision
-`bad73700d9d9847ea5eb224a548acd2e31047a75` and manifest SHA-256
+`9dbf014fcff4d16f61b270d98d24b2c7579bb45a` and manifest SHA-256
 `e143b3714c7a75406108506a6531b7a20ecb8d2e1a9dc2211757b0d5ddb855fa`. The four
 native `not_run` rows are sync endpoint, bound-method, partial, and
 callable-instance Request dispatch. `make parity-run` exits with status 2 for
