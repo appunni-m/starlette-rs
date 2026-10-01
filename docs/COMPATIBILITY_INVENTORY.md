@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 563 input-only cases across 64 files,
-covering 80 operations and 601 parity requirements. The authored cases span
+The active parity manifest indexes 564 input-only cases across 64 files,
+covering 80 operations and 603 parity requirements. The authored cases span
 the Starlette ASGI application and route inventory, routing and reverse URLs, URL scope/components,
 Headers and MutableHeaders, requests, responses and background tasks,
 async endpoint loop/task/thread ownership and cancellation, StaticFiles,
@@ -29,18 +29,18 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `db6b17b7-1f26-4507-9527-52b4c2c71646`. It
-selected 722 profile comparisons: 718 passed, zero failed, zero
-infrastructure errors, and four Rust-native Python-callable rows were
-`not_run`. The Python package passed all 561 selected comparisons; Rust-native
-passed 157 of 161. The target source tree was dirty at base revision
-`0217eefde8cc9f2f9ee4bb22b7ce27099f9d18e9`; its package tree SHA-256 was
-`6930b89155a467cbaf2215979cf301c8ae8d1172a691460a0dfb2981b3daec4d`, the
+The latest full-slice run is `00154311-5e5f-4aa3-8fd5-7b4748241744`. It
+selected 723 profile comparisons: 719 passed, zero failed, zero infrastructure
+errors, and four Rust-native Python-callable rows were `not_run`. The Python
+package passed all 562 selected comparisons; Rust-native passed 157 of 161.
+This run includes the post-construction `app.debug` mutation and TestClient
+traceback workflow. The target package tree SHA-256 was
+`9562aa76a92f1bf1d9e37669439d92450183fb2695b3d5de804d1ed9b2c94a5a`, the
 wheel SHA-256 was
-`e2a143d0ddd7a26cf1d3f58445142acab9c90d746d38bfb65cb94b6ceaf8f100`, and the
+`384dc2024e90a1d2386427cecebc9995779b2fa5927bffc2820cad57879de3db`, and the
 manifest SHA-256 was
-`339622c0aa9289e08a63fcc3e5bc1b6b6e6ada42031bc2d585a0bdc5af5f6fbb`. The
-four native `not_run` rows are sync endpoint, bound-method, partial, and
+`a92db75be8bbc434af7da85123efb190b13a65e2253e864d9ffb2638172cc91c`. The four
+native `not_run` rows are sync endpoint, bound-method, partial, and
 callable-instance Request dispatch cases. `make parity-run` exits with status
 2 for those declared Python-callable boundaries. Full run identity and wheel
 hash are recorded in [Migration parity contract and evidence](PARITY.md). This

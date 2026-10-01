@@ -25,19 +25,18 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 563 input-only cases across
-64 indexed files, 80 operations, and 601 requirements. The latest full-slice
-run is `db6b17b7-1f26-4507-9527-52b4c2c71646`: 718 of 722 profile
-comparisons passed, with zero failures or infrastructure errors and four
-Rust-native Python-callable rows `not_run`. The Python package passed 561/561;
-Rust-native passed 157/161. The target source tree was dirty at base revision
-`0217eefde8cc9f2f9ee4bb22b7ce27099f9d18e9`; manifest SHA-256
-`339622c0aa9289e08a63fcc3e5bc1b6b6e6ada42031bc2d585a0bdc5af5f6fbb`. Full
-run and wheel identities are recorded in [Migration parity contract and
-evidence](../PARITY.md). The four native `not_run` rows are sync endpoint,
-bound-method, partial, and callable-instance Request dispatch. `make parity-run`
-exits with status 2 for those declared rows. This bounded evidence
-does not establish full Starlette parity or release readiness.
+active and incomplete. The current contract has 564 input-only cases across
+64 indexed files, 80 operations, and 603 requirements. Latest integrated run
+`00154311-5e5f-4aa3-8fd5-7b4748241744` passed 719 of 723 profile comparisons,
+with zero failures or infrastructure errors and four Rust-native
+Python-callable rows `not_run`. The Python package passed 562/562;
+Rust-native passed 157/161. The new post-construction `app.debug` TestClient
+workflow passed source/package comparison. The four native `not_run` rows are
+sync endpoint, bound-method, partial, and callable-instance Request dispatch.
+`make parity-run` exits with status 2 for those declared rows. Full run and
+wheel identities are recorded in [Migration parity contract and
+evidence](../PARITY.md). This bounded evidence does not establish full
+Starlette parity or release readiness.
 
 The latest Router/GZip run `7935c644-465b-491a-8db7-4b34050a217f` measured all
 74 source/package workloads after parity preflight

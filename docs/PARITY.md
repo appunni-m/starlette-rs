@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 563 input-only cases in 64 indexed files, covering 80 operations and 601 parity requirements. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 564 input-only cases in 64 indexed files, covering 80 operations and 603 parity requirements. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,27 +8,28 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `db6b17b7-1f26-4507-9527-52b4c2c71646`.
-It ran from `2026-10-01T01:06:05.252Z` to `2026-10-01T01:08:11.051Z` against
+The latest full-slice parity run is `00154311-5e5f-4aa3-8fd5-7b4748241744`.
+It ran from `2026-10-01T01:42:34.125Z` to `2026-10-01T01:44:56.022Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-563-case/601-requirement manifest. It selected 722 profile comparisons: 718
+564-case/603-requirement manifest. It selected 723 profile comparisons: 719
 passed, zero failed, zero infrastructure errors, and four Rust-native
-Python-callable rows were `not_run`. The Python package passed all 561 selected
-comparisons; Rust-native passed 157 of 161. The oracle and installed Python
-package matched exactly for input-defined synchronous Route GET and HEAD
-dispatch through direct ASGI calls and TestClient, including HEAD's empty
-client body and worker-thread endpoint execution. The
-target source tree was dirty at base revision
-`0217eefde8cc9f2f9ee4bb22b7ce27099f9d18e9`; the package tree SHA-256 was
-`6930b89155a467cbaf2215979cf301c8ae8d1172a691460a0dfb2981b3daec4d`, and the
+Python-callable rows were `not_run`. The Python package passed all 562 selected
+comparisons; Rust-native passed 157 of 161. The new TestClient app-debug case
+passed: both source and package returned status 500, exposed `app.debug ==
+True` after the request, and included `RuntimeError` in the response body. The
+declared traceback normalization removes only Starlette-owned traceback frames
+and normalizes dynamic frame paths, line numbers, and body length; raw source
+and target bodies remain in the result artifact. The four Rust-native
+`not_run` rows are sync endpoint, bound-method, partial, and callable-instance
+Request dispatch cases. `make parity-run` exits with status 2 for those
+declared `not_run` rows. The target was dirty at base revision
+`2f9d500a6eff2e0355b9623c9e145d1a9ca1f8be`; the package tree SHA-256 was
+`9562aa76a92f1bf1d9e37669439d92450183fb2695b3d5de804d1ed9b2c94a5a`, and the
 wheel SHA-256 was
-`e2a143d0ddd7a26cf1d3f58445142acab9c90d746d38bfb65cb94b6ceaf8f100`. The four
-Rust-native `not_run` rows are sync endpoint, bound-method, partial, and
-callable-instance Request dispatch cases. `make parity-run` exits with status 2
-for those declared `not_run` rows. Manifest SHA-256:
-`339622c0aa9289e08a63fcc3e5bc1b6b6e6ada42031bc2d585a0bdc5af5f6fbb`. Strict
-aggregation reports `not_proven` because the full compatibility denominator
-remains incomplete.
+`384dc2024e90a1d2386427cecebc9995779b2fa5927bffc2820cad57879de3db`.
+Manifest SHA-256: `a92db75be8bbc434af7da85123efb190b13a65e2253e864d9ffb2638172cc91c`.
+Strict aggregation reports `not_proven` because the full compatibility
+denominator remains incomplete.
 
 ## Input-only cases
 
@@ -615,7 +616,9 @@ The `parity-input@16` contract adds a routed Request.state case with no initial 
 
 The `parity-input@17` contract adds an input-defined TestClient WebSocket app action that constructs the public `WebSocket`, reads `dict(websocket.query_params)`, sends that live mapping as JSON, and closes. It maps `docs/websockets.md:40-44` and `tests/test_websockets.py::test_websocket_query_params`; the separate raw query-string and `raw_path` projection cases remain distinct.
 
-`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. The prior `parity-input@16` run was marked dirty and is retained as historical output; the current `parity-input@17` run above is bound to the clean wheel, package tree, and source revision. The benchmark correctness gate accepts only a clean target identity. Generated results are local ignored artifacts and are not checked in.
+The `parity-input@18` contract adds a TestClient workflow that constructs `Starlette(debug=False)`, mutates `debug` after construction, and invokes an input-defined exception route with `raise_server_exceptions=False`. It observes the public response, emitted ASGI events, post-request `app.debug`, and whether the input exception name occurs in the live body. The source and package raw traceback outputs remain available; the declared reusable normalization handles only source-dependent traceback frames and body length. The active authored inputs were migrated by `make migrate-parity-inputs-v17-v18`; the migrator updates only top-level schema headers and has a `--check` mode.
+
+`oracle-only` invokes only the pinned source workflows. It writes a comparison row per target profile with target workflow status `skipped`, a reason, and outcome `not_run`. The prior `parity-input@16` run was marked dirty and is retained as historical output; the current `parity-input@18` run above records the current source/package comparison and four explicitly unsupported Rust-native callable rows. The benchmark correctness gate accepts only a clean target identity. Generated results are local ignored artifacts and are not checked in.
 
 ### TestClient exception policy
 

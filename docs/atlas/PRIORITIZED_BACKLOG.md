@@ -8,22 +8,21 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 560 input-only cases in 64 indexed files,
-covering 80 operations and 597 parity requirements. The latest clean full-slice
-run is `7c6e6929-b60a-45e0-973c-ba5a247e7b1f`: 715 of 719 selected comparisons
-passed, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 558/558; Rust-native
-passed 157/161. The run used clean target revision
-`9dbf014fcff4d16f61b270d98d24b2c7579bb45a` and manifest SHA-256
-`e143b3714c7a75406108506a6531b7a20ecb8d2e1a9dc2211757b0d5ddb855fa`. The four
-native `not_run` rows are sync endpoint, bound-method, partial, and
-callable-instance Request dispatch. `make parity-run` exits with status 2 for
-those declared rows. Full run identities and package hashes are recorded in
+The active contract contains 564 input-only cases in 64 indexed files,
+covering 80 operations and 603 parity requirements. Latest integrated run
+`00154311-5e5f-4aa3-8fd5-7b4748241744` passed 719 of 723 selected comparisons,
+with zero failures or infrastructure errors and four Rust-native
+Python-callable rows `not_run`. The Python package passed 562/562;
+Rust-native passed 157/161. The run includes TestClient parity for the
+post-construction `app.debug` mutation. The four native `not_run` rows are sync
+endpoint, bound-method, partial, and callable-instance Request dispatch.
+`make parity-run` exits with status 2 for those declared rows. Full run
+identities and package hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The current coverage matrix has 799 source rows: 299 existing input mappings,
-50 source-backed `not_applicable` rows, and 450 fixture-backlog rows. Derive
+The current coverage matrix has 800 source rows: 301 existing input mappings,
+50 source-backed `not_applicable` rows, and 449 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

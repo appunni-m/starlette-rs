@@ -32,22 +32,20 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 560 input-only cases in 64 indexed files,
-covering 80 operations and 597 requirements. The latest clean full-slice run is
-`7c6e6929-b60a-45e0-973c-ba5a247e7b1f`: 715 of 719 selected comparisons
-passed, with zero failures or infrastructure errors and four declared native
-Python-callable rows `not_run`. The installed Python package passed 558/558;
-Rust-native passed 157/161. It includes the async `Starlette.__call__` route
-case modeled on upstream `test_app_add_route`. The run used clean target
-revision `9dbf014fcff4d16f61b270d98d24b2c7579bb45a` and manifest SHA-256
-`e143b3714c7a75406108506a6531b7a20ecb8d2e1a9dc2211757b0d5ddb855fa`.
-`make parity-run` exits with status 2 for the four declared native
+The active parity contract contains 564 input-only cases in 64 indexed files,
+covering 80 operations and 603 requirements. Latest integrated run
+`00154311-5e5f-4aa3-8fd5-7b4748241744` selected 723 comparisons: 719 passed,
+zero failed, zero infrastructure errors, and four declared Rust-native
+Python-callable rows `not_run`. The installed Python package passed 562/562;
+Rust-native passed 157/161. This run adds TestClient parity for setting
+`app.debug=True` after construction and checking the resulting 500 traceback
+response. `make parity-run` exits with status 2 for the four declared native
 `not_run` rows. The complete run identity, wheel/tree hashes, and case-level
 evidence are in [Migration parity contract and evidence](PARITY.md). This
 bounded run does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 799 source rows: 299 input mappings,
-50 source-backed `not_applicable` rows, and 450 fixture-backlog rows. These
+The generated coverage matrix contains 800 source rows: 301 input mappings,
+50 source-backed `not_applicable` rows, and 449 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.
@@ -282,15 +280,17 @@ schedules, context variables, and broader background-task error interactions.
 
 ## 4. Optional and edge features
 
-Configuration and schema generation now have seven package-only live parity
-cases across six Rust-backed public operations. The minimal package keeps
-PyYAML optional behind its `schemas` extra. FileResponse range, multipart, and
-chunk-size parity now pass the selected inputs. Next extend StaticFiles
-edge-case parity; forms/uploads, templates, additional WSGI source rows not yet
-mapped, and TestClient remain open.
-Continue with broader streaming lifecycle, duplicate headers/cookies, failure
-propagation, cancellation, and platform-specific paths. Keep optional
-dependencies feature-gated and preserve unsupported coverage visibly.
+Configuration and schema generation have seven package-only live parity
+cases across six Rust-backed public operations. FileResponse range, multipart,
+and chunk-size cases are mapped; the package keeps PyYAML optional behind its
+`schemas` extra. StaticFiles lookup/configuration, form parsing, templates,
+and TestClient HTTP, WebSocket, and lifespan slices also have bounded input
+coverage. These are not complete feature implementations: streaming request
+bodies, broader TestClient exception modes, route and middleware integration,
+and the remaining source-backed behaviors remain in the generated backlog.
+Continue from the ranked rows in
+[`docs/atlas/fixture-backlog.csv`](atlas/fixture-backlog.csv), keeping optional
+dependencies feature-gated and unsupported coverage source-backed.
 
 ## 5. Completed bounded goal: Router/GZip benchmark parity
 
@@ -497,11 +497,10 @@ declared stable traceback
 projection for response bodies and ASGI events, and normalize `Content-Length`
 only for those cases; raw bodies remain in the result artifact. These cases do
 not cover direct `ServerErrorMiddleware` invocation, arbitrary middleware
-ordering, TestClient behavior, or broader WebSocket exception workflows. The raw
-protocol and route-dispatch cases pass in their declared profiles. Full
-replacement parity remains open.
-The upstream `asgi-core.app.test_app_debug` crosswalk row stays backlog because
-the fixture does not set debug after app construction.
+ordering, or broader WebSocket exception workflows. The separate
+`asgi-core.app.test_app_debug` TestClient case now sets debug after construction
+and passes source/package comparison. The raw protocol and route-dispatch cases
+pass in their declared profiles. Full replacement parity remains open.
 
 The recorded evidence does not establish general exception propagation or
 identity beyond the selected chained-error, same-request body-cache, and

@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@17"
+INPUT_SCHEMA = "migration-parity/parity-input@18"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -124,6 +124,8 @@ TESTCLIENT_REQUIREMENTS = {
     "sync_route_get": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-get",
     "sync_route_head": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-head",
     "sync_route_worker_thread": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-worker-thread",
+    "app_debug_mutation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.application-debug-mutation",
+    "app_debug_response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.debug-error-response",
 }
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
@@ -1376,11 +1378,18 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             "lifespan_trace_after_actions",
                         }
                     )
+                    testclient_application_debug = (
+                        condition["input_key"] == "asgi_app.debug_after"
+                        and key == TESTCLIENT_OPERATION_KEY
+                        and observation["path"]
+                        in {"application_debug", "debug_exception_name_present"}
+                    )
                     if (
                         not response_header_probe
                         and not file_response_scheduling_probe
                         and not router_scope_probe
                         and not testclient_lifespan_callback_trace
+                        and not testclient_application_debug
                     ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
@@ -1418,6 +1427,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             if comparison["kind"] == "bytes":
                                 continue
                         elif (
+                            observation["path"] == "response"
+                            and key == TESTCLIENT_OPERATION_KEY
+                            and comparison["kind"] == "exact"
+                        ):
+                            continue
+                        elif (
                             observation["path"]
                             in {
                                 "ordered_repeated_headers",
@@ -1427,7 +1442,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         ):
                             continue
                         raise ContractError(
-                            f"{octx} permits traceback normalization only for response bytes, headers, or events"
+                            f"{octx} permits traceback normalization only for response values, bytes, headers, or events"
                         )
                     elif normalization_kind == "multipart-range-boundary":
                         _exact(normalization_spec, {"kind"}, f"{octx}.normalization")
@@ -7997,7 +8012,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     validate_base64(request["body_base64"], "TestClient request.body_base64")
 
     raw_asgi_app = case["asgi_app"]
-    is_sync_route = isinstance(raw_asgi_app, dict) and raw_asgi_app.get("kind") == "starlette-route"
+    app_kind = raw_asgi_app.get("kind") if isinstance(raw_asgi_app, dict) else None
+    is_sync_route = app_kind == "starlette-route"
+    is_starlette_app_debug = app_kind == "starlette-app-debug"
     if is_sync_route:
         asgi_app = _exact(
             raw_asgi_app,
@@ -8023,6 +8040,26 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         _string(endpoint["content"], "TestClient synchronous endpoint content")
         messages = []
         exception_spec = None
+    elif is_starlette_app_debug:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "debug_before", "debug_after", "path", "exception", "scope_fields"},
+            "TestClient Starlette debug app",
+        )
+        route_path = _string(asgi_app["path"], "TestClient debug route path")
+        if (
+            asgi_app["debug_before"] is not False
+            or asgi_app["debug_after"] is not True
+            or not route_path.startswith("/")
+            or request["method"] != "GET"
+            or urlsplit(request["url"]).path != route_path
+            or settings["raise_server_exceptions"] is not False
+        ):
+            raise ContractError(
+                "TestClient Starlette debug input must enable debug after construction and return the GET error response"
+            )
+        exception_spec = asgi_app["exception"]
+        messages = []
     else:
         asgi_app_keys = {"kind", "scope_fields", "receive_count", "messages"}
         if isinstance(raw_asgi_app, dict) and "exception" in raw_asgi_app:
@@ -8058,7 +8095,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         or len(scope_fields) != len(set(scope_fields))
     ):
         raise ContractError("TestClient ASGI app scope_fields must be unique supported scope keys")
-    if not is_sync_route:
+    if asgi_app["kind"] in {"asgi2", "asgi3"}:
         if type(asgi_app["receive_count"]) is not int or asgi_app["receive_count"] != 1:
             raise ContractError(
                 "This TestClient request workflow consumes exactly one request message"
@@ -8085,9 +8122,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         ):
             raise ContractError("TestClient ASGI response may contain one debug message")
     expected_covers = {TESTCLIENT_REQUIREMENTS["scope"]}
-    if not is_sync_route:
+    if asgi_app["kind"] in {"asgi2", "asgi3"}:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["receive"])
-    else:
+    elif is_sync_route:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["sync_route_worker_thread"])
         expected_covers.add(
@@ -8095,6 +8132,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 "sync_route_get" if request["method"] == "GET" else "sync_route_head"
             ]
         )
+    if is_starlette_app_debug:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_mutation"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_response"])
     if exception_spec is not None:
         exception_spec = _exact(
             exception_spec,
@@ -8107,7 +8147,11 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "TestClient ASGI app exception.class must name a built-in Exception"
             )
-        _string(exception_spec["message"], "TestClient ASGI app exception.message")
+        if is_starlette_app_debug:
+            if not isinstance(exception_spec["message"], str):
+                raise ContractError("TestClient Starlette app exception.message must be a string")
+        else:
+            _string(exception_spec["message"], "TestClient ASGI app exception.message")
         expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
     if messages or not settings["raise_server_exceptions"]:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])

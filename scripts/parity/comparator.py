@@ -276,14 +276,16 @@ def _normalize_debug_traceback_body(body: bytes) -> bytes | None:
 
 
 def _body_bytes(value: Any) -> bytes | None:
-    if (
-        not isinstance(value, dict)
-        or set(value) != {"encoding", "data"}
-        or value["encoding"] != "base64"
-    ):
+    if not isinstance(value, dict):
+        return None
+    if set(value) == {"base64"}:
+        encoded = value["base64"]
+    elif set(value) == {"encoding", "data"} and value["encoding"] == "base64":
+        encoded = value["data"]
+    else:
         return None
     try:
-        return base64.b64decode(value["data"], validate=True)
+        return base64.b64decode(encoded, validate=True)
     except (ValueError, TypeError):
         return None
 
@@ -306,7 +308,37 @@ def _observation_has_debug_traceback(value: dict[str, Any]) -> bool:
     body = _body_bytes(value.get("response_bytes"))
     if body is not None and _normalize_debug_traceback_body(body) is not None:
         return True
+    response = value.get("response")
+    if isinstance(response, dict):
+        try:
+            response_body = base64.b64decode(response.get("body_base64", ""), validate=True)
+        except (ValueError, TypeError):
+            response_body = None
+        if response_body is not None and _normalize_debug_traceback_body(response_body) is not None:
+            return True
     return bool(_event_traceback_bodies(value.get("asgi_events")))
+
+
+def _header_component_bytes(value: Any) -> bytes | None:
+    if isinstance(value, dict) and set(value) == {"base64"}:
+        encoded = value["base64"]
+    elif isinstance(value, str):
+        encoded = value
+    else:
+        return None
+    try:
+        return base64.b64decode(encoded, validate=True)
+    except (ValueError, TypeError):
+        return None
+
+
+def _encoded_header_component(value: Any, raw: bytes) -> Any:
+    encoded = base64.b64encode(raw).decode("ascii")
+    if isinstance(value, dict) and set(value) == {"base64"}:
+        return {"base64": encoded}
+    if isinstance(value, str):
+        return encoded
+    return value
 
 
 def _normalize_content_length(headers: Any) -> Any:
@@ -316,14 +348,34 @@ def _normalize_content_length(headers: Any) -> Any:
     for pair in headers:
         if not isinstance(pair, list) or len(pair) != 2:
             return headers
-        try:
-            name = base64.b64decode(pair[0], validate=True).lower()
-        except (ValueError, TypeError):
+        name = _header_component_bytes(pair[0])
+        if name is None:
             return headers
-        if name == b"content-length":
+        if name.lower() == b"content-length":
             normalized.append(
-                [pair[0], base64.b64encode(b"<debug-traceback-body-length>").decode("ascii")]
+                [
+                    pair[0],
+                    _encoded_header_component(pair[1], b"<debug-traceback-body-length>"),
+                ]
             )
+        else:
+            normalized.append(pair)
+    return normalized
+
+
+def _normalize_testclient_content_length(headers: Any) -> Any:
+    if not isinstance(headers, list):
+        return headers
+    normalized = []
+    for pair in headers:
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or not all(isinstance(part, str) for part in pair)
+        ):
+            return headers
+        if pair[0].lower() == "content-length":
+            normalized.append([pair[0], "<debug-traceback-body-length>"])
         else:
             normalized.append(pair)
     return normalized
@@ -343,6 +395,20 @@ def _normalize_debug_traceback(
         if normalized is None:
             return value
         return {"encoding": "base64", "data": base64.b64encode(normalized).decode("ascii")}
+    if path == "response":
+        if not observation_has_debug_traceback or not isinstance(value, dict):
+            return value
+        try:
+            body = base64.b64decode(value.get("body_base64", ""), validate=True)
+        except (ValueError, TypeError):
+            return value
+        normalized_body = _normalize_debug_traceback_body(body)
+        if normalized_body is None:
+            return value
+        normalized = dict(value)
+        normalized["body_base64"] = base64.b64encode(normalized_body).decode("ascii")
+        normalized["headers"] = _normalize_testclient_content_length(value.get("headers"))
+        return normalized
     if path == "asgi_events":
         traceback_bodies = _event_traceback_bodies(value)
         if not traceback_bodies or not isinstance(value, list):

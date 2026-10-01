@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@17",
+      "input_schema": "migration-parity/parity-input@18",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -16921,6 +16921,9 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "normalization": {
+                    "kind": "starlette-debug-traceback"
                   }
                 },
                 {
@@ -16930,6 +16933,9 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "normalization": {
+                    "kind": "starlette-debug-traceback"
                   }
                 },
                 {
@@ -16940,6 +16946,30 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  }
+                },
+                {
+                  "path": "application_debug",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.debug_after"
+                  }
+                },
+                {
+                  "path": "debug_exception_name_present",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.debug_after"
                   }
                 }
               ],
@@ -17074,6 +17104,28 @@
               "id": "starlette.testclient.TestClient.request-response.routed-sync-endpoint-worker-thread",
               "dimension": "boundary",
               "description": "Verify that the synchronous endpoint used by TestClient runs exactly once on an AnyIO worker thread. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_applications.py::test_func_route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.application-debug-mutation",
+              "dimension": "feature",
+              "description": "Set Starlette.debug to true after app construction and before the first TestClient request, then compare the live app value. Upstream: tests/test_applications.py::test_app_debug; starlette/applications.py:55,63-64,92-96.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.debug-error-response",
+              "dimension": "error_path",
+              "description": "With debug enabled after construction and TestClient server exceptions suppressed, compare the routed RuntimeError response, traceback body, and emitted ASGI events. Upstream: tests/test_applications.py::test_app_debug; starlette/applications.py:63-64,92-96; starlette/middleware/errors.py::debug_response.",
               "lanes": [
                 "parity"
               ],

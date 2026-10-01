@@ -49,6 +49,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     receive_observations: list[dict[str, Any]] = []
     asgi_events: list[dict[str, Any]] = []
     sync_endpoint_state: dict[str, Any] | None = None
+    starlette_application: Any = None
 
     def record_scope(scope: dict[str, Any]) -> None:
         scope_observations.append(
@@ -104,6 +105,30 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                 await send(message)
 
             await route_app(scope, receive, observed_send)
+
+    elif app_input["kind"] == "starlette-app-debug":
+        from starlette.applications import Starlette
+        from starlette.routing import Route
+
+        exception_type = getattr(builtins, app_input["exception"]["class"])
+
+        async def endpoint(_request: Any) -> None:
+            raise exception_type(app_input["exception"]["message"])
+
+        starlette_application = Starlette(
+            debug=app_input["debug_before"],
+            routes=[Route(app_input["path"], endpoint)],
+        )
+        starlette_application.debug = app_input["debug_after"]
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await starlette_application(scope, receive, observed_send)
 
     elif app_input["kind"] == "asgi2":
 
@@ -176,6 +201,11 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             None if sync_endpoint_state is None else sync_endpoint_state["observation"]
         ),
     }
+    if starlette_application is not None:
+        result["application_debug"] = bool(starlette_application.debug)
+        result["debug_exception_name_present"] = (
+            response is not None and app_input["exception"]["class"] in response.text
+        )
     observation = {"step_id": "request-response", "status": "ok", "value": result}
     if captured_error is not None:
         cause = captured_error.__cause__
