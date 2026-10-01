@@ -36,7 +36,7 @@ The active parity contract contains 581 input-only cases in 65 indexed files,
 covering 82 operations and 618 requirements. The six direct
 ServerErrorMiddleware inputs and three TestClient exception-chain inputs pass
 live source/package comparison. Latest integrated run
-`459eb6e1-ddf0-457f-baf0-b40bb71f48b1` selected 740 comparisons: 736 passed,
+`30a58707-ee2a-4146-b14d-2f0b104af348` selected 740 comparisons: 736 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
 Python-callable rows `not_run`. The installed Python package passed 579/579;
 Rust-native passed 157/161. The four native `not_run` rows are sync endpoint,
@@ -273,8 +273,8 @@ Four Rust-native observations remain explicitly `not_run`; the full Starlette
 replacement is still incomplete. Six direct `ServerErrorMiddleware` inputs are
 now authored for the Python-package profile: construction, custom-handler and
 default-response calls, and post-construction `.app`, `.handler`, and `.debug`
-mutations. They have not yet been run through the live source/package
-comparison. The custom-handler input maps to the pinned
+mutations. All six pass live source/package comparison in run
+`30a58707-ee2a-4146-b14d-2f0b104af348`. The custom-handler input maps to the pinned
 `tests/middleware/test_errors.py::test_handler`; the other cases are additional
 source-backed behavior probes. Direct debug construction, non-HTTP
 pass-through, response-already-started failures, background-task errors, and
@@ -305,22 +305,21 @@ dependencies feature-gated and unsupported coverage source-backed.
 The pinned Starlette 1.6.0 Router/GZip workload catalog contains six Router
 and 68 GZip benchmark IDs. All 74 have input-only descriptors and exact
 source-versus-installed-package correctness gates. Latest run
-`fdbc7e5d-5556-498c-86be-794897a14bfc` ran from
-`2026-10-01T01:46:47.884Z` to `2026-10-01T01:50:22.432Z` and measured all 74
-source/package workloads with zero failures and zero not-run rows. Its
-correctness preflight, `e14095ce-c405-4b0d-97ac-a23d64e025dc`, used the active
-564-case/603-requirement manifest (SHA-256
-`a92db75be8bbc434af7da85123efb190b13a65e2253e864d9ffb2638172cc91c`) and
-selected 723 comparisons: 719 passed, zero failed, zero infrastructure errors,
-and four Rust-native Python-callable rows were `not_run` (package 562/562;
+`d653ffc6-5828-4678-bb25-6d3e5b926abf` ran from
+`2026-10-01T04:30:12.857Z` to `2026-10-01T04:33:54.018Z` and measured all
+74 source/package workloads with zero failures and zero not-run rows. Its clean
+correctness preflight, `30a58707-ee2a-4146-b14d-2f0b104af348`, used the active
+581-case/618-requirement manifest (SHA-256
+`c52f247962d6e2504df8fd307ea34a5500ede988e43ed109c03b62af1b93dca1`) and
+selected 740 comparisons: 736 passed, zero failed, zero infrastructure errors,
+and four Rust-native Python-callable rows were `not_run` (package 579/579;
 Rust-native 157 passed, 4 not_run). The target was clean at commit
-`74fc946fbff4f0c8433ab22de32191461efe1942` with working-tree SHA-256
-`c3f362f556407c5b96cd6185602d24afa340e996b92272eb3ffe4dcfe1994a5b`; the
+`007b1bab93990c011271bbb782294a0ba09fb022` with working-tree SHA-256
+`c56704dafd9649422f6cff7bf8487722c0e4b028d1eef4e00ba4805d33c1a66b`; the
 benchmark wheel SHA-256 is
-`54368e4db88c2a70aa60b7df134f8bc47ba708c33b0c9b33090f56a3b62709b9`.
-The median source/package ratios were 0.773 for Router and 0.970 for GZip;
-the source median was lower in five of six Router workloads and 61 of 68 GZip
-workloads.
+`27c9638aece89c36d5f740a7568967aa92ec363ce6f510edde287fb04bd875ab`.
+The median source/package ratios were 0.770 for Router and 0.974 for GZip;
+source was faster in five of six Router workloads and 58 of 68 GZip workloads.
 
 Rust-native remains `not_run` for all 74 because its public API does not expose
 the same Starlette Router/GZip dispatch boundary. The result is accepted by the
@@ -516,9 +515,8 @@ synchronous custom-handler dispatch, direct default-response dispatch, and
 post-construction `.app`, `.handler`, and `.debug` mutation. Only the custom-
 handler input is mapped to an upstream test function,
 `tests/middleware/test_errors.py::test_handler`; the other cases are tied to
-the pinned `ServerErrorMiddleware` source contract. These inputs are authored
-but have not yet been run through the source/package comparator, so they add
-declared stimulus coverage without verified parity. Direct debug construction,
+the pinned `ServerErrorMiddleware` source contract. All six inputs pass exact
+source/package comparison in run `30a58707-ee2a-4146-b14d-2f0b104af348`. Direct debug construction,
 non-HTTP pass-through, an error after response start, background-task errors,
 and arbitrary middleware ordering remain outside this bounded input set.
 

@@ -31,38 +31,40 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `459eb6e1-ddf0-457f-baf0-b40bb71f48b1`. It
+The latest full-slice run is `30a58707-ee2a-4146-b14d-2f0b104af348`. It
 selected 740 profile comparisons: 736 passed, zero failed, zero infrastructure
 errors, and four Rust-native Python-callable rows were `not_run`. The Python
 package passed all 579 selected comparisons; Rust-native passed 157 of 161.
 All six direct ServerErrorMiddleware and all three TestClient exception-chain
-inputs passed on the package profile. The target package tree SHA-256 was
+inputs passed on the package profile. The target checkout was clean at revision
+`007b1bab93990c011271bbb782294a0ba09fb022` with working-tree SHA-256
+`c56704dafd9649422f6cff7bf8487722c0e4b028d1eef4e00ba4805d33c1a66b`. The
+installed package tree SHA-256 was
 `d12708e0007589aee038ecf52c835988bcc49c6d4601de2a266bf47d38a2cf9e`, the
 wheel SHA-256 was
-`d58b6d8ed74ada9b3f554c6e45c1966f86aabfab83bf5617bb60c8f65c580fb2`, and
+`27c9638aece89c36d5f740a7568967aa92ec363ce6f510edde287fb04bd875ab`, and
 the manifest SHA-256 was
 `c52f247962d6e2504df8fd307ea34a5500ede988e43ed109c03b62af1b93dca1`. The
 four native `not_run` rows are sync endpoint, bound-method, partial, and
 callable-instance Request dispatch cases. `make parity-run` exits with status
-2 for those declared Python-callable boundaries. Full run identity and wheel
-hash are recorded in [Migration parity contract and evidence](PARITY.md). This
-bounded evidence does not establish full Starlette parity or release
-readiness.
+2 for those declared Python-callable boundaries. Full run and wheel hash are
+recorded in [Migration parity contract and evidence](PARITY.md). This bounded
+evidence does not establish full Starlette parity or release readiness.
 
 The latest correctness-gated Router/GZip benchmark run,
-`fdbc7e5d-5556-498c-86be-794897a14bfc`, measured all 74 declared workloads:
-six Router and 68 GZip, with zero failures or skipped measurements. Its
-correctness preflight `e14095ce-c405-4b0d-97ac-a23d64e025dc` selected 723
-comparisons: 719 passed, zero failed or hit infrastructure errors, and four
+`d653ffc6-5828-4678-bb25-6d3e5b926abf`, measured all 74 declared workloads:
+six Router and 68 GZip, with zero failures or skipped measurements. Its clean
+correctness preflight `30a58707-ee2a-4146-b14d-2f0b104af348` selected 740
+comparisons: 736 passed, zero failed or hit infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 562/562 and Rust-native passed 157/161. Rust-native remains `not_run`
+passed 579/579 and Rust-native passed 157/161. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. The measured source/package median
-ratios were 0.773 for Router and 0.970 for GZip; source was faster in five of
-six Router workloads and 61 of 68 GZip workloads. The clean target checkout
-was revision `74fc946fbff4f0c8433ab22de32191461efe1942` with working-tree
-SHA-256 `c3f362f556407c5b96cd6185602d24afa340e996b92272eb3ffe4dcfe1994a5b`;
+ratios were 0.770 for Router and 0.974 for GZip; source was faster in five of
+six Router workloads and 58 of 68 GZip workloads. The clean target checkout
+was revision `007b1bab93990c011271bbb782294a0ba09fb022` with working-tree
+SHA-256 `c56704dafd9649422f6cff7bf8487722c0e4b028d1eef4e00ba4805d33c1a66b`;
 the package wheel SHA-256 was
-`54368e4db88c2a70aa60b7df134f8bc47ba708c33b0c9b33090f56a3b62709b9`.
+`27c9638aece89c36d5f740a7568967aa92ec363ce6f510edde287fb04bd875ab`.
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.

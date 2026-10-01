@@ -12,7 +12,7 @@ The active contract contains 581 input-only cases in 65 indexed files,
 covering 82 operations and 618 parity requirements. The six direct
 ServerErrorMiddleware cases and three TestClient exception-chain cases pass
 live source/package comparison. Latest integrated run
-`459eb6e1-ddf0-457f-baf0-b40bb71f48b1` passed all 736 executed comparisons out
+`30a58707-ee2a-4146-b14d-2f0b104af348` passed all 736 executed comparisons out
 of 740 selected, with zero failures or infrastructure errors and four
 Rust-native Python-callable rows `not_run`. The Python package passed 579/579;
 Rust-native passed 157/161. The four native `not_run` rows are sync endpoint,
@@ -107,9 +107,9 @@ inputs add convenience/close behavior and three app-level exception flows:
 the built-in close handler, an HTTP denial response, and a custom close handler.
 TestClient propagation and TestClient WebSocket sessions remain open. Six
 direct `ServerErrorMiddleware` inputs are now authored for construction,
-custom/default handler dispatch, and post-construction field mutation; they
-have not yet been run through the source/package comparator. Arbitrary
-middleware ordering remains open.
+custom/default handler dispatch, and post-construction field mutation; all six
+passed source/package comparison in run `30a58707-ee2a-4146-b14d-2f0b104af348`. Arbitrary middleware
+ordering remains open.
 
 ## P2 — Scoped ASGI and WebSocket workflows (bounded parity recorded)
 

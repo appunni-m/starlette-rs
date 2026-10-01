@@ -8,8 +8,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `459eb6e1-ddf0-457f-baf0-b40bb71f48b1`.
-It ran from `2026-10-01T04:16:13.615Z` to `2026-10-01T04:18:25.630Z` against
+The latest full-slice parity run is `30a58707-ee2a-4146-b14d-2f0b104af348`.
+It ran from `2026-10-01T04:30:16.512Z` to `2026-10-01T04:32:29.980Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
 581-case/618-requirement manifest. It selected 740 profile comparisons: 736
 passed, zero failed, zero infrastructure errors, and four Rust-native
@@ -19,12 +19,13 @@ ServerErrorMiddleware cases and all three TestClient exception-chain cases
 passed on the Python package. The four Rust-native `not_run` rows are sync
 endpoint, bound-method, partial, and callable-instance Request dispatch cases.
 `make parity-run` exits with status 2 for those declared `not_run` rows. The
-target source was based on revision `07d0560a4ec6a27fd1d54cb05b36763dd3a3fc70`
-with dirty worktree identity `source-fnv1a64-26d37a031534df21`; the installed
-package tree SHA-256 was
+target checkout was clean at revision `007b1bab93990c011271bbb782294a0ba09fb022`
+with working-tree SHA-256
+`c56704dafd9649422f6cff7bf8487722c0e4b028d1eef4e00ba4805d33c1a66b`; the
+installed package tree SHA-256 was
 `d12708e0007589aee038ecf52c835988bcc49c6d4601de2a266bf47d38a2cf9e`, and the
 wheel SHA-256 was
-`d58b6d8ed74ada9b3f554c6e45c1966f86aabfab83bf5617bb60c8f65c580fb2`.
+`27c9638aece89c36d5f740a7568967aa92ec363ce6f510edde287fb04bd875ab`.
 Manifest SHA-256: `c52f247962d6e2504df8fd307ea34a5500ede988e43ed109c03b62af1b93dca1`.
 Strict aggregation reports `not_proven` because the full compatibility
 denominator remains incomplete.

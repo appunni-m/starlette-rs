@@ -29,24 +29,23 @@ active and incomplete. The current contract has 581 input-only cases across
 65 indexed files, 82 operations, and 618 requirements. Six direct
 ServerErrorMiddleware cases and three TestClient exception-chain cases pass
 live source/package comparison in the latest full-slice run
-`459eb6e1-ddf0-457f-baf0-b40bb71f48b1`. It passed all 736
-executed profile comparisons out of 740 selected, with zero failures or
-infrastructure errors and four Rust-native Python-callable rows
-`not_run`. The Python package passed 579/579;
-Rust-native passed 157/161. The four native `not_run` rows are
-sync endpoint, bound-method, partial, and callable-instance Request dispatch.
-`make parity-run` exits with status 2 for those declared rows. Full run and wheel identities are recorded in [Migration parity
-contract and evidence](../PARITY.md). This bounded evidence does not establish
-full Starlette parity or release readiness.
+`30a58707-ee2a-4146-b14d-2f0b104af348`. It passed all 736 executed profile
+comparisons out of 740 selected, with zero failures or infrastructure errors
+and four Rust-native Python-callable rows `not_run`. The Python package passed
+579/579; Rust-native passed 157/161. The four native `not_run` rows are sync
+endpoint, bound-method, partial, and callable-instance Request dispatch.
+`make parity-run` exits with status 2 for those declared rows. Full run and
+wheel identities are recorded in [Migration parity contract and
+evidence](../PARITY.md). This bounded evidence does not establish full Starlette
+parity or release readiness.
 
-The latest Router/GZip run `fdbc7e5d-5556-498c-86be-794897a14bfc` measured all
-74 source/package workloads after parity preflight
-`e14095ce-c405-4b0d-97ac-a23d64e025dc`. Median source/package ratios were
-0.773 for Router and 0.970 for GZip; source was faster on five of six Router
-workloads and 61 of 68 GZip workloads. See
-[Benchmark mapping](../BENCHMARKS.md)
-for the timing summary and limits. These bounded results do not establish full
-compatibility.
+The latest Router/GZip run `d653ffc6-5828-4678-bb25-6d3e5b926abf`
+measured all 74 source/package workloads after clean parity preflight
+`30a58707-ee2a-4146-b14d-2f0b104af348`. Median source/package ratios were
+0.770 for Router and 0.974 for GZip; source was faster on five of six Router
+workloads and 58 of 68 GZip workloads. See
+[Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
+bounded results do not establish full compatibility.
 
 At the source-mapping checkpoint, the parity manifest indexed 118 input-only cases
 across 18 files: 38 request/routing cases, 21 reverse-URL cases, four direct
