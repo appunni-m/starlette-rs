@@ -8,21 +8,21 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 565 input-only cases in 64 indexed files,
-covering 80 operations and 604 parity requirements. Latest integrated run
-`2079f8f4-a413-4730-9aaf-3ed7dffa6e79` passed all 720 executed comparisons out
-of 724 selected, with zero failures or infrastructure errors and four
-Rust-native Python-callable rows `not_run`. The Python package passed 563/563;
-Rust-native passed 157/161. The run includes TestClient parity for the
-configured TrustedHostMiddleware stack and invalid-host response. The four
-native `not_run` rows are sync endpoint, bound-method, partial, and
-callable-instance Request dispatch. `make parity-run` exits with status 2 for
-those declared rows. Full run identities and package hashes are recorded in
-[Migration parity contract and evidence](../PARITY.md); this bounded evidence
-does not establish full Starlette parity or release readiness.
+The active contract contains 566 input-only cases in 64 indexed files,
+covering 80 operations and 606 parity requirements. Latest integrated run
+`31ada42d-e45e-44e6-9ed0-70923b29ed44` passed all 721 executed comparisons out
+of 725 selected, with zero failures or infrastructure errors and four
+Rust-native Python-callable rows `not_run`. The Python package passed 564/564;
+Rust-native passed 157/161. The run includes the same-client mounted-StaticFiles
+GET/POST flow. The four native `not_run` rows are sync endpoint, bound-method,
+partial, and callable-instance Request dispatch. `make parity-run` exits
+with status 2 for those declared rows. Full run identities and package hashes
+are recorded in [Migration parity contract and evidence](../PARITY.md); this
+bounded evidence does not establish full Starlette parity or release
+readiness.
 
-The current coverage matrix has 800 source rows: 302 existing input mappings,
-50 source-backed `not_applicable` rows, and 448 fixture-backlog rows. Derive
+The current coverage matrix has 800 source rows: 303 existing input mappings,
+50 source-backed `not_applicable` rows, and 447 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

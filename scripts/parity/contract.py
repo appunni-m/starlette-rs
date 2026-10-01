@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@19"
+INPUT_SCHEMA = "migration-parity/parity-input@20"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -127,6 +127,8 @@ TESTCLIENT_REQUIREMENTS = {
     "app_debug_mutation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.application-debug-mutation",
     "app_debug_response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.debug-error-response",
     "starlette_trusted_host": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-trusted-host-middleware",
+    "request_sequence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-up-request-sequence",
+    "mounted_static_files": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-static-files",
 }
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
@@ -7972,23 +7974,6 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     ):
         raise ContractError("TestClient.headers must be an array of string pairs")
 
-    request = case["request"]
-    request_keys = {"method", "url", "headers_base64_pairs", "body_base64"}
-    if isinstance(request, dict) and "timeout" in request:
-        request_keys.add("timeout")
-    request = _exact(request, request_keys, "TestClient request")
-    method = _string(request["method"], "TestClient request.method")
-    if not method or method != method.upper():
-        raise ContractError("TestClient request.method must be a non-empty uppercase token")
-    _string(request["url"], "TestClient request.url")
-    if "timeout" in request and (
-        not isinstance(request["timeout"], (int, float))
-        or isinstance(request["timeout"], bool)
-        or not math.isfinite(request["timeout"])
-        or request["timeout"] <= 0
-    ):
-        raise ContractError("TestClient request.timeout must be a finite positive number")
-
     def validate_base64(value: Any, context: str) -> None:
         if not isinstance(value, str):
             raise ContractError(f"{context} must be a base64 string")
@@ -8009,14 +7994,56 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             validate_base64(pair[0], f"{context}[{index}].name")
             validate_base64(pair[1], f"{context}[{index}].value")
 
-    validate_pairs(request["headers_base64_pairs"], "TestClient request headers")
-    validate_base64(request["body_base64"], "TestClient request.body_base64")
-
     raw_asgi_app = case["asgi_app"]
     app_kind = raw_asgi_app.get("kind") if isinstance(raw_asgi_app, dict) else None
     is_sync_route = app_kind == "starlette-route"
     is_starlette_app_debug = app_kind == "starlette-app-debug"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
+    is_starlette_app_static_mount = app_kind == "starlette-app-static-mount"
+
+    def validate_request(value: Any, context: str) -> dict[str, Any]:
+        request_keys = {"method", "url", "headers_base64_pairs", "body_base64"}
+        if isinstance(value, dict):
+            request_keys.update(key for key in ("timeout", "client_method") if key in value)
+        request = _exact(value, request_keys, context)
+        method = _string(request["method"], f"{context}.method")
+        if not method or method != method.upper():
+            raise ContractError(f"{context}.method must be a non-empty uppercase token")
+        _string(request["url"], f"{context}.url")
+        if "timeout" in request and (
+            not isinstance(request["timeout"], (int, float))
+            or isinstance(request["timeout"], bool)
+            or not math.isfinite(request["timeout"])
+            or request["timeout"] <= 0
+        ):
+            raise ContractError(f"{context}.timeout must be a finite positive number")
+        if "client_method" in request:
+            client_method = request["client_method"]
+            if (
+                not isinstance(client_method, str)
+                or client_method not in {"get", "post"}
+                or client_method.upper() != method
+            ):
+                raise ContractError(f"{context}.client_method must match GET or POST method")
+        validate_pairs(request["headers_base64_pairs"], f"{context}.headers_base64_pairs")
+        validate_base64(request["body_base64"], f"{context}.body_base64")
+        if request.get("client_method") == "get" and base64.b64decode(request["body_base64"]):
+            raise ContractError(f"{context}.body_base64 must be empty for TestClient.get")
+        return request
+
+    request = validate_request(case["request"], "TestClient request")
+    followup_requests: list[dict[str, Any]] = []
+    if "followup_requests" in case:
+        if not isinstance(case["followup_requests"], list) or not case["followup_requests"]:
+            raise ContractError("TestClient followup_requests must be a non-empty array")
+        followup_requests = [
+            validate_request(value, f"TestClient followup_requests[{index}]")
+            for index, value in enumerate(case["followup_requests"])
+        ]
+        if not is_starlette_app_static_mount:
+            raise ContractError(
+                "TestClient followup_requests are only declared for the mounted StaticFiles input"
+            )
     if is_sync_route:
         asgi_app = _exact(
             raw_asgi_app,
@@ -8088,6 +8115,49 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 "TestClient Starlette TrustedHost input must define a GET route and allowed-host list"
             )
         _string(endpoint["content"], "TestClient TrustedHost endpoint content")
+        exception_spec = None
+        messages = []
+    elif is_starlette_app_static_mount:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "mount_path", "files", "scope_fields"},
+            "TestClient Starlette StaticFiles mount app",
+        )
+        mount_path = _string(asgi_app["mount_path"], "TestClient StaticFiles mount_path")
+        if not mount_path.startswith("/") or "?" in mount_path or "#" in mount_path:
+            raise ContractError("TestClient StaticFiles mount_path must be an absolute path")
+        if not isinstance(asgi_app["files"], list) or not asgi_app["files"]:
+            raise ContractError("TestClient StaticFiles mount files must be a non-empty array")
+        asset_paths: set[str] = set()
+        for index, file_input in enumerate(asgi_app["files"]):
+            file_path, _ = _validate_static_asset_file(
+                file_input, f"TestClient StaticFiles mount files[{index}]"
+            )
+            if file_path in asset_paths:
+                raise ContractError("TestClient StaticFiles mount file paths must be unique")
+            asset_paths.add(file_path)
+        if (
+            len(followup_requests) != 1
+            or request["method"] != "GET"
+            or followup_requests[0]["method"] != "POST"
+            or request.get("client_method") != "get"
+            or followup_requests[0].get("client_method") != "post"
+            or request["headers_base64_pairs"]
+            or followup_requests[0]["headers_base64_pairs"]
+            or base64.b64decode(request["body_base64"])
+            or base64.b64decode(followup_requests[0]["body_base64"])
+        ):
+            raise ContractError(
+                "TestClient StaticFiles mount input must issue an empty GET followed by an empty POST"
+            )
+        mount_prefix = mount_path.rstrip("/")
+        asset_url_path = f"{mount_prefix}/{asgi_app['files'][0]['path']}"
+        if any(
+            urlsplit(item["url"]).path != asset_url_path for item in [request, *followup_requests]
+        ):
+            raise ContractError(
+                "TestClient StaticFiles mount requests must address the input-defined file"
+            )
         exception_spec = None
         messages = []
     else:
@@ -8168,6 +8238,10 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     if is_starlette_app_trusted_host:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_trusted_host"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_starlette_app_static_mount:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_static_files"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if exception_spec is not None:
         exception_spec = _exact(
             exception_spec,
@@ -8190,7 +8264,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if asgi_app["kind"] == "asgi2":
         expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi2"])
-    if "timeout" in request:
+    if any("timeout" in item for item in [request, *followup_requests]):
         expected_covers.add(TESTCLIENT_REQUIREMENTS["timeout_warning"])
     if set(case["covers"]) != expected_covers:
         raise ContractError("TestClient covers must match the input app and request workflow")
@@ -9624,6 +9698,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 if key in case
             }
         )
+    if is_testclient and isinstance(case, dict) and "followup_requests" in case:
+        expected_case_keys = expected_case_keys | {"followup_requests"}
     if is_testclient:
         if case["observations"] != [TESTCLIENT_OPERATION]:
             raise ContractError("TestClient cases must select request-response")

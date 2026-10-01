@@ -6,8 +6,11 @@ import asyncio
 import base64
 import builtins
 import contextlib
+import os
+import tempfile
 import threading
 import warnings
+from pathlib import Path
 from typing import Any
 
 
@@ -50,6 +53,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     asgi_events: list[dict[str, Any]] = []
     sync_endpoint_state: dict[str, Any] | None = None
     starlette_application: Any = None
+    temporary_filesystem: tempfile.TemporaryDirectory[str] | None = None
 
     def record_scope(scope: dict[str, Any]) -> None:
         scope_observations.append(
@@ -159,6 +163,38 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await starlette_application(scope, receive, observed_send)
 
+    elif app_input["kind"] == "starlette-app-static-mount":
+        from starlette.applications import Starlette
+        from starlette.routing import Mount
+        from starlette.staticfiles import StaticFiles
+
+        temporary_filesystem = tempfile.TemporaryDirectory(prefix="starlette-static-mount-parity-")
+        directory = Path(temporary_filesystem.name)
+        for file_input in app_input["files"]:
+            path = directory.joinpath(*file_input["path"].split("/"))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(base64.b64decode(file_input["contents_base64"]))
+            mtime_seconds = file_input["mtime_seconds"]
+            os.utime(path, (mtime_seconds, mtime_seconds))
+
+        starlette_application = Starlette(
+            routes=[
+                Mount(
+                    app_input["mount_path"],
+                    StaticFiles(directory=str(directory)),
+                )
+            ]
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await starlette_application(scope, receive, observed_send)
+
     elif app_input["kind"] == "asgi2":
 
         def app(scope: dict[str, Any]) -> Any:
@@ -183,24 +219,59 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         client=tuple(settings["client"]),
         headers=dict(settings["headers"]),
     )
-    request_kwargs = {
-        "content": base64.b64decode(request_input["body_base64"]),
-        "headers": _decoded_pairs(request_input["headers_base64_pairs"]),
-    }
-    if "timeout" in request_input:
-        request_kwargs["timeout"] = request_input["timeout"]
     response = None
+    response_value = None
+    followup_response_values: list[dict[str, Any]] = []
     captured_error = None
+
+    def response_observation(value: Any) -> dict[str, Any]:
+        return {
+            "status_code": value.status_code,
+            "headers": value.headers.multi_items(),
+            "body_base64": base64.b64encode(value.content).decode("ascii"),
+            "extensions": _safe(value.extensions),
+            "template": _safe(getattr(value, "template", None)),
+            "context": _safe(getattr(value, "context", None)),
+        }
+
     with warnings.catch_warnings(record=True) as recorded:
         warnings.simplefilter("always")
         try:
-            response = client.request(
-                request_input["method"], request_input["url"], **request_kwargs
-            )
+            for index, current_request in enumerate(
+                [request_input, *case.get("followup_requests", [])]
+            ):
+                request_kwargs = {
+                    "headers": _decoded_pairs(current_request["headers_base64_pairs"]),
+                }
+                if "timeout" in current_request:
+                    request_kwargs["timeout"] = current_request["timeout"]
+                client_method = current_request.get("client_method")
+                if client_method == "get":
+                    current_response = client.get(current_request["url"], **request_kwargs)
+                elif client_method == "post":
+                    request_kwargs["content"] = base64.b64decode(current_request["body_base64"])
+                    current_response = client.post(current_request["url"], **request_kwargs)
+                else:
+                    request_kwargs["content"] = base64.b64decode(current_request["body_base64"])
+                    current_response = client.request(
+                        current_request["method"],
+                        current_request["url"],
+                        **request_kwargs,
+                    )
+                current_response_value = response_observation(current_response)
+                if index == 0:
+                    response = current_response
+                    response_value = current_response_value
+                else:
+                    followup_response_values.append(current_response_value)
         except BaseException as error:
             captured_error = error
         finally:
-            client.close()
+            try:
+                client.close()
+            finally:
+                if temporary_filesystem is not None:
+                    temporary_filesystem.cleanup()
     deprecation_warnings = [
         {
             "category": f"{item.category.__module__}.{item.category.__qualname__}",
@@ -210,21 +281,12 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         }
         for item in recorded
     ]
-    response_value = None
-    if response is not None:
-        response_value = {
-            "status_code": response.status_code,
-            "headers": response.headers.multi_items(),
-            "body_base64": base64.b64encode(response.content).decode("ascii"),
-            "extensions": _safe(response.extensions),
-            "template": _safe(getattr(response, "template", None)),
-            "context": _safe(getattr(response, "context", None)),
-        }
     result = {
         "scope": scope_observations,
         "receive_messages": receive_observations,
         "deprecation_warnings": deprecation_warnings,
         "response": response_value,
+        "followup_responses": followup_response_values,
         "asgi_events": asgi_events,
         "sync_endpoint_observations": (
             None if sync_endpoint_state is None else sync_endpoint_state["observation"]

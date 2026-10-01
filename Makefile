@@ -15,7 +15,7 @@ PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/pytho
 CARGO_DENY ?= cargo deny
 CARGO_AUDIT ?= cargo audit
 
-.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
+.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
@@ -36,6 +36,7 @@ help: ## Show common Rust workspace commands
 	  '  make parity-inputs  Generate ignored JSON inputs from authored YAML' \
 	  '  make migrate-parity-inputs-v17-v18  Migrate authored parity input schema headers' \
 	  '  make migrate-parity-inputs-v18-v19  Migrate authored parity input schema headers' \
+	  '  make migrate-parity-inputs-v19-v20  Migrate authored parity input schema headers' \
 	  '  make parity-env  Build the wheel and prepare isolated source/package environments' \
 	  '  make parity-adapter  Build the current Rust-native parity adapter' \
 	  '  make source-inventory  Regenerate the metadata-derived API catalog and source atlas' \
@@ -104,6 +105,9 @@ migrate-parity-inputs-v17-v18: ## Migrate active authored parity input files to 
 
 migrate-parity-inputs-v18-v19: ## Migrate active authored parity input files to schema @19
 	$(PYTHON) scripts/migrate_parity_input_v18_to_v19.py
+
+migrate-parity-inputs-v19-v20: ## Migrate active authored parity input files to schema @20
+	$(PYTHON) scripts/migrate_parity_input_v19_to_v20.py
 
 parity-env: parity-inputs ## Build the package wheel and prepare isolated parity environments
 	$(PARITY_PYTHON) -m scripts.parity.cli prepare-env --force --upstream "$(STARLETTE_ORACLE_ROOT)"

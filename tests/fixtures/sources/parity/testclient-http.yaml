@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@19",
+  "schema": "migration-parity/parity-input@20",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.asgi3-default-client",
@@ -719,6 +719,70 @@
           "method",
           "scheme",
           "path",
+          "headers",
+          "client",
+          "server"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.mounted-static-files-get-post",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
+        "starlette.testclient.TestClient.request-response.mounted-static-files",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/static/example.txt",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "followup_requests": [
+        {
+          "method": "POST",
+          "client_method": "post",
+          "url": "/static/example.txt",
+          "headers_base64_pairs": [],
+          "body_base64": ""
+        }
+      ],
+      "asgi_app": {
+        "kind": "starlette-app-static-mount",
+        "mount_path": "/static",
+        "files": [
+          {
+            "path": "example.txt",
+            "contents_base64": "PGZpbGUgY29udGVudD4=",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path",
           "headers",
           "client",
           "server"

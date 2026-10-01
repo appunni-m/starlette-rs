@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@19",
+      "input_schema": "migration-parity/parity-input@20",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -16873,6 +16873,17 @@
                 }
               },
               {
+                "id": "followup_requests",
+                "style": "keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
+                }
+              },
+              {
                 "id": "asgi_app",
                 "style": "keyword",
                 "value_types": [
@@ -16924,6 +16935,15 @@
                   },
                   "normalization": {
                     "kind": "starlette-debug-traceback"
+                  }
+                },
+                {
+                  "path": "followup_responses",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
                   }
                 },
                 {
@@ -17137,6 +17157,28 @@
               "id": "starlette.testclient.TestClient.request-response.starlette-trusted-host-middleware",
               "dimension": "error_path",
               "description": "Build a Starlette application with TrustedHostMiddleware in its configured middleware stack, then use TestClient with an input-defined disallowed Host and compare the response and emitted ASGI events. Upstream: tests/test_applications.py::test_middleware; starlette/applications.py:92-107; starlette/middleware/trustedhost.py:31-66.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
+              "dimension": "protocol_variant",
+              "description": "Execute the input-defined follow-up HTTP requests through the same synchronous TestClient and Starlette app, comparing their ordered responses and ASGI effects. Upstream: tests/test_applications.py::test_app_mount; starlette/testclient.py:422-452.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.mounted-static-files",
+              "dimension": "feature",
+              "description": "Mount input-defined StaticFiles beneath a Starlette app and compare the TestClient file GET and method-not-allowed POST responses through the app middleware stack. Upstream: tests/test_applications.py::test_app_mount; starlette/applications.py:78-83; starlette/routing.py:147-190; starlette/staticfiles.py:130-141.",
               "lanes": [
                 "parity"
               ],

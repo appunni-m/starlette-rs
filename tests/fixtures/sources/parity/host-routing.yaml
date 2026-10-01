@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@19",
+  "schema": "migration-parity/parity-input@20",
   "cases": [
     {
       "case_id": "starlette.routing.Router.route-dispatch.host-route-match",
