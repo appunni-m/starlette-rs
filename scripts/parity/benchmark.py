@@ -505,9 +505,35 @@ def run_benchmark(root: Path, manifest_path: Path) -> dict[str, Any]:
 
     from .cli import validate_repository
 
-    source_validation = validate_repository(root, manifest_path, upstream)
-    if source_validation["oracle_commit"] != manifest["scope"]["inventory"]["revision"]:
+    source_validation_report = validate_repository(root, manifest_path, upstream)
+    if source_validation_report["oracle_commit"] != manifest["scope"]["inventory"]["revision"]:
         raise ContractError("source identity differs from the pinned manifest revision")
+    if (
+        source_validation_report["scope_id"] != manifest["scope"]["id"]
+        or source_validation_report["scope_mode"] != manifest["scope"]["mode"]
+        or source_validation_report["manifest_inventory_revision"]
+        != manifest["scope"]["inventory"]["revision"]
+        or source_validation_report["source_checkout_checked"] is not True
+    ):
+        raise ContractError("source validation report differs from the active manifest")
+    source_validation = {
+        "schema": source_validation_report["schema"],
+        "scope_mode": source_validation_report["scope_mode"],
+        "scope_id": source_validation_report["scope_id"],
+        "oracle_commit": source_validation_report["oracle_commit"],
+        "oracle_package": source_validation_report["oracle_package"],
+        "runtime_dependency_lock_sha256": source_validation_report[
+            "runtime_dependency_lock_sha256"
+        ],
+        "indexed_input_files": source_validation_report["indexed_parity_input_files"],
+        "cases": source_validation_report["cases"],
+        "target_profiles": source_validation_report["target_profiles"],
+        "operations": source_validation_report["operations"],
+        "parity_tooling_sources_compiled": source_validation_report[
+            "parity_tooling_sources_compiled"
+        ],
+        "parity_passes_claimed": source_validation_report["parity_passes_claimed"],
+    }
 
     prepared = load_prepared_environments(root, require_target=True)
     started_at = _timestamp()
