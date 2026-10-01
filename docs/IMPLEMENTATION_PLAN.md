@@ -311,22 +311,22 @@ dependencies feature-gated and unsupported coverage source-backed.
 The pinned Starlette 1.6.0 Router/GZip workload catalog contains six Router
 and 68 GZip benchmark IDs. All 74 have input-only descriptors and exact
 source-versus-installed-package correctness gates. Latest run
-`e76d3c0f-7249-448d-b452-6e9213ff2def` ran from
-`2026-10-01T12:47:19.043Z` to `2026-10-01T12:51:20.165Z` and measured all
+`e279f32f-6c93-40e3-a1ae-c50d60293c95` ran from
+`2026-10-01T13:08:53.000Z` to `2026-10-01T13:12:35.101Z` and measured all
 74 source/package workloads with zero failures and zero not-run rows. Its clean
-correctness preflight, `ff23e286-fd99-4d5d-a260-ba3ed60adbdd`, used the active
+correctness preflight, `79952567-5fcf-4f02-9937-8409773fadbd`, used the active
 615-case/651-requirement manifest (SHA-256
 `0ff9429bcac0f3804ac80574567ec3dc4c4f3cb09b2d5dd26fa7656d1e15b574`) and
 selected 780 comparisons: 776 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run` (package 613/613;
 Rust-native 163 passed, 4 not_run). The target was clean at commit
-`7c4b332237fdd2ef44a53df2fd124f3b5802ef10` with working-tree SHA-256
-`8d992fb3b49e1e45cf8bdd1faaba84d14331826be5ce94d1c5213f4c091bdf89`; the
+`3af96de8aa110ca9701a0f20987a1361bfc29f16` with working-tree SHA-256
+`3a8cd1c2da313ab564d08fa4f2b59f176bb21ba2cc9f9a0e3d247bf67b953ced`; the
 target wheel SHA-256 is
-`fdbe0dee60daa65087715b17450c61f41370ce44b0b3cd2fe8e8536c659bd124`. The
-median per-workload source/package ratios were 0.763 for Router and 0.962 for
-GZip; source was faster in five of six Router workloads and 55 of 68 GZip
-workloads.
+`e3ae153cd93d14853620af704f31efc2447b47d606713099abece71e63b987e0`. The
+median per-workload source/package ratios were 0.768 for Router and 0.972 for
+GZip; source was faster in five of six Router workloads and 56 of 68 GZip
+workloads. All 74 source/package observation hashes matched.
 
 Rust-native remains `not_run` for all 74 because its public API does not expose
 the same Starlette Router/GZip dispatch boundary. The result is accepted by the
