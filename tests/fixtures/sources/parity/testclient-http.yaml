@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@21",
+  "schema": "migration-parity/parity-input@22",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.asgi3-default-client",
@@ -359,6 +359,195 @@
         "exception": {
           "class": "RuntimeError",
           "message": "application failed"
+        }
+      }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/inspect",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "case_id": "starlette.testclient.TestClient.request-response.exception-explicit-cause-preserved",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.exception-identity-and-chaining"
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
+        ],
+        "receive_count": 1,
+        "messages": [],
+        "exception": {
+          "class": "RuntimeError",
+          "message": "outer failure",
+          "chain": {
+            "relation": "explicit-cause",
+            "class": "ValueError",
+            "message": "inner failure"
+          }
+        }
+      }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/inspect",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "case_id": "starlette.testclient.TestClient.request-response.exception-implicit-context-preserved",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.exception-identity-and-chaining"
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
+        ],
+        "receive_count": 1,
+        "messages": [],
+        "exception": {
+          "class": "RuntimeError",
+          "message": "outer failure",
+          "chain": {
+            "relation": "implicit-context",
+            "class": "LookupError",
+            "message": "inner failure"
+          }
+        }
+      }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/inspect",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "case_id": "starlette.testclient.TestClient.request-response.exception-suppressed-context-preserved",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.exception-identity-and-chaining"
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
+        ],
+        "receive_count": 1,
+        "messages": [],
+        "exception": {
+          "class": "RuntimeError",
+          "message": "outer failure",
+          "chain": {
+            "relation": "suppressed-context",
+            "class": "LookupError",
+            "message": "inner failure"
+          }
         }
       }
     },

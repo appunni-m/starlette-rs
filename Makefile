@@ -15,7 +15,7 @@ PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/pytho
 CARGO_DENY ?= cargo deny
 CARGO_AUDIT ?= cargo audit
 
-.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
+.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 migrate-parity-inputs-v21-v22 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
@@ -112,6 +112,9 @@ migrate-parity-inputs-v19-v20: ## Migrate active authored parity input files to 
 
 migrate-parity-inputs-v20-v21: ## Migrate active authored parity input files to schema @21
 	$(PYTHON) scripts/migrate_parity_input_v20_to_v21.py
+
+migrate-parity-inputs-v21-v22: ## Migrate active authored parity input files to schema @22
+	$(PYTHON) scripts/migrate_parity_input_v21_to_v22.py
 
 parity-env: parity-inputs ## Build the package wheel and prepare isolated parity environments
 	$(PARITY_PYTHON) -m scripts.parity.cli prepare-env --force --upstream "$(STARLETTE_ORACLE_ROOT)"

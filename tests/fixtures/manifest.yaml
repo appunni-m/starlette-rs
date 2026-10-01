@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@21",
+      "input_schema": "migration-parity/parity-input@22",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -16992,6 +16992,16 @@
                   }
                 },
                 {
+                  "path": "exception_propagation",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
                   "path": "sync_endpoint_observations",
                   "value_types": [
                     "record",
@@ -17124,6 +17134,17 @@
               "id": "starlette.testclient.TestClient.request-response.exception-policy",
               "dimension": "error_path",
               "description": "Propagate application exceptions by default, return a 500 response when raise_server_exceptions is false before response start, and return an already completed response when the app raises afterward. Pinned source: starlette/testclient.py:348-367; docs/testclient.md:74-77; tests/middleware/test_errors.py:25-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.exception-identity-and-chaining",
+              "dimension": "boundary",
+              "description": "Preserve the application-raised exception object, __cause__, __context__, and __suppress_context__ as TestClient re-raises the captured error through the AnyIO portal. Pinned source: starlette/testclient.py:348-367; docs/testclient.md:74-77.",
               "lanes": [
                 "parity"
               ],

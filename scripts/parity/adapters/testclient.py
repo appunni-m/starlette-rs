@@ -51,6 +51,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     scope_observations: list[dict[str, Any]] = []
     receive_observations: list[dict[str, Any]] = []
     asgi_events: list[dict[str, Any]] = []
+    app_exception_state: dict[str, BaseException] = {}
     sync_endpoint_state: dict[str, Any] | None = None
     starlette_application: Any = None
     temporary_filesystem: tempfile.TemporaryDirectory[str] | None = None
@@ -70,7 +71,23 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             await send(message)
         if "exception" in app_input:
             exception_type = getattr(builtins, app_input["exception"]["class"])
-            raise exception_type(app_input["exception"]["message"])
+            raised_exception = exception_type(app_input["exception"]["message"])
+            app_exception_state["raised"] = raised_exception
+            if "chain" not in app_input["exception"]:
+                raise raised_exception
+            chain = app_input["exception"]["chain"]
+            cause_type = getattr(builtins, chain["class"])
+            inner_exception = cause_type(chain["message"])
+            app_exception_state["inner"] = inner_exception
+            if chain["relation"] == "explicit-cause":
+                raise raised_exception from inner_exception
+            try:
+                raise inner_exception
+            except BaseException:
+                if chain["relation"] == "implicit-context":
+                    # Preserve the input-defined implicit __context__ chain.
+                    raise raised_exception  # noqa: B904
+                raise raised_exception from None
 
     if app_input["kind"] == "starlette-route":
         from starlette.applications import Starlette
@@ -347,7 +364,30 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         "sync_endpoint_observations": (
             None if sync_endpoint_state is None else sync_endpoint_state["observation"]
         ),
+        "exception_propagation": None,
     }
+    if "exception" in app_input and "chain" in app_input["exception"]:
+        propagated_cause = None if captured_error is None else captured_error.__cause__
+        propagated_context = None if captured_error is None else captured_error.__context__
+
+        def exception_reference(value: BaseException | None) -> dict[str, str] | None:
+            if value is None:
+                return None
+            return {
+                "class": f"{type(value).__module__}.{type(value).__qualname__}",
+                "message": str(value),
+            }
+
+        result["exception_propagation"] = {
+            "raised_instance_preserved": captured_error is app_exception_state.get("raised"),
+            "cause_instance_preserved": propagated_cause is app_exception_state.get("inner"),
+            "context_instance_preserved": propagated_context is app_exception_state.get("inner"),
+            "cause": exception_reference(propagated_cause),
+            "context": exception_reference(propagated_context),
+            "suppress_context": (
+                False if captured_error is None else bool(captured_error.__suppress_context__)
+            ),
+        }
     if app_input["kind"] == "starlette-app-debug":
         result["application_debug"] = bool(starlette_application.debug)
         result["debug_exception_name_present"] = (

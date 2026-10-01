@@ -8,8 +8,10 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 572 input-only cases in 64 indexed files,
-covering 80 operations and 611 parity requirements. Latest integrated run
+The active contract contains 575 input-only cases in 64 indexed files,
+covering 80 operations and 612 parity requirements. Three TestClient
+exception-chain inputs were added after the latest integrated run and remain
+unverified by a new source/package comparison. Latest integrated run
 `7f506068-123d-4db2-a008-42fbf946c1cf` passed all 727 executed comparisons out
 of 731 selected, with zero failures or infrastructure errors and four
 Rust-native Python-callable rows `not_run`. The Python package passed 570/570;
@@ -85,7 +87,8 @@ callback starts with cancellation and finalizer observations. The synchronous
 background cancellation input holds the worker callback until cancellation
 reaches the response task, then compares worker completion and propagated
 cancellation; it passes in the latest full source/package run.
-Remaining boundary work includes broader exception identity/chaining,
+Remaining boundary work includes exception identity/chaining beyond the
+bounded TestClient propagation cases,
 streaming backpressure, broader lifespan state and concurrency, and other
 Python/Rust ownership decisions. The new bounded generator-lifespan slice
 covers sync and async entry/cleanup, startup/shutdown failures, synchronous

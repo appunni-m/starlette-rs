@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@21"
+INPUT_SCHEMA = "migration-parity/parity-input@22"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -121,6 +121,7 @@ TESTCLIENT_REQUIREMENTS = {
     "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
+    "exception_identity_chain": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-identity-and-chaining",
     "sync_route_get": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-get",
     "sync_route_head": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-head",
     "sync_route_worker_thread": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-worker-thread",
@@ -8410,9 +8411,12 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["scope"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if exception_spec is not None:
+        exception_keys = {"class", "message"}
+        if isinstance(exception_spec, dict) and "chain" in exception_spec:
+            exception_keys.add("chain")
         exception_spec = _exact(
             exception_spec,
-            {"class", "message"},
+            exception_keys,
             "TestClient ASGI app exception",
         )
         exception_class = _string(exception_spec["class"], "TestClient ASGI app exception.class")
@@ -8427,6 +8431,34 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         else:
             _string(exception_spec["message"], "TestClient ASGI app exception.message")
         expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
+        if "chain" in exception_spec:
+            if (
+                asgi_app["kind"] not in {"asgi2", "asgi3"}
+                or settings["raise_server_exceptions"] is not True
+                or messages
+            ):
+                raise ContractError(
+                    "TestClient exception-chain inputs must propagate before response start"
+                )
+            chain = _exact(
+                exception_spec["chain"],
+                {"relation", "class", "message"},
+                "TestClient ASGI app exception chain",
+            )
+            if chain["relation"] not in {
+                "explicit-cause",
+                "implicit-context",
+                "suppressed-context",
+            }:
+                raise ContractError("TestClient exception chain relation is unsupported")
+            cause_class = _string(chain["class"], "TestClient exception chain class")
+            cause_type = getattr(builtins, cause_class, None)
+            if not isinstance(cause_type, type) or not issubclass(cause_type, Exception):
+                raise ContractError(
+                    "TestClient exception chain class must name a built-in Exception"
+                )
+            _string(chain["message"], "TestClient exception chain message")
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_identity_chain"])
     if messages or not settings["raise_server_exceptions"]:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if asgi_app["kind"] == "asgi2":

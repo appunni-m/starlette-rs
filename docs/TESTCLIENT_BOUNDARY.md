@@ -10,8 +10,9 @@ The active slice compares ASGI2 and ASGI3 calls, HTTP scope projection,
 request-body delivery, response headers/body, debug response extensions, the
 warning emitted when a request supplies a timeout, and application exception
 policy. Exception inputs compare default propagation, the synthesized 500
-response when no response has started, and preservation of a completed
-response when the app raises afterward. It records the warning category,
+response when no response has started, preservation of a completed response
+when the app raises afterward, and preservation of the raised exception
+identity with explicit cause, implicit context, and suppressed context. It records the warning category,
 message, filename, and line from the input-driven source and package runs. The
 timeout is forwarded to HTTPX; this comparison does not claim that the ASGI
 transport enforces a timeout. Eight WebSocket inputs compare scope
@@ -75,7 +76,7 @@ Each slice is authored as input-only YAML under `tests/fixtures/sources/` and
 is run against the pinned source and installed package in isolated processes.
 Stimuli come from the input definition; adapters may not use case IDs to
 choose requests, scopes, responses, or outcomes. The HTTP request/response
-slice has ten data-driven cases covering eleven requirements, including
+slice has fourteen data-driven cases covering thirteen requirements, including
 post-construction `app.debug` mutation and traceback responses; the lifespan
 slice has five cases covering eleven requirements; the WebSocket slice has
 eleven cases covering sixteen declared text, binary, JSON, denial, lifecycle,

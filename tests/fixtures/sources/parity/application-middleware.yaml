@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@21",
+  "schema": "migration-parity/parity-input@22",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.add_middleware.middleware-positional-order-and-stack-cache",
