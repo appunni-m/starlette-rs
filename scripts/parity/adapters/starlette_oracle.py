@@ -1102,7 +1102,9 @@ def _materialize_application(
         raise ValueError("Starlette.__init__ arguments do not match the declared workflow")
     lifespan_spec = app_spec["lifespan"]
     lifecycle_trace: list[str] = []
-    if lifespan_spec == {
+    if lifespan_spec is None:
+        lifespan = None
+    elif lifespan_spec == {
         "kind": "async-context-manager",
         "record_entry": True,
         "record_exit": True,

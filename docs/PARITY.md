@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 559 input-only cases in 64 indexed files, covering 80 operations and 596 parity requirements. The cases cover Starlette applications and route inventory, including `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 560 input-only cases in 64 indexed files, covering 80 operations and 597 parity requirements. The cases cover Starlette applications and route inventory, including `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,26 +8,24 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run `290b5adf-821d-4e6c-bd9d-bb66b340eef3`
-ran from `2026-09-30T23:48:30.279Z` to `2026-09-30T23:50:35.661Z` against
-Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 718
-profile comparisons: 714 passed, zero failed, zero infrastructure errors, and
-four Rust-native Python-callable rows were `not_run`. The Python package passed
-all 557 selected comparisons; Rust-native passed 157 of 161. The new
-FileResponse unsorted-range insertion case passed on both profiles. The Python
-package was built from clean source revision
-`f98b5d5df35ea2af6a3513ac182c658b8edfcfd3`; the adapter verified its installed
-package tree before and after each workflow. Its package tree SHA-256 was
-`a1f6617731f5d75dd7b119a29ca7f04fa8d6fcd48448ce96575f873a811385a3` and wheel
-SHA-256 `ef6ac7cef2fd713184123627ba0832a86bf19fcd99cccdbff4e10a51a971a243`.
-The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
-and callable-instance Request dispatch cases. `make parity-run` exits with
-status 2 for those declared `not_run` rows. Manifest SHA-256:
-`ea4d37adc555528218be5b6b01b5c95e115cb25fac50f7e043cb9dbf2a7f3208`. This
-clean bounded comparison does not establish full Starlette parity or release
-readiness. Strict aggregation accepts the parity and benchmark artifacts and
-reports `not_proven` because the full compatibility denominator remains
-incomplete.
+The latest full-slice parity run is `e06f9274-82e0-4910-ba54-4757fd903cb2`.
+It ran from `2026-10-01T00:07:44.196Z` to `2026-10-01T00:09:47.163Z` against
+Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
+560-case/597-requirement manifest. It selected 719 profile comparisons: 715
+passed, zero failed, zero infrastructure errors, and four Rust-native
+Python-callable rows were `not_run`. The Python package passed all 558 selected
+comparisons; Rust-native passed 157 of 161. The async `Starlette.__call__`
+route case modeled on upstream `test_app_add_route` passed exact source/package
+comparison. The package tree SHA-256 was
+`a1f6617731f5d75dd7b119a29ca7f04fa8d6fcd48448ce96575f873a811385a3`; wheel
+SHA-256 was `bafda888d2478b5b2bbbabd07ea8fcd3156ff1d31c52ee22996b60920f8697b8`.
+This run built the package from a dirty working tree, so it does not establish
+clean-revision evidence. The four Rust-native `not_run` rows are sync endpoint,
+bound-method, partial, and callable-instance Request dispatch cases.
+`make parity-run` exits with status 2 for those declared `not_run` rows.
+Manifest SHA-256: `e143b3714c7a75406108506a6531b7a20ecb8d2e1a9dc2211757b0d5ddb855fa`.
+Strict aggregation accepts the parity and benchmark artifacts and reports
+`not_proven` because the full compatibility denominator remains incomplete.
 
 ## Input-only cases
 
@@ -177,9 +175,9 @@ its context marker to the callable. Install the opt-in `templates` extra to
 use this module. The configured-environment, no-Jinja import, and broader
 template workflows remain in the fixture backlog.
 
-[`asgi-http-get-text.yaml`](../tests/fixtures/sources/parity/asgi-http-get-text.yaml) contains JSON-compatible input values and observation selectors only. The generator serializes this authored definition to runtime JSON; no source definition stores expected status, headers, body, response messages, or lifecycle trace. Every case constructs one app with a public GET `/hello` route returning a `PlainTextResponse`; the endpoint makes two public `Response.set_cookie` calls. The successful case also declares an async-context lifespan callback and sends startup then shutdown.
+[`asgi-http-get-text.yaml`](../tests/fixtures/sources/parity/asgi-http-get-text.yaml) contains JSON-compatible input values and observation selectors only. The generator serializes this authored definition to runtime JSON; no source definition stores expected status, headers, body, response messages, or lifecycle trace. The GET, missing-path, and wrong-method cases construct one app with a public `/hello` route returning a `PlainTextResponse`; the endpoint makes two public `Response.set_cookie` calls. The successful case also declares an async-context lifespan callback and sends startup then shutdown. A post-construction registration case calls `Starlette.add_route` and dispatches both GET and POST. The new async-route case models `test_app_add_route`: its input-defined async endpoint returns a `PlainTextResponse` from `GET /`.
 
-The Python target runs the installed `starlette-rs-py` `Starlette` ASGI callable with a real Python scope, receive callback, and send callback. The Rust target constructs the exported `starlette_rs::Starlette` with an `ApplicationRoute` and calls its async `call` method with the scope's path/method projection and Rust future-based callbacks. It awaits response-start then response-body sends. The fixed endpoint does not read request input, so the Rust receive callback remains unused, matching the Python endpoint's behavior. The native API does not model every ASGI scope field, host an executor, or invoke Python endpoints.
+The Python target runs the installed `starlette-rs-py` `Starlette` ASGI callable with a real Python scope, receive callback, and send callback. The Rust target constructs the exported `starlette_rs::Starlette` with an `ApplicationRoute` and calls its async `call` method with the scope's path/method projection and Rust future-based callbacks. It awaits response-start then response-body sends. The static response cases do not read request input, so the Rust receive callback remains unused, matching the Python endpoint's behavior. The native API does not model every ASGI scope field, host an executor, or invoke Python endpoints. The input-defined async-route case selects only the installed Python package because it exercises a real Python `Request` endpoint: the Rust-backed package dispatches and awaits that callable at the Python boundary, and the complete ASGI response is compared to the source oracle.
 
 The `/missing` case requests GET for an absent path. The wrong-method case requests POST for the existing GET-only path. These are separate workflows with their own source and target observations, so 404 and 405 behavior is measured rather than encoded as expected output.
 

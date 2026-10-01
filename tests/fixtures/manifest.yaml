@@ -748,6 +748,17 @@
               ]
             },
             {
+              "id": "starlette.applications.Starlette.__call__.async-route-return-response",
+              "dimension": "boundary",
+              "description": "Construct a Starlette app with an async HTTP endpoint that returns PlainTextResponse, then dispatch GET / through the public ASGI callable. Compare status, headers, bytes, and complete events. Upstream: tests/test_applications.py::test_app_add_route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.asgi.get-hello.lifespan",
               "dimension": "boundary",
               "description": "Enter and exit the declared async-context lifespan through the ASGI lifespan protocol and observe lifecycle cleanup effects.",

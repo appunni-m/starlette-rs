@@ -10606,6 +10606,8 @@ def _validate_server_error_application(args: dict[str, Any]) -> None:
 
 
 def _validate_lifespan_marker(marker: Any) -> str:
+    if marker is None:
+        return "default"
     if marker == {
         "kind": "async-context-manager",
         "record_entry": True,
@@ -10671,7 +10673,7 @@ def _validate_lifespan_marker(marker: Any) -> str:
         ):
             _string(marker[name], f"shadowed async context-manager {name}")
         return marker["kind"]
-    raise ContractError("lifespan input must use a declared context-manager marker")
+    raise ContractError("lifespan input must be null or use a declared context-manager marker")
 
 
 def _validate_lifespan_receive_actions(receive: Any) -> None:
@@ -10862,7 +10864,7 @@ def _validate_application_stimulus(
     if handlers != []:
         _validate_exception_handler_registry(handlers)
     lifespan_kind = _validate_lifespan_marker(args["lifespan"])
-    if lifespan_kind != "async-context-manager" and not allow_lifespan_variants:
+    if lifespan_kind not in {"default", "async-context-manager"} and not allow_lifespan_variants:
         raise ContractError(
             "generator and special-method lifespan markers require lifecycle-only input"
         )
@@ -11001,36 +11003,34 @@ def _validate_application_stimulus(
                 raise ContractError(f"HTTP exception header input[{index}] must be a string pair")
         return
 
-    if route != {
-        "kind": "http-route",
-        "path": "/hello",
-        "methods": ["GET"],
-        "endpoint": route["endpoint"],
-    }:
-        raise ContractError("route input must define GET /hello")
+    if (
+        route["kind"] != "http-route"
+        or not isinstance(route["path"], str)
+        or not route["path"].startswith("/")
+        or not isinstance(route["methods"], list)
+        or not route["methods"]
+        or any(
+            not isinstance(method, str) or not method or method != method.upper()
+            for method in route["methods"]
+        )
+        or len(route["methods"]) != len(set(route["methods"]))
+    ):
+        raise ContractError("route input must define a unique-method absolute HTTP route")
     endpoint = _exact(
         route["endpoint"],
         {"kind", "content", "status_code", "media_type", "cookies"},
         "endpoint input",
     )
-    if (
-        endpoint["kind"] != "plain-text-response"
-        or endpoint["content"] != "hello"
-        or endpoint["status_code"] != 200
-    ):
-        raise ContractError(
-            "endpoint input must configure a plain-text response with a status code"
-        )
-    if endpoint["media_type"] != "text/plain":
-        raise ContractError("the declared response media type is text/plain")
+    if endpoint["kind"] != "plain-text-response":
+        raise ContractError("endpoint input must define a plain-text response")
+    _string(endpoint["content"], "plain-text endpoint content")
+    if type(endpoint["status_code"]) is not int or not 100 <= endpoint["status_code"] <= 599:
+        raise ContractError("plain-text endpoint status_code must be an HTTP status code")
+    if endpoint["media_type"] is not None:
+        _string(endpoint["media_type"], "plain-text endpoint media_type")
     cookies = endpoint["cookies"]
-    if not isinstance(cookies, list) or len(cookies) != 2:
-        raise ContractError(
-            "the duplicate-header stimulus must use exactly two public Response.set_cookie calls"
-        )
-    expected_cookies = [{"key": "first", "value": "one"}, {"key": "second", "value": "two"}]
-    if cookies != expected_cookies:
-        raise ContractError("cookie inputs must be the two declared public set_cookie calls")
+    if not isinstance(cookies, list):
+        raise ContractError("plain-text endpoint cookies must be an ordered list")
     for index, cookie in enumerate(cookies):
         _exact(cookie, {"key", "value"}, f"cookie input[{index}]")
         _string(cookie["key"], f"cookie input[{index}].key")
@@ -15682,6 +15682,15 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         methods.add("HEAD")
     method_matches = method in methods
     coverage: set[str] = set()
+    if (
+        case["operation"] == "__call__"
+        and case["target_profiles"] == ["python-package-cpython312"]
+        and route["kind"] == "http-route"
+        and endpoint["kind"] == "plain-text-response"
+        and path_matches
+        and method_matches
+    ):
+        coverage.add("starlette.applications.Starlette.__call__.async-route-return-response")
 
     if case["operation"] == "__call__":
         handlers = app_arguments["exception_handlers"]
