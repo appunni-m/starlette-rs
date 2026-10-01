@@ -921,6 +921,7 @@
       "covers": [
         "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
         "starlette.testclient.TestClient.request-response.mounted-static-files",
+        "starlette.testclient.TestClient.request-response.starlette-mount-method-registration",
         "starlette.testclient.TestClient.request-response.response-and-debug",
         "starlette.testclient.TestClient.request-response.scope-projection"
       ],
@@ -958,8 +959,9 @@
         }
       ],
       "asgi_app": {
-        "kind": "starlette-app-static-mount",
+        "kind": "starlette-app-static-mount-method",
         "mount_path": "/static",
+        "mount_method_name": "static",
         "files": [
           {
             "path": "example.txt",

@@ -9,14 +9,15 @@ incomplete.
 ## Current parity snapshot
 
 The active contract contains 595 input-only cases in 70 indexed files,
-covering 85 operations and 637 parity requirements. Five async Request endpoint
+covering 85 operations and 638 parity requirements. Five async Request endpoint
 callable-shape and failure cases, the two direct `run_in_threadpool` cases,
 synchronous Request endpoint worker cancellation and failure, ASGI callable-
-instance success and failure, two direct State consumer sequences, `Starlette.host()` registration and
-dispatch, two `Starlette.add_exception_handler` workflows, six direct ServerErrorMiddleware
+instance success and failure, two direct State consumer sequences,
+`Starlette.host()` and `Starlette.mount()` registration and dispatch, two
+`Starlette.add_exception_handler` workflows, six direct ServerErrorMiddleware
 cases, and three TestClient exception-chain cases pass live source/package
 comparison. Latest integrated run
-`5cbf4a3c-4621-4c78-9eda-b386643a78e1` passed all 750 executed comparisons out
+`3183a3e4-7257-462a-b401-33a06c978c4f` passed all 750 executed comparisons out
 of 754 selected, with zero failures or infrastructure errors and four
 Rust-native Python-callable rows `not_run`. The Python package passed 593/593;
 Rust-native passed 157/161. The four native `not_run` rows are sync endpoint,
@@ -33,8 +34,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 800 source rows: 315 existing input mappings,
-50 source-backed `not_applicable` rows, and 435 fixture-backlog rows. Derive
+The current coverage matrix has 800 source rows: 316 existing input mappings,
+50 source-backed `not_applicable` rows, and 434 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
@@ -44,6 +45,12 @@ application/route limit inputs in
 [`route-body-limits.yaml`](../../tests/fixtures/sources/parity/route-body-limits.yaml).
 They compare inherited, zero, raised, and lowered limits with single or
 fragmented request bodies and exact response events.
+
+The `Starlette.mount()` behavior row is mapped to the named StaticFiles
+registration and GET/POST dispatch in
+[`testclient-http.yaml`](../../tests/fixtures/sources/parity/testclient-http.yaml).
+The package-only oracle comparison observes the resulting Mount route, child
+scope values, file response, method rejection, and ordered ASGI events.
 
 The latest Request.form inputs compare default and custom multipart part-size
 limits through direct and mounted consumers, including short-circuiting before

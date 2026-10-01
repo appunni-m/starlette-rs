@@ -54,6 +54,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     app_exception_state: dict[str, BaseException] = {}
     sync_endpoint_state: dict[str, Any] | None = None
     host_route_observations: list[dict[str, Any]] = []
+    mount_scope_observations: list[dict[str, Any]] = []
     starlette_application: Any = None
     temporary_filesystem: tempfile.TemporaryDirectory[str] | None = None
 
@@ -229,7 +230,10 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await starlette_application(scope, receive, observed_send)
 
-    elif app_input["kind"] == "starlette-app-static-mount":
+    elif app_input["kind"] in {
+        "starlette-app-static-mount",
+        "starlette-app-static-mount-method",
+    }:
         from starlette.applications import Starlette
         from starlette.routing import Mount
         from starlette.staticfiles import StaticFiles
@@ -243,14 +247,30 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             mtime_seconds = file_input["mtime_seconds"]
             os.utime(path, (mtime_seconds, mtime_seconds))
 
-        starlette_application = Starlette(
-            routes=[
-                Mount(
-                    app_input["mount_path"],
-                    StaticFiles(directory=str(directory)),
-                )
-            ]
-        )
+        if app_input["kind"] == "starlette-app-static-mount-method":
+
+            class ScopeRecordingStaticFiles(StaticFiles):
+                async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+                    mount_scope_observations.append(
+                        {
+                            "app_root_path": scope.get("app_root_path"),
+                            "path": scope.get("path"),
+                            "root_path": scope.get("root_path"),
+                            "type": scope.get("type"),
+                        }
+                    )
+                    await super().__call__(scope, receive, send)
+
+            static_files = ScopeRecordingStaticFiles(directory=str(directory))
+            starlette_application = Starlette()
+            starlette_application.mount(
+                app_input["mount_path"],
+                static_files,
+                name=app_input["mount_method_name"],
+            )
+        else:
+            static_files = StaticFiles(directory=str(directory))
+            starlette_application = Starlette(routes=[Mount(app_input["mount_path"], static_files)])
 
         async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
             record_scope(scope)
@@ -429,6 +449,20 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             for route in starlette_application.routes
         ]
         result["host_route_observations"] = host_route_observations
+    if app_input["kind"] == "starlette-app-static-mount-method":
+        result["application_mount_routes"] = [
+            {
+                "type": type(route).__name__,
+                "path": getattr(route, "path", None),
+                "name": route.name,
+                "child_routes": [
+                    {"type": type(child).__name__, "path": getattr(child, "path", None)}
+                    for child in getattr(route, "routes", [])
+                ],
+            }
+            for route in starlette_application.routes
+        ]
+        result["mount_scope_observations"] = mount_scope_observations
     observation = {"step_id": "request-response", "status": "ok", "value": result}
     if captured_error is not None:
         cause = captured_error.__cause__

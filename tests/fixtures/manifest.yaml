@@ -17992,6 +17992,30 @@
                   }
                 },
                 {
+                  "path": "application_mount_routes",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.mount_method_name"
+                  }
+                },
+                {
+                  "path": "mount_scope_observations",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.mount_method_name"
+                  }
+                },
+                {
                   "path": "application_debug",
                   "value_types": [
                     "boolean"
@@ -18213,6 +18237,17 @@
               "id": "starlette.testclient.TestClient.request-response.mounted-static-files",
               "dimension": "feature",
               "description": "Mount input-defined StaticFiles beneath a Starlette app and compare the TestClient file GET and method-not-allowed POST responses through the app middleware stack. Upstream: tests/test_applications.py::test_app_mount; starlette/applications.py:78-83; starlette/routing.py:147-190; starlette/staticfiles.py:130-141.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.starlette-mount-method-registration",
+              "dimension": "boundary",
+              "description": "Register a named StaticFiles child through Starlette.mount, observe the application.routes entry and mounted child path/root_path for each request, then compare GET and method-not-allowed POST response events. Upstream: starlette/applications.py:98-100; starlette/routing.py:363-425; tests/test_applications.py::test_app_mount.",
               "lanes": [
                 "parity"
               ],

@@ -140,6 +140,7 @@ TESTCLIENT_REQUIREMENTS = {
     "starlette_trusted_host": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-trusted-host-middleware",
     "request_sequence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-up-request-sequence",
     "mounted_static_files": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-static-files",
+    "starlette_mount_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-mount-method-registration",
     "mounted_router_urls": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-router-url-sequence",
     "starlette_host_routing": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-routing",
     "starlette_host_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-method-registration",
@@ -1463,6 +1464,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == TESTCLIENT_OPERATION_KEY
                         and observation["path"] in {"application_routes", "host_route_observations"}
                     )
+                    testclient_application_mount = (
+                        condition["input_key"] == "asgi_app.mount_method_name"
+                        and key == TESTCLIENT_OPERATION_KEY
+                        and observation["path"]
+                        in {"application_mount_routes", "mount_scope_observations"}
+                    )
                     if (
                         not response_header_probe
                         and not file_response_scheduling_probe
@@ -1470,6 +1477,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_lifespan_callback_trace
                         and not testclient_application_debug
                         and not testclient_application_host
+                        and not testclient_application_mount
                     ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
@@ -8155,7 +8163,11 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     is_sync_route = app_kind == "starlette-route"
     is_starlette_app_debug = app_kind == "starlette-app-debug"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
-    is_starlette_app_static_mount = app_kind == "starlette-app-static-mount"
+    is_starlette_app_static_mount_method = app_kind == "starlette-app-static-mount-method"
+    is_starlette_app_static_mount = app_kind in {
+        "starlette-app-static-mount",
+        "starlette-app-static-mount-method",
+    }
     is_router_mounted_response = app_kind == "router-mounted-response"
     is_starlette_app_host_route = app_kind == "starlette-app-host-route"
     is_starlette_app_host_method = app_kind == "starlette-app-host-method"
@@ -8277,14 +8289,17 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         exception_spec = None
         messages = []
     elif is_starlette_app_static_mount:
-        asgi_app = _exact(
-            raw_asgi_app,
-            {"kind", "mount_path", "files", "scope_fields"},
-            "TestClient Starlette StaticFiles mount app",
-        )
+        mount_fields = {"kind", "mount_path", "files", "scope_fields"}
+        if is_starlette_app_static_mount_method:
+            mount_fields.add("mount_method_name")
+        asgi_app = _exact(raw_asgi_app, mount_fields, "TestClient Starlette StaticFiles mount app")
         mount_path = _string(asgi_app["mount_path"], "TestClient StaticFiles mount_path")
         if not mount_path.startswith("/") or "?" in mount_path or "#" in mount_path:
             raise ContractError("TestClient StaticFiles mount_path must be an absolute path")
+        if is_starlette_app_static_mount_method and not _string(
+            asgi_app["mount_method_name"], "TestClient Starlette.mount route name"
+        ):
+            raise ContractError("TestClient Starlette.mount route name must be non-empty")
         if not isinstance(asgi_app["files"], list) or not asgi_app["files"]:
             raise ContractError("TestClient StaticFiles mount files must be a non-empty array")
         asset_paths: set[str] = set()
@@ -8488,6 +8503,8 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_static_files"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_starlette_app_static_mount_method:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_mount_method_registration"])
     if is_router_mounted_response:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_router_urls"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
