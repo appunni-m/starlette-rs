@@ -32,96 +32,35 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The current parity contract has 558 input-only cases, 80 operations, and 595
-parity requirements across 64 indexed files. The cases include the
-Starlette.routes property inventory, synchronous background-callback
-cancellation, and direct
-Request.body(), Request.stream(), and Request.json() sequences for cache reuse,
-chunked receive messages, stream replay and consumption, JSON decoding, and
-interleaved consumers, plus lazy Request.state initialization through a routed
-request. The latest full-slice run `7f206580-beaf-4a47-bcc8-e7b6b214cadb` ran from
-`2026-09-30T23:08:35.230Z` to `2026-09-30T23:10:29.319Z` against Starlette 1.6.0
-at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 716 profile
-comparisons: 712 passed, zero failed, zero infrastructure errors, and four
-Rust-native Python-callable rows were `not_run`. The Python package passed all
-556 selected comparisons; Rust-native passed 156 of 160. The new Starlette
-async-context-manager lifespan callback case passed exact comparison. The
-package tree SHA-256 was
-`213a1d934b3d565dcad327138b3238418d42902978053d4e6a458ad773e76cb3` and wheel
-SHA-256 `97ef7b5a23869d2fa72b2b6c0c905f96223e03945cc1adc6b2384ee54cc39c14`.
-The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
-and callable-instance Request dispatch cases. `make parity-run` exits with
-status 2 for those declared Python-callable boundaries. Manifest SHA-256:
-`7ca4d6595ee842e6c19586683f76ddb74990530df36d822ca6c2322d5d34321e`. This
-bounded evidence does not establish full Starlette parity or release
-readiness.
+The active parity contract contains 560 input-only cases in 64 indexed files,
+covering 80 operations and 597 requirements. The latest clean full-slice run is
+`6e87e1cb-3fae-47bd-b487-0596c31aab45`: 715 of 719 selected comparisons
+passed, with zero failures or infrastructure errors and four declared native
+Python-callable rows `not_run`. The installed Python package passed 558/558;
+Rust-native passed 157/161. It includes the async `Starlette.__call__` route
+case modeled on upstream `test_app_add_route`. The run used clean target
+revision `bad73700d9d9847ea5eb224a548acd2e31047a75` and manifest SHA-256
+`e143b3714c7a75406108506a6531b7a20ecb8d2e1a9dc2211757b0d5ddb855fa`.
+`make parity-run` exits with status 2 for the four declared native
+`not_run` rows. The complete run identity, wheel/tree hashes, and case-level
+evidence are in [Migration parity contract and evidence](PARITY.md). This
+bounded run does not establish full Starlette parity or release readiness.
 
-Six WSGIMiddleware cases, two direct
-`build_environ` cases, and the module-import deprecation warning case passed
-exact source/package comparison. The new async boundary comparison confirms
-source/package parity for caller event-loop/task/thread ownership, cancellation
-delivery, and endpoint finalization. Both Rust-native flat Router reverse-URL
-comparisons passed exactly. The
-three route body-limit
-cases and the new application Router-miss 404 handler pass exact source/package
-comparison. The three body-limit cases cover inherited application limits and
-higher and lower route overrides. The
-Router live-mutation sequence passed on all three dispatches, and all twelve
-background-task cases passed against the pinned source. All 20 URL scope, 14
-URL component, and ten Headers/MutableHeaders cases passed on the Python
-package, as did all six new raw-header, Response-view, and FileResponse range
-view probes. All 30 FileResponse response-behavior cases passed on the selected profiles,
-and the Python-package-only FIFO scheduling comparison passed. All eight
-SessionMiddleware cases passed on the Python package profile, and all
-twenty-one BaseHTTPMiddleware cases passed there. They include the two post-call-next stream-read cases from
-`tests/middleware/test_base.py:715-773`: after the endpoint exhausts
-`request.stream()` or reads `request.body()`, dispatch captures the live result
-of another stream read. The cached replay case maps to
-`tests/middleware/test_base.py:835-862`: dispatch caches the body before
-`call_next`, the endpoint reads it, then dispatch observes the cached stream's
-body chunk, terminal empty chunk, and exhaustion. The downstream-stream case maps to `tests/middleware/test_base.py:599-628`:
-dispatch exhausts `request.stream()` before `call_next`, then downstream stream
-iteration yields only the cached empty chunk. The body-cache case at
-`tests/middleware/test_base.py:689-712` records `b"a"` from dispatch and the
-downstream endpoint before returning those bytes. The two disconnect cases at
-`tests/middleware/test_base.py:894-976` observe dispatch detecting a downstream
-disconnect, with and without a body cached first; both exact receive and
-response traces match. The source test fixture lists asyncio and Trio; the
-current adapter profile runs asyncio only. Existing BaseHTTP coverage includes header mutation, replacement
-response, body-cache replay, response-completion receive racing,
-exception-context propagation, partial-stream forwarding from
-`tests/middleware/test_base.py:777-832`, and receive transformation from
-`test_downstream_middleware_modifies_receive` at
-`tests/middleware/test_base.py:979-1017`. In the latter, dispatch reads the
-original `b"foo "`, the downstream ASGI wrapper duplicates the request body,
-and the endpoint reads `b"foo foo "`. The `test_poll_for_disconnect_repeated`
-inputs cover both `send_body` values, poll downstream receive twice, and
-observe raw/downstream receive traces, drained requests, poll results, and the
-exact `200 b"good!"` response events; see
-`tests/middleware/test_base.py:1168-1215`. The stream-consumption input maps to
-`test_read_request_body_in_app_after_middleware_calls_stream` at
-`tests/middleware/test_base.py:660-686`: dispatch exhausts the stream containing
-`b"a"`, its terminal empty chunk, and iterator exhaustion; downstream reads the
-cached empty body and returns `Homepage`. The body-cache/stream-replay input
-maps to `test_read_request_stream_in_app_after_middleware_calls_body` at
-`tests/middleware/test_base.py:631-657`: dispatch buffers `b"a"`, then the
-endpoint's stream yields `b"a"` and `b""` before returning `Homepage`. The
-catch case covers `test_exception_can_be_caught` at
-`tests/middleware/test_base.py:338-356`: dispatch catches the endpoint's
-`ValueError("TEST")` from `call_next` and returns status 400 with body `TEST`.
-The discarded-response-stream case maps to
-`tests/middleware/test_base.py:473-546` and verifies async iterator closure,
-downstream cancellation, replacement response events, and disconnect
-observations. The pathsend case maps to
-`tests/middleware/test_base.py:1219-1259` and forwards FileResponse events
-through BaseHTTPMiddleware while its receive callback remains unused. The installed package artifact SHA-256 is
-`4a1736486aed60dc5a4e1894c076f919617080548874f4f79d385f72d9e88a00`; its
-content tree SHA-256 is
-`99fd7a11cb20c8a9bda279f5807b621c4dd3a08f86dca79503bb135319edc492`.
-Manifest SHA-256:
-`a223d4bacffd5cb0e0a2b18ff29130f670e47a7648cc16bc6948b64b960a2a9a`.
-`make test` exits with status 2 for the four explicitly unsupported
-Rust-native Python-callable rows; this is not release proof.
+The generated coverage matrix contains 799 source rows: 299 input mappings,
+50 source-backed `not_applicable` rows, and 450 fixture-backlog rows. These
+changing counts come from the generated atlas CSV files. The denominator
+remains 514 upstream test functions and 24 documentation pages; the full
+replacement objective is active and incomplete.
+
+Additional bounded comparisons include six WSGIMiddleware cases, two direct
+`build_environ` cases, and the module-import deprecation warning case. The
+async endpoint-boundary input checks caller loop/task/thread ownership,
+cancellation, and endpoint finalization. Current fixture coverage also includes
+14 response-background-task workflows, 31 FileResponse behavior cases, 20 URL
+scope cases, 14 URL component cases, ten Headers/MutableHeaders cases, and
+21 BaseHTTPMiddleware cases. These slices pass only for their declared inputs
+and profiles; detailed observations, limitations, and run identities remain in
+[Migration parity contract and evidence](PARITY.md).
 
 ## Completed bounded goal: Rust-owned StaticFiles core
 

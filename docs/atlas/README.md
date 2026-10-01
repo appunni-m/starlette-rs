@@ -25,23 +25,19 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 558 input-only cases across
-64 indexed files, 80 operations, and 595 requirements. The latest full-slice run `7f206580-beaf-4a47-bcc8-e7b6b214cadb` ran from
-`2026-09-30T23:08:35.230Z` to `2026-09-30T23:10:29.319Z` against Starlette 1.6.0
-at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It selected 716 profile
-comparisons: 712 passed, zero failed, zero infrastructure errors, and four
-Rust-native Python-callable rows were `not_run`. The Python package passed all
-556 selected comparisons; Rust-native passed 156 of 160. The new Starlette
-async-context-manager lifespan callback case passed exact comparison. The
-package tree SHA-256 was
-`213a1d934b3d565dcad327138b3238418d42902978053d4e6a458ad773e76cb3` and wheel
-SHA-256 `97ef7b5a23869d2fa72b2b6c0c905f96223e03945cc1adc6b2384ee54cc39c14`.
-The four Rust-native `not_run` rows are sync endpoint, bound-method, partial,
-and callable-instance Request dispatch cases. `make parity-run` exits with
-status 2 for those declared Python-callable boundaries. Manifest SHA-256:
-`7ca4d6595ee842e6c19586683f76ddb74990530df36d822ca6c2322d5d34321e`. This
-bounded evidence does not establish full Starlette parity or release
-readiness.
+active and incomplete. The current contract has 560 input-only cases across
+64 indexed files, 80 operations, and 597 requirements. The latest clean
+full-slice run is `6e87e1cb-3fae-47bd-b487-0596c31aab45`: 715 of 719 profile
+comparisons passed, with zero failures or infrastructure errors and four
+Rust-native Python-callable rows `not_run`. The Python package passed 558/558;
+Rust-native passed 157/161. The run used clean target revision
+`bad73700d9d9847ea5eb224a548acd2e31047a75` and manifest SHA-256
+`e143b3714c7a75406108506a6531b7a20ecb8d2e1a9dc2211757b0d5ddb855fa`. Full
+run and wheel identities are recorded in [Migration parity contract and
+evidence](../PARITY.md). The four native `not_run` rows are sync endpoint,
+bound-method, partial, and callable-instance Request dispatch. `make parity-run`
+exits with status 2 for those declared rows. This bounded evidence
+does not establish full Starlette parity or release readiness.
 
 The latest Router/GZip run `a4014be0-3606-464a-b00e-b6983fe293e6` measured all
 74 source/package workloads after parity preflight
@@ -236,7 +232,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 799 source rows:
-284 `existing` mappings, 465 `backlog` rows, and 50 reasoned `not_applicable`
+299 `existing` mappings, 450 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps the exception and registered-handler source behaviors to their
 input-only fixtures; the matrix is not a one-to-one index of active parity
 cases. Some active inputs may therefore cover behavior whose other source
@@ -284,10 +280,10 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 516 `supported`, 285
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 799
-source rows: 284 existing input mappings, 50 reasoned `not_applicable`
-entries, and 465 input-only backlog rows. These counts describe the current
-atlas crosswalk snapshot, not implementation parity or a one-to-one inventory
-of active parity cases.
+source rows: 299 existing input mappings, 50 reasoned `not_applicable`
+entries, and 450 input-only backlog rows. Derive these changing counts from
+the generated atlas CSV files. They describe the crosswalk, not implementation
+parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded
 evidence. Add `--check` to validate partitions without writing merged files.
 Regenerate runtime JSON inputs with `make parity-inputs` before running parity
