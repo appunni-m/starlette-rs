@@ -8,18 +8,19 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 568 input-only cases in 64 indexed files,
+The active contract contains 569 input-only cases in 64 indexed files,
 covering 80 operations and 608 parity requirements. Latest integrated run
-`795ba35d-173f-4547-84ab-4e20cbe5c34d` passed all 723 executed comparisons out
-of 727 selected, with zero failures or infrastructure errors and four
-Rust-native Python-callable rows `not_run`. The Python package passed 566/566;
+`0830ea04-2e56-47d9-b1da-b0cfbf64e1e8` passed all 724 executed comparisons out
+of 728 selected, with zero failures or infrastructure errors and four
+Rust-native Python-callable rows `not_run`. The Python package passed 567/567;
 Rust-native passed 157/161. The run includes same-client mounted-Router URL
-and HTTPS Host-route flows. The four native `not_run` rows are sync endpoint, bound-method,
-partial, and callable-instance Request dispatch. `make parity-run` exits
-with status 2 for those declared rows. Full run identities and package hashes
-are recorded in [Migration parity contract and evidence](../PARITY.md); this
-bounded evidence does not establish full Starlette parity or release
-readiness.
+and HTTPS Host-route flows, plus app-level body limits on a fragmented body
+without Content-Length and at a zero-byte limit. The four native `not_run` rows
+are sync endpoint, bound-method, partial, and callable-instance Request
+dispatch. `make parity-run` exits with status 2 for those declared rows. Full
+run identities and package hashes are recorded in
+[Migration parity contract and evidence](../PARITY.md); this bounded evidence
+does not establish full Starlette parity or release readiness.
 
 The current coverage matrix has 800 source rows: 306 existing input mappings,
 50 source-backed `not_applicable` rows, and 444 fixture-backlog rows. Derive

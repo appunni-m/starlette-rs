@@ -11675,7 +11675,7 @@ def _validate_route_body_limit_application(arguments: dict[str, Any]) -> None:
         or arguments["middleware"] != []
         or arguments["exception_handlers"] != []
         or type(arguments["max_body_size"]) is not int
-        or arguments["max_body_size"] <= 0
+        or arguments["max_body_size"] < 0
         or _validate_lifespan_marker(arguments["lifespan"]) != "async-context-manager"
     ):
         raise ContractError("route body-limit application must use the declared bounded setup")
@@ -11695,7 +11695,7 @@ def _validate_route_body_limit_application(arguments: dict[str, Any]) -> None:
         or route["endpoint"] != {"kind": "request-body-echo"}
         or (
             route["max_body_size"] is not None
-            and (type(route["max_body_size"]) is not int or route["max_body_size"] <= 0)
+            and (type(route["max_body_size"]) is not int or route["max_body_size"] < 0)
         )
     ):
         raise ContractError("route body-limit route must echo one POST body with an optional limit")
@@ -11760,13 +11760,16 @@ def _validate_route_body_limit_workflow(case: dict[str, Any]) -> None:
         len(base64.b64decode(message["body_base64"], validate=True)) for message in messages
     )
     if (
-        len(content_lengths) != 1
-        or not content_lengths[0].isdigit()
-        or int(content_lengths[0]) != body_size
+        len(content_lengths) > 1
+        or (
+            content_lengths
+            and (not content_lengths[0].isdigit() or int(content_lengths[0]) != body_size)
+        )
         or body_size == 0
     ):
         raise ContractError(
-            "route body-limit request must declare its complete non-empty body length"
+            "route body-limit request may omit Content-Length or declare its complete "
+            "non-empty body length"
         )
     requirement = _route_body_limit_requirement_from_input(case)
     if requirement is None or case["covers"] != [requirement]:

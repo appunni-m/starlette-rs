@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 568 input-only cases in 64 indexed files, covering 80 operations and 608 parity requirements. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 569 input-only cases in 64 indexed files, covering 80 operations and 608 parity requirements. The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, `add_middleware` argument forwarding, middleware order, per-application stack caching and the post-start error; routing and reverse URLs; async endpoint loop/task/thread ownership and cancellation; URL scope and components; Headers and MutableHeaders; direct Request body, stream, and JSON consumption, including the documented `Request.app` identity and lazy `Request.state` initialization; form parsing; responses and background tasks, including async and synchronous callback cancellation; StaticFiles, including external file and directory symlinks through ASGI calls; WebSockets, including parsed `query_params`, streamed denial responses, raw query-string and `raw_path` projection, TestClient JSON exchange, progress, cancellation, exception-policy, and lifespan-state and callback cases; exceptions; status; endpoints; authentication; middleware including WSGIMiddleware, SessionMiddleware, and BaseHTTPMiddleware; configuration; schemas; and one Python-package Jinja2 template workflow. The manifest is authoritative for exact operation and target-profile applicability. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
 Root [`metadata.yaml`](../metadata.yaml) is authoritative for pinned API-source references and the source roots used by the API and compatibility inventories. The active manifest is separate: its `input_index` points to generated runtime JSON beneath `build/parity/inputs/`.
 
@@ -8,27 +8,29 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity run is `795ba35d-173f-4547-84ab-4e20cbe5c34d`.
-It ran from `2026-10-01T02:43:38.977Z` to `2026-10-01T02:46:01.128Z` against
+The latest full-slice parity run is `0830ea04-2e56-47d9-b1da-b0cfbf64e1e8`.
+It ran from `2026-10-01T02:58:20.842Z` to `2026-10-01T03:00:30.103Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-568-case/608-requirement manifest. It selected 727 profile comparisons: 723
+569-case/608-requirement manifest. It selected 728 profile comparisons: 724
 passed, zero failed, zero infrastructure errors, and four Rust-native
-Python-callable rows were `not_run`. The Python package passed all 566 selected
-comparisons; Rust-native passed 157 of 161. The new mounted-Router TestClient
-workflow matched all four GETs, including the initial 307 redirect followed to
-`http://testserver/users/`, the 200 child response, and the 404 prefix-boundary
-miss. The new HTTPS Host-route workflow returned `Subdomain: foo` with matching
-scope and ASGI events. The earlier mounted-StaticFiles sequence also continues
-to pass. The four Rust-native `not_run` rows are sync endpoint, bound-method,
-partial, and callable-instance Request dispatch cases.
-`make parity-run` exits with status 2 for those declared `not_run` rows. The
-target source was based on revision `743f21276bf2b5eb941afce3be4f3b396b4d5d99`
+Python-callable rows were `not_run`. The Python package passed all 567 selected
+comparisons; Rust-native passed 157 of 161. The updated body-limit inputs
+matched source/package behavior for a fragmented body without Content-Length
+and a zero-byte app limit rejecting a one-byte body. Rust now builds the 413
+response through the shared Rust response path. The mounted-Router TestClient
+workflow also matched all four GETs, including the initial 307 redirect
+followed to `http://testserver/users/`, the 200 child response, and the 404
+prefix-boundary miss. The HTTPS Host-route workflow returned `Subdomain: foo`
+with matching scope and ASGI events. The four Rust-native `not_run` rows are
+sync endpoint, bound-method, partial, and callable-instance Request dispatch
+cases. `make parity-run` exits with status 2 for those declared `not_run` rows.
+The target source was based on revision `7fb01db5ce683e2d37ba48b5739e5d90a67df788`
 with a dirty worktree SHA-256 of
-`0d7d07bee985ed2a096ac6d30bbf86d645867f8609f33efe008543da0ed4c596`; the
+`c9098f07fe59ca63e69b2997d7cc989bcc0b6ceea25a59626d3eb7dc40671f7a`; the
 installed package tree SHA-256 was
-`9562aa76a92f1bf1d9e37669439d92450183fb2695b3d5de804d1ed9b2c94a5a`, and the
+`237af8f368b39d18d8a37e8e8317a6a74a3922b9c7e9d6a118d4c7b4a516e5cc`, and the
 wheel SHA-256 was
-`8de51a1362e9594b4ca835cafa7f973be9af1674db69e0ff95e897838a973d55`.
+`5b51eaf4237522e455c2d39a3ec4cba1124aa74db4793b1d3e418fd79420835b`.
 Manifest SHA-256: `b07f61880744f6c4cac830a9e18f2b68a8669ac2500461fd7fc0d50cc30c091b`.
 Strict aggregation reports `not_proven` because the full compatibility
 denominator remains incomplete.
@@ -115,19 +117,22 @@ propagation for synchronous Request endpoints. The Rust-native profile is not
 selected because this input intentionally invokes a Python ASGI
 callable.
 
-### Route-level request-body limits
+### Application and route request-body limits
 
 [`route-body-limits.yaml`](../tests/fixtures/sources/parity/route-body-limits.yaml)
-supplies three ASGI POST requests with application and route limits in the
-input. One route inherits the application's five-byte cap, one route raises a
-five-byte application cap to ten bytes, and one route lowers a ten-byte
-application cap to five bytes. The source and installed package report the
-same response status, headers, body bytes, and ASGI event order for each input.
-The Rust-backed `Route.__init__` bridge receives `max_body_size` directly; the
-Python facade contains no limit-selection logic. These cases prove only the
-declared limit combinations; route limits through intervening middleware,
-Mount/Router override composition, and route-level stream/error boundaries
-remain in the fixture backlog.
+supplies four ASGI POST requests with application and route limits in the
+input. One route inherits the application's five-byte cap and rejects a
+fragmented six-byte body without Content-Length; another rejects a one-byte
+body under an application cap of zero. The remaining routes raise a five-byte
+application cap to ten bytes and lower a ten-byte application cap to five
+bytes. The source and installed package report the same response status,
+headers, body bytes, and ASGI event order for each input. The Rust-backed
+`Route.__init__` bridge receives `max_body_size` directly; Rust also builds the
+limit middleware's 413 response through the shared response state machine. The
+Python facade contains no limit-selection or response-construction logic.
+These cases prove only the declared limit combinations; app-limit placement
+relative to body-reading user middleware, Mount/Router override composition,
+and broader route stream/error boundaries remain in the fixture backlog.
 
 ### Application Router-miss 404 handler
 

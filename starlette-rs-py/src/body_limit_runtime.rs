@@ -12,6 +12,7 @@ use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyAssertionError, PyRuntimeError, PyStopAsyncIteration, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyModule};
+use starlette_rs::Response;
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
@@ -56,7 +57,6 @@ struct BodyLimitState {
     response_started: bool,
     too_large_type: Py<PyAny>,
     response_sent_type: Py<PyAny>,
-    plain_text_response_type: Py<PyAny>,
 }
 
 #[pymethods]
@@ -76,10 +76,6 @@ impl PyRequestBodyLimitResponder {
                 response_started: false,
                 too_large_type: module.getattr("_RequestBodyTooLarge")?.unbind(),
                 response_sent_type: module.getattr("_RequestBodyLimitResponseSent")?.unbind(),
-                plain_text_response_type: py
-                    .import("starlette.responses")?
-                    .getattr("PlainTextResponse")?
-                    .unbind(),
             })),
         })
     }
@@ -665,23 +661,18 @@ fn get_content_length(py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<Py<P
 }
 
 fn replacement_response_call(py: Python<'_>, state: &SharedBodyLimitState) -> PyResult<Py<PyAny>> {
-    let (response_type, scope, receive, send) = {
+    let (scope, receive, send) = {
         let state = state.borrow();
         (
-            state.plain_text_response_type.clone_ref(py),
             required_callback(py, state.scope.as_ref())?,
             required_callback(py, state.receive.as_ref())?,
             required_callback(py, state.send.as_ref())?,
         )
     };
-    let kwargs = PyDict::new(py);
-    kwargs.set_item("status_code", REQUEST_BODY_LIMIT_STATUS_CODE)?;
-    let response = response_type
-        .bind(py)
-        .call((REQUEST_BODY_LIMIT_DETAIL,), Some(&kwargs))?;
-    response
-        .call1((scope.bind(py), receive.bind(py), send.bind(py)))
-        .map(Bound::unbind)
+    let scope = scope.bind(py).cast::<PyDict>()?;
+    let response =
+        Response::plain_text_with_status(REQUEST_BODY_LIMIT_STATUS_CODE, REQUEST_BODY_LIMIT_DETAIL);
+    crate::runtime_calls::response_call(py, &response, scope, receive, send, None, None)
 }
 
 fn required_callback(py: Python<'_>, callback: Option<&Py<PyAny>>) -> PyResult<Py<PyAny>> {
