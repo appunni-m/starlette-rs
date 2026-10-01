@@ -28,6 +28,10 @@
           "source_path": "starlette.applications.Starlette.add_middleware"
         },
         {
+          "operation_id": "add_exception_handler",
+          "source_path": "starlette.applications.Starlette.add_exception_handler"
+        },
+        {
           "operation_id": "add_route",
           "source_path": "starlette.applications.Starlette.add_route"
         },

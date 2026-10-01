@@ -677,6 +677,13 @@ STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY = (
     "starlette.applications.Starlette",
     "add_middleware",
 )
+STARLETTE_ADD_EXCEPTION_HANDLER_REQUIREMENT = (
+    "starlette.applications.Starlette.add_exception_handler.registration-and-stack-snapshot"
+)
+STARLETTE_ADD_EXCEPTION_HANDLER_OPERATION_KEY = (
+    "starlette.applications.Starlette",
+    "add_exception_handler",
+)
 STARLETTE_ROUTES_OPERATION_KEY = ("starlette.applications.Starlette", "routes")
 ROUTE_CONSTRUCTOR_OPERATION_KEY = ("starlette.routing.Route", "__init__")
 ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS = {
@@ -1765,6 +1772,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             THREADPOOL_OPERATION_KEY,
                             STARLETTE_ADD_ROUTE_OPERATION_KEY,
                             STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY,
+                            STARLETTE_ADD_EXCEPTION_HANDLER_OPERATION_KEY,
                             STARLETTE_ROUTES_OPERATION_KEY,
                             ROUTE_CONSTRUCTOR_OPERATION_KEY,
                         }
@@ -9875,6 +9883,16 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             for step in case["steps"]
         )
     )
+    is_starlette_add_exception_handler_workflow = (
+        isinstance(case, dict)
+        and case.get("surface") == "starlette.applications.Starlette"
+        and case.get("operation") == "add_exception_handler"
+        and isinstance(case.get("steps"), list)
+        and any(
+            isinstance(step, dict) and step.get("operation") == "add_exception_handler"
+            for step in case["steps"]
+        )
+    )
     is_route_body_limit_workflow = _is_route_body_limit_workflow(case)
     expected_case_keys = (
         THREADPOOL_CASE_KEYS
@@ -10267,6 +10285,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         "__call__",
         "request-dispatch",
         "add_middleware",
+        "add_exception_handler",
     }:
         raise ContractError(
             "only the declared Starlette and WebSocket protocol profiles are in scope"
@@ -10312,6 +10331,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError("Request body/stream/json cases select only the Python-package profile")
     if is_threadpool and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("run_in_threadpool cases select only the Python-package profile")
+    if is_starlette_add_exception_handler_workflow and selected_profiles != [
+        "python-package-cpython312"
+    ]:
+        raise ContractError(
+            "Starlette.add_exception_handler cases select only the Python-package profile"
+        )
     requirements: dict[str, dict[str, Any]] = {}
     operations: dict[tuple[str, str], dict[str, Any]] = {}
     for surface in manifest["surfaces"]:
@@ -10539,6 +10564,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         len(case["steps"]) not in {2, 3}
         and not (is_starlette_add_route_workflow and len(case["steps"]) == 4)
         and not is_starlette_add_middleware_workflow
+        and not is_starlette_add_exception_handler_workflow
         and not (is_middleware_construction and len(case["steps"]) == 1)
     ):
         raise ContractError("case must contain construction and dispatch steps")
@@ -10550,6 +10576,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and not is_starlette_add_middleware_workflow
     ):
         raise ContractError("Starlette.add_middleware cases must declare a middleware workflow")
+    if (
+        case["surface"] == "starlette.applications.Starlette"
+        and case["operation"] == "add_exception_handler"
+        and not is_starlette_add_exception_handler_workflow
+    ):
+        raise ContractError("Starlette.add_exception_handler cases must declare a handler workflow")
     step_ids = [step.get("step_id") for step in case["steps"]]
     allowed_step_sequences = (
         (
@@ -10561,6 +10593,19 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             ],
         )
         if is_starlette_add_route_workflow
+        else (
+            [
+                "application-before",
+                "register-before",
+                "dispatch-before",
+                "application-after",
+                "dispatch-before-registration",
+                "register-after",
+                "dispatch-after-registration",
+            ],
+            ["application-status", "register-status-handler", "dispatch-status"],
+        )
+        if is_starlette_add_exception_handler_workflow
         else (["construct"],)
         if is_middleware_construction
         else (["middleware", "dispatch"],)
@@ -10572,7 +10617,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             ["application", "lifecycle"],
         )
     )
-    if not is_starlette_add_middleware_workflow and step_ids not in allowed_step_sequences:
+    if (
+        not is_starlette_add_middleware_workflow
+        and not is_starlette_add_exception_handler_workflow
+        and step_ids not in allowed_step_sequences
+    ):
         raise ContractError("case steps must follow the declared construction and dispatch order")
     expected_observations = (
         step_ids
@@ -10631,6 +10680,27 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         ("starlette.applications.Starlette", "__call__"),
     ]:
         raise ContractError("Starlette.add_route workflow must register then dispatch")
+    if is_starlette_add_exception_handler_workflow and [
+        (step.get("surface"), step.get("operation")) for step in case["steps"]
+    ] not in (
+        [
+            ("starlette.applications.Starlette", "__init__"),
+            ("starlette.applications.Starlette", "add_exception_handler"),
+            ("starlette.applications.Starlette", "request-dispatch"),
+            ("starlette.applications.Starlette", "__init__"),
+            ("starlette.applications.Starlette", "request-dispatch"),
+            ("starlette.applications.Starlette", "add_exception_handler"),
+            ("starlette.applications.Starlette", "request-dispatch"),
+        ],
+        [
+            ("starlette.applications.Starlette", "__init__"),
+            ("starlette.applications.Starlette", "add_exception_handler"),
+            ("starlette.applications.Starlette", "request-dispatch"),
+        ],
+    ):
+        raise ContractError(
+            "Starlette.add_exception_handler workflow must use an early or late registration sequence"
+        )
     if case["operation"] == "request-dispatch" and (
         case["steps"][1].get("surface") != case["surface"]
         or case["steps"][1].get("operation") != "request-dispatch"
@@ -10709,6 +10779,20 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                     and isinstance(decoded, dict)
                     and decoded.get("kind") == "input-defined-middleware"
                 )
+                and not (
+                    step["surface"] == "starlette.applications.Starlette"
+                    and step["operation"] == "add_exception_handler"
+                    and name == "exc_class_or_status_code"
+                    and isinstance(decoded, dict)
+                    and decoded.get("kind") in {"exception-class", "status-code"}
+                )
+                and not (
+                    step["surface"] == "starlette.applications.Starlette"
+                    and step["operation"] == "add_exception_handler"
+                    and name == "handler"
+                    and isinstance(decoded, dict)
+                    and decoded.get("kind") == "input-defined-exception-handler"
+                )
             ):
                 raise ContractError(
                     f"{context}.arguments.{name} has type {actual_type}, expected {sorted(allowed_types)}"
@@ -10718,7 +10802,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             if operation["kind"] == "constructor":
                 if receiver is not None:
                     raise ContractError(f"{context}.receiver must be null for construction")
-            elif is_starlette_add_middleware_workflow:
+            elif (
+                is_starlette_add_middleware_workflow or is_starlette_add_exception_handler_workflow
+            ):
                 prior_app_ids = {
                     prior["step_id"]
                     for prior in case["steps"][:index]
@@ -10741,6 +10827,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
 
     if is_starlette_add_middleware_workflow:
         _validate_starlette_add_middleware_workflow(case)
+    if is_starlette_add_exception_handler_workflow:
+        _validate_starlette_add_exception_handler_workflow(case)
 
     app_args = {
         key: descriptor["value"] for key, descriptor in case["steps"][0]["arguments"].items()
@@ -10774,6 +10862,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             "add_middleware",
         }:
             continue
+        if is_starlette_add_exception_handler_workflow and step["operation"] in {
+            "__init__",
+            "add_exception_handler",
+        }:
+            continue
         if is_starlette_add_route_workflow and step["operation"] in {"add_route", "url_path_for"}:
             continue
         if is_protocol_middleware:
@@ -10800,8 +10893,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         _validate_route_body_limit_workflow(case)
     if not is_protocol_middleware and app_args["routes"][0]["kind"] == "websocket-route":
         _validate_websocket_exception_dispatch(app_args, dispatch_args)
-    elif not is_protocol_middleware and (
-        body_reuse or app_args["exception_handlers"] or server_error_case
+    elif (
+        not is_starlette_add_exception_handler_workflow
+        and not is_protocol_middleware
+        and (body_reuse or app_args["exception_handlers"] or server_error_case)
     ):
         _validate_exception_handler_dispatch(app_args, dispatch_args)
     schedule = case["execution_schedule"]
@@ -10835,6 +10930,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         ]
     elif is_starlette_add_middleware_workflow:
         expected_schedule = _starlette_add_middleware_expected_schedule(case)
+    elif is_starlette_add_exception_handler_workflow:
+        expected_schedule = _starlette_add_exception_handler_expected_schedule(case)
     elif step_ids == ["application", "dispatch-get", "dispatch-head"]:
         if (
             app_args["routes"][0]["kind"] != "http-route"
@@ -12133,6 +12230,183 @@ def _validate_starlette_add_middleware_workflow(case: dict[str, Any]) -> None:
         raise ContractError(
             "Starlette.add_middleware must observe every registration and dispatch step"
         )
+
+
+def _starlette_add_exception_handler_expected_schedule(case: dict[str, Any]) -> list[str]:
+    schedule: list[str] = []
+    for index, step in enumerate(case["steps"]):
+        operation = step["operation"]
+        if index and operation == "__init__":
+            schedule.append("application-construction")
+        elif operation == "add_exception_handler":
+            schedule.append("handler-registration")
+        elif operation == "request-dispatch":
+            schedule.append("dispatch")
+    return schedule
+
+
+def _validate_starlette_add_exception_handler_handler(
+    step: dict[str, Any], expected_key_kind: str
+) -> None:
+    arguments = {name: descriptor["value"] for name, descriptor in step["arguments"].items()}
+    key = arguments["exc_class_or_status_code"]
+    marker = arguments["handler"]
+    if not isinstance(key, dict) or key.get("kind") != expected_key_kind:
+        raise ContractError("exception handler registration must use its declared key kind")
+    if expected_key_kind == "exception-class":
+        _exact(key, {"kind", "name"}, "exception-class handler key")
+        if key["name"] != "RuntimeError":
+            raise ContractError("exception handler workflow must register RuntimeError")
+    else:
+        _exact(key, {"kind", "status_code"}, "status-code handler key")
+        if key["status_code"] != 500:
+            raise ContractError("status-code handler workflow must register status 500")
+    marker = _exact(
+        marker,
+        {"kind", "callable_kind", "label", "status_code", "content"},
+        "input-defined exception handler",
+    )
+    if (
+        marker["kind"] != "input-defined-exception-handler"
+        or marker["callable_kind"] not in {"sync", "async"}
+        or not isinstance(marker["label"], str)
+        or not marker["label"]
+        or type(marker["status_code"]) is not int
+        or not 100 <= marker["status_code"] <= 599
+        or not isinstance(marker["content"], str)
+    ):
+        raise ContractError("exception-handler callable and response must be input-defined")
+
+
+def _validate_starlette_add_exception_handler_workflow(case: dict[str, Any]) -> None:
+    steps = case["steps"]
+    operations = [step["operation"] for step in steps]
+    late_registration = len(steps) == 7
+    expected_operations = (
+        [
+            "__init__",
+            "add_exception_handler",
+            "request-dispatch",
+            "__init__",
+            "request-dispatch",
+            "add_exception_handler",
+            "request-dispatch",
+        ]
+        if late_registration
+        else ["__init__", "add_exception_handler", "request-dispatch"]
+    )
+    expected_ids = (
+        [
+            "application-before",
+            "register-before",
+            "dispatch-before",
+            "application-after",
+            "dispatch-before-registration",
+            "register-after",
+            "dispatch-after-registration",
+        ]
+        if late_registration
+        else ["application-status", "register-status-handler", "dispatch-status"]
+    )
+    key_kind = "exception-class" if late_registration else "status-code"
+    if (
+        case["target_profiles"] != ["python-package-cpython312"]
+        or operations != expected_operations
+        or [step["step_id"] for step in steps] != expected_ids
+        or any(step["surface"] != "starlette.applications.Starlette" for step in steps)
+    ):
+        raise ContractError(
+            "Starlette.add_exception_handler workflow has an invalid registration sequence"
+        )
+
+    applications: set[str] = set()
+    for step in steps:
+        operation = step["operation"]
+        if operation == "__init__":
+            applications.add(step["step_id"])
+            arguments = {
+                name: descriptor["value"] for name, descriptor in step["arguments"].items()
+            }
+            _validate_application_stimulus(arguments, request_dispatch=False)
+            route = arguments["routes"][0]
+            if (
+                arguments["exception_handlers"] != []
+                or route["kind"] != "http-route"
+                or route["path"] != "/failure"
+                or route["methods"] != ["GET"]
+                or route["endpoint"].get("kind") != "raise-runtime-error"
+            ):
+                raise ContractError(
+                    "exception-handler workflow applications must start with an uncaught GET failure"
+                )
+            continue
+
+        receiver = step["receiver"]["step_id"]
+        if receiver not in applications:
+            raise ContractError(
+                "Starlette.add_exception_handler must bind a previously constructed app"
+            )
+        if operation == "add_exception_handler":
+            _validate_starlette_add_exception_handler_handler(step, key_kind)
+            continue
+
+        arguments = {name: descriptor["value"] for name, descriptor in step["arguments"].items()}
+        _validate_dispatch_stimulus(arguments, request_dispatch=True)
+        scope = arguments["scope"]
+        if scope["type"] != "http" or scope["method"] != "GET" or scope["path"] != "/failure":
+            raise ContractError(
+                "exception-handler workflow dispatches must request the failing GET route"
+            )
+
+    if late_registration:
+        registrations = [step for step in steps if step["operation"] == "add_exception_handler"]
+        dispatches = [step for step in steps if step["operation"] == "request-dispatch"]
+        if (
+            registrations[0]["receiver"]["step_id"] != "application-before"
+            or dispatches[0]["receiver"]["step_id"] != "application-before"
+            or dispatches[1]["receiver"]["step_id"] != "application-after"
+            or registrations[1]["receiver"]["step_id"] != "application-after"
+            or dispatches[2]["receiver"]["step_id"] != "application-after"
+            or registrations[0]["step_id"] != "register-before"
+            or registrations[1]["step_id"] != "register-after"
+            or dispatches[1]["step_id"] != "dispatch-before-registration"
+        ):
+            raise ContractError(
+                "exception-class workflow must register before dispatch and after stack construction"
+            )
+    elif (
+        steps[1]["receiver"]["step_id"] != "application-status"
+        or steps[2]["receiver"]["step_id"] != "application-status"
+    ):
+        raise ContractError("status-code handler workflow must register before first dispatch")
+
+    handler_steps = [step for step in steps if step["operation"] == "add_exception_handler"]
+    if late_registration:
+        if any(
+            step["arguments"]["handler"]["value"]["callable_kind"] != "async"
+            for step in handler_steps
+        ):
+            raise ContractError("exception-class workflow callbacks must be async callables")
+    elif steps[1]["arguments"]["handler"]["value"]["callable_kind"] != "sync":
+        raise ContractError("status-code workflow callback must be a synchronous callable")
+
+    expected_schedule = _starlette_add_exception_handler_expected_schedule(case)
+    if case["execution_schedule"] != expected_schedule:
+        raise ContractError(
+            "Starlette.add_exception_handler schedule must preserve registration and dispatch order"
+        )
+    if set(case["covers"]) != {STARLETTE_ADD_EXCEPTION_HANDLER_REQUIREMENT}:
+        raise ContractError(
+            "Starlette.add_exception_handler covers must name the registration and cache requirement"
+        )
+    if case["observations"] != [step["step_id"] for step in steps[1:]]:
+        raise ContractError(
+            "Starlette.add_exception_handler must observe every registration and dispatch step"
+        )
+
+
+def _starlette_add_exception_handler_semantic_coverage(case: dict[str, Any]) -> set[str]:
+    return {STARLETTE_ADD_EXCEPTION_HANDLER_REQUIREMENT}
 
 
 def _is_route_body_limit_workflow(case: Any) -> bool:
@@ -16658,6 +16932,8 @@ def _starlette_add_route_semantic_coverage(case: dict[str, Any]) -> set[str]:
 def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     if case["surface"] == GZIP_SURFACE:
         return _gzip_semantic_coverage(case)
+    if any(step.get("operation") == "add_exception_handler" for step in case["steps"]):
+        return _starlette_add_exception_handler_semantic_coverage(case)
     if any(step.get("operation") == "add_middleware" for step in case["steps"]):
         return _starlette_add_middleware_semantic_coverage(case)
     if _is_route_body_limit_workflow(case):

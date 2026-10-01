@@ -9876,6 +9876,152 @@ def _run_starlette_add_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _input_defined_exception_handler(
+    marker: dict[str, Any], trace: list[dict[str, Any]], dispatch_state: dict[str, Any]
+) -> Any:
+    from starlette.responses import PlainTextResponse
+
+    def record(request: Any, exc: Exception) -> None:
+        caller_thread_id = dispatch_state["caller_thread_id"]
+        if caller_thread_id is None:
+            raise RuntimeError("exception handler ran without a caller thread identity")
+        trace.append(
+            {
+                "callable_kind": marker["callable_kind"],
+                "label": marker["label"],
+                "exception_type": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                "exception_message": str(exc),
+                "request_path": request.url.path,
+                "request_type": f"{type(request).__module__}.{type(request).__qualname__}",
+                "different_worker_thread": threading.get_ident() != caller_thread_id,
+            }
+        )
+
+    if marker["callable_kind"] == "async":
+
+        async def async_handler(request: Any, exc: Exception) -> Any:
+            record(request, exc)
+            return PlainTextResponse(marker["content"], status_code=marker["status_code"])
+
+        return async_handler
+
+    def sync_handler(request: Any, exc: Exception) -> Any:
+        record(request, exc)
+        return PlainTextResponse(marker["content"], status_code=marker["status_code"])
+
+    return sync_handler
+
+
+def _attach_exception_handler_trace(
+    dispatch: dict[str, Any] | _CapturedDispatchError, trace: list[dict[str, Any]]
+) -> dict[str, Any] | _CapturedDispatchError:
+    snapshot = _json_safe(trace)
+    if isinstance(dispatch, _CapturedDispatchError):
+        return _CapturedDispatchError(
+            error=dispatch.error,
+            partial_value={**dispatch.partial_value, "exception_handler_trace": snapshot},
+        )
+    return {**dispatch, "exception_handler_trace": snapshot}
+
+
+def _exception_handler_key(marker: dict[str, Any]) -> Any:
+    if marker["kind"] == "status-code":
+        return marker["status_code"]
+    if marker["name"] == "RuntimeError":
+        return RuntimeError
+    raise ValueError("unsupported input-defined exception handler key")
+
+
+def _run_starlette_add_exception_handler_case(case: dict[str, Any]) -> dict[str, Any]:
+    steps = case["steps"]
+    applications: dict[str, dict[str, Any]] = {}
+    initial_arguments = {
+        name: descriptor["value"] for name, descriptor in steps[0]["arguments"].items()
+    }
+    applications[steps[0]["step_id"]] = {
+        "runtime": _materialize_application(initial_arguments),
+        "handler_trace": [],
+        "dispatch_state": {"caller_thread_id": None},
+    }
+
+    async def run_steps() -> list[dict[str, Any]]:
+        observations: list[dict[str, Any]] = []
+        for step in steps[1:]:
+            arguments = {
+                name: descriptor["value"] for name, descriptor in step["arguments"].items()
+            }
+            if step["operation"] == "__init__":
+                applications[step["step_id"]] = {
+                    "runtime": _materialize_application(arguments),
+                    "handler_trace": [],
+                    "dispatch_state": {"caller_thread_id": None},
+                }
+                application = applications[step["step_id"]]
+                value = {
+                    "workflow_observation": {
+                        "return": None,
+                        "exception_handler_trace": _json_safe(application["handler_trace"]),
+                    }
+                }
+            else:
+                application = applications[step["receiver"]["step_id"]]
+                app, lifecycle_trace, request_observations, route_endpoint, sync_endpoint_states = (
+                    application["runtime"]
+                )
+                if step["operation"] == "add_exception_handler":
+                    marker = arguments["handler"]
+                    callback = _input_defined_exception_handler(
+                        marker, application["handler_trace"], application["dispatch_state"]
+                    )
+                    app.add_exception_handler(
+                        _exception_handler_key(arguments["exc_class_or_status_code"]), callback
+                    )
+                    value = {
+                        "workflow_observation": {
+                            "return": None,
+                            "exception_handler_trace": _json_safe(application["handler_trace"]),
+                        }
+                    }
+                else:
+                    application["dispatch_state"]["caller_thread_id"] = threading.get_ident()
+                    dispatch = await _invoke(
+                        app,
+                        arguments,
+                        lifecycle_trace,
+                        request_observations,
+                        route_endpoint,
+                        True,
+                        sync_endpoint_states=sync_endpoint_states,
+                        capture_dispatch_error=True,
+                    )
+                    dispatch = _attach_exception_handler_trace(
+                        dispatch, application["handler_trace"]
+                    )
+                    dispatch_observation = (
+                        {
+                            "status": "error",
+                            "error": dispatch.error,
+                            "partial_value": dispatch.partial_value,
+                        }
+                        if isinstance(dispatch, _CapturedDispatchError)
+                        else {"status": "ok", "value": dispatch}
+                    )
+                    value = {
+                        "workflow_observation": {
+                            "dispatch": dispatch_observation,
+                            "exception_handler_trace": _json_safe(application["handler_trace"]),
+                        }
+                    }
+            observations.append(_workflow_observation(step["step_id"], value))
+        return observations
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": asyncio.run(run_steps()),
+    }
+
+
 def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
     steps = case["steps"]
     application_arguments = {
@@ -9967,6 +10113,13 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.wsgi_boundary import run_wsgi_boundary_case
 
         return run_wsgi_boundary_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == "starlette.applications.Starlette"
+        and isinstance(case.get("steps"), list)
+        and any(step.get("operation") == "add_exception_handler" for step in case["steps"])
+    ):
+        return _run_starlette_add_exception_handler_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == "starlette.applications.Starlette"
