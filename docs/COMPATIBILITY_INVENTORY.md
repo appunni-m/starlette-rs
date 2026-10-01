@@ -17,10 +17,11 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 586 input-only cases across 68 files,
-covering 84 operations and 634 parity requirements. It includes two
+The active parity manifest indexes 590 input-only cases across 69 files,
+covering 84 operations and 635 parity requirements. It includes two
 Python-package-only direct `run_in_threadpool` cases, synchronous Request
-endpoint worker cancellation, and two direct `State` consumer sequences. The six direct
+endpoint worker cancellation, four async Request endpoint callable-shape cases,
+and two direct `State` consumer sequences. The six direct
 ServerErrorMiddleware inputs and three TestClient exception-chain inputs pass
 live source/package comparison in the latest run. The authored cases span
 the Starlette ASGI application and route inventory, routing and reverse URLs, URL scope/components,
@@ -33,25 +34,27 @@ schemas, and one bounded Python-package Jinja2 template workflow. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice run is `5fcedcd5-dc24-4016-b208-959cfc8f92b1`. It ran
-from `2026-10-01T06:20:32.610Z` to `2026-10-01T06:22:51.501Z` and selected 745
-profile comparisons: 741 passed, zero failed, zero infrastructure errors, and
-four Rust-native Python-callable rows were `not_run`. The Python package passed
-all 584 selected comparisons; Rust-native passed 157 of 161. The new synchronous
-Request worker-cancellation case, both direct `run_in_threadpool` cases, both
-direct State consumer sequences, all six direct ServerErrorMiddleware cases,
-and all three TestClient exception-chain inputs passed on the package profile.
-The four native `not_run` rows are sync endpoint, bound-method, partial, and
+The latest full-slice run is `0a9e7b82-17f7-4964-92e7-220509cab477`. It ran
+from `2026-10-01T06:47:26.406Z` to `2026-10-01T06:49:38.820Z` and selected 749
+profile comparisons: 745 executed and passed, zero failed, zero infrastructure
+errors, and four Rust-native Python-callable rows were `not_run`. The Python
+package passed all 588 selected comparisons; Rust-native passed 157 of 161.
+The four async Request endpoint callable-shape cases, synchronous Request
+worker-cancellation case, both direct `run_in_threadpool` cases, both direct
+State consumer sequences, all six direct ServerErrorMiddleware cases, and all
+three TestClient exception-chain inputs passed on the package profile. The four
+native `not_run` rows are sync endpoint, bound-method, partial, and
 callable-instance Request dispatch cases. `make test` exits with status 2 for
 those declared Python-callable boundaries. The Rust-native source fingerprint
-was `a639210ebae4fec1deca9ef7e4072633d590a188+source-fnv1a64-26d37a031534df21`.
-The installed package was built from a working tree based at
-`a639210ebae4fec1deca9ef7e4072633d590a188`; its package-tree SHA-256 was
-`23ee671e3530cfb995087752eb5d5451682c56d291cc1550f425db39c61d51d4`, wheel
-SHA-256 `f587ffec0a13b6e3d1d9a4d63bb27cdd596f727c0ad16683509d40992cd44068`,
+was `835a64d7f48f300e8faa58e5a9e31a1e8d535ba6+source-fnv1a64-26d37a031534df21`.
+The installed package was built from clean commit
+`835a64d7f48f300e8faa58e5a9e31a1e8d535ba6`; its package-tree SHA-256 was
+`3abc77b08b321d012b53f39066f32901ba9b3b5a9ef3d77af93be208d02c39cd`, source
+working-tree SHA-256 `0d398d82b81bd67d8cdeb568f1c2e8c7c99bf0f8eac33812d81836acac377b9e`,
+wheel SHA-256 `182135034cf5c90b230d0d2405d55f95402840ee66f9708dff7b2338b126493f`,
 and manifest SHA-256
-`8648f868e80cf7040932134a5285f0e08a8b8c7c6932c247f760a6cb8790b025`. Full run
-and wheel hash are recorded in [Migration parity contract and evidence](PARITY.md).
+`955789538f7cef9f5edd6d1ff3d954af3b1d08a4636e4d5737f1dc2e48f351fb`. Full
+run and wheel hash are recorded in [Migration parity contract and evidence](PARITY.md).
 This bounded evidence does not establish full Starlette parity or release
 readiness.
 

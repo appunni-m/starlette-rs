@@ -8,20 +8,25 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 586 input-only cases in 68 indexed files,
-covering 84 operations and 634 parity requirements. The two direct
-`run_in_threadpool` cases, synchronous Request endpoint worker cancellation,
-two direct State consumer sequences, six direct ServerErrorMiddleware cases,
-and three TestClient exception-chain cases pass live source/package comparison.
-Latest integrated run `5fcedcd5-dc24-4016-b208-959cfc8f92b1` passed all 741
-executed comparisons out of 745 selected, with zero failures or infrastructure
-errors and four Rust-native Python-callable rows `not_run`. The Python package
-passed 584/584; Rust-native passed 157/161. The four native `not_run` rows are
-sync endpoint, bound-method, partial, and callable-instance Request dispatch.
-`make test` exits with status 2 for those declared rows. Full run identities
-and package hashes are recorded in
+The active contract contains 590 input-only cases in 69 indexed files,
+covering 84 operations and 635 parity requirements. Four async Request endpoint
+callable-shape cases, the two direct `run_in_threadpool` cases, synchronous
+Request endpoint worker cancellation, two direct State consumer sequences,
+six direct ServerErrorMiddleware cases, and three TestClient exception-chain
+cases pass live source/package comparison. Latest integrated run
+`0a9e7b82-17f7-4964-92e7-220509cab477` passed all 745 executed comparisons out
+of 749 selected, with zero failures or infrastructure errors and four
+Rust-native Python-callable rows `not_run`. The Python package passed 588/588;
+Rust-native passed 157/161. The four native `not_run` rows are sync endpoint,
+bound-method, partial, and callable-instance Request dispatch. `make test`
+exits with status 2 for those declared rows. Full run identities and package
+hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
+
+The endpoint-callable-shapes backlog item remains open. The current package-only
+slice covers async functions, bound methods, and single or nested partial
+construction; callable instances and exception observations remain unmapped.
 
 The current coverage matrix has 800 source rows: 311 existing input mappings,
 50 source-backed `not_applicable` rows, and 439 fixture-backlog rows. Derive
