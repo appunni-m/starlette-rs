@@ -763,6 +763,15 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
         expected_fields.push("observe_router_scope");
     }
     let case = exact_object(case, &expected_fields, "Router route-dispatch case")?;
+    let observe_router_scope = match case.get("observe_router_scope") {
+        None => false,
+        Some(Value::Bool(true)) => true,
+        Some(_) => {
+            return Err(String::from(
+                "Router observe_router_scope must be true when supplied",
+            ));
+        }
+    };
     let case_id = string_field(case, "case_id", "Router route-dispatch case")?;
     if string_field(case, "surface", "Router route-dispatch case")? != "starlette.routing.Router"
         || string_field(case, "operation", "Router route-dispatch case")? != "route-dispatch"
@@ -800,11 +809,6 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
             ));
         }
         return run_router_host_case(case, &routes[0], case_id);
-    }
-    if case.get("observe_router_scope").is_some() {
-        return Err(String::from(
-            "Rust-native Router scope observation is limited to one Host route",
-        ));
     }
     let mut route_table = RouteTable::new();
     for route in routes {
@@ -883,6 +887,32 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
         "Router scope.query_string_base64",
     )?;
     let route_match = route_table.matches_detailed_with_root_path(path, root_path, method);
+    let route_path_params = if observe_router_scope {
+        let captures = match &route_match {
+            DetailedRouteMatch::Matched {
+                route_index,
+                path_params,
+            }
+            | DetailedRouteMatch::MethodNotAllowed {
+                route_index,
+                path_params,
+                ..
+            } => route_table
+                .capture_path_parameters(*route_index, path_params)
+                .map_err(|error| error.to_string())?,
+            DetailedRouteMatch::NotFound => Vec::new(),
+        };
+        let mut observations = Map::new();
+        for parameter in &captures {
+            observations.insert(
+                parameter.name.clone(),
+                path_parameter_observation(parameter)?,
+            );
+        }
+        Some(observations)
+    } else {
+        None
+    };
     let route_index = match &route_match {
         DetailedRouteMatch::Matched { route_index, .. }
         | DetailedRouteMatch::MethodNotAllowed { route_index, .. } => Some(*route_index),
@@ -941,20 +971,27 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
         }
     ]);
     let event_order = json!(["http.response.start", "http.response.body"]);
+    let mut observation = json!({
+        "route_index": route_index,
+        "response_status": response.status_code(),
+        "ordered_repeated_headers": headers,
+        "response_bytes": {"encoding": "base64", "data": body_base64},
+        "asgi_event_order": event_order,
+        "asgi_events": events,
+    });
+    if let Some(path_params) = route_path_params {
+        observation["route_scope.path"] = json!(path);
+        observation["route_scope.root_path"] = json!(root_path);
+        observation["route_scope.app_root_path"] = Value::Null;
+        observation["route_scope.path_params"] = Value::Object(path_params);
+    }
     Ok(json!({
         "case_id": case_id,
         "status": "completed",
         "observations": [{
             "step_id": "route-dispatch",
             "status": "ok",
-            "value": {
-                "route_index": route_index,
-                "response_status": response.status_code(),
-                "ordered_repeated_headers": headers,
-                "response_bytes": {"encoding": "base64", "data": body_base64},
-                "asgi_event_order": event_order,
-                "asgi_events": events,
-            },
+            "value": observation,
         }],
     }))
 }

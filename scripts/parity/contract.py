@@ -6116,12 +6116,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     has_mount_route = any(
         isinstance(route, dict) and route.get("kind") == "mount" for route in case["routes"]
     )
-    if "observe_router_scope" in case and (
-        case["observe_router_scope"] is not True or not (has_mount_route or has_host_route)
-    ):
-        raise ContractError(
-            "observe_router_scope requires a Router input containing a Mount or Host route"
-        )
+    if "observe_router_scope" in case and case["observe_router_scope"] is not True:
+        raise ContractError("Router observe_router_scope must be true when supplied")
     routes = [
         _validate_router_route_input(route, f"Router routes[{index}]", custom_convertors)
         for index, route in enumerate(case["routes"])
