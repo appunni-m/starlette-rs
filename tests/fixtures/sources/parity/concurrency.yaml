@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@26",
+  "schema": "migration-parity/parity-input@27",
   "cases": [
     {
       "case_id": "starlette.concurrency.run_in_threadpool.arguments-result-worker-progress",
@@ -56,6 +56,37 @@
           "message": "input-defined worker failure"
         },
         "event_loop_checkpoints": ["error-loop-turn-a", "error-loop-turn-b"],
+        "start_timeout_ms": 5000,
+        "release_timeout_ms": 5000
+      }
+    },
+    {
+      "case_id": "starlette.concurrency.run_in_threadpool.limiter-shared-capacity-adjustment",
+      "surface": "starlette.concurrency",
+      "operation": "run_in_threadpool",
+      "covers": [
+        "starlette.concurrency.run_in_threadpool.default-token-limit",
+        "starlette.concurrency.run_in_threadpool.limiter-adjustment",
+        "starlette.concurrency.run_in_threadpool.shared-anyio-capacity"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["run_in_threadpool"],
+      "call": {
+        "call_id": "limiter-mixed-consumers",
+        "args": [],
+        "kwargs": {},
+        "callable_behavior": {
+          "kind": "limiter-workload",
+          "total_tokens": 2,
+          "tasks": [
+            {"task_id": "starlette-worker-a", "consumer": "starlette"},
+            {"task_id": "anyio-worker-b", "consumer": "anyio"},
+            {"task_id": "starlette-worker-c", "consumer": "starlette"}
+          ],
+          "queue_timeout_ms": 5000
+        },
+        "event_loop_checkpoints": [],
         "start_timeout_ms": 5000,
         "release_timeout_ms": 5000
       }

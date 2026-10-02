@@ -29,6 +29,10 @@ def run_threadpool_case(
     case: dict[str, Any], run_in_threadpool: Callable[..., Any]
 ) -> dict[str, Any]:
     """Run the case-declared sync callbacks through the selected public helper."""
+    callable_behavior = case["call"]["callable_behavior"]
+    if callable_behavior["kind"] == "limiter-workload":
+        return _run_threadpool_limiter_case(case, run_in_threadpool, callable_behavior)
+
     trace: list[dict[str, Any]] = []
 
     async def run() -> dict[str, Any]:
@@ -157,6 +161,158 @@ def run_threadpool_case(
             },
             "execution_trace": trace,
         }
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "run_in_threadpool",
+                "status": "ok",
+                "value": asyncio.run(run()),
+            }
+        ],
+    }
+
+
+def _run_threadpool_limiter_case(
+    case: dict[str, Any],
+    run_in_threadpool: Callable[..., Any],
+    workload: dict[str, Any],
+) -> dict[str, Any]:
+    """Measure shared AnyIO capacity with Starlette and direct AnyIO calls."""
+
+    async def run() -> dict[str, Any]:
+        import anyio.to_thread
+
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        original_tokens = limiter.total_tokens
+        configured_tokens = workload["total_tokens"]
+        start_timeout_ms = case["call"]["start_timeout_ms"]
+        release_timeout_ms = case["call"]["release_timeout_ms"]
+        if configured_tokens == original_tokens:
+            raise RuntimeError(
+                "input-defined limiter capacity must change the live default token count"
+            )
+
+        loop = asyncio.get_running_loop()
+        caller_thread_id = threading.get_ident()
+        started: asyncio.Queue[str] = asyncio.Queue()
+        release_gates = {task["task_id"]: threading.Event() for task in workload["tasks"]}
+        state_lock = threading.Lock()
+        active_task_ids: set[str] = set()
+        task_thread_roles: dict[str, str] = {}
+        maximum_active_workers = 0
+
+        def worker(task_id: str) -> str:
+            nonlocal maximum_active_workers
+            with state_lock:
+                active_task_ids.add(task_id)
+                task_thread_roles[task_id] = (
+                    "caller" if threading.get_ident() == caller_thread_id else "worker"
+                )
+                maximum_active_workers = max(maximum_active_workers, len(active_task_ids))
+            loop.call_soon_threadsafe(started.put_nowait, task_id)
+            try:
+                if not release_gates[task_id].wait(release_timeout_ms / 1000):
+                    raise TimeoutError("input-defined limiter worker gate timed out")
+                return task_id
+            finally:
+                with state_lock:
+                    active_task_ids.remove(task_id)
+
+        async def invoke(task: dict[str, str]) -> str:
+            task_id = task["task_id"]
+            if task["consumer"] == "starlette":
+                return await run_in_threadpool(worker, task_id)
+            return await anyio.to_thread.run_sync(worker, task_id)
+
+        tasks: list[asyncio.Task[str]] = []
+        observation: dict[str, Any] | None = None
+        limiter.total_tokens = configured_tokens
+        try:
+            tasks = [asyncio.create_task(invoke(task)) for task in workload["tasks"]]
+            for _ in range(configured_tokens):
+                await asyncio.wait_for(started.get(), start_timeout_ms / 1000)
+
+            queued_count = len(workload["tasks"]) - configured_tokens
+            queue_deadline = loop.time() + workload["queue_timeout_ms"] / 1000
+            while True:
+                statistics = limiter.statistics()
+                with state_lock:
+                    active_count = len(active_task_ids)
+                if statistics.tasks_waiting == queued_count and active_count == configured_tokens:
+                    break
+                if loop.time() >= queue_deadline:
+                    raise RuntimeError(
+                        "input-defined limiter tasks did not fill capacity and queue"
+                    )
+                await asyncio.sleep(0.001)
+
+            with state_lock:
+                active_at_capacity = sorted(active_task_ids)
+                max_active = maximum_active_workers
+            observation = {
+                "default_total_tokens": original_tokens,
+                "configured_total_tokens": configured_tokens,
+                "borrowed_tokens_at_capacity": statistics.borrowed_tokens,
+                "waiting_tasks_at_capacity": statistics.tasks_waiting,
+                "active_task_ids_at_capacity": active_at_capacity,
+                "maximum_active_workers": max_active,
+            }
+            for gate in release_gates.values():
+                gate.set()
+            outcomes = await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                release_timeout_ms / 1000 + 5,
+            )
+            if any(isinstance(outcome, BaseException) for outcome in outcomes):
+                raise RuntimeError("an input-defined limiter callback did not complete")
+            with state_lock:
+                thread_roles = dict(task_thread_roles)
+            observation["tasks"] = sorted(
+                [
+                    {
+                        "task_id": task_spec["task_id"],
+                        "consumer": task_spec["consumer"],
+                        "worker_thread_role": thread_roles[task_spec["task_id"]],
+                        "result": outcome,
+                    }
+                    for task_spec, outcome in zip(workload["tasks"], outcomes, strict=True)
+                ],
+                key=lambda task_result: task_result["task_id"],
+            )
+        finally:
+            for gate in release_gates.values():
+                gate.set()
+            try:
+                if tasks:
+                    await asyncio.wait_for(
+                        asyncio.gather(*tasks, return_exceptions=True),
+                        release_timeout_ms / 1000 + 5,
+                    )
+            finally:
+                limiter.total_tokens = original_tokens
+
+        restored_tokens = limiter.total_tokens
+        if restored_tokens != original_tokens:
+            raise RuntimeError("input-defined limiter cleanup did not restore token capacity")
+        if observation is None:
+            raise RuntimeError("input-defined limiter workload produced no capacity observation")
+        observation["restored_total_tokens"] = restored_tokens
+        execution_trace = [
+            {"event": "default-capacity-observed", "total_tokens": original_tokens},
+            {"event": "limiter-capacity-configured", "total_tokens": configured_tokens},
+            {
+                "event": "capacity-and-waiters-observed",
+                "borrowed_tokens": observation["borrowed_tokens_at_capacity"],
+                "tasks_waiting": observation["waiting_tasks_at_capacity"],
+            },
+            {"event": "worker-gates-released"},
+            {"event": "callbacks-completed"},
+            {"event": "default-capacity-restored", "total_tokens": restored_tokens},
+        ]
+        return {"call": observation, "execution_trace": execution_trace}
 
     return {
         "case_id": case["case_id"],

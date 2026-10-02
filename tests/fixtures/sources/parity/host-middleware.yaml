@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@26",
+  "schema": "migration-parity/parity-input@27",
   "cases": [
     {
       "case_id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__call__.http-default-port",

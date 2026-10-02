@@ -23,7 +23,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@26"
+INPUT_SCHEMA = "migration-parity/parity-input@27"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -93,6 +93,9 @@ THREADPOOL_REQUIREMENTS = {
     "exception_identity": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.exception-identity",
     "worker_thread": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.worker-thread",
     "event_loop_progress": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.event-loop-progress",
+    "default_token_limit": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.default-token-limit",
+    "shared_capacity": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.shared-anyio-capacity",
+    "limiter_adjustment": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.limiter-adjustment",
 }
 THREADPOOL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {"call"}
 RUN_UNTIL_FIRST_COMPLETE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
@@ -12902,6 +12905,60 @@ def _validate_threadpool_case(case: dict[str, Any]) -> None:
             THREADPOOL_REQUIREMENTS["worker_thread"],
             THREADPOOL_REQUIREMENTS["event_loop_progress"],
         }
+    elif behavior_kind == "limiter-workload":
+        workload = _exact(
+            callable_behavior,
+            {
+                "kind",
+                "total_tokens",
+                "tasks",
+                "queue_timeout_ms",
+            },
+            "run_in_threadpool limiter workload",
+        )
+        if call["args"] != [] or call["kwargs"] != {}:
+            raise ContractError(
+                "run_in_threadpool limiter workloads do not accept callback arguments"
+            )
+        token_count = workload["total_tokens"]
+        if type(token_count) is not int or not 1 <= token_count <= 8:
+            raise ContractError("run_in_threadpool limiter total_tokens must be between 1 and 8")
+        tasks = workload["tasks"]
+        if not isinstance(tasks, list) or not token_count < len(tasks) <= 16:
+            raise ContractError(
+                "run_in_threadpool limiter workload needs more tasks than tokens and at most 16 tasks"
+            )
+        task_ids: set[str] = set()
+        consumers: set[str] = set()
+        for index, raw_task in enumerate(tasks):
+            task = _exact(
+                raw_task,
+                {"task_id", "consumer"},
+                f"run_in_threadpool limiter tasks[{index}]",
+            )
+            task_id = _string(task["task_id"], f"run_in_threadpool limiter tasks[{index}].task_id")
+            if not task_id or task_id in task_ids:
+                raise ContractError(
+                    "run_in_threadpool limiter task IDs must be unique and non-empty"
+                )
+            if task["consumer"] not in {"starlette", "anyio"}:
+                raise ContractError("run_in_threadpool limiter consumer must be starlette or anyio")
+            task_ids.add(task_id)
+            consumers.add(task["consumer"])
+        if consumers != {"starlette", "anyio"}:
+            raise ContractError(
+                "run_in_threadpool limiter workload must mix Starlette and direct AnyIO consumers"
+            )
+        queue_timeout = workload["queue_timeout_ms"]
+        if type(queue_timeout) is not int or not 1 <= queue_timeout <= 30000:
+            raise ContractError(
+                "run_in_threadpool limiter queue_timeout_ms must be between 1 and 30000"
+            )
+        expected_requirements = {
+            THREADPOOL_REQUIREMENTS["default_token_limit"],
+            THREADPOOL_REQUIREMENTS["shared_capacity"],
+            THREADPOOL_REQUIREMENTS["limiter_adjustment"],
+        }
     elif behavior_kind == "raise":
         callable_behavior = _exact(
             callable_behavior,
@@ -12923,10 +12980,15 @@ def _validate_threadpool_case(case: dict[str, Any]) -> None:
             THREADPOOL_REQUIREMENTS["event_loop_progress"],
         }
     else:
-        raise ContractError("run_in_threadpool callable behavior kind must be return or raise")
+        raise ContractError(
+            "run_in_threadpool callable behavior kind must be return, raise, or limiter-workload"
+        )
 
     checkpoints = call["event_loop_checkpoints"]
-    if (
+    if behavior_kind == "limiter-workload":
+        if checkpoints != []:
+            raise ContractError("run_in_threadpool limiter workloads do not use call checkpoints")
+    elif (
         not isinstance(checkpoints, list)
         or not checkpoints
         or any(not isinstance(marker, str) or not marker for marker in checkpoints)
