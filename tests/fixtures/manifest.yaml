@@ -7108,7 +7108,7 @@
             {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.exception-context-propagation",
               "dimension": "error_path",
-              "description": "Propagate a context-free exception raised by a route while dispatch awaits call_next, and observe its exception relationships. Upstream: tests/middleware/test_base.py:1296-1319; starlette/middleware/base.py:150-168.",
+              "description": "Propagate route exceptions with no prior context, implicit exception context, and an explicit cause while BaseHTTPMiddleware dispatch awaits call_next; observe the resulting exception relationships across the boundary. Upstream: tests/middleware/test_base.py:1262-1318; starlette/middleware/base.py:150-168.",
               "lanes": [
                 "parity"
               ],

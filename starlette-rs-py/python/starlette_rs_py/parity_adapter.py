@@ -8255,15 +8255,29 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 {"kind", "exception"},
                 "BaseHTTPMiddleware raising endpoint",
             )
-            exception_spec = _exact_object(
-                endpoint_spec["exception"],
+            exception_value = endpoint_spec["exception"]
+            if not isinstance(exception_value, dict) or set(exception_value) not in (
                 {"class", "message"},
-                "BaseHTTPMiddleware endpoint exception",
-            )
+                {"class", "message", "chain"},
+            ):
+                raise ValueError("BaseHTTPMiddleware endpoint exception input is invalid")
+            exception_spec = exception_value
             if exception_spec["class"] not in {"Exception", "ValueError"} or not isinstance(
                 exception_spec["message"], str
             ):
                 raise ValueError("BaseHTTPMiddleware endpoint exception input is invalid")
+            if "chain" in exception_spec:
+                chain = _exact_object(
+                    exception_spec["chain"],
+                    {"class", "message", "relation"},
+                    "BaseHTTPMiddleware endpoint exception chain",
+                )
+                if (
+                    chain["class"] not in {"Exception", "ValueError"}
+                    or not isinstance(chain["message"], str)
+                    or chain["relation"] not in {"implicit-context", "explicit-cause"}
+                ):
+                    raise ValueError("BaseHTTPMiddleware endpoint exception chain is invalid")
         else:
             raise ValueError("BaseHTTPMiddleware route endpoint kind is unsupported")
 
@@ -9318,9 +9332,20 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         elif route_kind == "raise-exception":
             exception_type = getattr(builtins, exception_spec["class"])
             exception_message = exception_spec["message"]
+            exception_chain = exception_spec.get("chain")
 
             def endpoint(_request: Any) -> None:
-                raise exception_type(exception_message)
+                raised_exception = exception_type(exception_message)
+                if exception_chain is None:
+                    raise raised_exception
+                chained_type = getattr(builtins, exception_chain["class"])
+                chained_exception = chained_type(exception_chain["message"])
+                if exception_chain["relation"] == "explicit-cause":
+                    raise raised_exception from chained_exception
+                try:
+                    raise chained_exception
+                except BaseException:
+                    raise raised_exception  # noqa: B904
         elif route_kind == "request-stream-response":
             stop_after_chunks = endpoint_spec["stop_after_chunks"]
 

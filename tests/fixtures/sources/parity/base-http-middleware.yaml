@@ -735,6 +735,190 @@
       ]
     },
     {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.exception-context-propagation-implicit-context",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.exception-context-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "raise-exception",
+              "exception": {
+                "class": "Exception",
+                "message": "Outer exception",
+                "chain": {
+                  "relation": "implicit-context",
+                  "class": "Exception",
+                  "message": "Inner exception"
+                }
+              }
+            }
+          }
+        ],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [
+            [
+              "aG9zdA==",
+              "dGVzdHNlcnZlcg=="
+            ]
+          ],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "receive_after_events": "disconnect",
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.exception-context-propagation-explicit-cause",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.exception-context-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "raise-exception",
+              "exception": {
+                "class": "Exception",
+                "message": "Outer exception",
+                "chain": {
+                  "relation": "explicit-cause",
+                  "class": "Exception",
+                  "message": "Inner exception"
+                }
+              }
+            }
+          }
+        ],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [
+            [
+              "aG9zdA==",
+              "dGVzdHNlcnZlcg=="
+            ]
+          ],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "receive_after_events": "disconnect",
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
+    },
+    {
       "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.catch-call-next-value-error",
       "surface": "starlette.middleware.base.BaseHTTPMiddleware",
       "operation": "base-http-workflow",

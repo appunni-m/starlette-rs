@@ -8054,16 +8054,35 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 {"kind", "exception"},
                 "BaseHTTPMiddleware raising endpoint",
             )
-            exception = _exact(
-                endpoint_value["exception"],
+            exception_value = endpoint_value["exception"]
+            if not isinstance(exception_value, dict) or set(exception_value) not in (
                 {"class", "message"},
-                "BaseHTTPMiddleware endpoint exception",
-            )
+                {"class", "message", "chain"},
+            ):
+                raise ContractError(
+                    "BaseHTTPMiddleware endpoint exception has unknown or missing fields"
+                )
+            exception = exception_value
             if exception["class"] not in {"Exception", "ValueError"}:
                 raise ContractError(
                     "BaseHTTPMiddleware endpoint exception class must be Exception or ValueError"
                 )
             _string(exception["message"], "BaseHTTPMiddleware endpoint exception.message")
+            if "chain" in exception:
+                chain = _exact(
+                    exception["chain"],
+                    {"class", "message", "relation"},
+                    "BaseHTTPMiddleware endpoint exception chain",
+                )
+                if chain["class"] not in {"Exception", "ValueError"}:
+                    raise ContractError(
+                        "BaseHTTPMiddleware chained exception class must be Exception or ValueError"
+                    )
+                _string(chain["message"], "BaseHTTPMiddleware endpoint exception chain.message")
+                if chain["relation"] not in {"implicit-context", "explicit-cause"}:
+                    raise ContractError(
+                        "BaseHTTPMiddleware exception chain relation must be implicit-context or explicit-cause"
+                    )
         elif route_kind == "request-stream-response":
             endpoint = _exact(
                 endpoint_value,
