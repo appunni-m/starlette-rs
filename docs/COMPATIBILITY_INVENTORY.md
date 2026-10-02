@@ -18,9 +18,10 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 checked in; the run IDs and counts below describe their recorded executions.
 
 The active parity manifest indexes 675 input-only cases across 77 files,
-covering 93 operations and 706 parity requirements. Recent additions compare
-CORSMiddleware private-network-access denial, empty-text default decoding in
-WebSocketEndpoint, and TestClient lifespan task/RunVar continuity under
+covering 93 operations and 707 parity requirements. Recent additions compare
+surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
+pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
+default decoding in WebSocketEndpoint, and TestClient lifespan task/RunVar continuity under
 asyncio and Trio. It includes Rust-backed
 `CommaSeparatedStrings` parsing, sequence formatting, quoting, Unicode
 representation, Python string-subclass boundary inputs, and lone-surrogate
@@ -83,6 +84,13 @@ run identity and case-level evidence are recorded in
 This bounded evidence does not establish full Starlette parity or release
 readiness.
 
+That integrated run predates the focused `parity-input@23` and `@24` additions;
+it does not establish full-slice parity for the current 675-case/707-requirement
+contract. The BaseHTTPMiddleware ContextVar observer and pure-ASGI control each
+pass focused exact source/package comparison in run
+`85372de5-e607-4ca3-8f57-a03d2a759d11`; details are in
+[Migration parity contract and evidence](PARITY.md).
+
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
 `String` cannot encode unpaired surrogates. The input-only source/package
@@ -109,8 +117,8 @@ This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 376 existing input
-mappings, 50 reasoned `not_applicable` rows, and 376 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 378 existing input
+mappings, 50 reasoned `not_applicable` rows, and 374 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

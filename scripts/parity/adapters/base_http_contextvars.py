@@ -77,6 +77,7 @@ async def _run(case: dict[str, Any]) -> dict[str, Any]:
     )
     context_var.set(context_input["initial_value"])
     observed: dict[str, Any] = {"caller_before": context_var.get()}
+    surrounding_context: dict[str, Any] = {}
     events: list[dict[str, Any]] = []
     receive = _receive_messages(case)
 
@@ -133,12 +134,23 @@ async def _run(case: dict[str, Any]) -> dict[str, Any]:
     else:
         raise ValueError(f"unsupported ContextVar middleware kind: {kind!r}")
 
+    observer_input = case["surrounding_pure_asgi_observer"]
+    observer_points = set(observer_input["context_points"])
+
+    async def observe_surrounding_context(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if "before_downstream" in observer_points:
+            surrounding_context["before_downstream"] = context_var.get()
+        await app(scope, receive, send)
+        if "after_downstream" in observer_points:
+            surrounding_context["after_downstream"] = context_var.get()
+
     scope = _scope_from_input(request_input["scope"])
     observed["caller_before"] = context_var.get()
-    await app(scope, receive, record_send)
+    await observe_surrounding_context(scope, receive, record_send)
     observed["caller_after"] = context_var.get()
     return {
         "context_values": observed,
+        "surrounding_pure_asgi_context": surrounding_context,
         "asgi_events": events,
     }
 

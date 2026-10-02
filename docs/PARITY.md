@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 675 input-only cases in 77 indexed files, covering 93 operations and 706 parity requirements. Recent additions include a middleware-configured Mount URL lookup, ordered StaticFiles `If-Modified-Since` requests, a TestClient lifespan startup error, TestClient WebSocket accepted-header observations, CORSMiddleware private-network-access denial, an empty-text WebSocketEndpoint default-decoding failure, and TestClient lifespan task/RunVar continuity under asyncio and Trio. Existing inputs cover Rust-backed `CommaSeparatedStrings` including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles configuration and conditional responses; CORSMiddleware origin-isolation and wildcard-without-credentials; Request.cookies edge, invalid, and mapping cases; WebSocket denial and close transitions; direct `GZipResponder`; and broad application, request, response, middleware, and routing boundaries. The latest integrated full-slice result below predates these `parity-input@23` additions; their focused evidence is recorded later in this document.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 675 input-only cases in 77 indexed files, covering 93 operations and 707 parity requirements. Recent additions include a middleware-configured Mount URL lookup, ordered StaticFiles `If-Modified-Since` requests, a TestClient lifespan startup error, TestClient WebSocket accepted-header observations, CORSMiddleware private-network-access denial, an empty-text WebSocketEndpoint default-decoding failure, TestClient lifespan task/RunVar continuity under asyncio and Trio, and surrounding pure-ASGI ContextVar observations for BaseHTTPMiddleware and its pure-ASGI control. Existing inputs cover Rust-backed `CommaSeparatedStrings` including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles configuration and conditional responses; CORSMiddleware origin-isolation and wildcard-without-credentials; Request.cookies edge, invalid, and mapping cases; WebSocket denial and close transitions; direct `GZipResponder`; and broad application, request, response, middleware, and routing boundaries. The latest integrated full-slice result below predates these `parity-input@23` and `@24` additions; focused evidence is recorded later in this document.
 
 The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, middleware registration and ordering; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State behavior; direct Request body, stream, JSON, and form consumption; responses and background tasks, including cancellation and post-construction FileResponse assignments; WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, schemas, and one Python-package Jinja2 workflow. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
@@ -22,6 +22,9 @@ WebSocket accepted-header cases passed. The four native `not_run` rows are synch
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 `make parity-run` exits with status 2 because those declared rows remain
 `not_run`; they are not parity failures.
+
+This integrated run predates the focused `parity-input@23` and `@24` additions;
+it is not full-slice evidence for the active 675-case/707-requirement contract.
 
 For `lifespan_send_messages`, the manifest declares a narrow
 `starlette-lifespan-router-frame` normalization: it removes only the
@@ -873,7 +876,23 @@ The previous integrated run above used `parity-input@22`; all three TestClient e
 
 The `parity-input@23` contract adds a TestClient lifecycle workflow derived from `tests/test_testclient.py::test_use_testclient_as_contextmanager`. The input-defined lifespan callback enters a task group, uses an input-defined AnyIO `RunVar` token source, and serves managed and transient HTTP requests. Adapter observations include live request values, startup/shutdown values, same-task identity, and whether re-entry creates a new task. Separate cases exercise the source test's `asyncio` and `trio` backend instantiations; Trio and its platform-specific dependency closure are locked for parity environments only and are not Starlette runtime dependencies. All 77 indexed authored inputs were migrated by `make migrate-parity-inputs-v22-v23`, which changes only the top-level schema header and supports `--check`. Focused run `d60a8b0c-8bf9-494c-8eb1-73aef835b37c` passed both exact source/package comparisons with no diffs on the dirty shared checkout.
 
-The same contract revision adds a two-dispatch CORSMiddleware input for private-network-access denial and a WebSocketEndpoint input for empty text under `encoding=None`. Both focused source/package comparisons passed; the output artifacts remain in ignored `build/parity/` storage. Together, these additions increase the indexed denominator from 671 cases/703 requirements to 675/706 without claiming a new full-slice run.
+The `parity-input@24` contract extends
+[`base-http-contextvars.yaml`](../tests/fixtures/sources/parity/base-http-contextvars.yaml)
+with the same input-defined surrounding pure-ASGI observer for the
+BaseHTTPMiddleware case and its pure-ASGI control. It reads the live ContextVar
+before and after downstream execution alongside the existing caller,
+middleware, endpoint, and ASGI response observations. The BaseHTTPMiddleware
+observer returns with `middleware-value`; the pure-ASGI control returns with
+`endpoint-value`, as the pinned docs and test describe. These are live source
+and package observations; the authored input contains selectors and actions,
+not expected outputs. The case is grounded in `docs/middleware.md:343-350`,
+`tests/middleware/test_base.py:208-265`, and
+`starlette/middleware/base.py:101-199`. Focused run
+`85372de5-e607-4ca3-8f57-a03d2a759d11` passed both exact source/package
+comparisons with no diffs. The `@23` to `@24` migrator changes only the schema
+header and validates all 77 indexed authored inputs.
+
+The same `parity-input@23` revision adds a two-dispatch CORSMiddleware input for private-network-access denial and a WebSocketEndpoint input for empty text under `encoding=None`. Both focused source/package comparisons passed; the output artifacts remain in ignored `build/parity/` storage. Together, the `@23` additions increase the indexed denominator from 671 cases/703 requirements to 675/706 without claiming a new full-slice run. The `@24` observer adds one parity requirement, leaving 675 cases and increasing the requirement count to 707.
 
 ### TestClient exception policy
 

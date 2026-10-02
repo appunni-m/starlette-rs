@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@23",
+  "schema": "migration-parity/parity-input@24",
   "cases": [
     {
       "case_id": "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.base-http",
@@ -8,6 +8,7 @@
       "covers": [
         "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.construct-base-http-middleware",
         "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-context-by-layer",
+        "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-surrounding-pure-asgi-context",
         "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-asgi-response-events"
       ],
       "target_profiles": [
@@ -21,6 +22,13 @@
         "initial_value": "caller-value",
         "middleware_value": "middleware-value",
         "endpoint_value": "endpoint-value"
+      },
+      "surrounding_pure_asgi_observer": {
+        "kind": "contextvar-reader",
+        "context_points": [
+          "before_downstream",
+          "after_downstream"
+        ]
       },
       "request": {
         "scope": {
@@ -83,6 +91,7 @@
       "covers": [
         "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.construct-pure-asgi-control",
         "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-context-by-layer",
+        "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-surrounding-pure-asgi-context",
         "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-asgi-response-events"
       ],
       "target_profiles": [
@@ -96,6 +105,13 @@
         "initial_value": "caller-value",
         "middleware_value": "middleware-value",
         "endpoint_value": "endpoint-value"
+      },
+      "surrounding_pure_asgi_observer": {
+        "kind": "contextvar-reader",
+        "context_points": [
+          "before_downstream",
+          "after_downstream"
+        ]
       },
       "request": {
         "scope": {

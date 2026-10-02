@@ -32,8 +32,8 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 657 input-only cases in 76 indexed files,
-covering 93 operations and 692 requirements, including Rust-backed
+The active parity contract contains 675 input-only cases in 77 indexed files,
+covering 93 operations and 707 requirements, including Rust-backed
 `CommaSeparatedStrings` parsing, quoting, sequence formatting, Python
 string-subclass boundary behavior, and lone-surrogate values, the direct
 `starlette.concurrency.run_in_threadpool` helper, synchronous Request endpoint
@@ -61,8 +61,13 @@ complete run identity, wheel and tree hashes, and case-level evidence are in
 [Migration parity contract and evidence](PARITY.md). This bounded run does not
 establish full Starlette parity or release readiness.
 
-The generated coverage matrix contains 802 source rows: 357 input mappings,
-50 source-backed `not_applicable` rows, and 395 fixture-backlog rows. These
+That integrated run predates the focused `parity-input@23` and `@24` additions.
+The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
+the pinned source and installed package in run
+`85372de5-e607-4ca3-8f57-a03d2a759d11`.
+
+The generated coverage matrix contains 802 source rows: 378 input mappings,
+50 source-backed `not_applicable` rows, and 374 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.

@@ -22,7 +22,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@23"
+INPUT_SCHEMA = "migration-parity/parity-input@24"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -169,6 +169,7 @@ BASE_HTTP_CONTEXTVARS_REQUIREMENTS = {
     "base_http": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_CONTEXTVARS_OPERATION}.construct-base-http-middleware",
     "pure_asgi": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_CONTEXTVARS_OPERATION}.construct-pure-asgi-control",
     "context": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_CONTEXTVARS_OPERATION}.observe-context-by-layer",
+    "outer_observer": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_CONTEXTVARS_OPERATION}.observe-surrounding-pure-asgi-context",
     "events": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_CONTEXTVARS_OPERATION}.observe-asgi-response-events",
 }
 TESTCLIENT_SURFACE = "starlette.testclient.TestClient"
@@ -256,6 +257,7 @@ BASE_HTTP_WORKFLOW_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
 BASE_HTTP_CONTEXTVARS_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "middleware_kind",
     "context",
+    "surrounding_pure_asgi_observer",
     "request",
     "response",
 }
@@ -7755,6 +7757,19 @@ def _validate_base_http_contextvars_case(case: dict[str, Any]) -> None:
     if middleware_kind not in {"base-http", "pure-asgi"}:
         raise ContractError("BaseHTTPMiddleware ContextVar middleware_kind is unsupported")
 
+    observer = _exact(
+        case["surrounding_pure_asgi_observer"],
+        {"kind", "context_points"},
+        "surrounding pure-ASGI ContextVar observer",
+    )
+    if observer["kind"] != "contextvar-reader":
+        raise ContractError("surrounding observer must select the ContextVar reader")
+    context_points = observer["context_points"]
+    if context_points != ["before_downstream", "after_downstream"]:
+        raise ContractError(
+            "surrounding observer must read the ContextVar before and after downstream execution"
+        )
+
     context = _exact(
         case["context"],
         {"name", "default_value", "initial_value", "middleware_value", "endpoint_value"},
@@ -7817,6 +7832,7 @@ def _validate_base_http_contextvars_case(case: dict[str, Any]) -> None:
     expected_covers = {
         constructor_requirement,
         BASE_HTTP_CONTEXTVARS_REQUIREMENTS["context"],
+        BASE_HTTP_CONTEXTVARS_REQUIREMENTS["outer_observer"],
         BASE_HTTP_CONTEXTVARS_REQUIREMENTS["events"],
     }
     if set(case["covers"]) != expected_covers:

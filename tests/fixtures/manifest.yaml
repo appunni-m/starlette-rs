@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@23",
+      "input_schema": "migration-parity/parity-input@24",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -7274,7 +7274,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.middleware.base.BaseHTTPMiddleware.__call__, dispatch, and call_next",
-            "signature": "Input-driven workflow: compare caller, middleware, and endpoint ContextVar observations around BaseHTTPMiddleware.call_next and a pure-ASGI control.",
+            "signature": "Input-driven workflow: compare caller, middleware, endpoint, and surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware.call_next and a pure-ASGI control.",
             "parameters": [
               {
                 "id": "middleware_kind",
@@ -7288,6 +7288,16 @@
               },
               {
                 "id": "context",
+                "style": "input_asset",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "surrounding_pure_asgi_observer",
                 "style": "input_asset",
                 "value_types": [
                   "record"
@@ -7336,6 +7346,15 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "surrounding_pure_asgi_context",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
                   }
                 }
               ],
@@ -7396,6 +7415,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-context-by-layer",
               "dimension": "boundary",
               "description": "Record live ContextVar values in the caller, middleware dispatch, and endpoint before and after the endpoint mutation. Upstream: tests/middleware/test_base.py:208-265; docs/middleware.md:343-350.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-surrounding-pure-asgi-context",
+              "dimension": "boundary",
+              "description": "Wrap BaseHTTPMiddleware or its pure-ASGI control in an input-selected pure-ASGI observer and compare its live ContextVar value before downstream execution and after the endpoint mutation returns. Upstream: docs/middleware.md:343-350; tests/middleware/test_base.py:208-265; starlette/middleware/base.py:101-199.",
               "lanes": [
                 "parity"
               ],

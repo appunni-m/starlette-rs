@@ -9,9 +9,10 @@ incomplete.
 ## Current parity snapshot
 
 The active contract contains 675 input-only cases in 77 indexed files,
-covering 93 operations and 706 parity requirements. New focused inputs cover
-CORSMiddleware private-network-access denial, empty-text default decoding in
-WebSocketEndpoint, and TestClient lifespan task/RunVar continuity under
+covering 93 operations and 707 parity requirements. New focused inputs cover
+surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
+pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
+default decoding in WebSocketEndpoint, and TestClient lifespan task/RunVar continuity under
 asyncio and Trio. Rust-backed
 `CommaSeparatedStrings` parsing and sequence formatting, including lone
 surrogate values, are included, alongside
@@ -38,6 +39,9 @@ identities and package hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
+This integrated run predates the focused `parity-input@23` and `@24` additions;
+focused results are recorded in the parity evidence document.
+
 The endpoint-callable-shapes backlog item is mapped in the generated coverage
 matrix. The package-only input slice covers async functions, bound methods,
 single or nested partial construction, sync function/bound-method/partial
@@ -45,8 +49,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 376 existing input mappings,
-50 source-backed `not_applicable` rows, and 376 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 378 existing input mappings,
+50 source-backed `not_applicable` rows, and 374 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
