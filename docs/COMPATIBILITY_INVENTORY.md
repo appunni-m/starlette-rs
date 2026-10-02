@@ -18,7 +18,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 checked in; the run IDs and counts below describe their recorded executions.
 
 The active parity manifest indexes 704 input-only cases across 77 files,
-covering 93 operations and 724 parity requirements. Recent additions compare
+covering 93 operations and 726 parity requirements. Recent additions compare
+input-derived generic `Request[State]` and `WebSocket[State]` type contracts,
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
 pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
 default decoding in WebSocketEndpoint, TestClient lifespan task/RunVar
@@ -77,10 +78,10 @@ operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest integrated full-slice correctness run is
-`fdf2ee06-3bf1-485b-ae2b-b0a483914af5`. It ran from
-`2026-10-02T08:31:45.948Z` to `2026-10-02T08:34:36.794Z` against Starlette
+`562917d5-c78c-495f-ad21-1962aff80695`. It ran from
+`2026-10-02T09:42:34.525Z` to `2026-10-02T09:45:37.354Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active
-704-case/724-requirement `parity-input@25` contract. It selected 912 profile
+704-case/726-requirement `parity-input@26` contract. It selected 912 profile
 comparisons: 908 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
 702 selected comparisons; Rust-native passed 206 of 210. The run includes
@@ -89,8 +90,9 @@ fallback and converter scenarios, default-string matching and slash-boundary
 cases, datetime-converter cases, Mount URL lookup, StaticFiles date-order
 sequence, TestClient startup-error, WebSocket accepted headers, both
 BaseHTTPMiddleware ContextVar observer cases, three BaseHTTPMiddleware
-exception-context cases, and asyncio/Trio lifespan task-group child lifecycle
-cases. The exception-context cases map to
+exception-context cases, asyncio/Trio lifespan task-group child lifecycle
+cases, and the generic Request/WebSocket state typing requirements. The
+exception-context cases map to
 `tests/middleware/test_base.py::test_error_context_propagation`; the no-chain,
 implicit-context, and explicit-cause inputs all passed with empty diffs. The
 four native `not_run` rows are synchronous Request endpoint, bound-method
@@ -98,15 +100,15 @@ endpoint, partial endpoint, and callable-instance ASGI dispatch.
 `make parity-run` exits with status 2 because those declared Python-callable
 boundaries remain `not_run`; they are not parity failures. The Rust-native
 source fingerprint is
-`0544a78052d1e331af1a9fe296230addc5e892a6+source-fnv1a64-1ae45f1d7fa44c70`.
+`ea79ae9219f77353d0fe31462ce586da6c256248+source-fnv1a64-1ae45f1d7fa44c70`.
 The installed package tree SHA-256 is
-`0dac88e5bd83f0715faeaffa48f412548f91eab9e85982f3a0519b3ea8d6497a`, and the
+`6126db73cdce98e965a2c4a5c5357af25ca5bfd93fc0caee857314fca33f4c0f`, and the
 wheel SHA-256 is
-`86edb81bf7038ccd8f92e2b8a650560955154faf854561fff606ea8c82a435be`. The
+`8030e34cdeb06b6e1052294630d2bb71b660f7564623e539a19f8c0a67b98d89`. The
 manifest SHA-256 is
-`560bb00c2a6a6cb1a3903124cd4b17fea0c33383f9d17fdb7706c0a99886d451`; the
+`b24e42bb0ce9f4a1346b38f23f89a7edc9f972f91871bd4ad46e97753d49c689`; the
 result artifact SHA-256 is
-`cd1cede04dc94aa78039f43e18ad082eb7219e48be1fd6e54afd87c9bbcce99f`. Full
+`772c16444ea87fdce8e9f487c3fca914c8a52d483e0fccaa5812a06f1e20e0cb`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md). This bounded evidence
 does not establish full Starlette parity or release readiness.
@@ -118,27 +120,32 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run,
-`fdd7d87f-476d-413f-9f49-4550b02f5db4`, ran from
-`2026-10-02T08:31:42.125Z` to `2026-10-02T08:36:05.440Z` and measured all 74
+`2b89685a-0356-4e7f-971c-c01cedeba0a7`, ran from
+`2026-10-02T09:42:30.416Z` to `2026-10-02T09:47:01.005Z` and measured all 74
 declared workloads: six Router and 68 GZip, with zero failures or
 source/package `not_run` rows. Its clean target checkout was revision
-`0544a78052d1e331af1a9fe296230addc5e892a6`, with working-tree SHA-256
-`ac847b47f1725ce4a722f3ba6f84a64e8f5f930c71c03bee35c40c33bd08b976` and
+`ea79ae9219f77353d0fe31462ce586da6c256248`, with working-tree SHA-256
+`69fb04a61683633b8585072c480b7a23908f896ece5f979ea9dc32a627aa1d14` and
 wheel SHA-256
-`86edb81bf7038ccd8f92e2b8a650560955154faf854561fff606ea8c82a435be`.
-Correctness preflight `fdf2ee06-3bf1-485b-ae2b-b0a483914af5` selected 912
+`8030e34cdeb06b6e1052294630d2bb71b660f7564623e539a19f8c0a67b98d89`.
+Correctness preflight `562917d5-c78c-495f-ad21-1962aff80695` selected 912
 comparisons: 908 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
 passed 702/702 and Rust-native passed 206/210. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. The median per-workload
-source/package latency ratios were 0.761 for Router and 0.967 for GZip; source
-latency was lower in five of six Router workloads and 53 of 68 GZip workloads.
-All 74 source/package observations had matching normalized hashes. This
+source/package latency ratios were 0.763 for Router and 0.976 for GZip; source
+latency was lower in five of six Router workloads and 55 of 68 GZip workloads.
+All 74 source/package observations had matching normalized hashes. Manifest
+SHA-256: `b24e42bb0ce9f4a1346b38f23f89a7edc9f972f91871bd4ad46e97753d49c689`;
+benchmark input SHA-256:
+`adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`; result
+artifact SHA-256:
+`fd71a8fb9edf02c63169704c0d0949feee43eda6378fa791248321201e7115ed`. This
 bounded evidence does not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 424 input mappings, 51
-reasoned `not_applicable` rows, and 327 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 425 input mappings, 51
+reasoned `not_applicable` rows, and 326 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
