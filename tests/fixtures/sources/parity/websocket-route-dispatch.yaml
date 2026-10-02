@@ -170,6 +170,83 @@
       "observations": [
         "route-dispatch"
       ]
+    },
+    {
+      "case_id": "starlette.routing.WebSocketRoute.route-dispatch.middleware-accept-header",
+      "surface": "starlette.routing.WebSocketRoute",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.WebSocketRoute.route-dispatch.middleware-accept-header"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "dispatch": "application",
+      "route": {
+        "path": "/ws",
+        "middleware": [
+          {
+            "kind": "append-websocket-accept-header",
+            "header": [
+              "X-Test",
+              "Set by middleware"
+            ]
+          }
+        ]
+      },
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/ws",
+        "raw_path_base64": "L3dz",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "endpoint_actions": [
+        {
+          "action": "accept",
+          "subprotocol": null
+        },
+        {
+          "action": "send_text",
+          "text": "Hello, world!"
+        },
+        {
+          "action": "close",
+          "code": 1000,
+          "reason": ""
+        }
+      ],
+      "observations": [
+        "route-dispatch"
+      ]
     }
   ]
 }

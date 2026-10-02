@@ -17275,6 +17275,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.WebSocketRoute.route-dispatch.middleware-accept-header",
+              "dimension": "boundary",
+              "description": "Pass the websocket.accept message through the input-configured WebSocketRoute middleware and compare the exact ordered accept headers and remaining ASGI events. Pinned source: starlette/routing.py::WebSocketRoute.__init__; tests/test_routing.py::test_websocket_route_middleware.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

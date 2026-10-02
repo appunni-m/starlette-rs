@@ -3404,9 +3404,34 @@ def _validate_websocket_route_scope(scope: Any) -> None:
 def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
     if case["dispatch"] not in {"application", "standalone-route"}:
         raise ContractError("WebSocketRoute dispatch must be application or standalone-route")
-    route = _exact(case["route"], {"path"}, "WebSocketRoute route input")
-    if route["path"] != "/rooms/{room:str}":
-        raise ContractError("WebSocketRoute route input must define /rooms/{room:str}")
+    if not isinstance(case["route"], dict):
+        raise ContractError("WebSocketRoute route input must be an object")
+    route_keys = {"path"}
+    if "middleware" in case["route"]:
+        route_keys.add("middleware")
+    route = _exact(case["route"], route_keys, "WebSocketRoute route input")
+    if not isinstance(route["path"], str) or not route["path"].startswith("/"):
+        raise ContractError("WebSocketRoute route input must define an absolute path")
+    middleware = route.get("middleware", [])
+    if not isinstance(middleware, list):
+        raise ContractError("WebSocketRoute middleware must be an array")
+    for index, middleware_spec in enumerate(middleware):
+        context = f"WebSocketRoute middleware[{index}]"
+        spec = _exact(middleware_spec, {"kind", "header"}, context)
+        if spec["kind"] != "append-websocket-accept-header":
+            raise ContractError(f"{context}.kind is unsupported")
+        header = spec["header"]
+        if (
+            not isinstance(header, list)
+            or len(header) != 2
+            or not all(isinstance(value, str) for value in header)
+        ):
+            raise ContractError(f"{context}.header must be a two-string [name, value] pair")
+        try:
+            for value in header:
+                value.encode("latin-1")
+        except UnicodeEncodeError as exc:
+            raise ContractError(f"{context}.header values must be Latin-1 encodable") from exc
     _validate_websocket_route_scope(case["scope"])
     incoming = case["incoming"]
     actions = case["endpoint_actions"]
@@ -3429,7 +3454,8 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
             _exact(action, {"action", "code", "reason"}, context)
             if type(action["code"]) is not int or action["code"] < 0:
                 raise ContractError(f"{context}.code must be a non-negative integer")
-            _string(action["reason"], f"{context}.reason")
+            if not isinstance(action["reason"], str):
+                raise ContractError(f"{context}.reason must be a string")
         else:
             raise ContractError(f"{context}.action is unsupported")
     if case["observations"] != list(WEBSOCKET_ROUTE_OBSERVATIONS):
@@ -3462,11 +3488,23 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
     if (
         case["dispatch"] == "standalone-route"
         and scope["type"] == "http"
+        and expected_route == "/rooms/{room:str}"
         and scope["path"] == "/rooms/blue"
         and not incoming
         and not actions
     ):
         coverage.add("starlette.routing.WebSocketRoute.route-dispatch.http-scope-404")
+    if (
+        case["dispatch"] == "application"
+        and scope["type"] == "websocket"
+        and scope["path"] == "/ws"
+        and expected_route == "/ws"
+        and middleware
+        and all(spec["kind"] == "append-websocket-accept-header" for spec in middleware)
+        and [message["type"] for message in incoming] == ["websocket.connect"]
+        and [action["action"] for action in actions] == ["accept", "send_text", "close"]
+    ):
+        coverage.add("starlette.routing.WebSocketRoute.route-dispatch.middleware-accept-header")
     unexercised = set(case["covers"]) - coverage
     if unexercised:
         raise ContractError(

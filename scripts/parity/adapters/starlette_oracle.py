@@ -6184,6 +6184,7 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["surface"] != WEBSOCKET_ROUTE_SURFACE or case["operation"] != WEBSOCKET_ROUTE_OPERATION:
         raise ValueError("workflow is outside the declared WebSocketRoute route-dispatch operation")
     from starlette.applications import Starlette
+    from starlette.middleware import Middleware
     from starlette.routing import WebSocketRoute
 
     endpoint_actions = case["endpoint_actions"]
@@ -6201,7 +6202,26 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
                     f"unsupported WebSocketRoute endpoint action: {action['action']!r}"
                 )
 
-    route = WebSocketRoute(case["route"]["path"], endpoint=endpoint)
+    middleware = []
+    for middleware_spec in case["route"].get("middleware", []):
+        header = tuple(value.encode("latin-1") for value in middleware_spec["header"])
+
+        class AppendWebSocketAcceptHeaderMiddleware:
+            def __init__(self, app: Any, header_pair: tuple[bytes, bytes]) -> None:
+                self.app = app
+                self.header_pair = header_pair
+
+            async def __call__(self, middleware_scope: Any, receive: Any, send: Any) -> None:
+                async def modified_send(message: dict[str, Any]) -> None:
+                    if message["type"] == "websocket.accept":
+                        message["headers"].append(self.header_pair)
+                    await send(message)
+
+                await self.app(middleware_scope, receive, modified_send)
+
+        middleware.append(Middleware(AppendWebSocketAcceptHeaderMiddleware, header_pair=header))
+
+    route = WebSocketRoute(case["route"]["path"], endpoint=endpoint, middleware=middleware)
     app = Starlette(routes=[route])
     scope_spec = case["scope"]
     scope = (
