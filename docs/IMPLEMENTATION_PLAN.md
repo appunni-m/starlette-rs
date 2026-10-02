@@ -52,7 +52,7 @@ inputs add four denial-response state transitions, a fresh-iterator
 compression without negotiation. The six direct ServerErrorMiddleware inputs
 and three TestClient exception-chain cases also pass in the latest run. Three
 StaticFiles HTML fallback scenarios pass on both target profiles. Run
-`26a70ec0-5bba-4930-95ad-2ce3f8fb032a` selected 872 comparisons: 868 passed,
+`d7a40a9b-4cfd-4481-ab52-cea46f506c45` selected 872 comparisons: 868 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
 Python-callable rows `not_run`. The installed Python package passed 676/676;
 Rust-native passed 192/196. The four native `not_run` rows are synchronous
@@ -342,21 +342,21 @@ dependencies feature-gated and unsupported coverage source-backed.
 The pinned Starlette 1.6.0 Router/GZip workload catalog contains six Router
 and 68 GZip benchmark IDs. All 74 have input-only descriptors and exact
 source-versus-installed-package correctness gates. Latest run
-`5d5f4678-5ecb-440b-96ec-c8618b4f2b3c` ran from
-`2026-10-02T00:29:40.927Z` to `2026-10-02T00:33:53.095Z` and measured all
+`9021ff6a-3660-444f-9359-88c76886a82c` ran from
+`2026-10-02T00:59:44.326Z` to `2026-10-02T01:03:57.558Z` and measured all
 74 source/package workloads with zero failures and zero source/package
 not-run rows. Its correctness preflight,
-`6e893e3b-d61b-40f1-955b-0bd78bc2d414`, used the active
-675-case/707-requirement manifest (SHA-256
-`c7a3cff812044cf3935e8c8ed8be65f61678dc4b505162d3642e0c6da6aa817b`) and
-selected 866 comparisons: 862 passed, zero failed, zero infrastructure errors,
-and four Rust-native Python-callable rows were `not_run` (package 673/673;
-Rust-native 189 passed, 4 not_run). The target was clean at commit
-`500a7fd395e44a8fbba8cdc65589721bc04debc6` with working-tree SHA-256
-`40c3938f35ba59111f4611672456637eddd19a679abf7f8f8b523020c10e26ff`; the
+`d7a40a9b-4cfd-4481-ab52-cea46f506c45`, used the active
+678-case/710-requirement manifest (SHA-256
+`05ccdb0511b6e5c3cff6fa5cb4a50ffb20e965ec3dceb25eada44bf8c270a456`) and
+selected 872 comparisons: 868 passed, zero failed, zero infrastructure errors,
+and four Rust-native Python-callable rows were `not_run` (package 676/676;
+Rust-native 192 passed, 4 not_run). The target was clean at commit
+`ec1145ee02cddc2ab62360874681a6204e02d542` with working-tree SHA-256
+`4aa07f61758bf8ea13506708bbc981b2e44ec3e0e5523a2294eb656d5b0ae48b`; the
 target wheel SHA-256 is
-`96067064ca56f8e25dfd56557e45210e43712a64e566ed02ee26b114dcea82f7`. The
-median per-workload source/package ratios were 0.769 for Router and 0.978 for
+`c487c8c9ceaebf3c44fd87ff2b7064aff19fff753fff6329c221d257b7e42b00`. The
+median per-workload source/package ratios were 0.763 for Router and 0.973 for
 GZip; source was faster in five of six Router workloads and 57 of 68 GZip
 workloads. All 74 source/package observation hashes matched.
 

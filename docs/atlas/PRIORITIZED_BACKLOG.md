@@ -30,7 +30,7 @@ round-trip from `test_request_cookies`. Added direct `GZipResponder` inputs and
 invalid WebSocket JSON-mode inputs pass exact source/package comparison. Three
 StaticFiles HTML fallback scenarios now pass on both target profiles. The
 latest integrated run for the active `parity-input@24` contract,
-`26a70ec0-5bba-4930-95ad-2ce3f8fb032a`, passed 868 of 872 selected
+`d7a40a9b-4cfd-4481-ab52-cea46f506c45`, passed 868 of 872 selected
 comparisons, with zero failures or infrastructure errors and four Rust-native
 Python-callable rows `not_run`. The Python package passed 676/676; Rust-native
 passed 192/196. The four native `not_run` rows are synchronous

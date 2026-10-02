@@ -11,8 +11,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest integrated full-slice parity run is
-`26a70ec0-5bba-4930-95ad-2ce3f8fb032a`. It ran from
-`2026-10-02T00:52:16.341Z` to `2026-10-02T00:54:55.594Z` against Starlette
+`d7a40a9b-4cfd-4481-ab52-cea46f506c45`. It ran from
+`2026-10-02T00:59:48.079Z` to `2026-10-02T01:02:30.483Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 678-case,
 710-requirement `parity-input@24` manifest. It selected 872 profile
 comparisons: 868 passed, zero failed, zero infrastructure errors, and four
@@ -32,15 +32,15 @@ protocol without that Python frame; all other event fields and traceback frames
 remain exact.
 
 The Rust-native fingerprint was
-`4efc9228fe3d23320e73ad920b2c8ec7d8193082+source-fnv1a64-9ef5071d66376854`.
+`ec1145ee02cddc2ab62360874681a6204e02d542+source-fnv1a64-9ef5071d66376854`.
 The installed package tree SHA-256 was
 `5a6bb907c307a9c232d345ab108507916922adc0b70f27bdd8945d6c7082dce5`; its
 wheel SHA-256 was
-`088710c66da88756b3e0ce848f50e5497febb37b9009fb23ce9bb1dcdd04c8da`. The
+`c487c8c9ceaebf3c44fd87ff2b7064aff19fff753fff6329c221d257b7e42b00`. The
 manifest SHA-256 was
 `05ccdb0511b6e5c3cff6fa5cb4a50ffb20e965ec3dceb25eada44bf8c270a456`; the
 result artifact SHA-256 was
-`967540bb13344e429ce6601c28f2ac8a83f0faa0ad3db9a2b49a9953bf48430b`.
+`dc9ca6b3ca5f04157ec9cb1462f67df598b8bc99ff4d6864ca5cade31b6fbdde`.
 Strict aggregation remains `not_proven` because the full compatibility
 denominator is incomplete and four Rust-native rows are `not_run`.
 
@@ -56,8 +56,8 @@ They exercise an existing directory without an index but with a `404.html`
 fallback, an index directory without a fallback page, and an HTML-only tree
 without either special file. Ordered ASGI observations include the slash
 redirect, selected file body, and propagated 404 exception. All six
-source/native/package profile comparisons pass in integrated run
-`26a70ec0-5bba-4930-95ad-2ce3f8fb032a`.
+oracle-to-target profile comparisons pass in integrated run
+`d7a40a9b-4cfd-4481-ab52-cea46f506c45`.
 
 ### Mount lookup, StaticFiles dates, and TestClient startup failures
 
