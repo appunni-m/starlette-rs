@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@27",
+      "input_schema": "migration-parity/parity-input@28",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -297,6 +297,7 @@
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/lifespan-generators.json",
       "build/parity/inputs/parity/authentication-runtime.json",
+      "build/parity/inputs/parity/authentication-user-interface.json",
       "build/parity/inputs/parity/static-files.json",
       "build/parity/inputs/parity/static-files-symlink-asgi.json",
       "build/parity/inputs/parity/static-files-lookup.json",
@@ -788,6 +789,28 @@
               "id": "starlette.applications.Starlette.__call__.sync-route-return-response",
               "dimension": "boundary",
               "description": "Construct a Starlette app with a synchronous HTTP endpoint and default Route methods, then dispatch GET and HEAD /func through the public ASGI callable. Compare exact response events and verify one worker-thread invocation per request. Upstream: tests/test_applications.py::test_func_route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-user-interface.unauthenticated-user",
+              "dimension": "boundary",
+              "description": "Dispatch GET / through Starlette with AuthenticationMiddleware and observe Request.user for an absent Authorization header. Compare response status and JSON fields against tests/test_authentication.py::test_user_interface.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-user-interface.basic-user",
+              "dimension": "boundary",
+              "description": "Dispatch GET / through Starlette with AuthenticationMiddleware and valid Basic credentials, then observe Request.user. Compare response status and JSON fields against tests/test_authentication.py::test_user_interface.",
               "lanes": [
                 "parity"
               ],

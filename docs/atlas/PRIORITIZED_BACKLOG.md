@@ -8,12 +8,11 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 708 input-only cases in 78 indexed files,
-covering 93 operations and 733 parity requirements. The latest additions are
-direct UploadFile constructor/repr, rollover, and threadpool-boundary inputs, GZip final/streaming
-thread-threshold comparisons, the shared AnyIO thread-pool limiter comparison,
-and the input-derived generic Request/WebSocket
-lifespan-state typing contract.
+The active contract contains 722 input-only cases in 81 indexed files,
+covering 94 operations and 755 parity requirements. Recent additions include direct UploadFile constructor/repr, rollover, and
+threadpool-boundary inputs; GZip final/streaming thread-threshold comparisons;
+the shared AnyIO thread-pool limiter; generic Request/WebSocket lifespan-state
+typing; and routed authentication behavior with absent and valid Basic credentials.
 Seven QueryParams
 cases map equality and blank-value behavior to two pinned test rows. New
 focused inputs cover
@@ -68,8 +67,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 435 input mappings,
-51 source-backed `not_applicable` rows, and 316 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 456 input mappings,
+51 source-backed `not_applicable` rows, and 295 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

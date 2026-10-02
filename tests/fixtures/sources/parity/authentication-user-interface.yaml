@@ -2,14 +2,11 @@
   "schema": "migration-parity/parity-input@28",
   "cases": [
     {
-      "case_id": "starlette.applications.Starlette.request-dispatch.asgi-callable-http-exception-before-start",
+      "case_id": "starlette.applications.Starlette.__call__.authentication-user-interface.unauthenticated-user",
       "surface": "starlette.applications.Starlette",
-      "operation": "request-dispatch",
+      "operation": "__call__",
       "covers": [
-        "starlette.routing.request-scope-values",
-        "starlette.asgi.request-dispatch-events",
-        "starlette.routing.asgi-callable-instance-dispatch",
-        "starlette.routing.asgi-callable-http-exception-before-start"
+        "starlette.applications.Starlette.__call__.authentication-user-interface.unauthenticated-user"
       ],
       "execution_schedule": [
         "dispatch"
@@ -34,27 +31,21 @@
               "value": [
                 {
                   "kind": "http-route",
-                  "path": "/items/{item_id:int}",
-                  "methods": [
-                    "GET"
-                  ],
+                  "path": "/",
+                  "methods": null,
                   "endpoint": {
-                    "kind": "asgi-callable-action-sequence",
-                    "actions": [
-                      {
-                        "action": "raise-http-exception",
-                        "status_code": 406,
-                        "detail": null,
-                        "headers": null
-                      }
-                    ]
+                    "kind": "authentication-user-interface"
                   }
                 }
               ]
             },
             "middleware": {
               "kind": "literal",
-              "value": []
+              "value": [
+                {
+                  "kind": "authentication-basic"
+                }
+              ]
             },
             "exception_handlers": {
               "kind": "literal",
@@ -62,11 +53,7 @@
             },
             "lifespan": {
               "kind": "literal",
-              "value": {
-                "kind": "async-context-manager",
-                "record_entry": true,
-                "record_exit": true
-              }
+              "value": null
             },
             "max_body_size": {
               "kind": "literal",
@@ -77,7 +64,7 @@
         {
           "step_id": "dispatch",
           "surface": "starlette.applications.Starlette",
-          "operation": "request-dispatch",
+          "operation": "__call__",
           "receiver": {
             "kind": "binding",
             "step_id": "application"
@@ -94,8 +81,8 @@
                 "http_version": "1.1",
                 "method": "GET",
                 "scheme": "http",
-                "path": "/items/0007",
-                "raw_path_base64": "L2l0ZW1zLzAwMDc=",
+                "path": "/",
+                "raw_path_base64": "Lw==",
                 "query_string_base64": "",
                 "root_path": "",
                 "headers_base64_pairs": [],
@@ -133,14 +120,11 @@
       ]
     },
     {
-      "case_id": "starlette.applications.Starlette.request-dispatch.asgi-callable-http-exception-after-start",
+      "case_id": "starlette.applications.Starlette.__call__.authentication-user-interface.basic-user",
       "surface": "starlette.applications.Starlette",
-      "operation": "request-dispatch",
+      "operation": "__call__",
       "covers": [
-        "starlette.routing.request-scope-values",
-        "starlette.asgi.request-dispatch-events",
-        "starlette.routing.asgi-callable-instance-dispatch",
-        "starlette.routing.asgi-callable-http-exception-after-start"
+        "starlette.applications.Starlette.__call__.authentication-user-interface.basic-user"
       ],
       "execution_schedule": [
         "dispatch"
@@ -165,52 +149,21 @@
               "value": [
                 {
                   "kind": "http-route",
-                  "path": "/items/{item_id:int}",
-                  "methods": [
-                    "GET"
-                  ],
+                  "path": "/",
+                  "methods": null,
                   "endpoint": {
-                    "kind": "asgi-callable-action-sequence",
-                    "actions": [
-                      {
-                        "action": "send",
-                        "message": {
-                          "type": "http.response.start",
-                          "status": 200,
-                          "headers_base64_pairs": [
-                            [
-                              "Y29udGVudC1sZW5ndGg=",
-                              "Mg=="
-                            ],
-                            [
-                              "Y29udGVudC10eXBl",
-                              "dGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA=="
-                            ]
-                          ]
-                        }
-                      },
-                      {
-                        "action": "send",
-                        "message": {
-                          "type": "http.response.body",
-                          "body_base64": "T0s=",
-                          "more_body": false
-                        }
-                      },
-                      {
-                        "action": "raise-http-exception",
-                        "status_code": 406,
-                        "detail": null,
-                        "headers": null
-                      }
-                    ]
+                    "kind": "authentication-user-interface"
                   }
                 }
               ]
             },
             "middleware": {
               "kind": "literal",
-              "value": []
+              "value": [
+                {
+                  "kind": "authentication-basic"
+                }
+              ]
             },
             "exception_handlers": {
               "kind": "literal",
@@ -218,11 +171,7 @@
             },
             "lifespan": {
               "kind": "literal",
-              "value": {
-                "kind": "async-context-manager",
-                "record_entry": true,
-                "record_exit": true
-              }
+              "value": null
             },
             "max_body_size": {
               "kind": "literal",
@@ -233,7 +182,7 @@
         {
           "step_id": "dispatch",
           "surface": "starlette.applications.Starlette",
-          "operation": "request-dispatch",
+          "operation": "__call__",
           "receiver": {
             "kind": "binding",
             "step_id": "application"
@@ -250,11 +199,16 @@
                 "http_version": "1.1",
                 "method": "GET",
                 "scheme": "http",
-                "path": "/items/0007",
-                "raw_path_base64": "L2l0ZW1zLzAwMDc=",
+                "path": "/",
+                "raw_path_base64": "Lw==",
                 "query_string_base64": "",
                 "root_path": "",
-                "headers_base64_pairs": [],
+                "headers_base64_pairs": [
+                  [
+                    "YXV0aG9yaXphdGlvbg==",
+                    "QmFzaWMgZEc5dFkyaHlhWE4wYVdVNlpYaGhiWEJzWlE9PQ=="
+                  ]
+                ],
                 "client": [
                   "127.0.0.1",
                   12345

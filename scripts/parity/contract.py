@@ -23,7 +23,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@27"
+INPUT_SCHEMA = "migration-parity/parity-input@28"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -563,6 +563,13 @@ AUTHENTICATION_OPERATIONS = {
     ("starlette.authentication", "scope-check"),
     ("starlette.authentication", "decorator-dispatch"),
     ("starlette.middleware.authentication.AuthenticationMiddleware", "dispatch"),
+}
+AUTH_USER_INTERFACE_REQUIREMENTS = {
+    "unauthenticated": (
+        "starlette.applications.Starlette.__call__.authentication-user-interface."
+        "unauthenticated-user"
+    ),
+    "basic": ("starlette.applications.Starlette.__call__.authentication-user-interface.basic-user"),
 }
 RUST_OWNED_PYTHON_OPERATIONS = (
     CONFIG_OPERATIONS
@@ -12599,7 +12606,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 step_args,
                 case["operation"] == "request-dispatch",
                 allow_nonempty_body=body_reuse or is_route_body_limit_workflow,
-                allow_headers=server_error_case or is_route_body_limit_workflow,
+                allow_headers=(
+                    server_error_case
+                    or is_route_body_limit_workflow
+                    or _is_authentication_user_interface_application(app_args)
+                ),
                 allow_query=case["operation"] == "__call__",
                 allow_lifespan_callback_failures=lifespan_only,
             )
@@ -12609,6 +12620,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         else case["steps"][-1]
     )
     dispatch_args = {key: descriptor["value"] for key, descriptor in dispatch["arguments"].items()}
+    if _is_authentication_user_interface_application(app_args):
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError(
+                "authentication user-interface dispatch selects only the Python-package profile"
+            )
+        _validate_authentication_user_interface_dispatch(dispatch_args)
     routes = app_args.get("routes") if isinstance(app_args, dict) else None
     cookie_endpoint = (
         routes[0].get("endpoint")
@@ -13950,6 +13967,69 @@ def _validate_lifespan_only_case(case: dict[str, Any], app_args: dict[str, Any])
         raise ContractError("lifespan-only input and requirement mapping differ")
 
 
+def _is_authentication_user_interface_application(args: dict[str, Any]) -> bool:
+    routes = args.get("routes")
+    if not isinstance(routes, list) or len(routes) != 1 or not isinstance(routes[0], dict):
+        return False
+    endpoint = routes[0].get("endpoint")
+    return isinstance(endpoint, dict) and endpoint.get("kind") == "authentication-user-interface"
+
+
+def _authentication_user_interface_requirement(scope: dict[str, Any]) -> str | None:
+    authorization_values = []
+    for encoded_name, encoded_value in scope["headers_base64_pairs"]:
+        name = base64.b64decode(encoded_name, validate=True).decode("latin-1").casefold()
+        if name == "authorization":
+            authorization_values.append(
+                base64.b64decode(encoded_value, validate=True).decode("latin-1")
+            )
+    if not authorization_values:
+        return AUTH_USER_INTERFACE_REQUIREMENTS["unauthenticated"]
+    if len(authorization_values) != 1:
+        return None
+    try:
+        scheme, credentials = authorization_values[0].split()
+        decoded = base64.b64decode(credentials).decode("ascii")
+    except (TypeError, ValueError, UnicodeDecodeError):
+        return None
+    if scheme.casefold() != "basic" or ":" not in decoded:
+        return None
+    return AUTH_USER_INTERFACE_REQUIREMENTS["basic"]
+
+
+def _validate_authentication_user_interface_application(args: dict[str, Any]) -> None:
+    if (
+        args["debug"] is not False
+        or args["middleware"] != [{"kind": "authentication-basic"}]
+        or args["exception_handlers"] != []
+        or args["lifespan"] is not None
+        or args["max_body_size"] is not None
+    ):
+        raise ContractError("authentication user-interface app differs from the declared setup")
+    route = _exact(
+        args["routes"][0],
+        {"kind", "path", "methods", "endpoint"},
+        "authentication user-interface route",
+    )
+    if (
+        route["kind"] != "http-route"
+        or route["path"] != "/"
+        or route["methods"] is not None
+        or route["endpoint"] != {"kind": "authentication-user-interface"}
+    ):
+        raise ContractError("authentication user-interface route differs from its source stimulus")
+
+
+def _validate_authentication_user_interface_dispatch(arguments: dict[str, Any]) -> None:
+    scope = arguments["scope"]
+    if scope["type"] != "http" or scope["method"] != "GET" or scope["path"] != "/":
+        raise ContractError("authentication user-interface dispatch must be GET /")
+    if _authentication_user_interface_requirement(scope) is None:
+        raise ContractError(
+            "authentication user-interface dispatch needs absent or valid Basic credentials"
+        )
+
+
 def _validate_application_stimulus(
     args: dict[str, Any], request_dispatch: bool, allow_lifespan_variants: bool = False
 ) -> None:
@@ -13964,6 +14044,9 @@ def _validate_application_stimulus(
         raise ContractError(
             "application inputs must explicitly encode each Starlette constructor input"
         )
+    if not request_dispatch and _is_authentication_user_interface_application(args):
+        _validate_authentication_user_interface_application(args)
+        return
     if (
         not request_dispatch
         and isinstance(args["routes"], list)
@@ -20606,6 +20689,17 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         methods.add("HEAD")
     method_matches = method in methods
     coverage: set[str] = set()
+    if endpoint["kind"] == "authentication-user-interface":
+        if (
+            case["operation"] == "__call__"
+            and path_matches
+            and method_matches
+            and scope.get("type") == "http"
+        ):
+            requirement = _authentication_user_interface_requirement(scope)
+            if requirement is not None:
+                coverage.add(requirement)
+        return coverage
     if (
         case["operation"] == "__call__"
         and case["target_profiles"] == ["python-package-cpython312"]

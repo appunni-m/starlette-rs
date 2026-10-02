@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
 import builtins
 import contextlib
 import contextvars
@@ -1198,7 +1199,13 @@ def _raise_lifespan_failure(spec: dict[str, Any]) -> None:
 
 
 def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
+    from starlette.authentication import (
+        AuthCredentials,
+        AuthenticationError,
+        SimpleUser,
+    )
     from starlette.middleware import Middleware
+    from starlette.middleware.authentication import AuthenticationMiddleware
 
     if not isinstance(middleware_specs, list):
         raise ValueError("application middleware input must be an array")
@@ -1210,12 +1217,30 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
         async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
             await self.app(dict(scope), receive, send)
 
+    class BasicAuthBackend:
+        async def authenticate(self, connection: Any) -> Any:
+            if "Authorization" not in connection.headers:
+                return None
+
+            auth = connection.headers["Authorization"]
+            try:
+                _scheme, credentials = auth.split()
+                decoded = base64.b64decode(credentials).decode("ascii")
+            except (ValueError, UnicodeDecodeError, binascii.Error) as exc:
+                raise AuthenticationError("Invalid basic auth credentials") from exc
+
+            username, _, _password = decoded.partition(":")
+            return AuthCredentials(["authenticated"]), SimpleUser(username)
+
     middleware = []
     for index, raw_spec in enumerate(middleware_specs):
         spec = _exact_object(raw_spec, {"kind"}, f"application middleware[{index}]")
-        if spec["kind"] != "copy-scope":
+        if spec["kind"] == "copy-scope":
+            middleware.append(Middleware(CopyScopeMiddleware))
+        elif spec["kind"] == "authentication-basic":
+            middleware.append(Middleware(AuthenticationMiddleware, backend=BasicAuthBackend()))
+        else:
             raise ValueError(f"unsupported application middleware action: {spec['kind']!r}")
-        middleware.append(Middleware(CopyScopeMiddleware))
     return middleware
 
 
@@ -1564,6 +1589,20 @@ def _materialize_application(
                 return endpoint
 
             route_endpoint = make_request_endpoint(response_spec)
+        elif response_spec["kind"] == "authentication-user-interface":
+            _exact_object(
+                response_spec,
+                {"kind"},
+                "authentication user-interface endpoint",
+            )
+
+            async def route_endpoint(request: Any) -> Any:
+                return JSONResponse(
+                    {
+                        "authenticated": request.user.is_authenticated,
+                        "user": request.user.display_name,
+                    }
+                )
         elif response_spec["kind"] == "request-cookies-observer":
             required_fields = {"kind", "probe", "response_content", "status_code", "media_type"}
             if set(response_spec) != required_fields:

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@27",
+  "schema": "migration-parity/parity-input@28",
   "cases": [
     {
       "case_id": "starlette.endpoints.HTTPEndpoint.dispatch.direct-asgi-get",
