@@ -16031,7 +16031,7 @@
             {
               "id": "starlette.routing.Route.max_body_size.application-default",
               "dimension": "error_path",
-              "description": "A route without a local max_body_size uses the enclosing Starlette body limit for a POST request. Upstream: starlette/applications.py:31, starlette/routing.py:197-208; tests/middleware/test_body_limit.py:39-53,266-281.",
+              "description": "A route without a local max_body_size uses the enclosing Starlette body limit for a POST request, including a multipart file upload larger than the configured limit. Upstream: starlette/applications.py:31, starlette/routing.py:197-208; tests/middleware/test_body_limit.py:39-53,266-281,357-368.",
               "lanes": [
                 "parity"
               ],

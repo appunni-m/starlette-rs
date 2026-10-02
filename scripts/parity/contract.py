@@ -15209,15 +15209,24 @@ def _is_route_body_limit_application(arguments: Any) -> bool:
 
 
 def _is_route_body_limit_endpoint(endpoint: Any) -> bool:
-    return endpoint == {"kind": "request-body-echo"} or (
-        isinstance(endpoint, dict)
-        and set(endpoint) == {"kind", "content", "status_code", "media_type", "cookies"}
-        and endpoint.get("kind") == "plain-text-response"
-        and isinstance(endpoint.get("content"), str)
-        and type(endpoint.get("status_code")) is int
-        and 100 <= endpoint["status_code"] <= 599
-        and isinstance(endpoint.get("media_type"), str)
-        and endpoint.get("cookies") == []
+    return (
+        endpoint == {"kind": "request-body-echo"}
+        or (
+            isinstance(endpoint, dict)
+            and set(endpoint) == {"kind", "content", "status_code", "media_type", "cookies"}
+            and endpoint.get("kind") == "plain-text-response"
+            and isinstance(endpoint.get("content"), str)
+            and type(endpoint.get("status_code")) is int
+            and 100 <= endpoint["status_code"] <= 599
+            and isinstance(endpoint.get("media_type"), str)
+            and endpoint.get("cookies") == []
+        )
+        or (
+            isinstance(endpoint, dict)
+            and set(endpoint) == {"kind", "response_content"}
+            and endpoint.get("kind") == "request-form-consumer"
+            and isinstance(endpoint.get("response_content"), str)
+        )
     )
 
 
@@ -15346,6 +15355,27 @@ def _validate_route_body_limit_workflow(case: dict[str, Any]) -> None:
             "route body-limit request may omit Content-Length or declare its complete "
             "non-empty body length"
         )
+    if route["endpoint"]["kind"] == "request-form-consumer":
+        content_types = [value for name, value in headers if name == b"content-type"]
+        if len(content_types) != 1:
+            raise ContractError("request-form endpoint requires one multipart Content-Type")
+        message_body = b"".join(
+            base64.b64decode(message["body_base64"], validate=True) for message in messages
+        )
+        multipart_message = BytesParser(policy=email_policy.default).parsebytes(
+            b"Content-Type: " + content_types[0] + b"\r\nMIME-Version: 1.0\r\n\r\n" + message_body
+        )
+        file_parts = (
+            [
+                part
+                for part in multipart_message.iter_parts()
+                if part.get_content_disposition() == "form-data" and part.get_filename() is not None
+            ]
+            if multipart_message.is_multipart()
+            else []
+        )
+        if multipart_message.get_content_type() != "multipart/form-data" or len(file_parts) != 1:
+            raise ContractError("request-form endpoint input must contain one multipart file part")
     requirement = _route_body_limit_requirement_from_input(case)
     if requirement is None or case["covers"] != [requirement]:
         raise ContractError("route body-limit case must cover its input-derived limit relationship")

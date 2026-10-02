@@ -1598,6 +1598,17 @@ def _materialize_application(
 
             async def route_endpoint(request: Any) -> Any:
                 return Response(await request.body())
+        elif response_spec["kind"] == "request-form-consumer":
+            _exact_object(
+                response_spec,
+                {"kind", "response_content"},
+                "request form-consuming endpoint",
+            )
+            response_content = response_spec["response_content"]
+
+            async def route_endpoint(request: Any, content: str = response_content) -> Any:
+                async with request.form():
+                    return PlainTextResponse(content)
         elif response_spec["kind"] == "raise-runtime-error":
             _exact_object(
                 response_spec,
