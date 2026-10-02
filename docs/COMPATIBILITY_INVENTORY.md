@@ -82,8 +82,8 @@ operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest integrated full-slice correctness run is
-`81c28a4f-859d-4ff9-b0cb-be73fdaa5fcc`. It ran from
-`2026-10-02T11:06:51.419Z` to `2026-10-02T11:09:52.038Z` against Starlette
+`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`. It ran from
+`2026-10-02T11:22:26.637Z` to `2026-10-02T11:25:29.273Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active
 707-case/730-requirement `parity-input@27` contract. It selected 915 profile
 comparisons: 911 passed, zero failed, zero infrastructure errors, and four
@@ -105,18 +105,18 @@ exception-context cases map to
 implicit-context, and explicit-cause inputs all passed with empty diffs. The
 four native `not_run` rows are synchronous Request endpoint, bound-method
 endpoint, partial endpoint, and callable-instance ASGI dispatch.
-`make parity-run` exits with status 2 because those declared Python-callable
+`make test` exits with status 2 because those declared Python-callable
 boundaries remain `not_run`; they are not parity failures. The Rust-native
 source fingerprint is
-`ab1b1a92a732d34c1fa2cdc2ed4d6f8543bb1d12+source-fnv1a64-1ae45f1d7fa44c70`.
+`980a6faca2b19bf86dc361570d181ebdf8360d37+source-fnv1a64-1ae45f1d7fa44c70`.
 The installed package tree SHA-256 is
 `6126db73cdce98e965a2c4a5c5357af25ca5bfd93fc0caee857314fca33f4c0f`, and the
 wheel SHA-256 is
-`05b8281aaa9001dc6003dcbc33421764832a8d35172d853529b7df6bb18b938e`. The
+`a4418619eb0d7bf644fec576da44cde6d2281c2173e6b111fdfd7df94aef70c8`. The
 manifest SHA-256 is
-`1c03baadd682eb4613e0c22e120131bb8751a34e7ae73128fc0a2cd03e9baa7d`; the
+`c36f4ffed557f8be689e4bc043e20834f8823bc8097860cdf639d7fe8f2c61b6`; the
 result artifact SHA-256 is
-`59534dc1f07116f00ae257fc8db42a2e33330ef518017ee6f7ff255520a5930a`. Full
+`fd62bf6d0ca09690f377adbbe14037868c179b58b0fff10458f53221598a6b89`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md). This bounded evidence
 does not establish full Starlette parity or release readiness.
@@ -128,27 +128,27 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run,
-`792e8ab6-5faf-4cc4-84e4-b06ef626aff7`, ran from
-`2026-10-02T10:29:40.178Z` to `2026-10-02T10:34:00.106Z` and measured all 74
+`090bc3b2-097e-4d93-ba9a-724eed6f0be0`, ran from
+`2026-10-02T11:22:22.829Z` to `2026-10-02T11:26:52.430Z` and measured all 74
 declared workloads: six Router and 68 GZip, with zero failures or
 source/package `not_run` rows. Its clean target checkout was revision
-`ab1b1a92a732d34c1fa2cdc2ed4d6f8543bb1d12`, with working-tree SHA-256
-`26a7b619e9abd74d0b96c6abe51b998c109fc32c135ac5d87fec1cc76725fdd0` and
+`980a6faca2b19bf86dc361570d181ebdf8360d37`, with working-tree SHA-256
+`009ba6885379f64c82d06f9b9ee96464c58ed606791aa639c6d5fbada9d1da99` and
 wheel SHA-256
-`05b8281aaa9001dc6003dcbc33421764832a8d35172d853529b7df6bb18b938e`.
-Correctness preflight `8e8e26fa-22d4-421f-b4de-8b5a36df8010` selected 913
-comparisons: 909 passed, zero failed, zero infrastructure errors, and four
+`a4418619eb0d7bf644fec576da44cde6d2281c2173e6b111fdfd7df94aef70c8`.
+Correctness preflight `6d3d141b-58bc-4294-a9fd-af5c1b0e4015` selected 915
+comparisons: 911 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 703/703 and Rust-native passed 206/210. Rust-native remains `not_run`
+passed 705/705 and Rust-native passed 206/210. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. The median per-workload
-source/package latency ratios were 0.784 for Router and 0.978 for GZip; source
-latency was lower in five of six Router workloads and 55 of 68 GZip workloads.
+source/package latency ratios were 0.753 for Router and 0.972 for GZip; source
+latency was lower in five of six Router workloads and 61 of 68 GZip workloads.
 All 74 source/package observations had matching normalized hashes. Manifest
-SHA-256: `1c03baadd682eb4613e0c22e120131bb8751a34e7ae73128fc0a2cd03e9baa7d`;
+SHA-256: `c36f4ffed557f8be689e4bc043e20834f8823bc8097860cdf639d7fe8f2c61b6`;
 benchmark input SHA-256:
 `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`; result
 artifact SHA-256:
-`4bbeaab1a99981f4ac40c937c7578202e2d0c368849208ec067795a4cc48f941`. This
+`8a0006223886e3fb5991d764c28a576ae87c29a36e9e0c122757a72607bd3478`. This
 bounded evidence does not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.

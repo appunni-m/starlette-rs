@@ -31,7 +31,7 @@ thread-threshold cases, a shared AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract. Seven QueryParams
 cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `81c28a4f-859d-4ff9-b0cb-be73fdaa5fcc` passed 911 of 915
+full-slice run `6d3d141b-58bc-4294-a9fd-af5c1b0e4015` passed 911 of 915
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
 705/705; Rust-native passed 206/210. The thread-pool limiter input observed the
@@ -64,11 +64,11 @@ The generated coverage matrix has 802 source rows: 429 input mappings, 51
 reasoned `not_applicable` rows, and 322 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `792e8ab6-5faf-4cc4-84e4-b06ef626aff7` measured all
+The latest Router/GZip run `090bc3b2-097e-4d93-ba9a-724eed6f0be0` measured all
 74 source/package workloads after correctness preflight
-`8e8e26fa-22d4-421f-b4de-8b5a36df8010`. Median per-workload source/package
-latency ratios were 0.784 for Router and 0.978 for GZip; source latency was
-lower on five of six Router workloads and 55 of 68 GZip workloads. All 74
+`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`. Median per-workload source/package
+latency ratios were 0.753 for Router and 0.972 for GZip; source latency was
+lower on five of six Router workloads and 61 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.

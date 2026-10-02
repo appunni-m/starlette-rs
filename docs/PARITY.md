@@ -11,8 +11,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest integrated full-slice parity run is
-`81c28a4f-859d-4ff9-b0cb-be73fdaa5fcc`. It ran from
-`2026-10-02T11:06:51.419Z` to `2026-10-02T11:09:52.038Z` against Starlette
+`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`. It ran from
+`2026-10-02T11:22:26.637Z` to `2026-10-02T11:25:29.273Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 707-case,
 730-requirement `parity-input@27` manifest. It selected 915 profile
 comparisons: 911 passed, zero failed, zero infrastructure errors, and four
@@ -40,9 +40,9 @@ status 2 because those declared rows remain `not_run`; they are not parity
 failures. Both new GZip threshold cases have empty source/target diffs and exact
 ordered ASGI event matches.
 
-The Rust-native target used commit
-`7833df5c68c744d4d7ad03e490db298ee550ea1d`; its source fingerprint is
-`7833df5c68c744d4d7ad03e490db298ee550ea1d+source-fnv1a64-1ae45f1d7fa44c70`.
+Both target profiles used the clean commit
+`980a6faca2b19bf86dc361570d181ebdf8360d37`; the Rust-native source fingerprint
+is `980a6faca2b19bf86dc361570d181ebdf8360d37+source-fnv1a64-1ae45f1d7fa44c70`.
 
 For `lifespan_send_messages`, the manifest declares a narrow
 `starlette-lifespan-router-frame` normalization: it removes only the
@@ -54,11 +54,11 @@ remain exact.
 The installed package tree SHA-256 is
 `6126db73cdce98e965a2c4a5c5357af25ca5bfd93fc0caee857314fca33f4c0f`; its
 wheel SHA-256 is
-`6c6d4690789f39f495ac0ecfbbf620cef931b94d5d0e8f359668d4a1c6dd21f3`. The
+`a4418619eb0d7bf644fec576da44cde6d2281c2173e6b111fdfd7df94aef70c8`. The
 manifest SHA-256 is
 `c36f4ffed557f8be689e4bc043e20834f8823bc8097860cdf639d7fe8f2c61b6`; the
 result artifact SHA-256 is
-`7edb5f57a9758cfbdbe27fa657277d840f9f91bc78daeb5cf505b222e3006e0e`.
+`fd62bf6d0ca09690f377adbbe14037868c179b58b0fff10458f53221598a6b89`.
 Strict aggregation remains `not_proven` because the full compatibility
 denominator is incomplete and four Rust-native rows are `not_run`.
 
@@ -73,7 +73,7 @@ a final tail chunk. Both are Python-package-only because the scheduling bridge
 uses AnyIO's Python event loop. They compare exact response headers, compressed
 body bytes/chunks, and ASGI event order against pinned Starlette. They do not
 claim to observe worker-thread identity. Both comparisons passed in run
-`81c28a4f-859d-4ff9-b0cb-be73fdaa5fcc`.
+`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`.
 
 ### Shared AnyIO thread-pool limiter
 
@@ -97,7 +97,7 @@ values, and parameters without an equals sign. Six cases run on both target
 profiles. The heterogeneous comparison against the literal string `"invalid"`
 is package-only because the native consumer API has no Python object equality
 boundary. All 13 selected comparisons pass in the latest full-slice run
-`8e8e26fa-22d4-421f-b4de-8b5a36df8010`.
+`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`.
 
 ### StaticFiles HTML fallback selection
 
@@ -110,7 +110,7 @@ fallback, an index directory without a fallback page, and an HTML-only tree
 without either special file. Ordered ASGI observations include the slash
 redirect, selected file body, and propagated 404 exception. All six
 oracle-to-target profile comparisons pass in integrated run
-`8e8e26fa-22d4-421f-b4de-8b5a36df8010`.
+`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`.
 
 ### Built-in float and UUID converters
 
@@ -120,7 +120,7 @@ hyphens, and an invalid UUID segment. They observe the selected status and
 ASGI response; matched cases also compare the converted `route_scope.path_params`
 value and type. The Rust-native parity adapter projects these fields from
 `DetailedRouteMatch` captures. All 14 oracle-to-target comparisons pass in
-integrated run `8e8e26fa-22d4-421f-b4de-8b5a36df8010`. Additional cases
+integrated run `6d3d141b-58bc-4294-a9fd-af5c1b0e4015`. Additional cases
 observe converted path parameters for int/path routes and the default string
 converter, including a path with an additional slash that must not match. The
 int/float/path/UUID documentation rows now map to those input observations.
@@ -982,7 +982,7 @@ and direct `Route.url_path_for` formats a datetime value through the converter.
 The datetime format, regular expression, request path, endpoint projection,
 and reverse-path datetime components are supplied as inputs. The `@24` to
 `@25` migrator changes only the schema header and validates all 77 indexed
-authored inputs. Full run `8e8e26fa-22d4-421f-b4de-8b5a36df8010` passed both
+authored inputs. Full run `6d3d141b-58bc-4294-a9fd-af5c1b0e4015` passed both
 exact Python-package comparisons.
 
 The `parity-input@26` contract adds two input-defined static type requirements
@@ -1005,7 +1005,7 @@ The active schema adds asyncio and Trio TestClient cases that start an
 input-defined child task inside the lifespan callback, release its wait gate
 during teardown, and observe task-group completion before the callback exits.
 Both source/package comparisons pass exactly in run
-`8e8e26fa-22d4-421f-b4de-8b5a36df8010`. After TestClient enter, the trace is
+`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`. After TestClient enter, the trace is
 `lifespan-started`, `child-started`; after exit it is
 `lifespan-started`, `child-started`, `child-release-requested`,
 `child-finished`, `lifespan-finished`, followed by the shutdown-complete

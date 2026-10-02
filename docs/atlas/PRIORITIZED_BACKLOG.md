@@ -8,10 +8,11 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 705 input-only cases in 77 indexed files,
-covering 93 operations and 729 parity requirements. The latest additions are
-the shared AnyIO thread-pool limiter comparison and the input-derived generic
-Request/WebSocket lifespan-state typing contract.
+The active contract contains 707 input-only cases in 77 indexed files,
+covering 93 operations and 730 parity requirements. The latest additions are
+GZip final/streaming thread-threshold comparisons, the shared AnyIO thread-pool
+limiter comparison, and the input-derived generic Request/WebSocket
+lifespan-state typing contract.
 Seven QueryParams
 cases map equality and blank-value behavior to two pinned test rows. New
 focused inputs cover
@@ -43,10 +44,10 @@ input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest integrated
 run for the active
-`parity-input@27` contract, `8e8e26fa-22d4-421f-b4de-8b5a36df8010`, passed
-909 of 913 selected comparisons, with zero failures or infrastructure errors
+`parity-input@27` contract, `6d3d141b-58bc-4294-a9fd-af5c1b0e4015`, passed
+911 of 915 selected comparisons, with zero failures or infrastructure errors
 and four Rust-native Python-callable rows `not_run`. The Python package passed
-703/703; Rust-native passed 206/210. The four native `not_run` rows are
+705/705; Rust-native passed 206/210. The four native `not_run` rows are
 synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for those declared rows. Full run
@@ -66,8 +67,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 427 input mappings,
-51 source-backed `not_applicable` rows, and 324 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 429 input mappings,
+51 source-backed `not_applicable` rows, and 322 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
@@ -244,8 +245,8 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest clean full-slice run `8e8e26fa-22d4-421f-b4de-8b5a36df8010`
-selected 913 comparisons: 909 passed, with four declared Rust-native
+The latest clean full-slice run `6d3d141b-58bc-4294-a9fd-af5c1b0e4015`
+selected 915 comparisons: 911 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
 errors. The complete WebSocket source backlog remains in `fixture-backlog.csv`;
 similar method names do not close source rows whose stimuli or observation
