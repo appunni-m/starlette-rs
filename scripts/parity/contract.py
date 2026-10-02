@@ -11705,6 +11705,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             and "encoding" in case
         ):
             expected_case_keys = expected_case_keys | {"encoding"}
+        if (
+            (case["surface"], case["operation"]) == ("starlette.config.Environ", "mapping-sequence")
+            and isinstance(case, dict)
+            and "mapping_source" in case
+        ):
+            expected_case_keys = expected_case_keys | {"mapping_source"}
         if is_headers_consumer_sequence and "actions" in case:
             expected_case_keys = expected_case_keys | {"actions"}
     elif is_multidict:
@@ -16807,12 +16813,18 @@ def _validate_config_case(case: dict[str, Any]) -> None:
         not isinstance(key, str) or not isinstance(value, str) for key, value in initial.items()
     ):
         raise ContractError("Environ initial_environ must be a string mapping")
+    mapping_source = case.get("mapping_source", "explicit")
+    if mapping_source not in {"explicit", "os-environ"}:
+        raise ContractError("Environ mapping_source must be explicit or os-environ")
     actions = case["actions"]
     if not isinstance(actions, list) or not actions:
         raise ContractError("Environ actions must be a non-empty array")
     selected = set()
+    if mapping_source == "os-environ":
+        selected.add("starlette.config.Environ.default-os-environ-mapping")
     read_keys: set[str] = set()
     present_keys = set(initial)
+    process_comparisons: set[str] = set()
     for index, raw in enumerate(actions):
         context = f"Environ actions[{index}]"
         if not isinstance(raw, dict) or not isinstance(raw.get("action"), str):
@@ -16827,9 +16839,9 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                     raise ContractError(f"{context}.value must be a string")
                 if key not in read_keys:
                     selected.add("starlette.config.Environ.set-before-read")
+                    present_keys.add(key)
                 else:
                     selected.add("starlette.config.Environ.read-freezes-set")
-                present_keys.add(key)
             elif action == "delete":
                 if key not in read_keys:
                     selected.add("starlette.config.Environ.delete-before-read")
@@ -16843,13 +16855,35 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                     selected.add("starlette.config.Environ.missing-key-membership-freezes-key")
                 read_keys.add(key)
         elif action == "iterate":
-            _exact(raw, {"action"}, context)
+            item = _exact(
+                raw,
+                {"action", "compare_to"} if "compare_to" in raw else {"action"},
+                context,
+            )
+            if mapping_source == "os-environ":
+                if item.get("compare_to") != "underlying-os-environ":
+                    raise ContractError(f"{context} must compare with underlying os.environ")
+                process_comparisons.add(action)
+            elif "compare_to" in item:
+                raise ContractError(f"{context}.compare_to requires os-environ mapping_source")
             selected.add("starlette.config.Environ.iteration")
         elif action == "length":
-            _exact(raw, {"action"}, context)
+            item = _exact(
+                raw,
+                {"action", "compare_to"} if "compare_to" in raw else {"action"},
+                context,
+            )
+            if mapping_source == "os-environ":
+                if item.get("compare_to") != "underlying-os-environ":
+                    raise ContractError(f"{context} must compare with underlying os.environ")
+                process_comparisons.add(action)
+            elif "compare_to" in item:
+                raise ContractError(f"{context}.compare_to requires os-environ mapping_source")
             selected.add("starlette.config.Environ.length")
         else:
             raise ContractError(f"{context}.action is unsupported")
+    if mapping_source == "os-environ" and process_comparisons != {"iterate", "length"}:
+        raise ContractError("Environ os-environ mapping must observe iteration and length equality")
     if set(case["covers"]) != selected:
         raise ContractError("Environ mapping coverage must match its action sequence")
 

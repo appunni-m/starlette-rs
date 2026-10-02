@@ -4042,6 +4042,17 @@
                 }
               },
               {
+                "id": "mapping_source",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": "explicit"
+                }
+              },
+              {
                 "id": "actions",
                 "style": "option",
                 "value_types": [
@@ -4166,6 +4177,17 @@
               "id": "starlette.config.Environ.length",
               "dimension": "protocol_variant",
               "description": "Expose the underlying environment mapping length. Upstream: starlette/config.py:40-41.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Environ.default-os-environ-mapping",
+              "dimension": "boundary",
+              "description": "Construct Environ without an explicit mapping and operate on the default os.environ object, including setting/deleting keys and comparing iteration and length with that mapping. Upstream: starlette/config.py:18-41; tests/test_config.py::test_environ.",
               "lanes": [
                 "parity"
               ],

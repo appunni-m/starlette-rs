@@ -10247,6 +10247,44 @@ def _config_cast(cast_spec: Any) -> Any:
     return getattr(builtins, cast_spec)
 
 
+def _run_config_environ_actions(case: dict[str, Any], environ: Any) -> list[dict[str, Any]]:
+    results = []
+    for action in case["actions"]:
+        name = action["action"]
+        result = {"action": name}
+        if "key" in action:
+            result["key"] = action["key"]
+        try:
+            if name == "set":
+                environ[action["key"]] = action["value"]
+            elif name == "delete":
+                del environ[action["key"]]
+            elif name == "get":
+                result["value"] = _json_safe(environ[action["key"]])
+            elif name == "contains":
+                result["value"] = action["key"] in environ
+            elif name == "iterate":
+                value = list(environ)
+                result["value"] = (
+                    value == list(os.environ)
+                    if action.get("compare_to") == "underlying-os-environ"
+                    else value
+                )
+            else:
+                value = len(environ)
+                result["value"] = (
+                    value == len(os.environ)
+                    if action.get("compare_to") == "underlying-os-environ"
+                    else value
+                )
+        except Exception as exc:
+            result["error"] = _error_snapshot(exc)
+        else:
+            result["outcome"] = "ok"
+        results.append(result)
+    return results
+
+
 def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.config import Config, Environ
 
@@ -10310,31 +10348,37 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                 os.chdir(previous_directory)
         value = {"warning-results": results}
     else:
-        environ = Environ(dict(case["initial_environ"]))
-        results = []
-        for action in case["actions"]:
-            name = action["action"]
-            result = {"action": name}
-            if "key" in action:
-                result["key"] = action["key"]
-            try:
-                if name == "set":
-                    environ[action["key"]] = action["value"]
-                elif name == "delete":
-                    del environ[action["key"]]
+        if case.get("mapping_source", "explicit") == "os-environ":
+            original_environment = list(os.environ.items())
+            present = set(case["initial_environ"])
+            read: set[str] = set()
+            absent_keys: set[str] = set()
+            for action in case["actions"]:
+                name = action["action"]
+                key = action.get("key")
+                if name in {"get", "contains", "delete"} and key not in present:
+                    absent_keys.add(key)
+                if name == "contains":
+                    read.add(key)
                 elif name == "get":
-                    result["value"] = _json_safe(environ[action["key"]])
-                elif name == "contains":
-                    result["value"] = action["key"] in environ
-                elif name == "iterate":
-                    result["value"] = list(environ)
-                else:
-                    result["value"] = len(environ)
-            except Exception as exc:
-                result["error"] = _error_snapshot(exc)
-            else:
-                result["outcome"] = "ok"
-            results.append(result)
+                    read.add(key)
+                elif name == "set" and key not in read:
+                    present.add(key)
+                elif name == "delete" and key not in read:
+                    present.discard(key)
+            try:
+                for key, item in case["initial_environ"].items():
+                    os.environ[key] = item
+                for key in absent_keys:
+                    os.environ.pop(key, None)
+                environ = Environ()
+                results = _run_config_environ_actions(case, environ)
+            finally:
+                os.environ.clear()
+                os.environ.update(original_environment)
+        else:
+            environ = Environ(dict(case["initial_environ"]))
+            results = _run_config_environ_actions(case, environ)
         value = {"action-results": results}
     return {
         "case_id": case["case_id"],

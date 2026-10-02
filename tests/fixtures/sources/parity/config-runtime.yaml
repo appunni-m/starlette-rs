@@ -143,7 +143,7 @@
       "observations": ["lookup-results"]
     },
     {
-      "case_id": "starlette.config.Environ.mapping-sequence.reads-freeze-keys-and-preserve-mapping-operations",
+      "case_id": "starlette.config.Environ.mapping-sequence.default-process-environment-and-read-freezes",
       "surface": "starlette.config.Environ",
       "operation": "mapping-sequence",
       "covers": [
@@ -154,21 +154,38 @@
         "starlette.config.Environ.read-freezes-delete",
         "starlette.config.Environ.iteration",
         "starlette.config.Environ.length",
+        "starlette.config.Environ.default-os-environ-mapping",
         "starlette.config.Environ.missing-key-membership-freezes-key"
       ],
       "target_profiles": ["python-package-cpython312"],
       "assets": [],
-      "initial_environ": {"READ_ONLY_AFTER": "initial", "REMOVE_BEFORE_READ": "remove me"},
+      "initial_environ": {
+        "STARLETTE_RS_CONFIG_PARITY_READ_ONLY_AFTER": "initial",
+        "STARLETTE_RS_CONFIG_PARITY_REMOVE_BEFORE_READ": "remove me"
+      },
+      "mapping_source": "os-environ",
       "actions": [
-        {"action": "set", "key": "SET_BEFORE_READ", "value": "written"},
-        {"action": "delete", "key": "REMOVE_BEFORE_READ"},
-        {"action": "get", "key": "READ_ONLY_AFTER"},
-        {"action": "set", "key": "READ_ONLY_AFTER", "value": "changed"},
-        {"action": "delete", "key": "READ_ONLY_AFTER"},
-        {"action": "contains", "key": "MISSING_KEY"},
-        {"action": "set", "key": "MISSING_KEY", "value": "later"},
-        {"action": "iterate"},
-        {"action": "length"}
+        {
+          "action": "set",
+          "key": "STARLETTE_RS_CONFIG_PARITY_SET_BEFORE_READ",
+          "value": "written"
+        },
+        {"action": "delete", "key": "STARLETTE_RS_CONFIG_PARITY_REMOVE_BEFORE_READ"},
+        {"action": "get", "key": "STARLETTE_RS_CONFIG_PARITY_READ_ONLY_AFTER"},
+        {
+          "action": "set",
+          "key": "STARLETTE_RS_CONFIG_PARITY_READ_ONLY_AFTER",
+          "value": "changed"
+        },
+        {"action": "delete", "key": "STARLETTE_RS_CONFIG_PARITY_READ_ONLY_AFTER"},
+        {"action": "contains", "key": "STARLETTE_RS_CONFIG_PARITY_MISSING_KEY"},
+        {
+          "action": "set",
+          "key": "STARLETTE_RS_CONFIG_PARITY_MISSING_KEY",
+          "value": "later"
+        },
+        {"action": "iterate", "compare_to": "underlying-os-environ"},
+        {"action": "length", "compare_to": "underlying-os-environ"}
       ],
       "observations": ["action-results"]
     },
