@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import io
 import tempfile
 import threading
 from collections.abc import Callable
@@ -114,6 +115,61 @@ class _ThreadObservedSpooledTemporaryFile(tempfile.SpooledTemporaryFile):
         tempfile.SpooledTemporaryFile.close(self)
 
 
+async def _run_upload_file_constructor_probe(
+    probe: dict[str, Any],
+    upload_file_type: Callable[..., Any],
+) -> dict[str, Any]:
+    from starlette.datastructures import Headers
+
+    stream = io.BytesIO(base64.b64decode(probe["data_base64"], validate=True))
+    header_values = probe["headers"]
+    headers = None
+    if header_values is not None:
+        headers = Headers({item["name"]: item["value"] for item in header_values})
+    upload_file = upload_file_type(
+        filename=probe["filename"],
+        file=stream,
+        size=probe["size"],
+        headers=headers,
+    )
+    initial_representation = repr(upload_file)
+    action_observations: list[dict[str, Any]] = []
+    for action in probe["actions"]:
+        call = action["call"]
+        result: Any = None
+        if call == "read":
+            value = await upload_file.read(action["size"])
+            result = {
+                "encoding": "base64",
+                "data": base64.b64encode(value).decode("ascii"),
+            }
+        elif call == "write":
+            value = base64.b64decode(action["data_base64"], validate=True)
+            await upload_file.write(value)
+        else:
+            await upload_file.seek(action["offset"])
+        action_observations.append(
+            {
+                "action_id": action["action_id"],
+                "call": call,
+                "result": result,
+                "size": upload_file.size,
+                "position": stream.tell(),
+            }
+        )
+    return {
+        "probe_id": probe["probe_id"],
+        "file_identity_preserved": upload_file.file is stream,
+        "filename": upload_file.filename,
+        "size": upload_file.size,
+        "content_type": upload_file.content_type,
+        "headers": list(upload_file.headers.items()),
+        "initial_representation": initial_representation,
+        "representation": repr(upload_file),
+        "actions": action_observations,
+    }
+
+
 def run_upload_file_case(
     case: dict[str, Any],
     upload_file_type: Callable[..., Any],
@@ -187,7 +243,15 @@ def run_upload_file_case(
                     "actions": action_observations,
                 }
             )
-        return {"scenarios": scenario_observations}
+        constructor_observations = []
+        for probe in case["constructor_probes"]:
+            constructor_observations.append(
+                await _run_upload_file_constructor_probe(probe, upload_file_type)
+            )
+        return {
+            "scenarios": scenario_observations,
+            "constructor_probes": constructor_observations,
+        }
 
     return {
         "case_id": case["case_id"],

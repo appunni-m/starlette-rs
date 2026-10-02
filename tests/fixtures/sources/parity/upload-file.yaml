@@ -7,7 +7,8 @@
       "operation": "file-operations",
       "covers": [
         "starlette.datastructures.UploadFile.spooled-file-rollover",
-        "starlette.datastructures.UploadFile.threadpool-boundary"
+        "starlette.datastructures.UploadFile.threadpool-boundary",
+        "starlette.datastructures.UploadFile.constructor-and-representation"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -15,6 +16,89 @@
       "assets": [],
       "observations": [
         "file-operations"
+      ],
+      "constructor_probes": [
+        {
+          "probe_id": "explicit-size-default-headers",
+          "data_base64": "ZGF0YQ==",
+          "filename": "file",
+          "size": 4,
+          "headers": null,
+          "actions": [
+            {
+              "action_id": "read-initial",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "append",
+              "call": "write",
+              "data_base64": "IGFuZCBtb3JlIGRhdGEh"
+            },
+            {
+              "action_id": "read-at-end",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "seek-to-start",
+              "call": "seek",
+              "offset": 0
+            },
+            {
+              "action_id": "read-complete",
+              "call": "read",
+              "size": -1
+            }
+          ]
+        },
+        {
+          "probe_id": "omitted-size-default-headers",
+          "data_base64": "ZGF0YQ==",
+          "filename": "file",
+          "size": null,
+          "headers": null,
+          "actions": [
+            {
+              "action_id": "read-initial",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "append",
+              "call": "write",
+              "data_base64": "IGFuZCBtb3JlIGRhdGEh"
+            },
+            {
+              "action_id": "read-at-end",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "seek-to-start",
+              "call": "seek",
+              "offset": 0
+            },
+            {
+              "action_id": "read-complete",
+              "call": "read",
+              "size": -1
+            }
+          ]
+        },
+        {
+          "probe_id": "omitted-size-explicit-headers",
+          "data_base64": "ZGF0YQ==",
+          "filename": "file",
+          "size": null,
+          "headers": [
+            {
+              "name": "foo",
+              "value": "bar"
+            }
+          ],
+          "actions": []
+        }
       ],
       "scenarios": [
         {

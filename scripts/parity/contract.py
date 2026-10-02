@@ -11492,7 +11492,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         else CASE_KEYS
     )
     if is_upload_file:
-        expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scenarios"}
+        expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+            "scenarios",
+            "constructor_probes",
+        }
     if is_router and isinstance(case, dict) and "observe_router_scope" in case:
         expected_case_keys = expected_case_keys | {"observe_router_scope"}
     if is_response and isinstance(case, dict) and "render_override" in case:
@@ -17696,7 +17699,99 @@ def _upload_file_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and injected_read_error
     ):
         exercised.add(UPLOAD_FILE_THREADPOOL_GAP)
+
+    constructor_probes = case.get("constructor_probes", [])
+    required_file_calls = {"read", "write", "seek"}
+    has_sized_file_input = any(
+        probe["size"] is not None
+        and required_file_calls <= {action["call"] for action in probe["actions"]}
+        for probe in constructor_probes
+    )
+    has_unsized_file_input = any(
+        probe["size"] is None
+        and required_file_calls <= {action["call"] for action in probe["actions"]}
+        for probe in constructor_probes
+    )
+    has_default_headers = any(probe["headers"] is None for probe in constructor_probes)
+    has_explicit_headers = any(bool(probe["headers"]) for probe in constructor_probes)
+    if (
+        has_sized_file_input
+        and has_unsized_file_input
+        and has_default_headers
+        and has_explicit_headers
+    ):
+        exercised.add(UPLOAD_FILE_CONSTRUCTOR_GAP)
     return exercised
+
+
+def _validate_upload_file_constructor_probes(probes: Any) -> None:
+    if not isinstance(probes, list) or len(probes) < 3:
+        raise ContractError("UploadFile constructor inputs must cover size and header variants")
+    probe_ids: set[str] = set()
+    for index, probe_value in enumerate(probes):
+        context = f"UploadFile constructor_probes[{index}]"
+        probe = _exact(
+            probe_value,
+            {"probe_id", "data_base64", "filename", "size", "headers", "actions"},
+            context,
+        )
+        probe_id = _string(probe["probe_id"], f"{context}.probe_id")
+        if not probe_id or probe_id in probe_ids:
+            raise ContractError(f"{context}.probe_id must be non-empty and unique")
+        probe_ids.add(probe_id)
+        data_base64 = _string(probe["data_base64"], f"{context}.data_base64")
+        try:
+            base64.b64decode(data_base64, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(f"{context}.data_base64 must be valid base64") from exc
+        if probe["filename"] is not None:
+            _string(probe["filename"], f"{context}.filename")
+        size = probe["size"]
+        if size is not None and (type(size) is not int or size < 0):
+            raise ContractError(f"{context}.size must be null or a non-negative integer")
+        headers = probe["headers"]
+        if headers is not None:
+            if not isinstance(headers, list):
+                raise ContractError(f"{context}.headers must be null or a header-pair array")
+            for header_index, header_value in enumerate(headers):
+                header_context = f"{context}.headers[{header_index}]"
+                header = _exact(header_value, {"name", "value"}, header_context)
+                _string(header["name"], f"{header_context}.name")
+                _string(header["value"], f"{header_context}.value")
+        actions = probe["actions"]
+        if not isinstance(actions, list):
+            raise ContractError(f"{context}.actions must be an array")
+        action_ids: set[str] = set()
+        for action_index, action_value in enumerate(actions):
+            action_context = f"{context}.actions[{action_index}]"
+            if not isinstance(action_value, dict) or not isinstance(action_value.get("call"), str):
+                raise ContractError(f"{action_context} must declare a call")
+            call = action_value["call"]
+            action_fields = {
+                "read": {"action_id", "call", "size"},
+                "write": {"action_id", "call", "data_base64"},
+                "seek": {"action_id", "call", "offset"},
+            }.get(call)
+            if action_fields is None:
+                raise ContractError(f"{action_context}.call must be read, write, or seek")
+            action = _exact(action_value, action_fields, action_context)
+            action_id = _string(action["action_id"], f"{action_context}.action_id")
+            if not action_id or action_id in action_ids:
+                raise ContractError(f"{action_context}.action_id must be non-empty and unique")
+            action_ids.add(action_id)
+            if call == "read":
+                if type(action["size"]) is not int or action["size"] < -1:
+                    raise ContractError(f"{action_context}.size must be -1 or non-negative")
+            elif call == "write":
+                data = _string(action["data_base64"], f"{action_context}.data_base64")
+                try:
+                    base64.b64decode(data, validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(
+                        f"{action_context}.data_base64 must be valid base64"
+                    ) from exc
+            elif type(action["offset"]) is not int or action["offset"] < 0:
+                raise ContractError(f"{action_context}.offset must be non-negative")
 
 
 def _validate_upload_file_case(case: dict[str, Any]) -> None:
@@ -17706,6 +17801,8 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
         raise ContractError("UploadFile cases do not use external assets")
     if case["observations"] != ["file-operations"]:
         raise ContractError("UploadFile cases must select file-operations")
+
+    _validate_upload_file_constructor_probes(case["constructor_probes"])
 
     scenarios = case["scenarios"]
     if not isinstance(scenarios, list) or len(scenarios) < 2:

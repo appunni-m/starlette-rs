@@ -4368,11 +4368,7 @@
               "path": "starlette.datastructures.UploadFile",
               "signature": "UploadFile with file metadata and async read/write/seek/close operations",
               "support": {
-                "status": "partial",
-                "reason": "Input-driven consumer parity covers rolled and unrolled storage, threadpool dispatch, and worker-error propagation. Additional UploadFile constructor and representation cases remain outside this slice.",
-                "missing_requirements": [
-                  "starlette.datastructures.UploadFile.constructor-and-representation"
-                ]
+                "status": "supported"
               }
             }
           ],
@@ -4403,6 +4399,17 @@
               "id": "starlette.datastructures.UploadFile.threadpool-boundary",
               "dimension": "boundary",
               "description": "Compare read, write, seek, and close scheduling across rolled and in-memory spooled files, including event-loop progress while rolled operations are blocked and OSError propagation from a worker operation. Pinned source: starlette/datastructures.py:428-476; docs/threadpool.md:6-14.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.UploadFile.constructor-and-representation",
+              "dimension": "input_family",
+              "description": "Compare direct UploadFile construction over an in-memory binary stream with explicit and omitted size, default and explicit headers, file identity, metadata, async read/write/seek operations, and repr output. Pinned source: starlette/datastructures.py:410-479; tests/test_datastructures.py::test_upload_file_file_input, test_upload_file_without_size, test_upload_file_repr, test_upload_file_repr_headers; docs/requests.md:138-154; docs/release-notes.md:650.",
               "lanes": [
                 "parity"
               ],
