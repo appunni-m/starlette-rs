@@ -67,7 +67,9 @@ struct PyRequiresConfig {
     redirect: Py<PyAny>,
 }
 
-#[pyclass(name = "_AuthenticationRequiresRuntime", unsendable)]
+// The immutable Python handles are only used while holding the GIL. A sync
+// Starlette endpoint may invoke this runtime from AnyIO's worker thread.
+#[pyclass(name = "_AuthenticationRequiresRuntime")]
 struct PyRequiresRuntime {
     mode: RequiresMode,
     func: Py<PyAny>,

@@ -23,7 +23,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@28"
+INPUT_SCHEMA = "migration-parity/parity-input@29"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -570,6 +570,26 @@ AUTH_USER_INTERFACE_REQUIREMENTS = {
         "unauthenticated-user"
     ),
     "basic": ("starlette.applications.Starlette.__call__.authentication-user-interface.basic-user"),
+}
+AUTHENTICATION_REQUIRED_ROUTE_REQUIREMENTS = {
+    "async-denied": "starlette.applications.Starlette.__call__.authentication-required.async-denied",
+    "async-authorized": "starlette.applications.Starlette.__call__.authentication-required.async-authorized",
+    "sync-denied": "starlette.applications.Starlette.__call__.authentication-required.sync-denied",
+    "sync-authorized": "starlette.applications.Starlette.__call__.authentication-required.sync-authorized",
+    "class-denied": "starlette.applications.Starlette.__call__.authentication-required.class-denied",
+    "class-authorized": "starlette.applications.Starlette.__call__.authentication-required.class-authorized",
+    "decorated-async-denied": "starlette.applications.Starlette.__call__.authentication-required.decorated-async-denied",
+    "decorated-async-authorized": "starlette.applications.Starlette.__call__.authentication-required.decorated-async-authorized",
+    "decorated-sync-denied": "starlette.applications.Starlette.__call__.authentication-required.decorated-sync-denied",
+    "decorated-sync-authorized": "starlette.applications.Starlette.__call__.authentication-required.decorated-sync-authorized",
+    "invalid-basic-credentials": "starlette.applications.Starlette.__call__.authentication-required.invalid-basic-credentials",
+}
+AUTHENTICATION_REQUIRED_ROUTE_PATHS = {
+    "async": "/dashboard",
+    "sync": "/dashboard/sync",
+    "class": "/dashboard/class",
+    "decorated-async": "/dashboard/decorated",
+    "decorated-sync": "/dashboard/decorated/sync",
 }
 RUST_OWNED_PYTHON_OPERATIONS = (
     CONFIG_OPERATIONS
@@ -12610,6 +12630,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                     server_error_case
                     or is_route_body_limit_workflow
                     or _is_authentication_user_interface_application(app_args)
+                    or _is_authentication_required_route_application(app_args)
                 ),
                 allow_query=case["operation"] == "__call__",
                 allow_lifespan_callback_failures=lifespan_only,
@@ -12626,6 +12647,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 "authentication user-interface dispatch selects only the Python-package profile"
             )
         _validate_authentication_user_interface_dispatch(dispatch_args)
+    if _is_authentication_required_route_application(app_args):
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError(
+                "authentication-required dispatch selects only the Python-package profile"
+            )
+        _validate_authentication_required_route_dispatch(dispatch_args, app_args["routes"][0])
     routes = app_args.get("routes") if isinstance(app_args, dict) else None
     cookie_endpoint = (
         routes[0].get("endpoint")
@@ -13975,6 +14002,35 @@ def _is_authentication_user_interface_application(args: dict[str, Any]) -> bool:
     return isinstance(endpoint, dict) and endpoint.get("kind") == "authentication-user-interface"
 
 
+def _is_authentication_required_route_application(args: dict[str, Any]) -> bool:
+    routes = args.get("routes")
+    if not isinstance(routes, list) or len(routes) != 1 or not isinstance(routes[0], dict):
+        return False
+    endpoint = routes[0].get("endpoint")
+    return isinstance(endpoint, dict) and endpoint.get("kind") == "authentication-required-route"
+
+
+def _authentication_middleware_outcome(scope: dict[str, Any]) -> str:
+    """Classify the input using the pinned test backend's credential parsing boundary."""
+    authorization_values = []
+    for encoded_name, encoded_value in scope["headers_base64_pairs"]:
+        name = base64.b64decode(encoded_name, validate=True).decode("latin-1").casefold()
+        if name == "authorization":
+            authorization_values.append(
+                base64.b64decode(encoded_value, validate=True).decode("latin-1")
+            )
+    if not authorization_values:
+        return "missing"
+    if len(authorization_values) != 1:
+        return "invalid"
+    try:
+        _scheme, credentials = authorization_values[0].split()
+        base64.b64decode(credentials).decode("ascii")
+    except (TypeError, ValueError, UnicodeDecodeError, base64.binascii.Error):
+        return "invalid"
+    return "valid"
+
+
 def _authentication_user_interface_requirement(scope: dict[str, Any]) -> str | None:
     authorization_values = []
     for encoded_name, encoded_value in scope["headers_base64_pairs"]:
@@ -14020,6 +14076,37 @@ def _validate_authentication_user_interface_application(args: dict[str, Any]) ->
         raise ContractError("authentication user-interface route differs from its source stimulus")
 
 
+def _validate_authentication_required_route_application(args: dict[str, Any]) -> None:
+    if (
+        args["debug"] is not False
+        or args["middleware"] != [{"kind": "authentication-basic"}]
+        or args["exception_handlers"] != []
+        or args["lifespan"] is not None
+        or args["max_body_size"] is not None
+    ):
+        raise ContractError("authentication-required app differs from the pinned test setup")
+    route = _exact(
+        args["routes"][0],
+        {"kind", "path", "methods", "endpoint"},
+        "authentication-required route",
+    )
+    endpoint = _exact(
+        route["endpoint"],
+        {"kind", "form", "required_scopes"},
+        "authentication-required endpoint",
+    )
+    form = endpoint["form"]
+    if (
+        route["kind"] != "http-route"
+        or route["methods"] is not None
+        or endpoint["kind"] != "authentication-required-route"
+        or form not in AUTHENTICATION_REQUIRED_ROUTE_PATHS
+        or route["path"] != AUTHENTICATION_REQUIRED_ROUTE_PATHS[form]
+        or endpoint["required_scopes"] != ["authenticated"]
+    ):
+        raise ContractError("authentication-required route differs from its source stimulus")
+
+
 def _validate_authentication_user_interface_dispatch(arguments: dict[str, Any]) -> None:
     scope = arguments["scope"]
     if scope["type"] != "http" or scope["method"] != "GET" or scope["path"] != "/":
@@ -14028,6 +14115,17 @@ def _validate_authentication_user_interface_dispatch(arguments: dict[str, Any]) 
         raise ContractError(
             "authentication user-interface dispatch needs absent or valid Basic credentials"
         )
+
+
+def _validate_authentication_required_route_dispatch(
+    arguments: dict[str, Any], route: dict[str, Any]
+) -> None:
+    scope = arguments["scope"]
+    if scope["type"] != "http" or scope["method"] != "GET" or scope["path"] != route["path"]:
+        raise ContractError("authentication-required route dispatch differs from its source URL")
+    outcome = _authentication_middleware_outcome(scope)
+    if outcome == "invalid" and route["endpoint"]["form"] != "async":
+        raise ContractError("malformed Basic credentials are sampled only on the async route")
 
 
 def _validate_application_stimulus(
@@ -14046,6 +14144,9 @@ def _validate_application_stimulus(
         )
     if not request_dispatch and _is_authentication_user_interface_application(args):
         _validate_authentication_user_interface_application(args)
+        return
+    if not request_dispatch and _is_authentication_required_route_application(args):
+        _validate_authentication_required_route_application(args)
         return
     if (
         not request_dispatch
@@ -20700,6 +20801,22 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             if requirement is not None:
                 coverage.add(requirement)
         return coverage
+    if endpoint["kind"] == "authentication-required-route":
+        if (
+            case["operation"] != "__call__"
+            or case["target_profiles"] != ["python-package-cpython312"]
+            or route["kind"] != "http-route"
+            or not path_matches
+            or not method_matches
+            or scope.get("type") != "http"
+        ):
+            return coverage
+        outcome = _authentication_middleware_outcome(scope)
+        if outcome == "invalid":
+            return {AUTHENTICATION_REQUIRED_ROUTE_REQUIREMENTS["invalid-basic-credentials"]}
+        form = endpoint["form"]
+        access = "authorized" if outcome == "valid" else "denied"
+        return {AUTHENTICATION_REQUIRED_ROUTE_REQUIREMENTS[f"{form}-{access}"]}
     if (
         case["operation"] == "__call__"
         and case["target_profiles"] == ["python-package-cpython312"]

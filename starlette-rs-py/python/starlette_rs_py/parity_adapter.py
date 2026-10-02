@@ -1603,6 +1603,77 @@ def _materialize_application(
                         "user": request.user.display_name,
                     }
                 )
+        elif response_spec["kind"] == "authentication-required-route":
+            _exact_object(
+                response_spec,
+                {"kind", "form", "required_scopes"},
+                "authentication-required route endpoint",
+            )
+            from starlette.authentication import requires
+            from starlette.endpoints import HTTPEndpoint
+
+            form = response_spec["form"]
+            required_scopes = response_spec["required_scopes"]
+
+            def authentication_payload(request: Any, additional: str | None = None) -> Any:
+                payload = {
+                    "authenticated": request.user.is_authenticated,
+                    "user": request.user.display_name,
+                }
+                if additional is not None:
+                    payload["additional"] = additional
+                return JSONResponse(payload)
+
+            if form == "class":
+
+                class Dashboard(HTTPEndpoint):
+                    @requires(required_scopes)
+                    def get(self, request: Any) -> Any:
+                        return authentication_payload(request)
+
+                route_endpoint = Dashboard
+            elif form == "async":
+
+                async def endpoint(request: Any) -> Any:
+                    return authentication_payload(request)
+
+                route_endpoint = requires(required_scopes)(endpoint)
+            elif form == "sync":
+
+                def endpoint(request: Any) -> Any:
+                    return authentication_payload(request)
+
+                route_endpoint = requires(required_scopes)(endpoint)
+            elif form == "decorated-async":
+
+                async def protected_endpoint(request: Any, additional: str) -> Any:
+                    return authentication_payload(request, additional)
+
+                protected = requires(required_scopes)(protected_endpoint)
+
+                def make_injected_async_endpoint(protected_callable: Any) -> Any:
+                    async def endpoint(request: Any) -> Any:
+                        return await protected_callable(request=request, additional="payload")
+
+                    return endpoint
+
+                route_endpoint = make_injected_async_endpoint(protected)
+            elif form == "decorated-sync":
+
+                def protected_endpoint(request: Any, additional: str) -> Any:
+                    return authentication_payload(request, additional)
+
+                protected = requires(required_scopes)(protected_endpoint)
+
+                def make_injected_sync_endpoint(protected_callable: Any) -> Any:
+                    def endpoint(request: Any) -> Any:
+                        return protected_callable(request=request, additional="payload")
+
+                    return endpoint
+
+                route_endpoint = make_injected_sync_endpoint(protected)
+            else:
+                raise ValueError("authentication-required endpoint has an unsupported form")
         elif response_spec["kind"] == "request-cookies-observer":
             required_fields = {"kind", "probe", "response_content", "status_code", "media_type"}
             if set(response_spec) != required_fields:

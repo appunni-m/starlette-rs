@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, application and route-level body-size limits, exception-handler registration and middleware-stack snapshots, async endpoint loop/task/thread ownership and request-task cancellation, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile also compares StaticFiles constructor-time and lazy directory checks, repeated successful configuration checks, and BaseHTTPMiddleware ContextVar propagation across call_next with a pure-ASGI control. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension. The active Python-package profile also covers response-attached BackgroundTask and BackgroundTasks async/sync execution, synchronous callback cancellation while its worker is held for cancellation delivery, sequential task ordering, failure propagation, and callable shape classification for async/sync bound methods, callable objects, partials, and nested partials. The active Python-package profile also includes bounded synchronous TestClient HTTP request/response and WebSocket text/binary exchange and pre-acceptance denial-response slices, plus context-managed lifespan startup/shutdown with timeout deprecation-warning parity; streaming request bodies and remaining error-policy cases are separate compatibility work.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, application and route-level body-size limits, exception-handler registration and middleware-stack snapshots, async endpoint loop/task/thread ownership and request-task cancellation, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile also compares StaticFiles constructor-time and lazy directory checks, repeated successful configuration checks, and BaseHTTPMiddleware ContextVar propagation across call_next with a pure-ASGI control. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension. The active Python-package profile also covers response-attached BackgroundTask and BackgroundTasks async/sync execution, synchronous callback cancellation while its worker is held for cancellation delivery, sequential task ordering, failure propagation, and callable shape classification for async/sync bound methods, callable objects, partials, and nested partials. The active Python-package profile also includes routed AuthenticationMiddleware and requires decorator comparisons for async, sync, HTTPEndpoint, and injected endpoint forms. It also includes bounded synchronous TestClient HTTP request/response and WebSocket text/binary exchange and pre-acceptance denial-response slices, plus context-managed lifespan startup/shutdown with timeout deprecation-warning parity; streaming request bodies and remaining error-policy cases are separate compatibility work.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@28",
+      "input_schema": "migration-parity/parity-input@29",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -298,6 +298,7 @@
       "build/parity/inputs/parity/lifespan-generators.json",
       "build/parity/inputs/parity/authentication-runtime.json",
       "build/parity/inputs/parity/authentication-user-interface.json",
+      "build/parity/inputs/parity/authentication-required-routes.json",
       "build/parity/inputs/parity/static-files.json",
       "build/parity/inputs/parity/static-files-symlink-asgi.json",
       "build/parity/inputs/parity/static-files-lookup.json",
@@ -740,7 +741,7 @@
               "signature": "async __call__(scope, receive, send) -> None",
               "support": {
                 "status": "partial",
-                "reason": "The package implements only the declared direct ASGI GET, route miss, wrong method, and successful lifespan slice.",
+                "reason": "The package implements the declared direct ASGI route, error, lifespan, and authentication integration workflows; remaining behavior is listed in missing requirements.",
                 "missing_requirements": [
                   "starlette.compatibility.full-public-surface",
                   "starlette.asgi.scope-mutation",
@@ -811,6 +812,127 @@
               "id": "starlette.applications.Starlette.__call__.authentication-user-interface.basic-user",
               "dimension": "boundary",
               "description": "Dispatch GET / through Starlette with AuthenticationMiddleware and valid Basic credentials, then observe Request.user. Compare response status and JSON fields against tests/test_authentication.py::test_user_interface.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required.async-denied",
+              "dimension": "error_path",
+              "description": "Dispatch GET /dashboard through AuthenticationMiddleware and an async endpoint decorated with requires('authenticated') without credentials; the endpoint is denied. Upstream: tests/test_authentication.py::test_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required.async-authorized",
+              "dimension": "success_path",
+              "description": "Dispatch GET /dashboard through AuthenticationMiddleware and an async endpoint decorated with requires('authenticated') using Basic credentials; compare the returned authenticated user fields. Upstream: tests/test_authentication.py::test_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required.sync-denied",
+              "dimension": "error_path",
+              "description": "Dispatch GET /dashboard/sync through AuthenticationMiddleware and a synchronous endpoint decorated with requires('authenticated') without credentials; the endpoint is denied. Upstream: tests/test_authentication.py::test_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required.sync-authorized",
+              "dimension": "success_path",
+              "description": "Dispatch GET /dashboard/sync through AuthenticationMiddleware and a synchronous endpoint decorated with requires('authenticated') using Basic credentials; compare the returned authenticated user fields. Upstream: tests/test_authentication.py::test_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required.class-denied",
+              "dimension": "error_path",
+              "description": "Dispatch GET /dashboard/class through AuthenticationMiddleware to an HTTPEndpoint class whose get method requires the authenticated scope, without credentials. Upstream: tests/test_authentication.py::test_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required.class-authorized",
+              "dimension": "success_path",
+              "description": "Dispatch GET /dashboard/class through AuthenticationMiddleware to an HTTPEndpoint class whose get method requires the authenticated scope, using Basic credentials. Upstream: tests/test_authentication.py::test_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required.decorated-async-denied",
+              "dimension": "error_path",
+              "description": "Dispatch GET /dashboard/decorated through the source-ordered injection and requires decorators without credentials; the protected async callable is not invoked. Upstream: tests/test_authentication.py::test_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required.decorated-async-authorized",
+              "dimension": "success_path",
+              "description": "Dispatch GET /dashboard/decorated through the source-ordered injection and requires decorators using Basic credentials; compare the additional payload and authenticated user fields. Upstream: tests/test_authentication.py::test_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required.decorated-sync-denied",
+              "dimension": "error_path",
+              "description": "Dispatch GET /dashboard/decorated/sync through the source-ordered injection and requires decorators without credentials; the protected synchronous callable is not invoked. Upstream: tests/test_authentication.py::test_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required.decorated-sync-authorized",
+              "dimension": "success_path",
+              "description": "Dispatch GET /dashboard/decorated/sync through the source-ordered injection and requires decorators using Basic credentials; compare the additional payload and authenticated user fields. Upstream: tests/test_authentication.py::test_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required.invalid-basic-credentials",
+              "dimension": "error_path",
+              "description": "Send malformed Basic credentials through AuthenticationMiddleware while dispatching the protected async dashboard route; compare the 400 response and error text. Upstream: tests/test_authentication.py::test_authentication_required.",
               "lanes": [
                 "parity"
               ],
