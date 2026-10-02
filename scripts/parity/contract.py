@@ -524,6 +524,12 @@ FORM_DATA_MULTIDICT_LOOKUPS_OPERATION = (
     "starlette.datastructures.FormData",
     "multidict-lookups",
 )
+FORM_DATA_CONSTRUCTOR_REQUIREMENT = "starlette.datastructures.FormData.constructor-input-semantics"
+FORM_DATA_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "constructor",
+    "probe_keys",
+    "equalities",
+}
 AUTHENTICATION_OPERATIONS = {
     ("starlette.authentication", "value-operations"),
     ("starlette.authentication", "scope-check"),
@@ -1008,11 +1014,6 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
     (ROUTER_SURFACE, ROUTER_URL_PATH_FOR_OPERATION, "rust-native"): frozenset(
         {ROUTER_URL_PATH_FOR_NATIVE_GAP, ROUTER_URL_PATH_FOR_ERROR_MAPPING_GAP}
     ),
-    (
-        FORM_DATA_MULTIDICT_LOOKUPS_OPERATION[0],
-        FORM_DATA_MULTIDICT_LOOKUPS_OPERATION[1],
-        "python-package",
-    ): frozenset({"starlette.datastructures.FormData.constructor-input-semantics"}),
     (
         UPLOAD_FILE_OPERATION[0],
         UPLOAD_FILE_OPERATION[1],
@@ -11324,6 +11325,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == UPLOAD_FILE_OPERATION
     )
+    is_formdata = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == FORM_DATA_MULTIDICT_LOOKUPS_OPERATION
+    )
     is_query_params = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == QUERY_PARAMS_OPERATION
@@ -11496,6 +11501,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             "scenarios",
             "constructor_probes",
         }
+    elif is_formdata:
+        expected_case_keys = FORM_DATA_CASE_KEYS
     if is_router and isinstance(case, dict) and "observe_router_scope" in case:
         expected_case_keys = expected_case_keys | {"observe_router_scope"}
     if is_response and isinstance(case, dict) and "render_override" in case:
@@ -11800,6 +11807,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_upload_file:
         if (case["surface"], case["operation"]) != UPLOAD_FILE_OPERATION:
             raise ContractError("UploadFile cases must use the declared file-operations operation")
+    elif is_formdata:
+        if (case["surface"], case["operation"]) != FORM_DATA_MULTIDICT_LOOKUPS_OPERATION:
+            raise ContractError("FormData cases must use the declared multidict-lookups operation")
     elif is_rust_owned_python:
         if (case["surface"], case["operation"]) not in RUST_OWNED_PYTHON_OPERATIONS:
             raise ContractError("configuration and schema cases must use declared operations")
@@ -11884,6 +11894,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_upload_file:
         if (case["surface"], case["operation"]) != UPLOAD_FILE_OPERATION:
             raise ContractError("UploadFile cases must use the declared file-operations operation")
+    elif is_formdata:
+        if case["observations"] != ["multidict-lookups"]:
+            raise ContractError("FormData cases must select multidict-lookups")
     elif case["surface"] != "starlette.applications.Starlette" or case["operation"] not in {
         "__call__",
         "request-dispatch",
@@ -12127,6 +12140,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_comma_separated_strings:
         _validate_comma_separated_strings_case(case)
+        return case
+    if is_formdata:
+        _validate_formdata_case(case)
         return case
     if is_authentication:
         _validate_authentication_case(case)
@@ -18557,6 +18573,104 @@ def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "CommaSeparatedStrings covers must match its constructor inputs and selected observations"
         )
+
+
+def _validate_formdata_value(value: Any, context: str) -> None:
+    if isinstance(value, str):
+        return
+    item = _exact(value, {"kind", "filename", "body_base64", "size"}, context)
+    if item["kind"] != "upload-file":
+        raise ContractError(f"{context}.kind must be upload-file")
+    _string(item["filename"], f"{context}.filename")
+    body_base64 = _string(item["body_base64"], f"{context}.body_base64")
+    try:
+        base64.b64decode(body_base64, validate=True)
+    except (ValueError, TypeError) as exc:
+        raise ContractError(f"{context}.body_base64 must be valid base64") from exc
+    if type(item["size"]) is not int or item["size"] < 0:
+        raise ContractError(f"{context}.size must be a non-negative integer")
+
+
+def _validate_formdata_entries(entries: Any, context: str) -> None:
+    if not isinstance(entries, list):
+        raise ContractError(f"{context} must be an array of key/value pairs")
+    for index, raw_entry in enumerate(entries):
+        entry_context = f"{context}[{index}]"
+        if not isinstance(raw_entry, list) or len(raw_entry) != 2:
+            raise ContractError(f"{entry_context} must contain a key and value")
+        _string(raw_entry[0], f"{entry_context}[0]")
+        _validate_formdata_value(raw_entry[1], f"{entry_context}[1]")
+
+
+def _validate_formdata_argument(spec: Any, context: str, *, allow_primary: bool) -> None:
+    if not isinstance(spec, dict) or not isinstance(spec.get("kind"), str):
+        raise ContractError(f"{context} must select a declared FormData input kind")
+    kind = spec["kind"]
+    if kind in {"pairs", "mapping"}:
+        item = _exact(spec, {"kind", "entries"}, context)
+        _validate_formdata_entries(item["entries"], f"{context}.entries")
+    elif kind == "primary" and allow_primary:
+        _exact(spec, {"kind"}, context)
+    elif kind == "form-data":
+        item = _exact(spec, {"kind", "args", "kwargs"}, context)
+        args = item["args"]
+        if not isinstance(args, list) or len(args) > 1:
+            raise ContractError(f"{context}.args must contain at most one constructor input")
+        for index, argument in enumerate(args):
+            _validate_formdata_argument(
+                argument,
+                f"{context}.args[{index}]",
+                allow_primary=True,
+            )
+        _validate_formdata_entries(item["kwargs"], f"{context}.kwargs")
+        keyword_names = [entry[0] for entry in item["kwargs"]]
+        if len(keyword_names) != len(set(keyword_names)):
+            raise ContractError(f"{context}.kwargs keys must be unique")
+    else:
+        raise ContractError(f"{context}.kind is unsupported")
+
+
+def _validate_formdata_case(case: dict[str, Any]) -> None:
+    if case["assets"] != [] or case["observations"] != ["multidict-lookups"]:
+        raise ContractError("FormData cases use no assets and select multidict-lookups")
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("FormData constructor parity selects the Python package profile")
+
+    constructor = _exact(case["constructor"], {"args", "kwargs"}, "FormData constructor")
+    args = constructor["args"]
+    if not isinstance(args, list):
+        raise ContractError("FormData constructor args must be an array")
+    for index, argument in enumerate(args):
+        _validate_formdata_argument(
+            argument,
+            f"FormData constructor args[{index}]",
+            allow_primary=False,
+        )
+    _validate_formdata_entries(constructor["kwargs"], "FormData constructor kwargs")
+    keyword_names = [entry[0] for entry in constructor["kwargs"]]
+    if len(keyword_names) != len(set(keyword_names)):
+        raise ContractError("FormData constructor kwargs keys must be unique")
+
+    probe_keys = case["probe_keys"]
+    if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
+        raise ContractError("FormData probe_keys must contain strings")
+    equalities = case["equalities"]
+    if not isinstance(equalities, list):
+        raise ContractError("FormData equalities must be an array")
+    for index, raw_equality in enumerate(equalities):
+        context = f"FormData equalities[{index}]"
+        equality = _exact(raw_equality, {"left", "right"}, context)
+        _validate_formdata_argument(equality["left"], f"{context}.left", allow_primary=True)
+        _validate_formdata_argument(equality["right"], f"{context}.right", allow_primary=True)
+
+    if len(args) > 1:
+        if probe_keys or equalities:
+            raise ContractError("FormData constructor-error cases cannot select value observations")
+    elif not probe_keys or not equalities:
+        raise ContractError("successful FormData constructor cases require probes and equalities")
+
+    if case["covers"] != [FORM_DATA_CONSTRUCTOR_REQUIREMENT]:
+        raise ContractError("FormData covers must select constructor-input-semantics")
 
 
 def _validate_authentication_case(case: dict[str, Any]) -> None:

@@ -10827,6 +10827,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         return _run_request_form_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.datastructures.FormData",
+        "multidict-lookups",
+    ):
+        from starlette.datastructures import FormData, UploadFile
+
+        from scripts.parity.adapters.formdata import run_formdata_case
+
+        return run_formdata_case(case, FormData, UploadFile)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         "starlette.datastructures.UploadFile",
         "file-operations",
     ):

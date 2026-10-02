@@ -1,0 +1,138 @@
+{
+  "schema": "migration-parity/parity-input@27",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.FormData.multidict-lookups.constructor-and-equality",
+      "surface": "starlette.datastructures.FormData",
+      "operation": "multidict-lookups",
+      "covers": [
+        "starlette.datastructures.FormData.constructor-input-semantics"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "args": [
+          {
+            "kind": "pairs",
+            "entries": [
+              ["a", "123"],
+              ["a", "456"],
+              [
+                "b",
+                {
+                  "kind": "upload-file",
+                  "filename": "file",
+                  "body_base64": "ZGF0YQ==",
+                  "size": 4
+                }
+              ]
+            ]
+          }
+        ],
+        "kwargs": []
+      },
+      "probe_keys": ["a", "A", "c", "b"],
+      "equalities": [
+        {
+          "left": {
+            "kind": "form-data",
+            "args": [
+              {
+                "kind": "primary"
+              }
+            ],
+            "kwargs": []
+          },
+          "right": {
+            "kind": "primary"
+          }
+        },
+        {
+          "left": {
+            "kind": "form-data",
+            "args": [
+              {
+                "kind": "mapping",
+                "entries": [
+                  ["a", "123"],
+                  ["b", "789"]
+                ]
+              }
+            ],
+            "kwargs": []
+          },
+          "right": {
+            "kind": "form-data",
+            "args": [
+              {
+                "kind": "pairs",
+                "entries": [
+                  ["a", "123"],
+                  ["b", "789"]
+                ]
+              }
+            ],
+            "kwargs": []
+          }
+        },
+        {
+          "left": {
+            "kind": "form-data",
+            "args": [
+              {
+                "kind": "mapping",
+                "entries": [
+                  ["a", "123"],
+                  ["b", "789"]
+                ]
+              }
+            ],
+            "kwargs": []
+          },
+          "right": {
+            "kind": "mapping",
+            "entries": [
+              ["a", "123"],
+              ["b", "789"]
+            ]
+          }
+        }
+      ],
+      "observations": ["multidict-lookups"]
+    },
+    {
+      "case_id": "starlette.datastructures.FormData.multidict-lookups.constructor-too-many-positional",
+      "surface": "starlette.datastructures.FormData",
+      "operation": "multidict-lookups",
+      "covers": [
+        "starlette.datastructures.FormData.constructor-input-semantics"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "args": [
+          {
+            "kind": "mapping",
+            "entries": [
+              ["a", "123"]
+            ]
+          },
+          {
+            "kind": "pairs",
+            "entries": [
+              ["b", "456"]
+            ]
+          }
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [],
+      "equalities": [],
+      "observations": ["multidict-lookups"]
+    }
+  ]
+}
