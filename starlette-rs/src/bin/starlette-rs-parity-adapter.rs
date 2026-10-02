@@ -69,6 +69,9 @@ const ROUTER_URL_PATH_OPERATION: &str = "url_path_for";
 const WEBSOCKET_SURFACE: &str = "starlette.websockets.WebSocket";
 const WEBSOCKET_OPERATION: &str = "protocol-sequence";
 const WEBSOCKET_STATE_OPERATION: &str = "state-sequence";
+// The Python facade maps Rust state-transition errors through PyRuntimeError.
+const WEBSOCKET_STATE_ERROR_COMPATIBILITY_CLASS: &str = "builtins.RuntimeError";
+const WEBSOCKET_CALLBACK_OSERROR_CLASS: &str = "builtins.OSError";
 
 static NEXT_FILE_RESPONSE_TEMP: AtomicU64 = AtomicU64::new(0);
 
@@ -4616,6 +4619,7 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
                     Err(error) => json!({
                         "action_id": action_id,
                         "outcome": "error",
+                        "error_class": WEBSOCKET_STATE_ERROR_COMPATIBILITY_CLASS,
                         "error_message": error.message(),
                     }),
                 }
@@ -4661,6 +4665,7 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
                     Err(error) => json!({
                         "action_id": action_id,
                         "outcome": "error",
+                        "error_class": WEBSOCKET_STATE_ERROR_COMPATIBILITY_CLASS,
                         "error_message": error.message(),
                     }),
                     Ok(catches_os_error) => match send_error {
@@ -4674,6 +4679,7 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
                         Some(error_message) => json!({
                             "action_id": action_id,
                             "outcome": "error",
+                            "error_class": WEBSOCKET_CALLBACK_OSERROR_CLASS,
                             "error_message": error_message,
                         }),
                         None => json!({

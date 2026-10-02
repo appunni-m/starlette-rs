@@ -19265,7 +19265,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.websockets.WebSocket",
-            "signature": "Parity workflow: drive public WebSocket.receive() and WebSocket.send(message) calls, project each outcome to ok/error-message/send-error-handled, and observe both state enums; projected outcomes exclude Python exception classes, codes, causes, and context, while adapter/runtime failures are top-level infrastructure errors",
+            "signature": "Parity workflow: drive public WebSocket.receive() and WebSocket.send(message) calls, project each outcome to ok/error-class-and-message/send-error-handled, and observe both state enums. Python targets report the fully qualified class of the actual exception; the Rust-native adapter reports the Python compatibility class associated with its typed state error (PyRuntimeError -> builtins.RuntimeError) or input-declared callback OSError. Exception causes and context remain excluded; adapter/runtime failures are top-level infrastructure errors.",
             "parameters": [
               {
                 "id": "scope",
@@ -19343,7 +19343,7 @@
             {
               "target_id": "rust-native",
               "path": "starlette_rs::WebSocketStateMachine",
-              "signature": "WebSocketStateMachine::new(); receive(message_type); begin_send(message_type, more_body); send_failed(); observe both states",
+              "signature": "WebSocketStateMachine::new(); receive(message_type); begin_send(message_type, more_body); send_failed(); project typed state errors to the PyO3-compatible Python class and exact message; observe both states",
               "support": {
                 "status": "supported"
               }
@@ -19351,7 +19351,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.websockets.WebSocket",
-              "signature": "WebSocket(scope, receive, send); async receive(); async send(message); project call outcomes and observe both states",
+              "signature": "WebSocket(scope, receive, send); async receive(); async send(message); project actual Python exception class and exact message for error outcomes; observe both states",
               "support": {
                 "status": "supported"
               }
@@ -19385,7 +19385,7 @@
             {
               "id": "starlette.websocket.state.invalid-transition",
               "dimension": "error_path",
-              "description": "Attempt websocket.send while the application is connecting and compare the exact error message and unchanged state enums. Upstream: starlette/websockets.py::WebSocket.send at the pinned Starlette commit.",
+              "description": "Attempt websocket.send while the application is connecting and compare the fully qualified Python compatibility exception class, exact error message, and unchanged state enums. The Rust-native adapter projects WebSocketStateError through the PyO3 mapping to builtins.RuntimeError. Upstream: starlette/websockets.py::WebSocket.send at the pinned Starlette commit.",
               "lanes": [
                 "parity"
               ],
@@ -19397,7 +19397,7 @@
             {
               "id": "starlette.websocket.state.receive-after-disconnect",
               "dimension": "error_path",
-              "description": "Call public receive() after websocket.disconnect and compare the exact state-machine error message without consuming another input event. Upstream: starlette/websockets.py::WebSocket.receive at the pinned Starlette commit.",
+              "description": "Call public receive() after websocket.disconnect and compare the fully qualified Python compatibility exception class and exact state-machine error message without consuming another input event. The Rust-native adapter projects WebSocketStateError through the PyO3 mapping to builtins.RuntimeError. Upstream: starlette/websockets.py::WebSocket.receive at the pinned Starlette commit.",
               "lanes": [
                 "parity"
               ],
@@ -19469,7 +19469,7 @@
             {
               "id": "starlette.websocket.state.denial-response-invalid-message",
               "dimension": "error_path",
-              "description": "Attempt a second websocket.http.response.start while in RESPONSE and compare the exact error message and unchanged state. Upstream: starlette/websockets.py::WebSocket.send, lines 90-91 and tests/test_websockets.py::test_send_response_duplicate_start at the pinned Starlette commit.",
+              "description": "Attempt a second websocket.http.response.start while in RESPONSE and compare the fully qualified Python compatibility exception class, exact error message, and unchanged state. The Rust-native adapter projects WebSocketStateError through the PyO3 mapping to builtins.RuntimeError. Upstream: starlette/websockets.py::WebSocket.send, lines 90-91 and tests/test_websockets.py::test_send_response_duplicate_start at the pinned Starlette commit.",
               "lanes": [
                 "parity"
               ],

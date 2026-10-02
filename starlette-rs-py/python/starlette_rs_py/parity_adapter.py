@@ -3252,6 +3252,7 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
                         {
                             "action_id": action_id,
                             "outcome": "error",
+                            "error_class": f"{type(exc).__module__}.{type(exc).__qualname__}",
                             "error_message": str(exc),
                         }
                     )
@@ -3260,6 +3261,7 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
                     {
                         "action_id": action_id,
                         "outcome": "error",
+                        "error_class": f"{type(exc).__module__}.{type(exc).__qualname__}",
                         "error_message": str(exc),
                     }
                 )
