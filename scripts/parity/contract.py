@@ -898,6 +898,8 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_chunks": "starlette.request.body-chunk-concatenation",
     "body_stream_replay": "starlette.request.body-stream-cache-replay",
     "stream_body_consumed": "starlette.request.stream-then-body-consumed",
+    "stream_form_consumed": "starlette.request.stream-then-form-consumed",
+    "stream_json_consumed": "starlette.request.stream-then-json-consumed",
     "stream_interleaving": "starlette.request.stream-interleaved-iterators",
     "json_cache": "starlette.request.json-body-cache",
     "json_decode_error": "starlette.request.json-decode-error-cache",
@@ -15325,9 +15327,20 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         raise ContractError("Request body/stream/json parity currently targets the Python package")
     if case["assets"] != [] or case["observations"] != ["request-consumption"]:
         raise ContractError("Request consumption cases select one observation without assets")
-    scope = _exact(case["scope"], {"type"}, "Request body/stream/json scope")
+    scope_spec = case["scope"]
+    scope_keys = {"type"}
+    if isinstance(scope_spec, dict) and "headers_base64_pairs" in scope_spec:
+        scope_keys.add("headers_base64_pairs")
+    scope = _exact(scope_spec, scope_keys, "Request body/stream/json scope")
     if scope["type"] != "http":
         raise ContractError("Request body/stream/json requires an HTTP scope")
+    scope_headers = (
+        _validate_header_pairs(
+            scope["headers_base64_pairs"], "Request body/stream/json scope headers_base64_pairs"
+        )
+        if "headers_base64_pairs" in scope
+        else []
+    )
 
     receive = case["receive"]
     if not isinstance(receive, list) or not receive:
@@ -15384,7 +15397,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             raise ContractError(f"{context} must be an operation record")
         operation = action["operation"]
         action_operations.append(operation)
-        if operation in {"body", "json"}:
+        if operation in {"body", "form", "json"}:
             _exact(action, {"operation"}, context)
         elif operation == "stream-next":
             _exact(action, {"operation", "stream_id"}, context)
@@ -15428,6 +15441,9 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     json_positions = [
         index for index, operation in enumerate(action_operations) if operation == "json"
     ]
+    form_positions = [
+        index for index, operation in enumerate(action_operations) if operation == "form"
+    ]
     stream_positions = [
         index for index, operation in enumerate(action_operations) if operation == "stream-next"
     ]
@@ -15457,6 +15473,18 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         and stream_positions[0] < direct_body_positions[0]
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_body_consumed"])
+    if stream_positions and form_positions and stream_positions[0] < form_positions[0]:
+        if not any(
+            name.lower() == b"content-type"
+            and value.lower().startswith(b"application/x-www-form-urlencoded")
+            for name, value in scope_headers
+        ):
+            raise ContractError(
+                "Request.form after stream consumption requires a URL-encoded content type"
+            )
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_form_consumed"])
+    if stream_positions and json_positions and stream_positions[0] < json_positions[0]:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_json_consumed"])
     if len(json_positions) > 1:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["json_cache"])
         payload = b"".join(

@@ -248,19 +248,27 @@
       "surface": "starlette.requests.Request",
       "operation": "body-stream-json",
       "covers": [
-        "starlette.request.stream-then-body-consumed"
+        "starlette.request.stream-then-body-consumed",
+        "starlette.request.stream-then-form-consumed",
+        "starlette.request.stream-then-json-consumed"
       ],
       "target_profiles": [
         "python-package-cpython312"
       ],
       "assets": [],
       "scope": {
-        "type": "http"
+        "type": "http",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "YXBwbGljYXRpb24veC13d3ctZm9ybS11cmxlbmNvZGVk"
+          ]
+        ]
       },
       "receive": [
         {
           "type": "http.request",
-          "body_base64": "YWJj",
+          "body_base64": "YT0x",
           "more_body": false
         }
       ],
@@ -280,6 +288,12 @@
         },
         {
           "operation": "body"
+        },
+        {
+          "operation": "form"
+        },
+        {
+          "operation": "json"
         }
       ],
       "observations": [

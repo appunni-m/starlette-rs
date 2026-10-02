@@ -11836,7 +11836,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.requests.Request.body, Request.stream, and Request.json",
-            "signature": "Drive body(), stream().__anext__(), and json() actions on one Request instance with an input-defined ASGI receive tape.",
+            "signature": "Drive body(), stream().__anext__(), form(), and json() actions on one Request instance with an input-defined ASGI receive tape.",
             "parameters": [
               {
                 "id": "scope",
@@ -11906,8 +11906,8 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.requests.Request.body, Request.stream, and Request.json",
-              "signature": "The installed starlette-rs-py Request facade forwards body, stream, and JSON state to Rust.",
+              "path": "starlette.requests.Request.body, Request.stream, Request.form, and Request.json",
+              "signature": "The installed starlette-rs-py Request facade forwards body, stream, form, and JSON state to Rust.",
               "support": {
                 "status": "supported"
               }
@@ -11951,6 +11951,28 @@
               "id": "starlette.request.stream-then-body-consumed",
               "dimension": "error_path",
               "description": "Exhaust Request.stream() before calling Request.body() and preserve the exact Stream consumed RuntimeError boundary. Pinned source: starlette/requests.py::Request.stream and Request.body; tests/test_requests.py::test_request_stream_then_body.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-then-form-consumed",
+              "dimension": "error_path",
+              "description": "Exhaust Request.stream() before invoking Request.form() with a URL-encoded content type; preserve the documented stream-consumed error through form parsing. Pinned source: docs/requests.md:104-106; starlette/requests.py:234-251,268-311.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-then-json-consumed",
+              "dimension": "error_path",
+              "description": "Exhaust Request.stream() before invoking Request.json() and preserve the documented stream-consumed error through body loading. Pinned source: docs/requests.md:104-106; starlette/requests.py:234-266.",
               "lanes": [
                 "parity"
               ],

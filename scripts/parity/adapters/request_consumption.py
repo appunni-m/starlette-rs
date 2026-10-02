@@ -72,7 +72,13 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
         receive_trace.append({"event": "return", "call": call_index, "message": _safe(message)})
         return message
 
-    request = request_type(dict(case["scope"]), receive)
+    scope = dict(case["scope"])
+    if "headers_base64_pairs" in scope:
+        scope["headers"] = [
+            (base64.b64decode(name, validate=True), base64.b64decode(value, validate=True))
+            for name, value in scope.pop("headers_base64_pairs")
+        ]
+    request = request_type(scope, receive)
     streams: dict[str, Any] = {}
     tasks: dict[str, asyncio.Task[Any]] = {}
     previous_values: dict[str, Any] = {}
@@ -87,6 +93,14 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
                 observations.append(_error(operation, exc))
             else:
                 observations.append(_value(operation, value, previous_values))
+        elif operation == "form":
+            try:
+                value = await request.form()
+            except Exception as exc:
+                observations.append(_error(operation, exc))
+            else:
+                observations.append(_value(operation, list(value.multi_items()), previous_values))
+                await request.close()
         elif operation == "stream-next":
             stream_id = action["stream_id"]
             if stream_id not in streams:
