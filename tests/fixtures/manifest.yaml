@@ -17327,6 +17327,42 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.html-directory-without-index-fallback",
+              "dimension": "parameter_combination",
+              "description": "Enable HTML mode with an existing directory that has no index.html and an input-defined 404.html; compare slash and non-slash directory requests plus a missing path against the fallback response. Upstream: tests/test_staticfiles.py::test_staticfiles_html_without_index.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.html-directory-index-without-404-fallback",
+              "dimension": "parameter_combination",
+              "description": "Enable HTML mode with a directory index but no 404.html; compare index serving, slash redirect, and the propagated missing-path HTTPException. Upstream: tests/test_staticfiles.py::test_staticfiles_html_without_404.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.html-only-files-no-index-or-404",
+              "dimension": "parameter_combination",
+              "description": "Enable HTML mode with one .html file and neither index.html nor 404.html; compare the root 404 and the direct file response. Upstream: tests/test_staticfiles.py::test_staticfiles_html_only_files.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-file-served",
               "dimension": "input_family",
               "description": "With follow_symlink enabled, serve an input-defined external file through an in-root symbolic link and compare status, headers, bytes, and ASGI events. Upstream: tests/test_staticfiles.py::test_staticfiles_follows_symlinks.",

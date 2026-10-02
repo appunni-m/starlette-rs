@@ -4920,6 +4920,23 @@ def _validate_static_files_case_stimulus(
     index_path = "index.html" if normalized_path == "." else f"{normalized_path}/index.html"
     if method == "GET" and case["html"] and index_path in selected_files:
         derived.add("html-index-file" if path.endswith("/") else "html-index-redirect")
+    if (
+        method == "GET"
+        and case["html"]
+        and normalized_path in selected_directories
+        and index_path not in selected_files
+        and "404.html" in selected_files
+    ):
+        derived.add("html-directory-without-index-fallback")
+    if (
+        method == "GET"
+        and case["html"]
+        and normalized_path == "."
+        and "index.html" not in selected_files
+        and "404.html" not in selected_files
+        and any(file_path.endswith(".html") for file_path in selected_files)
+    ):
+        derived.add("html-only-files-no-index-or-404")
     conditional_match = False
     request_headers: dict[str, str] = {}
     if method == "GET" and normalized_path in selected_files:
@@ -5011,6 +5028,12 @@ def _validate_static_files_case_stimulus(
             derived.update({"missing-subdirectory-maps-404", "not-found-get"})
         else:
             derived.add("not-found-get")
+        if (
+            case["html"]
+            and "404.html" not in selected_files
+            and any(file_path.endswith("/index.html") for file_path in selected_files)
+        ):
+            derived.add("html-directory-index-without-404-fallback")
     if not derived:
         raise ContractError("StaticFiles input must select a declared live response behavior")
     expected_covers = {f"{STATIC_FILES_SURFACE}.asgi-call.{item}" for item in derived}
