@@ -25,14 +25,17 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 702 input-only cases across
+active and incomplete. The current contract has 704 input-only cases across
 77 indexed files, 93 operations, and 724 requirements. Seven QueryParams cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `b9d21b22-d552-40f8-bf82-60d101403b7f` passed 906 of 910 selected profile
-comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 700/700; Rust-native
-passed 206/210. Three StaticFiles HTML fallback scenarios and seven built-in
-float/UUID converter cases pass on both target profiles. Default-string match
+full-slice run `fdf2ee06-3bf1-485b-ae2b-b0a483914af5` passed 908 of 912
+selected profile comparisons, with zero failures or infrastructure errors and
+four Rust-native Python-callable rows `not_run`. The Python package passed
+702/702; Rust-native passed 206/210. Three BaseHTTPMiddleware exception-context
+cases, covering no chain, implicit context, and explicit cause, pass with empty
+diffs. Three
+StaticFiles HTML fallback scenarios and seven built-in float/UUID converter
+cases pass on both target profiles. Default-string match
 and slash-boundary inputs and int/path converter observations also pass on both
 profiles. Both input-defined datetime-converter cases pass on the Python
 package. All nine selected
@@ -51,14 +54,14 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 423 input mappings, 51
-reasoned `not_applicable` rows, and 328 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 424 input mappings, 51
+reasoned `not_applicable` rows, and 327 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `a7a345c9-725a-4eca-aeca-8508477f8f41` measured all
+The latest Router/GZip run `fdd7d87f-476d-413f-9f49-4550b02f5db4` measured all
 74 source/package workloads after correctness preflight
-`b9d21b22-d552-40f8-bf82-60d101403b7f`. Median per-workload source/package
-latency ratios were 0.777 for Router and 0.972 for GZip; source latency was
+`fdf2ee06-3bf1-485b-ae2b-b0a483914af5`. Median per-workload source/package
+latency ratios were 0.761 for Router and 0.967 for GZip; source latency was
 lower on five of six Router workloads and 53 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
@@ -298,8 +301,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 517 `supported`, 285
 `private/internal`, and 197 `uncertain` candidates. The coverage matrix has 802
-source rows: 423 input mappings, 51 reasoned `not_applicable`
-entries, and 328 input-only backlog rows. Derive these changing counts from
+source rows: 424 input mappings, 51 reasoned `not_applicable`
+entries, and 327 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded
