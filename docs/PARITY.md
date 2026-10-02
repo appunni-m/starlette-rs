@@ -11,13 +11,13 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest integrated full-slice parity run is
-`d071bc31-e311-40f8-9dfa-f44d05acdd9e`. It ran from
-`2026-10-02T06:57:16.360Z` to `2026-10-02T07:00:03.279Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 701-case,
-723-requirement `parity-input@25` manifest. It selected 909 profile
-comparisons: 905 passed, zero failed, zero infrastructure errors, and four
+`b9d21b22-d552-40f8-bf82-60d101403b7f`. It ran from
+`2026-10-02T07:52:25.716Z` to `2026-10-02T07:55:03.435Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 702-case,
+724-requirement `parity-input@25` manifest. It selected 910 profile
+comparisons: 906 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 699 selected comparisons; Rust-native passed 206 of 210. The
+passed all 700 selected comparisons; Rust-native passed 206 of 210. The
 app-state attributes read through `request.app.state`, default-string match
 and slash-boundary cases, StaticFiles HTML fallback and built-in converter
 cases, both datetime converter cases, Mount URL lookup, StaticFiles date-order
@@ -31,7 +31,7 @@ bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 `not_run`; they are not parity failures.
 
 The target checkout was clean at commit
-`80b35ef9e34bcb8d85244fb1d12c073650020661` for this run.
+`4a27d7c9557a6f18f3518ffaf98513aaa3ee1d0c` for this run.
 
 For `lifespan_send_messages`, the manifest declares a narrow
 `starlette-lifespan-router-frame` normalization: it removes only the
@@ -41,15 +41,15 @@ protocol without that Python frame; all other event fields and traceback frames
 remain exact.
 
 The Rust-native fingerprint is
-`b4709e47f94b12378e1f863ac7e27887c6c757c2+source-fnv1a64-1ae45f1d7fa44c70`.
+`4a27d7c9557a6f18f3518ffaf98513aaa3ee1d0c+source-fnv1a64-1ae45f1d7fa44c70`.
 The installed package tree SHA-256 is
-`6a4297d47d91869e9ac7bcb57ef432cec0ad540c39d74df33c6f3bf2ae1deb50`; its
+`a2515a27e3a34b3296f1a158b58f59a188bfd2ec0847ccd8c42d7e4e7d1ae503`; its
 wheel SHA-256 is
-`21d6491350169df9f9a5264669a8a258d382fcf2c7136fd471d13ba18aae36ab`. The
+`a3c362168bf323d53ab8eb504973117de385ad43c60854c31c1eaebe4fecf7ed`. The
 manifest SHA-256 is
-`090c32b9f2fa51a783d1e4f9a2aa58f1431eff24f911bcee1787445902eabc7e`; the
+`a88948cb66d662ba41a32b3d58d751af686d59d85b7d50d56039106591f18691`; the
 result artifact SHA-256 is
-`592ce22fc7df477e5193332fdcb0ebed15301c1accd0d87aec2883fb92a9c360`.
+`3aff74f062e8e2916550ac06fb9bb7761c1f7c0eb37c009b83b096638fc0f4e2`.
 Strict aggregation remains `not_proven` because the full compatibility
 denominator is incomplete and four Rust-native rows are `not_run`.
 
@@ -65,7 +65,7 @@ values, and parameters without an equals sign. Six cases run on both target
 profiles. The heterogeneous comparison against the literal string `"invalid"`
 is package-only because the native consumer API has no Python object equality
 boundary. All 13 selected comparisons pass in the latest full-slice run
-`d071bc31-e311-40f8-9dfa-f44d05acdd9e`.
+`b9d21b22-d552-40f8-bf82-60d101403b7f`.
 
 ### StaticFiles HTML fallback selection
 
@@ -78,7 +78,7 @@ fallback, an index directory without a fallback page, and an HTML-only tree
 without either special file. Ordered ASGI observations include the slash
 redirect, selected file body, and propagated 404 exception. All six
 oracle-to-target profile comparisons pass in integrated run
-`d071bc31-e311-40f8-9dfa-f44d05acdd9e`.
+`b9d21b22-d552-40f8-bf82-60d101403b7f`.
 
 ### Built-in float and UUID converters
 
@@ -88,7 +88,7 @@ hyphens, and an invalid UUID segment. They observe the selected status and
 ASGI response; matched cases also compare the converted `route_scope.path_params`
 value and type. The Rust-native parity adapter projects these fields from
 `DetailedRouteMatch` captures. All 14 oracle-to-target comparisons pass in
-integrated run `d071bc31-e311-40f8-9dfa-f44d05acdd9e`. Additional cases
+integrated run `b9d21b22-d552-40f8-bf82-60d101403b7f`. Additional cases
 observe converted path parameters for int/path routes and the default string
 converter, including a path with an additional slash that must not match. The
 int/float/path/UUID documentation rows now map to those input observations.
@@ -950,7 +950,7 @@ and direct `Route.url_path_for` formats a datetime value through the converter.
 The datetime format, regular expression, request path, endpoint projection,
 and reverse-path datetime components are supplied as inputs. The `@24` to
 `@25` migrator changes only the schema header and validates all 77 indexed
-authored inputs. Full run `d071bc31-e311-40f8-9dfa-f44d05acdd9e` passed both
+authored inputs. Full run `b9d21b22-d552-40f8-bf82-60d101403b7f` passed both
 exact Python-package comparisons.
 
 The same `parity-input@23` revision adds a two-dispatch CORSMiddleware input for private-network-access denial and a WebSocketEndpoint input for empty text under `encoding=None`. Both focused source/package comparisons passed; the output artifacts remain in ignored `build/parity/` storage. Together, the `@23` additions increase the indexed denominator from 671 cases/703 requirements to 675/706 without claiming a new full-slice run. The `@24` observer adds one parity requirement, leaving 675 cases and increasing the requirement count to 707. Later input additions under that schema add three StaticFiles HTML fallback cases and three requirements; the resulting `@24` contract had 678 cases and 710 requirements.
@@ -961,7 +961,7 @@ The active schema adds asyncio and Trio TestClient cases that start an
 input-defined child task inside the lifespan callback, release its wait gate
 during teardown, and observe task-group completion before the callback exits.
 Both source/package comparisons pass exactly in run
-`d071bc31-e311-40f8-9dfa-f44d05acdd9e`. After TestClient enter, the trace is
+`b9d21b22-d552-40f8-bf82-60d101403b7f`. After TestClient enter, the trace is
 `lifespan-started`, `child-started`; after exit it is
 `lifespan-started`, `child-started`, `child-release-requested`,
 `child-finished`, `lifespan-finished`, followed by the shutdown-complete
