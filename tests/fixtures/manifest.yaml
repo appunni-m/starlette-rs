@@ -5251,7 +5251,7 @@
                   "comparison": {"kind": "exact"}
                 },
                 {
-                  "path": "mutation-sequence.typing_contract",
+                  "path": "typing_contract",
                   "value_types": ["record"],
                   "comparison": {"kind": "exact"},
                   "condition": {"input_key": "typing_contract"}

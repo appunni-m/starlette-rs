@@ -251,7 +251,7 @@ def run_multidict_case(case: dict[str, Any], multidict_type: Any) -> dict[str, A
         ],
     }
     if "typing_contract" in case:
-        result["observations"][0]["value"]["mutation-sequence"]["typing_contract"] = (
-            _typecheck_consumer(case["typing_contract"])
+        result["observations"][0]["value"]["typing_contract"] = _typecheck_consumer(
+            case["typing_contract"]
         )
     return result

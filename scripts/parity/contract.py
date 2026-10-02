@@ -1743,7 +1743,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     multidict_typing_contract = (
                         condition["input_key"] == "typing_contract"
                         and key == MULTIDICT_OPERATION
-                        and observation["path"] == "mutation-sequence.typing_contract"
+                        and observation["path"] == "typing_contract"
                     )
                     testclient_application_debug = (
                         condition["input_key"] == "asgi_app.debug_after"
