@@ -25,19 +25,21 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 739 input-only cases across
-83 indexed files, 94 operations, and 772 requirements. It includes direct
+active and incomplete. The current contract has 742 input-only cases across
+83 indexed files, 94 operations, and 775 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract. Seven QueryParams
 cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `1b6320fd-d225-4d5b-beea-bf10e8958e1b` passed 949 of 953
+full-slice run `a5c1537c-624f-4413-9f22-929c5f9d9c36` passed 952 of 956
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
-737/737; Rust-native passed 212/216. Six protected WebSocket authentication
-cases also pass source/package comparison for plain and injection-wrapped
-routes with missing, malformed, and valid Basic credentials. The UploadFile input compares direct
+740/740; Rust-native passed 212/216. Six protected WebSocket authentication
+cases pass source/package comparison for plain and injection-wrapped routes
+with missing, malformed, and valid Basic credentials. Three documentation-derived
+BasicAuth cases also pass for wrong-scheme, malformed base64, and non-ASCII
+credentials. The UploadFile input compares direct
 construction, omitted-size operations, default and explicit-header repr values,
 rolled/in-memory scheduling, event-loop progress, and OSError propagation. The
 thread-pool limiter input observed the

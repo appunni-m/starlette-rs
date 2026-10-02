@@ -8,11 +8,11 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 739 input-only cases in 83 indexed files,
-covering 94 operations and 772 parity requirements. Recent additions include direct UploadFile constructor/repr, rollover, and
+The active contract contains 742 input-only cases in 83 indexed files,
+covering 94 operations and 775 parity requirements. Recent additions include direct UploadFile constructor/repr, rollover, and
 threadpool-boundary inputs; GZip final/streaming thread-threshold comparisons;
 the shared AnyIO thread-pool limiter; generic Request/WebSocket lifespan-state
-typing; routed authentication UI and protected HTTP routes; and six protected WebSocket cases for plain and injected endpoint forms.
+typing; routed authentication UI and protected HTTP routes; six protected WebSocket cases for plain and injected endpoint forms, and three documentation-derived BasicAuth cases for wrong-scheme, malformed base64, and non-ASCII credentials.
 Seven QueryParams
 cases map equality and blank-value behavior to two pinned test rows. New
 focused inputs cover
@@ -43,10 +43,10 @@ and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest integrated run for the active
-`parity-input@29` contract, `1b6320fd-d225-4d5b-beea-bf10e8958e1b`, passed
-949 of 953 selected comparisons, with zero failures or infrastructure errors
+`parity-input@29` contract, `a5c1537c-624f-4413-9f22-929c5f9d9c36`, passed
+952 of 956 selected comparisons, with zero failures or infrastructure errors
 and four Rust-native Python-callable rows `not_run`. The Python package passed
-737/737; Rust-native passed 212/216. The four native `not_run` rows are
+740/740; Rust-native passed 212/216. The four native `not_run` rows are
 synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make test` exits with status 2 for those
 declared rows. Full run identities and package hashes are recorded in
@@ -243,7 +243,7 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest clean full-slice run `1b6320fd-d225-4d5b-beea-bf10e8958e1b`
+The latest clean full-slice run `a5c1537c-624f-4413-9f22-929c5f9d9c36`
 selected 953 comparisons: 949 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
 errors. The authentication WebSocket row is now mapped; other WebSocket source

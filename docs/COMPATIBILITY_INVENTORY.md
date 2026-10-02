@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 739 input-only cases across 83 files,
-covering 94 operations and 772 parity requirements. Its latest additions map
+The active parity manifest indexes 742 input-only cases across 83 files,
+covering 94 operations and 775 parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Recent additions include
 direct FormData constructor/equality inputs; direct UploadFile constructor/repr, rollover, and threadpool-boundary cases, and GZip final and
@@ -89,35 +89,37 @@ operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest full-slice correctness preflight is
-`1b6320fd-d225-4d5b-beea-bf10e8958e1b`. It ran from
-`2026-10-02T19:49:12.727Z` to `2026-10-02T19:52:13.431Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 739-case,
-772-requirement `parity-input@29` manifest on clean target commit
-`e69601840a8cbb592573e040429a74b95b55c677`. It selected 953 profile
-comparisons: 949 passed, zero failed, zero infrastructure errors, and four
+`a5c1537c-624f-4413-9f22-929c5f9d9c36`. It ran from
+`2026-10-02T20:18:55.018Z` to `2026-10-02T20:22:01.906Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 742-case,
+775-requirement `parity-input@29` manifest on clean target commit
+`8c0736582cd254b093b144c410c4f4dfe9ae2a85`. It selected 956 profile
+comparisons: 952 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 737 selected comparisons; Rust-native passed 212 of 216. Six cases
-from `tests/test_authentication.py::test_websocket_authentication_required`
-compare denied, malformed-credential, and authorized requests for plain and
-injection-wrapped protected WebSocket routes; all six match the pinned source.
-The four native `not_run` rows remain synchronous Request endpoint,
-bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
-`make parity-run` exits 2 because of those declared rows; this run completed
-with no parity failures or infrastructure errors.
+passed all 740 selected comparisons; Rust-native passed 212 of 216. Three new
+inputs derived from the BasicAuth backend in `docs/authentication.md` verify
+that a wrong scheme produces an unauthenticated user, malformed base64 raises
+the documented authentication error, and non-ASCII decoded credentials take
+the same error path. All three match the pinned source exactly. The four
+native `not_run` rows remain synchronous Request endpoint, bound-method
+endpoint, partial endpoint, and callable-instance ASGI dispatch. `make
+parity-run` exits 2 because of those declared rows; the run completed with no
+parity failures or infrastructure errors.
 
-The Rust-native target used commit `e69601840a8cbb592573e040429a74b95b55c677`
+The Rust-native target used commit `8c0736582cd254b093b144c410c4f4dfe9ae2a85`
 with source fingerprint
-`e69601840a8cbb592573e040429a74b95b55c677+source-fnv1a64-f63b3847c266153e`.
+`8c0736582cd254b093b144c410c4f4dfe9ae2a85+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
-`fe679d530d7e39b27126d5c02088b25ace02e267e6b6da4648d4ad3eafabcade`; its wheel
-SHA-256 is
-`d149c08a01474fef4e1ad4788a652f6f15694227ce0c79636b22756968b6a607`.
-The manifest SHA-256 is
-`fd78a285e42e74dcd63c6ba10317cda54f670f762bf02ff814e8344c47b08859`; the
+`2cae9fe2039e571b5e988c003d28b7b70cef95b66ef048fcb76b33c1c8dec841`; its
+wheel SHA-256 is
+`0617d292ecdae30bc183e399fcac1617ddaf2f3c577a5b1a9c3c59259b767e44`. The
+manifest SHA-256 is
+`92efd1ffaa83302f8322d6fb4a09c3cf22f5a0990e0be3d8a05dabf3768bcdcd`; the
 parity result artifact SHA-256 is
-`e8696b366a69f8af96140ba5df84b56e0a40c31a1981281ce50a9643874e747e`. Strict
+`c73356f6b4882cf8797e650de02cb801572717fe4661e39220ac7241460e5d7e`. Strict
 aggregation remains `not_proven` because the full compatibility denominator
 is incomplete and four Rust-native rows are `not_run`.
+
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -126,25 +128,25 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run,
-`982885b4-b9be-4cdf-a949-e54afe128244`, measured all 74 declared workloads
-from `2026-10-02T19:53:24.865Z` to `2026-10-02T19:57:56.964Z`: six Router and
+`e6a24e2c-75e4-42e9-b102-72a607b74b3c`, measured all 74 declared workloads
+from `2026-10-02T20:18:49.102Z` to `2026-10-02T20:23:27.569Z`: six Router and
 68 GZip, with zero failures or source/package `not_run` rows. Its clean target
-was commit `e69601840a8cbb592573e040429a74b95b55c677` with working-tree SHA-256
-`3fe89bfe8aaf4d33a7b1d5f4ba2b4631997236abd049c03344d143d45a68d8fe` and wheel
-SHA-256 `3e14a90ceadba19a165d792ae7d96b3c02dbac094a1ebd141f6ecee54a5cb1c8`.
-Correctness preflight `6db1fda7-6f0e-4c1c-96f4-5800b428b02f` selected 953
-comparisons: 949 passed, zero failed, zero infrastructure errors, and four
+was commit `8c0736582cd254b093b144c410c4f4dfe9ae2a85` with working-tree SHA-256
+`00c5c8d9c8cf606183ccbe592644c68b8bc5e8ef1289fe40687ac08861a1e395` and wheel
+SHA-256 `0617d292ecdae30bc183e399fcac1617ddaf2f3c577a5b1a9c3c59259b767e44`.
+Correctness preflight `a5c1537c-624f-4413-9f22-929c5f9d9c36` selected 956
+comparisons: 952 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 737/737 and Rust-native passed 212/216. Rust-native remains `not_run`
+passed 740/740 and Rust-native passed 212/216. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. Median source/package latency ratios
-were 0.765 for Router and 0.976 for GZip; source latency was lower in five of
-six Router workloads and 61 of 68 GZip workloads. All 74 source/package
+were 0.762 for Router and 0.974 for GZip; source latency was lower in five of
+six Router workloads and 55 of 68 GZip workloads. All 74 source/package
 observation hashes matched. Manifest SHA-256:
-`fd78a285e42e74dcd63c6ba10317cda54f670f762bf02ff814e8344c47b08859`;
+`92efd1ffaa83302f8322d6fb4a09c3cf22f5a0990e0be3d8a05dabf3768bcdcd`;
 benchmark input SHA-256:
 `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`; result
 artifact SHA-256:
-`9d58b0a0ec384c047f37e9764ac9bd87f7702bb9c363fcb7d5b00812ec14c58e`. This
+`c230c8da213934bdc1643663446cf29302cc5801c56a3afce1d3fa2613e0107c`. This
 bounded evidence does not establish full Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
 The generated coverage matrix has 802 source rows: 462 input mappings, 51
