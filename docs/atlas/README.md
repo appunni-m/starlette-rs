@@ -25,17 +25,19 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 708 input-only cases across
-78 indexed files, 93 operations, and 733 requirements. It includes direct
+active and incomplete. The current contract has 739 input-only cases across
+83 indexed files, 94 operations, and 772 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract. Seven QueryParams
 cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `0cf6d806-4ba0-43af-bb99-ac710618d910` passed 912 of 916
+full-slice run `1b6320fd-d225-4d5b-beea-bf10e8958e1b` passed 949 of 953
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
-706/706; Rust-native passed 206/210. The UploadFile input compares direct
+737/737; Rust-native passed 212/216. Six protected WebSocket authentication
+cases also pass source/package comparison for plain and injection-wrapped
+routes with missing, malformed, and valid Basic credentials. The UploadFile input compares direct
 construction, omitted-size operations, default and explicit-header repr values,
 rolled/in-memory scheduling, event-loop progress, and OSError propagation. The
 thread-pool limiter input observed the
@@ -64,8 +66,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 435 input mappings, 51
-reasoned `not_applicable` rows, and 316 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 459 input mappings, 51
+reasoned `not_applicable` rows, and 292 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest Router/GZip run `bfac1bab-98b4-4544-8d45-b1c4098b5424` measured all

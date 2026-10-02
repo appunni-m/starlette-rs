@@ -8,11 +8,11 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 733 input-only cases in 82 indexed files,
-covering 94 operations and 766 parity requirements. Recent additions include direct UploadFile constructor/repr, rollover, and
+The active contract contains 739 input-only cases in 83 indexed files,
+covering 94 operations and 772 parity requirements. Recent additions include direct UploadFile constructor/repr, rollover, and
 threadpool-boundary inputs; GZip final/streaming thread-threshold comparisons;
 the shared AnyIO thread-pool limiter; generic Request/WebSocket lifespan-state
-typing; and routed authentication UI plus protected async/sync, HTTPEndpoint, and injected callable behavior.
+typing; routed authentication UI and protected HTTP routes; and six protected WebSocket cases for plain and injected endpoint forms.
 Seven QueryParams
 cases map equality and blank-value behavior to two pinned test rows. New
 focused inputs cover
@@ -42,23 +42,21 @@ cases now pass on both target profiles. Default-string match/slash-boundary
 and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
-binary line chunks through the installed Python package. The latest integrated
-run for the active
-`parity-input@27` contract, `0cf6d806-4ba0-43af-bb99-ac710618d910`, passed
-912 of 916 selected comparisons, with zero failures or infrastructure errors
+binary line chunks through the installed Python package. The latest integrated run for the active
+`parity-input@29` contract, `1b6320fd-d225-4d5b-beea-bf10e8958e1b`, passed
+949 of 953 selected comparisons, with zero failures or infrastructure errors
 and four Rust-native Python-callable rows `not_run`. The Python package passed
-706/706; Rust-native passed 206/210. The four native `not_run` rows are
-synchronous
-Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
-ASGI dispatch. `make test` exits with status 2 for those declared rows. Full run
-identities and package hashes are recorded in
+737/737; Rust-native passed 212/216. The four native `not_run` rows are
+synchronous Request endpoint, bound-method endpoint, partial endpoint, and
+callable-instance ASGI dispatch. `make test` exits with status 2 for those
+declared rows. Full run identities and package hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-This integrated run includes the focused `parity-input@23` through `@27`
-additions.
-The full replacement remains active and incomplete; these slice results do not
-establish full Starlette parity.
+The six protected-WebSocket authentication cases map the upstream
+`test_websocket_authentication_required` row across plain and injection-wrapped
+endpoints. The full replacement remains active and incomplete; these slice
+results do not establish full Starlette parity.
 
 The endpoint-callable-shapes backlog item is mapped in the generated coverage
 matrix. The package-only input slice covers async functions, bound methods,
@@ -67,8 +65,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 457 input mappings,
-51 source-backed `not_applicable` rows, and 294 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 459 input mappings,
+51 source-backed `not_applicable` rows, and 292 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
@@ -245,12 +243,12 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest clean full-slice run `0cf6d806-4ba0-43af-bb99-ac710618d910`
-selected 916 comparisons: 912 passed, with four declared Rust-native
+The latest clean full-slice run `1b6320fd-d225-4d5b-beea-bf10e8958e1b`
+selected 953 comparisons: 949 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
-errors. The complete WebSocket source backlog remains in `fixture-backlog.csv`;
-similar method names do not close source rows whose stimuli or observation
-selectors differ.
+errors. The authentication WebSocket row is now mapped; other WebSocket source
+rows remain in `fixture-backlog.csv`, and similar method names do not close
+rows whose stimuli or observation selectors differ.
 
 The separate Router/GZip benchmark lane completed all 74 source-versus-package
 workloads. Its result is documented in [Benchmark mapping](../BENCHMARKS.md);
