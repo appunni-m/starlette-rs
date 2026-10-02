@@ -21042,6 +21042,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.lifespan-context.task-group-child-lifecycle",
+              "dimension": "boundary",
+              "description": "A lifespan callback may run a child in an AnyIO task group, release it during teardown, and wait for its completion before the shutdown-complete event. Pinned source: docs/lifespan.md:27-33; starlette/routing.py::Router.lifespan.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.lifespan-context.same-task-and-runvar-context-continuity",
               "dimension": "boundary",
               "description": "Keep the TestClient lifespan callback in one task, propagate its AnyIO RunVar context to managed HTTP requests, isolate transient requests outside the context, and create a new lifespan task and RunVar context on re-entry. Pinned source: tests/test_testclient.py:89-164; tests/conftest.py:12-23; starlette/testclient.py:112-130,422-426,679-749; docs/testclient.md:79-84; docs/lifespan.md:142-158.",

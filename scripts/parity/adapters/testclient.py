@@ -948,8 +948,37 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
             raise exception_type(error["message"])
 
         lifecycle_trace.append(callback["entry_effect"])
+
+        @contextlib.asynccontextmanager
+        async def managed_tasks() -> Any:
+            task_group_input = callback.get("task_group")
+            if task_group_input is None:
+                yield
+                return
+
+            import anyio
+
+            child_started = anyio.Event()
+            child_release = anyio.Event()
+
+            async def child() -> None:
+                lifecycle_trace.append(task_group_input["child_start_effect"])
+                child_started.set()
+                await child_release.wait()
+                lifecycle_trace.append(task_group_input["child_finish_effect"])
+
+            async with anyio.create_task_group() as task_group:
+                task_group.start_soon(child)
+                await child_started.wait()
+                try:
+                    yield
+                finally:
+                    lifecycle_trace.append(task_group_input["release_effect"])
+                    child_release.set()
+
         try:
-            yield
+            async with managed_tasks():
+                yield
         finally:
             lifecycle_trace.append(callback["exit_effect"])
 

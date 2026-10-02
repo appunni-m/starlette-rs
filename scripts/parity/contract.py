@@ -226,6 +226,7 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "app_state_via_request_app": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.app-state-via-request-app",
     "websocket_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.websocket-lifespan-state",
     "application_callback": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.application-callback-entry-exit",
+    "task_group_lifecycle": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.task-group-child-lifecycle",
     "task_runvar_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.same-task-and-runvar-context-continuity",
 }
 TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
@@ -10613,9 +10614,13 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
                 "Starlette lifespan scope_fields must select type and optional state"
             )
         if client_operations == ["enter", "exit"]:
-            callback = _exact(
-                asgi_app["callback"], {"entry_effect", "exit_effect"}, "Lifespan callback"
-            )
+            callback_input = asgi_app["callback"]
+            if not isinstance(callback_input, dict):
+                raise ContractError("Lifespan callback must be a record")
+            callback_keys = {"entry_effect", "exit_effect"}
+            if "task_group" in callback_input:
+                callback_keys.add("task_group")
+            callback = _exact(callback_input, callback_keys, "Lifespan callback")
             for key in ("entry_effect", "exit_effect"):
                 _string(callback[key], f"Lifespan callback {key}")
             expected_covers = {
@@ -10623,6 +10628,15 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
                 TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown"],
                 TESTCLIENT_LIFESPAN_REQUIREMENTS["application_callback"],
             }
+            if "task_group" in callback:
+                task_group = _exact(
+                    callback["task_group"],
+                    {"child_start_effect", "release_effect", "child_finish_effect"},
+                    "Lifespan task group",
+                )
+                for key in ("child_start_effect", "release_effect", "child_finish_effect"):
+                    _string(task_group[key], f"Lifespan task group {key}")
+                expected_covers.add(TESTCLIENT_LIFESPAN_REQUIREMENTS["task_group_lifecycle"])
         else:
             callback = _exact(asgi_app["callback"], {"entry_error"}, "Lifespan callback")
             error = _exact(
@@ -10994,6 +11008,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["app_state_via_request_app"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["websocket_state"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["application_callback"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["task_group_lifecycle"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["task_runvar_context"],
         }
     elif (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
