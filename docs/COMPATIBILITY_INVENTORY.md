@@ -40,8 +40,9 @@ HTML fallback scenarios cover directory index/fallback selection and missing
 file exceptions. Seven built-in float/UUID converter cases now observe matched
 path parameter types and invalid-segment misses on both profiles. The source
 `test_datetime_convertor` now has input-only dispatch and reverse-URL cases on
-the Python package; the docs-level custom converter behavior remains in the
-fixture backlog. The six direct ServerErrorMiddleware inputs and three TestClient exception-
+the Python package; the documented custom converter example is now mapped to
+the same dispatch and reverse-URL input cases. The six direct
+ServerErrorMiddleware inputs and three TestClient exception-
 chain inputs pass live source/package comparison in the latest run. Sixteen
 Request.cookies inputs also pass their selected comparisons: an Okta-style
 JSON-like value with duplicate and unnamed segments, all 12 active edge and
@@ -122,8 +123,8 @@ This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 392 existing input
-mappings, 50 reasoned `not_applicable` rows, and 360 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 393 existing input
+mappings, 50 reasoned `not_applicable` rows, and 359 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
