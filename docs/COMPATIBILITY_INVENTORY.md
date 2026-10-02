@@ -129,8 +129,8 @@ All 74 source/package observations had matching normalized hashes. This
 bounded evidence does not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 418 input mappings, 50
-reasoned `not_applicable` rows, and 334 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 419 input mappings, 50
+reasoned `not_applicable` rows, and 333 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

@@ -49,8 +49,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 418 input mappings, 50
-reasoned `not_applicable` rows, and 334 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 419 input mappings, 50
+reasoned `not_applicable` rows, and 333 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest Router/GZip run `0aea2634-4301-415b-98c2-5f714ef6a7a5` measured all
@@ -296,8 +296,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 517 `supported`, 285
 `private/internal`, and 197 `uncertain` candidates. The coverage matrix has 802
-source rows: 418 input mappings, 50 reasoned `not_applicable`
-entries, and 334 input-only backlog rows. Derive these changing counts from
+source rows: 419 input mappings, 50 reasoned `not_applicable`
+entries, and 333 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded
