@@ -9798,6 +9798,35 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
 
         results = []
         for scenario in case["scenarios"]:
+            callable_spec = scenario["callable"]
+            if callable_spec["kind"] == "invalid-no-connection-parameter":
+
+                class EndpointWithoutConnectionParameter:
+                    def __init__(self, display_name: str) -> None:
+                        self.display_name = display_name
+
+                    def __call__(self, other: Any = None) -> None:
+                        return None
+
+                    def __str__(self) -> str:
+                        return self.display_name
+
+                endpoint = EndpointWithoutConnectionParameter(callable_spec["display_name"])
+                try:
+                    requires(scenario["required_scopes"])(endpoint)
+                except Exception as exc:
+                    outcome = {"outcome": "error", "error": _error_snapshot(exc)}
+                else:
+                    outcome = {"outcome": "value", "value": None}
+                results.append(
+                    {
+                        "stage": "decorator-construction",
+                        "outcome": outcome,
+                        "endpoint_calls": [],
+                        "sent": [],
+                    }
+                )
+                continue
             connection_spec = scenario["connection"]
             is_websocket = connection_spec["kind"] == "websocket"
             path_url = connection_spec.get("url", "https://example.test/private")
@@ -9847,7 +9876,6 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                 _sent.append(_json_safe(message))
 
             connection = WebSocket(scope, receive, send) if is_websocket else Request(scope)
-            callable_spec = scenario["callable"]
             endpoint_calls = []
             result_value = callable_spec["result"]
 

@@ -118,6 +118,7 @@
         "starlette.authentication.requires.async-denied-error",
         "starlette.authentication.requires.sync-denied-error",
         "starlette.authentication.requires.redirect-response",
+        "starlette.authentication.requires.invalid-decorator-usage",
         "starlette.authentication.requires.websocket-denied-close"
       ],
       "target_profiles": [
@@ -219,6 +220,90 @@
             ]
           },
           "redirect": "login"
+        },
+        {
+          "callable": {
+            "kind": "endpoint",
+            "mode": "sync",
+            "parameter": "request",
+            "result": "called"
+          },
+          "required_scopes": [
+            "admin"
+          ],
+          "connection": {
+            "kind": "request",
+            "auth_scopes": [
+              "read"
+            ],
+            "url": "https://example.test/private",
+            "routes": [
+              {
+                "name": "login",
+                "path": "/login"
+              }
+            ]
+          },
+          "redirect": "login"
+        },
+        {
+          "callable": {
+            "kind": "endpoint",
+            "mode": "async",
+            "parameter": "request",
+            "result": "authorized-async"
+          },
+          "required_scopes": [
+            "admin"
+          ],
+          "connection": {
+            "kind": "request",
+            "auth_scopes": [
+              "admin"
+            ],
+            "url": "https://example.test/private",
+            "routes": [
+              {
+                "name": "login",
+                "path": "/login"
+              }
+            ]
+          },
+          "redirect": "login"
+        },
+        {
+          "callable": {
+            "kind": "endpoint",
+            "mode": "sync",
+            "parameter": "request",
+            "result": "authorized-sync"
+          },
+          "required_scopes": [
+            "admin"
+          ],
+          "connection": {
+            "kind": "request",
+            "auth_scopes": [
+              "admin"
+            ],
+            "url": "https://example.test/private",
+            "routes": [
+              {
+                "name": "login",
+                "path": "/login"
+              }
+            ]
+          },
+          "redirect": "login"
+        },
+        {
+          "callable": {
+            "kind": "invalid-no-connection-parameter",
+            "display_name": "foo"
+          },
+          "required_scopes": [
+            "authenticated"
+          ]
         },
         {
           "callable": {

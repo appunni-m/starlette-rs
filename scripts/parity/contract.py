@@ -18767,6 +18767,24 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
             context = f"requires scenarios[{index}]"
             if not isinstance(raw_scenario, dict):
                 raise ContractError(f"{context} must be an object")
+            raw_callable = raw_scenario.get("callable")
+            if not isinstance(raw_callable, dict):
+                raise ContractError(f"{context}.callable must be an object")
+            if raw_callable.get("kind") == "invalid-no-connection-parameter":
+                scenario = _exact(raw_scenario, {"callable", "required_scopes"}, context)
+                callable_spec = _exact(
+                    scenario["callable"],
+                    {"kind", "display_name"},
+                    f"{context}.callable",
+                )
+                _string(callable_spec["display_name"], f"{context}.callable.display_name")
+                required_scopes = scenario["required_scopes"]
+                if not isinstance(required_scopes, list) or any(
+                    not isinstance(scope, str) for scope in required_scopes
+                ):
+                    raise ContractError(f"{context}.required_scopes must be a string array")
+                exercised.add("starlette.authentication.requires.invalid-decorator-usage")
+                continue
             scenario = _exact(
                 raw_scenario,
                 {"callable", "required_scopes", "connection"}
@@ -18840,7 +18858,7 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
             if connection["kind"] == "websocket":
                 if not authorized:
                     exercised.add("starlette.authentication.requires.websocket-denied-close")
-            elif "redirect" in scenario:
+            elif "redirect" in scenario and not authorized:
                 exercised.add("starlette.authentication.requires.redirect-response")
             elif authorized and callable_spec["mode"] == "sync":
                 exercised.add("starlette.authentication.requires.sync-authorized-call")

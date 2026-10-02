@@ -3054,6 +3054,17 @@
               ]
             },
             {
+              "id": "starlette.authentication.requires.invalid-decorator-usage",
+              "dimension": "error_path",
+              "description": "Applying requires to a callable without a request or websocket parameter raises during decoration. Upstream: starlette/authentication.py:25-42.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.authentication.requires.websocket-denied-close",
               "dimension": "protocol_variant",
               "description": "An unauthorized WebSocket endpoint closes the connection without invoking the endpoint. Upstream: starlette/authentication.py:43-58.",
