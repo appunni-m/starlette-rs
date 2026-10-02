@@ -103,7 +103,7 @@ def _typecheck_consumer(contract: dict[str, Any]) -> dict[str, Any]:
                     "",
                 ]
             )
-            reveal_lines[len(source_lines) - 2] = "mutable_pop"
+            reveal_lines[len(source_lines) - 1] = "mutable_pop"
             expected_reveals.add("mutable_pop")
 
     package_root = Path(starlette.__file__).resolve().parent.parent
