@@ -51,8 +51,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 422 input mappings, 50
-reasoned `not_applicable` rows, and 330 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 422 input mappings, 51
+reasoned `not_applicable` rows, and 329 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest Router/GZip run `2e3a648e-b9d0-4275-aa59-2c9ddb4a147a` measured all
@@ -249,7 +249,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 802 source rows:
-390 `existing` mappings, 362 `backlog` rows, and 50 reasoned `not_applicable`
+422 `existing` mappings, 329 `backlog` rows, and 51 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity
@@ -298,8 +298,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 517 `supported`, 285
 `private/internal`, and 197 `uncertain` candidates. The coverage matrix has 802
-source rows: 422 input mappings, 50 reasoned `not_applicable`
-entries, and 330 input-only backlog rows. Derive these changing counts from
+source rows: 422 input mappings, 51 reasoned `not_applicable`
+entries, and 329 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded
