@@ -1687,7 +1687,7 @@
             {
               "id": "starlette.routing.sync-endpoint-contextvar-propagation",
               "dimension": "boundary",
-              "description": "A synchronous Python endpoint observes the caller's ContextVar value after Starlette dispatches it through AnyIO's worker-thread boundary. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_routing.py sync endpoint cases.",
+              "description": "A synchronous Python endpoint observes the caller's ContextVar value after Starlette dispatches it through AnyIO's worker-thread boundary. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_routing.py sync endpoint cases; tests/test_concurrency.py::test_accessing_context_from_threaded_sync_endpoint.",
               "lanes": [
                 "parity"
               ],

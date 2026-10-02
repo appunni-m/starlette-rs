@@ -57,8 +57,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 417 input mappings,
-50 source-backed `not_applicable` rows, and 335 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 418 input mappings,
+50 source-backed `not_applicable` rows, and 334 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
