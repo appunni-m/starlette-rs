@@ -90,6 +90,25 @@
       "observations": ["lookup-results"]
     },
     {
+      "case_id": "starlette.config.Config.value-resolution.explicit-latin1-encoding",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.file-precedence",
+        "starlette.config.Config.explicit-encoding"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "config": {
+        "env_prefix": "",
+        "environ": {},
+        "env_file_lines": ["MESSAGE=Hello café"]
+      },
+      "encoding": "latin-1",
+      "lookups": [{"key": "MESSAGE"}],
+      "observations": ["lookup-results"]
+    },
+    {
       "case_id": "starlette.config.Environ.mapping-sequence.reads-freeze-keys-and-preserve-mapping-operations",
       "surface": "starlette.config.Environ",
       "operation": "mapping-sequence",

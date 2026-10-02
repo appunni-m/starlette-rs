@@ -11699,6 +11699,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             WSGI_MODULE_IMPORT_OPERATION: {"module_name"},
         }[(case["surface"], case["operation"])]
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
+        if (
+            (case["surface"], case["operation"]) == ("starlette.config.Config", "value-resolution")
+            and isinstance(case, dict)
+            and "encoding" in case
+        ):
+            expected_case_keys = expected_case_keys | {"encoding"}
         if is_headers_consumer_sequence and "actions" in case:
             expected_case_keys = expected_case_keys | {"actions"}
     elif is_multidict:
@@ -16676,6 +16682,8 @@ def _validate_config_case(case: dict[str, Any]) -> None:
         config = _exact(case["config"], {"env_prefix", "environ", "env_file_lines"}, "Config input")
         if not isinstance(config["env_prefix"], str):
             raise ContractError("Config env_prefix must be a string")
+        if "encoding" in case:
+            _string(case["encoding"], "Config encoding")
         environ = config["environ"]
         if not isinstance(environ, dict) or any(
             not isinstance(key, str) or not isinstance(value, str) for key, value in environ.items()
@@ -16694,6 +16702,8 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 key, value = stripped.split("=", 1)
                 file_values[key.strip()] = value.strip().strip("\"'")
         selected: set[str] = set()
+        if "encoding" in case:
+            selected.add("starlette.config.Config.explicit-encoding")
         for index, raw in enumerate(lookups):
             if not isinstance(raw, dict):
                 raise ContractError(f"Config lookups[{index}] must be an object")

@@ -7971,11 +7971,15 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
             previous_directory = os.getcwd()
             os.chdir(directory)
             try:
-                Path(".env").write_text("\n".join(config_input["env_file_lines"]), encoding="utf-8")
+                encoding = case.get("encoding", "utf-8")
+                Path(".env").write_text(
+                    "\n".join(config_input["env_file_lines"]), encoding=encoding
+                )
                 config = Config(
                     env_file=".env",
                     environ=config_input["environ"],
                     env_prefix=config_input["env_prefix"],
+                    encoding=encoding,
                 )
                 results = []
                 for lookup in case["lookups"]:

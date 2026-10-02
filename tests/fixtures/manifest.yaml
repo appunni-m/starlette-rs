@@ -3691,7 +3691,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.config.Config.__call__, Config.get, Config._read_file, and Config._perform_cast",
-            "signature": "Config(...); __call__(key, cast=None, default=undefined) -> Any",
+            "signature": "Config(env_file=..., environ=..., env_prefix='', encoding='utf-8'); __call__(key, cast=None, default=undefined) -> Any",
             "parameters": [
               {
                 "id": "config",
@@ -3711,6 +3711,17 @@
                 ],
                 "omission": {
                   "kind": "required"
+                }
+              },
+              {
+                "id": "encoding",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": "utf-8"
                 }
               }
             ],
@@ -3751,7 +3762,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.config.Config",
-              "signature": "Config(...); __call__(key, cast=None, default=undefined) -> Any",
+              "signature": "Config(env_file=..., environ=..., env_prefix='', encoding='utf-8'); __call__(key, cast=None, default=undefined) -> Any",
               "support": {
                 "status": "supported"
               }
@@ -3839,6 +3850,17 @@
               "id": "starlette.config.Config.cast-error",
               "dimension": "error_path",
               "description": "Translate TypeError and ValueError from a requested cast to a Config-specific ValueError. Upstream: starlette/config.py:137-140.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.explicit-encoding",
+              "dimension": "parameter",
+              "description": "Decode environment-file bytes with the explicitly supplied encoding. Pinned source: starlette/config.py:54-64, 111-121; tests/test_config.py::test_config_with_encoding; docs/config.md:123-133.",
               "lanes": [
                 "parity"
               ],
