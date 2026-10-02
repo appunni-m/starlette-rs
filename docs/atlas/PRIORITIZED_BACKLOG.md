@@ -36,7 +36,7 @@ cases now pass on both target profiles. Default-string match/slash-boundary
 and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The latest integrated run for the active
-`parity-input@25` contract, `b7d261f3-9a6c-47c3-b716-6eb00805bc78`, passed
+`parity-input@25` contract, `ca41c415-139f-4134-843f-986153299f7f`, passed
 903 of 907 selected comparisons, with zero failures or infrastructure errors
 and four Rust-native Python-callable rows `not_run`. The Python package passed
 697/697; Rust-native passed 206/210. The four native `not_run` rows are synchronous
