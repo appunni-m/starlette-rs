@@ -1180,6 +1180,7 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
     )
     from starlette.middleware import Middleware
     from starlette.middleware.authentication import AuthenticationMiddleware
+    from starlette.middleware.base import BaseHTTPMiddleware
 
     if not isinstance(middleware_specs, list):
         raise ValueError("application middleware input must be an array")
@@ -1190,6 +1191,21 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
 
         async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
             await self.app(dict(scope), receive, send)
+
+    class ReadBeforeApplicationMiddleware:
+        def __init__(self, app: Any) -> None:
+            self.app = app
+
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            await receive()
+            await self.app(scope, receive, send)
+
+    async def base_http_passthrough(request: Any, call_next: Any) -> Any:
+        return await call_next(request)
+
+    async def base_http_read_body(request: Any, call_next: Any) -> Any:
+        await request.body()
+        return await call_next(request)
 
     class BasicAuthBackend:
         async def authenticate(self, connection: Any) -> Any:
@@ -1213,6 +1229,12 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
         spec = _strict_object(raw_spec, {"kind"}, f"application middleware[{index}]")
         if spec["kind"] == "copy-scope":
             middleware.append(Middleware(CopyScopeMiddleware))
+        elif spec["kind"] == "read-before-application":
+            middleware.append(Middleware(ReadBeforeApplicationMiddleware))
+        elif spec["kind"] == "base-http-passthrough":
+            middleware.append(Middleware(BaseHTTPMiddleware, dispatch=base_http_passthrough))
+        elif spec["kind"] == "base-http-read-body":
+            middleware.append(Middleware(BaseHTTPMiddleware, dispatch=base_http_read_body))
         elif spec["kind"] == "authentication-basic":
             middleware.append(Middleware(AuthenticationMiddleware, backend=BasicAuthBackend()))
         else:
@@ -6266,6 +6288,8 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             "routes",
             "observations",
         }
+        if "max_body_size" in case:
+            router_keys.add("max_body_size")
         router_keys |= {"steps"} if router_sequence else {"scope", "incoming", "send"}
         if "observe_router_scope" in case:
             router_keys.add("observe_router_scope")
@@ -6333,6 +6357,16 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         register_url_convertor(spec["name"], InputConvertor(spec))
 
     def make_endpoint(endpoint_spec: dict[str, Any], route_index: int) -> Any:
+        if endpoint_spec.get("kind") == "request-body-echo":
+            _strict_object(endpoint_spec, {"kind"}, "request-body echo endpoint")
+
+            async def request_body_echo(request: Any) -> Any:
+                if is_router:
+                    route_index_observations.append(route_index)
+                return Response(await request.body())
+
+            return request_body_echo
+
         if endpoint_spec.get("kind") == "http-class-based-endpoint":
             _strict_object(endpoint_spec, {"kind", "handlers"}, "HTTP class endpoint input")
 
@@ -6502,17 +6536,28 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
     def make_mount_child(route_spec: dict[str, Any], route_index: int = 0) -> Any:
         kind = route_spec.get("kind") if isinstance(route_spec, dict) else None
         if kind == "mount":
-            _strict_object(route_spec, {"kind", "path", "routes"}, "Nested Mount input")
+            _strict_object(
+                route_spec,
+                {"kind", "path", "routes", "max_body_size"}
+                if "max_body_size" in route_spec
+                else {"kind", "path", "routes"},
+                "Nested Mount input",
+            )
             nested_routes = route_spec["routes"]
             if not isinstance(nested_routes, list):
                 raise ValueError("Nested Mount routes must be an array")
             return Mount(
                 route_spec["path"],
                 routes=[make_mount_child(child, route_index) for child in nested_routes],
+                max_body_size=route_spec.get("max_body_size"),
             )
         if (
             not isinstance(route_spec, dict)
-            or set(route_spec) != {"kind", "path", "methods", "endpoint"}
+            or frozenset(route_spec)
+            not in {
+                frozenset({"kind", "path", "methods", "endpoint"}),
+                frozenset({"kind", "path", "methods", "endpoint", "max_body_size"}),
+            }
             or kind != "http-route"
         ):
             raise ValueError("Mount child input must be a declared http-route or mount record")
@@ -6520,6 +6565,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             route_spec["path"],
             make_endpoint(route_spec["endpoint"], route_index),
             methods=route_spec["methods"],
+            max_body_size=route_spec.get("max_body_size"),
         )
 
     async def run() -> tuple[Any, dict[str, Any] | None]:
@@ -6555,7 +6601,11 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                     continue
                 if (
                     not isinstance(route_spec, dict)
-                    or set(route_spec) != {"kind", "path", "methods", "endpoint"}
+                    or frozenset(route_spec)
+                    not in {
+                        frozenset({"kind", "path", "methods", "endpoint"}),
+                        frozenset({"kind", "path", "methods", "endpoint", "max_body_size"}),
+                    }
                     or route_spec["kind"] != "http-route"
                 ):
                     raise ValueError("route input must be a declared http-route record")
@@ -6564,6 +6614,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                         route_spec["path"],
                         make_endpoint(route_spec["endpoint"], route_index),
                         methods=route_spec["methods"],
+                        max_body_size=route_spec.get("max_body_size"),
                     )
                 )
 
@@ -6571,11 +6622,22 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             application = Router(
                 routes=route_objects,
                 redirect_slashes=case["redirect_slashes"],
+                max_body_size=case.get("max_body_size"),
             )
         else:
             mount_spec = case["mount"]
-            _strict_object(mount_spec, {"path", "routes"}, "Mount input")
-            application = Mount(mount_spec["path"], routes=route_objects)
+            _strict_object(
+                mount_spec,
+                {"path", "routes", "max_body_size"}
+                if "max_body_size" in mount_spec
+                else {"path", "routes"},
+                "Mount input",
+            )
+            application = Mount(
+                mount_spec["path"],
+                routes=route_objects,
+                max_body_size=mount_spec.get("max_body_size"),
+            )
 
         async def dispatch(
             scope_spec: dict[str, Any], incoming_spec: list[dict[str, Any]]
@@ -6598,7 +6660,18 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                 sent.append(message)
 
             await application(scope, receive, send)
-            if incoming_index != len(incoming):
+            declared_limits = [
+                int(base64.b64decode(value, validate=True))
+                for name, value in scope_spec["headers_base64_pairs"]
+                if base64.b64decode(name, validate=True).lower() == b"content-length"
+                and base64.b64decode(value, validate=True).isdigit()
+            ]
+            content_length_precheck_left_body = (
+                incoming_index == 0
+                and isinstance(case.get("max_body_size"), int)
+                and any(length > case["max_body_size"] for length in declared_limits)
+            )
+            if incoming_index != len(incoming) and not content_length_precheck_left_body:
                 raise ValueError("route-dispatch left incoming messages unconsumed")
 
             events = [_canonical_message(message) for message in sent]

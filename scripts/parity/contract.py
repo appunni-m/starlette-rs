@@ -1153,6 +1153,7 @@ BODY_LIMIT_REQUIREMENT_CONSTRUCTION = (
 BODY_LIMIT_REQUIREMENTS = {
     "content-length-precheck": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-precheck",
     "content-length-replacement": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-replacement",
+    "exact-limit-success": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.exact-limit-success",
     "streamed-body-count": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.streamed-body-count",
     "multipart-body-counts-encoding-overhead": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.multipart-body-counts-encoding-overhead",
     "understated-content-length": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.understated-content-length",
@@ -1161,6 +1162,7 @@ BODY_LIMIT_REQUIREMENTS = {
     "already-started-propagation": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.already-started-propagation",
     "scope-restoration": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
     "non-http-pass-through": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.non-http-pass-through",
+    "non-request-message-pass-through": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.non-request-message-pass-through",
 }
 GZIP_REQUIREMENT_CONSTRUCTION = "starlette.middleware.gzip.GZipMiddleware.construct"
 GZIP_REQUIREMENTS = {
@@ -6301,11 +6303,16 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         _validate_router_sequence_case_stimulus(case)
         return
     optional_keys = {"observe_router_scope"} if "observe_router_scope" in case else set()
+    if "max_body_size" in case:
+        optional_keys.add("max_body_size")
     _exact(case, ROUTER_CASE_KEYS | optional_keys, "Router route-dispatch case")
     if case["surface"] != ROUTER_SURFACE or case["operation"] != ROUTER_OPERATION:
         raise ContractError("case is outside the declared Router route-dispatch operation")
     if case["observations"] != [ROUTER_OPERATION]:
         raise ContractError("Router observations must select route-dispatch")
+    if "max_body_size" in case:
+        _validate_router_body_limit_case(case)
+        return
     if type(case["redirect_slashes"]) is not bool:
         raise ContractError("Router redirect_slashes must be boolean")
     if not isinstance(case["routes"], list) or not case["routes"]:
@@ -6523,6 +6530,100 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             "Router case claims route requirements not exercised by its route and scope inputs: "
             f"{sorted(claimed - derived)}"
         )
+
+
+def _validate_router_body_limit_case(case: dict[str, Any]) -> None:
+    router_requirement = "starlette.routing.Router.route-dispatch.max-body-size"
+    mount_requirement = "starlette.routing.Mount.route-dispatch.max-body-size-override"
+    if (
+        case["target_profiles"] != ["python-package-cpython312"]
+        or case["assets"] != []
+        or case["custom_convertors"] != []
+        or case["redirect_slashes"] is not True
+    ):
+        raise ContractError("Router body-limit case differs from its bounded package setup")
+    router_limit = case["max_body_size"]
+    if type(router_limit) is not int or router_limit < 0:
+        raise ContractError("Router max_body_size must be a non-negative integer")
+    scope = case["scope"]
+    routes = case["routes"]
+    if not isinstance(routes, list) or len(routes) != 1 or not isinstance(scope, dict):
+        raise ContractError("Router body-limit input requires one route and one HTTP scope")
+    route = routes[0]
+    if isinstance(route, dict) and route.get("kind") == "http-route":
+        route = _exact(route, {"kind", "path", "methods", "endpoint"}, "body-limit Route")
+        endpoint = _exact(route["endpoint"], {"kind"}, "body-limit endpoint")
+        if (
+            route["kind"] != "http-route"
+            or route["path"] != scope.get("path")
+            or route["methods"] != ["POST"]
+            or endpoint["kind"] != "request-body-echo"
+        ):
+            raise ContractError("Router body-limit input must POST to one body-echo Route")
+        requirement = router_requirement
+    elif isinstance(route, dict) and route.get("kind") == "mount":
+        route = _exact(route, {"kind", "path", "max_body_size", "routes"}, "body-limit Mount")
+        mount_limit = route["max_body_size"]
+        if (
+            route["kind"] != "mount"
+            or not isinstance(route["path"], str)
+            or type(mount_limit) is not int
+            or mount_limit < 0
+            or not isinstance(route["routes"], list)
+            or len(route["routes"]) != 1
+        ):
+            raise ContractError("Mount body-limit input must declare one bounded child Route")
+        child = _exact(route["routes"][0], {"kind", "path", "methods", "endpoint"}, "mounted Route")
+        endpoint = _exact(child["endpoint"], {"kind"}, "mounted body-limit endpoint")
+        if (
+            child["kind"] != "http-route"
+            or child["path"] != "/"
+            or child["methods"] != ["POST"]
+            or endpoint["kind"] != "request-body-echo"
+            or scope.get("path") != route["path"].rstrip("/") + "/"
+            or mount_limit < router_limit
+        ):
+            raise ContractError("Mount body limit must raise the enclosing limit for its child")
+        requirement = mount_requirement
+    else:
+        raise ContractError("Router body-limit case must cover exactly one declared behavior")
+    if case["covers"] != [requirement]:
+        raise ContractError("Router body-limit coverage must follow its input-defined route shape")
+
+    if scope.get("type") != "http" or scope.get("method") != "POST":
+        raise ContractError("Router body-limit dispatch requires an HTTP POST scope")
+    headers = [
+        (
+            base64.b64decode(pair[0], validate=True).lower(),
+            base64.b64decode(pair[1], validate=True),
+        )
+        for pair in scope.get("headers_base64_pairs", [])
+    ]
+    content_lengths = [value for name, value in headers if name == b"content-length"]
+    incoming = case["incoming"]
+    if (
+        not isinstance(incoming, list)
+        or len(incoming) != 1
+        or incoming[0].get("type") != "http.request"
+        or incoming[0].get("more_body") is not False
+    ):
+        raise ContractError("Router body-limit dispatch requires one final body event")
+    body = base64.b64decode(incoming[0]["body_base64"], validate=True)
+    if not body or len(content_lengths) != 1 or content_lengths[0] != str(len(body)).encode():
+        raise ContractError("Router body-limit input must declare its complete non-empty body")
+    if requirement == router_requirement:
+        if len(body) <= router_limit:
+            raise ContractError("Router body-limit input must exceed Router.max_body_size")
+    elif not (len(body) > router_limit and len(body) <= route["max_body_size"]):
+        raise ContractError("Mount body must exceed the outer limit and fit its override")
+    _validate_dispatch_stimulus(
+        {"scope": scope, "receive": incoming, "send": case["send"]},
+        request_dispatch=True,
+        allow_headers=True,
+        allow_nonempty_body=True,
+    )
+    if case["send"] != {"kind": "capture-asgi-send"}:
+        raise ContractError("Router body-limit input requires the captured ASGI send collector")
 
 
 def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
@@ -11604,6 +11705,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = FORM_DATA_CASE_KEYS
     if is_router and isinstance(case, dict) and "observe_router_scope" in case:
         expected_case_keys = expected_case_keys | {"observe_router_scope"}
+    if is_router and isinstance(case, dict) and "max_body_size" in case:
+        expected_case_keys = expected_case_keys | {"max_body_size"}
     if is_response and isinstance(case, dict) and "render_override" in case:
         expected_case_keys = expected_case_keys | {"render_override"}
     if (
@@ -15087,7 +15190,7 @@ def _is_route_body_limit_workflow(case: Any) -> bool:
         isinstance(route, dict)
         and route.get("kind") == "http-route"
         and "max_body_size" in route
-        and route.get("endpoint") == {"kind": "request-body-echo"}
+        and _is_route_body_limit_endpoint(route.get("endpoint"))
     )
 
 
@@ -15101,7 +15204,20 @@ def _is_route_body_limit_application(arguments: Any) -> bool:
     return (
         route.get("kind") == "http-route"
         and "max_body_size" in route
-        and route.get("endpoint") == {"kind": "request-body-echo"}
+        and _is_route_body_limit_endpoint(route.get("endpoint"))
+    )
+
+
+def _is_route_body_limit_endpoint(endpoint: Any) -> bool:
+    return endpoint == {"kind": "request-body-echo"} or (
+        isinstance(endpoint, dict)
+        and set(endpoint) == {"kind", "content", "status_code", "media_type", "cookies"}
+        and endpoint.get("kind") == "plain-text-response"
+        and isinstance(endpoint.get("content"), str)
+        and type(endpoint.get("status_code")) is int
+        and 100 <= endpoint["status_code"] <= 599
+        and isinstance(endpoint.get("media_type"), str)
+        and endpoint.get("cookies") == []
     )
 
 
@@ -15116,8 +15232,13 @@ def _validate_route_body_limit_application(arguments: dict[str, Any]) -> None:
         raise ContractError("route body-limit middleware must be an input-defined array")
     for index, middleware_spec in enumerate(middleware):
         spec = _exact(middleware_spec, {"kind"}, f"route body-limit middleware[{index}]")
-        if spec["kind"] != "copy-scope":
-            raise ContractError("route body-limit middleware supports only the copy-scope action")
+        if spec["kind"] not in {
+            "copy-scope",
+            "read-before-application",
+            "base-http-passthrough",
+            "base-http-read-body",
+        }:
+            raise ContractError("route body-limit middleware uses an unsupported input action")
     if (
         arguments["debug"] is not False
         or arguments["exception_handlers"] != []
@@ -15139,13 +15260,15 @@ def _validate_route_body_limit_application(arguments: dict[str, Any]) -> None:
         or not isinstance(route["path"], str)
         or not route["path"].startswith("/")
         or route["methods"] != ["POST"]
-        or route["endpoint"] != {"kind": "request-body-echo"}
+        or not _is_route_body_limit_endpoint(route["endpoint"])
         or (
             route["max_body_size"] is not None
             and (type(route["max_body_size"]) is not int or route["max_body_size"] < 0)
         )
     ):
-        raise ContractError("route body-limit route must echo one POST body with an optional limit")
+        raise ContractError(
+            "route body-limit route must use an input-defined response endpoint and optional limit"
+        )
 
 
 def _route_body_limit_requirement_from_input(case: dict[str, Any]) -> str | None:
@@ -19910,6 +20033,7 @@ def _validate_body_limit_case_stimulus(case: dict[str, Any]) -> None:
         },
         request_dispatch=True,
         allow_headers=True,
+        allow_http_disconnect=True,
     )
     if dispatch_args["send"]["value"] != {"kind": "capture-asgi-send"}:
         raise ContractError("body-limit send must select the fixed ASGI capture collector")
@@ -19950,7 +20074,9 @@ def _body_limit_semantic_coverage(case: dict[str, Any]) -> set[str]:
         except ValueError:
             invalid_length = True
     messages = dispatch_args["receive"]
-    body_lengths = [len(base64.b64decode(item["body_base64"], validate=True)) for item in messages]
+    body_lengths = [
+        len(base64.b64decode(item.get("body_base64", ""), validate=True)) for item in messages
+    ]
     max_body_size = constructor_args["max_body_size"]
 
     def flatten(
@@ -19982,6 +20108,23 @@ def _body_limit_semantic_coverage(case: dict[str, Any]) -> set[str]:
     ):
         coverage.add(BODY_LIMIT_REQUIREMENTS["content-length-replacement"])
     received_sizes = body_lengths[: len(receive_actions)]
+    received_messages = messages[: len(receive_actions)]
+    request_body_total = sum(
+        size
+        for message, size in zip(received_messages, received_sizes, strict=False)
+        if message["type"] == "http.request"
+    )
+    if any(message["type"] != "http.request" for message in received_messages):
+        coverage.add(BODY_LIMIT_REQUIREMENTS["non-request-message-pass-through"])
+    if (
+        request_body_total == max_body_size
+        and any(message["type"] == "http.request" for message in received_messages)
+        and any(
+            action["action"] == "send" and action["message"].get("type") == "http.response.start"
+            for action, _limit in actions
+        )
+    ):
+        coverage.add(BODY_LIMIT_REQUIREMENTS["exact-limit-success"])
     accumulated_size = 0
     exceeded_after_start = False
     response_started = False

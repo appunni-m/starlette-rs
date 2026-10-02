@@ -1206,6 +1206,7 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
     )
     from starlette.middleware import Middleware
     from starlette.middleware.authentication import AuthenticationMiddleware
+    from starlette.middleware.base import BaseHTTPMiddleware
 
     if not isinstance(middleware_specs, list):
         raise ValueError("application middleware input must be an array")
@@ -1216,6 +1217,21 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
 
         async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
             await self.app(dict(scope), receive, send)
+
+    class ReadBeforeApplicationMiddleware:
+        def __init__(self, app: Any) -> None:
+            self.app = app
+
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            await receive()
+            await self.app(scope, receive, send)
+
+    async def base_http_passthrough(request: Any, call_next: Any) -> Any:
+        return await call_next(request)
+
+    async def base_http_read_body(request: Any, call_next: Any) -> Any:
+        await request.body()
+        return await call_next(request)
 
     class BasicAuthBackend:
         async def authenticate(self, connection: Any) -> Any:
@@ -1239,6 +1255,12 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
         spec = _exact_object(raw_spec, {"kind"}, f"application middleware[{index}]")
         if spec["kind"] == "copy-scope":
             middleware.append(Middleware(CopyScopeMiddleware))
+        elif spec["kind"] == "read-before-application":
+            middleware.append(Middleware(ReadBeforeApplicationMiddleware))
+        elif spec["kind"] == "base-http-passthrough":
+            middleware.append(Middleware(BaseHTTPMiddleware, dispatch=base_http_passthrough))
+        elif spec["kind"] == "base-http-read-body":
+            middleware.append(Middleware(BaseHTTPMiddleware, dispatch=base_http_read_body))
         elif spec["kind"] == "authentication-basic":
             middleware.append(Middleware(AuthenticationMiddleware, backend=BasicAuthBackend()))
         else:
@@ -4343,6 +4365,20 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
 
     def make_route(route_spec: dict[str, Any], route_index: int) -> Any:
         response_spec = route_spec["endpoint"]
+        if response_spec.get("kind") == "request-body-echo":
+            _exact_object(response_spec, {"kind"}, "request-body echo endpoint")
+
+            async def endpoint(request: Any) -> Any:
+                route_index_observations.append(route_index)
+                return Response(await request.body())
+
+            return Route(
+                route_spec["path"],
+                endpoint=endpoint,
+                methods=route_spec["methods"],
+                max_body_size=route_spec.get("max_body_size"),
+            )
+
         if response_spec.get("kind") == "http-class-based-endpoint":
             if set(response_spec) != {"kind", "handlers"}:
                 raise ValueError("HTTP class endpoint input has unsupported fields")
@@ -4416,7 +4452,12 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                     raise ValueError("HTTP class endpoint call_style must be async or sync")
 
             endpoint_class = type("InputHTTPEndpoint", (HTTPEndpoint,), class_attributes)
-            return Route(route_spec["path"], endpoint=endpoint_class, methods=route_spec["methods"])
+            return Route(
+                route_spec["path"],
+                endpoint=endpoint_class,
+                methods=route_spec["methods"],
+                max_body_size=route_spec.get("max_body_size"),
+            )
 
         if response_spec.get("kind") == "sync-datetime-json-response":
 
@@ -4429,7 +4470,10 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                 )
 
             return Route(
-                route_spec["path"], endpoint=datetime_endpoint, methods=route_spec["methods"]
+                route_spec["path"],
+                endpoint=datetime_endpoint,
+                methods=route_spec["methods"],
+                max_body_size=route_spec.get("max_body_size"),
             )
 
         if response_spec.get("kind") == "sync-plain-text-response":
@@ -4453,7 +4497,12 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                     response.set_cookie(key=cookie["key"], value=cookie["value"])
                 return response
 
-            return Route(route_spec["path"], endpoint=endpoint, methods=route_spec["methods"])
+            return Route(
+                route_spec["path"],
+                endpoint=endpoint,
+                methods=route_spec["methods"],
+                max_body_size=route_spec.get("max_body_size"),
+            )
 
         if response_spec["kind"] not in {"plain-text-response", "converted-path-response"}:
             raise ValueError(f"unsupported route endpoint input: {response_spec['kind']!r}")
@@ -4470,11 +4519,19 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                 media_type=response_spec["media_type"],
             )
 
-        return Route(route_spec["path"], endpoint=endpoint, methods=route_spec["methods"])
+        return Route(
+            route_spec["path"],
+            endpoint=endpoint,
+            methods=route_spec["methods"],
+            max_body_size=route_spec.get("max_body_size"),
+        )
 
     def make_mount_child(route_spec: dict[str, Any], route_index: int = 0) -> Any:
         if route_spec.get("kind") == "mount":
-            if set(route_spec) != {"kind", "path", "routes"}:
+            if frozenset(route_spec) not in {
+                frozenset({"kind", "path", "routes"}),
+                frozenset({"kind", "path", "routes", "max_body_size"}),
+            }:
                 raise ValueError("nested Mount input has unsupported fields")
             nested_routes = route_spec["routes"]
             if not isinstance(nested_routes, list):
@@ -4482,6 +4539,7 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
             return Mount(
                 route_spec["path"],
                 routes=[make_mount_child(child, route_index) for child in nested_routes],
+                max_body_size=route_spec.get("max_body_size"),
             )
         if route_spec.get("kind") != "http-route":
             raise ValueError("Mount child kind must be http-route or mount")
@@ -4514,14 +4572,19 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                 for index, route in enumerate(case["routes"])
             ],
             redirect_slashes=redirect_slashes,
+            max_body_size=case.get("max_body_size"),
         )
     elif case["surface"] == "starlette.routing.Mount":
         mount = case["mount"]
-        if set(mount) != {"path", "routes"}:
+        if frozenset(mount) not in {
+            frozenset({"path", "routes"}),
+            frozenset({"path", "routes", "max_body_size"}),
+        }:
             raise ValueError("Mount input has unsupported fields")
         app = Mount(
             mount["path"],
             routes=[make_mount_child(route) for route in mount["routes"]],
+            max_body_size=mount.get("max_body_size"),
         )
     else:
         raise ValueError("route-dispatch case has an unsupported surface")

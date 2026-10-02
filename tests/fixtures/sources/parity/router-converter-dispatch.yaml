@@ -2253,6 +2253,149 @@
       "custom_convertors": [],
       "redirect_slashes": true,
       "observe_router_scope": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.max-body-size",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.max-body-size"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/upload",
+          "methods": [
+            "POST"
+          ],
+          "endpoint": {
+            "kind": "request-body-echo"
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/upload",
+        "raw_path_base64": "L3VwbG9hZA==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC1sZW5ndGg=",
+            "Ng=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [
+        {
+          "type": "http.request",
+          "body_base64": "MTIzNDU2",
+          "more_body": false
+        }
+      ],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "max_body_size": 5
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.mount-max-body-size-override",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Mount.route-dispatch.max-body-size-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "mount",
+          "path": "/upload",
+          "max_body_size": 10,
+          "routes": [
+            {
+              "kind": "http-route",
+              "path": "/",
+              "methods": [
+                "POST"
+              ],
+              "endpoint": {
+                "kind": "request-body-echo"
+              }
+            }
+          ]
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/upload/",
+        "raw_path_base64": "L3VwbG9hZC8=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC1sZW5ndGg=",
+            "OA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [
+        {
+          "type": "http.request",
+          "body_base64": "MTIzNDU2Nzg=",
+          "more_body": false
+        }
+      ],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "max_body_size": 5
     }
   ]
 }

@@ -5591,32 +5591,55 @@
               {
                 "id": "source",
                 "style": "option",
-                "value_types": ["record"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "probe_keys",
                 "style": "option",
-                "value_types": ["sequence"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "comparison",
                 "style": "option",
-                "value_types": ["record", "null"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "actions",
                 "style": "option",
-                "value_types": ["sequence"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "typing_contract",
                 "style": "option",
-                "value_types": ["record", "null"],
-                "omission": {"kind": "literal", "value": null}
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -5624,19 +5647,33 @@
               "observations": [
                 {
                   "path": "mutation-sequence",
-                  "value_types": ["record"],
-                  "comparison": {"kind": "exact"}
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 },
                 {
                   "path": "typing_contract",
-                  "value_types": ["record"],
-                  "comparison": {"kind": "exact"},
-                  "condition": {"input_key": "typing_contract"}
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "typing_contract"
+                  }
                 }
               ],
               "error": {
                 "fields": [],
-                "message": {"mode": "exact", "transforms": [], "reason": null}
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
               }
             }
           },
@@ -5645,13 +5682,17 @@
               "target_id": "rust-native",
               "path": "starlette_rs::MultiDict<K, V>",
               "signature": "MultiDict::from_pairs with duplicate-preserving lookup and mutation operations",
-              "support": {"status": "supported"}
+              "support": {
+                "status": "supported"
+              }
             },
             {
               "target_id": "python-package",
               "path": "starlette.datastructures.MultiDict",
               "signature": "MultiDict(*args, **kwargs) with Rust-backed mapping and mutation behavior",
-              "support": {"status": "supported"}
+              "support": {
+                "status": "supported"
+              }
             }
           ],
           "requirements": [
@@ -5659,69 +5700,116 @@
               "id": "starlette.datastructures.MultiDict.constructor-input-forms",
               "dimension": "input_family",
               "description": "Construct from empty input, ordered pairs, mappings, another MultiDict, and keyword pairs. Pinned source: starlette/datastructures.py:256-280, 322-323; tests/test_datastructures.py::test_multidict.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
               "dimension": "protocol_variant",
               "description": "Retain duplicate pair order while mapping lookups, keys, values, items, iteration, membership, length, and dict conversion use the last value per key. Pinned source: starlette/datastructures.py:284-309; tests/test_datastructures.py::test_multidict.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.datastructures.MultiDict.item-set-and-delete",
               "dimension": "protocol_variant",
               "description": "Replacing an item collapses its duplicates and deleting it removes its mapping entry and all corresponding pairs. Pinned source: starlette/datastructures.py:323-328; tests/test_datastructures.py::test_multidict.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.datastructures.MultiDict.pop-family",
               "dimension": "parameter_combination",
               "description": "Preserve final-value pop, last-inserted mapping popitem, ordered poplist, and duplicate removal. Pinned source: starlette/datastructures.py:330-342; tests/test_datastructures.py::test_multidict.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.datastructures.MultiDict.clear-and-setlist",
               "dimension": "parameter_combination",
               "description": "Clear all entries and replace or remove one key's full ordered value list. Pinned source: starlette/datastructures.py:344-361; tests/test_datastructures.py::test_multidict.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.datastructures.MultiDict.setdefault-and-append",
               "dimension": "parameter_combination",
               "description": "Keep an existing final value for setdefault, append duplicate values, and maintain mapping key insertion order. Pinned source: starlette/datastructures.py:348-365; tests/test_datastructures.py::test_multidict.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.datastructures.MultiDict.update",
               "dimension": "protocol_variant",
               "description": "Replace all current values for updated keys, retain other pair order, and append supplied ordered pairs. Pinned source: starlette/datastructures.py:367-375; tests/test_datastructures.py::test_multidict.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.datastructures.MultiDict.repr-and-equality",
               "dimension": "format",
               "description": "Match the public MultiDict representation and compare duplicate-preserving pairs without depending on their order. Pinned source: starlette/datastructures.py:311-319; tests/test_datastructures.py::test_multidict.",
-              "lanes": ["parity"],
-              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.datastructures.MultiDict.generic-typing",
               "dimension": "type_contract",
               "description": "Preserve ImmutableMultiDict generic key and covariant value types for item lookup, list lookup, and mapping views, while keeping MultiDict mutation methods statically callable. Pinned source: starlette/datastructures.py:253-375; verified through public consumer snippets with the pinned type checker.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
-            "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
           },
           "coverage": {
             "applicability": "not_applicable",
@@ -8426,6 +8514,28 @@
               "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.non-http-pass-through",
               "dimension": "protocol_variant",
               "description": "Forward non-HTTP scopes without inserting body-limit responder or maximum-size keys.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.non-request-message-pass-through",
+              "dimension": "protocol_variant",
+              "description": "Forward a non-http.request receive event unchanged without counting it as request-body bytes. Pinned source: starlette/middleware/body_limit.py::RequestBodyLimitResponder.receive_with_limit; tests/middleware/test_body_limit.py::test_non_request_message_passes_through.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.exact-limit-success",
+              "dimension": "boundary",
+              "description": "Allow an HTTP request whose accumulated body size exactly equals max_body_size to proceed. Pinned source: starlette/middleware/body_limit.py::RequestBodyLimitResponder.receive_with_limit; tests/middleware/test_body_limit.py::test_body_size_limit.",
               "lanes": [
                 "parity"
               ],
@@ -15589,6 +15699,17 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Mount.route-dispatch.max-body-size-override",
+              "dimension": "parameter_combination",
+              "description": "Allow a mounted application with Mount.max_body_size to raise an enclosing Router or application request-body limit. Pinned source: starlette/routing.py::Mount.__init__; tests/middleware/test_body_limit.py::test_mount_can_override_application_limit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -16393,7 +16514,8 @@
                   "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected",
                   "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
                   "starlette.routing.Router.route-dispatch.http-endpoint-method-handler",
-                  "starlette.routing.Router.route-dispatch.http-endpoint-head-get-fallback"
+                  "starlette.routing.Router.route-dispatch.http-endpoint-head-get-fallback",
+                  "starlette.routing.Router.route-dispatch.max-body-size"
                 ]
               }
             },
@@ -16802,6 +16924,17 @@
               "id": "starlette.routing.Router.route-dispatch.http-endpoint-head-get-fallback",
               "dimension": "parameter_combination",
               "description": "HTTPEndpoint serves a HEAD request with the GET handler when no explicit HEAD handler exists.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.max-body-size",
+              "dimension": "boundary",
+              "description": "Apply Router.max_body_size while dispatching a matching child Route and reject a declared oversized body. Pinned source: starlette/routing.py::Router.__init__; tests/middleware/test_body_limit.py::test_router_limit.",
               "lanes": [
                 "parity"
               ],
