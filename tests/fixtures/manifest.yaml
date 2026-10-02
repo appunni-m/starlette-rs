@@ -299,6 +299,7 @@
       "build/parity/inputs/parity/authentication-runtime.json",
       "build/parity/inputs/parity/authentication-user-interface.json",
       "build/parity/inputs/parity/authentication-required-routes.json",
+      "build/parity/inputs/parity/authentication-required-websockets.json",
       "build/parity/inputs/parity/static-files.json",
       "build/parity/inputs/parity/static-files-symlink-asgi.json",
       "build/parity/inputs/parity/static-files-lookup.json",
@@ -933,6 +934,72 @@
               "id": "starlette.applications.Starlette.__call__.authentication-required.invalid-basic-credentials",
               "dimension": "error_path",
               "description": "Send malformed Basic credentials through AuthenticationMiddleware while dispatching the protected async dashboard route; compare the 400 response and error text. Upstream: tests/test_authentication.py::test_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required-websocket.plain-denied",
+              "dimension": "error_path",
+              "description": "Dispatch /ws through AuthenticationMiddleware to the source requires('authenticated') WebSocket endpoint without credentials, which must close before acceptance. Upstream: tests/test_authentication.py::test_websocket_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required-websocket.plain-invalid-basic-credentials",
+              "dimension": "error_path",
+              "description": "Dispatch /ws through AuthenticationMiddleware to the source requires('authenticated') WebSocket endpoint with malformed Basic credentials, which AuthenticationMiddleware must close. Upstream: tests/test_authentication.py::test_websocket_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required-websocket.plain-authorized",
+              "dimension": "success_path",
+              "description": "Dispatch /ws through AuthenticationMiddleware to the source requires('authenticated') WebSocket endpoint with valid Basic credentials and compare the emitted user JSON. Upstream: tests/test_authentication.py::test_websocket_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required-websocket.decorated-denied",
+              "dimension": "error_path",
+              "description": "Dispatch /ws/decorated through AuthenticationMiddleware to the source injection-wrapped requires('authenticated') WebSocket endpoint without credentials, which must close before acceptance. Upstream: tests/test_authentication.py::test_websocket_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required-websocket.decorated-invalid-basic-credentials",
+              "dimension": "error_path",
+              "description": "Dispatch /ws/decorated through AuthenticationMiddleware to the source injection-wrapped requires('authenticated') WebSocket endpoint with malformed Basic credentials, which AuthenticationMiddleware must close. Upstream: tests/test_authentication.py::test_websocket_authentication_required.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-required-websocket.decorated-authorized",
+              "dimension": "success_path",
+              "description": "Dispatch /ws/decorated through AuthenticationMiddleware to the source injection-wrapped requires('authenticated') WebSocket endpoint with valid Basic credentials and compare the emitted user JSON. Upstream: tests/test_authentication.py::test_websocket_authentication_required.",
               "lanes": [
                 "parity"
               ],

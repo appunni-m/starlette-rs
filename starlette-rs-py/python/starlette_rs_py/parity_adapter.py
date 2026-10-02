@@ -1454,6 +1454,53 @@ def _materialize_application(
                     return endpoint
 
                 websocket_endpoint = make_websocket_exception_endpoint(endpoint_spec)
+            elif endpoint_spec["kind"] == "authentication-required-websocket":
+                _exact_object(
+                    endpoint_spec,
+                    {"kind", "form", "required_scopes"},
+                    "authentication-required WebSocket endpoint",
+                )
+                from starlette.authentication import requires
+
+                form = endpoint_spec["form"]
+                required_scopes = endpoint_spec["required_scopes"]
+
+                async def send_authenticated_websocket_payload(
+                    websocket: Any, additional: str | None = None
+                ) -> None:
+                    payload = {
+                        "authenticated": websocket.user.is_authenticated,
+                        "user": websocket.user.display_name,
+                    }
+                    if additional is not None:
+                        payload["additional"] = additional
+                    await websocket.accept()
+                    await websocket.send_json(payload)
+
+                if form == "plain":
+
+                    async def endpoint(websocket: Any) -> None:
+                        await send_authenticated_websocket_payload(websocket)
+
+                    websocket_endpoint = requires(required_scopes)(endpoint)
+                elif form == "decorated":
+
+                    async def protected_endpoint(websocket: Any, additional: str) -> None:
+                        await send_authenticated_websocket_payload(websocket, additional)
+
+                    protected = requires(required_scopes)(protected_endpoint)
+
+                    def make_injected_endpoint(protected_callable: Any) -> Any:
+                        async def endpoint(websocket: Any) -> None:
+                            await protected_callable(websocket=websocket, additional="payload")
+
+                        return endpoint
+
+                    websocket_endpoint = make_injected_endpoint(protected)
+                else:
+                    raise ValueError(
+                        "authentication-required WebSocket endpoint has an unsupported form"
+                    )
             else:
                 raise ValueError("WebSocket route endpoint uses an unsupported input kind")
             routes.append(WebSocketRoute(route_spec["path"], websocket_endpoint))

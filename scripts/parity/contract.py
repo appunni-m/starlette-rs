@@ -591,6 +591,18 @@ AUTHENTICATION_REQUIRED_ROUTE_PATHS = {
     "decorated-async": "/dashboard/decorated",
     "decorated-sync": "/dashboard/decorated/sync",
 }
+AUTHENTICATION_REQUIRED_WEBSOCKET_REQUIREMENTS = {
+    "plain-denied": "starlette.applications.Starlette.__call__.authentication-required-websocket.plain-denied",
+    "plain-authorized": "starlette.applications.Starlette.__call__.authentication-required-websocket.plain-authorized",
+    "plain-invalid-basic-credentials": "starlette.applications.Starlette.__call__.authentication-required-websocket.plain-invalid-basic-credentials",
+    "decorated-denied": "starlette.applications.Starlette.__call__.authentication-required-websocket.decorated-denied",
+    "decorated-authorized": "starlette.applications.Starlette.__call__.authentication-required-websocket.decorated-authorized",
+    "decorated-invalid-basic-credentials": "starlette.applications.Starlette.__call__.authentication-required-websocket.decorated-invalid-basic-credentials",
+}
+AUTHENTICATION_REQUIRED_WEBSOCKET_PATHS = {
+    "plain": "/ws",
+    "decorated": "/ws/decorated",
+}
 RUST_OWNED_PYTHON_OPERATIONS = (
     CONFIG_OPERATIONS
     | SCHEMA_OPERATIONS
@@ -12631,6 +12643,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                     or is_route_body_limit_workflow
                     or _is_authentication_user_interface_application(app_args)
                     or _is_authentication_required_route_application(app_args)
+                    or _is_authentication_required_websocket_application(app_args)
                 ),
                 allow_query=case["operation"] == "__call__",
                 allow_lifespan_callback_failures=lifespan_only,
@@ -12653,6 +12666,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 "authentication-required dispatch selects only the Python-package profile"
             )
         _validate_authentication_required_route_dispatch(dispatch_args, app_args["routes"][0])
+    if _is_authentication_required_websocket_application(app_args):
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError(
+                "authentication-required WebSocket dispatch selects only the Python-package profile"
+            )
+        _validate_authentication_required_websocket_dispatch(dispatch_args, app_args)
     routes = app_args.get("routes") if isinstance(app_args, dict) else None
     cookie_endpoint = (
         routes[0].get("endpoint")
@@ -12672,7 +12691,11 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             )
     if is_route_body_limit_workflow:
         _validate_route_body_limit_workflow(case)
-    if not is_protocol_middleware and app_args["routes"][0]["kind"] == "websocket-route":
+    if (
+        not is_protocol_middleware
+        and app_args["routes"][0]["kind"] == "websocket-route"
+        and not _is_authentication_required_websocket_application(app_args)
+    ):
         _validate_websocket_exception_dispatch(app_args, dispatch_args)
     elif (
         not is_starlette_add_exception_handler_workflow
@@ -14010,6 +14033,18 @@ def _is_authentication_required_route_application(args: dict[str, Any]) -> bool:
     return isinstance(endpoint, dict) and endpoint.get("kind") == "authentication-required-route"
 
 
+def _is_authentication_required_websocket_application(args: dict[str, Any]) -> bool:
+    routes = args.get("routes")
+    if not isinstance(routes, list) or len(routes) != 1 or not isinstance(routes[0], dict):
+        return False
+    endpoint = routes[0].get("endpoint")
+    return (
+        routes[0].get("kind") == "websocket-route"
+        and isinstance(endpoint, dict)
+        and endpoint.get("kind") == "authentication-required-websocket"
+    )
+
+
 def _authentication_middleware_outcome(scope: dict[str, Any]) -> str:
     """Classify the input using the pinned test backend's credential parsing boundary."""
     authorization_values = []
@@ -14107,6 +14142,38 @@ def _validate_authentication_required_route_application(args: dict[str, Any]) ->
         raise ContractError("authentication-required route differs from its source stimulus")
 
 
+def _validate_authentication_required_websocket_application(args: dict[str, Any]) -> None:
+    if (
+        args["debug"] is not False
+        or args["middleware"] != [{"kind": "authentication-basic"}]
+        or args["exception_handlers"] != []
+        or args["lifespan"] is not None
+        or args["max_body_size"] is not None
+    ):
+        raise ContractError("authentication-required WebSocket app differs from the pinned test")
+    route = _exact(
+        args["routes"][0],
+        {"kind", "path", "endpoint"},
+        "authentication-required WebSocket route",
+    )
+    endpoint = _exact(
+        route["endpoint"],
+        {"kind", "form", "required_scopes"},
+        "authentication-required WebSocket endpoint",
+    )
+    form = endpoint["form"]
+    if (
+        route["kind"] != "websocket-route"
+        or form not in AUTHENTICATION_REQUIRED_WEBSOCKET_PATHS
+        or route["path"] != AUTHENTICATION_REQUIRED_WEBSOCKET_PATHS[form]
+        or endpoint["kind"] != "authentication-required-websocket"
+        or endpoint["required_scopes"] != ["authenticated"]
+    ):
+        raise ContractError(
+            "authentication-required WebSocket route differs from its pinned source stimulus"
+        )
+
+
 def _validate_authentication_user_interface_dispatch(arguments: dict[str, Any]) -> None:
     scope = arguments["scope"]
     if scope["type"] != "http" or scope["method"] != "GET" or scope["path"] != "/":
@@ -14128,6 +14195,18 @@ def _validate_authentication_required_route_dispatch(
         raise ContractError("malformed Basic credentials are sampled only on the async route")
 
 
+def _validate_authentication_required_websocket_dispatch(
+    arguments: dict[str, Any], app_arguments: dict[str, Any]
+) -> None:
+    route = app_arguments["routes"][0]
+    scope = arguments["scope"]
+    if scope.get("type") != "websocket" or scope.get("path") != route["path"]:
+        raise ContractError(
+            "authentication-required WebSocket dispatch differs from its source route"
+        )
+    _validate_websocket_exception_dispatch(app_arguments, arguments)
+
+
 def _validate_application_stimulus(
     args: dict[str, Any], request_dispatch: bool, allow_lifespan_variants: bool = False
 ) -> None:
@@ -14147,6 +14226,9 @@ def _validate_application_stimulus(
         return
     if not request_dispatch and _is_authentication_required_route_application(args):
         _validate_authentication_required_route_application(args)
+        return
+    if not request_dispatch and _is_authentication_required_websocket_application(args):
+        _validate_authentication_required_websocket_application(args)
         return
     if (
         not request_dispatch
@@ -20777,6 +20859,16 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         if scope.get("type") != "websocket" or path != route["path"]:
             return set()
         endpoint = route["endpoint"]
+        if endpoint["kind"] == "authentication-required-websocket":
+            if case["target_profiles"] != ["python-package-cpython312"]:
+                return set()
+            outcome = _authentication_middleware_outcome(scope)
+            access = {
+                "missing": "denied",
+                "valid": "authorized",
+                "invalid": "invalid-basic-credentials",
+            }[outcome]
+            return {AUTHENTICATION_REQUIRED_WEBSOCKET_REQUIREMENTS[f"{endpoint['form']}-{access}"]}
         if endpoint["kind"] == "http-exception":
             return {"starlette.asgi.websocket-exception.http-denial-response"}
         action = endpoint["actions"][-1]
