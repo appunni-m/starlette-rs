@@ -11,10 +11,11 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest full-slice correctness preflight is
-`84b34e73-cce2-4cfa-9ffd-ceec9ad847d5`. It ran from
-`2026-10-02T18:31:35.711Z` to `2026-10-02T18:34:26.337Z` against Starlette
+`5448945b-0044-4e7d-b12c-dcc00c1d383a`. It ran from
+`2026-10-02T18:44:42.321Z` to `2026-10-02T18:47:39.935Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 722-case,
-755-requirement `parity-input@28` manifest. It selected 936 profile
+755-requirement `parity-input@28` manifest on clean target commit
+`d3163959ba3db73452f98fed57d31d73863a03e1`. It selected 936 profile
 comparisons: 932 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
 passed all 720 selected comparisons; Rust-native passed 212 of 216. The new
@@ -33,9 +34,9 @@ views, `dict` conversion, representation, and equality against FormData and a
 plain mapping. A second input compares the pinned too-many-positional-arguments
 constructor error. Both source/package comparisons pass exactly.
 
-The Rust-native target used commit `e9fb57ba4e69f7bcfe1bf8cf8b0ea239cac1efeb`
+The Rust-native target used commit `d3163959ba3db73452f98fed57d31d73863a03e1`
 with source fingerprint
-`e9fb57ba4e69f7bcfe1bf8cf8b0ea239cac1efeb+source-fnv1a64-f63b3847c266153e`.
+`d3163959ba3db73452f98fed57d31d73863a03e1+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
 `0ff61870c9dc405705c37505ae0501a90ec6eb8001c6343b954c5ca29cdd5195`.
 
@@ -49,11 +50,11 @@ frames remain exact.
 The installed package tree SHA-256 is
 `0ff61870c9dc405705c37505ae0501a90ec6eb8001c6343b954c5ca29cdd5195`; its
 wheel SHA-256 is
-`87d4688159e919966d32983e4929dac9e08c03e763f803ccfa180e78fcc9bcb3`. The
+`3c5d219d0907f8acf0f9761863b34f3929c090fa25ba95a5b72d27632bc1551f`. The
 manifest SHA-256 is
 `4762fb8bc2d95606907b4ecbb7d03ef64f1ab06e12bdf55385036c6b0e9f3ec3`; the
 result artifact SHA-256 is
-`020363ce124f76cb21d50cc3d5855e1c45fac98de8744e65a8f996d761d28ba3`.
+`7390833ce9deeefaf2c4acb24ce933c5eaadb6b04632fde2fb1819d4fb944c7e`.
 Strict aggregation remains `not_proven` because the full compatibility
 denominator is incomplete and four Rust-native rows are `not_run`. UploadFile
 scheduling parity now covers these rolled and in-memory operation inputs;
@@ -75,7 +76,7 @@ probe checks whether each operation runs on the event-loop thread or a worker,
 whether the event loop releases a held rolled-file operation, and whether an
 input-defined `OSError` retains its class and message. The source oracle and
 installed package match exactly in run
-`4f83e65c-342e-48d5-93c1-78f12b9a2ae3`. The same case also exercises
+`5448945b-0044-4e7d-b12c-dcc00c1d383a`. The same case also exercises
 BytesIO-backed construction with explicit and omitted size, default and explicit
 headers, file identity, metadata, read/write/seek behavior, and initial repr.
 All three UploadFile requirements pass exact source/package comparison for these
@@ -90,7 +91,7 @@ a final tail chunk. Both are Python-package-only because the scheduling bridge
 uses AnyIO's Python event loop. They compare exact response headers, compressed
 body bytes/chunks, and ASGI event order against pinned Starlette. They do not
 claim to observe worker-thread identity. Both comparisons passed in run
-`4f83e65c-342e-48d5-93c1-78f12b9a2ae3`.
+`5448945b-0044-4e7d-b12c-dcc00c1d383a`.
 
 ### Shared AnyIO thread-pool limiter
 
@@ -114,7 +115,7 @@ values, and parameters without an equals sign. Six cases run on both target
 profiles. The heterogeneous comparison against the literal string `"invalid"`
 is package-only because the native consumer API has no Python object equality
 boundary. All 13 selected comparisons pass in the latest full-slice run
-`4f83e65c-342e-48d5-93c1-78f12b9a2ae3`.
+`5448945b-0044-4e7d-b12c-dcc00c1d383a`.
 
 ### StaticFiles HTML fallback selection
 
@@ -127,7 +128,7 @@ fallback, an index directory without a fallback page, and an HTML-only tree
 without either special file. Ordered ASGI observations include the slash
 redirect, selected file body, and propagated 404 exception. All six
 oracle-to-target profile comparisons pass in integrated run
-`4f83e65c-342e-48d5-93c1-78f12b9a2ae3`.
+`5448945b-0044-4e7d-b12c-dcc00c1d383a`.
 
 ### Built-in float and UUID converters
 
@@ -137,7 +138,7 @@ hyphens, and an invalid UUID segment. They observe the selected status and
 ASGI response; matched cases also compare the converted `route_scope.path_params`
 value and type. The Rust-native parity adapter projects these fields from
 `DetailedRouteMatch` captures. All 14 oracle-to-target comparisons pass in
-integrated run `4f83e65c-342e-48d5-93c1-78f12b9a2ae3`. Additional cases
+integrated run `5448945b-0044-4e7d-b12c-dcc00c1d383a`. Additional cases
 observe converted path parameters for int/path routes and the default string
 converter, including a path with an additional slash that must not match. The
 int/float/path/UUID documentation rows now map to those input observations.
