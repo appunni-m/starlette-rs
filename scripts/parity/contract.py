@@ -355,6 +355,7 @@ REQUEST_FORM_OPTIONAL_KEYS = {
     "form_access",
     "form_file_probe_keys",
     "form_file_probe_all",
+    "form_type_probe_keys",
     "form_file_read_size",
     "form_file_write_base64",
     "form_close",
@@ -15578,6 +15579,16 @@ def _multipart_has_missing_name(content_type: str, body: bytes) -> bool:
     )
 
 
+def _multipart_filelike_fields_without_filename(content_type: str, body: bytes) -> list[str]:
+    return [
+        name
+        for part in _multipart_parts(content_type, body)
+        if part.get("Content-Type") is not None
+        and part.get_filename() is None
+        and (name := part.get_param("name", header="content-disposition")) is not None
+    ]
+
+
 def _multipart_count_limit_exceeded(
     content_type: str, body: bytes, form_options: dict[str, Any]
 ) -> bool:
@@ -15812,6 +15823,14 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         or not set(form_file_probe_keys) <= set(probe_keys)
     ):
         raise ContractError("Request.form form_file_probe_keys must be unique form_probe_keys")
+    form_type_probe_keys = case.get("form_type_probe_keys", [])
+    if (
+        not isinstance(form_type_probe_keys, list)
+        or any(not isinstance(key, str) for key in form_type_probe_keys)
+        or len(form_type_probe_keys) != len(set(form_type_probe_keys))
+        or not set(form_type_probe_keys) <= set(probe_keys)
+    ):
+        raise ContractError("Request.form form_type_probe_keys must be unique form_probe_keys")
     form_file_probe_all = case.get("form_file_probe_all", False)
     if type(form_file_probe_all) is not bool:
         raise ContractError("Request.form form_file_probe_all must be a boolean")
@@ -16030,6 +16049,15 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 "starlette.request.form.multipart-form-data",
                 "starlette.datastructures.FormData.multidict-lookups",
             ]
+            filelike_fields_without_filename = _multipart_filelike_fields_without_filename(
+                content_type_header or "", body
+            )
+            if filelike_fields_without_filename:
+                if not set(filelike_fields_without_filename) <= set(form_type_probe_keys):
+                    raise ContractError(
+                        "multipart parts with Content-Type but no filename require a value-type probe"
+                    )
+                expected_covers.append("starlette.request.form.multipart-no-filename")
             if form_options:
                 expected_covers.append("starlette.request.form.multipart-count-limits")
             if re.search(r"(?:^|;)\s*charset\s*=", content_type_header or "", re.IGNORECASE) or any(

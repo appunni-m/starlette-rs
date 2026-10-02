@@ -11734,6 +11734,17 @@
               ]
             },
             {
+              "id": "starlette.request.form.multipart-no-filename",
+              "dimension": "boundary",
+              "description": "Supply a multipart part with a named file-like Content-Type but no filename parameter; observe that Request.form returns its content as a field value rather than an UploadFile. Pinned source: docs/requests.md:164-170; starlette/formparsers.py:212-243.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.request.form.multipart-incremental-part-limits",
               "dimension": "error_path",
               "description": "When an oversized multipart text part arrives in an ASGI request chunk, enforce max_part_size during parsing and stop requesting subsequent body chunks. Pinned source: starlette/formparsers.py:181-297; starlette/requests.py:268-308; tests/test_formparsers.py::test_max_part_size_exceeds_custom_limit and ::test_max_part_size_exceeds_limit.",

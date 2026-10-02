@@ -9105,6 +9105,7 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
     for key in (
         "form_file_probe_keys",
         "form_file_probe_all",
+        "form_type_probe_keys",
         "form_file_read_size",
         "form_file_write_base64",
         "form_close",
@@ -9294,13 +9295,20 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         items = [[_json_safe(key), _json_safe(value)] for key, value in form.items()]
         lookup = []
         getlist = []
+        value_types = []
+        type_probe_keys = set(case.get("form_type_probe_keys", []))
         for key in case["form_probe_keys"]:
             try:
                 value = form[key]
             except KeyError:
                 value = None
+                value_type = None
+            else:
+                value_type = f"{type(value).__module__}.{type(value).__qualname__}"
             lookup.append([key, _json_safe(value)])
             getlist.append([key, [_json_safe(value) for value in form.getlist(key)]])
+            if key in type_probe_keys:
+                value_types.append([key, value_type])
         value = {
             "multi_items": multi_items,
             "keys": keys,
@@ -9308,6 +9316,8 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             "lookup": lookup,
             "getlist": getlist,
         }
+        if type_probe_keys:
+            value["lookup_types"] = value_types
         observed_files = []
         if case.get("form_file_probe_all", False):
             file_values = [

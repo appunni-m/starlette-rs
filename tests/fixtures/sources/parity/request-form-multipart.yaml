@@ -2420,6 +2420,66 @@
       ],
       "form_file_read_size": -1,
       "form_close": true
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-filelike-field-without-filename",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.request.form.multipart-no-filename"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9U1RBUkxFVFRFLVJTLU5PLUZJTEVOQU1F"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1TVEFSTEVUVEUtUlMtTk8tRklMRU5BTUUNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0idXBsb2FkIg0KQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0NCg0KZmlsZS1saWtlLWNvbnRlbnQtd2l0aG91dC1maWxlbmFtZQ0KLS1TVEFSTEVUVEUtUlMtTk8tRklMRU5BTUUtLQ0K",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "upload"
+      ],
+      "form_type_probe_keys": [
+        "upload"
+      ],
+      "observations": [
+        "form"
+      ],
+      "form_options": {},
+      "form_app": "direct"
     }
   ]
 }
