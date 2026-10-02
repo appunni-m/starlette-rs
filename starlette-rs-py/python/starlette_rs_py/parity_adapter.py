@@ -7801,11 +7801,13 @@ def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.datastructures import QueryParams
 
     params = _query_params_from_input(QueryParams, case["source"])
-    comparison = (
-        None
-        if case["comparison"] is None
-        else _query_params_from_input(QueryParams, case["comparison"])
-    )
+    comparison_input = case["comparison"]
+    if comparison_input is None:
+        comparison = None
+    elif comparison_input.get("kind") == "literal":
+        comparison = comparison_input["value"]
+    else:
+        comparison = _query_params_from_input(QueryParams, comparison_input)
     lookups = [
         {
             "key": key,

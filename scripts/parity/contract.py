@@ -17620,13 +17620,28 @@ def _validate_query_params_source(value: Any, context: str) -> dict[str, Any]:
 
 
 def _validate_query_params_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]:
-        raise ContractError("QueryParams parity requires both declared targets")
     if case["assets"] != [] or case["observations"] != ["snapshot"]:
         raise ContractError("QueryParams cases use no assets and select the snapshot")
     _validate_query_params_source(case["source"], "QueryParams source")
-    if case["comparison"] is not None:
-        _validate_query_params_source(case["comparison"], "QueryParams comparison")
+    comparison = case["comparison"]
+    literal_comparison = isinstance(comparison, dict) and comparison.get("kind") == "literal"
+    if literal_comparison:
+        comparison = _exact(
+            comparison,
+            {"kind", "value"},
+            "QueryParams literal comparison",
+        )
+        if not isinstance(comparison["value"], str):
+            raise ContractError("QueryParams literal comparison value must be a string")
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError(
+                "QueryParams comparisons against non-QueryParams values select the Python package"
+            )
+    else:
+        if case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]:
+            raise ContractError("QueryParams parity requires both declared targets")
+        if comparison is not None:
+            _validate_query_params_source(comparison, "QueryParams comparison")
     probe_keys = case["probe_keys"]
     if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
         raise ContractError("QueryParams probe_keys must contain strings")

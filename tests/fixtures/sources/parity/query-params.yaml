@@ -135,6 +135,123 @@
       "probe_keys": ["missing"],
       "comparison": {"kind": "mapping", "items": []},
       "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-repeated-query",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
+        "starlette.datastructures.QueryParams.query-string-and-repr",
+        "starlette.datastructures.QueryParams.equality-order-insensitive"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "string", "value": "a=123&a=456&b=789"},
+      "probe_keys": ["a", "A", "c", "nope"],
+      "comparison": {
+        "kind": "pairs",
+        "items": [["a", "123"], ["a", "456"], ["b", "789"]],
+        "kwargs": []
+      },
+      "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-mapping-equals-pairs",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
+        "starlette.datastructures.QueryParams.equality-order-insensitive"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "mapping", "items": [["a", "123"], ["b", "456"]]},
+      "probe_keys": ["a", "b"],
+      "comparison": {
+        "kind": "pairs",
+        "items": [["a", "123"], ["b", "456"]],
+        "kwargs": []
+      },
+      "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-mapping-equals-query-string",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
+        "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
+        "starlette.datastructures.QueryParams.equality-order-insensitive"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "mapping", "items": [["a", "123"], ["b", "456"]]},
+      "probe_keys": ["a", "b"],
+      "comparison": {"kind": "string", "value": "a=123&b=456"},
+      "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-mapping-equality-order",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
+        "starlette.datastructures.QueryParams.equality-order-insensitive"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "mapping", "items": [["a", "123"], ["b", "456"]]},
+      "probe_keys": ["a", "b"],
+      "comparison": {"kind": "mapping", "items": [["b", "456"], ["a", "123"]]},
+      "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-pairs-equals-query-string",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
+        "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
+        "starlette.datastructures.QueryParams.equality-order-insensitive"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "pairs", "items": [["a", "123"], ["a", "456"]], "kwargs": []},
+      "probe_keys": ["a"],
+      "comparison": {"kind": "string", "value": "a=123&a=456"},
+      "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-inequality-to-string",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
+        "starlette.datastructures.QueryParams.equality-order-insensitive"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "string", "value": "a=123&a=456&b=789"},
+      "probe_keys": ["a"],
+      "comparison": {"kind": "literal", "value": "invalid"},
+      "observations": ["snapshot"]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-blank-values",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "string", "value": "a=123&abc&def&b=456"},
+      "probe_keys": ["a", "abc", "def", "b"],
+      "comparison": null,
+      "observations": ["snapshot"]
     }
   ]
 }
