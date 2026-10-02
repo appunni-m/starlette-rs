@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 675 input-only cases in 77 indexed files,
-covering 93 operations and 707 parity requirements. New focused inputs cover
+The active contract contains 678 input-only cases in 77 indexed files,
+covering 93 operations and 710 parity requirements. New focused inputs cover
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
 pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
 default decoding in WebSocketEndpoint, and TestClient lifespan task/RunVar continuity under
@@ -27,12 +27,13 @@ ServerErrorMiddleware cases, three TestClient exception-chain cases, a
 default middleware-boundary trace, and sixteen Request.cookies inputs pass live
 source/package comparison, including the sequential TestClient cookie
 round-trip from `test_request_cookies`. Added direct `GZipResponder` inputs and
-invalid WebSocket JSON-mode inputs pass exact source/package comparison.
-The latest integrated run for the active `parity-input@24` contract,
-`380697a6-3d7c-44f8-9daa-bae697c17c1f`, passed 862 of 866 selected
+invalid WebSocket JSON-mode inputs pass exact source/package comparison. Three
+StaticFiles HTML fallback scenarios now pass on both target profiles. The
+latest integrated run for the active `parity-input@24` contract,
+`26a70ec0-5bba-4930-95ad-2ce3f8fb032a`, passed 868 of 872 selected
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 673/673; Rust-native
-passed 189/193. The four native `not_run` rows are synchronous
+Python-callable rows `not_run`. The Python package passed 676/676; Rust-native
+passed 192/196. The four native `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for those declared rows. Full run
 identities and package hashes are recorded in
@@ -50,8 +51,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 378 existing input mappings,
-50 source-backed `not_applicable` rows, and 374 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 381 existing input mappings,
+50 source-backed `not_applicable` rows, and 371 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
