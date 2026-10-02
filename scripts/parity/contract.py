@@ -1053,6 +1053,7 @@ BODY_LIMIT_REQUIREMENTS = {
     "content-length-precheck": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-precheck",
     "content-length-replacement": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-replacement",
     "streamed-body-count": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.streamed-body-count",
+    "multipart-body-counts-encoding-overhead": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.multipart-body-counts-encoding-overhead",
     "understated-content-length": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.understated-content-length",
     "invalid-content-length": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.invalid-content-length",
     "nested-limits": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.nested-limits",
@@ -18482,6 +18483,21 @@ def _body_limit_semantic_coverage(case: dict[str, Any]) -> set[str]:
                     coverage.add(BODY_LIMIT_REQUIREMENTS["streamed-body-count"])
                 if declared_length is not None and declared_length <= max_body_size:
                     coverage.add(BODY_LIMIT_REQUIREMENTS["understated-content-length"])
+    content_types = [value for name, value in header_pairs if name.lower() == b"content-type"]
+    if content_types and declared_length is None and not invalid_length and receive_actions:
+        content_type = content_types[0].decode("latin-1")
+        if content_type.lower().startswith("multipart/form-data"):
+            multipart_body = b"".join(
+                base64.b64decode(message["body_base64"], validate=True) for message in messages
+            )
+            parts = _multipart_parts(content_type, multipart_body)
+            payload_size = sum(
+                len(payload)
+                for part in parts
+                if isinstance(payload := part.get_payload(decode=True), bytes)
+            )
+            if parts and sum(received_sizes) > max_body_size and payload_size <= max_body_size:
+                coverage.add(BODY_LIMIT_REQUIREMENTS["multipart-body-counts-encoding-overhead"])
     if invalid_length and receive_actions:
         coverage.add(BODY_LIMIT_REQUIREMENTS["invalid-content-length"])
     if exceeded_after_start:

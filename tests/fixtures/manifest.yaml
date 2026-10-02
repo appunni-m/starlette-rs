@@ -7721,6 +7721,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.multipart-body-counts-encoding-overhead",
+              "dimension": "boundary",
+              "description": "Count multipart framing and part headers as request body bytes even when the file payload alone is within the configured limit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.understated-content-length",
               "dimension": "boundary",
               "description": "Continue counting streamed bytes when a valid Content-Length understates the actual body.",
