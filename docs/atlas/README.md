@@ -32,14 +32,16 @@ AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract. Seven QueryParams
 cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `a5c1537c-624f-4413-9f22-929c5f9d9c36` passed 952 of 956
+full-slice run `91773fbf-14e8-4b94-a68d-42c75fd2f7f7` passed 952 of 956
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
 740/740; Rust-native passed 212/216. Six protected WebSocket authentication
 cases pass source/package comparison for plain and injection-wrapped routes
 with missing, malformed, and valid Basic credentials. Three documentation-derived
 BasicAuth cases also pass for wrong-scheme, malformed base64, and non-ASCII
-credentials. The UploadFile input compares direct
+credentials. Authentication inputs also compare custom `BaseUser` property
+overrides, concrete `Request.user` types, and middleware-populated
+`Request.auth.scopes`. The UploadFile input compares direct
 construction, omitted-size operations, default and explicit-header repr values,
 rolled/in-memory scheduling, event-loop progress, and OSError propagation. The
 thread-pool limiter input observed the
@@ -72,11 +74,11 @@ The generated coverage matrix has 802 source rows: 464 input mappings, 51
 reasoned `not_applicable` rows, and 287 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `bfac1bab-98b4-4544-8d45-b1c4098b5424` measured all
+The latest Router/GZip run `40a6279f-2a35-4401-95ad-fb21a2aa938d` measured all
 74 source/package workloads after correctness preflight
-`f8e77519-0312-4db6-a876-b1ad91517f2e`. Median per-workload source/package
-latency ratios were 0.761 for Router and 0.976 for GZip; source latency was
-lower on five of six Router workloads and 62 of 68 GZip workloads. All 74
+`91773fbf-14e8-4b94-a68d-42c75fd2f7f7`. Median per-workload source/package
+latency ratios were 0.769 for Router and 0.979 for GZip; source latency was
+lower on five of six Router workloads and 54 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.
