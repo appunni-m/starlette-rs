@@ -1,0 +1,2 @@
+# Static API acceptance checker for input-derived public consumer snippets.
+mypy==1.19.1

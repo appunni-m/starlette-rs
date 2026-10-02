@@ -6,6 +6,7 @@ import base64
 import builtins
 import hashlib
 import json
+import keyword
 import math
 import os
 import re
@@ -22,7 +23,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@25"
+INPUT_SCHEMA = "migration-parity/parity-input@26"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -225,6 +226,8 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "app_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.app-state-separation",
     "app_state_via_request_app": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.app-state-via-request-app",
     "websocket_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.websocket-lifespan-state",
+    "request_state_typing": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.request-state-generic-typing",
+    "websocket_state_typing": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.websocket-state-generic-typing",
     "application_callback": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.application-callback-entry-exit",
     "task_group_lifecycle": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.task-group-child-lifecycle",
     "task_runvar_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.same-task-and-runvar-context-continuity",
@@ -1696,6 +1699,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
                         and observation["path"] == "runvar_context_observations"
                     )
+                    testclient_lifespan_typing_contract = (
+                        condition["input_key"] == "asgi_app.typing_contract"
+                        and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
+                        and observation["path"] == "typing_contract"
+                    )
                     testclient_application_debug = (
                         condition["input_key"] == "asgi_app.debug_after"
                         and key == TESTCLIENT_OPERATION_KEY
@@ -1736,6 +1744,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not router_scope_probe
                         and not testclient_lifespan_callback_trace
                         and not testclient_lifespan_runvar_context
+                        and not testclient_lifespan_typing_contract
                         and not testclient_application_debug
                         and not testclient_application_host
                         and not testclient_application_mount
@@ -2016,6 +2025,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     "backend",
                     "runtime",
                     "feature",
+                    "type_contract",
                     "historical_divergence",
                     "code_path",
                     "performance",
@@ -10711,7 +10721,15 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
     if isinstance(asgi_app_value, dict) and asgi_app_value.get("kind") == "starlette-state":
         asgi_app = _exact(
             asgi_app_value,
-            {"kind", "scope_fields", "loop_relations", "lifespan_state", "app_state", "routes"},
+            {
+                "kind",
+                "scope_fields",
+                "loop_relations",
+                "lifespan_state",
+                "app_state",
+                "routes",
+                "typing_contract",
+            },
             "TestClient stateful Starlette app",
         )
         if client_operations != ["enter", "request", "request", "websocket", "exit"]:
@@ -10779,6 +10797,67 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             if not isinstance(state, dict):
                 raise ContractError(f"Stateful lifespan {state_key} must be an object")
             validate_json_value(state, f"Stateful lifespan {state_key}")
+
+        typing_contract = _exact(
+            asgi_app["typing_contract"],
+            {"state_type_name", "accesses"},
+            "Stateful lifespan typing contract",
+        )
+        state_type_name = _string(
+            typing_contract["state_type_name"],
+            "Stateful lifespan typing contract.state_type_name",
+        )
+        if (
+            not state_type_name.isidentifier()
+            or keyword.iskeyword(state_type_name)
+            or state_type_name in {"Any", "Request", "State", "TypedDict", "WebSocket"}
+        ):
+            raise ContractError("Stateful lifespan state_type_name must be a Python identifier")
+        accesses = typing_contract["accesses"]
+        if not isinstance(accesses, list) or not accesses:
+            raise ContractError("Stateful lifespan typing accesses must be a non-empty array")
+        access_names: set[str] = set()
+        typed_connections: set[tuple[str, str | None]] = set()
+        for access_index, access_value in enumerate(accesses):
+            context = f"Stateful lifespan typing accesses[{access_index}]"
+            access = _exact(
+                access_value,
+                {"name", "connection", "type_parameter", "path"},
+                context,
+            )
+            name = _string(access["name"], f"{context}.name")
+            if name in access_names:
+                raise ContractError("Stateful lifespan typing access names must be unique")
+            access_names.add(name)
+            connection = access["connection"]
+            if not isinstance(connection, str) or connection not in {"Request", "WebSocket"}:
+                raise ContractError(
+                    "Stateful lifespan typing connection must be Request or WebSocket"
+                )
+            type_parameter = access["type_parameter"]
+            if type_parameter is not None and type_parameter != state_type_name:
+                raise ContractError("Stateful lifespan typing must use its declared state type")
+            path = access["path"]
+            if not isinstance(path, list) or any(not isinstance(key, str) for key in path):
+                raise ContractError(f"{context}.path must be an array of string keys")
+            if type_parameter is None and path:
+                raise ContractError(
+                    "Stateful lifespan default-state typing access cannot index state"
+                )
+            current: Any = asgi_app["lifespan_state"]
+            for key in path:
+                if not isinstance(current, dict) or key not in current:
+                    raise ContractError(f"{context}.path must resolve within lifespan_state")
+                current = current[key]
+            typed_connections.add((connection, type_parameter))
+        if typed_connections != {
+            ("Request", state_type_name),
+            ("WebSocket", state_type_name),
+            ("Request", None),
+        }:
+            raise ContractError(
+                "Stateful lifespan typing must cover generic Request, generic WebSocket, and the default Request state"
+            )
 
         routes = asgi_app["routes"]
         if not isinstance(routes, list) or len(routes) != 3:
@@ -10922,6 +11001,26 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         requested_routes.add(("websocket", websocket_action["url"]))
         if requested_routes != set(route_index):
             raise ContractError("Every stateful route must be exercised exactly by client actions")
+        for access in accesses:
+            if not access["path"]:
+                continue
+            transport = "http" if access["connection"] == "Request" else "websocket"
+            state_owner = "request" if transport == "http" else "websocket"
+            has_mapping_read = any(
+                route["transport"] == transport
+                and any(
+                    action.get("operation") == "read"
+                    and action.get("source") == state_owner
+                    and action.get("path") == access["path"]
+                    and action.get("access") == "item"
+                    for action in route["actions"]
+                )
+                for route in routes
+            )
+            if not has_mapping_read:
+                raise ContractError(
+                    "Stateful lifespan typed state mapping must also be read by its live route input"
+                )
 
         expected_covers = {
             TESTCLIENT_LIFESPAN_REQUIREMENTS[key]
@@ -10934,6 +11033,8 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
                 "app_state",
                 "app_state_via_request_app",
                 "websocket_state",
+                "request_state_typing",
+                "websocket_state_typing",
             )
         }
         covers = case["covers"]
@@ -11057,6 +11158,8 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["app_state"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["app_state_via_request_app"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["websocket_state"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["request_state_typing"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["websocket_state_typing"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["application_callback"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["task_group_lifecycle"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["task_runvar_context"],

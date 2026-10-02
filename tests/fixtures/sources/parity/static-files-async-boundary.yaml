@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@25",
+  "schema": "migration-parity/parity-input@26",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call-async-boundary.gated-bound-lookup",

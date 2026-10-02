@@ -8,7 +8,7 @@ from typing import Any, cast
 
 from starlette_rs_py import _core
 
-from starlette.requests import HTTPConnection
+from starlette.requests import HTTPConnection, StateT
 from starlette.responses import Response
 
 
@@ -29,7 +29,7 @@ class WebSocketDisconnect(Exception):
         self.reason = _core._websocket_exception_reason(reason)
 
 
-class WebSocket(HTTPConnection):
+class WebSocket(HTTPConnection[StateT]):
     """Expose an ASGI WebSocket scope and state-checked message operations."""
 
     __slots__ = ("_protocol", "_receive", "_send")

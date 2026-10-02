@@ -11,17 +11,22 @@ STARLETTE_ORACLE_ROOT ?= ../starlette
 STYLE_VENV ?= .venv-style
 STYLE_PYTHON ?= $(STYLE_VENV)/bin/python
 RUFF ?= $(STYLE_PYTHON) -m ruff
+TYPECHECK_VENV ?= .venv-typecheck
+TYPECHECK_PYTHON ?= $(TYPECHECK_VENV)/bin/python
+TYPECHECKER ?= $(TYPECHECK_VENV)/bin/mypy
+TYPECHECK_LOCK ?= scripts/parity/locks/typecheck-cpython312.txt
 PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/python/starlette_rs_py
 CARGO_DENY ?= cargo deny
 CARGO_AUDIT ?= cargo audit
 
-.PHONY: help style-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 migrate-parity-inputs-v21-v22 migrate-parity-inputs-v22-v23 migrate-parity-inputs-v23-v24 migrate-parity-inputs-v24-v25 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
+.PHONY: help style-setup typecheck-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 migrate-parity-inputs-v21-v22 migrate-parity-inputs-v22-v23 migrate-parity-inputs-v23-v24 migrate-parity-inputs-v24-v25 migrate-parity-inputs-v25-v26 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
 	  'starlette-rs — Rust workspace and Python compatibility package' \
 	  '' \
 	  '  make style-setup PYTHON=python3.12  Create the pinned Ruff environment' \
+	  '  make typecheck-setup  Create the pinned public typing-contract checker environment' \
 	  '  make fmt       Check Rust formatting' \
 	  '  make rustdoc-check  Check Rust documentation with warnings denied' \
 	  '  make python-format  Check Python formatting' \
@@ -42,6 +47,7 @@ help: ## Show common Rust workspace commands
 	  '  make migrate-parity-inputs-v22-v23  Migrate authored parity input schema headers' \
 	  '  make migrate-parity-inputs-v23-v24  Migrate authored parity input schema headers' \
 	  '  make migrate-parity-inputs-v24-v25  Migrate authored parity input schema headers' \
+	  '  make migrate-parity-inputs-v25-v26  Migrate authored parity input schema headers' \
 	  '  make parity-env  Build the wheel and prepare isolated source/package environments' \
 	  '  make parity-adapter  Build the current Rust-native parity adapter' \
 	  '  make source-inventory  Regenerate the metadata-derived API catalog and source atlas' \
@@ -58,6 +64,11 @@ help: ## Show common Rust workspace commands
 style-setup: ## Create an isolated environment with the pinned Python style tool
 	$(PYTHON) -m venv "$(STYLE_VENV)"
 	$(STYLE_PYTHON) -m pip install --disable-pip-version-check --no-input --no-deps --requirement requirements-style.txt
+
+typecheck-setup: ## Create an isolated environment with the hash-locked public typing-contract checker
+	$(PARITY_PYTHON) -m venv --clear "$(TYPECHECK_VENV)"
+	$(TYPECHECK_PYTHON) -m pip install --disable-pip-version-check --no-input --no-deps --require-hashes --only-binary=:all: --requirement "$(TYPECHECK_LOCK)"
+	$(TYPECHECKER) --version
 
 fmt: ## Check formatting
 	$(CARGO) fmt --all -- --check
@@ -129,6 +140,9 @@ migrate-parity-inputs-v23-v24: ## Migrate active authored parity input files to 
 migrate-parity-inputs-v24-v25: ## Migrate active authored parity input files to schema @25
 	$(PYTHON) scripts/migrate_parity_input_v24_to_v25.py
 
+migrate-parity-inputs-v25-v26: ## Migrate active authored parity input files to schema @26
+	$(PYTHON) scripts/migrate_parity_input_v25_to_v26.py
+
 parity-env: parity-inputs ## Build the package wheel and prepare isolated parity environments
 	$(PARITY_PYTHON) -m scripts.parity.cli prepare-env --force --upstream "$(STARLETTE_ORACLE_ROOT)"
 
@@ -146,13 +160,13 @@ source-inventory-check: contract-check ## Check the API catalog and generated at
 	$(PARITY_PYTHON) scripts/inventory_upstream_api.py --upstream "$(STARLETTE_ORACLE_ROOT)" --check
 	$(PARITY_PYTHON) scripts/merge_compatibility_atlas.py --check --upstream "$(STARLETTE_ORACLE_ROOT)"
 
-parity-run: contract-check parity-env parity-adapter source-inventory-check ## Run source inventory, exact source/package, and supported Rust comparisons
-	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" $(PARITY_PYTHON) -m scripts.parity.cli run
+parity-run: contract-check parity-env parity-adapter source-inventory-check typecheck-setup ## Run source inventory, exact source/package, and supported Rust comparisons
+	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli run
 
 test: parity-run ## Run behavioral checks as live source-to-target parity only
 
-benchmark-upstream: contract-check parity-env ## Run 74 correctness-gated Starlette source/package workloads
-	$(PARITY_PYTHON) -m scripts.parity.cli benchmark-upstream
+benchmark-upstream: contract-check parity-env typecheck-setup ## Run 74 correctness-gated Starlette source/package workloads
+	STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli benchmark-upstream
 	$(PARITY_PYTHON) -m scripts.parity.benchmark_evidence --write
 
 docs-check: ## Check local Markdown links without network access

@@ -5,6 +5,7 @@
 /build/parity/
 /.venv/
 /.venv-style/
+/.venv-typecheck/
 __pycache__/
 *.py[cod]
 *.so

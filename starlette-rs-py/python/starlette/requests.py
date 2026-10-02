@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping
-from typing import Any
+from typing import Any, Generic
 
 from starlette_rs_py import _core
+from typing_extensions import TypeVar
 
-from starlette.datastructures import URL, Address, Headers, QueryParams
+from starlette.datastructures import URL, Address, Headers, QueryParams, State
+
+StateT = TypeVar("StateT", bound=Mapping[str, Any] | State, default=State)
 
 
 class ClientDisconnect(Exception):
@@ -24,7 +27,7 @@ async def empty_send(message: Any) -> Any:
     return await _core._empty_send()
 
 
-class HTTPConnection(Mapping[str, Any]):
+class HTTPConnection(Mapping[str, Any], Generic[StateT]):
     """Provide the ASGI connection values shared by requests and WebSockets."""
 
     __slots__ = ("_inner",)
@@ -88,7 +91,7 @@ class HTTPConnection(Mapping[str, Any]):
         return self._inner.client
 
     @property
-    def state(self) -> Any:
+    def state(self) -> StateT:
         return self._inner.state
 
     @property
@@ -104,7 +107,7 @@ class HTTPConnection(Mapping[str, Any]):
         return self._inner.user
 
 
-class Request(HTTPConnection):
+class Request(HTTPConnection[StateT]):
     """Expose ASGI request data without moving receive calls off the host loop."""
 
     __slots__ = ("_body_state", "_send")

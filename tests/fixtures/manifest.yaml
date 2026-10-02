@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@25",
+      "input_schema": "migration-parity/parity-input@26",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -20879,6 +20879,18 @@
                   "condition": {
                     "input_key": "asgi_app.callback"
                   }
+                },
+                {
+                  "path": "typing_contract",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.typing_contract"
+                  }
                 }
               ],
               "error": {
@@ -20989,7 +21001,7 @@
             {
               "id": "starlette.testclient.TestClient.lifespan-context.http-lifespan-state",
               "dimension": "input_family",
-              "description": "Merge the mapping yielded by the Starlette lifespan context into its lifespan scope and expose the values to an HTTP Request.state consumer. Pinned source: starlette/routing.py:639-653; docs/lifespan.md:35-74; tests/test_applications.py:108-115,241-245.",
+              "description": "Merge the mapping yielded by the Starlette lifespan context into its lifespan scope and expose the values to an HTTP Request.state consumer using both attribute and mapping access. Pinned source: starlette/routing.py:639-653; docs/lifespan.md:35-74,76-115; tests/test_applications.py:108-115,241-245.",
               "lanes": [
                 "parity"
               ],
@@ -21034,6 +21046,28 @@
               "id": "starlette.testclient.TestClient.lifespan-context.websocket-lifespan-state",
               "dimension": "input_family",
               "description": "Expose lifespan-provided state to a WebSocket consumer using both attribute and mapping access and preserve the shallow-copy relationship. Pinned source: starlette/testclient.py:250-274; docs/lifespan.md:117-129; tests/test_applications.py:94-110,257-261.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.request-state-generic-typing",
+              "dimension": "type_contract",
+              "description": "Expose Request[State] and HTTPConnection[State] as Python generic types so a TypedDict supplied from lifespan state types request.state[key], while unparameterized Request retains the State default. Pinned source: starlette/requests.py:77,80,189,214; docs/lifespan.md:76-115.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.websocket-state-generic-typing",
+              "dimension": "type_contract",
+              "description": "Expose WebSocket[State] with the same generic state parameter as Request so a TypedDict supplied from lifespan state types websocket.state[key]. Pinned source: starlette/requests.py:77,80,189; starlette/websockets.py:8,26; docs/lifespan.md:117-129.",
               "lanes": [
                 "parity"
               ],

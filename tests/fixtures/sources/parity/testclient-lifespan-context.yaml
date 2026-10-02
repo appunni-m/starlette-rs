@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@25",
+  "schema": "migration-parity/parity-input@26",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.normal-managed-cycle",
@@ -338,7 +338,9 @@
         "starlette.testclient.TestClient.lifespan-context.request-state-shallow-copy",
         "starlette.testclient.TestClient.lifespan-context.app-state-separation",
         "starlette.testclient.TestClient.lifespan-context.app-state-via-request-app",
-        "starlette.testclient.TestClient.lifespan-context.websocket-lifespan-state"
+        "starlette.testclient.TestClient.lifespan-context.websocket-lifespan-state",
+        "starlette.testclient.TestClient.lifespan-context.request-state-generic-typing",
+        "starlette.testclient.TestClient.lifespan-context.websocket-state-generic-typing"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -406,7 +408,8 @@
           "label": "lifespan",
           "shared": {
             "count": 0
-          }
+          },
+          "http_client": "input-client"
         },
         "app_state": {
           "label": "application",
@@ -426,6 +429,15 @@
                   "label"
                 ],
                 "access": "attribute"
+              },
+              {
+                "operation": "read",
+                "name": "http_client_by_mapping",
+                "source": "request",
+                "path": [
+                  "http_client"
+                ],
+                "access": "item"
               },
               {
                 "operation": "read",
@@ -650,6 +662,15 @@
               },
               {
                 "operation": "read",
+                "name": "http_client_by_mapping",
+                "source": "websocket",
+                "path": [
+                  "http_client"
+                ],
+                "access": "item"
+              },
+              {
+                "operation": "read",
                 "name": "nested_count_before",
                 "source": "websocket",
                 "path": [
@@ -716,7 +737,34 @@
               }
             ]
           }
-        ]
+        ],
+        "typing_contract": {
+          "state_type_name": "LifespanState",
+          "accesses": [
+            {
+              "name": "request_http_client",
+              "connection": "Request",
+              "type_parameter": "LifespanState",
+              "path": [
+                "http_client"
+              ]
+            },
+            {
+              "name": "websocket_http_client",
+              "connection": "WebSocket",
+              "type_parameter": "LifespanState",
+              "path": [
+                "http_client"
+              ]
+            },
+            {
+              "name": "default_request_state",
+              "connection": "Request",
+              "type_parameter": null,
+              "path": []
+            }
+          ]
+        }
       }
     },
     {

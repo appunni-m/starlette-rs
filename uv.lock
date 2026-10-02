@@ -292,6 +292,7 @@ name = "starlette-rs-py"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },
+    { name = "typing-extensions" },
 ]
 
 [package.optional-dependencies]
@@ -313,6 +314,7 @@ requires-dist = [
     { name = "httpx2", marker = "extra == 'testclient'", specifier = ">=2.0.0" },
     { name = "jinja2", marker = "extra == 'templates'" },
     { name = "pyyaml", marker = "extra == 'schemas'" },
+    { name = "typing-extensions", specifier = ">=4.12.0" },
 ]
 provides-extras = ["schemas", "templates", "testclient"]
 

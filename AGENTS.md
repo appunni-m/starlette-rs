@@ -40,6 +40,14 @@
   to runtime wrappers; ask Rust to select and propagate the corresponding
   outcome. Existing Python-owned behavior is migration work, not the target
   design.
+- Preserve documented Python typing contracts that static consumers observe,
+  including generic class parameters and the `py.typed` package marker. These
+  are Python type-system metadata and cannot be supplied by Rust runtime
+  algorithms while preserving `Request[State]` and `WebSocket[State]` checking.
+  Keep the facade additions declarative (`TypeVar`, `Generic`, and annotations),
+  declare any directly imported typing backport, and verify input-derived
+  consumer snippets against both the pinned source and installed package with
+  the same pinned type checker. Do not add runtime branching to support typing.
 - The upstream `starlette` distribution is a development-time oracle only. Do
   not import it or declare it as a runtime dependency; the installed package's
   own `starlette.*` modules must be backed by this repository.
