@@ -25,12 +25,13 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 683 input-only cases across
-77 indexed files, 93 operations, and 710 requirements. The latest full-slice
-run `18a777e7-0733-4c62-92c7-9546cfc4c8aa` passed 878 of 882 selected profile
+active and incomplete. The current contract has 690 input-only cases across
+77 indexed files, 93 operations, and 710 requirements. Seven QueryParams cases
+map equality and blank-value behavior to two pinned test rows. The latest full-slice
+run `fe9b42fd-a239-4743-9c4f-61cc39483502` passed 891 of 895 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 681/681; Rust-native
-passed 197/201. Three StaticFiles HTML fallback scenarios and seven built-in
+Python-callable rows `not_run`. The Python package passed 688/688; Rust-native
+passed 203/207. Three StaticFiles HTML fallback scenarios and seven built-in
 float/UUID converter cases pass on both target profiles. The custom datetime
 converter test remains in the atlas backlog. All nine selected
 `CommaSeparatedStrings` comparisons pass,
@@ -46,15 +47,15 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 388 existing input
-mappings, 50 reasoned `not_applicable` rows, and 364 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 390 existing input
+mappings, 50 reasoned `not_applicable` rows, and 362 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `1d055ae9-982f-49a9-80f1-6d8be2e55d58` measured all
+The latest Router/GZip run `66676510-b614-4208-ae32-74fc6273754d` measured all
 74 source/package workloads after correctness preflight
-`18a777e7-0733-4c62-92c7-9546cfc4c8aa`. Median per-workload source/package
-latency ratios were 0.769 for Router and 0.977 for GZip; source latency was
-lower on five of six Router workloads and 56 of 68 GZip workloads. All 74
+`fe9b42fd-a239-4743-9c4f-61cc39483502`. Median per-workload source/package
+latency ratios were 0.762 for Router and 0.975 for GZip; source latency was
+lower on five of six Router workloads and 59 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.
@@ -244,7 +245,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 802 source rows:
-388 `existing` mappings, 364 `backlog` rows, and 50 reasoned `not_applicable`
+390 `existing` mappings, 362 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity
@@ -293,8 +294,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 516 `supported`, 285
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 802
-source rows: 388 existing input mappings, 50 reasoned `not_applicable`
-entries, and 364 input-only backlog rows. Derive these changing counts from
+source rows: 390 existing input mappings, 50 reasoned `not_applicable`
+entries, and 362 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded
