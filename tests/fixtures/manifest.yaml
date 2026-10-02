@@ -821,6 +821,39 @@
               ]
             },
             {
+              "id": "starlette.applications.Starlette.__call__.authentication-user-interface.wrong-scheme-unauthenticated-user",
+              "dimension": "boundary",
+              "description": "Dispatch GET / with a non-Basic Authorization scheme through the documentation's example backend, which returns no credentials, then observe Request.user. Compare against the pinned authentication documentation example.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-user-interface.malformed-basic-credentials",
+              "dimension": "error_path",
+              "description": "Dispatch GET / with malformed Basic base64 through the documentation's example backend and compare its AuthenticationError response with the pinned source behavior.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.authentication-user-interface.non-ascii-basic-credentials",
+              "dimension": "error_path",
+              "description": "Dispatch GET / with Basic credentials that decode to non-ASCII bytes through the documentation's example backend and compare its AuthenticationError response with the pinned source behavior.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.applications.Starlette.__call__.authentication-required.async-denied",
               "dimension": "error_path",
               "description": "Dispatch GET /dashboard through AuthenticationMiddleware and an async endpoint decorated with requires('authenticated') without credentials; the endpoint is denied. Upstream: tests/test_authentication.py::test_authentication_required.",

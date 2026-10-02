@@ -1224,7 +1224,9 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
 
             auth = connection.headers["Authorization"]
             try:
-                _scheme, credentials = auth.split()
+                scheme, credentials = auth.split()
+                if scheme.casefold() != "basic":
+                    return None
                 decoded = base64.b64decode(credentials).decode("ascii")
             except (ValueError, UnicodeDecodeError, binascii.Error) as exc:
                 raise AuthenticationError("Invalid basic auth credentials") from exc

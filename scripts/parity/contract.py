@@ -570,6 +570,18 @@ AUTH_USER_INTERFACE_REQUIREMENTS = {
         "unauthenticated-user"
     ),
     "basic": ("starlette.applications.Starlette.__call__.authentication-user-interface.basic-user"),
+    "wrong-scheme": (
+        "starlette.applications.Starlette.__call__.authentication-user-interface."
+        "wrong-scheme-unauthenticated-user"
+    ),
+    "malformed": (
+        "starlette.applications.Starlette.__call__.authentication-user-interface."
+        "malformed-basic-credentials"
+    ),
+    "non-ascii": (
+        "starlette.applications.Starlette.__call__.authentication-user-interface."
+        "non-ascii-basic-credentials"
+    ),
 }
 AUTHENTICATION_REQUIRED_ROUTE_REQUIREMENTS = {
     "async-denied": "starlette.applications.Starlette.__call__.authentication-required.async-denied",
@@ -14080,11 +14092,18 @@ def _authentication_user_interface_requirement(scope: dict[str, Any]) -> str | N
         return None
     try:
         scheme, credentials = authorization_values[0].split()
-        decoded = base64.b64decode(credentials).decode("ascii")
-    except (TypeError, ValueError, UnicodeDecodeError):
+    except (TypeError, ValueError):
         return None
-    if scheme.casefold() != "basic" or ":" not in decoded:
-        return None
+    if scheme.casefold() != "basic":
+        return AUTH_USER_INTERFACE_REQUIREMENTS["wrong-scheme"]
+    try:
+        decoded_bytes = base64.b64decode(credentials)
+    except (ValueError, base64.binascii.Error):
+        return AUTH_USER_INTERFACE_REQUIREMENTS["malformed"]
+    try:
+        decoded_bytes.decode("ascii")
+    except UnicodeDecodeError:
+        return AUTH_USER_INTERFACE_REQUIREMENTS["non-ascii"]
     return AUTH_USER_INTERFACE_REQUIREMENTS["basic"]
 
 
