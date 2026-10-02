@@ -17,12 +17,13 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 699 input-only cases across 77 files,
-covering 93 operations and 722 parity requirements. Recent additions compare
+The active parity manifest indexes 701 input-only cases across 77 files,
+covering 93 operations and 723 parity requirements. Recent additions compare
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
 pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
-default decoding in WebSocketEndpoint, and TestClient lifespan task/RunVar continuity under
-asyncio and Trio. It includes Rust-backed
+default decoding in WebSocketEndpoint, TestClient lifespan task/RunVar
+continuity under asyncio and Trio, and lifespan task-group child lifecycle
+ordering under both backends. It includes Rust-backed
 `CommaSeparatedStrings` parsing, sequence formatting, quoting, Unicode
 representation, Python string-subclass boundary inputs, and lone-surrogate
 strings; a three-request
@@ -74,19 +75,20 @@ operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest integrated full-slice correctness run is
-`ca41c415-139f-4134-843f-986153299f7f`. It ran from
-`2026-10-02T06:05:54.769Z` to `2026-10-02T06:08:50.407Z` against Starlette
+`d071bc31-e311-40f8-9dfa-f44d05acdd9e`. It ran from
+`2026-10-02T06:57:16.360Z` to `2026-10-02T07:00:03.279Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active
-699-case/722-requirement `parity-input@25` contract. It selected 907 profile
-comparisons: 903 passed, zero failed, zero infrastructure errors, and four
+701-case/723-requirement `parity-input@25` contract. It selected 909 profile
+comparisons: 905 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-697 selected comparisons; Rust-native passed 206 of 210. The run includes
+699 selected comparisons; Rust-native passed 206 of 210. The run includes
 app-state attributes read through `request.app.state`, StaticFiles HTML
 fallback and converter scenarios, default-string matching and slash-boundary
 cases, datetime-converter cases, Mount URL lookup, StaticFiles date-order
-sequence, TestClient startup-error, WebSocket accepted headers, and both
-BaseHTTPMiddleware ContextVar observer cases. The four native `not_run` rows
-are synchronous Request endpoint, bound-method endpoint, partial endpoint, and
+sequence, TestClient startup-error, WebSocket accepted headers, both
+BaseHTTPMiddleware ContextVar observer cases, and asyncio/Trio lifespan
+task-group child lifecycle cases. The four native `not_run` rows are
+synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make parity-run` exits with status 2 because
 those declared Python-callable boundaries remain `not_run`; they are not
 parity failures. The Rust-native source fingerprint is
@@ -94,11 +96,11 @@ parity failures. The Rust-native source fingerprint is
 The installed package tree SHA-256 is
 `6a4297d47d91869e9ac7bcb57ef432cec0ad540c39d74df33c6f3bf2ae1deb50`, and the
 wheel SHA-256 is
-`b2ee730824dbb0154f9ec6637f4eaee2b473a1f4456545aeffbd162a57959b92`. The
+`21d6491350169df9f9a5264669a8a258d382fcf2c7136fd471d13ba18aae36ab`. The
 manifest SHA-256 is
-`a2e614c253e8cca65bdf9d1f368f1834fad478e6e00a603418bc67ebe8617f9f`; the
+`090c32b9f2fa51a783d1e4f9a2aa58f1431eff24f911bcee1787445902eabc7e`; the
 result artifact SHA-256 is
-`7e2c74c5f933b6e7f4dc2e15ce3c5e02bd4b1d56e95c81c2c026557277c82524`. Full
+`592ce22fc7df477e5193332fdcb0ebed15301c1accd0d87aec2883fb92a9c360`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md). This bounded evidence
 does not establish full Starlette parity or release readiness.
@@ -110,21 +112,21 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run,
-`0aea2634-4301-415b-98c2-5f714ef6a7a5`, ran from
-`2026-10-02T06:05:50.539Z` to `2026-10-02T06:10:12.102Z` and measured all 74
+`2e3a648e-b9d0-4275-aa59-2c9ddb4a147a`, ran from
+`2026-10-02T06:57:12.626Z` to `2026-10-02T07:01:29.606Z` and measured all 74
 declared workloads: six Router and 68 GZip, with zero failures or
 source/package `not_run` rows. Its clean target checkout was revision
-`b4709e47f94b12378e1f863ac7e27887c6c757c2`, with working-tree SHA-256
-`ccb9d9b0840e133fb920850a44cd8b7dc0e544e82738a7d6f40d24e376a37b34` and
+`80b35ef9e34bcb8d85244fb1d12c073650020661`, with working-tree SHA-256
+`419b354d840dc59b3e041bef40d40a68a2f4a007cebac20a744a9977e20bbabf` and
 wheel SHA-256
-`b2ee730824dbb0154f9ec6637f4eaee2b473a1f4456545aeffbd162a57959b92`.
-The correctness preflight `ca41c415-139f-4134-843f-986153299f7f` selected 907
-comparisons: 903 passed, zero failed, zero infrastructure errors, and four
+`21d6491350169df9f9a5264669a8a258d382fcf2c7136fd471d13ba18aae36ab`.
+The correctness preflight `d071bc31-e311-40f8-9dfa-f44d05acdd9e` selected 909
+comparisons: 905 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 697/697 and Rust-native passed 206/210. Rust-native remains `not_run`
+passed 699/699 and Rust-native passed 206/210. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. The median per-workload
-source/package latency ratios were 0.770 for Router and 0.975 for GZip; source
-latency was lower in five of six Router workloads and 60 of 68 GZip workloads.
+source/package latency ratios were 0.819 for Router and 0.979 for GZip; source
+latency was lower in all six Router workloads and 60 of 68 GZip workloads.
 All 74 source/package observations had matching normalized hashes. This
 bounded evidence does not establish full Starlette compatibility.
 

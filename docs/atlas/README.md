@@ -25,12 +25,12 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 699 input-only cases across
-77 indexed files, 93 operations, and 722 requirements. Seven QueryParams cases
-map equality and blank-value behavior to two pinned test rows. The latest full-slice
-run `ca41c415-139f-4134-843f-986153299f7f` passed 903 of 907 selected profile
+active and incomplete. The current contract has 701 input-only cases across
+77 indexed files, 93 operations, and 723 requirements. Seven QueryParams cases
+map equality and blank-value behavior to two pinned test rows. The latest
+full-slice run `d071bc31-e311-40f8-9dfa-f44d05acdd9e` passed 905 of 909 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 697/697; Rust-native
+Python-callable rows `not_run`. The Python package passed 699/699; Rust-native
 passed 206/210. Three StaticFiles HTML fallback scenarios and seven built-in
 float/UUID converter cases pass on both target profiles. Default-string match
 and slash-boundary inputs and int/path converter observations also pass on both
@@ -39,8 +39,10 @@ package. All nine selected
 `CommaSeparatedStrings` comparisons pass,
 including lone-surrogate strings through parsing, sequence values, and subclass
 `__repr__`. The PyO3 boundary uses UTF-32LE with `surrogatepass`; parsing and
-formatting remain Rust-owned. The WebSocket state sequence covers ten cases,
-including four denial-response transitions; package-only convenience inputs
+formatting remain Rust-owned. Asyncio and Trio TestClient lifespan task-group
+child lifecycle cases also pass on the Python package. The WebSocket state
+sequence covers ten cases, including four denial-response transitions;
+package-only convenience inputs
 check fresh-iterator `asend(non-None)` and invalid JSON modes. GZip adds direct
 package-profile `GZipResponder` checks for exclusion normalization and
 compression without negotiation. The four native rows are synchronous Request
@@ -53,11 +55,11 @@ The generated coverage matrix has 802 source rows: 422 input mappings, 50
 reasoned `not_applicable` rows, and 330 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `0aea2634-4301-415b-98c2-5f714ef6a7a5` measured all
+The latest Router/GZip run `2e3a648e-b9d0-4275-aa59-2c9ddb4a147a` measured all
 74 source/package workloads after correctness preflight
-`ca41c415-139f-4134-843f-986153299f7f`. Median per-workload source/package
-latency ratios were 0.770 for Router and 0.975 for GZip; source latency was
-lower on five of six Router workloads and 60 of 68 GZip workloads. All 74
+`d071bc31-e311-40f8-9dfa-f44d05acdd9e`. Median per-workload source/package
+latency ratios were 0.819 for Router and 0.979 for GZip; source latency was
+lower on all six Router workloads and 60 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.

@@ -8,14 +8,14 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 699 input-only cases in 77 indexed files,
-covering 93 operations and 722 parity requirements. Seven QueryParams
+The active contract contains 701 input-only cases in 77 indexed files,
+covering 93 operations and 723 parity requirements. Seven QueryParams
 cases map equality and blank-value behavior to two pinned test rows. New
 focused inputs cover
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
 pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
-default decoding in WebSocketEndpoint, and TestClient lifespan task/RunVar continuity under
-asyncio and Trio. Rust-backed
+default decoding in WebSocketEndpoint, TestClient lifespan task/RunVar
+continuity, and task-group child lifecycle under asyncio and Trio. Rust-backed
 `CommaSeparatedStrings` parsing and sequence formatting, including lone
 surrogate values, are included, alongside
 the three-request CORS
@@ -36,10 +36,10 @@ cases now pass on both target profiles. Default-string match/slash-boundary
 and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The latest integrated run for the active
-`parity-input@25` contract, `ca41c415-139f-4134-843f-986153299f7f`, passed
-903 of 907 selected comparisons, with zero failures or infrastructure errors
+`parity-input@25` contract, `d071bc31-e311-40f8-9dfa-f44d05acdd9e`, passed
+905 of 909 selected comparisons, with zero failures or infrastructure errors
 and four Rust-native Python-callable rows `not_run`. The Python package passed
-697/697; Rust-native passed 206/210. The four native `not_run` rows are synchronous
+699/699; Rust-native passed 206/210. The four native `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for those declared rows. Full run
 identities and package hashes are recorded in

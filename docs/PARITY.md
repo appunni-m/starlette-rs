@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 699 input-only cases in 77 indexed files, covering 93 operations and 722 parity requirements. Recent additions include app-state attributes read through `request.app.state`, default string-converter match and slash-boundary cases, expanded route-scope path-parameter observations for string/int/path converters, input-defined datetime converter dispatch and reverse URL formatting, seven QueryParams cases, seven built-in float/UUID converter cases, three StaticFiles HTML fallback scenarios, a middleware-configured Mount URL lookup, ordered StaticFiles `If-Modified-Since` requests, a TestClient lifespan startup error, TestClient WebSocket accepted-header observations, CORSMiddleware private-network-access denial, an empty-text WebSocketEndpoint default-decoding failure, TestClient lifespan task/RunVar continuity under asyncio and Trio, and surrounding pure-ASGI ContextVar observations for BaseHTTPMiddleware and its pure-ASGI control. Existing inputs cover Rust-backed `CommaSeparatedStrings` including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles configuration and conditional responses; CORSMiddleware origin-isolation and wildcard-without-credentials; Request.cookies edge, invalid, and mapping cases; WebSocket denial and close transitions; direct `GZipResponder`; and broad application, request, response, middleware, and routing boundaries. The latest integrated full-slice result below uses the active `parity-input@25` contract.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 701 input-only cases in 77 indexed files, covering 93 operations and 723 parity requirements. Recent additions include app-state attributes read through `request.app.state`, default string-converter match and slash-boundary cases, expanded route-scope path-parameter observations for string/int/path converters, input-defined datetime converter dispatch and reverse URL formatting, seven QueryParams cases, seven built-in float/UUID converter cases, three StaticFiles HTML fallback scenarios, a middleware-configured Mount URL lookup, ordered StaticFiles `If-Modified-Since` requests, a TestClient lifespan startup error, TestClient WebSocket accepted-header observations, CORSMiddleware private-network-access denial, an empty-text WebSocketEndpoint default-decoding failure, TestClient lifespan task/RunVar continuity and task-group child lifecycle under asyncio and Trio, and surrounding pure-ASGI ContextVar observations for BaseHTTPMiddleware and its pure-ASGI control. Existing inputs cover Rust-backed `CommaSeparatedStrings` including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles configuration and conditional responses; CORSMiddleware origin-isolation and wildcard-without-credentials; Request.cookies edge, invalid, and mapping cases; WebSocket denial and close transitions; direct `GZipResponder`; and broad application, request, response, middleware, and routing boundaries. The latest integrated full-slice result below uses the active `parity-input@25` contract.
 
 The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, middleware registration and ordering; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State behavior; direct Request body, stream, JSON, and form consumption; responses and background tasks, including cancellation and post-construction FileResponse assignments; WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, schemas, and one Python-package Jinja2 workflow. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
@@ -11,22 +11,27 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest integrated full-slice parity run is
-`ca41c415-139f-4134-843f-986153299f7f`. It ran from
-`2026-10-02T06:05:54.769Z` to `2026-10-02T06:08:50.407Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 699-case,
-722-requirement `parity-input@25` manifest. It selected 907 profile
-comparisons: 903 passed, zero failed, zero infrastructure errors, and four
+`d071bc31-e311-40f8-9dfa-f44d05acdd9e`. It ran from
+`2026-10-02T06:57:16.360Z` to `2026-10-02T07:00:03.279Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 701-case,
+723-requirement `parity-input@25` manifest. It selected 909 profile
+comparisons: 905 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 697 selected comparisons; Rust-native passed 206 of 210. The
+passed all 699 selected comparisons; Rust-native passed 206 of 210. The
 app-state attributes read through `request.app.state`, default-string match
 and slash-boundary cases, StaticFiles HTML fallback and built-in converter
 cases, both datetime converter cases, Mount URL lookup, StaticFiles date-order
-sequence, TestClient startup-error, WebSocket accepted headers, and both
-BaseHTTPMiddleware ContextVar observer cases are included in the run. The four
-native `not_run` rows are synchronous Request endpoint, bound-method endpoint,
-partial endpoint, and callable-instance ASGI dispatch. `make parity-run` exits
-with status 2 because those declared rows remain `not_run`; they are not parity
-failures.
+sequence, TestClient startup-error, WebSocket accepted headers, both
+BaseHTTPMiddleware ContextVar observer cases, and asyncio/Trio lifespan
+task-group child lifecycle cases are included in the run. Both child-task
+cases match the exact start, release, finish, callback-exit, and ASGI shutdown
+event order. The four native `not_run` rows are synchronous Request endpoint,
+bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
+`make parity-run` exits with status 2 because those declared rows remain
+`not_run`; they are not parity failures.
+
+The target checkout was clean at commit
+`80b35ef9e34bcb8d85244fb1d12c073650020661` for this run.
 
 For `lifespan_send_messages`, the manifest declares a narrow
 `starlette-lifespan-router-frame` normalization: it removes only the
@@ -40,11 +45,11 @@ The Rust-native fingerprint is
 The installed package tree SHA-256 is
 `6a4297d47d91869e9ac7bcb57ef432cec0ad540c39d74df33c6f3bf2ae1deb50`; its
 wheel SHA-256 is
-`b2ee730824dbb0154f9ec6637f4eaee2b473a1f4456545aeffbd162a57959b92`. The
+`21d6491350169df9f9a5264669a8a258d382fcf2c7136fd471d13ba18aae36ab`. The
 manifest SHA-256 is
-`a2e614c253e8cca65bdf9d1f368f1834fad478e6e00a603418bc67ebe8617f9f`; the
+`090c32b9f2fa51a783d1e4f9a2aa58f1431eff24f911bcee1787445902eabc7e`; the
 result artifact SHA-256 is
-`7e2c74c5f933b6e7f4dc2e15ce3c5e02bd4b1d56e95c81c2c026557277c82524`.
+`592ce22fc7df477e5193332fdcb0ebed15301c1accd0d87aec2883fb92a9c360`.
 Strict aggregation remains `not_proven` because the full compatibility
 denominator is incomplete and four Rust-native rows are `not_run`.
 
@@ -60,7 +65,7 @@ values, and parameters without an equals sign. Six cases run on both target
 profiles. The heterogeneous comparison against the literal string `"invalid"`
 is package-only because the native consumer API has no Python object equality
 boundary. All 13 selected comparisons pass in the latest full-slice run
-`ca41c415-139f-4134-843f-986153299f7f`.
+`d071bc31-e311-40f8-9dfa-f44d05acdd9e`.
 
 ### StaticFiles HTML fallback selection
 
@@ -73,7 +78,7 @@ fallback, an index directory without a fallback page, and an HTML-only tree
 without either special file. Ordered ASGI observations include the slash
 redirect, selected file body, and propagated 404 exception. All six
 oracle-to-target profile comparisons pass in integrated run
-`ca41c415-139f-4134-843f-986153299f7f`.
+`d071bc31-e311-40f8-9dfa-f44d05acdd9e`.
 
 ### Built-in float and UUID converters
 
@@ -83,7 +88,7 @@ hyphens, and an invalid UUID segment. They observe the selected status and
 ASGI response; matched cases also compare the converted `route_scope.path_params`
 value and type. The Rust-native parity adapter projects these fields from
 `DetailedRouteMatch` captures. All 14 oracle-to-target comparisons pass in
-integrated run `ca41c415-139f-4134-843f-986153299f7f`. Additional cases
+integrated run `d071bc31-e311-40f8-9dfa-f44d05acdd9e`. Additional cases
 observe converted path parameters for int/path routes and the default string
 converter, including a path with an additional slash that must not match. The
 int/float/path/UUID documentation rows now map to those input observations.
@@ -945,10 +950,24 @@ and direct `Route.url_path_for` formats a datetime value through the converter.
 The datetime format, regular expression, request path, endpoint projection,
 and reverse-path datetime components are supplied as inputs. The `@24` to
 `@25` migrator changes only the schema header and validates all 77 indexed
-authored inputs. Full run `ca41c415-139f-4134-843f-986153299f7f` passed both
+authored inputs. Full run `d071bc31-e311-40f8-9dfa-f44d05acdd9e` passed both
 exact Python-package comparisons.
 
 The same `parity-input@23` revision adds a two-dispatch CORSMiddleware input for private-network-access denial and a WebSocketEndpoint input for empty text under `encoding=None`. Both focused source/package comparisons passed; the output artifacts remain in ignored `build/parity/` storage. Together, the `@23` additions increase the indexed denominator from 671 cases/703 requirements to 675/706 without claiming a new full-slice run. The `@24` observer adds one parity requirement, leaving 675 cases and increasing the requirement count to 707. Later input additions under that schema add three StaticFiles HTML fallback cases and three requirements; the resulting `@24` contract had 678 cases and 710 requirements.
+
+### TestClient lifespan child-task lifecycle
+
+The active schema adds asyncio and Trio TestClient cases that start an
+input-defined child task inside the lifespan callback, release its wait gate
+during teardown, and observe task-group completion before the callback exits.
+Both source/package comparisons pass exactly in run
+`d071bc31-e311-40f8-9dfa-f44d05acdd9e`. After TestClient enter, the trace is
+`lifespan-started`, `child-started`; after exit it is
+`lifespan-started`, `child-started`, `child-release-requested`,
+`child-finished`, `lifespan-finished`, followed by the shutdown-complete
+message. The cases map `docs/lifespan.md:27-33` and
+`starlette/routing.py::Router.lifespan`; they establish this controlled
+child-task lifecycle only.
 
 ### TestClient exception policy
 
