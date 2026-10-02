@@ -613,6 +613,135 @@
       "observations": [
         "dispatch"
       ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.authentication-login.next-query-redirect",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.applications.Starlette.__call__.authentication-login.next-query-redirect"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/login",
+                  "methods": [
+                    "POST"
+                  ],
+                  "endpoint": {
+                    "kind": "authentication-login-next-redirect",
+                    "method": "POST",
+                    "query_parameter": "next",
+                    "fallback_url": "/",
+                    "unauthenticated_content": "login"
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "authentication-basic"
+                }
+              ]
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": null
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/login",
+                "raw_path_base64": "L2xvZ2lu",
+                "query_string_base64": "bmV4dD1odHRwJTNBJTJGJTJGdGVzdHNlcnZlciUyRmRhc2hib2FyZCUzRnNvcnQlM0RuYW1lJTI2cGFnZSUzRDI=",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "YXV0aG9yaXphdGlvbg==",
+                    "QmFzaWMgZEc5dFkyaHlhWE4wYVdVNlpYaGhiWEJzWlE9PQ=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
     }
   ]
 }

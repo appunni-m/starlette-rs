@@ -865,6 +865,17 @@
               ]
             },
             {
+              "id": "starlette.applications.Starlette.__call__.authentication-login.next-query-redirect",
+              "dimension": "boundary",
+              "description": "Through an authenticated login endpoint, read the supplied next query value and redirect back to it; this pairs with requires(redirect=...) preserving the original request URL. Upstream: docs/authentication.md:122-159.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.applications.Starlette.__call__.authentication-required.async-denied",
               "dimension": "error_path",
               "description": "Dispatch GET /dashboard through AuthenticationMiddleware and an async endpoint decorated with requires('authenticated') without credentials; the endpoint is denied. Upstream: tests/test_authentication.py::test_authentication_required.",

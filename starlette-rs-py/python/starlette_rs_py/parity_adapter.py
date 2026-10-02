@@ -1251,7 +1251,7 @@ def _materialize_application(
 ) -> tuple[Any, list[str], list[dict[str, Any]], Any, list[dict[str, Any]]]:
     from starlette.applications import Starlette
     from starlette.exceptions import HTTPException, WebSocketException
-    from starlette.responses import JSONResponse, PlainTextResponse, Response
+    from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
     from starlette.routing import Route, WebSocketRoute
 
     required_arguments = {
@@ -1654,6 +1654,31 @@ def _materialize_application(
                         "auth_scopes": request.auth.scopes,
                     }
                 )
+        elif response_spec["kind"] == "authentication-login-next-redirect":
+            _exact_object(
+                response_spec,
+                {
+                    "kind",
+                    "method",
+                    "query_parameter",
+                    "fallback_url",
+                    "unauthenticated_content",
+                },
+                "authentication login redirect endpoint",
+            )
+
+            def make_login_redirect_endpoint(spec: dict[str, Any]) -> Any:
+                async def endpoint(request: Any) -> Any:
+                    if request.method == spec["method"] and request.user.is_authenticated:
+                        next_url = request.query_params.get(spec["query_parameter"])
+                        if next_url:
+                            return RedirectResponse(next_url)
+                        return RedirectResponse(spec["fallback_url"])
+                    return PlainTextResponse(spec["unauthenticated_content"])
+
+                return endpoint
+
+            route_endpoint = make_login_redirect_endpoint(response_spec)
         elif response_spec["kind"] == "authentication-required-route":
             _exact_object(
                 response_spec,

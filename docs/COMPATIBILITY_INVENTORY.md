@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 742 input-only cases across 83 files,
-covering 94 operations and 777 parity requirements. Its latest additions map
+The active parity manifest indexes 743 input-only cases across 83 files,
+covering 94 operations and 778 parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Recent additions include
 direct FormData constructor/equality inputs; direct UploadFile constructor/repr, rollover, and threadpool-boundary cases, and GZip final and
@@ -71,8 +71,9 @@ input-only case. The sequential `test_request_cookies` flow is mapped to a
 separate TestClient cookie-persistence round trip.
 The authentication inputs also compare the configured custom HTTP error
 response, invalid `requires` decoration, and synchronous/asynchronous redirect
-dispatch, custom `BaseUser` property overrides, concrete `Request.user` types,
-and middleware-populated `Request.auth.scopes`, while the State inventory row
+dispatch, named login redirects with the `next` query value, custom `BaseUser`
+property overrides, concrete `Request.user` types, and middleware-populated
+`Request.auth.scopes`, while the State inventory row
 links direct container operations to the existing HTTP and WebSocket
 lifespan-state flow.
 The authored cases span
@@ -150,8 +151,8 @@ artifact SHA-256:
 `d4d5a3deda3c68bc61aaed089277562da438e07aa0f386cb30f46077767d8f99`. This
 bounded evidence does not establish full Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 464 input mappings, 51
-reasoned `not_applicable` rows, and 287 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 465 input mappings, 51
+reasoned `not_applicable` rows, and 286 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

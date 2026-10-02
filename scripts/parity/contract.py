@@ -587,6 +587,9 @@ AUTH_USER_INTERFACE_REQUIREMENTS = {
         "user-and-auth-state"
     ),
 }
+AUTHENTICATION_LOGIN_NEXT_REDIRECT_REQUIREMENT = (
+    "starlette.applications.Starlette.__call__.authentication-login.next-query-redirect"
+)
 AUTHENTICATION_REQUIRED_ROUTE_REQUIREMENTS = {
     "async-denied": "starlette.applications.Starlette.__call__.authentication-required.async-denied",
     "async-authorized": "starlette.applications.Starlette.__call__.authentication-required.async-authorized",
@@ -12658,6 +12661,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                     server_error_case
                     or is_route_body_limit_workflow
                     or _is_authentication_user_interface_application(app_args)
+                    or _is_authentication_login_next_application(app_args)
                     or _is_authentication_required_route_application(app_args)
                     or _is_authentication_required_websocket_application(app_args)
                 ),
@@ -12676,6 +12680,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 "authentication user-interface dispatch selects only the Python-package profile"
             )
         _validate_authentication_user_interface_dispatch(dispatch_args)
+    if _is_authentication_login_next_application(app_args):
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError(
+                "authentication login redirect dispatch selects only the Python-package profile"
+            )
+        _validate_authentication_login_next_dispatch(dispatch_args)
     if _is_authentication_required_route_application(app_args):
         if case["target_profiles"] != ["python-package-cpython312"]:
             raise ContractError(
@@ -14041,6 +14051,16 @@ def _is_authentication_user_interface_application(args: dict[str, Any]) -> bool:
     return isinstance(endpoint, dict) and endpoint.get("kind") == "authentication-user-interface"
 
 
+def _is_authentication_login_next_application(args: dict[str, Any]) -> bool:
+    routes = args.get("routes")
+    if not isinstance(routes, list) or len(routes) != 1 or not isinstance(routes[0], dict):
+        return False
+    endpoint = routes[0].get("endpoint")
+    return isinstance(endpoint, dict) and endpoint.get("kind") == (
+        "authentication-login-next-redirect"
+    )
+
+
 def _is_authentication_required_route_application(args: dict[str, Any]) -> bool:
     routes = args.get("routes")
     if not isinstance(routes, list) or len(routes) != 1 or not isinstance(routes[0], dict):
@@ -14134,6 +14154,44 @@ def _validate_authentication_user_interface_application(args: dict[str, Any]) ->
         raise ContractError("authentication user-interface route differs from its source stimulus")
 
 
+def _validate_authentication_login_next_application(args: dict[str, Any]) -> None:
+    if (
+        args["debug"] is not False
+        or args["middleware"] != [{"kind": "authentication-basic"}]
+        or args["exception_handlers"] != []
+        or args["lifespan"] is not None
+        or args["max_body_size"] is not None
+    ):
+        raise ContractError("authentication login app differs from the documented example")
+    route = _exact(
+        args["routes"][0],
+        {"kind", "path", "methods", "endpoint"},
+        "authentication login route",
+    )
+    endpoint = _exact(
+        route["endpoint"],
+        {
+            "kind",
+            "method",
+            "query_parameter",
+            "fallback_url",
+            "unauthenticated_content",
+        },
+        "authentication login endpoint",
+    )
+    if (
+        route["kind"] != "http-route"
+        or route["path"] != "/login"
+        or route["methods"] != ["POST"]
+        or endpoint["kind"] != "authentication-login-next-redirect"
+        or endpoint["method"] != "POST"
+        or endpoint["query_parameter"] != "next"
+        or endpoint["fallback_url"] != "/"
+        or endpoint["unauthenticated_content"] != "login"
+    ):
+        raise ContractError("authentication login route differs from its source stimulus")
+
+
 def _validate_authentication_required_route_application(args: dict[str, Any]) -> None:
     if (
         args["debug"] is not False
@@ -14207,6 +14265,24 @@ def _validate_authentication_user_interface_dispatch(arguments: dict[str, Any]) 
         )
 
 
+def _validate_authentication_login_next_dispatch(arguments: dict[str, Any]) -> None:
+    scope = arguments["scope"]
+    query_string = base64.b64decode(scope["query_string_base64"], validate=True).decode("ascii")
+    if (
+        scope["type"] != "http"
+        or scope["method"] != "POST"
+        or scope["path"] != "/login"
+        or _authentication_middleware_outcome(scope) != "valid"
+        or not any(
+            name == "next" and value
+            for name, value in parse_qsl(query_string, keep_blank_values=True)
+        )
+    ):
+        raise ContractError(
+            "authentication login dispatch needs an authenticated POST with a nonempty next value"
+        )
+
+
 def _validate_authentication_required_route_dispatch(
     arguments: dict[str, Any], route: dict[str, Any]
 ) -> None:
@@ -14246,6 +14322,9 @@ def _validate_application_stimulus(
         )
     if not request_dispatch and _is_authentication_user_interface_application(args):
         _validate_authentication_user_interface_application(args)
+        return
+    if not request_dispatch and _is_authentication_login_next_application(args):
+        _validate_authentication_login_next_application(args)
         return
     if not request_dispatch and _is_authentication_required_route_application(args):
         _validate_authentication_required_route_application(args)
@@ -20916,6 +20995,25 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         methods.add("HEAD")
     method_matches = method in methods
     coverage: set[str] = set()
+    if endpoint["kind"] == "authentication-login-next-redirect":
+        if (
+            case["operation"] == "__call__"
+            and case["target_profiles"] == ["python-package-cpython312"]
+            and route["kind"] == "http-route"
+            and path_matches
+            and method_matches
+            and scope.get("type") == "http"
+            and _authentication_middleware_outcome(scope) == "valid"
+        ):
+            query_string = base64.b64decode(scope["query_string_base64"], validate=True).decode(
+                "ascii"
+            )
+            if any(
+                name == endpoint["query_parameter"] and value
+                for name, value in parse_qsl(query_string, keep_blank_values=True)
+            ):
+                return {AUTHENTICATION_LOGIN_NEXT_REDIRECT_REQUIREMENT}
+        return coverage
     if endpoint["kind"] == "authentication-user-interface":
         if (
             case["operation"] == "__call__"
