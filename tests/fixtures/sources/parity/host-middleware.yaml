@@ -419,6 +419,103 @@
       ]
     },
     {
+      "case_id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__call__.secure-websocket-pass-through",
+      "surface": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.construct",
+        "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.secure-websocket-pass-through"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "websocket.close",
+                    "code": 1000
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "websocket",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "scheme": "wss",
+                "path": "/host",
+                "raw_path_base64": "L2hvc3Q=",
+                "query_string_base64": "ZnJvbT1maXh0dXJl",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "aG9zdA==",
+                    "dGVzdHNlcnZlcjo0NDM="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  443
+                ],
+                "subprotocols": []
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "websocket.connect"
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
       "case_id": "starlette.middleware.trustedhost.TrustedHostMiddleware.__call__.exact-host",
       "surface": "starlette.middleware.trustedhost.TrustedHostMiddleware",
       "operation": "__call__",

@@ -119,7 +119,9 @@
         "starlette.authentication.requires.sync-denied-error",
         "starlette.authentication.requires.redirect-response",
         "starlette.authentication.requires.invalid-decorator-usage",
-        "starlette.authentication.requires.websocket-denied-close"
+        "starlette.authentication.requires.websocket-denied-close",
+        "starlette.authentication.requires.multiple-required-scopes",
+        "starlette.authentication.requires.websocket-custom-status-ignored"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -321,6 +323,81 @@
               "read"
             ]
           }
+        },
+        {
+          "callable": {
+            "kind": "endpoint",
+            "mode": "sync",
+            "parameter": "request",
+            "result": "multi-scope-sync-authorized"
+          },
+          "required_scopes": [
+            "authenticated",
+            "admin"
+          ],
+          "connection": {
+            "kind": "request",
+            "auth_scopes": [
+              "authenticated",
+              "admin"
+            ]
+          }
+        },
+        {
+          "callable": {
+            "kind": "endpoint",
+            "mode": "async",
+            "parameter": "request",
+            "result": "must-not-run"
+          },
+          "required_scopes": [
+            "authenticated",
+            "admin"
+          ],
+          "connection": {
+            "kind": "request",
+            "auth_scopes": [
+              "authenticated"
+            ]
+          },
+          "status_code": 404
+        },
+        {
+          "callable": {
+            "kind": "endpoint",
+            "mode": "async",
+            "parameter": "request",
+            "result": "multi-scope-async-authorized"
+          },
+          "required_scopes": [
+            "authenticated",
+            "admin"
+          ],
+          "connection": {
+            "kind": "request",
+            "auth_scopes": [
+              "authenticated",
+              "admin"
+            ]
+          }
+        },
+        {
+          "callable": {
+            "kind": "endpoint",
+            "mode": "async",
+            "parameter": "websocket",
+            "result": "must-not-run"
+          },
+          "required_scopes": [
+            "admin"
+          ],
+          "connection": {
+            "kind": "websocket",
+            "auth_scopes": [
+              "read"
+            ]
+          },
+          "status_code": 404
         }
       ],
       "observations": [

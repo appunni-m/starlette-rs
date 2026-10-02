@@ -5158,6 +5158,8 @@ def _validate_static_files_case_stimulus(
             derived.update({"missing-subdirectory-maps-404", "not-found-get"})
         else:
             derived.add("not-found-get")
+            if normalized_path == "." and path.endswith("/") and not case["html"] and files:
+                derived.add("directory-root-404")
         if (
             case["html"]
             and "404.html" not in selected_files
@@ -19175,16 +19177,23 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
             if connection["kind"] == "websocket":
                 if not authorized:
                     exercised.add("starlette.authentication.requires.websocket-denied-close")
-            elif "redirect" in scenario and not authorized:
-                exercised.add("starlette.authentication.requires.redirect-response")
-            elif authorized and callable_spec["mode"] == "sync":
-                exercised.add("starlette.authentication.requires.sync-authorized-call")
-            elif authorized and callable_spec["mode"] == "async":
-                exercised.add("starlette.authentication.requires.async-authorized-call")
-            elif callable_spec["mode"] == "sync":
-                exercised.add("starlette.authentication.requires.sync-denied-error")
+                    if scenario.get("status_code", 403) != 403:
+                        exercised.add(
+                            "starlette.authentication.requires.websocket-custom-status-ignored"
+                        )
             else:
-                exercised.add("starlette.authentication.requires.async-denied-error")
+                if len(required_scopes) > 1:
+                    exercised.add("starlette.authentication.requires.multiple-required-scopes")
+                if "redirect" in scenario and not authorized:
+                    exercised.add("starlette.authentication.requires.redirect-response")
+                elif authorized and callable_spec["mode"] == "sync":
+                    exercised.add("starlette.authentication.requires.sync-authorized-call")
+                elif authorized and callable_spec["mode"] == "async":
+                    exercised.add("starlette.authentication.requires.async-authorized-call")
+                elif callable_spec["mode"] == "sync":
+                    exercised.add("starlette.authentication.requires.sync-denied-error")
+                else:
+                    exercised.add("starlette.authentication.requires.async-denied-error")
     else:
         if case["observations"] != ["scenarios"]:
             raise ContractError("AuthenticationMiddleware cases must select scenarios")
@@ -20163,6 +20172,8 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
                 covered.add(suffix("http-redirect-default-port"))
             elif scope["query_string_base64"]:
                 covered.add(suffix("http-redirect-preserves-port-and-query"))
+        elif scope["type"] == "websocket" and scheme == "wss":
+            covered.add(suffix("secure-websocket-pass-through"))
         else:
             covered.add(suffix("secure-scheme-pass-through"))
         return covered

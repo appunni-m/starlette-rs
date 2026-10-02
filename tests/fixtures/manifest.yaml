@@ -3075,6 +3075,28 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.authentication.requires.multiple-required-scopes",
+              "dimension": "parameter_combination",
+              "description": "A request endpoint requiring multiple scopes runs only when every required scope is present, including partial denial and complete authorization for sync and async endpoints. Upstream: docs/authentication.md:94-116; starlette/authentication.py:25-96.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.requires.websocket-custom-status-ignored",
+              "dimension": "parameter_combination",
+              "description": "An unauthorized WebSocket decorator ignores a supplied non-default HTTP status code and closes the socket without invoking the endpoint. Upstream: docs/authentication.md:118-120; starlette/authentication.py:43-58.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -11069,6 +11091,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.secure-websocket-pass-through",
+              "dimension": "protocol_variant",
+              "description": "Pass a WebSocket scope using the secure wss scheme through to the wrapped application without an HTTP redirect. Pinned source: starlette/middleware/httpsredirect.py:10-18; docs/middleware.md:162-181.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -17610,6 +17643,18 @@
               "id": "starlette.staticfiles.StaticFiles.asgi-call.not-found-get",
               "dimension": "error_path",
               "description": "Request a path absent from the input-defined static root with GET and compare the live 404 HTTPException outcome and empty ASGI event trace. Upstream: tests/test_staticfiles.py::test_staticfiles_with_missing_file_returns_404.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.directory-root-404",
+              "dimension": "error_path",
+              "description": "Request the root of an input-defined non-HTML static directory containing a file and compare the live 404 HTTPException outcome and empty ASGI event trace. Upstream: tests/test_staticfiles.py::test_staticfiles_with_directory_returns_404.",
               "lanes": [
                 "parity"
               ],
