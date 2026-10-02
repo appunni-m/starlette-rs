@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 692 input-only cases across 77 files,
+The active parity manifest indexes 694 input-only cases across 77 files,
 covering 93 operations and 712 parity requirements. Recent additions compare
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
 pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
@@ -38,8 +38,12 @@ map equality and blank-value behavior to `test_queryparams` and
 `test_url_blank_params`. Three StaticFiles
 HTML fallback scenarios cover directory index/fallback selection and missing
 file exceptions. Seven built-in float/UUID converter cases now observe matched
-path parameter types and invalid-segment misses on both profiles. The source
-`test_datetime_convertor` now has input-only dispatch and reverse-URL cases on
+path parameter types and invalid-segment misses on both profiles. Added
+default-string match and slash-boundary inputs plus int/path parameter
+observations on both profiles; the routing docs now map all five built-in
+converter examples to these inputs and map the separate `request.path_params`
+example to its existing endpoint input. The `test_datetime_convertor` source
+row now has input-only dispatch and reverse-URL cases on
 the Python package; the documented custom converter example is now mapped to
 the same dispatch and reverse-URL input cases. The six direct
 ServerErrorMiddleware inputs and three TestClient exception-
@@ -70,29 +74,28 @@ operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest full-slice correctness run is
-`a29fff0b-5a9e-4354-a16c-39fb26ca3060`. It ran from
-`2026-10-02T02:26:11.976Z` to `2026-10-02T02:29:06.050Z` against Starlette
+`3b5e380f-0bfa-46b2-a8da-580bfdf63700`. It ran from
+`2026-10-02T02:59:38.158Z` to `2026-10-02T03:02:26.196Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active
-692-case/712-requirement `parity-input@25` contract. It selected 897 profile
-comparisons: 893 passed, zero failed, zero infrastructure errors, and four
+694-case/712-requirement `parity-input@25` contract. It selected 901 profile
+comparisons: 897 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-690 selected comparisons; Rust-native passed 203 of 207. StaticFiles HTML
-fallback and built-in converter scenarios, both datetime-converter cases,
-Mount URL lookup, StaticFiles date-order sequence, TestClient startup-error,
-WebSocket accepted headers, and both BaseHTTPMiddleware ContextVar observer
-cases are included in the run. The four native `not_run` rows are synchronous
-Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
-ASGI dispatch. `make parity-run` exits with status 2 because those declared
-Python-callable boundaries remain `not_run`; they are not parity failures. The
-Rust-native source fingerprint
-was
-`b208005d8226d4a550bb167318d53e7073a31fe2+source-fnv1a64-b3446fa60fa7209a`.
-The installed package tree SHA-256 was
-`d5ae6853db170918dede763d775f229814cc51963d71521abdd49a164b370b43`, and the
-manifest SHA-256 was
+692 selected comparisons; Rust-native passed 205 of 209. StaticFiles HTML
+fallback and converter scenarios, default-string matching and slash-boundary
+cases, both datetime-converter cases, Mount URL lookup, StaticFiles date-order
+sequence, TestClient startup-error, WebSocket accepted headers, and both
+BaseHTTPMiddleware ContextVar observer cases are included in the run. The four
+native `not_run` rows are synchronous Request endpoint, bound-method endpoint,
+partial endpoint, and callable-instance ASGI dispatch. `make parity-run` exits
+with status 2 because those declared Python-callable boundaries remain
+`not_run`; they are not parity failures. The Rust-native source fingerprint is
+`45cb1ad9ea0bc885e411c9d640c8684194fa1401+source-fnv1a64-b3446fa60fa7209a`.
+The installed package tree SHA-256 is
+`557abb7cdb2a92607c70885fa6bec394c7b94214b014c8746d18eb46271d958a`, and the
+manifest SHA-256 is
 `50006286204b6ecc4a34a0e4b4c9e32a51dafd38ab4adb5461edf2e258987ec8`; the
-result artifact SHA-256 was
-`2b519bd487b4cb1f9caeac59b153cc5edc98906109cc1fc78bf8ffcf554f0cd4`. Full
+result artifact SHA-256 is
+`a151048d0c96360a751daa3fefad2d56fac59694c524fb7930476568796070e9`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md). This bounded evidence
 does not establish full Starlette parity or release readiness.
@@ -104,21 +107,21 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run,
-`3055c710-8201-4cd3-8004-bcd868fa7fbf`, measured all 74 declared workloads:
+`989dbeb4-32c9-459d-b47b-cd154d5dcb72`, measured all 74 declared workloads:
 six Router and 68 GZip, with zero failures or source/package `not_run` rows.
-Its correctness preflight `1e92db47-115d-43e3-b7cf-1908c68757e9` selected 897
-comparisons: 893 passed, zero failed or hit infrastructure errors, and four
+Its correctness preflight `0dd8e3a9-fe51-4004-9d92-94d8c14ec471` selected 901
+comparisons: 897 passed, zero failed or hit infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 690/690 and Rust-native passed 203/207. Rust-native remains `not_run`
+passed 692/692 and Rust-native passed 205/209. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. The median per-workload
-source/package latency ratios were 0.776 for Router and 0.977 for GZip; source
-latency was lower in four of six Router workloads and 59 of 68 GZip workloads.
+source/package latency ratios were 0.749 for Router and 0.976 for GZip; source
+latency was lower in five of six Router workloads and 56 of 68 GZip workloads.
 All 74 source/package observations had matching normalized hashes. The clean
-target checkout was revision `317ec8c6ee3fd9744d6b570c3785e8f31b7691e5` with
+target checkout was revision `45cb1ad9ea0bc885e411c9d640c8684194fa1401` with
 working-tree SHA-256
-`c5a1762abfdde31b45486e0e0579017ad757ce97343a3b52113ef1a963b0012f`; the
+`e3e842bc1a6d6aca9026d8c1ef3a37104eb0f2e25c7c4b9db6a13d3a9c0cc20f`; the
 target wheel SHA-256 was
-`5bcdf66bed75be30746bdf1038c6fc71215939626d8af280d41b1609ad785822`.
+`2f1711cc9481b0e9fe0c91edbd25f21a910c94b2e0313c9d043aa7f47fba2655`.
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 

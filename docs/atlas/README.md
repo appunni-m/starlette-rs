@@ -25,15 +25,17 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 692 input-only cases across
+active and incomplete. The current contract has 694 input-only cases across
 77 indexed files, 93 operations, and 712 requirements. Seven QueryParams cases
 map equality and blank-value behavior to two pinned test rows. The latest full-slice
-run `a29fff0b-5a9e-4354-a16c-39fb26ca3060` passed 893 of 897 selected profile
+run `3b5e380f-0bfa-46b2-a8da-580bfdf63700` passed 897 of 901 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 690/690; Rust-native
-passed 203/207. Three StaticFiles HTML fallback scenarios and seven built-in
-float/UUID converter cases pass on both target profiles. Both input-defined
-datetime-converter cases pass on the Python package. All nine selected
+Python-callable rows `not_run`. The Python package passed 692/692; Rust-native
+passed 205/209. Three StaticFiles HTML fallback scenarios and seven built-in
+float/UUID converter cases pass on both target profiles. Default-string match
+and slash-boundary inputs and int/path converter observations also pass on both
+profiles. Both input-defined datetime-converter cases pass on the Python
+package. All nine selected
 `CommaSeparatedStrings` comparisons pass,
 including lone-surrogate strings through parsing, sequence values, and subclass
 `__repr__`. The PyO3 boundary uses UTF-32LE with `surrogatepass`; parsing and
@@ -51,11 +53,11 @@ The generated coverage matrix has 802 source rows: 400 existing input
 mappings, 50 reasoned `not_applicable` rows, and 352 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `3055c710-8201-4cd3-8004-bcd868fa7fbf` measured all
+The latest Router/GZip run `989dbeb4-32c9-459d-b47b-cd154d5dcb72` measured all
 74 source/package workloads after correctness preflight
-`1e92db47-115d-43e3-b7cf-1908c68757e9`. Median per-workload source/package
-latency ratios were 0.776 for Router and 0.977 for GZip; source latency was
-lower on four of six Router workloads and 59 of 68 GZip workloads. All 74
+`0dd8e3a9-fe51-4004-9d92-94d8c14ec471`. Median per-workload source/package
+latency ratios were 0.749 for Router and 0.976 for GZip; source latency was
+lower on five of six Router workloads and 56 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.
