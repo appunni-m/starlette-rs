@@ -17,9 +17,11 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 705 input-only cases across 77 files,
-covering 93 operations and 729 parity requirements. Recent additions compare
-input-derived generic `Request[State]` and `WebSocket[State]` type contracts,
+The active parity manifest indexes 707 input-only cases across 77 files,
+covering 93 operations and 730 parity requirements. Recent additions include
+final and streaming GZip responses at the configured `thread_minimum_size`
+boundary. Other recent inputs compare generic `Request[State]` and
+`WebSocket[State]` type contracts,
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
 pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
 default decoding in WebSocketEndpoint, TestClient lifespan task/RunVar
@@ -80,13 +82,14 @@ operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest integrated full-slice correctness run is
-`8e8e26fa-22d4-421f-b4de-8b5a36df8010`. It ran from
-`2026-10-02T10:29:43.907Z` to `2026-10-02T10:32:34.408Z` against Starlette
+`81c28a4f-859d-4ff9-b0cb-be73fdaa5fcc`. It ran from
+`2026-10-02T11:06:51.419Z` to `2026-10-02T11:09:52.038Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active
-705-case/729-requirement `parity-input@27` contract. It selected 913 profile
-comparisons: 909 passed, zero failed, zero infrastructure errors, and four
+707-case/730-requirement `parity-input@27` contract. It selected 915 profile
+comparisons: 911 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-703 selected comparisons; Rust-native passed 206 of 210. The run includes
+705 selected comparisons; Rust-native passed 206 of 210. The run includes the
+new GZip thread-threshold final and streaming response inputs, and includes
 app-state attributes read through `request.app.state`, StaticFiles HTML
 fallback and converter scenarios, default-string matching and slash-boundary
 cases, datetime-converter cases, Mount URL lookup, StaticFiles date-order
@@ -149,8 +152,8 @@ artifact SHA-256:
 bounded evidence does not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 427 input mappings, 51
-reasoned `not_applicable` rows, and 324 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 429 input mappings, 51
+reasoned `not_applicable` rows, and 322 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

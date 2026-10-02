@@ -1084,6 +1084,7 @@ GZIP_REQUIREMENTS = {
     "partial-response-stream-bypass": "starlette.middleware.gzip.GZipMiddleware.partial-response-stream-bypass",
     "streaming-chunks": "starlette.middleware.gzip.GZipMiddleware.streaming-chunks",
     "streaming-empty-chunk": "starlette.middleware.gzip.GZipMiddleware.streaming-empty-chunk",
+    "thread-minimum-size": "starlette.middleware.gzip.GZipMiddleware.thread-minimum-size",
     "pathsend": "starlette.middleware.gzip.GZipMiddleware.pathsend",
 }
 # Synchronized with the pinned Starlette 1.6.0 source at
@@ -19483,8 +19484,22 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and not body_messages[-1]["more_body"]
     )
     minimum_size = constructor_args.get("minimum_size", 500)
+    thread_minimum_size = constructor_args.get("thread_minimum_size", 128 * 1024)
     compressible = not content_encoded and not partial_response and not excluded
     coverage = {GZIP_REQUIREMENT_CONSTRUCTION}
+
+    if (
+        gzip_accepted
+        and compressible
+        and any(
+            body_length >= thread_minimum_size
+            and (index > 0 or message["more_body"] or body_length >= minimum_size)
+            for index, (message, body_length) in enumerate(
+                zip(body_messages, body_lengths, strict=True)
+            )
+        )
+    ):
+        coverage.add(GZIP_REQUIREMENTS["thread-minimum-size"])
 
     if (
         gzip_accepted

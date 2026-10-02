@@ -8705,6 +8705,17 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.thread-minimum-size",
+              "dimension": "boundary",
+              "description": "Select the Python event-loop worker-thread bridge for gzip-eligible body events at or above thread_minimum_size while preserving the exact response event stream.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
