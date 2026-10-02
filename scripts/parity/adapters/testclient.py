@@ -929,9 +929,268 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_starlette_lifespan_runvar_case(case: dict[str, Any]) -> dict[str, Any]:
+    import itertools
+
+    import anyio
+    import sniffio
+    from starlette.applications import Starlette
+    from starlette.responses import JSONResponse
+    from starlette.routing import Route
+    from starlette.testclient import TestClient
+
+    settings = case["testclient"]
+    app_input = case["asgi_app"]
+    runvar_input = app_input["runvar"]
+    token_source = runvar_input["token_source"]
+    runvar = anyio.lowlevel.RunVar(runvar_input["name"])
+    tokens = itertools.count(token_source["start"], token_source["step"])
+    active_context: dict[str, int | None] = {"value": None}
+    startup_samples: list[dict[str, Any]] = []
+    shutdown_samples: list[dict[str, Any]] = []
+    request_samples: list[dict[str, Any]] = []
+    request_results: list[dict[str, Any]] = []
+    lifespan_scopes: list[dict[str, Any]] = []
+    lifespan_receive_messages: list[dict[str, Any]] = []
+    lifespan_send_messages: list[dict[str, Any]] = []
+    http_scopes: list[dict[str, Any]] = []
+    http_receive_messages: list[dict[str, Any]] = []
+    http_send_messages: list[dict[str, Any]] = []
+    lifecycle_action_trace: list[dict[str, Any]] = []
+    action_errors: list[dict[str, Any]] = []
+    lifecycle_trace: list[str] = []
+
+    def current_task() -> Any:
+        backend_name = sniffio.current_async_library()
+        if backend_name == "asyncio":
+            task = asyncio.current_task()
+            if task is None:
+                raise RuntimeError("TestClient lifespan callback has no asyncio task")
+            return task
+        if backend_name == "trio":
+            import trio.lowlevel
+
+            return trio.lowlevel.current_task()
+        raise RuntimeError(f"unsupported TestClient backend {backend_name!r}")
+
+    def identity() -> int:
+        try:
+            return runvar.get()
+        except LookupError:
+            token = next(tokens)
+            runvar.set(token)
+            return token
+
+    @contextlib.asynccontextmanager
+    async def lifespan(_app: Any) -> Any:
+        context_index = active_context["value"]
+        lifecycle_trace.append("startup")
+        startup_samples.append(
+            {
+                "context_index": context_index,
+                "task": current_task(),
+                "runvar_value": identity(),
+            }
+        )
+        async with anyio.create_task_group():
+            yield
+        lifecycle_trace.append("shutdown")
+        shutdown_samples.append(
+            {
+                "context_index": context_index,
+                "task": current_task(),
+                "runvar_value": identity(),
+            }
+        )
+
+    async def endpoint(_request: Any) -> JSONResponse:
+        return JSONResponse(identity())
+
+    starlette_app = Starlette(
+        routes=[
+            Route(app_input["route"]["path"], endpoint, methods=[app_input["route"]["method"]])
+        ],
+        lifespan=lifespan,
+    )
+
+    def record_scope(scope: dict[str, Any]) -> dict[str, Any]:
+        return {field: _safe(scope.get(field)) for field in app_input["scope_fields"]}
+
+    async def instrumented_app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope["type"] == "lifespan":
+            lifespan_scopes.append(record_scope(scope))
+        elif scope["type"] == "http":
+            http_scopes.append(record_scope(scope))
+
+        async def observed_receive() -> dict[str, Any]:
+            message = await receive()
+            destination = (
+                lifespan_receive_messages if scope["type"] == "lifespan" else http_receive_messages
+            )
+            destination.append(_safe(message))
+            return message
+
+        async def observed_send(message: dict[str, Any]) -> None:
+            destination = (
+                lifespan_send_messages if scope["type"] == "lifespan" else http_send_messages
+            )
+            destination.append(_safe(message))
+            await send(message)
+
+        await starlette_app(scope, observed_receive, observed_send)
+
+    client = TestClient(
+        instrumented_app,
+        base_url=settings["base_url"],
+        raise_server_exceptions=settings["raise_server_exceptions"],
+        root_path=settings["root_path"],
+        client=tuple(settings["client"]),
+        headers=dict(settings["headers"]),
+        backend=settings["backend"],
+        backend_options=settings["backend_options"],
+    )
+    context_number = 0
+    try:
+        for action_index, action in enumerate(case["client_actions"]):
+            operation = action["operation"]
+            try:
+                if operation == "enter":
+                    active_context["value"] = context_number
+                    context_number += 1
+                    client.__enter__()
+                elif operation == "exit":
+                    client.__exit__(None, None, None)
+                    active_context["value"] = None
+                else:
+                    request = action["request"]
+                    response = client.request(
+                        request["method"],
+                        request["url"],
+                        headers=_decoded_pairs(request["headers_base64_pairs"]),
+                        content=base64.b64decode(request["body_base64"]),
+                    )
+                    request_results.append(
+                        {
+                            "action_index": action_index,
+                            "url": str(response.request.url),
+                            "status_code": response.status_code,
+                            "headers": response.headers.multi_items(),
+                            "body_base64": base64.b64encode(response.content).decode("ascii"),
+                        }
+                    )
+                    request_samples.append(
+                        {
+                            "action_index": action_index,
+                            "context_index": active_context["value"],
+                            "status_code": response.status_code,
+                            "json_value": response.json(),
+                        }
+                    )
+                lifecycle_action_trace.append(
+                    {
+                        "action_index": action_index,
+                        "operation": operation,
+                        "trace": list(lifecycle_trace),
+                    }
+                )
+            except Exception as error:
+                error_type = type(error)
+                action_errors.append(
+                    {
+                        "action_index": action_index,
+                        "operation": operation,
+                        "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
+                        "message": str(error),
+                    }
+                )
+                break
+    finally:
+        client.close()
+
+    contexts = sorted(
+        {
+            sample["context_index"]
+            for sample in startup_samples + shutdown_samples
+            if sample["context_index"] is not None
+        }
+    )
+    lifecycle_relations: list[dict[str, Any]] = []
+    for context_index in contexts:
+        startup = next(
+            sample for sample in startup_samples if sample["context_index"] == context_index
+        )
+        shutdown = next(
+            sample for sample in shutdown_samples if sample["context_index"] == context_index
+        )
+        managed_values = [
+            sample["json_value"]
+            for sample in request_samples
+            if sample["context_index"] == context_index
+        ]
+        lifecycle_relations.append(
+            {
+                "context_index": context_index,
+                "startup_shutdown_same_task": startup["task"] is shutdown["task"],
+                "startup_shutdown_same_runvar": (
+                    startup["runvar_value"] == shutdown["runvar_value"]
+                ),
+                "managed_requests_match_startup": [
+                    value == startup["runvar_value"] for value in managed_values
+                ],
+                "managed_requests_share_runvar": (len(set(managed_values)) <= 1),
+            }
+        )
+    outside_values = [
+        sample["json_value"] for sample in request_samples if sample["context_index"] is None
+    ]
+    result = {
+        "lifespan_scope": lifespan_scopes[0],
+        "lifespan_receive_messages": lifespan_receive_messages,
+        "lifespan_send_messages": lifespan_send_messages,
+        "http_scopes": http_scopes,
+        "http_receive_messages": http_receive_messages,
+        "http_send_messages": http_send_messages,
+        "request_results": request_results,
+        "websocket_scopes": [],
+        "websocket_receive_messages": [],
+        "websocket_send_messages": [],
+        "websocket_results": [],
+        "loop_relations": {"active_lifespan": [], "previous_http_request": []},
+        "lifespan_trace_before_actions": [],
+        "lifespan_trace_after_actions": lifecycle_action_trace,
+        "action_errors": action_errors,
+        "runvar_context_observations": {
+            "startup_samples": [
+                {key: value for key, value in sample.items() if key != "task"}
+                for sample in startup_samples
+            ],
+            "shutdown_samples": [
+                {key: value for key, value in sample.items() if key != "task"}
+                for sample in shutdown_samples
+            ],
+            "request_samples": request_samples,
+            "lifecycle_relations": lifecycle_relations,
+            "reentry_uses_new_task": (
+                startup_samples[0]["task"] is not startup_samples[-1]["task"]
+                if len(startup_samples) > 1
+                else None
+            ),
+            "outside_runvar_values_are_distinct": len(set(outside_values)) == len(outside_values),
+            "lifecycle_trace": lifecycle_trace,
+        },
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "lifespan-context", "status": "ok", "value": result}],
+    }
+
+
 def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["asgi_app"]["kind"] == "starlette-lifespan":
         return _run_starlette_lifespan_case(case)
+    if case["asgi_app"]["kind"] == "starlette-lifespan-runvar":
+        return _run_starlette_lifespan_runvar_case(case)
     if case["asgi_app"]["kind"] == "starlette-state":
         from scripts.parity.adapters.testclient_state import (
             run_testclient_stateful_lifespan_case,

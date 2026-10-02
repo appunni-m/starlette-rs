@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@22",
+  "schema": "migration-parity/parity-input@23",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.normal-managed-cycle",
@@ -730,6 +730,248 @@
         "callback": {
           "entry_effect": "startup-entry",
           "exit_effect": "shutdown-cleanup"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.same-task-and-runvar-context-continuity",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.startup-handshake",
+        "starlette.testclient.TestClient.lifespan-context.managed-request-portal-reuse",
+        "starlette.testclient.TestClient.lifespan-context.shutdown-handshake",
+        "starlette.testclient.TestClient.lifespan-context.transient-outside-context-requests",
+        "starlette.testclient.TestClient.lifespan-context.same-task-and-runvar-context-continuity"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "exit"
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "exit"
+        }
+      ],
+      "asgi_app": {
+        "kind": "starlette-lifespan-runvar",
+        "scope_fields": [
+          "type"
+        ],
+        "callback": {
+          "kind": "task-group-around-yield"
+        },
+        "runvar": {
+          "name": "identity_runvar",
+          "token_source": {
+            "kind": "incrementing-integer",
+            "start": 0,
+            "step": 1
+          }
+        },
+        "route": {
+          "path": "/loop_id",
+          "method": "GET",
+          "operation": "read-runvar"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.same-task-and-runvar-context-continuity.trio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.startup-handshake",
+        "starlette.testclient.TestClient.lifespan-context.managed-request-portal-reuse",
+        "starlette.testclient.TestClient.lifespan-context.shutdown-handshake",
+        "starlette.testclient.TestClient.lifespan-context.transient-outside-context-requests",
+        "starlette.testclient.TestClient.lifespan-context.same-task-and-runvar-context-continuity"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "trio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "exit"
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/loop_id",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "exit"
+        }
+      ],
+      "asgi_app": {
+        "kind": "starlette-lifespan-runvar",
+        "scope_fields": [
+          "type"
+        ],
+        "callback": {
+          "kind": "task-group-around-yield"
+        },
+        "runvar": {
+          "name": "identity_runvar",
+          "token_source": {
+            "kind": "incrementing-integer",
+            "start": 0,
+            "step": 1
+          }
+        },
+        "route": {
+          "path": "/loop_id",
+          "method": "GET",
+          "operation": "read-runvar"
         }
       }
     }

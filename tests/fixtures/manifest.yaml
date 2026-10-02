@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@22",
+      "input_schema": "migration-parity/parity-input@23",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -6268,6 +6268,17 @@
               ]
             },
             {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-default-empty-text-failure",
+              "dimension": "error_path",
+              "description": "When encoding is None and an empty text frame is received, preserve the pinned text-or-bytes fallback KeyError and pass close code 1011 to on_disconnect. The input selects an on_disconnect hook that records the code and calls websocket.close. Implementation source: starlette/endpoints.py:116-117. Context: docs/endpoints.md:53-63 presents encoding as optional; tests/test_endpoints.py::test_websocket_endpoint_on_default covers only non-empty text.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-default-bytes",
               "dimension": "protocol_variant",
               "description": "When encoding is None, pass a supplied bytes frame to on_receive unchanged. Pinned source: starlette/endpoints.py:116-117; docs/endpoints.md:53-85.",
@@ -8033,6 +8044,15 @@
                   "comparison": {
                     "kind": "bytes"
                   }
+                },
+                {
+                  "path": "downstream_call_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 }
               ],
               "error": {
@@ -8098,6 +8118,17 @@
               "id": "starlette.middleware.cors.CORSMiddleware.preflight-denial-failure-order",
               "dimension": "error_path",
               "description": "Report preflight denials in the declared origin, method, header, and private-network failure order.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.private-network-access-denial",
+              "dimension": "error_path",
+              "description": "Reject a preflight that otherwise matches its allowed origin and method when it requests private-network access and allow_private_network is false; compare the ASGI response events and input-derived downstream call trace. Pinned source: tests/middleware/test_cors.py::test_cors_private_network_access_disallowed; docs/middleware.md:96-102.",
               "lanes": [
                 "parity"
               ],
@@ -20615,6 +20646,18 @@
                   }
                 },
                 {
+                  "path": "runvar_context_observations",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.runvar"
+                  }
+                },
+                {
                   "path": "lifespan_trace_before_actions",
                   "value_types": [
                     "sequence"
@@ -20792,6 +20835,17 @@
               "id": "starlette.testclient.TestClient.lifespan-context.application-callback-entry-exit",
               "dimension": "boundary",
               "description": "A Starlette async-context-manager lifespan callback runs its entry effect before TestClient context entry returns and its exit effect during context teardown. Pinned source: tests/test_applications.py::test_app_async_cm_lifespan; docs/lifespan.md:142-158.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.same-task-and-runvar-context-continuity",
+              "dimension": "boundary",
+              "description": "Keep the TestClient lifespan callback in one task, propagate its AnyIO RunVar context to managed HTTP requests, isolate transient requests outside the context, and create a new lifespan task and RunVar context on re-entry. Pinned source: tests/test_testclient.py:89-164; tests/conftest.py:12-23; starlette/testclient.py:112-130,422-426,679-749; docs/testclient.md:79-84; docs/lifespan.md:142-158.",
               "lanes": [
                 "parity"
               ],

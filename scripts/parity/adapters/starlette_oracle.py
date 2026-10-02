@@ -2541,8 +2541,27 @@ def _run_wsgi_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _materialize_protocol_middleware(surface: str, arguments: dict[str, Any]) -> Any:
+def _materialize_protocol_middleware(
+    surface: str,
+    arguments: dict[str, Any],
+    downstream_call_trace: list[dict[str, Any]] | None = None,
+) -> Any:
     app = _materialize_asgi_sequence_app(arguments["app"])
+    if downstream_call_trace is not None:
+        downstream_app = app
+
+        async def tracked_app(scope: Any, receive: Any, send: Any) -> None:
+            downstream_call_trace.append(
+                {
+                    "scope_type": scope.get("type"),
+                    "method": scope.get("method"),
+                    "path": scope.get("path"),
+                }
+            )
+            await downstream_app(scope, receive, send)
+
+        app = tracked_app
+
     if surface == CORS_SURFACE:
         from starlette.middleware.cors import CORSMiddleware
 
@@ -2727,8 +2746,13 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
         set(constructor_step["arguments"]),
         f"{case['surface']} constructor",
     )
+    downstream_call_trace: list[dict[str, Any]] = []
     try:
-        middleware = _materialize_protocol_middleware(case["surface"], constructor_arguments)
+        middleware = _materialize_protocol_middleware(
+            case["surface"],
+            constructor_arguments,
+            downstream_call_trace if case["surface"] == CORS_SURFACE else None,
+        )
     except Exception as exc:
         error = _dispatch_error(exc)
         error["stage"] = "construct"
@@ -2756,6 +2780,7 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
     async def invoke_dispatches() -> list[dict[str, Any]]:
         observations = []
         for dispatch_step in steps[1:]:
+            trace_start = len(downstream_call_trace)
             dispatch_arguments = _literal_arguments(
                 dispatch_step,
                 {"scope", "receive", "send"},
@@ -2763,6 +2788,8 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
             )
             value = await _invoke(middleware, dispatch_arguments, [], [], None, False)
             selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
+            if case["surface"] == CORS_SURFACE:
+                selected["downstream_call_trace"] = downstream_call_trace[trace_start:]
             observations.append(
                 {"step_id": dispatch_step["step_id"], "status": "ok", "value": selected}
             )

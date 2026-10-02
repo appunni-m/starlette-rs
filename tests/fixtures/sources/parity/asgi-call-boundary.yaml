@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@22",
+  "schema": "migration-parity/parity-input@23",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.request-dispatch.async-call-boundary-cancelled",

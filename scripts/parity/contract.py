@@ -22,7 +22,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@22"
+INPUT_SCHEMA = "migration-parity/parity-input@23"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -151,6 +151,7 @@ WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "json_malformed": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-json-malformed",
     "disconnect": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-close-code",
     "default_text": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-text",
+    "default_empty_text_failure": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-empty-text-failure",
     "default_bytes": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-bytes",
     "callback_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.callback-error-propagation",
     "invalid_encoding": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.invalid-encoding",
@@ -219,6 +220,7 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "app_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.app-state-separation",
     "websocket_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.websocket-lifespan-state",
     "application_callback": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.application-callback-entry-exit",
+    "task_runvar_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.same-task-and-runvar-context-continuity",
 }
 TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "testclient",
@@ -1003,6 +1005,9 @@ GZIP_RESPONDER_REQUIREMENTS = {
 }
 WSGI_SURFACE = "starlette.middleware.wsgi.WSGIMiddleware"
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
+CORS_PRIVATE_NETWORK_DENIAL_REQUIREMENT = (
+    "starlette.middleware.cors.CORSMiddleware.private-network-access-denial"
+)
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
 SERVER_ERROR_MIDDLEWARE_SURFACE = "starlette.middleware.errors.ServerErrorMiddleware"
@@ -1086,7 +1091,7 @@ def _is_cors_dispatch_sequence(case: dict[str, Any]) -> bool:
         case.get("surface") == CORS_SURFACE
         and case.get("operation") == "__call__"
         and isinstance(steps, list)
-        and len(steps) == 4
+        and len(steps) in {3, 4}
         and all(isinstance(step, dict) for step in steps)
         and steps[0].get("surface") == CORS_SURFACE
         and steps[0].get("operation") == "__init__"
@@ -1671,6 +1676,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             "lifespan_trace_after_actions",
                         }
                     )
+                    testclient_lifespan_runvar_context = (
+                        condition["input_key"] == "asgi_app.runvar"
+                        and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
+                        and observation["path"] == "runvar_context_observations"
+                    )
                     testclient_application_debug = (
                         condition["input_key"] == "asgi_app.debug_after"
                         and key == TESTCLIENT_OPERATION_KEY
@@ -1710,6 +1720,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not file_response_scheduling_probe
                         and not router_scope_probe
                         and not testclient_lifespan_callback_trace
+                        and not testclient_lifespan_runvar_context
                         and not testclient_application_debug
                         and not testclient_application_host
                         and not testclient_application_mount
@@ -2564,16 +2575,25 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             else:
                 requirement_name = "json_text" if message_encoding == "text" else "json_binary"
         else:
-            requirement_name = "default_text" if message_encoding == "text" else "default_bytes"
-            if message_encoding == "text" and not message["text"]:
-                raise ContractError(
-                    f"{context} excludes the empty-text default decoder boundary from this slice"
-                )
+            if message_encoding == "text" and message["text"] == "":
+                requirement_name = "default_empty_text_failure"
+                if (
+                    message_types != ["websocket.connect", "websocket.receive"]
+                    or on_receive["kind"] != "no-op"
+                    or on_disconnect["kind"] != "record-and-close"
+                ):
+                    raise ContractError(
+                        f"{context} empty default-encoding text requires a decoder failure "
+                        "with observed disconnect finalization"
+                    )
+            else:
+                requirement_name = "default_text" if message_encoding == "text" else "default_bytes"
 
         decode_succeeds = requirement_name not in {
             "text_rejects_bytes",
             "bytes_rejects_text",
             "json_malformed",
+            "default_empty_text_failure",
         }
         callback_raises = on_receive["kind"] == "raise-value-error"
         if callback_raises:
@@ -10265,6 +10285,18 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         ["enter"],
         ["enter", "exit"],
         ["enter", "request", "request", "websocket", "exit"],
+        [
+            "enter",
+            "request",
+            "request",
+            "exit",
+            "request",
+            "request",
+            "enter",
+            "request",
+            "request",
+            "exit",
+        ],
     ):
         raise ContractError("TestClient lifespan actions do not match a declared lifecycle path")
     for index, operation in enumerate(client_operations):
@@ -10306,6 +10338,80 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             raise ContractError("TestClient WebSocket subprotocols must be strings")
 
     asgi_app_value = case["asgi_app"]
+    if isinstance(asgi_app_value, dict) and asgi_app_value.get("kind") == (
+        "starlette-lifespan-runvar"
+    ):
+        asgi_app = _exact(
+            asgi_app_value,
+            {"kind", "scope_fields", "callback", "runvar", "route"},
+            "TestClient Starlette lifespan RunVar app",
+        )
+        expected_operations = [
+            "enter",
+            "request",
+            "request",
+            "exit",
+            "request",
+            "request",
+            "enter",
+            "request",
+            "request",
+            "exit",
+        ]
+        if client_operations != expected_operations:
+            raise ContractError(
+                "TestClient RunVar cases must follow the two-context upstream lifecycle sequence"
+            )
+        if settings["backend"] not in {"asyncio", "trio"}:
+            raise ContractError("TestClient RunVar lifecycle backend must be asyncio or trio")
+        scope_fields = asgi_app["scope_fields"]
+        if scope_fields != ["type"]:
+            raise ContractError("TestClient RunVar scope_fields must select only type")
+        callback = _exact(asgi_app["callback"], {"kind"}, "TestClient RunVar lifespan callback")
+        if callback["kind"] != "task-group-around-yield":
+            raise ContractError("TestClient RunVar callback must open a task group around yield")
+        runvar = _exact(asgi_app["runvar"], {"name", "token_source"}, "TestClient RunVar")
+        _string(runvar["name"], "TestClient RunVar name")
+        token_source = _exact(
+            runvar["token_source"],
+            {"kind", "start", "step"},
+            "TestClient RunVar token source",
+        )
+        if token_source["kind"] != "incrementing-integer":
+            raise ContractError("TestClient RunVar token source must increment integers")
+        for key in ("start", "step"):
+            if type(token_source[key]) is not int:
+                raise ContractError(f"TestClient RunVar token source {key} must be an integer")
+        if token_source["step"] == 0:
+            raise ContractError("TestClient RunVar token source step must be nonzero")
+        route = _exact(asgi_app["route"], {"path", "method", "operation"}, "RunVar route")
+        if route["method"] != "GET" or route["operation"] != "read-runvar":
+            raise ContractError("TestClient RunVar route must be a GET read-runvar endpoint")
+        route_path = _string(route["path"], "TestClient RunVar route path")
+        request_indexes = [
+            index for index, operation in enumerate(client_operations) if operation == "request"
+        ]
+        for index in request_indexes:
+            request = client_actions[index]["request"]
+            if request["method"] != route["method"] or request["url"] != route_path:
+                raise ContractError("TestClient RunVar requests must match the input-defined route")
+        expected_covers = {
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["managed_request"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["outside_requests"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["task_runvar_context"],
+        }
+        covers = case["covers"]
+        if (
+            not isinstance(covers, list)
+            or any(not isinstance(requirement, str) for requirement in covers)
+            or len(covers) != len(set(covers))
+            or set(covers) != expected_covers
+        ):
+            raise ContractError("TestClient RunVar covers must match the two-context workflow")
+        return
+
     if isinstance(asgi_app_value, dict) and asgi_app_value.get("kind") == "starlette-lifespan":
         asgi_app = _exact(
             asgi_app_value,
@@ -10699,6 +10805,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["app_state"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["websocket_state"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["application_callback"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["task_runvar_context"],
         }
     elif (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
         expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"]}
@@ -18463,6 +18570,51 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
 
     headers = decoded_headers(scope)
     if surface == CORS_SURFACE:
+        cors_dispatch_scopes = (
+            [
+                {name: descriptor["value"] for name, descriptor in step["arguments"].items()}[
+                    "scope"
+                ]
+                for step in case["steps"][1:]
+            ]
+            if is_cors_state_sequence
+            else [scope]
+        )
+        for cors_scope in cors_dispatch_scopes:
+            cors_headers = decoded_headers(cors_scope)
+            request_method = cors_headers.get("access-control-request-method")
+            request_headers = [
+                value.strip().lower()
+                for value in cors_headers.get("access-control-request-headers", "").split(",")
+                if value.strip()
+            ]
+            request_origin = cors_headers.get("origin")
+            request_origin_allowed = request_origin is not None and (
+                "*" in constructor["allow_origins"]
+                or request_origin in constructor["allow_origins"]
+                or (
+                    constructor["allow_origin_regex"] is not None
+                    and re.fullmatch(constructor["allow_origin_regex"], request_origin) is not None
+                )
+            )
+            allowed_request_headers = {value.lower() for value in constructor["allow_headers"]}
+            if (
+                cors_scope.get("type") == "http"
+                and cors_scope.get("method") == "OPTIONS"
+                and request_method is not None
+                and cors_headers.get("access-control-request-private-network") == "true"
+                and not constructor["allow_private_network"]
+                and request_origin_allowed
+                and (
+                    "*" in constructor["allow_methods"]
+                    or request_method in constructor["allow_methods"]
+                )
+                and (
+                    "*" in allowed_request_headers
+                    or all(value in allowed_request_headers for value in request_headers)
+                )
+            ):
+                covered.add(CORS_PRIVATE_NETWORK_DENIAL_REQUIREMENT)
         if is_cors_state_sequence:
             sequence_scopes = [
                 {name: descriptor["value"] for name, descriptor in step["arguments"].items()}[
@@ -18585,13 +18737,15 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
             ]
             allowed_methods = constructor["allow_methods"]
             allowed_headers = {value.lower() for value in constructor["allow_headers"]}
+            private_network_requested = (
+                headers.get("access-control-request-private-network") == "true"
+            )
             failures = (
                 not allowed_origin,
                 "*" not in allowed_methods and requested_method not in allowed_methods,
                 "*" not in allowed_headers
                 and any(value not in allowed_headers for value in requested_headers),
-                headers.get("access-control-request-private-network") == "true"
-                and not constructor["allow_private_network"],
+                private_network_requested and not constructor["allow_private_network"],
             )
             if (
                 all(

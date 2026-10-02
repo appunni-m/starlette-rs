@@ -17,8 +17,11 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 671 input-only cases across 77 files,
-covering 93 operations and 703 parity requirements. It includes Rust-backed
+The active parity manifest indexes 675 input-only cases across 77 files,
+covering 93 operations and 706 parity requirements. Recent additions compare
+CORSMiddleware private-network-access denial, empty-text default decoding in
+WebSocketEndpoint, and TestClient lifespan task/RunVar continuity under
+asyncio and Trio. It includes Rust-backed
 `CommaSeparatedStrings` parsing, sequence formatting, quoting, Unicode
 representation, Python string-subclass boundary inputs, and lone-surrogate
 strings; a three-request
@@ -59,7 +62,8 @@ and run results remain ignored local build outputs.
 The latest full-slice correctness preflight is
 `0666fe7e-f0b9-42ec-87a7-33baf1fc9e38`. It ran from
 `2026-10-01T22:59:29.598Z` to `2026-10-01T23:01:36.906Z` and selected 862
-profile comparisons: 858 passed, zero failed, zero infrastructure errors,
+profile comparisons against the preceding 671-case, 703-requirement
+`parity-input@22` contract: 858 passed, zero failed, zero infrastructure errors,
 and four Rust-native Python-callable rows were `not_run`. The Python package
 passed all 669 selected comparisons; Rust-native passed 189 of 193. The new
 Mount URL lookup, StaticFiles date-order sequence, TestClient startup-error,
@@ -105,8 +109,8 @@ This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 372 existing input
-mappings, 50 reasoned `not_applicable` rows, and 380 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 376 existing input
+mappings, 50 reasoned `not_applicable` rows, and 376 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

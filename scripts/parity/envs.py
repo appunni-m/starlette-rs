@@ -320,7 +320,9 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
     }
     expected_names = {
         "anyio",
+        "attrs",
         "certifi",
+        "cffi",
         "h11",
         "httpcore",
         "httpcore2",
@@ -329,9 +331,13 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
         "idna",
         "jinja2",
         "markupsafe",
+        "outcome",
+        "sortedcontainers",
         "sniffio",
+        "trio",
         "truststore",
         "typing-extensions",
+        "pycparser",
         "pyyaml",
     }
     declarations: dict[str, tuple[str, set[str]]] = {}
@@ -340,7 +346,8 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
                 continue
-            requirement, *hash_parts = stripped.split()
+            requirement = stripped.split(";", 1)[0].split()[0]
+            hash_parts = stripped.split()
             name, version = requirement.split("==", 1)
             normalized = name.lower().replace("_", "-")
             hashes = {
@@ -358,7 +365,7 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
     if set(declarations) != expected_names:
         raise ContractError(
             "runtime dependency lock must contain the ASGI closure, optional YAML/template parsers, "
-            "and pinned TestClient HTTP transports"
+            "pinned TestClient HTTP transports, and the locked AnyIO Trio parity backend dependency closure"
         )
     for name, (version, hashes) in declarations.items():
         package = locked_packages.get(name)
@@ -383,7 +390,8 @@ def _lock_declarations(path: Path) -> dict[str, tuple[str, set[str]]]:
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
                 continue
-            requirement, *hash_parts = stripped.split()
+            requirement = stripped.split(";", 1)[0].split()[0]
+            hash_parts = stripped.split()
             name, version = requirement.split("==", 1)
             normalized = name.lower().replace("_", "-")
             hashes = {
