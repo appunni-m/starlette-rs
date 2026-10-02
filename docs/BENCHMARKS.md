@@ -22,19 +22,19 @@ It verifies that this identity remains unchanged during the run.
 
 ## Latest paired benchmark run
 
-Run `40a6279f-2a35-4401-95ad-fb21a2aa938d` completed from `2026-10-02T20:45:49.489Z` through `2026-10-02T20:50:26.605Z`.
+Run `8ccf5c9e-7e14-425d-9cc7-4240be97c573` completed from `2026-10-02T21:12:32.590Z` through `2026-10-02T21:17:02.835Z`.
 
-The source oracle is Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The target checkout is clean revision `245a2e10a0bf96348798da880bd8a06a71ecdb89` with working-tree SHA-256 `24c3907c2220c6b5ef229c2178cbe086d8cbd093b0982f513251f79c011a157b`.
+The source oracle is Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The target checkout is clean revision `c3fb0798a7d697d1ec7ed46072841f3cf674755c` with working-tree SHA-256 `a31847f3c0179a966fcad3014c79fc46e120f71432e1e63350b20d7896555b76`.
 
 The runner measured 74/74 source/package workloads: 6 Router and 68 GZip. It reported 0 failures, 0 source/package not-run rows, and 74 Rust-native not-run workload rows because the native API does not expose these equivalent ASGI workload boundaries.
 
-The correctness preflight `91773fbf-14e8-4b94-a68d-42c75fd2f7f7` selected 956 profile comparisons, with 952 passed, 0 failed, 0 infrastructure errors, and 4 not-run rows.
+The correctness preflight `edb648a3-8fd4-4534-865d-8d85dac984c4` selected 957 profile comparisons, with 953 passed, 0 failed, 0 infrastructure errors, and 4 not-run rows.
 
-The preflight passed 740/740 Python-package comparisons and 212/216 Rust-native comparisons; 4 Rust-native rows were `not_run`.
+The preflight passed 741/741 Python-package comparisons and 212/216 Rust-native comparisons; 4 Rust-native rows were `not_run`.
 
-The median source/package latency ratio was 0.769 for Router and 0.979 for GZip. Source latency was lower in 5/6 Router and 54/68 GZip workloads. Normalized observation hashes matched for 74/74 measured workloads.
+The median source/package latency ratio was 0.777 for Router and 0.980 for GZip. Source latency was lower in 5/6 Router and 55/68 GZip workloads. Normalized observation hashes matched for 74/74 measured workloads.
 
-Manifest SHA-256: `a75da77e3d3164168902d0afb335bb3e762d4dad76c333d3f446a2417863552e`. Benchmark input SHA-256: `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`. Installed wheel SHA-256: `47695dfc440a3f4049b7cb5218a0fda1c7d512341807ef49dc39abde2389f208`. Result artifact SHA-256: `d4d5a3deda3c68bc61aaed089277562da438e07aa0f386cb30f46077767d8f99`.
+Manifest SHA-256: `be13dff9aec49a2c3b7ec7b27912c1ff9407e4c9941fd38e3314e29c19e34826`. Benchmark input SHA-256: `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`. Installed wheel SHA-256: `cc5f67f5e3dc4c4edaf7eac5da74aed6640872d18811ceadc2c9003ce37eaf05`. Result artifact SHA-256: `6574133b516451fa966ba6e57846ba03f7e0e6b4e98dbb6711571f1bc28d2f76`.
 
 These are workload-specific local timings, not a general performance claim, CodSpeed measurements, or evidence of full Starlette parity.
 

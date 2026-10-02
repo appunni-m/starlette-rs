@@ -11,34 +11,34 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest full-slice correctness preflight is
-`91773fbf-14e8-4b94-a68d-42c75fd2f7f7`. It ran from
-`2026-10-02T20:45:53.202Z` to `2026-10-02T20:48:58.949Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 742-case,
-777-requirement `parity-input@29` manifest on clean target commit
-`245a2e10a0bf96348798da880bd8a06a71ecdb89`. It selected 956 profile
-comparisons: 952 passed, zero failed, zero infrastructure errors, and four
+`edb648a3-8fd4-4534-865d-8d85dac984c4`. It ran from
+`2026-10-02T21:12:36.443Z` to `2026-10-02T21:15:38.954Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 743-case,
+778-requirement `parity-input@29` manifest on clean target commit
+`c3fb0798a7d697d1ec7ed46072841f3cf674755c`. It selected 957 profile
+comparisons: 953 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 740 selected comparisons; Rust-native passed 212 of 216. The new
+passed all 741 selected comparisons; Rust-native passed 212 of 216. The new
 authentication observations compare custom `BaseUser` property overrides,
-middleware-populated `Request.auth.scopes`, and the concrete `Request.user`
-type for unauthenticated, wrong-scheme, and valid Basic credentials; all
-selected package comparisons pass against the pinned source. The four native
-`not_run` rows remain synchronous Request endpoint, bound-method endpoint,
-partial endpoint, and callable-instance ASGI dispatch. `make parity-run` exits
-2 because of those declared rows; the run completed with no parity failures or
-infrastructure errors.
+middleware-populated `Request.auth.scopes`, concrete `Request.user` types, and
+the documented authenticated login redirect through its `next` query value;
+the selected package comparisons pass against the pinned source. The four
+native `not_run` rows remain synchronous Request endpoint, bound-method
+endpoint, partial endpoint, and callable-instance ASGI dispatch. `make
+parity-run` exits 2 because of those declared rows; the run completed with no
+parity failures or infrastructure errors.
 
-The Rust-native target used commit `245a2e10a0bf96348798da880bd8a06a71ecdb89`
+The Rust-native target used commit `c3fb0798a7d697d1ec7ed46072841f3cf674755c`
 with source fingerprint
-`245a2e10a0bf96348798da880bd8a06a71ecdb89+source-fnv1a64-f63b3847c266153e`.
+`c3fb0798a7d697d1ec7ed46072841f3cf674755c+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
-`39b2d45d8d52370fe760cd3f465829d9a2ef1d21b242bc472e5ea9c95ea6e130`; its
+`bdb40830d7f1c7f1796efb957f7291ca3895e6edac5342a5d02092d557373291`; its
 wheel SHA-256 is
-`47695dfc440a3f4049b7cb5218a0fda1c7d512341807ef49dc39abde2389f208`. The
+`cc5f67f5e3dc4c4edaf7eac5da74aed6640872d18811ceadc2c9003ce37eaf05`. The
 manifest SHA-256 is
-`a75da77e3d3164168902d0afb335bb3e762d4dad76c333d3f446a2417863552e`; the
+`be13dff9aec49a2c3b7ec7b27912c1ff9407e4c9941fd38e3314e29c19e34826`; the
 parity result artifact SHA-256 is
-`eec8a84d5d037ea034b98f4b455a086c113e0865e633a087f7fca8e98cb34059`. Strict
+`1dece8f6bac47f8e2d8b10b3ceeac8a893111f98df079aebefb68f9ca3062ae2`. Strict
 aggregation remains `not_proven` because the full compatibility denominator
 is incomplete and four Rust-native rows are `not_run`.
 For `lifespan_send_messages`, the manifest declares a narrow

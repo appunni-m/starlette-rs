@@ -32,10 +32,10 @@ AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract. Seven QueryParams
 cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `91773fbf-14e8-4b94-a68d-42c75fd2f7f7` passed 952 of 956
+full-slice run `edb648a3-8fd4-4534-865d-8d85dac984c4` passed 953 of 957
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
-740/740; Rust-native passed 212/216. Six protected WebSocket authentication
+741/741; Rust-native passed 212/216. Six protected WebSocket authentication
 cases pass source/package comparison for plain and injection-wrapped routes
 with missing, malformed, and valid Basic credentials. Three documentation-derived
 BasicAuth cases also pass for wrong-scheme, malformed base64, and non-ASCII
@@ -74,11 +74,11 @@ The generated coverage matrix has 802 source rows: 465 input mappings, 51
 reasoned `not_applicable` rows, and 286 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `40a6279f-2a35-4401-95ad-fb21a2aa938d` measured all
+The latest Router/GZip run `8ccf5c9e-7e14-425d-9cc7-4240be97c573` measured all
 74 source/package workloads after correctness preflight
-`91773fbf-14e8-4b94-a68d-42c75fd2f7f7`. Median per-workload source/package
-latency ratios were 0.769 for Router and 0.979 for GZip; source latency was
-lower on five of six Router workloads and 54 of 68 GZip workloads. All 74
+`edb648a3-8fd4-4534-865d-8d85dac984c4`. Median per-workload source/package
+latency ratios were 0.777 for Router and 0.980 for GZip; source latency was
+lower on five of six Router workloads and 55 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.
