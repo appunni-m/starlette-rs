@@ -25,13 +25,15 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 678 input-only cases across
+active and incomplete. The current contract has 683 input-only cases across
 77 indexed files, 93 operations, and 710 requirements. The latest full-slice
-run `d7a40a9b-4cfd-4481-ab52-cea46f506c45` passed 868 of 872 selected profile
+run `4581da40-9d41-475d-b26f-6a82bc55ffc2` passed 878 of 882 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 676/676; Rust-native
-passed 192/196. Three StaticFiles HTML fallback scenarios pass on both target
-profiles. All nine selected `CommaSeparatedStrings` comparisons pass,
+Python-callable rows `not_run`. The Python package passed 681/681; Rust-native
+passed 197/201. Three StaticFiles HTML fallback scenarios and seven built-in
+float/UUID converter cases pass on both target profiles. The custom datetime
+converter test remains in the atlas backlog. All nine selected
+`CommaSeparatedStrings` comparisons pass,
 including lone-surrogate strings through parsing, sequence values, and subclass
 `__repr__`. The PyO3 boundary uses UTF-32LE with `surrogatepass`; parsing and
 formatting remain Rust-owned. The WebSocket state sequence covers ten cases,
@@ -44,8 +46,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 381 existing input
-mappings, 50 reasoned `not_applicable` rows, and 371 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 388 existing input
+mappings, 50 reasoned `not_applicable` rows, and 364 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest Router/GZip run `9021ff6a-3660-444f-9359-88c76886a82c` measured all
@@ -242,7 +244,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 802 source rows:
-381 `existing` mappings, 371 `backlog` rows, and 50 reasoned `not_applicable`
+388 `existing` mappings, 364 `backlog` rows, and 50 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity
@@ -291,8 +293,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 516 `supported`, 285
 `private/internal`, and 198 `uncertain` candidates. The coverage matrix has 802
-source rows: 381 existing input mappings, 50 reasoned `not_applicable`
-entries, and 371 input-only backlog rows. Derive these changing counts from
+source rows: 388 existing input mappings, 50 reasoned `not_applicable`
+entries, and 364 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded
