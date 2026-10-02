@@ -3858,6 +3858,17 @@
               ]
             },
             {
+              "id": "starlette.config.Config.custom-cast-callback-boundary",
+              "dimension": "boundary",
+              "description": "Invoke a caller-supplied synchronous Python cast from Rust and preserve Config's ValueError wrapper, including the input key, value, and callback name. Upstream: starlette/config.py:123-140; tests/test_config.py::test_config_types.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.config.Config.explicit-encoding",
               "dimension": "parameter",
               "description": "Decode environment-file bytes with the explicitly supplied encoding. Pinned source: starlette/config.py:54-64, 111-121; tests/test_config.py::test_config_with_encoding; docs/config.md:123-133.",

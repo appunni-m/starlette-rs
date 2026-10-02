@@ -16744,6 +16744,7 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 )
                 if cast_operation not in {"str", "bool", "int"}:
                     raise ContractError(f"Config lookups[{index}].cast.converter is unsupported")
+                selected.add("starlette.config.Config.custom-cast-callback-boundary")
             elif cast is None:
                 cast_operation = None
             else:

@@ -114,7 +114,8 @@
       "operation": "value-resolution",
       "covers": [
         "starlette.config.Config.default-values",
-        "starlette.config.Config.cast-error"
+        "starlette.config.Config.cast-error",
+        "starlette.config.Config.custom-cast-callback-boundary"
       ],
       "target_profiles": ["python-package-cpython312"],
       "assets": [],
