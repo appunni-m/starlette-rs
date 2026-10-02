@@ -204,9 +204,11 @@ TESTCLIENT_REQUIREMENTS = {
 TESTCLIENT_REQUEST_REQUIREMENTS = {
     "url_string": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-url-string",
     "url_sequence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-url-sequence",
+    "url_components": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-url-components",
     "query_mapping": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-query-params-mapping",
     "query_semantics": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-query-params-immutable-multidict",
     "headers_mapping": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-headers-mapping",
+    "headers_semantics": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-headers-immutable-multidict",
     "raw_path": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-raw-path-scope-preservation",
     "json_without_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-json-failure-without-receive",
 }
@@ -9339,6 +9341,25 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "TestClient Request headers mapping input must set the pinned Host header"
                 )
+        elif probe == "headers-semantics":
+            input_header_names = [
+                base64.b64decode(name, validate=True)
+                for name, _value in request["headers_base64_pairs"]
+            ]
+            normalized_names = [name.lower() for name in input_header_names]
+            if (
+                followup_requests
+                or request["method"] != "GET"
+                or request.get("client_method") != "get"
+                or request["url"] != "/"
+                or not empty_body
+                or "headers" not in asgi_app["scope_fields"]
+                or len(normalized_names) == len(set(normalized_names))
+                or not any(name != name.lower() for name in input_header_names)
+            ):
+                raise ContractError(
+                    "TestClient Request header semantics input must include repeated mixed-case names"
+                )
         elif probe == "raw-path":
             if (
                 followup_requests
@@ -9516,12 +9537,14 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             "query-params-mapping": TESTCLIENT_REQUEST_REQUIREMENTS["query_mapping"],
             "query-params-semantics": TESTCLIENT_REQUEST_REQUIREMENTS["query_semantics"],
             "headers-mapping": TESTCLIENT_REQUEST_REQUIREMENTS["headers_mapping"],
+            "headers-semantics": TESTCLIENT_REQUEST_REQUIREMENTS["headers_semantics"],
             "raw-path": TESTCLIENT_REQUEST_REQUIREMENTS["raw_path"],
             "json-without-receive": TESTCLIENT_REQUEST_REQUIREMENTS["json_without_receive"],
         }[asgi_app["probe"]]
         expected_covers.add(probe_requirement)
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
         if asgi_app["probe"] == "url":
+            expected_covers.add(TESTCLIENT_REQUEST_REQUIREMENTS["url_components"])
             expected_covers.add(TESTCLIENT_REQUEST_REQUIREMENTS["url_sequence"])
             expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
     if is_starlette_app_host_route:

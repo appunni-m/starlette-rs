@@ -20102,6 +20102,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.request-url-components",
+              "dimension": "input_family",
+              "description": "Observe the live Request.url scheme, network location, host name, optional port, path, query, fragment, credentials, and secure-scheme flag for relative and absolute TestClient targets. Pinned source: starlette/requests.py:108-117; starlette/datastructures.py:28-112; docs/requests.md:34-41.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.request-query-params-mapping",
               "dimension": "input_family",
               "description": "Construct Request from the supplied query string and observe dict(Request.query_params) from the live endpoint response. Pinned source: tests/test_requests.py::test_request_query_params; starlette/requests.py; docs/requests.md:49-53.",
@@ -20127,6 +20138,17 @@
               "id": "starlette.testclient.TestClient.request-response.request-headers-mapping",
               "dimension": "input_family",
               "description": "Observe dict(Request.headers) for a supplied Host override and the live TestClient default headers. Pinned source: tests/test_requests.py::test_request_headers; starlette/requests.py; docs/requests.md:43-47.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.request-headers-immutable-multidict",
+              "dimension": "boundary",
+              "description": "Construct Request with repeated mixed-case header names; observe cached headers identity, raw ordered fields, mapping and items, case-insensitive scalar and multi-value lookups, then attempt assignment and inspect the live exception and values afterward. Pinned source: starlette/requests.py:132-136; starlette/datastructures.py:500-553; docs/requests.md:43-47.",
               "lanes": [
                 "parity"
               ],

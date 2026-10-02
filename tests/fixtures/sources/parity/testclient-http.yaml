@@ -1305,6 +1305,7 @@
         "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
         "starlette.testclient.TestClient.request-response.request-url-sequence",
         "starlette.testclient.TestClient.request-response.request-url-string",
+        "starlette.testclient.TestClient.request-response.request-url-components",
         "starlette.testclient.TestClient.request-response.response-and-debug",
         "starlette.testclient.TestClient.request-response.scope-projection"
       ],
@@ -1485,6 +1486,53 @@
       "asgi_app": {
         "kind": "request-observer",
         "probe": "headers-mapping",
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "headers"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.request-headers-immutable-multidict",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.request-headers-immutable-multidict",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/",
+        "headers_base64_pairs": [
+          ["WC1NaXhlRA==", "Zmlyc3Q="],
+          ["eC1taXhlZA==", "c2Vjb25k"]
+        ],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "request-observer",
+        "probe": "headers-semantics",
         "scope_fields": [
           "type",
           "method",

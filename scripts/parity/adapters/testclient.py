@@ -358,7 +358,25 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             probe = app_input["probe"]
             if probe == "url":
                 request = Request(scope, receive)
-                response = JSONResponse({"method": request.method, "url": str(request.url)})
+                url = request.url
+                response = JSONResponse(
+                    {
+                        "method": request.method,
+                        "url": str(url),
+                        "components": {
+                            "scheme": url.scheme,
+                            "netloc": url.netloc,
+                            "path": url.path,
+                            "query": url.query,
+                            "fragment": url.fragment,
+                            "username": url.username,
+                            "password": url.password,
+                            "hostname": url.hostname,
+                            "port": url.port,
+                            "is_secure": url.is_secure,
+                        },
+                    }
+                )
             elif probe == "query-params-mapping":
                 request = Request(scope, receive)
                 response = JSONResponse({"params": dict(request.query_params)})
@@ -402,6 +420,44 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             elif probe == "headers-mapping":
                 request = Request(scope, receive)
                 response = JSONResponse({"headers": dict(request.headers)})
+            elif probe == "headers-semantics":
+                request = Request(scope, receive)
+                headers = request.headers
+                raw_headers = headers.raw
+                header_names = list(headers)
+                repeated_name = next(
+                    name for name in header_names if len(headers.getlist(name)) > 1
+                )
+                repeated_values = headers.getlist(repeated_name)
+                mutation_exception = None
+                try:
+                    headers[repeated_name] = headers[repeated_name]
+                except Exception as error:
+                    mutation_exception = {
+                        "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                        "message": str(error),
+                    }
+                response = JSONResponse(
+                    {
+                        "headers": {
+                            "same_instance": headers is request.headers,
+                            "raw": raw_headers,
+                            "mapping": dict(headers),
+                            "items": list(headers.items()),
+                            "repeated": {
+                                "name": repeated_name,
+                                "getlist": repeated_values,
+                                "lowercase": headers[repeated_name.lower()],
+                                "uppercase": headers[repeated_name.upper()],
+                            },
+                            "mutation_exception": mutation_exception,
+                            "after_mutation": {
+                                "raw": headers.raw,
+                                "mapping": dict(headers),
+                            },
+                        }
+                    }
+                )
             elif probe == "raw-path":
                 request = Request(scope, receive)
                 response = PlainTextResponse(
