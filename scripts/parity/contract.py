@@ -18858,7 +18858,12 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
             raise ContractError("AuthenticationMiddleware cases need at least one scenario")
         for index, raw_scenario in enumerate(scenarios):
             context = f"AuthenticationMiddleware scenarios[{index}]"
-            scenario = _exact(raw_scenario, {"scope_type", "backend", "error_handler"}, context)
+            scenario_keys = {"scope_type", "backend", "error_handler"}
+            if isinstance(raw_scenario, dict) and "error_response" in raw_scenario:
+                scenario_keys.add("error_response")
+            if isinstance(raw_scenario, dict) and "application_response" in raw_scenario:
+                scenario_keys.add("application_response")
+            scenario = _exact(raw_scenario, scenario_keys, context)
             if not isinstance(scenario["scope_type"], str) or scenario["scope_type"] not in {
                 "http",
                 "websocket",
@@ -18870,6 +18875,46 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                 "custom-response",
             }:
                 raise ContractError(f"{context}.error_handler is unsupported")
+            error_response = scenario.get("error_response")
+            if scenario["error_handler"] == "custom-response":
+                if error_response is None:
+                    raise ContractError(
+                        f"{context}.error_response is required for a custom response handler"
+                    )
+                if not isinstance(error_response, dict) or "kind" not in error_response:
+                    raise ContractError(f"{context}.error_response must describe a response")
+                if error_response["kind"] == "json-error":
+                    response = _exact(
+                        error_response,
+                        {"kind", "status_code", "error_field"},
+                        f"{context}.error_response",
+                    )
+                    _validate_nonnegative_integer(
+                        response["status_code"], f"{context}.error_response.status_code"
+                    )
+                    if not 100 <= response["status_code"] <= 599:
+                        raise ContractError(
+                            f"{context}.error_response.status_code must be an HTTP status"
+                        )
+                    _string(response["error_field"], f"{context}.error_response.error_field")
+                elif error_response["kind"] == "plain-text-error":
+                    response = _exact(
+                        error_response,
+                        {"kind", "status_code", "prefix"},
+                        f"{context}.error_response",
+                    )
+                    _validate_nonnegative_integer(
+                        response["status_code"], f"{context}.error_response.status_code"
+                    )
+                    if not 100 <= response["status_code"] <= 599:
+                        raise ContractError(
+                            f"{context}.error_response.status_code must be an HTTP status"
+                        )
+                    _string(response["prefix"], f"{context}.error_response.prefix")
+                else:
+                    raise ContractError(f"{context}.error_response.kind is unsupported")
+            elif error_response is not None:
+                raise ContractError(f"{context}.error_response requires a custom response handler")
             backend = scenario["backend"]
             if isinstance(backend, dict) and set(backend) == {"error"}:
                 error = _exact(backend["error"], {"type", "message"}, f"{context}.backend.error")
@@ -18902,6 +18947,46 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                     raise ContractError(f"{context}.backend.outcome is unsupported")
             else:
                 raise ContractError(f"{context}.backend is outside the declared outcomes")
+            application_response = scenario.get("application_response")
+            if application_response is not None:
+                response = _exact(
+                    application_response,
+                    {
+                        "kind",
+                        "status_code",
+                        "authenticated_field",
+                        "display_name_field",
+                    },
+                    f"{context}.application_response",
+                )
+                if response["kind"] != "auth-user-json":
+                    raise ContractError(f"{context}.application_response.kind is unsupported")
+                _validate_nonnegative_integer(
+                    response["status_code"], f"{context}.application_response.status_code"
+                )
+                if not 100 <= response["status_code"] <= 599:
+                    raise ContractError(
+                        f"{context}.application_response.status_code must be an HTTP status"
+                    )
+                _string(
+                    response["authenticated_field"],
+                    f"{context}.application_response.authenticated_field",
+                )
+                _string(
+                    response["display_name_field"],
+                    f"{context}.application_response.display_name_field",
+                )
+                if response["authenticated_field"] == response["display_name_field"]:
+                    raise ContractError(f"{context}.application_response fields must be distinct")
+                if not (
+                    scenario["scope_type"] == "http"
+                    and isinstance(backend, dict)
+                    and set(backend) == {"outcome"}
+                    and isinstance(backend["outcome"], dict)
+                ):
+                    raise ContractError(
+                        f"{context}.application_response requires an HTTP backend result"
+                    )
             if scenario["scope_type"] == "lifespan":
                 exercised.add(
                     "starlette.middleware.authentication.AuthenticationMiddleware.non-http-bypass"

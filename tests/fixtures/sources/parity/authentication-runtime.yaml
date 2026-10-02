@@ -269,13 +269,17 @@
           "scope_type": "http",
           "backend": {
             "outcome": {
-              "credentials": [
-                "read"
-              ],
+              "credentials": ["authenticated"],
               "user": "alice"
             }
           },
-          "error_handler": "default"
+          "error_handler": "default",
+          "application_response": {
+            "kind": "auth-user-json",
+            "status_code": 200,
+            "authenticated_field": "authenticated",
+            "display_name_field": "user"
+          }
         },
         {
           "scope_type": "http",
@@ -288,6 +292,21 @@
           "error_handler": "default"
         },
         {
+          "scope_type": "http",
+          "backend": {
+            "error": {
+              "type": "AuthenticationError",
+              "message": "Invalid basic auth credentials"
+            }
+          },
+          "error_handler": "custom-response",
+          "error_response": {
+            "kind": "json-error",
+            "status_code": 401,
+            "error_field": "error"
+          }
+        },
+        {
           "scope_type": "websocket",
           "backend": {
             "error": {
@@ -295,7 +314,12 @@
               "message": "bad credentials"
             }
           },
-          "error_handler": "custom-response"
+          "error_handler": "custom-response",
+          "error_response": {
+            "kind": "plain-text-error",
+            "status_code": 401,
+            "prefix": "handled:"
+          }
         },
         {
           "scope_type": "lifespan",

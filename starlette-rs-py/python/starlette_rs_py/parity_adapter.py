@@ -7615,7 +7615,7 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
         import asyncio
 
         from starlette.middleware.authentication import AuthenticationMiddleware
-        from starlette.responses import PlainTextResponse
+        from starlette.responses import JSONResponse, PlainTextResponse
 
         results = []
         for scenario in case["scenarios"]:
@@ -7623,6 +7623,7 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
             app_calls = []
             sent = []
             backend_spec = scenario["backend"]
+            application_response_spec = scenario.get("application_response")
 
             class Backend:
                 async def authenticate(
@@ -7644,6 +7645,7 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                 receive: Any,
                 send: Any,
                 _app_calls: list[Any] = app_calls,
+                _response_spec: dict[str, Any] | None = application_response_spec,
             ) -> None:
                 observed_scope = {"type": scope["type"]}
                 if "auth" in scope:
@@ -7653,9 +7655,32 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                         "display_name": scope["user"].display_name,
                     }
                 _app_calls.append(observed_scope)
+                if _response_spec is not None:
+                    response_body = {
+                        _response_spec["authenticated_field"]: scope["user"].is_authenticated,
+                        _response_spec["display_name_field"]: scope["user"].display_name,
+                    }
+                    await JSONResponse(
+                        response_body,
+                        status_code=_response_spec["status_code"],
+                    )(scope, receive, send)
 
-            def on_error(conn: Any, exc: Exception) -> Any:
-                return PlainTextResponse(f"handled:{exc}", status_code=401)
+            error_response = scenario.get("error_response")
+
+            def on_error(
+                conn: Any,
+                exc: Exception,
+                _response_spec: dict[str, Any] | None = error_response,
+            ) -> Any:
+                if _response_spec["kind"] == "json-error":
+                    return JSONResponse(
+                        {_response_spec["error_field"]: str(exc)},
+                        status_code=_response_spec["status_code"],
+                    )
+                return PlainTextResponse(
+                    f"{_response_spec['prefix']}{exc}",
+                    status_code=_response_spec["status_code"],
+                )
 
             scope_type = scenario["scope_type"]
             scope = {
