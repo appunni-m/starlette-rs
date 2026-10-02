@@ -28,19 +28,20 @@ default middleware-boundary trace, and sixteen Request.cookies inputs pass live
 source/package comparison, including the sequential TestClient cookie
 round-trip from `test_request_cookies`. Added direct `GZipResponder` inputs and
 invalid WebSocket JSON-mode inputs pass exact source/package comparison.
-The latest integrated run for the preceding `parity-input@22` contract,
-`0666fe7e-f0b9-42ec-87a7-33baf1fc9e38`, passed 858 of 862 selected comparisons,
-with zero failures or infrastructure errors and four Rust-native Python-callable
-rows `not_run`. The Python package passed 669/669; Rust-native passed 189/193.
-The four native `not_run` rows are synchronous
+The latest integrated run for the active `parity-input@24` contract,
+`380697a6-3d7c-44f8-9daa-bae697c17c1f`, passed 862 of 866 selected
+comparisons, with zero failures or infrastructure errors and four Rust-native
+Python-callable rows `not_run`. The Python package passed 673/673; Rust-native
+passed 189/193. The four native `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for those declared rows. Full run
 identities and package hashes are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-This integrated run predates the focused `parity-input@23` and `@24` additions;
-focused results are recorded in the parity evidence document.
+This integrated run includes the focused `parity-input@23` and `@24` additions.
+The full replacement remains active and incomplete; these slice results do not
+establish full Starlette parity.
 
 The endpoint-callable-shapes backlog item is mapped in the generated coverage
 matrix. The package-only input slice covers async functions, bound methods,

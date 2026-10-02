@@ -51,20 +51,19 @@ inputs add four denial-response state transitions, a fresh-iterator
 `GZipResponder` package inputs cover configured exclusion normalization and
 compression without negotiation. The six direct ServerErrorMiddleware inputs
 and three TestClient exception-chain cases also pass in the latest run. Run
-`9c5440db-d796-4f4c-b4d8-cf19834d4e78` selected 844 comparisons: 840 passed,
+`380697a6-3d7c-44f8-9daa-bae697c17c1f` selected 866 comparisons: 862 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
-Python-callable rows `not_run`. The installed Python package passed 655/655;
-Rust-native passed 185/189. The four native `not_run` rows are synchronous
+Python-callable rows `not_run`. The installed Python package passed 673/673;
+Rust-native passed 189/193. The four native `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for these declared rows. The
 complete run identity, wheel and tree hashes, and case-level evidence are in
 [Migration parity contract and evidence](PARITY.md). This bounded run does not
 establish full Starlette parity or release readiness.
 
-That integrated run predates the focused `parity-input@23` and `@24` additions.
+That integrated run includes the focused `parity-input@23` and `@24` additions.
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
-the pinned source and installed package in run
-`85372de5-e607-4ca3-8f57-a03d2a759d11`.
+the pinned source and installed package in the integrated run.
 
 The generated coverage matrix contains 802 source rows: 378 input mappings,
 50 source-backed `not_applicable` rows, and 374 fixture-backlog rows. These
@@ -342,21 +341,22 @@ dependencies feature-gated and unsupported coverage source-backed.
 The pinned Starlette 1.6.0 Router/GZip workload catalog contains six Router
 and 68 GZip benchmark IDs. All 74 have input-only descriptors and exact
 source-versus-installed-package correctness gates. Latest run
-`842f5c47-f124-4f44-bbe5-7cde81520ce5` ran from
-`2026-10-01T19:43:40.198Z` to `2026-10-01T19:47:38.253Z` and measured all
-74 source/package workloads with zero failures and zero not-run rows. Its clean
-correctness preflight, `68b6b818-05c1-4e30-bf0f-dfc93a8c3949`, used the active
-657-case/692-requirement manifest (SHA-256
-`d5c069c0c978d2abc19d6c3b8a7bad9fd358956260b5d017432f7b54f2291535`) and
-selected 844 comparisons: 840 passed, zero failed, zero infrastructure errors,
-and four Rust-native Python-callable rows were `not_run` (package 655/655;
-Rust-native 185 passed, 4 not_run). The target was clean at commit
-`f4d46afd8303382343c8284558e1e15f62215d02` with working-tree SHA-256
-`8f01d92a0bd00d44d1373ca0c1c2fa94e365362cb8c81e4c23c524c9ee0f80e7`; the
+`5d5f4678-5ecb-440b-96ec-c8618b4f2b3c` ran from
+`2026-10-02T00:29:40.927Z` to `2026-10-02T00:33:53.095Z` and measured all
+74 source/package workloads with zero failures and zero source/package
+not-run rows. Its correctness preflight,
+`6e893e3b-d61b-40f1-955b-0bd78bc2d414`, used the active
+675-case/707-requirement manifest (SHA-256
+`c7a3cff812044cf3935e8c8ed8be65f61678dc4b505162d3642e0c6da6aa817b`) and
+selected 866 comparisons: 862 passed, zero failed, zero infrastructure errors,
+and four Rust-native Python-callable rows were `not_run` (package 673/673;
+Rust-native 189 passed, 4 not_run). The target was clean at commit
+`500a7fd395e44a8fbba8cdc65589721bc04debc6` with working-tree SHA-256
+`40c3938f35ba59111f4611672456637eddd19a679abf7f8f8b523020c10e26ff`; the
 target wheel SHA-256 is
-`f8fbe9d00fa91db2177b2e658dd03cb45c63f254fd100f4ae75896d69f06c35f`. The
-median per-workload source/package ratios were 0.878 for Router and 0.975 for
-GZip; source was faster in three of six Router workloads and 57 of 68 GZip
+`96067064ca56f8e25dfd56557e45210e43712a64e566ed02ee26b114dcea82f7`. The
+median per-workload source/package ratios were 0.769 for Router and 0.978 for
+GZip; source was faster in five of six Router workloads and 57 of 68 GZip
 workloads. All 74 source/package observation hashes matched.
 
 Rust-native remains `not_run` for all 74 because its public API does not expose

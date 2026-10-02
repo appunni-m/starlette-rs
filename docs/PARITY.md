@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 675 input-only cases in 77 indexed files, covering 93 operations and 707 parity requirements. Recent additions include a middleware-configured Mount URL lookup, ordered StaticFiles `If-Modified-Since` requests, a TestClient lifespan startup error, TestClient WebSocket accepted-header observations, CORSMiddleware private-network-access denial, an empty-text WebSocketEndpoint default-decoding failure, TestClient lifespan task/RunVar continuity under asyncio and Trio, and surrounding pure-ASGI ContextVar observations for BaseHTTPMiddleware and its pure-ASGI control. Existing inputs cover Rust-backed `CommaSeparatedStrings` including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles configuration and conditional responses; CORSMiddleware origin-isolation and wildcard-without-credentials; Request.cookies edge, invalid, and mapping cases; WebSocket denial and close transitions; direct `GZipResponder`; and broad application, request, response, middleware, and routing boundaries. The latest integrated full-slice result below predates these `parity-input@23` and `@24` additions; focused evidence is recorded later in this document.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 675 input-only cases in 77 indexed files, covering 93 operations and 707 parity requirements. Recent additions include a middleware-configured Mount URL lookup, ordered StaticFiles `If-Modified-Since` requests, a TestClient lifespan startup error, TestClient WebSocket accepted-header observations, CORSMiddleware private-network-access denial, an empty-text WebSocketEndpoint default-decoding failure, TestClient lifespan task/RunVar continuity under asyncio and Trio, and surrounding pure-ASGI ContextVar observations for BaseHTTPMiddleware and its pure-ASGI control. Existing inputs cover Rust-backed `CommaSeparatedStrings` including lone-surrogate input; `iterate_in_threadpool` and `run_until-first-complete`; StaticFiles configuration and conditional responses; CORSMiddleware origin-isolation and wildcard-without-credentials; Request.cookies edge, invalid, and mapping cases; WebSocket denial and close transitions; direct `GZipResponder`; and broad application, request, response, middleware, and routing boundaries. The latest integrated full-slice result below uses the active `parity-input@24` contract.
 
 The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, middleware registration and ordering; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State behavior; direct Request body, stream, JSON, and form consumption; responses and background tasks, including cancellation and post-construction FileResponse assignments; WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, schemas, and one Python-package Jinja2 workflow. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
@@ -10,21 +10,19 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice parity preflight is `0666fe7e-f0b9-42ec-87a7-33baf1fc9e38`.
-It ran from `2026-10-01T22:59:29.598Z` to `2026-10-01T23:01:36.906Z` against
-Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, using the active
-671-case/703-requirement manifest. It selected 862 profile comparisons: 858
-passed, zero failed, zero infrastructure errors, and four Rust-native
-Python-callable rows were `not_run`. The Python-package profile passed all
-669 selected comparisons; Rust-native passed 189 of 193. The new Mount URL
-lookup, StaticFiles date-order sequence, TestClient startup-error, and both
-WebSocket accepted-header cases passed. The four native `not_run` rows are synchronous Request endpoint,
-bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
-`make parity-run` exits with status 2 because those declared rows remain
-`not_run`; they are not parity failures.
-
-This integrated run predates the focused `parity-input@23` and `@24` additions;
-it is not full-slice evidence for the active 675-case/707-requirement contract.
+The latest integrated full-slice parity run is
+`380697a6-3d7c-44f8-9daa-bae697c17c1f`. It ran from
+`2026-10-02T00:25:56.331Z` to `2026-10-02T00:28:31.723Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 675-case,
+707-requirement `parity-input@24` manifest. It selected 866 profile
+comparisons: 862 passed, zero failed, zero infrastructure errors, and four
+Rust-native Python-callable rows were `not_run`. The Python-package profile
+passed all 673 selected comparisons; Rust-native passed 189 of 193. Both new
+BaseHTTPMiddleware ContextVar observer cases pass in this run. The four native
+`not_run` rows are synchronous Request endpoint, bound-method endpoint,
+partial endpoint, and callable-instance ASGI dispatch. `make parity-run` exits
+with status 2 because those declared rows remain `not_run`; they are not parity
+failures.
 
 For `lifespan_send_messages`, the manifest declares a narrow
 `starlette-lifespan-router-frame` normalization: it removes only the
@@ -34,13 +32,13 @@ protocol without that Python frame; all other event fields and traceback frames
 remain exact.
 
 The Rust-native fingerprint was
-`82bf19b99a94040c4f0fb03beca5967349504eda+source-fnv1a64-9ef5071d66376854`.
+`500a7fd395e44a8fbba8cdc65589721bc04debc6+source-fnv1a64-9ef5071d66376854`.
 The installed package tree SHA-256 was
-`95741e3b45fb924bf31b5abfda690b0be747c4b6d6caad91db43e9faa70e0e99`; its
+`5a6bb907c307a9c232d345ab108507916922adc0b70f27bdd8945d6c7082dce5`; its
 wheel SHA-256 was
-`c812f880ea8336d4e911e98fbce1bf4132c08a305155e10554145c5300e0f8cc`. The
+`b6ec8310e499f083622432319822fa049e552e3e00451eef057240a9e42cdbbf`. The
 manifest SHA-256 was
-`851db1c8b36ddb26e41ac8dff6d45f7dc8a2ede130cef3c736d18a74cc5c7134`.
+`c7a3cff812044cf3935e8c8ed8be65f61678dc4b505162d3642e0c6da6aa817b`.
 Strict aggregation remains `not_proven` because the full compatibility
 denominator is incomplete and four Rust-native rows are `not_run`.
 
@@ -58,7 +56,8 @@ handles. The TestClient fixture supplies a startup callback that raises an
 input-defined `RuntimeError`; the Send+Sync awaitable removes the cross-thread
 drop warning, while the declared traceback normalization is limited to the
 source-only Router frame described above. All three cases pass their selected
-live comparisons in preflight `0666fe7e-f0b9-42ec-87a7-33baf1fc9e38`.
+live comparisons in preflight `0666fe7e-f0b9-42ec-87a7-33baf1fc9e38`; they are
+also included in the latest integrated run above.
 
 ### `CommaSeparatedStrings` parser and sequence boundary
 
@@ -958,7 +957,7 @@ The existing app-level `url_path_for` input is also linked to
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 669 Python-package comparisons passed.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 673 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 
