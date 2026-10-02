@@ -11,8 +11,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest integrated full-slice parity run is
-`4581da40-9d41-475d-b26f-6a82bc55ffc2`. It ran from
-`2026-10-02T01:17:37.539Z` to `2026-10-02T01:20:25.249Z` against Starlette
+`18a777e7-0733-4c62-92c7-9546cfc4c8aa`. It ran from
+`2026-10-02T01:25:18.682Z` to `2026-10-02T01:28:06.344Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 683-case,
 710-requirement `parity-input@24` manifest. It selected 882 profile
 comparisons: 878 passed, zero failed, zero infrastructure errors, and four
@@ -36,11 +36,11 @@ The Rust-native fingerprint was
 The installed package tree SHA-256 was
 `5a6bb907c307a9c232d345ab108507916922adc0b70f27bdd8945d6c7082dce5`; its
 wheel SHA-256 was
-`1024fd37af8cd9957c744d3232bcb071eb55b7e4332886ccfe7001d5f0a1ab34`. The
+`57debb4cbc5722a33b1386e46af90d06716aebf1bad47f73b839b5ac4db1afb2`. The
 manifest SHA-256 was
 `05ccdb0511b6e5c3cff6fa5cb4a50ffb20e965ec3dceb25eada44bf8c270a456`; the
 result artifact SHA-256 was
-`1a0f46e990b42ed1cc8b3d9a104e3660e6f4b18eed20ea129834652f13a3c294`.
+`4e49584540d360e9a3a997408e747a1adb42905d094c988aeabb905c524ba337`.
 Strict aggregation remains `not_proven` because the full compatibility
 denominator is incomplete and four Rust-native rows are `not_run`.
 
@@ -57,7 +57,7 @@ fallback, an index directory without a fallback page, and an HTML-only tree
 without either special file. Ordered ASGI observations include the slash
 redirect, selected file body, and propagated 404 exception. All six
 oracle-to-target profile comparisons pass in integrated run
-`4581da40-9d41-475d-b26f-6a82bc55ffc2`.
+`18a777e7-0733-4c62-92c7-9546cfc4c8aa`.
 
 ### Built-in float and UUID converters
 
@@ -67,7 +67,7 @@ hyphens, and an invalid UUID segment. They observe the selected status and
 ASGI response; matched cases also compare the converted `route_scope.path_params`
 value and type. The Rust-native parity adapter projects these fields from
 `DetailedRouteMatch` captures. All 14 oracle-to-target comparisons pass in
-integrated run `4581da40-9d41-475d-b26f-6a82bc55ffc2`. The custom datetime
+integrated run `18a777e7-0733-4c62-92c7-9546cfc4c8aa`. The custom datetime
 converter test remains in the atlas backlog.
 
 ### Mount lookup, StaticFiles dates, and TestClient startup failures

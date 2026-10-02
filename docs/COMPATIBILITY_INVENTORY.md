@@ -65,8 +65,8 @@ operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest full-slice correctness run is
-`4581da40-9d41-475d-b26f-6a82bc55ffc2`. It ran from
-`2026-10-02T01:17:37.539Z` to `2026-10-02T01:20:25.249Z` against Starlette
+`18a777e7-0733-4c62-92c7-9546cfc4c8aa`. It ran from
+`2026-10-02T01:25:18.682Z` to `2026-10-02T01:28:06.344Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active
 683-case/710-requirement `parity-input@24` contract. It selected 882 profile
 comparisons: 878 passed, zero failed, zero infrastructure errors, and four
@@ -96,21 +96,21 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run,
-`9021ff6a-3660-444f-9359-88c76886a82c`, measured all 74 declared workloads:
+`1d055ae9-982f-49a9-80f1-6d8be2e55d58`, measured all 74 declared workloads:
 six Router and 68 GZip, with zero failures or source/package `not_run` rows.
-Its correctness preflight `d7a40a9b-4cfd-4481-ab52-cea46f506c45` selected 872
-comparisons: 868 passed, zero failed or hit infrastructure errors, and four
+Its correctness preflight `18a777e7-0733-4c62-92c7-9546cfc4c8aa` selected 882
+comparisons: 878 passed, zero failed or hit infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 676/676 and Rust-native passed 192/196. Rust-native remains `not_run`
+passed 681/681 and Rust-native passed 197/201. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. The median per-workload
-source/package ratios were 0.763 for Router and 0.973 for GZip; source was
-faster in five of six Router workloads and 57 of 68 GZip workloads. All 74
-source/package observations had matching normalized hashes. The clean target
-checkout was revision `ec1145ee02cddc2ab62360874681a6204e02d542` with
+source/package latency ratios were 0.769 for Router and 0.977 for GZip; source
+latency was lower in five of six Router workloads and 56 of 68 GZip workloads.
+All 74 source/package observations had matching normalized hashes. The clean
+target checkout was revision `3ebfdc8fd5d1f3c4f47107980e62f46658cb6913` with
 working-tree SHA-256
-`4aa07f61758bf8ea13506708bbc981b2e44ec3e0e5523a2294eb656d5b0ae48b`; the
+`f76950e71e9e3df8a12424f93b84f9e9ebf04e053b4a25f36b5ecb6b5de8d2f0`; the
 target wheel SHA-256 was
-`c487c8c9ceaebf3c44fd87ff2b7064aff19fff753fff6329c221d257b7e42b00`.
+`57debb4cbc5722a33b1386e46af90d06716aebf1bad47f73b839b5ac4db1afb2`.
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 

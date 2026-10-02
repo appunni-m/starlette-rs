@@ -31,7 +31,7 @@ invalid WebSocket JSON-mode inputs pass exact source/package comparison. Three
 StaticFiles HTML fallback scenarios and seven built-in float/UUID converter
 cases now pass on both target profiles. The
 latest integrated run for the active `parity-input@24` contract,
-`4581da40-9d41-475d-b26f-6a82bc55ffc2`, passed 878 of 882 selected
+`18a777e7-0733-4c62-92c7-9546cfc4c8aa`, passed 878 of 882 selected
 comparisons, with zero failures or infrastructure errors and four Rust-native
 Python-callable rows `not_run`. The Python package passed 681/681; Rust-native
 passed 197/201. The four native `not_run` rows are synchronous
