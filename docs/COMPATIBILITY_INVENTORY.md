@@ -38,8 +38,10 @@ map equality and blank-value behavior to `test_queryparams` and
 `test_url_blank_params`. Three StaticFiles
 HTML fallback scenarios cover directory index/fallback selection and missing
 file exceptions. Seven built-in float/UUID converter cases now observe matched
-path parameter types and invalid-segment misses on both profiles; the custom
-datetime converter remains in the fixture backlog. The six direct ServerErrorMiddleware inputs and three TestClient exception-
+path parameter types and invalid-segment misses on both profiles. The source
+`test_datetime_convertor` now has input-only dispatch and reverse-URL cases on
+the Python package; the docs-level custom converter behavior remains in the
+fixture backlog. The six direct ServerErrorMiddleware inputs and three TestClient exception-
 chain inputs pass live source/package comparison in the latest run. Sixteen
 Request.cookies inputs also pass their selected comparisons: an Okta-style
 JSON-like value with duplicate and unnamed segments, all 12 active edge and
@@ -85,9 +87,11 @@ Rust-native source fingerprint
 was
 `b208005d8226d4a550bb167318d53e7073a31fe2+source-fnv1a64-b3446fa60fa7209a`.
 The installed package tree SHA-256 was
-`70366dbe0197bf0cc81e7545a18bdddc02a92efc5c3470ebc7453e5ccaa187b1`, and the
+`d5ae6853db170918dede763d775f229814cc51963d71521abdd49a164b370b43`, and the
 manifest SHA-256 was
-`05ccdb0511b6e5c3cff6fa5cb4a50ffb20e965ec3dceb25eada44bf8c270a456`. Full
+`50006286204b6ecc4a34a0e4b4c9e32a51dafd38ab4adb5461edf2e258987ec8`; the
+result artifact SHA-256 was
+`2b519bd487b4cb1f9caeac59b153cc5edc98906109cc1fc78bf8ffcf554f0cd4`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md). This bounded evidence
 does not establish full Starlette parity or release readiness.
@@ -99,21 +103,21 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run,
-`66676510-b614-4208-ae32-74fc6273754d`, measured all 74 declared workloads:
+`3055c710-8201-4cd3-8004-bcd868fa7fbf`, measured all 74 declared workloads:
 six Router and 68 GZip, with zero failures or source/package `not_run` rows.
-Its correctness preflight `fe9b42fd-a239-4743-9c4f-61cc39483502` selected 895
-comparisons: 891 passed, zero failed or hit infrastructure errors, and four
+Its correctness preflight `1e92db47-115d-43e3-b7cf-1908c68757e9` selected 897
+comparisons: 893 passed, zero failed or hit infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 688/688 and Rust-native passed 203/207. Rust-native remains `not_run`
+passed 690/690 and Rust-native passed 203/207. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. The median per-workload
-source/package latency ratios were 0.762 for Router and 0.975 for GZip; source
-latency was lower in five of six Router workloads and 59 of 68 GZip workloads.
+source/package latency ratios were 0.776 for Router and 0.977 for GZip; source
+latency was lower in four of six Router workloads and 59 of 68 GZip workloads.
 All 74 source/package observations had matching normalized hashes. The clean
-target checkout was revision `b208005d8226d4a550bb167318d53e7073a31fe2` with
+target checkout was revision `317ec8c6ee3fd9744d6b570c3785e8f31b7691e5` with
 working-tree SHA-256
-`befe5ba67f91765a54b2afa361bac546fa1f2cdb276bc0c9fb0571395ef901e5`; the
+`c5a1762abfdde31b45486e0e0579017ad757ce97343a3b52113ef1a963b0012f`; the
 target wheel SHA-256 was
-`b1bdc446625f82db2aac83ab5bc45e5f1883917952d2cc78b8cb0e9668d74f35`.
+`5bcdf66bed75be30746bdf1038c6fc71215939626d8af280d41b1609ad785822`.
 This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
@@ -408,7 +412,7 @@ The candidate rows, source line numbers, signatures, defaults, constructors,
 special methods, candidate re-exports, and documentary evidence are in
 [`api-surface.csv`](api-surface.csv). The merged
 [`API review`](atlas/api-review.csv) dispositions each of its 999 rows with
-evidence: 516 `supported`, 285 `private/internal`, and 198 `uncertain`. The
+evidence: 517 `supported`, 285 `private/internal`, and 197 `uncertain`. The
 catalog's original `audit_status` field records inventory provenance; use the
 merged disposition and rationale for the compatibility classification. The
 root package defines only `__version__ = "1.6.0"`; it has no convenience
@@ -635,7 +639,7 @@ and the legacy `httpx` TestClient backend.
 
 ## Unresolved points carried into implementation
 
-- The 198 `uncertain` API candidates remain deliberately unresolved where the
+- The 197 `uncertain` API candidates remain deliberately unresolved where the
   pinned docs, source, and release history do not establish public intent.
 - The WebSocket guide says query parameters are unsupported while a pinned test
   exercises them; both inputs remain separate in

@@ -57,7 +57,7 @@ values, and parameters without an equals sign. Six cases run on both target
 profiles. The heterogeneous comparison against the literal string `"invalid"`
 is package-only because the native consumer API has no Python object equality
 boundary. All 13 selected comparisons pass in the latest full-slice run
-`fe9b42fd-a239-4743-9c4f-61cc39483502`.
+`a29fff0b-5a9e-4354-a16c-39fb26ca3060`.
 
 ### StaticFiles HTML fallback selection
 
@@ -70,7 +70,7 @@ fallback, an index directory without a fallback page, and an HTML-only tree
 without either special file. Ordered ASGI observations include the slash
 redirect, selected file body, and propagated 404 exception. All six
 oracle-to-target profile comparisons pass in integrated run
-`fe9b42fd-a239-4743-9c4f-61cc39483502`.
+`a29fff0b-5a9e-4354-a16c-39fb26ca3060`.
 
 ### Built-in float and UUID converters
 
@@ -80,8 +80,9 @@ hyphens, and an invalid UUID segment. They observe the selected status and
 ASGI response; matched cases also compare the converted `route_scope.path_params`
 value and type. The Rust-native parity adapter projects these fields from
 `DetailedRouteMatch` captures. All 14 oracle-to-target comparisons pass in
-integrated run `fe9b42fd-a239-4743-9c4f-61cc39483502`. The custom datetime
-converter test remains in the atlas backlog.
+integrated run `a29fff0b-5a9e-4354-a16c-39fb26ca3060`. The datetime converter
+cases are package-only because Rust-native route tables cannot call
+Python-registered converter callbacks.
 
 ### Mount lookup, StaticFiles dates, and TestClient startup failures
 
@@ -940,7 +941,7 @@ and reverse-path datetime components are supplied as inputs. The `@24` to
 authored inputs. Full run `a29fff0b-5a9e-4354-a16c-39fb26ca3060` passed both
 exact Python-package comparisons.
 
-The same `parity-input@23` revision adds a two-dispatch CORSMiddleware input for private-network-access denial and a WebSocketEndpoint input for empty text under `encoding=None`. Both focused source/package comparisons passed; the output artifacts remain in ignored `build/parity/` storage. Together, the `@23` additions increase the indexed denominator from 671 cases/703 requirements to 675/706 without claiming a new full-slice run. The `@24` observer adds one parity requirement, leaving 675 cases and increasing the requirement count to 707. Later input additions under the same schema add three StaticFiles HTML fallback cases and three requirements; the current contract contains 678 cases and 710 requirements.
+The same `parity-input@23` revision adds a two-dispatch CORSMiddleware input for private-network-access denial and a WebSocketEndpoint input for empty text under `encoding=None`. Both focused source/package comparisons passed; the output artifacts remain in ignored `build/parity/` storage. Together, the `@23` additions increase the indexed denominator from 671 cases/703 requirements to 675/706 without claiming a new full-slice run. The `@24` observer adds one parity requirement, leaving 675 cases and increasing the requirement count to 707. Later input additions under that schema add three StaticFiles HTML fallback cases and three requirements; the resulting `@24` contract had 678 cases and 710 requirements.
 
 ### TestClient exception policy
 
