@@ -25,16 +25,19 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 707 input-only cases across
-77 indexed files, 93 operations, and 730 requirements. It includes GZip
-thread-threshold cases, a shared AnyIO thread-pool limiter case, and the
+active and incomplete. The current contract has 708 input-only cases across
+78 indexed files, 93 operations, and 731 requirements. It includes direct
+UploadFile spooled-file rollover cases, GZip thread-threshold cases, a shared
+AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract. Seven QueryParams
 cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `6d3d141b-58bc-4294-a9fd-af5c1b0e4015` passed 911 of 915
+full-slice run `14b78f07-fb1b-4cd0-a944-a83823bef6b5` passed 912 of 916
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
-705/705; Rust-native passed 206/210. The thread-pool limiter input observed the
+706/706; Rust-native passed 206/210. The direct UploadFile input compares
+rolled and unrolled spool thresholds; its separate worker-thread behavior is
+still open. The thread-pool limiter input observed the
 same default capacity of 40, configured limit of 2, one waiting worker, and
 restored capacity of 40 on source and package. Three BaseHTTPMiddleware
 exception-context cases, covering no chain, implicit context, and explicit cause, pass with empty
@@ -60,14 +63,14 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 429 input mappings, 51
-reasoned `not_applicable` rows, and 322 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 430 input mappings, 51
+reasoned `not_applicable` rows, and 321 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `090bc3b2-097e-4d93-ba9a-724eed6f0be0` measured all
+The latest Router/GZip run `859f2a15-68ea-442f-ae8f-239ae591c7f5` measured all
 74 source/package workloads after correctness preflight
-`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`. Median per-workload source/package
-latency ratios were 0.753 for Router and 0.972 for GZip; source latency was
+`9fda82bc-4ac5-4721-bfb1-d9a6ee0dca39`. Median per-workload source/package
+latency ratios were 0.764 for Router and 0.973 for GZip; source latency was
 lower on five of six Router workloads and 61 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
@@ -258,7 +261,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 802 source rows:
-429 `existing` mappings, 322 `backlog` rows, and 51 reasoned `not_applicable`
+430 `existing` mappings, 321 `backlog` rows, and 51 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity
@@ -307,8 +310,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 517 `supported`, 285
 `private/internal`, and 197 `uncertain` candidates. The coverage matrix has 802
-source rows: 429 input mappings, 51 reasoned `not_applicable`
-entries, and 322 input-only backlog rows. Derive these changing counts from
+source rows: 430 input mappings, 51 reasoned `not_applicable`
+entries, and 321 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

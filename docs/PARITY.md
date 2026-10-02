@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 707 input-only cases in 77 indexed files, covering 93 operations and 730 parity requirements. Recent additions include GZip final-response and streaming-body cases at the configured `thread_minimum_size` boundary, an input-derived AnyIO thread-pool limiter case, generic `Request[State]` and `WebSocket[State]` type contracts, app-state attributes read through `request.app.state`, default string-converter match and slash-boundary cases, expanded route-scope path-parameter observations for string/int/path converters, input-defined datetime converter dispatch and reverse URL formatting, seven QueryParams cases, seven built-in float/UUID converter cases, three StaticFiles HTML fallback scenarios, a middleware-configured Mount URL lookup, ordered StaticFiles `If-Modified-Since` requests, a TestClient lifespan startup error, TestClient WebSocket accepted-header observations, CORSMiddleware private-network-access denial, an empty-text WebSocketEndpoint default-decoding failure, TestClient lifespan task/RunVar continuity and task-group child lifecycle under asyncio and Trio, surrounding pure-ASGI ContextVar observations for BaseHTTPMiddleware and its pure-ASGI control, and BaseHTTPMiddleware exception propagation without a chain, through implicit context, and through an explicit cause. Existing inputs cover file-like StreamingResponse chunk boundaries, Rust-backed `CommaSeparatedStrings` including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles configuration and conditional responses; CORSMiddleware origin-isolation and wildcard-without-credentials; Request.cookies edge, invalid, and mapping cases; WebSocket denial and close transitions; direct `GZipResponder`; and broad application, request, response, middleware, and routing boundaries. The latest integrated full-slice result below uses the active `parity-input@27` contract.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2` with `scope.mode: slice`. It contains 708 input-only cases in 78 indexed files, covering 93 operations and 731 parity requirements. Recent additions include direct `UploadFile` spooled-file rollover cases for rolled and unrolled thresholds; GZip final-response and streaming-body cases at the configured `thread_minimum_size` boundary; an input-derived AnyIO thread-pool limiter case; generic `Request[State]` and `WebSocket[State]` type contracts; app-state attributes read through `request.app.state`; default string-converter match and slash-boundary cases; expanded route-scope path-parameter observations for string/int/path converters; input-defined datetime converter dispatch and reverse URL formatting; seven QueryParams cases; seven built-in float/UUID converter cases; three StaticFiles HTML fallback scenarios; a middleware-configured Mount URL lookup; ordered StaticFiles `If-Modified-Since` requests; a TestClient lifespan startup error; TestClient WebSocket accepted-header observations; CORSMiddleware private-network-access denial; an empty-text WebSocketEndpoint default-decoding failure; TestClient lifespan task/RunVar continuity and task-group child lifecycle under asyncio and Trio; surrounding pure-ASGI ContextVar observations for BaseHTTPMiddleware and its pure-ASGI control; and BaseHTTPMiddleware exception propagation without a chain, through implicit context, and through an explicit cause. Existing inputs cover file-like StreamingResponse chunk boundaries, Rust-backed `CommaSeparatedStrings` including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles configuration and conditional responses; CORSMiddleware origin-isolation and wildcard-without-credentials; Request.cookies edge, invalid, and mapping cases; WebSocket denial and close transitions; direct `GZipResponder`; and broad application, request, response, middleware, and routing boundaries. The latest integrated full-slice result below uses the active `parity-input@27` contract.
 
 The cases cover Starlette applications and route inventory, including synchronous route GET/HEAD behavior through raw ASGI and TestClient, post-construction `app.debug` mutation and traceback responses, configured TrustedHostMiddleware, mounted StaticFiles and Router URL sequences, host-parameter routing, input-defined follow-up requests on one TestClient instance, middleware registration and ordering; routing and reverse URLs; async endpoint loop/task/thread ownership, callable shapes, and cancellation; URL scope and components; Headers, MutableHeaders, and State behavior; direct Request body, stream, JSON, and form consumption; responses and background tasks, including cancellation and post-construction FileResponse assignments; WebSockets, exceptions, status, endpoints, authentication, middleware, configuration, schemas, and one Python-package Jinja2 workflow. The manifest is authoritative for exact operation and target-profile applicability. The pinned denominator remains 514 upstream test functions and 24 documented pages. The current scope is bounded; it does not claim full Starlette API or behavioral parity.
 
@@ -11,38 +11,39 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest integrated full-slice parity run is
-`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`. It ran from
-`2026-10-02T11:22:26.637Z` to `2026-10-02T11:25:29.273Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 707-case,
-730-requirement `parity-input@27` manifest. It selected 915 profile
-comparisons: 911 passed, zero failed, zero infrastructure errors, and four
+`14b78f07-fb1b-4cd0-a944-a83823bef6b5`. It ran from
+`2026-10-02T12:04:44.553Z` to `2026-10-02T12:07:03.381Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 708-case,
+731-requirement `parity-input@27` manifest. It selected 916 profile
+comparisons: 912 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 705 selected comparisons; Rust-native passed 206 of 210. GZip
-threshold-boundary cases, app-state attributes read through
+passed all 706 selected comparisons; Rust-native passed 206 of 210. The
+UploadFile rollover input compares the pinned `test_uploadfile_rolling`
+workflow with `SpooledTemporaryFile` thresholds of 1 and 1024 bytes, including
+reads, writes, seeks, rereads, and close; both package comparisons passed.
+GZip threshold-boundary cases, app-state attributes read through
 `request.app.state`, default-string match and slash-boundary cases, StaticFiles
 HTML fallback and built-in converter cases, both datetime converter cases,
 Mount URL lookup, StaticFiles date-order sequence, TestClient startup-error,
 WebSocket accepted headers, both BaseHTTPMiddleware ContextVar observer cases,
 BaseHTTPMiddleware exception propagation cases, asyncio/Trio lifespan
 task-group child lifecycle cases, generic Request/WebSocket state typing
-requirements, and the shared AnyIO thread-pool limiter case are included in
-the active contract. The limiter case compares the default 40-token capacity,
-a configured capacity of 2, two active workers plus one waiter across Starlette
-and direct AnyIO consumers, and restoration to 40; source and package
-observations match exactly. The three exception-propagation inputs map to
+requirements, and the shared AnyIO thread-pool limiter case are also included.
+The limiter case compares the default 40-token capacity, a configured capacity
+of 2, two active workers plus one waiter across Starlette and direct AnyIO
+consumers, and restoration to 40; source and package observations match
+exactly. The three exception-propagation inputs map to
 `tests/middleware/test_base.py::test_error_context_propagation`; they cover no
-chain, implicit exception context, and explicit cause, and all three package
-comparisons passed with empty diffs. Both child-task cases match the exact
-start, release, finish, callback-exit, and ASGI shutdown event order. The four
-native `not_run` rows are synchronous Request endpoint, bound-method endpoint,
-partial endpoint, and callable-instance ASGI dispatch. `make test` exits with
-status 2 because those declared rows remain `not_run`; they are not parity
-failures. Both new GZip threshold cases have empty source/target diffs and exact
-ordered ASGI event matches.
+chain, implicit exception context, and explicit cause. Both child-task cases
+match the exact start, release, finish, callback-exit, and ASGI shutdown event
+order. The four native `not_run` rows are synchronous Request endpoint,
+bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
+`make test` exits with status 2 because those declared rows remain `not_run`;
+they are not parity failures.
 
 Both target profiles used the clean commit
-`980a6faca2b19bf86dc361570d181ebdf8360d37`; the Rust-native source fingerprint
-is `980a6faca2b19bf86dc361570d181ebdf8360d37+source-fnv1a64-1ae45f1d7fa44c70`.
+`d1d8fdecdb3c91b71c897820328236572910eae9`; the Rust-native source fingerprint
+is `d1d8fdecdb3c91b71c897820328236572910eae9+source-fnv1a64-1ae45f1d7fa44c70`.
 
 For `lifespan_send_messages`, the manifest declares a narrow
 `starlette-lifespan-router-frame` normalization: it removes only the
@@ -52,17 +53,32 @@ protocol without that Python frame; all other event fields and traceback frames
 remain exact.
 
 The installed package tree SHA-256 is
-`6126db73cdce98e965a2c4a5c5357af25ca5bfd93fc0caee857314fca33f4c0f`; its
+`16e78e5e21f63c2efc556d1c3f6c950b968edd1ca4597ffaf6bd8d9d02cf2504`; its
 wheel SHA-256 is
-`a4418619eb0d7bf644fec576da44cde6d2281c2173e6b111fdfd7df94aef70c8`. The
+`7c317e2dff088796226c261833ebd5fee20c9ba36f06c670da110970d9de5bb7`. The
 manifest SHA-256 is
-`c36f4ffed557f8be689e4bc043e20834f8823bc8097860cdf639d7fe8f2c61b6`; the
+`c666a8cd6c3720b7d6b630e601fa333afcfc84ca51d921b6b2d9db90ecebe663`; the
 result artifact SHA-256 is
-`fd62bf6d0ca09690f377adbbe14037868c179b58b0fff10458f53221598a6b89`.
+`84e51197450daeb7730afead089d60176caceb7762afab5775270b03e2629b97`.
 Strict aggregation remains `not_proven` because the full compatibility
-denominator is incomplete and four Rust-native rows are `not_run`.
+denominator is incomplete and four Rust-native rows are `not_run`. Direct
+spooled-file rollover parity does not establish UploadFile worker-thread
+identity; that documentation-backed boundary remains in the fixture backlog.
 
 ## Input-only cases
+
+### Direct UploadFile spooled-file rollover
+
+[`upload-file.yaml`](../tests/fixtures/sources/parity/upload-file.yaml) adds
+one input-only case mapped to
+`tests/test_datastructures.py::test_uploadfile_rolling`. It creates public
+`UploadFile` instances with 1-byte and 1024-byte `SpooledTemporaryFile`
+thresholds, then reads, writes, seeks, rereads, and closes each file through
+the async UploadFile methods. The source oracle and installed package produce
+matching observations in run
+`14b78f07-fb1b-4cd0-a944-a83823bef6b5`. The case proves threshold rollover
+behavior for these inputs; worker-thread identity and event-loop progress
+remain separate, unverified requirements.
 
 ### GZip worker-thread threshold inputs
 
@@ -73,7 +89,7 @@ a final tail chunk. Both are Python-package-only because the scheduling bridge
 uses AnyIO's Python event loop. They compare exact response headers, compressed
 body bytes/chunks, and ASGI event order against pinned Starlette. They do not
 claim to observe worker-thread identity. Both comparisons passed in run
-`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`.
+`14b78f07-fb1b-4cd0-a944-a83823bef6b5`.
 
 ### Shared AnyIO thread-pool limiter
 
@@ -97,7 +113,7 @@ values, and parameters without an equals sign. Six cases run on both target
 profiles. The heterogeneous comparison against the literal string `"invalid"`
 is package-only because the native consumer API has no Python object equality
 boundary. All 13 selected comparisons pass in the latest full-slice run
-`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`.
+`14b78f07-fb1b-4cd0-a944-a83823bef6b5`.
 
 ### StaticFiles HTML fallback selection
 
@@ -110,7 +126,7 @@ fallback, an index directory without a fallback page, and an HTML-only tree
 without either special file. Ordered ASGI observations include the slash
 redirect, selected file body, and propagated 404 exception. All six
 oracle-to-target profile comparisons pass in integrated run
-`6d3d141b-58bc-4294-a9fd-af5c1b0e4015`.
+`14b78f07-fb1b-4cd0-a944-a83823bef6b5`.
 
 ### Built-in float and UUID converters
 
@@ -120,7 +136,7 @@ hyphens, and an invalid UUID segment. They observe the selected status and
 ASGI response; matched cases also compare the converted `route_scope.path_params`
 value and type. The Rust-native parity adapter projects these fields from
 `DetailedRouteMatch` captures. All 14 oracle-to-target comparisons pass in
-integrated run `6d3d141b-58bc-4294-a9fd-af5c1b0e4015`. Additional cases
+integrated run `14b78f07-fb1b-4cd0-a944-a83823bef6b5`. Additional cases
 observe converted path parameters for int/path routes and the default string
 converter, including a path with an additional slash that must not match. The
 int/float/path/UUID documentation rows now map to those input observations.
@@ -1077,7 +1093,7 @@ The existing app-level `url_path_for` input is also linked to
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 702 Python-package comparisons passed.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 706 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 
