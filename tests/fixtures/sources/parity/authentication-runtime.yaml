@@ -10,7 +10,8 @@
         "starlette.authentication.AuthCredentials.scope-sequence-construction",
         "starlette.authentication.BaseUser.abstract-properties",
         "starlette.authentication.SimpleUser.properties",
-        "starlette.authentication.UnauthenticatedUser.properties"
+        "starlette.authentication.UnauthenticatedUser.properties",
+        "starlette.authentication.BaseUser.custom-subclass-properties"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -47,6 +48,13 @@
         {
           "action": "user-properties",
           "user": "unauthenticated"
+        },
+        {
+          "action": "user-properties",
+          "user": "custom",
+          "is_authenticated": true,
+          "display_name": "Example User",
+          "identity": "member:42"
         }
       ],
       "observations": [
@@ -431,7 +439,9 @@
           "scope_type": "http",
           "backend": {
             "outcome": {
-              "credentials": ["authenticated"],
+              "credentials": [
+                "authenticated"
+              ],
               "user": "alice"
             }
           },

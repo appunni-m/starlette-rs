@@ -1621,6 +1621,8 @@ def _materialize_application(
                     {
                         "authenticated": request.user.is_authenticated,
                         "user": request.user.display_name,
+                        "user_type": type(request.user).__name__,
+                        "auth_scopes": request.auth.scopes,
                     }
                 )
         elif response_spec["kind"] == "authentication-required-route":
@@ -9909,10 +9911,28 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
 
     operation = (case["surface"], case["operation"])
     if operation == ("starlette.authentication", "value-operations"):
+
+        def custom_user(action: dict[str, Any]) -> Any:
+            class FixtureUser(BaseUser):
+                @property
+                def is_authenticated(self) -> bool:
+                    return action["is_authenticated"]
+
+                @property
+                def display_name(self) -> str:
+                    return action["display_name"]
+
+                @property
+                def identity(self) -> str:
+                    return action["identity"]
+
+            return FixtureUser()
+
         users = {
             "base": lambda action: BaseUser(),
             "simple": lambda action: SimpleUser(action["username"]),
             "unauthenticated": lambda action: UnauthenticatedUser(),
+            "custom": custom_user,
         }
         results = []
         for action in case["actions"]:
@@ -9931,7 +9951,13 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                     name: value_outcome(lambda user=user, name=name: getattr(user, name))
                     for name in ("is_authenticated", "display_name", "identity")
                 }
-                results.append({"action": action["action"], "properties": properties})
+                results.append(
+                    {
+                        "action": action["action"],
+                        "user_type": type(user).__name__,
+                        "properties": properties,
+                    }
+                )
         observed = {"actions": results}
     elif operation == ("starlette.authentication", "scope-check"):
         from types import SimpleNamespace

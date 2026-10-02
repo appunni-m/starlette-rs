@@ -18,7 +18,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 checked in; the run IDs and counts below describe their recorded executions.
 
 The active parity manifest indexes 742 input-only cases across 83 files,
-covering 94 operations and 775 parity requirements. Its latest additions map
+covering 94 operations and 777 parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Recent additions include
 direct FormData constructor/equality inputs; direct UploadFile constructor/repr, rollover, and threadpool-boundary cases, and GZip final and
@@ -149,8 +149,8 @@ artifact SHA-256:
 `c230c8da213934bdc1643663446cf29302cc5801c56a3afce1d3fa2613e0107c`. This
 bounded evidence does not establish full Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 462 input mappings, 51
-reasoned `not_applicable` rows, and 289 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 464 input mappings, 51
+reasoned `not_applicable` rows, and 287 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

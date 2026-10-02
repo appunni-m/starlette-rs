@@ -582,6 +582,10 @@ AUTH_USER_INTERFACE_REQUIREMENTS = {
         "starlette.applications.Starlette.__call__.authentication-user-interface."
         "non-ascii-basic-credentials"
     ),
+    "auth-state": (
+        "starlette.applications.Starlette.__call__.authentication-user-interface."
+        "user-and-auth-state"
+    ),
 }
 AUTHENTICATION_REQUIRED_ROUTE_REQUIREMENTS = {
     "async-denied": "starlette.applications.Starlette.__call__.authentication-required.async-denied",
@@ -19336,6 +19340,17 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
             elif raw_action.get("user") == "base":
                 _exact(raw_action, {"action", "user"}, context)
                 exercised.add("starlette.authentication.BaseUser.abstract-properties")
+            elif raw_action.get("user") == "custom":
+                item = _exact(
+                    raw_action,
+                    {"action", "user", "is_authenticated", "display_name", "identity"},
+                    context,
+                )
+                if not isinstance(item["is_authenticated"], bool):
+                    raise ContractError(f"{context}.is_authenticated must be a boolean")
+                _string(item["display_name"], f"{context}.display_name")
+                _string(item["identity"], f"{context}.identity")
+                exercised.add("starlette.authentication.BaseUser.custom-subclass-properties")
             else:
                 raise ContractError(f"{context}.user is unsupported")
     elif operation == ("starlette.authentication", "scope-check"):
@@ -20911,6 +20926,12 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             requirement = _authentication_user_interface_requirement(scope)
             if requirement is not None:
                 coverage.add(requirement)
+                if requirement in {
+                    AUTH_USER_INTERFACE_REQUIREMENTS["unauthenticated"],
+                    AUTH_USER_INTERFACE_REQUIREMENTS["basic"],
+                    AUTH_USER_INTERFACE_REQUIREMENTS["wrong-scheme"],
+                }:
+                    coverage.add(AUTH_USER_INTERFACE_REQUIREMENTS["auth-state"])
         return coverage
     if endpoint["kind"] == "authentication-required-route":
         if (

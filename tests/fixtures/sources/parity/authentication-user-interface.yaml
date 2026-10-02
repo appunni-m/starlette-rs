@@ -6,7 +6,8 @@
       "surface": "starlette.applications.Starlette",
       "operation": "__call__",
       "covers": [
-        "starlette.applications.Starlette.__call__.authentication-user-interface.unauthenticated-user"
+        "starlette.applications.Starlette.__call__.authentication-user-interface.unauthenticated-user",
+        "starlette.applications.Starlette.__call__.authentication-user-interface.user-and-auth-state"
       ],
       "execution_schedule": [
         "dispatch"
@@ -124,7 +125,8 @@
       "surface": "starlette.applications.Starlette",
       "operation": "__call__",
       "covers": [
-        "starlette.applications.Starlette.__call__.authentication-user-interface.basic-user"
+        "starlette.applications.Starlette.__call__.authentication-user-interface.basic-user",
+        "starlette.applications.Starlette.__call__.authentication-user-interface.user-and-auth-state"
       ],
       "execution_schedule": [
         "dispatch"
@@ -247,7 +249,8 @@
       "surface": "starlette.applications.Starlette",
       "operation": "__call__",
       "covers": [
-        "starlette.applications.Starlette.__call__.authentication-user-interface.wrong-scheme-unauthenticated-user"
+        "starlette.applications.Starlette.__call__.authentication-user-interface.wrong-scheme-unauthenticated-user",
+        "starlette.applications.Starlette.__call__.authentication-user-interface.user-and-auth-state"
       ],
       "execution_schedule": [
         "dispatch"

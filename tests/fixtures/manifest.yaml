@@ -854,6 +854,17 @@
               ]
             },
             {
+              "id": "starlette.applications.Starlette.__call__.authentication-user-interface.user-and-auth-state",
+              "dimension": "boundary",
+              "description": "Through the documented AuthenticationMiddleware backend, observe Request.auth.scopes, Request.user properties, and the concrete user type for absent, wrong-scheme, and valid Basic credentials. Upstream: docs/authentication.md:1-78; starlette/requests.py:178-186.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.applications.Starlette.__call__.authentication-required.async-denied",
               "dimension": "error_path",
               "description": "Dispatch GET /dashboard through AuthenticationMiddleware and an async endpoint decorated with requires('authenticated') without credentials; the endpoint is denied. Upstream: tests/test_authentication.py::test_authentication_required.",
@@ -3016,6 +3027,17 @@
               "id": "starlette.authentication.BaseUser.abstract-properties",
               "dimension": "error_path",
               "description": "Observe NotImplementedError from all three BaseUser properties through the public package. Upstream: starlette/authentication.py:115-126.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.BaseUser.custom-subclass-properties",
+              "dimension": "boundary",
+              "description": "Implement the documented authentication properties on an input-defined Python BaseUser subclass and observe the overridden properties through the installed package. Upstream: docs/authentication.md:55-67; starlette/authentication.py:115-126.",
               "lanes": [
                 "parity"
               ],
