@@ -16696,12 +16696,16 @@ def _validate_config_case(case: dict[str, Any]) -> None:
         if not isinstance(lookups, list) or not lookups:
             raise ContractError("Config lookups must be a non-empty array")
         file_values = {}
+        has_embedded_equals = False
         for line in lines:
             stripped = line.strip()
             if "=" in stripped and not stripped.startswith("#"):
                 key, value = stripped.split("=", 1)
                 file_values[key.strip()] = value.strip().strip("\"'")
+                has_embedded_equals = has_embedded_equals or "=" in value
         selected: set[str] = set()
+        if has_embedded_equals:
+            selected.add("starlette.config.Config.env-file-first-equals")
         if "encoding" in case:
             selected.add("starlette.config.Config.explicit-encoding")
         for index, raw in enumerate(lookups):
@@ -16751,6 +16755,13 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 raise ContractError(f"Config lookups[{index}].cast is unsupported")
             prefixed = config["env_prefix"] + key
             has_default = "default" in lookup
+            if (
+                config["env_prefix"]
+                and key in environ
+                and prefixed not in environ
+                and prefixed not in file_values
+            ):
+                selected.add("starlette.config.Config.prefix-ignores-unprefixed-value")
             if prefixed in environ and prefixed in file_values:
                 selected.add("starlette.config.Config.environment-precedence")
             if prefixed in file_values:

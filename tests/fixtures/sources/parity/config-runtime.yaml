@@ -8,7 +8,9 @@
       "covers": [
         "starlette.config.Config.environment-precedence",
         "starlette.config.Config.file-precedence",
+        "starlette.config.Config.env-file-first-equals",
         "starlette.config.Config.env-prefix",
+        "starlette.config.Config.prefix-ignores-unprefixed-value",
         "starlette.config.Config.default-values",
         "starlette.config.Config.missing-key-error",
         "starlette.config.Config.bool-cast",
@@ -20,8 +22,10 @@
       "config": {
         "env_prefix": "APP_",
         "environ": {
+          "APP_DEBUG": "value",
           "APP_FROM_ENV": "environment value",
           "APP_PRECEDENCE": "environment wins",
+          "ENVIRONMENT": "dev",
           "APP_BOOL_TRUE": "TRUE",
           "APP_BOOL_ONE": "1",
           "APP_BOOL_FALSE": "0",
@@ -32,6 +36,7 @@
           "# comments are ignored",
           " APP_FROM_FILE = 'file value' ",
           "APP_PRECEDENCE=file loses",
+          "APP_EQUALS=https://example.test/path?q=a=b",
           "APP_FILE_BOOL=True",
           "APP_DUPLICATE=first",
           "APP_DUPLICATE=second",
@@ -40,9 +45,11 @@
         ]
       },
       "lookups": [
+        {"key": "DEBUG", "cast": "str"},
         {"key": "FROM_ENV", "cast": "str"},
         {"key": "FROM_FILE", "cast": "str"},
         {"key": "PRECEDENCE", "cast": "str"},
+        {"key": "EQUALS", "cast": "str"},
         {"key": "FILE_BOOL", "cast": "bool"},
         {"key": "BOOL_TRUE", "cast": "bool"},
         {"key": "BOOL_ONE", "cast": "bool"},
@@ -51,6 +58,7 @@
         {"key": "DEFAULTED", "cast": "int", "default": "23"},
         {"key": "NULL_DEFAULT", "default": null},
         {"key": "MISSING"},
+        {"key": "ENVIRONMENT"},
         {"key": "BOOL_INVALID", "cast": "bool"},
         {"key": "INT_INVALID", "cast": "int"}
       ],

@@ -3792,9 +3792,31 @@
               ]
             },
             {
+              "id": "starlette.config.Config.env-file-first-equals",
+              "dimension": "parameter_combination",
+              "description": "Split an env-file assignment at its first equals sign and preserve subsequent equals signs in the value. Upstream: starlette/config.py:111-121; docs/config.md:4-33.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.config.Config.env-prefix",
               "dimension": "parameter",
               "description": "Prefix requested keys before environment and file lookups. Upstream: starlette/config.py:100.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.prefix-ignores-unprefixed-value",
+              "dimension": "parameter_combination",
+              "description": "Do not use an unprefixed environment entry when a Config lookup applies env_prefix. Upstream: starlette/config.py:100-105; tests/test_config.py::test_config_with_env_prefix; docs/config.md:105-121.",
               "lanes": [
                 "parity"
               ],
