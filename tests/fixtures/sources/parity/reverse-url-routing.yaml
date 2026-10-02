@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@24",
+  "schema": "migration-parity/parity-input@25",
   "cases": [
     {
       "case_id": "starlette.routing.Route.url_path_for.static-route",
@@ -863,6 +863,55 @@
       },
       "request_scope": null,
       "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.datetime-converter",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.datetime-converter"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/datetime/{param:datetime}",
+        "name": "datetime-convertor",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "datetime-convertor",
+        "path_params": {
+          "param": {
+            "kind": "datetime-components",
+            "components": [
+              1996,
+              1,
+              22,
+              23,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [
+        {
+          "name": "datetime",
+          "regex": "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(.[0-9]+)?",
+          "kind": "datetime",
+          "format": "%Y-%m-%dT%H:%M:%S"
+        }
+      ],
       "observations": [
         "reverse-url"
       ]

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@24",
+  "schema": "migration-parity/parity-input@25",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.request-dispatch.missing-session-assertion",

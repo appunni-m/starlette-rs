@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@24",
+      "input_schema": "migration-parity/parity-input@25",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -15428,6 +15428,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Route.url_path_for.datetime-converter",
+              "dimension": "boundary",
+              "description": "A Python-registered datetime converter formats a datetime value through its input-defined strftime format.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -15817,6 +15828,17 @@
               "id": "starlette.routing.Router.route-dispatch.custom-converter-override",
               "dimension": "boundary",
               "description": "Register a custom Convertor under the built-in str key, construct a Route after registration, and observe its regex and converted value through Router dispatch. Upstream: starlette/convertors.py::register_url_convertor and starlette/routing.py::compile_path; tests/test_routing.py convertor registration cases.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.datetime-converter",
+              "dimension": "boundary",
+              "description": "A Python-registered datetime converter parses the matching path segment into datetime and the synchronous endpoint formats that typed value. Upstream: starlette/convertors.py::register_url_convertor; tests/test_convertors.py::test_datetime_convertor.",
               "lanes": [
                 "parity"
               ],

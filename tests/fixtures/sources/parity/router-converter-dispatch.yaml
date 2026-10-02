@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@24",
+  "schema": "migration-parity/parity-input@25",
   "cases": [
     {
       "case_id": "starlette.routing.Router.route-dispatch.match-string",
@@ -2056,6 +2056,73 @@
         "route-dispatch"
       ],
       "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.datetime-converter",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.datetime-converter"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/datetime/{param:datetime}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "sync-datetime-json-response",
+            "path_parameter": "param",
+            "format": "%Y-%m-%dT%H:%M:%S",
+            "json_key": "datetime",
+            "status_code": 200
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/datetime/2020-01-01T00:00:00",
+        "raw_path_base64": "L2RhdGV0aW1lLzIwMjAtMDEtMDFUMDA6MDA6MDA=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [
+        {
+          "name": "datetime",
+          "regex": "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(.[0-9]+)?",
+          "kind": "datetime",
+          "format": "%Y-%m-%dT%H:%M:%S"
+        }
+      ],
       "redirect_slashes": true
     }
   ]

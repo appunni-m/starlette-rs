@@ -4122,24 +4122,32 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
+    from datetime import datetime
+
     from starlette.convertors import Convertor, register_url_convertor
     from starlette.endpoints import HTTPEndpoint
-    from starlette.responses import PlainTextResponse, Response
+    from starlette.responses import JSONResponse, PlainTextResponse, Response
     from starlette.routing import Host, Mount, Route, Router
 
     for spec in case.get("custom_convertors", []):
 
-        class InputConvertor(Convertor[str]):
-            regex = spec["regex"]
-            lowercase = spec["lowercase"]
+        class InputConvertor(Convertor[Any]):
+            def __init__(self, raw: dict[str, Any]) -> None:
+                self.raw = raw
+                self.regex = raw["regex"]
 
-            def convert(self, value: str) -> str:
-                return value.lower() if self.lowercase else value
+            def convert(self, value: str) -> Any:
+                if self.raw.get("kind") == "datetime":
+                    # Starlette's converter deliberately returns a naive datetime.
+                    return datetime.strptime(value, self.raw["format"])  # noqa: DTZ007
+                return value.lower() if self.raw["lowercase"] else value
 
-            def to_string(self, value: str) -> str:
+            def to_string(self, value: Any) -> str:
+                if self.raw.get("kind") == "datetime":
+                    return value.strftime(self.raw["format"])
                 return str(value)
 
-        register_url_convertor(spec["name"], InputConvertor())
+        register_url_convertor(spec["name"], InputConvertor(spec))
 
     route_index_observations: list[int] = []
     router_sequence = case.get("surface") == "starlette.routing.Router" and "steps" in case
@@ -4220,6 +4228,20 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
 
             endpoint_class = type("InputHTTPEndpoint", (HTTPEndpoint,), class_attributes)
             return Route(route_spec["path"], endpoint=endpoint_class, methods=route_spec["methods"])
+
+        if response_spec.get("kind") == "sync-datetime-json-response":
+
+            def datetime_endpoint(request: Any, raw: dict[str, Any] = response_spec) -> Any:
+                route_index_observations.append(route_index)
+                value = request.path_params[raw["path_parameter"]]
+                return JSONResponse(
+                    {raw["json_key"]: value.strftime(raw["format"])},
+                    status_code=raw["status_code"],
+                )
+
+            return Route(
+                route_spec["path"], endpoint=datetime_endpoint, methods=route_spec["methods"]
+            )
 
         if response_spec.get("kind") == "sync-plain-text-response":
             if set(response_spec) != {
@@ -6531,6 +6553,8 @@ def _reverse_request_scope(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
+    from datetime import datetime
+
     from starlette.convertors import CONVERTOR_TYPES, Convertor, register_url_convertor
     from starlette.requests import Request
 
@@ -6544,18 +6568,22 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
     try:
         for spec in case["custom_convertors"]:
 
-            class InputConvertor(Convertor[str]):
+            class InputConvertor(Convertor[Any]):
                 def __init__(self, raw: dict[str, Any]) -> None:
+                    self.raw = raw
                     self.regex = raw["regex"]
-                    self.lowercase = raw["lowercase"]
-                    self.lowercase_to_string = raw["lowercase_to_string"]
 
-                def convert(self, value: str) -> str:
-                    return value.lower() if self.lowercase else value
+                def convert(self, value: str) -> Any:
+                    if self.raw.get("kind") == "datetime":
+                        # Starlette's converter deliberately returns a naive datetime.
+                        return datetime.strptime(value, self.raw["format"])  # noqa: DTZ007
+                    return value.lower() if self.raw["lowercase"] else value
 
                 def to_string(self, value: Any) -> str:
+                    if self.raw.get("kind") == "datetime":
+                        return value.strftime(self.raw["format"])
                     text = str(value)
-                    return text.lower() if self.lowercase_to_string else text
+                    return text.lower() if self.raw["lowercase_to_string"] else text
 
             register_url_convertor(spec["name"], InputConvertor(spec))
 
@@ -6594,7 +6622,13 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
             observed = asyncio.run(run_request())
         else:
             graph = _build_reverse_route_node(graph_spec, lookup, observation)
-            result = graph.url_path_for(lookup["name"], **lookup["path_params"])
+            path_params = {
+                name: datetime(*value["components"])  # noqa: DTZ001
+                if isinstance(value, dict)
+                else value
+                for name, value in lookup["path_params"].items()
+            }
+            result = graph.url_path_for(lookup["name"], **path_params)
             observed = _reverse_url_path_value(result)
     except Exception as exc:
         observed = {"error": _reverse_url_error(exc)}

@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 690 input-only cases across 77 files,
-covering 93 operations and 710 parity requirements. Recent additions compare
+The active parity manifest indexes 692 input-only cases across 77 files,
+covering 93 operations and 712 parity requirements. Recent additions compare
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
 pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
 default decoding in WebSocketEndpoint, and TestClient lifespan task/RunVar continuity under
@@ -67,20 +67,21 @@ operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest full-slice correctness run is
-`fe9b42fd-a239-4743-9c4f-61cc39483502`. It ran from
-`2026-10-02T01:51:37.099Z` to `2026-10-02T01:54:16.885Z` against Starlette
+`a29fff0b-5a9e-4354-a16c-39fb26ca3060`. It ran from
+`2026-10-02T02:26:11.976Z` to `2026-10-02T02:29:06.050Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active
-690-case/710-requirement `parity-input@24` contract. It selected 895 profile
-comparisons: 891 passed, zero failed, zero infrastructure errors, and four
+692-case/712-requirement `parity-input@25` contract. It selected 897 profile
+comparisons: 893 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
-688 selected comparisons; Rust-native passed 203 of 207. StaticFiles HTML
-fallback and built-in converter scenarios, Mount URL lookup, StaticFiles
-date-order sequence, TestClient startup-error, WebSocket accepted headers, and
-both BaseHTTPMiddleware ContextVar observer cases are included in the run. The four
-native `not_run` rows are synchronous Request endpoint, bound-method endpoint,
-partial endpoint, and callable-instance ASGI dispatch. `make parity-run` exits
-with status 2 because those declared Python-callable boundaries remain
-`not_run`; they are not parity failures. The Rust-native source fingerprint
+690 selected comparisons; Rust-native passed 203 of 207. StaticFiles HTML
+fallback and built-in converter scenarios, both datetime-converter cases,
+Mount URL lookup, StaticFiles date-order sequence, TestClient startup-error,
+WebSocket accepted headers, and both BaseHTTPMiddleware ContextVar observer
+cases are included in the run. The four native `not_run` rows are synchronous
+Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
+ASGI dispatch. `make parity-run` exits with status 2 because those declared
+Python-callable boundaries remain `not_run`; they are not parity failures. The
+Rust-native source fingerprint
 was
 `b208005d8226d4a550bb167318d53e7073a31fe2+source-fnv1a64-b3446fa60fa7209a`.
 The installed package tree SHA-256 was
@@ -117,8 +118,8 @@ This bounded source/package benchmark evidence does not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 390 existing input
-mappings, 50 reasoned `not_applicable` rows, and 362 fixture backlog rows.
+The generated coverage matrix has 802 source rows: 392 existing input
+mappings, 50 reasoned `not_applicable` rows, and 360 fixture backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

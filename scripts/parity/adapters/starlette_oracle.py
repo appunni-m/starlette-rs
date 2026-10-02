@@ -6086,15 +6086,37 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
     if not router_sequence and case["send"] != {"kind": "capture-asgi-send"}:
         raise ValueError("send input must select the declared ASGI message collector")
 
+    from datetime import datetime
+
     from starlette.convertors import CONVERTOR_TYPES, Convertor, register_url_convertor
     from starlette.endpoints import HTTPEndpoint
-    from starlette.responses import PlainTextResponse, Response
+    from starlette.responses import JSONResponse, PlainTextResponse, Response
     from starlette.routing import Host, Mount, Route, Router
 
     previous_convertors = {
         spec["name"]: CONVERTOR_TYPES.get(spec["name"], _MISSING) for spec in custom_convertors
     }
     route_index_observations: list[int] = []
+
+    for spec in custom_convertors:
+
+        class InputConvertor(Convertor[Any]):
+            def __init__(self, raw: dict[str, Any]) -> None:
+                self.raw = raw
+                self.regex = raw["regex"]
+
+            def convert(self, value: str) -> Any:
+                if self.raw.get("kind") == "datetime":
+                    # Starlette's converter deliberately returns a naive datetime.
+                    return datetime.strptime(value, self.raw["format"])  # noqa: DTZ007
+                return value.lower() if self.raw["lowercase"] else value
+
+            def to_string(self, value: Any) -> str:
+                if self.raw.get("kind") == "datetime":
+                    return value.strftime(self.raw["format"])
+                return str(value)
+
+        register_url_convertor(spec["name"], InputConvertor(spec))
 
     def make_endpoint(endpoint_spec: dict[str, Any], route_index: int) -> Any:
         if endpoint_spec.get("kind") == "http-class-based-endpoint":
@@ -6194,6 +6216,24 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                 return response
 
             return endpoint
+
+        if endpoint_spec.get("kind") == "sync-datetime-json-response":
+            _strict_object(
+                endpoint_spec,
+                {"kind", "path_parameter", "format", "json_key", "status_code"},
+                "synchronous datetime JSON endpoint",
+            )
+
+            def datetime_endpoint(request: Any) -> Any:
+                if is_router:
+                    route_index_observations.append(route_index)
+                value = request.path_params[endpoint_spec["path_parameter"]]
+                return JSONResponse(
+                    {endpoint_spec["json_key"]: value.strftime(endpoint_spec["format"])},
+                    status_code=endpoint_spec["status_code"],
+                )
+
+            return datetime_endpoint
 
         async def endpoint(request: Any) -> Any:
             if is_router:
@@ -6431,23 +6471,6 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         return await dispatch(case["scope"], case["incoming"])
 
     try:
-        for spec in custom_convertors:
-            if not isinstance(spec, dict) or set(spec) != {"name", "regex", "lowercase"}:
-                raise ValueError("custom converter input must contain name, regex, and lowercase")
-
-            class InputConvertor(Convertor[str]):
-                def __init__(self, regex: str, lowercase: bool) -> None:
-                    self.regex = regex
-                    self.lowercase = lowercase
-
-                def convert(self, value: str) -> str:
-                    return value.lower() if self.lowercase else value
-
-                def to_string(self, value: str) -> str:
-                    return str(value)
-
-            register_url_convertor(spec["name"], InputConvertor(spec["regex"], spec["lowercase"]))
-
         selected, mount_scope = asyncio.run(run())
     finally:
         for name, old_convertor in previous_convertors.items():
@@ -8599,6 +8622,8 @@ def _reverse_request_scope(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
+    from datetime import datetime
+
     from starlette.convertors import CONVERTOR_TYPES, Convertor, register_url_convertor
     from starlette.requests import Request
 
@@ -8611,18 +8636,22 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
     try:
         for spec in case["custom_convertors"]:
 
-            class InputConvertor(Convertor[str]):
+            class InputConvertor(Convertor[Any]):
                 def __init__(self, raw: dict[str, Any]) -> None:
+                    self.raw = raw
                     self.regex = raw["regex"]
-                    self.lowercase = raw["lowercase"]
-                    self.lowercase_to_string = raw["lowercase_to_string"]
 
-                def convert(self, value: str) -> str:
-                    return value.lower() if self.lowercase else value
+                def convert(self, value: str) -> Any:
+                    if self.raw.get("kind") == "datetime":
+                        # Starlette's converter deliberately returns a naive datetime.
+                        return datetime.strptime(value, self.raw["format"])  # noqa: DTZ007
+                    return value.lower() if self.raw["lowercase"] else value
 
                 def to_string(self, value: Any) -> str:
+                    if self.raw.get("kind") == "datetime":
+                        return value.strftime(self.raw["format"])
                     text = str(value)
-                    return text.lower() if self.lowercase_to_string else text
+                    return text.lower() if self.raw["lowercase_to_string"] else text
 
             register_url_convertor(spec["name"], InputConvertor(spec))
 
@@ -8661,8 +8690,14 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
             observed = asyncio.run(dispatched_url())
         else:
             graph = _build_reverse_route_node(graph_spec, lookup, observation)
+            path_params = {
+                name: datetime(*value["components"])  # noqa: DTZ001
+                if isinstance(value, dict)
+                else value
+                for name, value in lookup["path_params"].items()
+            }
             if case["surface"] == "starlette.routing.Route":
-                result = graph.url_path_for(lookup["name"], **lookup["path_params"])
+                result = graph.url_path_for(lookup["name"], **path_params)
             elif case["surface"] == "starlette.routing.WebSocketRoute":
                 result = graph.url_path_for(lookup["name"], **lookup["path_params"])
             elif case["surface"] == "starlette.routing.Router":

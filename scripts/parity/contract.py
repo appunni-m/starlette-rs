@@ -22,7 +22,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@24"
+INPUT_SCHEMA = "migration-parity/parity-input@25"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -3516,9 +3516,61 @@ def _validate_http_route_input(
             raise ContractError(f"{context}.endpoint.status_code must be 200")
         if endpoint["media_type"] != "text/plain":
             raise ContractError(f"{context}.endpoint.media_type must be text/plain")
+    elif endpoint["kind"] == "sync-datetime-json-response":
+        endpoint = _exact(
+            endpoint,
+            {"kind", "path_parameter", "format", "json_key", "status_code"},
+            f"{context}.endpoint",
+        )
+        path_parameter_map = dict(path_parameters)
+        path_parameter = _string(endpoint["path_parameter"], f"{context}.endpoint.path_parameter")
+        converter_name = path_parameter_map.get(path_parameter)
+        converter = (custom_convertors or {}).get(converter_name)
+        if converter is None or converter.get("kind") != "datetime":
+            raise ContractError(
+                f"{context}.endpoint must observe a registered datetime path parameter"
+            )
+        if endpoint["format"] != converter["format"]:
+            raise ContractError(f"{context}.endpoint.format must match its datetime converter")
+        _string(endpoint["json_key"], f"{context}.endpoint.json_key")
+        if type(endpoint["status_code"]) is not int or endpoint["status_code"] != 200:
+            raise ContractError(f"{context}.endpoint.status_code must be 200")
     elif endpoint["kind"] != "http-class-based-endpoint":
         raise ContractError(f"{context}.endpoint kind is unsupported")
     return route
+
+
+def _validate_custom_converter_input(
+    raw: Any,
+    context: str,
+    *,
+    reverse: bool = False,
+) -> dict[str, Any]:
+    datetime_converter = isinstance(raw, dict) and raw.get("kind") == "datetime"
+    if datetime_converter:
+        convertor = _exact(raw, {"name", "regex", "kind", "format"}, context)
+        _string(convertor["format"], f"{context}.format")
+        if not convertor["format"]:
+            raise ContractError(f"{context}.format must be non-empty")
+    else:
+        fields = {"name", "regex", "lowercase"}
+        if reverse:
+            fields.add("lowercase_to_string")
+        convertor = _exact(raw, fields, context)
+        if type(convertor["lowercase"]) is not bool:
+            raise ContractError(f"{context}.lowercase must be boolean")
+        if reverse and type(convertor["lowercase_to_string"]) is not bool:
+            raise ContractError(f"{context}.lowercase_to_string must be boolean")
+
+    name = _string(convertor["name"], f"{context}.name")
+    regex = _string(convertor["regex"], f"{context}.regex")
+    if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", name) is None or not regex:
+        raise ContractError(f"{context} must define a converter identifier and non-empty regex")
+    try:
+        re.compile(regex)
+    except re.error as exc:
+        raise ContractError(f"{context}.regex is invalid: {exc}") from exc
+    return convertor
 
 
 def _validate_http_class_endpoint_input(
@@ -6094,19 +6146,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     custom_convertors: dict[str, dict[str, Any]] = {}
     for index, raw_convertor in enumerate(case["custom_convertors"]):
         context = f"Router custom_convertors[{index}]"
-        convertor = _exact(raw_convertor, {"name", "regex", "lowercase"}, context)
-        name = _string(convertor["name"], f"{context}.name")
-        regex = _string(convertor["regex"], f"{context}.regex")
-        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", name) is None:
-            raise ContractError(f"{context}.name must be a converter identifier")
-        if not regex:
-            raise ContractError(f"{context}.regex must be non-empty")
-        try:
-            re.compile(regex)
-        except re.error as exc:
-            raise ContractError(f"{context}.regex is invalid: {exc}") from exc
-        if type(convertor["lowercase"]) is not bool:
-            raise ContractError(f"{context}.lowercase must be boolean")
+        convertor = _validate_custom_converter_input(raw_convertor, context)
+        name = convertor["name"]
         if name in custom_convertors:
             raise ContractError(f"Router custom converter {name!r} is registered more than once")
         custom_convertors[name] = convertor
@@ -6188,7 +6229,10 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     for route in matched:
         for _name, converter in _route_template_parameters(route["path"]):
             if converter in custom_convertors:
-                derived.add("starlette.routing.Router.route-dispatch.custom-converter-override")
+                if custom_convertors[converter].get("kind") == "datetime":
+                    derived.add("starlette.routing.Router.route-dispatch.datetime-converter")
+                else:
+                    derived.add("starlette.routing.Router.route-dispatch.custom-converter-override")
             else:
                 requirement = {
                     "str": "string-converter-match",
@@ -7048,7 +7092,10 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
                 if suffix:
                     derived.add(rid(suffix))
                 if converter in custom:
-                    derived.add(rid("custom-converter-override"))
+                    if custom[converter].get("kind") == "datetime":
+                        derived.add(rid("datetime-converter"))
+                    else:
+                        derived.add(rid("custom-converter-override"))
                 value = params[_name]
                 if (
                     (converter == "str" and (not str(value) or "/" in str(value)))
@@ -7121,20 +7168,8 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
     custom: dict[str, dict[str, Any]] = {}
     for index, raw in enumerate(case["custom_convertors"]):
         context = f"reverse URL custom_convertors[{index}]"
-        convertor = _exact(raw, {"name", "regex", "lowercase", "lowercase_to_string"}, context)
-        name = _string(convertor["name"], f"{context}.name")
-        regex = _string(convertor["regex"], f"{context}.regex")
-        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", name) is None or not regex:
-            raise ContractError(f"{context} must define a converter identifier and non-empty regex")
-        try:
-            re.compile(regex)
-        except re.error as exc:
-            raise ContractError(f"{context}.regex is invalid: {exc}") from exc
-        if (
-            type(convertor["lowercase"]) is not bool
-            or type(convertor["lowercase_to_string"]) is not bool
-        ):
-            raise ContractError(f"{context} lowercase flags must be boolean")
+        convertor = _validate_custom_converter_input(raw, context, reverse=True)
+        name = convertor["name"]
         if name in custom:
             raise ContractError(f"reverse URL converter {name!r} is registered more than once")
         custom[name] = convertor
@@ -7147,7 +7182,17 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
     for name, value in lookup["path_params"].items():
         _string(name, "reverse URL path parameter name")
         if isinstance(value, (dict, list)):
-            raise ContractError("reverse URL path parameter values must be JSON scalars")
+            if not (
+                isinstance(value, dict)
+                and set(value) == {"kind", "components"}
+                and value["kind"] == "datetime-components"
+                and isinstance(value["components"], list)
+                and len(value["components"]) == 6
+                and all(type(component) is int for component in value["components"])
+            ):
+                raise ContractError(
+                    "reverse URL object path parameter values must be datetime components"
+                )
 
     request_scope = case["request_scope"]
     if key[0] == "starlette.requests.Request":
@@ -7222,6 +7267,16 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
         graph = _validate_reverse_route_node(
             graph, "reverse URL route_graph", custom, allow_observer=allow_observer
         )
+    for parameter, value in lookup["path_params"].items():
+        if isinstance(value, dict):
+            if key[0] != "starlette.routing.Route" or not isinstance(graph, dict):
+                raise ContractError("datetime component values require direct Route.url_path_for")
+            parameter_convertors = dict(_validate_reverse_path(graph["path"], custom, "Route.path"))
+            converter_name = parameter_convertors.get(parameter)
+            if custom.get(converter_name, {}).get("kind") != "datetime":
+                raise ContractError(
+                    "datetime component values require a matching datetime route converter"
+                )
     if key == ROUTER_URL_PATH_FOR_OPERATION_KEY and "rust-native-local" in case["target_profiles"]:
         _validate_native_router_url_path_for_case(graph, lookup, custom)
     if key[0] == "starlette.requests.Request" and allow_observer:
