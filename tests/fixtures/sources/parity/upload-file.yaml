@@ -1,0 +1,58 @@
+{
+  "schema": "migration-parity/parity-input@27",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.UploadFile.file-operations.spooled-file-rollover",
+      "surface": "starlette.datastructures.UploadFile",
+      "operation": "file-operations",
+      "covers": [
+        "starlette.datastructures.UploadFile.spooled-file-rollover"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "file-operations"
+      ],
+      "scenarios": [
+        {
+          "scenario_id": "rolled",
+          "max_size": 1,
+          "filename": "file",
+          "initial_size": 0,
+          "actions": [
+            {"action_id": "read-empty", "call": "read", "size": -1},
+            {"action_id": "write-first", "call": "write", "data_base64": "ZGF0YQ=="},
+            {"action_id": "read-after-first-write", "call": "read", "size": -1},
+            {"action_id": "seek-before-first-read", "call": "seek", "offset": 0},
+            {"action_id": "read-first-write", "call": "read", "size": -1},
+            {"action_id": "write-second", "call": "write", "data_base64": "IG1vcmU="},
+            {"action_id": "read-after-second-write", "call": "read", "size": -1},
+            {"action_id": "seek-before-final-read", "call": "seek", "offset": 0},
+            {"action_id": "read-complete", "call": "read", "size": -1},
+            {"action_id": "close", "call": "close"}
+          ]
+        },
+        {
+          "scenario_id": "unrolled",
+          "max_size": 1024,
+          "filename": "file",
+          "initial_size": 0,
+          "actions": [
+            {"action_id": "read-empty", "call": "read", "size": -1},
+            {"action_id": "write-first", "call": "write", "data_base64": "ZGF0YQ=="},
+            {"action_id": "read-after-first-write", "call": "read", "size": -1},
+            {"action_id": "seek-before-first-read", "call": "seek", "offset": 0},
+            {"action_id": "read-first-write", "call": "read", "size": -1},
+            {"action_id": "write-second", "call": "write", "data_base64": "IG1vcmU="},
+            {"action_id": "read-after-second-write", "call": "read", "size": -1},
+            {"action_id": "seek-before-final-read", "call": "seek", "offset": 0},
+            {"action_id": "read-complete", "call": "read", "size": -1},
+            {"action_id": "close", "call": "close"}
+          ]
+        }
+      ]
+    }
+  ]
+}

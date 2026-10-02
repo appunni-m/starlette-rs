@@ -309,6 +309,7 @@
       "build/parity/inputs/parity/templating-runtime.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
       "build/parity/inputs/parity/request-form-multipart.json",
+      "build/parity/inputs/parity/upload-file.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-http.json",
@@ -4367,10 +4368,10 @@
               "path": "starlette.datastructures.UploadFile",
               "signature": "UploadFile with file metadata and async read/write/seek/close operations",
               "support": {
-                "status": "partial",
-                "reason": "The selected input verifies small in-memory file operations; rolled SpooledTemporaryFile I/O and its worker-thread boundary remain unverified.",
+              "status": "partial",
+                "reason": "Input-driven consumer parity covers read, write, seek, and close behavior on both rolled and unrolled SpooledTemporaryFile inputs. The documented worker-thread boundary remains unverified.",
                 "missing_requirements": [
-                  "starlette.datastructures.UploadFile.spooled-file-rollover"
+                  "starlette.datastructures.UploadFile.threadpool-boundary"
                 ]
               }
             }
@@ -4380,6 +4381,17 @@
               "id": "starlette.datastructures.UploadFile.file-operations",
               "dimension": "parameter_combination",
               "description": "Observe UploadFile metadata and its documented asynchronous write, read, seek, and close methods on a small in-memory upload. Pinned source: starlette/datastructures.py:410-479; docs/requests.md:138-162; tests/test_formparsers.py::test_multipart_request_files_with_content_type.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.UploadFile.spooled-file-rollover",
+              "dimension": "input_family",
+              "description": "Observe asynchronous read, write, seek, and close operations with otherwise identical SpooledTemporaryFile inputs whose supplied thresholds keep one small payload in memory and roll the other to disk. Pinned source: starlette/datastructures.py:428-476; tests/test_datastructures.py::test_uploadfile_rolling; docs/requests.md:142-154.",
               "lanes": [
                 "parity"
               ],

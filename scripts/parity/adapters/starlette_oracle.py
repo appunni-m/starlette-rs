@@ -11086,6 +11086,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) == REQUEST_FORM_OPERATION
     ):
         return _run_request_form_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.datastructures.UploadFile",
+        "file-operations",
+    ):
+        from starlette.datastructures import UploadFile
+
+        from scripts.parity.adapters.upload_file import run_upload_file_case
+
+        return run_upload_file_case(case, UploadFile)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_BODY_STREAM_JSON_OPERATION

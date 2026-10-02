@@ -374,6 +374,8 @@ REQUEST_FORM_OPTIONAL_KEYS = {
     "form_read_body",
 }
 UPLOAD_FILE_OPERATION = ("starlette.datastructures.UploadFile", "file-operations")
+UPLOAD_FILE_ROLLOVER_REQUIREMENT = "starlette.datastructures.UploadFile.spooled-file-rollover"
+UPLOAD_FILE_THREADPOOL_GAP = "starlette.datastructures.UploadFile.threadpool-boundary"
 WSGI_BOUNDARY_SURFACE = "starlette.middleware.wsgi"
 WSGI_BUILD_ENVIRON_OPERATION = (WSGI_BOUNDARY_SURFACE, "build-environ")
 WSGI_MODULE_IMPORT_OPERATION = (WSGI_BOUNDARY_SURFACE, "module-import-warning")
@@ -1014,7 +1016,7 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
         UPLOAD_FILE_OPERATION[0],
         UPLOAD_FILE_OPERATION[1],
         "python-package",
-    ): frozenset({"starlette.datastructures.UploadFile.spooled-file-rollover"}),
+    ): frozenset({UPLOAD_FILE_THREADPOOL_GAP}),
 }
 GZIP_SURFACE = "starlette.middleware.gzip.GZipMiddleware"
 GZIP_RESPONDER_SURFACE = "starlette.middleware.gzip.GZipResponder"
@@ -11317,6 +11319,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) in HEADERS_OPERATIONS
     )
+    is_upload_file = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == UPLOAD_FILE_OPERATION
+    )
     is_query_params = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == QUERY_PARAMS_OPERATION
@@ -11484,6 +11490,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_testclient
         else CASE_KEYS
     )
+    if is_upload_file:
+        expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scenarios"}
     if is_router and isinstance(case, dict) and "observe_router_scope" in case:
         expected_case_keys = expected_case_keys | {"observe_router_scope"}
     if is_response and isinstance(case, dict) and "render_override" in case:
@@ -11785,6 +11793,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_value_formatting:
         if case["operation"] != VALUE_FORMATTING_OPERATION:
             raise ContractError("value-formatting cases must use their declared operation")
+    elif is_upload_file:
+        if (case["surface"], case["operation"]) != UPLOAD_FILE_OPERATION:
+            raise ContractError("UploadFile cases must use the declared file-operations operation")
     elif is_rust_owned_python:
         if (case["surface"], case["operation"]) not in RUST_OWNED_PYTHON_OPERATIONS:
             raise ContractError("configuration and schema cases must use declared operations")
@@ -11866,6 +11877,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_request_body_stream_json:
         if (case["surface"], case["operation"]) != REQUEST_BODY_STREAM_JSON_OPERATION:
             raise ContractError("Request body/stream/json cases must use body-stream-json")
+    elif is_upload_file:
+        if (case["surface"], case["operation"]) != UPLOAD_FILE_OPERATION:
+            raise ContractError("UploadFile cases must use the declared file-operations operation")
     elif case["surface"] != "starlette.applications.Starlette" or case["operation"] not in {
         "__call__",
         "request-dispatch",
@@ -11918,6 +11932,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         raise ContractError("TestClient lifespan cases select only the Python-package profile")
     if is_request_body_stream_json and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("Request body/stream/json cases select only the Python-package profile")
+    if is_upload_file and selected_profiles != ["python-package-cpython312"]:
+        raise ContractError("UploadFile cases select only the Python-package profile")
     if is_threadpool and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("run_in_threadpool cases select only the Python-package profile")
     if is_run_until_first_complete and selected_profiles != ["python-package-cpython312"]:
@@ -12051,6 +12067,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_request_form:
         _validate_request_form_case(case)
+        return case
+    if is_upload_file:
+        _validate_upload_file_case(case)
         return case
     if is_request_body_stream_json:
         _validate_request_body_stream_json_case(case)
@@ -17613,6 +17632,155 @@ def _validate_state_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "State case covers must match its input-defined constructors and actions; "
             f"expected {sorted(exercised)}"
+        )
+
+
+def _upload_file_semantic_coverage(case: dict[str, Any]) -> set[str]:
+    scenarios = case.get("scenarios")
+    if not isinstance(scenarios, list) or len(scenarios) < 2:
+        return set()
+
+    rollover_states: set[bool] = set()
+    shared_actions: list[dict[str, Any]] | None = None
+    exercised_calls: set[str] = set()
+    for scenario in scenarios:
+        max_size = scenario["max_size"]
+        position = 0
+        file_size = 0
+        rolled = False
+        actions = scenario["actions"]
+        if shared_actions is None:
+            shared_actions = actions
+        elif actions != shared_actions:
+            return set()
+        for action in actions:
+            call = action["call"]
+            exercised_calls.add(call)
+            if call == "read":
+                size = action["size"]
+                remaining = max(file_size - position, 0)
+                position += remaining if size == -1 else min(size, remaining)
+            elif call == "seek":
+                position = action["offset"]
+            elif call == "write":
+                data = base64.b64decode(action["data_base64"], validate=True)
+                position += len(data)
+                file_size = max(file_size, position)
+                if max_size and position > max_size:
+                    rolled = True
+        rollover_states.add(rolled)
+
+    if (
+        rollover_states == {False, True}
+        and {
+            "read",
+            "write",
+            "seek",
+            "close",
+        }
+        <= exercised_calls
+    ):
+        return {UPLOAD_FILE_ROLLOVER_REQUIREMENT}
+    return set()
+
+
+def _validate_upload_file_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("UploadFile cases select only the Python-package profile")
+    if case["assets"] != []:
+        raise ContractError("UploadFile cases do not use external assets")
+    if case["observations"] != ["file-operations"]:
+        raise ContractError("UploadFile cases must select file-operations")
+
+    scenarios = case["scenarios"]
+    if not isinstance(scenarios, list) or len(scenarios) < 2:
+        raise ContractError("UploadFile scenarios must cover at least two spool thresholds")
+    scenario_ids: set[str] = set()
+    shared_filename: str | None = None
+    shared_initial_size: int | None = None
+    shared_actions: list[dict[str, Any]] | None = None
+    for index, scenario_value in enumerate(scenarios):
+        context = f"UploadFile scenarios[{index}]"
+        scenario = _exact(
+            scenario_value,
+            {"scenario_id", "max_size", "filename", "initial_size", "actions"},
+            context,
+        )
+        scenario_id = _string(scenario["scenario_id"], f"{context}.scenario_id")
+        if not scenario_id or scenario_id in scenario_ids:
+            raise ContractError(f"{context}.scenario_id must be non-empty and unique")
+        scenario_ids.add(scenario_id)
+        max_size = scenario["max_size"]
+        initial_size = scenario["initial_size"]
+        if type(max_size) is not int or max_size < 0:
+            raise ContractError(f"{context}.max_size must be a non-negative integer")
+        if type(initial_size) is not int or initial_size < 0:
+            raise ContractError(f"{context}.initial_size must be a non-negative integer")
+        filename = _string(scenario["filename"], f"{context}.filename")
+        if shared_filename is None:
+            shared_filename = filename
+            shared_initial_size = initial_size
+        elif filename != shared_filename or initial_size != shared_initial_size:
+            raise ContractError(
+                "UploadFile threshold scenarios must share metadata and initial size"
+            )
+        actions = scenario["actions"]
+        if not isinstance(actions, list) or not actions:
+            raise ContractError(f"{context}.actions must be a non-empty array")
+        action_ids: set[str] = set()
+        validated_actions: list[dict[str, Any]] = []
+        for action_index, action_value in enumerate(actions):
+            action_context = f"{context}.actions[{action_index}]"
+            if not isinstance(action_value, dict) or not isinstance(action_value.get("call"), str):
+                raise ContractError(f"{action_context} must declare a call")
+            call = action_value["call"]
+            action_fields = {
+                "read": {"action_id", "call", "size"},
+                "write": {"action_id", "call", "data_base64"},
+                "seek": {"action_id", "call", "offset"},
+                "close": {"action_id", "call"},
+            }.get(call)
+            if action_fields is None:
+                raise ContractError(f"{action_context}.call is unsupported")
+            action = _exact(action_value, action_fields, action_context)
+            action_id = _string(action["action_id"], f"{action_context}.action_id")
+            if not action_id or action_id in action_ids:
+                raise ContractError(f"{action_context}.action_id must be non-empty and unique")
+            action_ids.add(action_id)
+            if call == "read":
+                size = action["size"]
+                if type(size) is not int or size < -1:
+                    raise ContractError(f"{action_context}.size must be -1 or non-negative")
+            elif call == "write":
+                data_base64 = _string(action["data_base64"], f"{action_context}.data_base64")
+                try:
+                    base64.b64decode(data_base64, validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(
+                        f"{action_context}.data_base64 must be valid base64"
+                    ) from exc
+            elif call == "seek":
+                offset = action["offset"]
+                if type(offset) is not int or offset < 0:
+                    raise ContractError(f"{action_context}.offset must be non-negative")
+            if call == "close" and action_index != len(actions) - 1:
+                raise ContractError(f"{action_context} must be the final action")
+            validated_actions.append(action)
+        if (
+            validated_actions[-1]["call"] != "close"
+            or sum(action["call"] == "close" for action in validated_actions) != 1
+        ):
+            raise ContractError(f"{context} must close exactly once as its final action")
+        if shared_actions is None:
+            shared_actions = validated_actions
+        elif validated_actions != shared_actions:
+            raise ContractError("UploadFile threshold scenarios must run the same action sequence")
+
+    exercised = _upload_file_semantic_coverage(case)
+    if set(case["covers"]) != exercised:
+        raise ContractError(
+            "UploadFile covers must match its input-defined read/write/seek/close workflow "
+            f"across rolled and unrolled thresholds; expected {sorted(exercised)}"
         )
 
 
