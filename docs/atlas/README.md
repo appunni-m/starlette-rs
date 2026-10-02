@@ -68,11 +68,11 @@ The generated coverage matrix has 802 source rows: 435 input mappings, 51
 reasoned `not_applicable` rows, and 316 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest recorded Router/GZip run `b1cdd648-1cd2-4c32-b4ed-9af373a52664` measured all
+The latest Router/GZip run `bfac1bab-98b4-4544-8d45-b1c4098b5424` measured all
 74 source/package workloads after correctness preflight
-`cdef37a6-aec9-4cbf-8930-8435d7d574dd`. Median per-workload source/package
-latency ratios were 0.789 for Router and 0.969 for GZip; source latency was
-lower on five of six Router workloads and 60 of 68 GZip workloads. All 74
+`f8e77519-0312-4db6-a876-b1ad91517f2e`. Median per-workload source/package
+latency ratios were 0.761 for Router and 0.976 for GZip; source latency was
+lower on five of six Router workloads and 62 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.
