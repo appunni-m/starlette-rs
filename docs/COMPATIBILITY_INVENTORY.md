@@ -74,8 +74,8 @@ operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest integrated full-slice correctness run is
-`aee003ee-70ae-4335-aa8d-345980ae0f9b`. It ran from
-`2026-10-02T05:35:47.736Z` to `2026-10-02T05:38:39.934Z` against Starlette
+`b7d261f3-9a6c-47c3-b716-6eb00805bc78`. It ran from
+`2026-10-02T05:53:39.825Z` to `2026-10-02T05:56:36.639Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active
 699-case/722-requirement `parity-input@25` contract. It selected 907 profile
 comparisons: 903 passed, zero failed, zero infrastructure errors, and four
@@ -90,15 +90,15 @@ are synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make parity-run` exits with status 2 because
 those declared Python-callable boundaries remain `not_run`; they are not
 parity failures. The Rust-native source fingerprint is
-`3072dc650d0d6a08bd97f6275fce1c16c545c7ba+source-fnv1a64-1ae45f1d7fa44c70`.
+`2ae2be1614ffb2e1f094598f1cf65c7741b76c72+source-fnv1a64-1ae45f1d7fa44c70`.
 The installed package tree SHA-256 is
 `6a4297d47d91869e9ac7bcb57ef432cec0ad540c39d74df33c6f3bf2ae1deb50`, and the
 wheel SHA-256 is
-`2772cca5fde284687b28ebf86bd1477bfedc418b3f121e254c63cc54e24e326c`. The
+`16d0868da948a607a862197e855f37aa7444784929ba9c8697b5a172956a86a1`. The
 manifest SHA-256 is
 `bcf3f208ff190d6994ce5a94187c84bd48dce7267dc1b123ac3c1125a86ff203`; the
 result artifact SHA-256 is
-`94740f0e07b294fb2414b1c8acf0e7760d33e5836ec5dc1b98f43b6b901a97d1`. Full
+`157092d291d9b0755db3f8bc890007d445b5d0648421c2739b9c97bc1be81fbe`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md). This bounded evidence
 does not establish full Starlette parity or release readiness.
@@ -110,23 +110,23 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run,
-`989dbeb4-32c9-459d-b47b-cd154d5dcb72`, measured all 74 declared workloads:
-six Router and 68 GZip, with zero failures or source/package `not_run` rows.
-Its correctness preflight `0dd8e3a9-fe51-4004-9d92-94d8c14ec471` selected 901
-comparisons: 897 passed, zero failed or hit infrastructure errors, and four
+`fd0eeea7-07d8-4ecd-8a69-4f844066979e`, ran from
+`2026-10-02T05:53:35.098Z` to `2026-10-02T05:58:01.046Z` and measured all 74
+declared workloads: six Router and 68 GZip, with zero failures or
+source/package `not_run` rows. Its clean target checkout was revision
+`2ae2be1614ffb2e1f094598f1cf65c7741b76c72`, with working-tree SHA-256
+`84be16d6184bacaa36ef5aae2bef0f6eb095ce69f02e8ce45c120e5f6ba735bf` and
+wheel SHA-256
+`16d0868da948a607a862197e855f37aa7444784929ba9c8697b5a172956a86a1`.
+The correctness preflight `b7d261f3-9a6c-47c3-b716-6eb00805bc78` selected 907
+comparisons: 903 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 692/692 and Rust-native passed 205/209. Rust-native remains `not_run`
+passed 697/697 and Rust-native passed 206/210. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. The median per-workload
-source/package latency ratios were 0.749 for Router and 0.976 for GZip; source
-latency was lower in five of six Router workloads and 56 of 68 GZip workloads.
-All 74 source/package observations had matching normalized hashes. The clean
-target checkout was revision `45cb1ad9ea0bc885e411c9d640c8684194fa1401` with
-working-tree SHA-256
-`e3e842bc1a6d6aca9026d8c1ef3a37104eb0f2e25c7c4b9db6a13d3a9c0cc20f`; the
-target wheel SHA-256 was
-`2f1711cc9481b0e9fe0c91edbd25f21a910c94b2e0313c9d043aa7f47fba2655`.
-This bounded source/package benchmark evidence does not establish full
-Starlette compatibility.
+source/package latency ratios were 0.762 for Router and 0.974 for GZip; source
+latency was lower in five of six Router workloads and 60 of 68 GZip workloads.
+All 74 source/package observations had matching normalized hashes. This
+bounded evidence does not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
 The generated coverage matrix has 802 source rows: 417 input mappings, 50

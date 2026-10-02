@@ -11,8 +11,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest integrated full-slice parity run is
-`aee003ee-70ae-4335-aa8d-345980ae0f9b`. It ran from
-`2026-10-02T05:35:47.736Z` to `2026-10-02T05:38:39.934Z` against Starlette
+`b7d261f3-9a6c-47c3-b716-6eb00805bc78`. It ran from
+`2026-10-02T05:53:39.825Z` to `2026-10-02T05:56:36.639Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 699-case,
 722-requirement `parity-input@25` manifest. It selected 907 profile
 comparisons: 903 passed, zero failed, zero infrastructure errors, and four
@@ -36,15 +36,15 @@ protocol without that Python frame; all other event fields and traceback frames
 remain exact.
 
 The Rust-native fingerprint is
-`3072dc650d0d6a08bd97f6275fce1c16c545c7ba+source-fnv1a64-1ae45f1d7fa44c70`.
+`2ae2be1614ffb2e1f094598f1cf65c7741b76c72+source-fnv1a64-1ae45f1d7fa44c70`.
 The installed package tree SHA-256 is
 `6a4297d47d91869e9ac7bcb57ef432cec0ad540c39d74df33c6f3bf2ae1deb50`; its
 wheel SHA-256 is
-`2772cca5fde284687b28ebf86bd1477bfedc418b3f121e254c63cc54e24e326c`. The
+`16d0868da948a607a862197e855f37aa7444784929ba9c8697b5a172956a86a1`. The
 manifest SHA-256 is
 `bcf3f208ff190d6994ce5a94187c84bd48dce7267dc1b123ac3c1125a86ff203`; the
 result artifact SHA-256 is
-`94740f0e07b294fb2414b1c8acf0e7760d33e5836ec5dc1b98f43b6b901a97d1`.
+`157092d291d9b0755db3f8bc890007d445b5d0648421c2739b9c97bc1be81fbe`.
 Strict aggregation remains `not_proven` because the full compatibility
 denominator is incomplete and four Rust-native rows are `not_run`.
 
@@ -60,7 +60,7 @@ values, and parameters without an equals sign. Six cases run on both target
 profiles. The heterogeneous comparison against the literal string `"invalid"`
 is package-only because the native consumer API has no Python object equality
 boundary. All 13 selected comparisons pass in the latest full-slice run
-`aee003ee-70ae-4335-aa8d-345980ae0f9b`.
+`b7d261f3-9a6c-47c3-b716-6eb00805bc78`.
 
 ### StaticFiles HTML fallback selection
 
@@ -73,7 +73,7 @@ fallback, an index directory without a fallback page, and an HTML-only tree
 without either special file. Ordered ASGI observations include the slash
 redirect, selected file body, and propagated 404 exception. All six
 oracle-to-target profile comparisons pass in integrated run
-`aee003ee-70ae-4335-aa8d-345980ae0f9b`.
+`b7d261f3-9a6c-47c3-b716-6eb00805bc78`.
 
 ### Built-in float and UUID converters
 
@@ -83,7 +83,7 @@ hyphens, and an invalid UUID segment. They observe the selected status and
 ASGI response; matched cases also compare the converted `route_scope.path_params`
 value and type. The Rust-native parity adapter projects these fields from
 `DetailedRouteMatch` captures. All 14 oracle-to-target comparisons pass in
-integrated run `aee003ee-70ae-4335-aa8d-345980ae0f9b`. Additional cases
+integrated run `b7d261f3-9a6c-47c3-b716-6eb00805bc78`. Additional cases
 observe converted path parameters for int/path routes and the default string
 converter, including a path with an additional slash that must not match. The
 int/float/path/UUID documentation rows now map to those input observations.
@@ -945,7 +945,7 @@ and direct `Route.url_path_for` formats a datetime value through the converter.
 The datetime format, regular expression, request path, endpoint projection,
 and reverse-path datetime components are supplied as inputs. The `@24` to
 `@25` migrator changes only the schema header and validates all 77 indexed
-authored inputs. Full run `aee003ee-70ae-4335-aa8d-345980ae0f9b` passed both
+authored inputs. Full run `b7d261f3-9a6c-47c3-b716-6eb00805bc78` passed both
 exact Python-package comparisons.
 
 The same `parity-input@23` revision adds a two-dispatch CORSMiddleware input for private-network-access denial and a WebSocketEndpoint input for empty text under `encoding=None`. Both focused source/package comparisons passed; the output artifacts remain in ignored `build/parity/` storage. Together, the `@23` additions increase the indexed denominator from 671 cases/703 requirements to 675/706 without claiming a new full-slice run. The `@24` observer adds one parity requirement, leaving 675 cases and increasing the requirement count to 707. Later input additions under that schema add three StaticFiles HTML fallback cases and three requirements; the resulting `@24` contract had 678 cases and 710 requirements.
