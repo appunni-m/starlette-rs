@@ -9,8 +9,8 @@ incomplete.
 ## Current parity snapshot
 
 The active contract contains 708 input-only cases in 78 indexed files,
-covering 93 operations and 732 parity requirements. The latest additions are
-direct UploadFile rollover and threadpool-boundary inputs, GZip final/streaming
+covering 93 operations and 733 parity requirements. The latest additions are
+direct UploadFile constructor/repr, rollover, and threadpool-boundary inputs, GZip final/streaming
 thread-threshold comparisons, the shared AnyIO thread-pool limiter comparison,
 and the input-derived generic Request/WebSocket
 lifespan-state typing contract.
@@ -45,7 +45,7 @@ input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest integrated
 run for the active
-`parity-input@27` contract, `a5446771-49de-4c5c-be03-d0cd83bebb93`, passed
+`parity-input@27` contract, `0cf6d806-4ba0-43af-bb99-ac710618d910`, passed
 912 of 916 selected comparisons, with zero failures or infrastructure errors
 and four Rust-native Python-callable rows `not_run`. The Python package passed
 706/706; Rust-native passed 206/210. The four native `not_run` rows are
@@ -68,8 +68,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 431 input mappings,
-51 source-backed `not_applicable` rows, and 320 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 435 input mappings,
+51 source-backed `not_applicable` rows, and 316 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
@@ -246,7 +246,7 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest clean full-slice run `a5446771-49de-4c5c-be03-d0cd83bebb93`
+The latest clean full-slice run `0cf6d806-4ba0-43af-bb99-ac710618d910`
 selected 916 comparisons: 912 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
 errors. The complete WebSocket source backlog remains in `fixture-backlog.csv`;

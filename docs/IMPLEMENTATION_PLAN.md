@@ -33,8 +33,8 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract contains 708 input-only cases in 78 indexed files,
-covering 93 operations and 732 requirements, including direct UploadFile
-spooled-file rollover and threadpool-boundary inputs, and Python-package-only
+covering 93 operations and 733 requirements, including direct UploadFile
+constructor/repr, spooled-file rollover, and threadpool-boundary inputs, and Python-package-only
 GZip final and streaming response inputs at the `thread_minimum_size` boundary, an input-defined shared
 AnyIO thread-pool limiter case and input-derived generic
 `Request[State]` and `WebSocket[State]` type contracts, Rust-backed
@@ -66,12 +66,12 @@ StaticFiles HTML fallback scenarios and seven built-in float/UUID converter
 cases pass on both target profiles. Default-string and int/path converter
 scope observations also pass on both profiles. The datetime converter
 dispatch and reverse-URL inputs pass on the Python package. Run
-`a5446771-49de-4c5c-be03-d0cd83bebb93` selected 916 comparisons: 912 passed,
+`0cf6d806-4ba0-43af-bb99-ac710618d910` selected 916 comparisons: 912 passed,
 zero failed, zero infrastructure errors, and four declared Rust-native
 Python-callable rows `not_run`. The installed Python package passed 706/706;
-Rust-native passed 206/210. The UploadFile input compares rolled and in-memory thresholds, threadpool
-scheduling, event-loop progress, and OSError propagation against the pinned
-source. Constructor and representation cases remain open. The four native
+Rust-native passed 206/210. The UploadFile input compares direct construction, omitted-size reads and writes,
+default and explicit-header repr values, rolled/in-memory scheduling, event-loop
+progress, and OSError propagation against the pinned source. The four native
 `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for these declared rows. The
@@ -86,8 +86,8 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The generated coverage matrix contains 802 source rows: 431 input mappings,
-51 source-backed `not_applicable` rows, and 320 fixture-backlog rows. These
+The generated coverage matrix contains 802 source rows: 435 input mappings,
+51 source-backed `not_applicable` rows, and 316 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.
@@ -361,12 +361,12 @@ dependencies feature-gated and unsupported coverage source-backed.
 
 The pinned Starlette 1.6.0 Router/GZip workload catalog contains six Router
 and 68 GZip benchmark IDs. All 74 have input-only descriptors and exact
-source-versus-installed-package correctness gates. Latest run
+source-versus-installed-package correctness gates. Latest recorded run
 `b1cdd648-1cd2-4c32-b4ed-9af373a52664` ran from
 `2026-10-02T12:46:28.051Z` to `2026-10-02T12:50:37.736Z` and measured all
 74 source/package workloads with zero failures and zero source/package
 `not_run` rows. Its correctness preflight,
-`cdef37a6-aec9-4cbf-8930-8435d7d574dd`, used the active
+`cdef37a6-aec9-4cbf-8930-8435d7d574dd`, used the then-active
 708-case/732-requirement `parity-input@27` manifest (SHA-256
 `5f67e2d91926bcfb77b461bb6a3ad8d54879098d5a51a034a52bad3871474452`) and
 selected 916 comparisons: 912 passed, zero failed, zero infrastructure errors,

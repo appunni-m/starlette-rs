@@ -18,8 +18,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 checked in; the run IDs and counts below describe their recorded executions.
 
 The active parity manifest indexes 708 input-only cases across 78 files,
-covering 93 operations and 732 parity requirements. Recent additions include
-direct UploadFile rollover and threadpool-boundary cases, and GZip final and
+covering 93 operations and 733 parity requirements. Recent additions include
+direct UploadFile constructor/repr, rollover, and threadpool-boundary cases, and GZip final and
 streaming responses at the configured `thread_minimum_size` boundary. Other recent
 inputs compare generic `Request[State]` and
 `WebSocket[State]` type contracts,
@@ -83,10 +83,10 @@ operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest integrated full-slice correctness run is
-`a5446771-49de-4c5c-be03-d0cd83bebb93`. It ran from
-`2026-10-02T12:42:33.772Z` to `2026-10-02T12:44:58.729Z` against Starlette
+`0cf6d806-4ba0-43af-bb99-ac710618d910`. It ran from
+`2026-10-02T13:12:21.354Z` to `2026-10-02T13:14:48.704Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active
-708-case/732-requirement `parity-input@27` contract. It selected 916 profile
+708-case/733-requirement `parity-input@27` contract. It selected 916 profile
 comparisons: 912 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python package passed all
 706 selected comparisons; Rust-native passed 206 of 210. The UploadFile input compares 1-byte and 1024-byte spool thresholds, operation
@@ -97,29 +97,30 @@ four native `not_run` rows remain synchronous Request endpoint, bound-method
 endpoint, partial endpoint, and callable-instance ASGI dispatch. `make test`
 exits with status 2 for those declared boundaries; they are not parity
 failures. Both target profiles used clean commit
-`946638c840b45d61b4f3b5327da8903ebe700a0b`; the Rust-native source fingerprint
-is `946638c840b45d61b4f3b5327da8903ebe700a0b+source-fnv1a64-1ae45f1d7fa44c70`.
+`7b74113abd14daf92bab51edeb26f5caf1907df8`; the Rust-native source fingerprint
+is `7b74113abd14daf92bab51edeb26f5caf1907df8+source-fnv1a64-1ae45f1d7fa44c70`.
 The installed package tree SHA-256 is
 `16e78e5e21f63c2efc556d1c3f6c950b968edd1ca4597ffaf6bd8d9d02cf2504`, and the
 wheel SHA-256 is
-`270c575322453a644d6374609f05fc2f893a4baa1974a56ae3b242ab3510402a`. The
+`7f9c96f85461cc80f2097f39f584a0ff462c856491abe8903f9d2f8e0c5a04a7`. The
 manifest SHA-256 is
-`5f67e2d91926bcfb77b461bb6a3ad8d54879098d5a51a034a52bad3871474452`; the
+`3fac60b1eb7ad703d50273b05e5b8b6f78d1aad09b3eb9acc479192a60da028b`; the
 result artifact SHA-256 is
-`57e2fd2e0ca353993e72e68e85537a73c53ab67aa0bc1d646c08236b30d7cf3f`. Full
+`e9b259c8dc86a9054496a3ad457ab83df51d489605effd3828282b850525e587`. Full
 run identity and case-level evidence are recorded in
 [Migration parity contract and evidence](PARITY.md). The declared UploadFile
 threadpool boundary is mapped to input-only scheduling, progress, and error-
-propagation evidence. Constructor and representation cases remain outside this
-slice. This bounded evidence does not establish full Starlette parity or release
-readiness.
+propagation evidence. Direct construction, omitted-size operations, and
+default/custom-header representations also pass source comparison for their
+declared inputs. This bounded evidence does not establish full Starlette parity
+or release readiness.
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
 `String` cannot encode unpaired surrogates. The input-only source/package
 comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
-The latest correctness-gated Router/GZip benchmark run,
+The latest recorded correctness-gated Router/GZip benchmark run,
 `b1cdd648-1cd2-4c32-b4ed-9af373a52664`, measured all 74 declared workloads
 from `2026-10-02T12:46:28.051Z` to `2026-10-02T12:50:37.736Z`: six Router and
 68 GZip, with zero failures or source/package `not_run` rows. Its clean target
@@ -141,8 +142,8 @@ artifact SHA-256:
 `88a4c04bd611ee0cd3e219944a87ed70e54210c1d50a9bda488496a776719f94`. This
 bounded evidence does not establish full Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 431 input mappings, 51
-reasoned `not_applicable` rows, and 320 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 435 input mappings, 51
+reasoned `not_applicable` rows, and 316 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

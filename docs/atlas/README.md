@@ -26,18 +26,19 @@ with no conventional Python or Rust unit-test suite.
 
 The source atlas is complete, while the full Starlette replacement remains
 active and incomplete. The current contract has 708 input-only cases across
-78 indexed files, 93 operations, and 732 requirements. It includes direct
-UploadFile rollover and threadpool-boundary cases, GZip thread-threshold cases, a shared
+78 indexed files, 93 operations, and 733 requirements. It includes direct
+UploadFile constructor/repr, rollover, and threadpool-boundary cases, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract. Seven QueryParams
 cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `a5446771-49de-4c5c-be03-d0cd83bebb93` passed 912 of 916
+full-slice run `0cf6d806-4ba0-43af-bb99-ac710618d910` passed 912 of 916
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
-706/706; Rust-native passed 206/210. The UploadFile input compares rolled and in-memory spool thresholds, operation
-scheduling, event-loop progress, and OSError propagation; constructor and
-representation cases remain open. The thread-pool limiter input observed the
+706/706; Rust-native passed 206/210. The UploadFile input compares direct
+construction, omitted-size operations, default and explicit-header repr values,
+rolled/in-memory scheduling, event-loop progress, and OSError propagation. The
+thread-pool limiter input observed the
 same default capacity of 40, configured limit of 2, one waiting worker, and
 restored capacity of 40 on source and package. Three BaseHTTPMiddleware
 exception-context cases, covering no chain, implicit context, and explicit cause, pass with empty
@@ -63,11 +64,11 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 431 input mappings, 51
-reasoned `not_applicable` rows, and 320 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 435 input mappings, 51
+reasoned `not_applicable` rows, and 316 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `b1cdd648-1cd2-4c32-b4ed-9af373a52664` measured all
+The latest recorded Router/GZip run `b1cdd648-1cd2-4c32-b4ed-9af373a52664` measured all
 74 source/package workloads after correctness preflight
 `cdef37a6-aec9-4cbf-8930-8435d7d574dd`. Median per-workload source/package
 latency ratios were 0.789 for Router and 0.969 for GZip; source latency was
@@ -261,7 +262,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 802 source rows:
-431 `existing` mappings, 320 `backlog` rows, and 51 reasoned `not_applicable`
+435 `existing` mappings, 316 `backlog` rows, and 51 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity
@@ -310,8 +311,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 517 `supported`, 285
 `private/internal`, and 197 `uncertain` candidates. The coverage matrix has 802
-source rows: 431 input mappings, 51 reasoned `not_applicable`
-entries, and 320 input-only backlog rows. Derive these changing counts from
+source rows: 435 input mappings, 51 reasoned `not_applicable`
+entries, and 316 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded
