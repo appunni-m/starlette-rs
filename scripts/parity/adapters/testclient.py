@@ -362,6 +362,43 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             elif probe == "query-params-mapping":
                 request = Request(scope, receive)
                 response = JSONResponse({"params": dict(request.query_params)})
+            elif probe == "query-params-semantics":
+                request = Request(scope, receive)
+                query_params = request.query_params
+                query_pairs = query_params.multi_items()
+                query_keys = list(query_params)
+                repeated_key = next(key for key in query_keys if len(query_params.getlist(key)) > 1)
+                mutation_value = query_params[repeated_key]
+                mutation_exception = None
+                try:
+                    query_params[repeated_key] = mutation_value
+                except Exception as error:
+                    mutation_exception = {
+                        "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                        "message": str(error),
+                    }
+                response = JSONResponse(
+                    {
+                        "query_params": {
+                            "same_instance": query_params is request.query_params,
+                            "multi_items": query_pairs,
+                            "mapping": dict(query_params),
+                            "lookups": [
+                                {
+                                    "key": key,
+                                    "getlist": query_params.getlist(key),
+                                    "scalar": query_params[key],
+                                }
+                                for key in query_keys
+                            ],
+                            "mutation_exception": mutation_exception,
+                            "after_mutation": {
+                                "multi_items": query_params.multi_items(),
+                                "mapping": dict(query_params),
+                            },
+                        }
+                    }
+                )
             elif probe == "headers-mapping":
                 request = Request(scope, receive)
                 response = JSONResponse({"headers": dict(request.headers)})

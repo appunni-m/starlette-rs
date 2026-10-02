@@ -205,6 +205,7 @@ TESTCLIENT_REQUEST_REQUIREMENTS = {
     "url_string": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-url-string",
     "url_sequence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-url-sequence",
     "query_mapping": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-query-params-mapping",
+    "query_semantics": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-query-params-immutable-multidict",
     "headers_mapping": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-headers-mapping",
     "raw_path": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-raw-path-scope-preservation",
     "json_without_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-json-failure-without-receive",
@@ -9299,6 +9300,32 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "TestClient Request query mapping input must use the pinned two-key GET"
                 )
+        elif probe == "query-params-semantics":
+            raw_query = urlsplit(request["url"]).query
+            raw_query_values = [item.partition("=")[2] for item in raw_query.split("&") if item]
+            decoded_query = parse_qsl(raw_query, keep_blank_values=True)
+            has_repeated_key = len(decoded_query) != len({key for key, _ in decoded_query})
+            has_escaped_value = len(raw_query_values) == len(decoded_query) and any(
+                "%" in raw_value and raw_value != decoded_value
+                for raw_value, (_key, decoded_value) in zip(
+                    raw_query_values, decoded_query, strict=True
+                )
+            )
+            has_empty_value = any(value == "" for _key, value in decoded_query)
+            if (
+                followup_requests
+                or request["method"] != "GET"
+                or request.get("client_method") != "get"
+                or request["headers_base64_pairs"]
+                or not empty_body
+                or not {"method", "path", "query_string"} <= set(asgi_app["scope_fields"])
+                or not has_repeated_key
+                or not has_escaped_value
+                or not has_empty_value
+            ):
+                raise ContractError(
+                    "TestClient Request query semantics input must provide repeated, escaped, and empty query values"
+                )
         elif probe == "headers-mapping":
             if (
                 followup_requests
@@ -9487,6 +9514,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         probe_requirement = {
             "url": TESTCLIENT_REQUEST_REQUIREMENTS["url_string"],
             "query-params-mapping": TESTCLIENT_REQUEST_REQUIREMENTS["query_mapping"],
+            "query-params-semantics": TESTCLIENT_REQUEST_REQUIREMENTS["query_semantics"],
             "headers-mapping": TESTCLIENT_REQUEST_REQUIREMENTS["headers_mapping"],
             "raw-path": TESTCLIENT_REQUEST_REQUIREMENTS["raw_path"],
             "json-without-receive": TESTCLIENT_REQUEST_REQUIREMENTS["json_without_receive"],

@@ -20113,6 +20113,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.request-query-params-immutable-multidict",
+              "dimension": "boundary",
+              "description": "Construct Request from repeated, percent-escaped, and blank query values; observe cached query_params identity, multi_items, mapping and scalar/multi-value lookups, then attempt assignment and inspect the live exception and values afterward. Pinned source: starlette/requests.py:139-142; starlette/datastructures.py:253-301,378-400; docs/requests.md:49-53.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.request-headers-mapping",
               "dimension": "input_family",
               "description": "Observe dict(Request.headers) for a supplied Host override and the live TestClient default headers. Pinned source: tests/test_requests.py::test_request_headers; starlette/requests.py; docs/requests.md:43-47.",
