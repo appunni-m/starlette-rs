@@ -12717,6 +12717,18 @@
               ]
             },
             {
+              "id": "starlette.responses.FileResponse.asgi-call.content-disposition-inline",
+              "dimension": "parameter_combination",
+              "description": "Supply a filename and content_disposition_type=\"inline\" and observe the selected Content-Disposition alongside custom headers. Pinned source: docs/responses.md:163-177; starlette/responses.py:296-328; tests/test_responses.py:336-349.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.FileResponse.asgi-call.cookie-mutations",
               "dimension": "parameter_combination",
               "description": "Apply input-defined set_cookie and delete_cookie calls to FileResponse with a fixed deletion clock, then compare all repeated headers through HTTP ASGI. Upstream: starlette/responses.py::Response.set_cookie and Response.delete_cookie; tests/test_responses.py::test_set_cookie and test_delete_cookie.",

@@ -4604,6 +4604,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         case_keys.add("scheduling")
     if "call_time_field_assignments" in case:
         case_keys.add("call_time_field_assignments")
+    if "content_disposition_type" in case:
+        case_keys.add("content_disposition_type")
     _exact_object(
         case,
         case_keys,
@@ -4644,6 +4646,9 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("FileResponse media_type must be a string or null")
     if filename is not None and not isinstance(filename, str):
         raise ValueError("FileResponse filename must be a string or null")
+    content_disposition_type = case.get("content_disposition_type", "attachment")
+    if content_disposition_type not in {"attachment", "inline"}:
+        raise ValueError("FileResponse content_disposition_type must be attachment or inline")
     scope_spec = case["scope"]
     if not isinstance(scope_spec, dict) or scope_spec.get("type") != "http":
         raise ValueError("FileResponse ASGI-call requires an HTTP scope")
@@ -4748,6 +4753,7 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             media_type=media_type,
             filename=filename,
             stat_result=stat_result,
+            content_disposition_type=content_disposition_type,
         )
         for field, value in field_assignments.items():
             setattr(response, field, value)

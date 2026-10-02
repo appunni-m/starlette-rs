@@ -2526,6 +2526,9 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     if case.get("max_ranges").is_some() {
         expected_fields.push("max_ranges");
     }
+    if case.get("content_disposition_type").is_some() {
+        expected_fields.push("content_disposition_type");
+    }
     let case = exact_object(case, &expected_fields, "FileResponse asgi-call case")?;
     let case_id = string_field(case, "case_id", "FileResponse asgi-call case")?;
     if !case_id.starts_with(&format!("{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}."))
@@ -2629,6 +2632,15 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             ));
         }
     };
+    let content_disposition_type = match case.get("content_disposition_type") {
+        None => String::from("attachment"),
+        Some(Value::String(value)) if value == "attachment" || value == "inline" => value.clone(),
+        _ => {
+            return Err(String::from(
+                "FileResponse content_disposition_type must be attachment or inline",
+            ));
+        }
+    };
 
     let (scope, pathsend_extension) = validated_file_response_scope(
         case.get("scope")
@@ -2647,6 +2659,7 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     let mut options = FileResponseOptions {
         media_type,
         filename,
+        content_disposition_type,
         stat_override: Some(metadata),
         ..FileResponseOptions::default()
     };

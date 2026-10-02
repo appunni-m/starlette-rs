@@ -477,6 +477,64 @@
       ]
     },
     {
+      "case_id": "starlette.responses.FileResponse.asgi-call.content-disposition-inline",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.content-disposition-inline"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "MDEyMzQ1Njc4OQ==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [
+        [
+          "X-File-Marker",
+          "inline-option"
+        ]
+      ],
+      "media_type": "text/plain",
+      "filename": "preview.txt",
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "content_disposition_type": "inline"
+    },
+    {
       "case_id": "starlette.responses.FileResponse.asgi-call.range-suffix",
       "surface": "starlette.responses.FileResponse",
       "operation": "asgi-call",

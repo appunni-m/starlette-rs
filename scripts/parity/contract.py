@@ -683,6 +683,9 @@ FILE_RESPONSE_SINGLE_RANGE_VIEW_REQUIREMENT = (
 FILE_RESPONSE_MULTIPLE_RANGE_VIEW_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.multiple-range-header-view-isolation"
 )
+FILE_RESPONSE_CONTENT_DISPOSITION_INLINE_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.content-disposition-inline"
+)
 FILE_RESPONSE_CALL_TIME_REQUIREMENTS = {
     "path": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.mutable-path",
     "status_code": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.mutable-status-code",
@@ -4330,6 +4333,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             "header_view_probe",
             "scheduling",
             "call_time_field_assignments",
+            "content_disposition_type",
         )
         if key in case
     }
@@ -4389,6 +4393,17 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         _string(case["media_type"], "FileResponse.media_type")
     if case["filename"] is not None:
         _string(case["filename"], "FileResponse.filename")
+    content_disposition_type = case.get("content_disposition_type", "attachment")
+    if content_disposition_type not in {"attachment", "inline"}:
+        raise ContractError("FileResponse content_disposition_type must be attachment or inline")
+    has_inline_requirement = FILE_RESPONSE_CONTENT_DISPOSITION_INLINE_REQUIREMENT in case["covers"]
+    if content_disposition_type == "inline":
+        if case["filename"] is None or not has_inline_requirement:
+            raise ContractError(
+                "FileResponse inline disposition coverage requires a filename and its requirement"
+            )
+    elif has_inline_requirement:
+        raise ContractError("FileResponse inline disposition requirement must select inline")
     if "chunk_size" in case and (
         type(case["chunk_size"]) is not int or not 1 <= case["chunk_size"] <= 1_048_576
     ):
@@ -11319,6 +11334,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                     "header_view_probe",
                     "scheduling",
                     "call_time_field_assignments",
+                    "content_disposition_type",
                 )
                 if key in case
             }
