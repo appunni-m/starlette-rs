@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 701 input-only cases in 77 indexed files,
-covering 93 operations and 723 parity requirements. Seven QueryParams
+The active contract contains 702 input-only cases in 77 indexed files,
+covering 93 operations and 724 parity requirements. Seven QueryParams
 cases map equality and blank-value behavior to two pinned test rows. New
 focused inputs cover
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
@@ -35,7 +35,9 @@ StaticFiles HTML fallback scenarios and seven built-in float/UUID converter
 cases now pass on both target profiles. Default-string match/slash-boundary
 and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
-Python-package profile. The latest integrated run for the active
+Python-package profile. The file-like StreamingResponse case compares exact
+binary line chunks through the installed Python package. The latest integrated
+run for the active
 `parity-input@25` contract, `d071bc31-e311-40f8-9dfa-f44d05acdd9e`, passed
 905 of 909 selected comparisons, with zero failures or infrastructure errors
 and four Rust-native Python-callable rows `not_run`. The Python package passed
@@ -57,8 +59,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 422 input mappings,
-51 source-backed `not_applicable` rows, and 329 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 423 input mappings,
+51 source-backed `not_applicable` rows, and 328 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

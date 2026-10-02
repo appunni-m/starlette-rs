@@ -25,8 +25,8 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 701 input-only cases across
-77 indexed files, 93 operations, and 723 requirements. Seven QueryParams cases
+active and incomplete. The current contract has 702 input-only cases across
+77 indexed files, 93 operations, and 724 requirements. Seven QueryParams cases
 map equality and blank-value behavior to two pinned test rows. The latest
 full-slice run `d071bc31-e311-40f8-9dfa-f44d05acdd9e` passed 905 of 909 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
@@ -51,8 +51,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 422 input mappings, 51
-reasoned `not_applicable` rows, and 329 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 423 input mappings, 51
+reasoned `not_applicable` rows, and 328 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest Router/GZip run `2e3a648e-b9d0-4275-aa59-2c9ddb4a147a` measured all
@@ -249,7 +249,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 802 source rows:
-422 `existing` mappings, 329 `backlog` rows, and 51 reasoned `not_applicable`
+423 `existing` mappings, 328 `backlog` rows, and 51 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity
@@ -298,8 +298,8 @@ For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
 and four shared test support modules. The API review has 517 `supported`, 285
 `private/internal`, and 197 `uncertain` candidates. The coverage matrix has 802
-source rows: 422 input mappings, 51 reasoned `not_applicable`
-entries, and 329 input-only backlog rows. Derive these changing counts from
+source rows: 423 input mappings, 51 reasoned `not_applicable`
+entries, and 328 input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

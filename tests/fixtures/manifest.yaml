@@ -14263,6 +14263,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.file-like-iterator",
+              "dimension": "input_family",
+              "description": "Pass input-defined newline-delimited bytes through a binary file-like iterator and compare each yielded line as its own ordered ASGI body message. Pinned source: docs/responses.md:137-161; starlette/responses.py::StreamingResponse.__call__ and iterate_in_threadpool.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

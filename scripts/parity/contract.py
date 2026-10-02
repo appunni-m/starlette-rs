@@ -5729,6 +5729,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("StreamingResponse status_code must be 200 for this input slice")
     if case["streaming"] not in {
         "sync",
+        "file-like",
         "async-iterator",
         "async-iterable",
         "async-generator",
@@ -5740,35 +5741,51 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     if isinstance(content_value, dict) and content_value.get("kind") == "repeating-chunks":
         content_keys.add("checkpoint")
     content = _exact(content_value, content_keys, "StreamingResponse content")
-    if content["kind"] not in {"chunks", "repeating-chunks"} or not isinstance(
-        content["value"], list
-    ):
-        raise ContractError("StreamingResponse content must contain a declared chunk array")
-    repeating_chunks = content["kind"] == "repeating-chunks"
-    if repeating_chunks and not content["value"]:
-        raise ContractError("StreamingResponse repeating content must contain at least one chunk")
-    if repeating_chunks and content["checkpoint"] != "yield-to-event-loop":
-        raise ContractError(
-            "repeating StreamingResponse content must declare its event-loop checkpoint"
-        )
     chunks: list[tuple[str, str]] = []
-    for index, chunk in enumerate(content["value"]):
-        chunk = _exact(chunk, {"kind", "value"}, f"StreamingResponse content[{index}]")
-        if not isinstance(chunk["kind"], str) or chunk["kind"] not in {
-            "text",
-            "base64-bytes",
-            "memoryview-base64",
-        }:
-            raise ContractError("StreamingResponse chunks must be text, bytes, or memoryview input")
-        value = _string(chunk["value"], f"StreamingResponse content[{index}].value")
-        if chunk["kind"] in {"base64-bytes", "memoryview-base64"}:
-            try:
-                base64.b64decode(value, validate=True)
-            except (ValueError, TypeError) as exc:
+    file_like_content: bytes | None = None
+    repeating_chunks = content["kind"] == "repeating-chunks"
+    if content["kind"] == "file-like-bytes":
+        encoded_content = _string(content["value"], "StreamingResponse file-like content")
+        try:
+            file_like_content = base64.b64decode(encoded_content, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError("StreamingResponse file-like content must be valid base64") from exc
+        if b"\n" not in file_like_content:
+            raise ContractError(
+                "StreamingResponse file-like content must yield at least two iterator chunks"
+            )
+    else:
+        if content["kind"] not in {"chunks", "repeating-chunks"} or not isinstance(
+            content["value"], list
+        ):
+            raise ContractError("StreamingResponse content must contain a declared chunk array")
+        if repeating_chunks and not content["value"]:
+            raise ContractError(
+                "StreamingResponse repeating content must contain at least one chunk"
+            )
+        if repeating_chunks and content["checkpoint"] != "yield-to-event-loop":
+            raise ContractError(
+                "repeating StreamingResponse content must declare its event-loop checkpoint"
+            )
+        for index, chunk in enumerate(content["value"]):
+            chunk = _exact(chunk, {"kind", "value"}, f"StreamingResponse content[{index}]")
+            if not isinstance(chunk["kind"], str) or chunk["kind"] not in {
+                "text",
+                "base64-bytes",
+                "memoryview-base64",
+            }:
                 raise ContractError(
-                    f"StreamingResponse content[{index}].value must be valid base64"
-                ) from exc
-        chunks.append((chunk["kind"], value))
+                    "StreamingResponse chunks must be text, bytes, or memoryview input"
+                )
+            value = _string(chunk["value"], f"StreamingResponse content[{index}].value")
+            if chunk["kind"] in {"base64-bytes", "memoryview-base64"}:
+                try:
+                    base64.b64decode(value, validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(
+                        f"StreamingResponse content[{index}].value must be valid base64"
+                    ) from exc
+            chunks.append((chunk["kind"], value))
 
     headers = case["header_pairs"]
     if not isinstance(headers, list) or any(
@@ -5946,6 +5963,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     elif case["streaming"] == "sync":
         if (
             repeating_chunks
+            or file_like_content is not None
             or stimulus not in allowed_sync
             or background is not None
             or stream_lifecycle is not None
@@ -5956,6 +5974,18 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             )
         ):
             raise ContractError("StreamingResponse chunks and headers are outside this input slice")
+    elif case["streaming"] == "file-like":
+        if (
+            file_like_content is None
+            or repeating_chunks
+            or background is not None
+            or stream_lifecycle is not None
+            or receive_behavior is not None
+            or case["target_profiles"] != ["python-package-cpython312"]
+        ):
+            raise ContractError(
+                "StreamingResponse file-like iterator input is limited to the Python-package profile"
+            )
     elif case["streaming"] in {"async-iterator", "async-iterable"}:
         expected_stimulus = (
             async_iterator_stimulus
@@ -5964,6 +5994,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         )
         if (
             repeating_chunks
+            or file_like_content is not None
             or stimulus != expected_stimulus
             or background is not None
             or stream_lifecycle is not None

@@ -12,6 +12,7 @@ import functools
 import hashlib
 import importlib.util
 import inspect
+import io
 import json
 import math
 import os
@@ -7967,39 +7968,55 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     streaming: str | None = None
     repeating_stream = False
     if surface == STREAMING_RESPONSE_SURFACE:
-        if content_kind not in {"chunks", "repeating-chunks"} or not isinstance(
-            content_spec["value"], list
-        ):
-            raise ValueError("StreamingResponse content must select an array of chunks")
-        repeating_stream = content_kind == "repeating-chunks"
-        if repeating_stream and not content_spec["value"]:
-            raise ValueError("StreamingResponse repeating content must contain at least one chunk")
-        content = []
-        for index, chunk_spec in enumerate(content_spec["value"]):
-            chunk_spec = _strict_object(
-                chunk_spec, {"kind", "value"}, f"StreamingResponse content chunk[{index}]"
-            )
-            if chunk_spec["kind"] == "text":
-                chunk = chunk_spec["value"]
-                if not isinstance(chunk, str):
-                    raise ValueError("StreamingResponse text chunks must be strings")
-            elif chunk_spec["kind"] == "base64-bytes":
-                encoded_chunk = chunk_spec["value"]
-                if not isinstance(encoded_chunk, str):
-                    raise ValueError("StreamingResponse base64-bytes chunks must be strings")
-                chunk = _decode_b64(encoded_chunk, f"content.value[{index}].value")
-            elif chunk_spec["kind"] == "memoryview-base64":
-                encoded_chunk = chunk_spec["value"]
-                if not isinstance(encoded_chunk, str):
-                    raise ValueError("StreamingResponse memoryview chunks must be base64 strings")
-                chunk = memoryview(_decode_b64(encoded_chunk, f"content.value[{index}].value"))
-            else:
+        if content_kind == "file-like-bytes":
+            encoded_content = content_spec["value"]
+            if not isinstance(encoded_content, str):
+                raise ValueError("StreamingResponse file-like content must be base64 text")
+            content = io.BytesIO(_decode_b64(encoded_content, "content.value"))
+        else:
+            if content_kind not in {"chunks", "repeating-chunks"} or not isinstance(
+                content_spec["value"], list
+            ):
+                raise ValueError("StreamingResponse content must select an array of chunks")
+            repeating_stream = content_kind == "repeating-chunks"
+            if repeating_stream and not content_spec["value"]:
                 raise ValueError(
-                    "StreamingResponse chunks must be text, bytes, or memoryview input"
+                    "StreamingResponse repeating content must contain at least one chunk"
                 )
-            content.append(chunk)
+            content = []
+            for index, chunk_spec in enumerate(content_spec["value"]):
+                chunk_spec = _strict_object(
+                    chunk_spec, {"kind", "value"}, f"StreamingResponse content chunk[{index}]"
+                )
+                if chunk_spec["kind"] == "text":
+                    chunk = chunk_spec["value"]
+                    if not isinstance(chunk, str):
+                        raise ValueError("StreamingResponse text chunks must be strings")
+                elif chunk_spec["kind"] == "base64-bytes":
+                    encoded_chunk = chunk_spec["value"]
+                    if not isinstance(encoded_chunk, str):
+                        raise ValueError("StreamingResponse base64-bytes chunks must be strings")
+                    chunk = _decode_b64(encoded_chunk, f"content.value[{index}].value")
+                elif chunk_spec["kind"] == "memoryview-base64":
+                    encoded_chunk = chunk_spec["value"]
+                    if not isinstance(encoded_chunk, str):
+                        raise ValueError(
+                            "StreamingResponse memoryview chunks must be base64 strings"
+                        )
+                    chunk = memoryview(_decode_b64(encoded_chunk, f"content.value[{index}].value"))
+                else:
+                    raise ValueError(
+                        "StreamingResponse chunks must be text, bytes, or memoryview input"
+                    )
+                content.append(chunk)
         streaming = case["streaming"]
-        if streaming not in {"sync", "async-iterator", "async-iterable", "async-generator"}:
+        if streaming not in {
+            "sync",
+            "file-like",
+            "async-iterator",
+            "async-iterable",
+            "async-generator",
+        }:
             raise ValueError("StreamingResponse streaming must select a supported iterator")
     elif surface == RESPONSE_SURFACE:
         if content_kind == "text":

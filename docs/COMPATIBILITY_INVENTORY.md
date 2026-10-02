@@ -17,14 +17,16 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 701 input-only cases across 77 files,
-covering 93 operations and 723 parity requirements. Recent additions compare
+The active parity manifest indexes 702 input-only cases across 77 files,
+covering 93 operations and 724 parity requirements. Recent additions compare
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
 pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
 default decoding in WebSocketEndpoint, TestClient lifespan task/RunVar
 continuity under asyncio and Trio, and lifespan task-group child lifecycle
-ordering under both backends. It includes Rust-backed
-`CommaSeparatedStrings` parsing, sequence formatting, quoting, Unicode
+ordering under both backends. The file-like StreamingResponse input compares
+newline-delimited binary body chunks through the installed Python package. It
+also includes Rust-backed `CommaSeparatedStrings` parsing, sequence formatting,
+quoting, Unicode
 representation, Python string-subclass boundary inputs, and lone-surrogate
 strings; a three-request
 CORSMiddleware origin-isolation sequence and two
@@ -131,8 +133,8 @@ All 74 source/package observations had matching normalized hashes. This
 bounded evidence does not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 422 input mappings, 51
-reasoned `not_applicable` rows, and 329 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 423 input mappings, 51
+reasoned `not_applicable` rows, and 328 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
