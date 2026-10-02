@@ -16720,7 +16720,33 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             )
             key = _string(lookup["key"], f"Config lookups[{index}].key")
             cast = lookup.get("cast")
-            if cast is not None and cast not in {"str", "bool", "int"}:
+            if isinstance(cast, str):
+                if cast not in {"str", "bool", "int"}:
+                    raise ContractError(f"Config lookups[{index}].cast is unsupported")
+                cast_operation = cast
+            elif isinstance(cast, dict):
+                cast_spec = _exact(
+                    cast,
+                    {"kind", "name", "converter"},
+                    f"Config lookups[{index}].cast",
+                )
+                if cast_spec["kind"] != "python-callable":
+                    raise ContractError(
+                        f"Config lookups[{index}].cast.kind must be python-callable"
+                    )
+                name = _string(cast_spec["name"], f"Config lookups[{index}].cast.name")
+                if not name.isidentifier() or keyword.iskeyword(name):
+                    raise ContractError(
+                        f"Config lookups[{index}].cast.name must be a Python identifier"
+                    )
+                cast_operation = _string(
+                    cast_spec["converter"], f"Config lookups[{index}].cast.converter"
+                )
+                if cast_operation not in {"str", "bool", "int"}:
+                    raise ContractError(f"Config lookups[{index}].cast.converter is unsupported")
+            elif cast is None:
+                cast_operation = None
+            else:
                 raise ContractError(f"Config lookups[{index}].cast is unsupported")
             prefixed = config["env_prefix"] + key
             has_default = "default" in lookup
@@ -16735,13 +16761,14 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             if config["env_prefix"]:
                 selected.add("starlette.config.Config.env-prefix")
             raw_value = environ.get(prefixed, file_values.get(prefixed))
-            if cast == "bool" and raw_value is not None:
+            cast_value = raw_value if raw_value is not None else lookup.get("default")
+            if cast_operation == "bool" and isinstance(cast_value, str):
                 selected.add("starlette.config.Config.bool-cast")
-                if raw_value.lower() not in {"true", "1", "false", "0"}:
+                if cast_value.lower() not in {"true", "1", "false", "0"}:
                     selected.add("starlette.config.Config.invalid-bool-error")
-            if cast == "int" and raw_value is not None:
+            if cast_operation == "int" and cast_value is not None:
                 try:
-                    int(raw_value)
+                    int(cast_value)
                 except ValueError:
                     selected.add("starlette.config.Config.cast-error")
         if set(case["covers"]) != selected:

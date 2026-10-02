@@ -7961,6 +7961,18 @@ def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _config_cast(cast_spec: Any) -> Any:
+    if isinstance(cast_spec, dict):
+        converter = getattr(builtins, cast_spec["converter"])
+
+        def custom_cast(value: Any) -> Any:
+            return converter(value)
+
+        custom_cast.__name__ = cast_spec["name"]
+        return custom_cast
+    return getattr(builtins, cast_spec)
+
+
 def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.config import Config, Environ
 
@@ -7983,7 +7995,7 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                 )
                 results = []
                 for lookup in case["lookups"]:
-                    cast = getattr(builtins, lookup["cast"]) if "cast" in lookup else None
+                    cast = _config_cast(lookup["cast"]) if "cast" in lookup else None
                     arguments = [lookup["key"], cast]
                     if "default" in lookup:
                         arguments.append(lookup["default"])

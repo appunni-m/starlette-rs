@@ -109,6 +109,31 @@
       "observations": ["lookup-results"]
     },
     {
+      "case_id": "starlette.config.Config.value-resolution.python-callable-cast-errors",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.default-values",
+        "starlette.config.Config.cast-error"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "config": {
+        "env_prefix": "",
+        "environ": {},
+        "env_file_lines": []
+      },
+      "lookups": [
+        {
+          "key": "INT_CAST_DEFAULT_STR",
+          "cast": {"kind": "python-callable", "name": "cast_to_int", "converter": "int"},
+          "default": "true"
+        },
+        {"key": "INT_DEFAULT_STR", "cast": "int", "default": "true"}
+      ],
+      "observations": ["lookup-results"]
+    },
+    {
       "case_id": "starlette.config.Environ.mapping-sequence.reads-freeze-keys-and-preserve-mapping-operations",
       "surface": "starlette.config.Environ",
       "operation": "mapping-sequence",
