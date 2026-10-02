@@ -25,17 +25,18 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 743 input-only cases across
+active and incomplete. The current contract has 744 input-only cases across
 83 indexed files, 94 operations, and 778 requirements. It includes direct
-UploadFile constructor/repr, rollover, and threadpool-boundary cases, GZip thread-threshold cases, a shared
+UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract. Seven QueryParams
 cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `edb648a3-8fd4-4534-865d-8d85dac984c4` passed 953 of 957
+full-slice run `4dfe6d43-9217-4485-8407-f0bc698bc984` passed 955 of 959
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
-741/741; Rust-native passed 212/216. Six protected WebSocket authentication
+742/742; Rust-native passed 213/217. The new GZip streaming-response case
+passes against both targets. Six protected WebSocket authentication
 cases pass source/package comparison for plain and injection-wrapped routes
 with missing, malformed, and valid Basic credentials. Three documentation-derived
 BasicAuth cases also pass for wrong-scheme, malformed base64, and non-ASCII
@@ -70,15 +71,15 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 465 input mappings, 51
-reasoned `not_applicable` rows, and 286 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 466 input mappings, 51
+reasoned `not_applicable` rows, and 285 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `8ccf5c9e-7e14-425d-9cc7-4240be97c573` measured all
+The latest Router/GZip run `f27d8bf9-0a55-4e27-8aef-5b30c8b27afb` measured all
 74 source/package workloads after correctness preflight
-`edb648a3-8fd4-4534-865d-8d85dac984c4`. Median per-workload source/package
-latency ratios were 0.777 for Router and 0.980 for GZip; source latency was
-lower on five of six Router workloads and 55 of 68 GZip workloads. All 74
+`4dfe6d43-9217-4485-8407-f0bc698bc984`. Median per-workload source/package
+latency ratios were 0.767 for Router and 0.973 for GZip; source latency was
+lower on five of six Router workloads and 56 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.
