@@ -291,6 +291,7 @@
       "build/parity/inputs/parity/urlpath-absolute.json",
       "build/parity/inputs/parity/datastructures-headers.json",
       "build/parity/inputs/parity/datastructures-state.json",
+      "build/parity/inputs/parity/datastructures-multidict.json",
       "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/comma-separated-strings.json",
       "build/parity/inputs/parity/file-response.json",
@@ -5188,6 +5189,170 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Small State object operations are outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.datastructures.MultiDict",
+      "kind": "type",
+      "source_path": "starlette/datastructures.py:322",
+      "storage_slug": "starlette-datastructures-MultiDict",
+      "operations": [
+        {
+          "id": "mutation-sequence",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.MultiDict and ImmutableMultiDict mapping and mutation methods",
+            "signature": "MultiDict(*args, **kwargs); observe mapping views and apply ordered mutations",
+            "parameters": [
+              {
+                "id": "source",
+                "style": "option",
+                "value_types": ["record"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "probe_keys",
+                "style": "option",
+                "value_types": ["sequence"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "comparison",
+                "style": "option",
+                "value_types": ["record", "null"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "actions",
+                "style": "option",
+                "value_types": ["sequence"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "typing_contract",
+                "style": "option",
+                "value_types": ["record", "null"],
+                "omission": {"kind": "literal", "value": null}
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "mutation-sequence",
+                  "value_types": ["record"],
+                  "comparison": {"kind": "exact"}
+                },
+                {
+                  "path": "mutation-sequence.typing_contract",
+                  "value_types": ["record"],
+                  "comparison": {"kind": "exact"},
+                  "condition": {"input_key": "typing_contract"}
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {"mode": "exact", "transforms": [], "reason": null}
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::MultiDict<K, V>",
+              "signature": "MultiDict::from_pairs with duplicate-preserving lookup and mutation operations",
+              "support": {"status": "supported"}
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.MultiDict",
+              "signature": "MultiDict(*args, **kwargs) with Rust-backed mapping and mutation behavior",
+              "support": {"status": "supported"}
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.MultiDict.constructor-input-forms",
+              "dimension": "input_family",
+              "description": "Construct from empty input, ordered pairs, mappings, another MultiDict, and keyword pairs. Pinned source: starlette/datastructures.py:256-280, 322-323; tests/test_datastructures.py::test_multidict.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
+              "dimension": "protocol_variant",
+              "description": "Retain duplicate pair order while mapping lookups, keys, values, items, iteration, membership, length, and dict conversion use the last value per key. Pinned source: starlette/datastructures.py:284-309; tests/test_datastructures.py::test_multidict.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.datastructures.MultiDict.item-set-and-delete",
+              "dimension": "protocol_variant",
+              "description": "Replacing an item collapses its duplicates and deleting it removes its mapping entry and all corresponding pairs. Pinned source: starlette/datastructures.py:323-328; tests/test_datastructures.py::test_multidict.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.datastructures.MultiDict.pop-family",
+              "dimension": "parameter_combination",
+              "description": "Preserve final-value pop, last-inserted mapping popitem, ordered poplist, and duplicate removal. Pinned source: starlette/datastructures.py:330-342; tests/test_datastructures.py::test_multidict.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.datastructures.MultiDict.clear-and-setlist",
+              "dimension": "parameter_combination",
+              "description": "Clear all entries and replace or remove one key's full ordered value list. Pinned source: starlette/datastructures.py:344-361; tests/test_datastructures.py::test_multidict.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.datastructures.MultiDict.setdefault-and-append",
+              "dimension": "parameter_combination",
+              "description": "Keep an existing final value for setdefault, append duplicate values, and maintain mapping key insertion order. Pinned source: starlette/datastructures.py:348-365; tests/test_datastructures.py::test_multidict.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.datastructures.MultiDict.update",
+              "dimension": "protocol_variant",
+              "description": "Replace all current values for updated keys, retain other pair order, and append supplied ordered pairs. Pinned source: starlette/datastructures.py:367-375; tests/test_datastructures.py::test_multidict.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.datastructures.MultiDict.repr-and-equality",
+              "dimension": "format",
+              "description": "Match the public MultiDict representation and compare duplicate-preserving pairs without depending on their order. Pinned source: starlette/datastructures.py:311-319; tests/test_datastructures.py::test_multidict.",
+              "lanes": ["parity"],
+              "target_profiles": ["rust-native-local", "python-package-cpython312"]
+            },
+            {
+              "id": "starlette.datastructures.MultiDict.generic-typing",
+              "dimension": "type_contract",
+              "description": "Preserve ImmutableMultiDict generic key and covariant value types for item lookup, list lookup, and mapping views, while keeping MultiDict mutation methods statically callable. Pinned source: starlette/datastructures.py:253-375; verified through public consumer snippets with the pinned type checker.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": ["rust-native-local", "python-package-cpython312"]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "MultiDict consumer behavior is outside the active benchmark workloads."
           }
         }
       ]

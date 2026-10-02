@@ -156,6 +156,16 @@
       ]
     },
     {
+      "surface_id": "starlette.datastructures.MultiDict",
+      "source_path": "starlette/datastructures.py:322",
+      "operations": [
+        {
+          "operation_id": "mutation-sequence",
+          "source_path": "starlette.datastructures.MultiDict and ImmutableMultiDict mapping and mutation methods"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.datastructures.QueryParams",
       "source_path": "starlette/datastructures.py:378",
       "operations": [

@@ -2,13 +2,117 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, MutableMapping, Sequence
-from typing import Any, Literal, NamedTuple
+from collections.abc import (
+    ItemsView,
+    Iterable,
+    Iterator,
+    KeysView,
+    Mapping,
+    MutableMapping,
+    Sequence,
+    ValuesView,
+)
+from typing import Any, Literal, NamedTuple, TypeVar
 from urllib.parse import SplitResult
 
 from starlette_rs_py import _core
 
 Secret = _core.Secret
+
+_KeyType = TypeVar("_KeyType")
+_CovariantValueType = TypeVar("_CovariantValueType", covariant=True)
+
+
+class ImmutableMultiDict(Mapping[_KeyType, _CovariantValueType]):
+    """An immutable ordered mapping that retains repeated key/value pairs."""
+
+    __slots__ = ("_inner",)
+
+    def __init__(
+        self,
+        *args: ImmutableMultiDict[_KeyType, _CovariantValueType]
+        | Mapping[_KeyType, _CovariantValueType]
+        | Iterable[tuple[_KeyType, _CovariantValueType]],
+        **kwargs: Any,
+    ) -> None:
+        self._inner = _core._MultiDictStore(*args, **kwargs)
+
+    def getlist(self, key: Any) -> list[_CovariantValueType]:
+        return self._inner.getlist(key)
+
+    def keys(self) -> KeysView[_KeyType]:
+        return self._inner.keys()
+
+    def values(self) -> ValuesView[_CovariantValueType]:
+        return self._inner.values()
+
+    def items(self) -> ItemsView[_KeyType, _CovariantValueType]:
+        return self._inner.items_view()
+
+    def multi_items(self) -> list[tuple[_KeyType, _CovariantValueType]]:
+        return self._inner.multi_items()
+
+    def get(self, key: _KeyType, default: Any = None) -> _CovariantValueType | Any:
+        return self._inner.get(key, default)
+
+    def __getitem__(self, key: _KeyType) -> _CovariantValueType:
+        return self._inner[key]
+
+    def __contains__(self, key: object) -> bool:
+        return self._inner.contains(key)
+
+    def __iter__(self) -> Iterator[_KeyType]:
+        return iter(self._inner)
+
+    def __len__(self) -> int:
+        return self._inner.len()
+
+    def __bool__(self) -> bool:
+        return self._inner.__bool__()
+
+    def __eq__(self, other: Any) -> bool:
+        return self._inner.equals(self.__class__, other)
+
+    def __repr__(self) -> str:
+        return self._inner.repr(self.__class__.__name__)
+
+
+class MultiDict(ImmutableMultiDict[Any, Any]):
+    """A mutable ordered mapping that retains repeated key/value pairs."""
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        self._inner.set(key, value)
+
+    def __delitem__(self, key: Any) -> None:
+        self._inner.delete(key)
+
+    def pop(self, key: Any, default: Any = None) -> Any:
+        return self._inner.pop(key, default)
+
+    def popitem(self) -> tuple[Any, Any]:
+        return self._inner.popitem()
+
+    def poplist(self, key: Any) -> list[Any]:
+        return self._inner.poplist(key)
+
+    def clear(self) -> None:
+        self._inner.clear()
+
+    def setdefault(self, key: Any, default: Any = None) -> Any:
+        return self._inner.setdefault(key, default)
+
+    def setlist(self, key: Any, values: list[Any]) -> None:
+        self._inner.setlist(key, values)
+
+    def append(self, key: Any, value: Any) -> None:
+        self._inner.append(key, value)
+
+    def update(
+        self,
+        *args: MultiDict | Mapping[Any, Any] | list[tuple[Any, Any]],
+        **kwargs: Any,
+    ) -> None:
+        _core._multidict_update(self._inner, args, kwargs)
 
 
 class CommaSeparatedStrings(Sequence[str]):

@@ -26,6 +26,7 @@ mod headers;
 mod host;
 mod lifespan;
 mod mount;
+mod multi_dict;
 mod multipart;
 mod named_route_table;
 mod request;
@@ -65,6 +66,7 @@ pub use mount::{
     Mount, MountChild, MountDispatchResult, MountDispatchTreeResult, MountError, MountScope,
     MountScopeExtension,
 };
+pub use multi_dict::MultiDict;
 pub use multipart::{
     MultipartFormEvent, MultipartFormParseError, MultipartFormParser, MultipartPart,
     multipart_boundary, parse_multipart_form,

@@ -505,6 +505,34 @@ QUERY_PARAMS_OPERATION = (
     "starlette.datastructures.QueryParams",
     "construction-and-mapping-sequence",
 )
+MULTIDICT_OPERATION = ("starlette.datastructures.MultiDict", "mutation-sequence")
+MULTIDICT_REQUIREMENTS = {
+    "constructor": "starlette.datastructures.MultiDict.constructor-input-forms",
+    "mapping_views": "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
+    "item_mutation": "starlette.datastructures.MultiDict.item-set-and-delete",
+    "pop_family": "starlette.datastructures.MultiDict.pop-family",
+    "clear_setlist": "starlette.datastructures.MultiDict.clear-and-setlist",
+    "setdefault_append": "starlette.datastructures.MultiDict.setdefault-and-append",
+    "update": "starlette.datastructures.MultiDict.update",
+    "repr_equality": "starlette.datastructures.MultiDict.repr-and-equality",
+    "generic_typing": "starlette.datastructures.MultiDict.generic-typing",
+}
+MULTIDICT_TYPING_PROBES = {
+    "immutable-mapping-reads",
+    "mutable-mutation-methods",
+}
+MULTIDICT_METHODS = {
+    "__setitem__",
+    "__delitem__",
+    "pop",
+    "popitem",
+    "poplist",
+    "clear",
+    "setdefault",
+    "setlist",
+    "append",
+    "update",
+}
 COMMA_SEPARATED_STRINGS_OPERATION = (
     "starlette.datastructures.CommaSeparatedStrings",
     "consumer-sequence",
@@ -1712,6 +1740,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
                         and observation["path"] == "typing_contract"
                     )
+                    multidict_typing_contract = (
+                        condition["input_key"] == "typing_contract"
+                        and key == MULTIDICT_OPERATION
+                        and observation["path"] == "mutation-sequence.typing_contract"
+                    )
                     testclient_application_debug = (
                         condition["input_key"] == "asgi_app.debug_after"
                         and key == TESTCLIENT_OPERATION_KEY
@@ -1753,6 +1786,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_lifespan_callback_trace
                         and not testclient_lifespan_runvar_context
                         and not testclient_lifespan_typing_contract
+                        and not multidict_typing_contract
                         and not testclient_application_debug
                         and not testclient_application_host
                         and not testclient_application_mount
@@ -1915,6 +1949,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key in VALUE_FORMATTING_OPERATIONS
                 or key in RUST_OWNED_PYTHON_OPERATIONS
                 or key == QUERY_PARAMS_OPERATION
+                or key == MULTIDICT_OPERATION
                 or key == COMMA_SEPARATED_STRINGS_OPERATION
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_CLIENT_OPERATION
@@ -11333,6 +11368,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == QUERY_PARAMS_OPERATION
     )
+    is_multidict = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == MULTIDICT_OPERATION
+    )
     is_comma_separated_strings = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == COMMA_SEPARATED_STRINGS_OPERATION
@@ -11662,6 +11701,15 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
         if is_headers_consumer_sequence and "actions" in case:
             expected_case_keys = expected_case_keys | {"actions"}
+    elif is_multidict:
+        expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+            "source",
+            "probe_keys",
+            "comparison",
+            "actions",
+        }
+        if isinstance(case, dict) and "typing_contract" in case:
+            expected_case_keys = expected_case_keys | {"typing_contract"}
     elif is_query_params:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {
             "source",
@@ -11816,6 +11864,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_query_params:
         if (case["surface"], case["operation"]) != QUERY_PARAMS_OPERATION:
             raise ContractError("QueryParams cases must use the declared constructor operation")
+    elif is_multidict:
+        if (case["surface"], case["operation"]) != MULTIDICT_OPERATION:
+            raise ContractError("MultiDict cases must use the declared mutation operation")
     elif is_comma_separated_strings:
         if (case["surface"], case["operation"]) != COMMA_SEPARATED_STRINGS_OPERATION:
             raise ContractError(
@@ -12137,6 +12188,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_query_params:
         _validate_query_params_case(case)
+        return case
+    if is_multidict:
+        _validate_multidict_case(case)
         return case
     if is_comma_separated_strings:
         _validate_comma_separated_strings_case(case)
@@ -18436,6 +18490,186 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
     probe_keys = case["probe_keys"]
     if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
         raise ContractError("QueryParams probe_keys must contain strings")
+
+
+def _validate_multidict_source(value: Any, context: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or not isinstance(value.get("kind"), str):
+        raise ContractError(f"{context} must select a MultiDict constructor input")
+    kind = value["kind"]
+    if kind == "empty":
+        return _exact(value, {"kind"}, context)
+    if kind not in {"pairs", "mapping", "copy"}:
+        raise ContractError(f"{context}.kind is outside the declared MultiDict constructors")
+    fields = {"kind", "items", "kwargs"} if kind == "pairs" else {"kind", "items"}
+    source = _exact(value, fields, context)
+    items = source["items"]
+    if not isinstance(items, list):
+        raise ContractError(f"{context}.items must be an array")
+    seen: set[str] = set()
+    duplicate = False
+    for index, pair in enumerate(items):
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise ContractError(f"{context}.items[{index}] must be a two-item array")
+        key, item = pair
+        if not isinstance(key, str):
+            raise ContractError(f"{context}.items[{index}][0] must be a string")
+        _multidict_json_scalar(item, f"{context}.items[{index}][1]")
+        duplicate = duplicate or key in seen
+        seen.add(key)
+        if kind == "mapping" and duplicate:
+            raise ContractError(f"{context}.items must have unique mapping keys")
+    if kind == "pairs":
+        kwargs = source["kwargs"]
+        if not isinstance(kwargs, list):
+            raise ContractError(f"{context}.kwargs must be an array")
+        keyword_names: set[str] = set()
+        for index, pair in enumerate(kwargs):
+            if not isinstance(pair, list) or len(pair) != 2 or not isinstance(pair[0], str):
+                raise ContractError(f"{context}.kwargs[{index}] must be a string-keyed pair")
+            key, item = pair
+            if key in keyword_names:
+                raise ContractError(f"{context}.kwargs has duplicate key {key!r}")
+            keyword_names.add(key)
+            _multidict_json_scalar(item, f"{context}.kwargs[{index}][1]")
+    return source
+
+
+def _multidict_json_scalar(value: Any, context: str) -> None:
+    if value is not None and type(value) not in {bool, int, float, str}:
+        raise ContractError(f"{context} must be a JSON scalar")
+
+
+def _validate_multidict_case(case: dict[str, Any]) -> None:
+    typing_contract = case.get("typing_contract")
+    if typing_contract is None:
+        if case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]:
+            raise ContractError("MultiDict behavior cases require both declared target profiles")
+    elif case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("MultiDict typing cases select only the Python-package profile")
+    if case["assets"] != [] or case["observations"] != ["mutation-sequence"]:
+        raise ContractError("MultiDict cases use no assets and select mutation-sequence")
+    if not case["case_id"].startswith("starlette.datastructures.MultiDict.mutation-sequence."):
+        raise ContractError("MultiDict case IDs must bind to the public mutation operation")
+    source = _validate_multidict_source(case["source"], "MultiDict source")
+    comparison = case["comparison"]
+    if comparison is not None:
+        _validate_multidict_source(comparison, "MultiDict comparison")
+    probe_keys = case["probe_keys"]
+    if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
+        raise ContractError("MultiDict probe_keys must contain strings")
+
+    actions = case["actions"]
+    if not isinstance(actions, list):
+        raise ContractError("MultiDict actions must be an array")
+    action_ids: set[str] = set()
+    methods: set[str] = set()
+    for index, action_value in enumerate(actions):
+        context = f"MultiDict actions[{index}]"
+        action = _exact(action_value, {"action_id", "method", "args", "kwargs"}, context)
+        action_id = _string(action["action_id"], f"{context}.action_id")
+        if action_id in action_ids:
+            raise ContractError("MultiDict action IDs must be unique")
+        action_ids.add(action_id)
+        method = _string(action["method"], f"{context}.method")
+        if method not in MULTIDICT_METHODS:
+            raise ContractError(f"{context}.method is not a declared MultiDict operation")
+        methods.add(method)
+        args = action["args"]
+        kwargs = action["kwargs"]
+        if not isinstance(args, list) or not isinstance(kwargs, dict):
+            raise ContractError(f"{context}.args and kwargs must be arrays and objects")
+        if method in {"__setitem__", "append", "setlist"} and len(args) != 2:
+            raise ContractError(f"{context} requires two positional values")
+        if method in {"__delitem__", "poplist"} and len(args) != 1:
+            raise ContractError(f"{context} requires one positional key")
+        if method in {"popitem", "clear"} and (args or kwargs):
+            raise ContractError(f"{context} does not accept arguments")
+        if method == "pop" and not 1 <= len(args) <= 2:
+            raise ContractError(f"{context} requires a key and optional default")
+        if method == "setdefault" and not 1 <= len(args) <= 2:
+            raise ContractError(f"{context} requires a key and optional default")
+        if method == "update" and len(args) > 1:
+            raise ContractError(f"{context} accepts at most one positional source")
+        if method in {"pop", "setdefault"} and set(kwargs) - {"default"}:
+            raise ContractError(f"{context}.kwargs may contain only default")
+        if method not in {"pop", "setdefault", "update"} and kwargs:
+            raise ContractError(f"{context} does not accept keyword values")
+        for argument_index, argument in enumerate(args):
+            if method == "setlist" and argument_index == 1:
+                if not isinstance(argument, list):
+                    raise ContractError(f"{context}.args[1] must be an array")
+                for item_index, item in enumerate(argument):
+                    _multidict_json_scalar(item, f"{context}.args[1][{item_index}]")
+            elif method == "update" and argument_index == 0:
+                if isinstance(argument, dict):
+                    _exact(argument, {"kind"}, f"{context}.args[0]")
+                    if argument["kind"] != "receiver":
+                        raise ContractError(
+                            f"{context}.args[0].kind must select the current receiver"
+                        )
+                elif isinstance(argument, list):
+                    _validate_multidict_source(
+                        {"kind": "pairs", "items": argument, "kwargs": []},
+                        f"{context}.args[0]",
+                    )
+                else:
+                    raise ContractError(
+                        f"{context}.args[0] must be ordered pairs or the current receiver"
+                    )
+            elif isinstance(argument, list):
+                if method == "setlist":
+                    continue
+                raise ContractError(f"{context}.args[{argument_index}] must be a scalar")
+            else:
+                _multidict_json_scalar(argument, f"{context}.args[{argument_index}]")
+        for key, value in kwargs.items():
+            if not isinstance(key, str):
+                raise ContractError(f"{context}.kwargs keys must be strings")
+            if method == "update" and key == "default":
+                raise ContractError(f"{context}.kwargs cannot use default for update")
+            _multidict_json_scalar(value, f"{context}.kwargs[{key!r}]")
+
+    expected_covers = {MULTIDICT_REQUIREMENTS["constructor"]}
+    if source["kind"] in {"pairs", "copy"} and any(
+        sum(pair[0] == key for pair in source["items"]) > 1 for key, _ in source["items"]
+    ):
+        expected_covers.add(MULTIDICT_REQUIREMENTS["mapping_views"])
+    if {"__setitem__", "__delitem__"} <= methods:
+        expected_covers.add(MULTIDICT_REQUIREMENTS["item_mutation"])
+    if {"pop", "popitem", "poplist"} <= methods:
+        expected_covers.add(MULTIDICT_REQUIREMENTS["pop_family"])
+    if {"clear", "setlist"} <= methods:
+        expected_covers.add(MULTIDICT_REQUIREMENTS["clear_setlist"])
+    if {"setdefault", "append"} <= methods:
+        expected_covers.add(MULTIDICT_REQUIREMENTS["setdefault_append"])
+    if "update" in methods:
+        expected_covers.add(MULTIDICT_REQUIREMENTS["update"])
+    if comparison is not None:
+        expected_covers.add(MULTIDICT_REQUIREMENTS["repr_equality"])
+    if typing_contract is not None:
+        contract = _exact(typing_contract, {"probes"}, "MultiDict typing contract")
+        probes = contract["probes"]
+        if (
+            not isinstance(probes, list)
+            or not probes
+            or any(
+                not isinstance(probe, str) or probe not in MULTIDICT_TYPING_PROBES
+                for probe in probes
+            )
+            or len(probes) != len(set(probes))
+        ):
+            raise ContractError("MultiDict typing probes must be unique declared consumer checks")
+        expected_covers.add(MULTIDICT_REQUIREMENTS["generic_typing"])
+    covers = case["covers"]
+    if (
+        not isinstance(covers, list)
+        or any(not isinstance(requirement, str) for requirement in covers)
+        or len(covers) != len(set(covers))
+        or set(covers) != expected_covers
+    ):
+        raise ContractError(
+            "MultiDict covers must be derived from the supplied constructors and actions"
+        )
 
 
 def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:

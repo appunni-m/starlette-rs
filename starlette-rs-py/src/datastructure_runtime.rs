@@ -26,6 +26,8 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module
         .getattr("Secret")?
         .setattr("__module__", "starlette.datastructures")?;
+    module.add_class::<PyMultiDictStore>()?;
+    module.add_function(wrap_pyfunction!(multidict_update, module)?)?;
     module.add_class::<PyFormData>()?;
     module
         .getattr("FormData")?
@@ -53,6 +55,339 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(state_iter, module)?)?;
     module.add_function(wrap_pyfunction!(state_len, module)?)?;
     Ok(())
+}
+
+/// Python-keyed ordered pair storage with Rust-owned multi-dict operations.
+#[pyclass(name = "_MultiDictStore")]
+struct PyMultiDictStore {
+    items: Vec<(Py<PyAny>, Py<PyAny>)>,
+    mapping: Py<PyDict>,
+}
+
+#[pymethods]
+impl PyMultiDictStore {
+    #[new]
+    #[pyo3(signature = (*args, **kwargs))]
+    fn new(
+        py: Python<'_>,
+        args: &Bound<'_, PyTuple>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Self> {
+        if args.len() > 1 {
+            return Err(PyAssertionError::new_err("Too many arguments."));
+        }
+        let mut items = if args.is_empty() {
+            Vec::new()
+        } else {
+            multidict_from_python(&args.get_item(0)?)?
+        };
+        if let Some(kwargs) = kwargs {
+            items.extend(multidict_from_mapping(kwargs)?);
+        }
+        Self::from_items(py, items)
+    }
+
+    #[pyo3(signature = (key, default=None))]
+    fn get(&self, key: &Bound<'_, PyAny>, default: Option<Py<PyAny>>) -> PyResult<Py<PyAny>> {
+        Ok(self
+            .mapping
+            .bind(key.py())
+            .get_item(key)?
+            .map(Bound::unbind)
+            .or(default)
+            .unwrap_or_else(|| key.py().None()))
+    }
+
+    fn getlist(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Vec<Py<PyAny>>> {
+        self.items
+            .iter()
+            .filter_map(|(item_key, value)| match item_key.bind(py).eq(key) {
+                Ok(true) => Some(Ok(value.clone_ref(py))),
+                Ok(false) => None,
+                Err(error) => Some(Err(error)),
+            })
+            .collect()
+    }
+
+    fn multi_items(&self, py: Python<'_>) -> Vec<(Py<PyAny>, Py<PyAny>)> {
+        self.items
+            .iter()
+            .map(|(key, value)| (key.clone_ref(py), value.clone_ref(py)))
+            .collect()
+    }
+
+    fn keys(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.mapping
+            .bind(py)
+            .call_method0("keys")
+            .map(Bound::unbind)
+    }
+
+    fn values(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.mapping
+            .bind(py)
+            .call_method0("values")
+            .map(Bound::unbind)
+    }
+
+    fn items_view(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.mapping
+            .bind(py)
+            .call_method0("items")
+            .map(Bound::unbind)
+    }
+
+    fn len(&self, py: Python<'_>) -> usize {
+        self.mapping.bind(py).len()
+    }
+
+    fn is_empty(&self, py: Python<'_>) -> bool {
+        self.mapping.bind(py).is_empty()
+    }
+
+    fn contains(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+        self.mapping.bind(key.py()).contains(key)
+    }
+
+    fn __len__(&self, py: Python<'_>) -> usize {
+        self.len(py)
+    }
+
+    fn __bool__(&self, py: Python<'_>) -> bool {
+        !self.is_empty(py)
+    }
+
+    fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.keys(py)?
+            .bind(py)
+            .call_method0("__iter__")
+            .map(Bound::unbind)
+    }
+
+    fn __contains__(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+        self.contains(key)
+    }
+
+    fn __getitem__(&self, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        self.mapping
+            .bind(key.py())
+            .get_item(key)?
+            .map(Bound::unbind)
+            .ok_or_else(|| PyKeyError::new_err(key.clone().unbind()))
+    }
+
+    fn repr(&self, py: Python<'_>, class_name: &str) -> PyResult<String> {
+        let values = PyList::new(py, self.multi_items(py))?;
+        Ok(format!("{class_name}({})", values.repr()?.to_str()?))
+    }
+
+    fn equals(
+        &self,
+        py: Python<'_>,
+        class_type: &Bound<'_, PyAny>,
+        other: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        if !other.is_instance(class_type)? {
+            return Ok(false);
+        }
+        let other = other.getattr("_inner")?.extract::<PyRef<'_, Self>>()?;
+        let left = PyList::new(py, self.multi_items(py))?;
+        let right = PyList::new(py, other.multi_items(py))?;
+        let sorted = py.import("builtins")?.getattr("sorted")?;
+        sorted.call1((left,))?.eq(sorted.call1((right,))?)
+    }
+
+    fn set(&mut self, key: Py<PyAny>, value: Py<PyAny>, py: Python<'_>) -> PyResult<()> {
+        let values = PyList::new(py, [value])?;
+        self.setlist(py, key.bind(py), values.as_any())
+    }
+
+    fn delete(&mut self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.retain_other_keys(py, key)?;
+        self.mapping.bind(py).del_item(key)
+    }
+
+    #[pyo3(signature = (key, default=None))]
+    fn pop(
+        &mut self,
+        py: Python<'_>,
+        key: &Bound<'_, PyAny>,
+        default: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        self.retain_other_keys(py, key)?;
+        let default = default.unwrap_or_else(|| py.None());
+        self.mapping
+            .bind(py)
+            .call_method1("pop", (key, default))
+            .map(Bound::unbind)
+    }
+
+    fn popitem(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let item = self.mapping.bind(py).call_method0("popitem")?;
+        let pair = item.cast::<PyTuple>()?;
+        let key = pair.get_item(0)?;
+        self.retain_other_keys(py, &key)?;
+        Ok(item.unbind())
+    }
+
+    fn poplist(&mut self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Vec<Py<PyAny>>> {
+        let values = self.getlist(py, key)?;
+        let default = py.None();
+        self.pop(py, key, Some(default))?;
+        Ok(values)
+    }
+
+    fn clear(&mut self, py: Python<'_>) {
+        self.items.clear();
+        self.mapping.bind(py).clear();
+    }
+
+    fn setdefault(
+        &mut self,
+        py: Python<'_>,
+        key: Py<PyAny>,
+        default: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let mapping = self.mapping.bind(py);
+        let inserted = !mapping.contains(key.bind(py))?;
+        let default = default.unwrap_or_else(|| py.None());
+        let value = mapping.call_method1("setdefault", (key.bind(py), default))?;
+        if inserted {
+            self.items.push((key.clone_ref(py), value.clone().unbind()));
+        }
+        Ok(value.unbind())
+    }
+
+    fn setlist(
+        &mut self,
+        py: Python<'_>,
+        key: &Bound<'_, PyAny>,
+        values: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let values = values.try_iter()?.collect::<PyResult<Vec<_>>>()?;
+        if values.is_empty() {
+            self.pop(py, key, Some(py.None()))?;
+            return Ok(());
+        }
+        let mapping = self.mapping.bind(py);
+        let mut retained = Vec::with_capacity(self.items.len());
+        for (item_key, value) in &self.items {
+            if !item_key.bind(py).eq(key)? {
+                retained.push((item_key.clone_ref(py), value.clone_ref(py)));
+            }
+        }
+        self.items = retained;
+        for value in &values {
+            self.items
+                .push((key.clone().unbind(), value.clone().unbind()));
+        }
+        match values.last() {
+            Some(value) => mapping.set_item(key, value),
+            None => Ok(()),
+        }
+    }
+
+    fn append(&mut self, py: Python<'_>, key: Py<PyAny>, value: Py<PyAny>) -> PyResult<()> {
+        self.items.push((key.clone_ref(py), value.clone_ref(py)));
+        self.mapping.bind(py).set_item(key.bind(py), value.bind(py))
+    }
+}
+
+impl PyMultiDictStore {
+    fn from_items(py: Python<'_>, items: Vec<(Py<PyAny>, Py<PyAny>)>) -> PyResult<Self> {
+        let mapping = PyDict::new(py);
+        for (key, value) in &items {
+            mapping.set_item(key.bind(py), value.bind(py))?;
+        }
+        Ok(Self {
+            items,
+            mapping: mapping.unbind(),
+        })
+    }
+
+    fn retain_other_keys(&mut self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<()> {
+        let mut retained = Vec::with_capacity(self.items.len());
+        for (item_key, value) in &self.items {
+            if !item_key.bind(py).eq(key)? {
+                retained.push((item_key.clone_ref(py), value.clone_ref(py)));
+            }
+        }
+        self.items = retained;
+        Ok(())
+    }
+
+    fn update_from(&mut self, py: Python<'_>, value: Self) -> PyResult<()> {
+        let mut retained = Vec::with_capacity(self.items.len());
+        for (key, item_value) in &self.items {
+            if !value.mapping.bind(py).contains(key.bind(py))? {
+                retained.push((key.clone_ref(py), item_value.clone_ref(py)));
+            }
+        }
+        self.items = retained;
+        self.items.extend(value.multi_items(py));
+        self.mapping
+            .bind(py)
+            .call_method1("update", (value.mapping.bind(py),))?;
+        Ok(())
+    }
+}
+
+#[pyfunction(name = "_multidict_update")]
+fn multidict_update(
+    py: Python<'_>,
+    store: &Bound<'_, PyAny>,
+    args: &Bound<'_, PyTuple>,
+    kwargs: &Bound<'_, PyDict>,
+) -> PyResult<()> {
+    let value = PyMultiDictStore::new(py, args, Some(kwargs))?;
+    store
+        .extract::<PyRefMut<'_, PyMultiDictStore>>()?
+        .update_from(py, value)
+}
+
+fn multidict_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(Py<PyAny>, Py<PyAny>)>> {
+    if !value.is_truthy()? {
+        return Ok(Vec::new());
+    }
+    if value.hasattr("multi_items")? {
+        return multidict_from_iterable(&value.call_method0("multi_items")?);
+    }
+    if value.hasattr("items")? {
+        return multidict_from_iterable(&value.call_method0("items")?);
+    }
+    multidict_from_iterable(value)
+}
+
+fn multidict_from_mapping(mapping: &Bound<'_, PyDict>) -> PyResult<Vec<(Py<PyAny>, Py<PyAny>)>> {
+    Ok(mapping
+        .iter()
+        .map(|(key, value)| (key.unbind(), value.unbind()))
+        .collect())
+}
+
+fn multidict_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(Py<PyAny>, Py<PyAny>)>> {
+    values
+        .try_iter()?
+        .map(|pair| {
+            let pair = pair?;
+            let pair_values = pair.try_iter()?.collect::<PyResult<Vec<_>>>()?;
+            if pair_values.len() != 2 {
+                let message = if pair_values.len() < 2 {
+                    format!(
+                        "not enough values to unpack (expected 2, got {})",
+                        pair_values.len()
+                    )
+                } else {
+                    "too many values to unpack (expected 2)".to_owned()
+                };
+                return Err(PyValueError::new_err(message));
+            }
+            Ok((
+                pair_values[0].clone().unbind(),
+                pair_values[1].clone().unbind(),
+            ))
+        })
+        .collect()
 }
 
 /// Python conversion and protocol methods for the Rust-owned value type.

@@ -10954,6 +10954,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
 
         return run_state_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.datastructures.MultiDict",
+        "mutation-sequence",
+    ):
+        from starlette.datastructures import MultiDict
+
+        from scripts.parity.adapters.multidict import run_multidict_case
+
+        return run_multidict_case(case, MultiDict)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         "starlette.datastructures.QueryParams",
         "construction-and-mapping-sequence",
     ):

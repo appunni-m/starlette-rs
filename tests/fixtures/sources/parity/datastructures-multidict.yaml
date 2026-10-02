@@ -1,0 +1,153 @@
+{
+  "schema": "migration-parity/parity-input@27",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.duplicate-mapping-views",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms",
+        "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
+        "starlette.datastructures.MultiDict.repr-and-equality"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [["a", "123"], ["a", "456"], ["b", "789"]],
+        "kwargs": []
+      },
+      "probe_keys": ["a", "b", "missing"],
+      "comparison": {
+        "kind": "pairs",
+        "items": [["b", "789"], ["a", "456"], ["a", "123"]],
+        "kwargs": []
+      },
+      "actions": [],
+      "observations": ["mutation-sequence"]
+    },
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.mapping-and-keyword-constructors",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms",
+        "starlette.datastructures.MultiDict.repr-and-equality"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [["b", "2"]],
+        "kwargs": [["a", "1"]]
+      },
+      "probe_keys": ["a", "b", "missing"],
+      "comparison": {
+        "kind": "mapping",
+        "items": [["a", "1"], ["b", "2"]]
+      },
+      "actions": [],
+      "observations": ["mutation-sequence"]
+    },
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.copy-constructor",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms",
+        "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
+        "starlette.datastructures.MultiDict.repr-and-equality"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {
+        "kind": "copy",
+        "items": [["a", "123"], ["a", "456"]]
+      },
+      "probe_keys": ["a", "missing"],
+      "comparison": {
+        "kind": "pairs",
+        "items": [["a", "123"], ["a", "456"]],
+        "kwargs": []
+      },
+      "actions": [],
+      "observations": ["mutation-sequence"]
+    },
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.empty-constructor",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms",
+        "starlette.datastructures.MultiDict.repr-and-equality"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "empty"},
+      "probe_keys": ["missing"],
+      "comparison": {"kind": "empty"},
+      "actions": [],
+      "observations": ["mutation-sequence"]
+    },
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.mutator-family",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms",
+        "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
+        "starlette.datastructures.MultiDict.item-set-and-delete",
+        "starlette.datastructures.MultiDict.pop-family",
+        "starlette.datastructures.MultiDict.clear-and-setlist",
+        "starlette.datastructures.MultiDict.setdefault-and-append",
+        "starlette.datastructures.MultiDict.update"
+      ],
+      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [["a", "123"], ["a", "456"], ["b", "789"]],
+        "kwargs": []
+      },
+      "probe_keys": ["a", "b", "c", "d", "missing"],
+      "comparison": null,
+      "actions": [
+        {"action_id": "replace-a", "method": "__setitem__", "args": ["a", "789"], "kwargs": {}},
+        {"action_id": "delete-a", "method": "__delitem__", "args": ["a"], "kwargs": {}},
+        {"action_id": "reinsert-a", "method": "__setitem__", "args": ["a", "123"], "kwargs": {}},
+        {"action_id": "append-a", "method": "append", "args": ["a", "456"], "kwargs": {}},
+        {"action_id": "pop-a", "method": "pop", "args": ["a"], "kwargs": {}},
+        {"action_id": "setlist-a", "method": "setlist", "args": ["a", ["123", "456"]], "kwargs": {}},
+        {"action_id": "poplist-a", "method": "poplist", "args": ["a"], "kwargs": {}},
+        {"action_id": "setlist-b", "method": "setlist", "args": ["b", ["100", "200"]], "kwargs": {}},
+        {"action_id": "remove-empty-z", "method": "setlist", "args": ["z", []], "kwargs": {}},
+        {"action_id": "setdefault-existing-b", "method": "setdefault", "args": ["b", "ignored"], "kwargs": {}},
+        {"action_id": "setdefault-new-c", "method": "setdefault", "args": ["c", "300"], "kwargs": {}},
+        {"action_id": "update-values", "method": "update", "args": [[["b", "400"], ["d", "500"], ["d", "600"]]], "kwargs": {}},
+        {"action_id": "update-self", "method": "update", "args": [{"kind": "receiver"}], "kwargs": {}},
+        {"action_id": "popitem-last-key", "method": "popitem", "args": [], "kwargs": {}},
+        {"action_id": "clear", "method": "clear", "args": [], "kwargs": {}}
+      ],
+      "observations": ["mutation-sequence"]
+    },
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.generic-typing",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms",
+        "starlette.datastructures.MultiDict.generic-typing"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "source": {"kind": "empty"},
+      "probe_keys": ["tag"],
+      "comparison": null,
+      "actions": [],
+      "typing_contract": {
+        "probes": ["immutable-mapping-reads", "mutable-mutation-methods"]
+      },
+      "observations": ["mutation-sequence"]
+    }
+  ]
+}

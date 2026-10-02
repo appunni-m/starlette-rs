@@ -37,11 +37,11 @@ use starlette_rs::{
     FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
     FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader, GzipResponseStart, HostPattern,
     HttpScope, LifespanAction, LifespanState, Mount as NativeMount, MountChild, MountScope,
-    NamedRouteError, NamedRouteTable, PathConverter, PathParameterCapture, QueryParams,
-    RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
-    Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
-    StaticFilesResponse, StreamingResponse, StreamingResponseEvent, WebSocketState,
-    WebSocketStateMachine, classify_scope, connection_url,
+    MultiDict as NativeMultiDict, NamedRouteError, NamedRouteTable, PathConverter,
+    PathParameterCapture, QueryParams, RequestBodyAccumulator, RequestHeaders, Response,
+    ResponseEvent, RouteTable, Starlette as NativeApplication, StaticFiles as NativeStaticFiles,
+    StaticFilesError, StaticFilesResponse, StreamingResponse, StreamingResponseEvent,
+    WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
 };
 use unicode_general_category as _;
 
@@ -59,6 +59,8 @@ const STATIC_FILES_LOOKUP_PATH_OPERATION: &str = "lookup-path";
 const RESPONSE_OPERATION: &str = "asgi-call";
 const QUERY_PARAMS_SURFACE: &str = "starlette.datastructures.QueryParams";
 const QUERY_PARAMS_OPERATION: &str = "construction-and-mapping-sequence";
+const MULTIDICT_SURFACE: &str = "starlette.datastructures.MultiDict";
+const MULTIDICT_OPERATION: &str = "mutation-sequence";
 const COMMA_SEPARATED_STRINGS_SURFACE: &str = "starlette.datastructures.CommaSeparatedStrings";
 const COMMA_SEPARATED_STRINGS_OPERATION: &str = "consumer-sequence";
 const HOST_SURFACE: &str = "starlette.routing.Host";
@@ -437,6 +439,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         (Some(QUERY_PARAMS_SURFACE), Some(QUERY_PARAMS_OPERATION)) => {
             return run_query_params_case(case);
         }
+        (Some(MULTIDICT_SURFACE), Some(MULTIDICT_OPERATION)) => {
+            return run_multidict_case(case);
+        }
         (Some(COMMA_SEPARATED_STRINGS_SURFACE), Some(COMMA_SEPARATED_STRINGS_OPERATION)) => {
             return run_comma_separated_strings_case(case);
         }
@@ -523,6 +528,349 @@ fn run_query_params_case(case: &Value) -> Result<Value, String> {
         "status": "completed",
         "observations": [{"step_id": "snapshot", "status": "ok", "value": {"snapshot": snapshot}}],
     }))
+}
+
+fn run_multidict_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "source",
+            "probe_keys",
+            "comparison",
+            "actions",
+            "observations",
+        ],
+        "MultiDict mutation case",
+    )?;
+    if string_field(case, "surface", "MultiDict case")? != MULTIDICT_SURFACE
+        || string_field(case, "operation", "MultiDict case")? != MULTIDICT_OPERATION
+    {
+        return Err(String::from(
+            "MultiDict surface or operation is unsupported",
+        ));
+    }
+    let mut value = multidict_from_source(
+        case.get("source")
+            .ok_or_else(|| String::from("MultiDict case has no source"))?,
+    )?;
+    let comparison = match case.get("comparison") {
+        Some(Value::Null) => None,
+        Some(source) => Some(multidict_from_source(source)?),
+        None => return Err(String::from("MultiDict case has no comparison input")),
+    };
+    let probe_keys = case
+        .get("probe_keys")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("MultiDict probe_keys must be an array"))?;
+    let initial = multidict_snapshot(&value, probe_keys)?;
+    let actions = case
+        .get("actions")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("MultiDict actions must be an array"))?;
+    let mut action_trace = Vec::with_capacity(actions.len());
+    for (index, action) in actions.iter().enumerate() {
+        let action = exact_object(
+            action,
+            &["action_id", "method", "args", "kwargs"],
+            "MultiDict action",
+        )?;
+        let action_id = string_field(action, "action_id", "MultiDict action")?;
+        let method = string_field(action, "method", "MultiDict action")?;
+        let args = action
+            .get("args")
+            .and_then(Value::as_array)
+            .ok_or_else(|| format!("MultiDict actions[{index}].args must be an array"))?;
+        let kwargs = action
+            .get("kwargs")
+            .and_then(Value::as_object)
+            .ok_or_else(|| format!("MultiDict actions[{index}].kwargs must be an object"))?;
+        let output = apply_multidict_action(&mut value, method, args, kwargs)?;
+        action_trace.push(json!({
+            "action_id": action_id,
+            "method": method,
+            "outcome": "value",
+            "value": output,
+            "snapshot": multidict_snapshot(&value, probe_keys)?,
+        }));
+    }
+    let final_snapshot = multidict_snapshot(&value, probe_keys)?;
+    let comparison_repr = comparison.as_ref().map(multidict_repr).transpose()?;
+    let equals_comparison = comparison.as_ref().map(|other| value.unordered_eq(other));
+    Ok(json!({
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{
+            "step_id": "mutation-sequence",
+            "status": "ok",
+            "value": {
+                "mutation-sequence": {
+                    "initial": initial,
+                    "action_trace": action_trace,
+                    "final": final_snapshot,
+                    "comparison_repr": comparison_repr,
+                    "equals_comparison": equals_comparison,
+                }
+            }
+        }],
+    }))
+}
+
+fn multidict_from_source(source: &Value) -> Result<NativeMultiDict<String, Value>, String> {
+    let source = source
+        .as_object()
+        .ok_or_else(|| String::from("MultiDict source must be an object"))?;
+    let kind = source
+        .get("kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| String::from("MultiDict source.kind must be a string"))?;
+    if kind == "empty" {
+        let _ = exact_object(
+            &Value::Object(source.clone()),
+            &["kind"],
+            "empty MultiDict source",
+        )?;
+        return Ok(NativeMultiDict::default());
+    }
+    let items = source
+        .get("items")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("MultiDict source.items must be an array"))?;
+    let mut pairs = multidict_pairs(items, "MultiDict source.items")?;
+    if kind == "pairs" {
+        let kwargs = source
+            .get("kwargs")
+            .and_then(Value::as_array)
+            .ok_or_else(|| String::from("MultiDict source.kwargs must be an array"))?;
+        pairs.extend(multidict_pairs(kwargs, "MultiDict source.kwargs")?);
+    } else if kind != "mapping" && kind != "copy" {
+        return Err(String::from("MultiDict source.kind is unsupported"));
+    }
+    Ok(NativeMultiDict::from_pairs(pairs))
+}
+
+fn multidict_pairs(items: &[Value], context: &str) -> Result<Vec<(String, Value)>, String> {
+    items
+        .iter()
+        .enumerate()
+        .map(|(index, pair)| {
+            let pair = pair
+                .as_array()
+                .filter(|pair| pair.len() == 2)
+                .ok_or_else(|| format!("{context}[{index}] must be a two-item array"))?;
+            let key = pair[0]
+                .as_str()
+                .ok_or_else(|| format!("{context}[{index}][0] must be a string"))?;
+            Ok((key.to_owned(), pair[1].clone()))
+        })
+        .collect()
+}
+
+fn apply_multidict_action(
+    value: &mut NativeMultiDict<String, Value>,
+    method: &str,
+    args: &[Value],
+    kwargs: &Map<String, Value>,
+) -> Result<Value, String> {
+    let key_arg = |index: usize| -> Result<String, String> {
+        args.get(index)
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| format!("MultiDict action {method} key must be a string"))
+    };
+    let default_arg = |index: usize| {
+        args.get(index)
+            .cloned()
+            .or_else(|| kwargs.get("default").cloned())
+    };
+    match method {
+        "__setitem__" => {
+            let key = key_arg(0)?;
+            let item = args
+                .get(1)
+                .cloned()
+                .ok_or_else(|| String::from("MultiDict __setitem__ value is missing"))?;
+            value.set(key, item);
+            Ok(Value::Null)
+        }
+        "__delitem__" => {
+            let key = key_arg(0)?;
+            value
+                .pop(&key)
+                .map(|_| Value::Null)
+                .ok_or_else(|| format!("MultiDict key {key:?} is missing"))
+        }
+        "pop" => {
+            let key = key_arg(0)?;
+            Ok(value
+                .pop(&key)
+                .or_else(|| default_arg(1))
+                .unwrap_or(Value::Null))
+        }
+        "popitem" => value
+            .pop_item()
+            .map(|(key, item)| json!([key, item]))
+            .ok_or_else(|| String::from("MultiDict is empty")),
+        "poplist" => {
+            let key = key_arg(0)?;
+            Ok(json!(value.pop_list(&key)))
+        }
+        "clear" => {
+            value.clear();
+            Ok(Value::Null)
+        }
+        "setdefault" => {
+            let key = key_arg(0)?;
+            Ok(value.set_default(key, default_arg(1).unwrap_or(Value::Null)))
+        }
+        "setlist" => {
+            let key = key_arg(0)?;
+            let values = args
+                .get(1)
+                .and_then(Value::as_array)
+                .ok_or_else(|| String::from("MultiDict setlist values must be an array"))?
+                .to_vec();
+            value.set_list(key, values);
+            Ok(Value::Null)
+        }
+        "append" => {
+            let key = key_arg(0)?;
+            let item = args
+                .get(1)
+                .cloned()
+                .ok_or_else(|| String::from("MultiDict append value is missing"))?;
+            value.append(key, item);
+            Ok(Value::Null)
+        }
+        "update" => {
+            let mut items = match args.first() {
+                Some(source)
+                    if source
+                        .get("kind")
+                        .and_then(Value::as_str)
+                        .is_some_and(|kind| kind == "receiver") =>
+                {
+                    value.multi_items().to_vec()
+                }
+                Some(source) => multidict_pairs(
+                    source
+                        .as_array()
+                        .ok_or_else(|| String::from("MultiDict update source must be an array"))?,
+                    "MultiDict update source",
+                )?,
+                None => Vec::new(),
+            };
+            items.extend(kwargs.iter().map(|(key, item)| (key.clone(), item.clone())));
+            value.update(NativeMultiDict::from_pairs(items));
+            Ok(Value::Null)
+        }
+        _ => Err(format!("MultiDict action method {method:?} is unsupported")),
+    }
+}
+
+fn multidict_snapshot(
+    value: &NativeMultiDict<String, Value>,
+    probe_keys: &[Value],
+) -> Result<Value, String> {
+    let mut mapping = Map::new();
+    for (key, item) in value.items() {
+        mapping.insert(key.clone(), item.clone());
+    }
+    let lookups = probe_keys
+        .iter()
+        .map(|probe| {
+            let key = probe
+                .as_str()
+                .ok_or_else(|| String::from("MultiDict probe key must be a string"))?;
+            let scalar = value.get(&key.to_owned());
+            Ok(json!({
+                "key": key,
+                "contains": scalar.is_some(),
+                "get": scalar,
+                "get_with_default": scalar.cloned().unwrap_or_else(|| json!("__starlette_rs_default__")),
+                "getlist": value.get_list(&key.to_owned()),
+                "getitem": scalar,
+            }))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let repr = multidict_repr(value)?;
+    Ok(json!({
+        "str": repr,
+        "repr": multidict_repr(value)?,
+        "len": value.len(),
+        "is_empty": value.is_empty(),
+        "keys": value.keys(),
+        "values": value.values(),
+        "items": value.items(),
+        "multi_items": value.multi_items(),
+        "dict": mapping,
+        "lookups": lookups,
+    }))
+}
+
+fn multidict_repr(value: &NativeMultiDict<String, Value>) -> Result<String, String> {
+    let items = value
+        .multi_items()
+        .iter()
+        .map(|(key, item)| {
+            Ok(format!(
+                "({}, {})",
+                python_string_repr(key),
+                python_json_repr(item)?
+            ))
+        })
+        .collect::<Result<Vec<_>, String>>()?
+        .join(", ");
+    Ok(format!("MultiDict([{items}])"))
+}
+
+fn python_json_repr(value: &Value) -> Result<String, String> {
+    match value {
+        Value::Null => Ok(String::from("None")),
+        Value::Bool(value) => Ok(if *value {
+            String::from("True")
+        } else {
+            String::from("False")
+        }),
+        Value::Number(value) => Ok(value.to_string()),
+        Value::String(value) => Ok(python_string_repr(value)),
+        Value::Array(_) | Value::Object(_) => Err(String::from(
+            "native MultiDict repr currently accepts scalar fixture values",
+        )),
+    }
+}
+
+fn python_string_repr(value: &str) -> String {
+    let quote = if value.contains('\'') && !value.contains('"') {
+        '"'
+    } else {
+        '\''
+    };
+    let mut output = String::with_capacity(value.len() + 2);
+    output.push(quote);
+    for character in value.chars() {
+        match character {
+            '\\' => output.push_str("\\\\"),
+            '\n' => output.push_str("\\n"),
+            '\r' => output.push_str("\\r"),
+            '\t' => output.push_str("\\t"),
+            current if current == quote => {
+                output.push('\\');
+                output.push(current);
+            }
+            current if current.is_control() => {
+                output.push_str(&format!("\\x{:02x}", current as u32));
+            }
+            current => output.push(current),
+        }
+    }
+    output.push(quote);
+    output
 }
 
 fn run_comma_separated_strings_case(case: &Value) -> Result<Value, String> {
