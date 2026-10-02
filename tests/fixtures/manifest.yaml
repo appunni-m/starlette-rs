@@ -4368,10 +4368,10 @@
               "path": "starlette.datastructures.UploadFile",
               "signature": "UploadFile with file metadata and async read/write/seek/close operations",
               "support": {
-              "status": "partial",
-                "reason": "Input-driven consumer parity covers read, write, seek, and close behavior on both rolled and unrolled SpooledTemporaryFile inputs. The documented worker-thread boundary remains unverified.",
+                "status": "partial",
+                "reason": "Input-driven consumer parity covers rolled and unrolled storage, threadpool dispatch, and worker-error propagation. Additional UploadFile constructor and representation cases remain outside this slice.",
                 "missing_requirements": [
-                  "starlette.datastructures.UploadFile.threadpool-boundary"
+                  "starlette.datastructures.UploadFile.constructor-and-representation"
                 ]
               }
             }
@@ -4392,6 +4392,17 @@
               "id": "starlette.datastructures.UploadFile.spooled-file-rollover",
               "dimension": "input_family",
               "description": "Observe asynchronous read, write, seek, and close operations with otherwise identical SpooledTemporaryFile inputs whose supplied thresholds keep one small payload in memory and roll the other to disk. Pinned source: starlette/datastructures.py:428-476; tests/test_datastructures.py::test_uploadfile_rolling; docs/requests.md:142-154.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.UploadFile.threadpool-boundary",
+              "dimension": "boundary",
+              "description": "Compare read, write, seek, and close scheduling across rolled and in-memory spooled files, including event-loop progress while rolled operations are blocked and OSError propagation from a worker operation. Pinned source: starlette/datastructures.py:428-476; docs/threadpool.md:6-14.",
               "lanes": [
                 "parity"
               ],

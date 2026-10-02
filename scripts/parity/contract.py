@@ -376,6 +376,7 @@ REQUEST_FORM_OPTIONAL_KEYS = {
 UPLOAD_FILE_OPERATION = ("starlette.datastructures.UploadFile", "file-operations")
 UPLOAD_FILE_ROLLOVER_REQUIREMENT = "starlette.datastructures.UploadFile.spooled-file-rollover"
 UPLOAD_FILE_THREADPOOL_GAP = "starlette.datastructures.UploadFile.threadpool-boundary"
+UPLOAD_FILE_CONSTRUCTOR_GAP = "starlette.datastructures.UploadFile.constructor-and-representation"
 WSGI_BOUNDARY_SURFACE = "starlette.middleware.wsgi"
 WSGI_BUILD_ENVIRON_OPERATION = (WSGI_BOUNDARY_SURFACE, "build-environ")
 WSGI_MODULE_IMPORT_OPERATION = (WSGI_BOUNDARY_SURFACE, "module-import-warning")
@@ -1016,7 +1017,7 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
         UPLOAD_FILE_OPERATION[0],
         UPLOAD_FILE_OPERATION[1],
         "python-package",
-    ): frozenset({UPLOAD_FILE_THREADPOOL_GAP}),
+    ): frozenset({UPLOAD_FILE_CONSTRUCTOR_GAP}),
 }
 GZIP_SURFACE = "starlette.middleware.gzip.GZipMiddleware"
 GZIP_RESPONDER_SURFACE = "starlette.middleware.gzip.GZipResponder"
@@ -17643,6 +17644,8 @@ def _upload_file_semantic_coverage(case: dict[str, Any]) -> set[str]:
     rollover_states: set[bool] = set()
     shared_actions: list[dict[str, Any]] | None = None
     exercised_calls: set[str] = set()
+    probed_roll_states: dict[str, set[bool]] = {}
+    injected_read_error = False
     for scenario in scenarios:
         max_size = scenario["max_size"]
         position = 0
@@ -17656,6 +17659,9 @@ def _upload_file_semantic_coverage(case: dict[str, Any]) -> set[str]:
         for action in actions:
             call = action["call"]
             exercised_calls.add(call)
+            if scenario.get("thread_probe") is not None:
+                probed_roll_states.setdefault(call, set()).add(rolled)
+            injected_read_error |= call == "read" and "injected_error" in action
             if call == "read":
                 size = action["size"]
                 remaining = max(file_size - position, 0)
@@ -17680,8 +17686,17 @@ def _upload_file_semantic_coverage(case: dict[str, Any]) -> set[str]:
         }
         <= exercised_calls
     ):
-        return {UPLOAD_FILE_ROLLOVER_REQUIREMENT}
-    return set()
+        exercised = {UPLOAD_FILE_ROLLOVER_REQUIREMENT}
+    else:
+        exercised = set()
+
+    file_operations = {"read", "write", "seek", "close"}
+    if (
+        all(probed_roll_states.get(call) == {False, True} for call in file_operations)
+        and injected_read_error
+    ):
+        exercised.add(UPLOAD_FILE_THREADPOOL_GAP)
+    return exercised
 
 
 def _validate_upload_file_case(case: dict[str, Any]) -> None:
@@ -17699,11 +17714,20 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
     shared_filename: str | None = None
     shared_initial_size: int | None = None
     shared_actions: list[dict[str, Any]] | None = None
+    shared_thread_probe: dict[str, int] | None = None
+    injected_error_count = 0
     for index, scenario_value in enumerate(scenarios):
         context = f"UploadFile scenarios[{index}]"
         scenario = _exact(
             scenario_value,
-            {"scenario_id", "max_size", "filename", "initial_size", "actions"},
+            {
+                "scenario_id",
+                "max_size",
+                "filename",
+                "initial_size",
+                "actions",
+                "thread_probe",
+            },
             context,
         )
         scenario_id = _string(scenario["scenario_id"], f"{context}.scenario_id")
@@ -17724,6 +17748,26 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "UploadFile threshold scenarios must share metadata and initial size"
             )
+        thread_probe = _exact(
+            scenario["thread_probe"],
+            {"event_loop_release_delay_ms", "watchdog_release_delay_ms"},
+            f"{context}.thread_probe",
+        )
+        loop_delay = thread_probe["event_loop_release_delay_ms"]
+        watchdog_delay = thread_probe["watchdog_release_delay_ms"]
+        if type(loop_delay) is not int or not 1 <= loop_delay <= 1000:
+            raise ContractError(
+                f"{context}.thread_probe.event_loop_release_delay_ms must be 1..1000"
+            )
+        if type(watchdog_delay) is not int or not loop_delay < watchdog_delay <= 5000:
+            raise ContractError(
+                f"{context}.thread_probe.watchdog_release_delay_ms must exceed the loop "
+                "delay and be at most 5000"
+            )
+        if shared_thread_probe is None:
+            shared_thread_probe = thread_probe
+        elif thread_probe != shared_thread_probe:
+            raise ContractError("UploadFile threshold scenarios must share thread probe settings")
         actions = scenario["actions"]
         if not isinstance(actions, list) or not actions:
             raise ContractError(f"{context}.actions must be a non-empty array")
@@ -17742,6 +17786,12 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
             }.get(call)
             if action_fields is None:
                 raise ContractError(f"{action_context}.call is unsupported")
+            if "injected_error" in action_value:
+                if call != "read":
+                    raise ContractError(
+                        f"{action_context}.injected_error is supported only for read"
+                    )
+                action_fields = action_fields | {"injected_error"}
             action = _exact(action_value, action_fields, action_context)
             action_id = _string(action["action_id"], f"{action_context}.action_id")
             if not action_id or action_id in action_ids:
@@ -17751,6 +17801,21 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
                 size = action["size"]
                 if type(size) is not int or size < -1:
                     raise ContractError(f"{action_context}.size must be -1 or non-negative")
+                if "injected_error" in action:
+                    injected_error = _exact(
+                        action["injected_error"],
+                        {"class", "message"},
+                        f"{action_context}.injected_error",
+                    )
+                    if injected_error["class"] != "OSError":
+                        raise ContractError(
+                            f"{action_context}.injected_error.class must be OSError"
+                        )
+                    _string(
+                        injected_error["message"],
+                        f"{action_context}.injected_error.message",
+                    )
+                    injected_error_count += 1
             elif call == "write":
                 data_base64 = _string(action["data_base64"], f"{action_context}.data_base64")
                 try:
@@ -17775,6 +17840,12 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
             shared_actions = validated_actions
         elif validated_actions != shared_actions:
             raise ContractError("UploadFile threshold scenarios must run the same action sequence")
+
+    if injected_error_count != 2:
+        raise ContractError(
+            "UploadFile threadpool boundary input must inject the same read failure "
+            "for both spool thresholds"
+        )
 
     exercised = _upload_file_semantic_coverage(case)
     if set(case["covers"]) != exercised:

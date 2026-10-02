@@ -6,7 +6,8 @@
       "surface": "starlette.datastructures.UploadFile",
       "operation": "file-operations",
       "covers": [
-        "starlette.datastructures.UploadFile.spooled-file-rollover"
+        "starlette.datastructures.UploadFile.spooled-file-rollover",
+        "starlette.datastructures.UploadFile.threadpool-boundary"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -21,6 +22,10 @@
           "max_size": 1,
           "filename": "file",
           "initial_size": 0,
+          "thread_probe": {
+            "event_loop_release_delay_ms": 25,
+            "watchdog_release_delay_ms": 500
+          },
           "actions": [
             {"action_id": "read-empty", "call": "read", "size": -1},
             {"action_id": "write-first", "call": "write", "data_base64": "ZGF0YQ=="},
@@ -31,6 +36,15 @@
             {"action_id": "read-after-second-write", "call": "read", "size": -1},
             {"action_id": "seek-before-final-read", "call": "seek", "offset": 0},
             {"action_id": "read-complete", "call": "read", "size": -1},
+            {
+              "action_id": "read-failure",
+              "call": "read",
+              "size": -1,
+              "injected_error": {
+                "class": "OSError",
+                "message": "input-defined upload read failure"
+              }
+            },
             {"action_id": "close", "call": "close"}
           ]
         },
@@ -39,6 +53,10 @@
           "max_size": 1024,
           "filename": "file",
           "initial_size": 0,
+          "thread_probe": {
+            "event_loop_release_delay_ms": 25,
+            "watchdog_release_delay_ms": 500
+          },
           "actions": [
             {"action_id": "read-empty", "call": "read", "size": -1},
             {"action_id": "write-first", "call": "write", "data_base64": "ZGF0YQ=="},
@@ -49,6 +67,15 @@
             {"action_id": "read-after-second-write", "call": "read", "size": -1},
             {"action_id": "seek-before-final-read", "call": "seek", "offset": 0},
             {"action_id": "read-complete", "call": "read", "size": -1},
+            {
+              "action_id": "read-failure",
+              "call": "read",
+              "size": -1,
+              "injected_error": {
+                "class": "OSError",
+                "message": "input-defined upload read failure"
+              }
+            },
             {"action_id": "close", "call": "close"}
           ]
         }
