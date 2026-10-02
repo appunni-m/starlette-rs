@@ -213,14 +213,24 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
         def endpoint(request: Any) -> Any:
             value = request.path_params[app_input["host_parameter"]]
-            host_route_observations.append(
-                {
-                    "host_header": request.headers.get("host"),
-                    "path": request.scope["path"],
-                    "path_params": _safe(request.path_params),
-                    "scope_type": request.scope["type"],
-                }
-            )
+            observation = {
+                "host_header": request.headers.get("host"),
+                "path": request.scope["path"],
+                "path_params": _safe(request.path_params),
+                "scope_type": request.scope["type"],
+            }
+            if "path_params_probe" in app_input:
+                missing_key = app_input["path_params_probe"]["missing_key"]
+                try:
+                    request.path_params[missing_key]
+                except KeyError as error:
+                    observation["missing_key_lookup"] = {
+                        "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                        "message": str(error),
+                    }
+                else:
+                    observation["missing_key_lookup"] = None
+            host_route_observations.append(observation)
             return PlainTextResponse(f"{app_input['endpoint_prefix']}{value}")
 
         child_router = Router(routes=[Route(app_input["route_path"], endpoint=endpoint)])

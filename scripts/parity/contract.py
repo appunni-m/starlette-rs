@@ -211,6 +211,7 @@ TESTCLIENT_REQUEST_REQUIREMENTS = {
     "headers_semantics": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-headers-immutable-multidict",
     "raw_path": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-raw-path-scope-preservation",
     "json_without_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-json-failure-without-receive",
+    "path_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-path-params-dictionary",
 }
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
@@ -9403,6 +9404,8 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         }
         if is_starlette_app_host_method:
             host_route_fields.add("host_name")
+        if "path_params_probe" in raw_asgi_app:
+            host_route_fields.add("path_params_probe")
         asgi_app = _exact(
             raw_asgi_app,
             host_route_fields,
@@ -9414,6 +9417,20 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         _string(asgi_app["endpoint_prefix"], "TestClient Host endpoint prefix")
         if is_starlette_app_host_method and asgi_app["host_name"] is not None:
             _string(asgi_app["host_name"], "TestClient Starlette.host route name")
+        if "path_params_probe" in asgi_app:
+            path_params_probe = _exact(
+                asgi_app["path_params_probe"],
+                {"missing_key"},
+                "TestClient Request path_params probe",
+            )
+            missing_key = _string(
+                path_params_probe["missing_key"],
+                "TestClient Request path_params missing_key",
+            )
+            if not missing_key or missing_key == host_parameter:
+                raise ContractError(
+                    "TestClient Request path_params missing_key must be non-empty and absent from the routed parameters"
+                )
         allowed_hosts = asgi_app["allowed_hosts"]
         request_host = urlsplit(settings["base_url"]).hostname
         if (
@@ -9556,6 +9573,8 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_host_method_registration"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["scope"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_starlette_app_host_method and "path_params_probe" in asgi_app:
+        expected_covers.add(TESTCLIENT_REQUEST_REQUIREMENTS["path_params"])
     if exception_spec is not None:
         exception_keys = {"class", "message"}
         if isinstance(exception_spec, dict) and "chain" in exception_spec:

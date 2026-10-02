@@ -1142,7 +1142,8 @@
         "starlette.testclient.TestClient.request-response.response-and-debug",
         "starlette.testclient.TestClient.request-response.scope-projection",
         "starlette.testclient.TestClient.request-response.starlette-host-routing",
-        "starlette.testclient.TestClient.request-response.starlette-host-method-registration"
+        "starlette.testclient.TestClient.request-response.starlette-host-method-registration",
+        "starlette.testclient.TestClient.request-response.request-path-params-dictionary"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -1172,6 +1173,9 @@
         "kind": "starlette-app-host-method",
         "host_pattern": "{subdomain}.example.org",
         "host_parameter": "subdomain",
+        "path_params_probe": {
+          "missing_key": "unregistered"
+        },
         "host_name": "subdomains",
         "allowed_hosts": [
           "testserver",

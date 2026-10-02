@@ -20177,6 +20177,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.request-path-params-dictionary",
+              "dimension": "boundary",
+              "description": "Observe the mapping produced by a parameterized Host route through Request.path_params, then index an input-selected absent key and capture the live lookup exception. Pinned sources: docs/requests.md:55-59; starlette/requests.py:145-147; starlette/routing.py:466-490; tests/test_applications.py::test_subdomain_route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
