@@ -223,6 +223,7 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "http_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.http-lifespan-state",
     "shallow_copy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.request-state-shallow-copy",
     "app_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.app-state-separation",
+    "app_state_via_request_app": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.app-state-via-request-app",
     "websocket_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.websocket-lifespan-state",
     "application_callback": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.application-callback-entry-exit",
     "task_runvar_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.same-task-and-runvar-context-continuity",
@@ -10722,7 +10723,14 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             )
         route_index: dict[tuple[str, str], dict[str, Any]] = {}
         state_sources = {
-            "http": {"request", "app", "lifespan"},
+            "http": {
+                "request",
+                "app",
+                "request_app",
+                "scope_app",
+                "request_app_state",
+                "lifespan",
+            },
             "websocket": {"websocket", "app", "lifespan"},
         }
 
@@ -10860,6 +10868,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
                 "http_state",
                 "shallow_copy",
                 "app_state",
+                "app_state_via_request_app",
                 "websocket_state",
             )
         }
@@ -10982,6 +10991,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["http_state"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["shallow_copy"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["app_state"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["app_state_via_request_app"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["websocket_state"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["application_callback"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["task_runvar_context"],

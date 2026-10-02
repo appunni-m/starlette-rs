@@ -21009,6 +21009,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.lifespan-context.app-state-via-request-app",
+              "dimension": "boundary",
+              "description": "Assign an arbitrary app.state attribute, read it through request.app.state inside HTTP endpoints, and compare request.app identity with scope.app. Pinned source: docs/applications.md:57-70; starlette/applications.py:55-58; starlette/requests.py:106-107.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.lifespan-context.websocket-lifespan-state",
               "dimension": "input_family",
               "description": "Expose lifespan-provided state to a WebSocket consumer using both attribute and mapping access and preserve the shallow-copy relationship. Pinned source: starlette/testclient.py:250-274; docs/lifespan.md:117-129; tests/test_applications.py:94-110,257-261.",

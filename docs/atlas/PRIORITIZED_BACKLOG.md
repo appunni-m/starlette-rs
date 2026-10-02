@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 694 input-only cases in 77 indexed files,
-covering 93 operations and 712 parity requirements. Seven QueryParams
+The active contract contains 699 input-only cases in 77 indexed files,
+covering 93 operations and 722 parity requirements. Seven QueryParams
 cases map equality and blank-value behavior to two pinned test rows. New
 focused inputs cover
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
@@ -24,7 +24,8 @@ callable-shape and failure cases, the two direct `run_in_threadpool` cases,
 `iterate_in_threadpool` iteration and async-generator protocol behavior,
 Config casts, TestClient debug responses, synchronous Request endpoint worker
 cancellation and failure, ASGI callable-instance success and failure, direct
-State sequences, application registration workflows, six direct
+State sequences, application state reads through `request.app.state`,
+application registration workflows, six direct
 ServerErrorMiddleware cases, three TestClient exception-chain cases, a
 default middleware-boundary trace, and sixteen Request.cookies inputs pass live
 source/package comparison, including the sequential TestClient cookie
@@ -35,10 +36,10 @@ cases now pass on both target profiles. Default-string match/slash-boundary
 and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The latest integrated run for the active
-`parity-input@25` contract, `3b5e380f-0bfa-46b2-a8da-580bfdf63700`, passed
-897 of 901 selected comparisons, with zero failures or infrastructure errors
+`parity-input@25` contract, `aee003ee-70ae-4335-aa8d-345980ae0f9b`, passed
+903 of 907 selected comparisons, with zero failures or infrastructure errors
 and four Rust-native Python-callable rows `not_run`. The Python package passed
-692/692; Rust-native passed 205/209. The four native `not_run` rows are synchronous
+697/697; Rust-native passed 206/210. The four native `not_run` rows are synchronous
 Request endpoint, bound-method endpoint, partial endpoint, and callable-instance
 ASGI dispatch. `make test` exits with status 2 for those declared rows. Full run
 identities and package hashes are recorded in
@@ -56,8 +57,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 400 existing input mappings,
-50 source-backed `not_applicable` rows, and 352 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 417 input mappings,
+50 source-backed `not_applicable` rows, and 335 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

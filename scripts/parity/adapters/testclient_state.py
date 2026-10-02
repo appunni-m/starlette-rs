@@ -27,6 +27,12 @@ def _state_owner(connection: Any, source: str, lifespan_state: dict[str, Any]) -
         return connection.state
     if source == "app":
         return connection.scope["app"].state
+    if source == "request_app":
+        return connection.app
+    if source == "scope_app":
+        return connection.scope["app"]
+    if source == "request_app_state":
+        return connection.app.state
     return lifespan_state
 
 

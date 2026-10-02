@@ -337,6 +337,7 @@
         "starlette.testclient.TestClient.lifespan-context.http-lifespan-state",
         "starlette.testclient.TestClient.lifespan-context.request-state-shallow-copy",
         "starlette.testclient.TestClient.lifespan-context.app-state-separation",
+        "starlette.testclient.TestClient.lifespan-context.app-state-via-request-app",
         "starlette.testclient.TestClient.lifespan-context.websocket-lifespan-state"
       ],
       "target_profiles": [
@@ -408,7 +409,8 @@
           }
         },
         "app_state": {
-          "label": "application"
+          "label": "application",
+          "ADMIN_EMAIL": "admin@example.org"
         },
         "routes": [
           {
@@ -445,6 +447,15 @@
                 "access": "item"
               },
               {
+                "operation": "read",
+                "name": "admin_email_via_request_app",
+                "source": "request_app_state",
+                "path": [
+                  "ADMIN_EMAIL"
+                ],
+                "access": "attribute"
+              },
+              {
                 "operation": "identity",
                 "name": "nested_state_is_lifespan_object",
                 "left": {
@@ -472,6 +483,20 @@
                 },
                 "right": {
                   "source": "app",
+                  "path": [],
+                  "access": "item"
+                }
+              },
+              {
+                "operation": "identity",
+                "name": "request_app_is_scope_app",
+                "left": {
+                  "source": "request_app",
+                  "path": [],
+                  "access": "attribute"
+                },
+                "right": {
+                  "source": "scope_app",
                   "path": [],
                   "access": "item"
                 }
@@ -566,6 +591,15 @@
                   "label"
                 ],
                 "access": "item"
+              },
+              {
+                "operation": "read",
+                "name": "admin_email_via_request_app",
+                "source": "request_app_state",
+                "path": [
+                  "ADMIN_EMAIL"
+                ],
+                "access": "attribute"
               },
               {
                 "operation": "identity",
