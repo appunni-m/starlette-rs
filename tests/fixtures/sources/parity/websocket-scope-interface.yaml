@@ -1,0 +1,27 @@
+{
+  "schema": "migration-parity/parity-input@31",
+  "cases": [
+    {
+      "case_id": "starlette.websockets.WebSocket.scope-mapping.minimal-websocket-scope",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "scope-mapping",
+      "covers": [
+        "starlette.websockets.WebSocket.scope-mapping.minimal-websocket-scope",
+        "starlette.websockets.WebSocket.scope-mapping.object-identity"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "path": "/abc/",
+        "headers": []
+      },
+      "lookup_key": "type",
+      "observations": [
+        "scope-mapping"
+      ]
+    }
+  ]
+}

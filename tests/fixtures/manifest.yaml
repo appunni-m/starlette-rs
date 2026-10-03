@@ -326,7 +326,8 @@
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
       "build/parity/inputs/parity/testclient-lifespan-context.json",
       "build/parity/inputs/parity/application-routes.json",
-      "build/parity/inputs/parity/concurrency.json"
+      "build/parity/inputs/parity/concurrency.json",
+      "build/parity/inputs/parity/websocket-scope-interface.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -21606,6 +21607,121 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only API parity slice does not declare a benchmark workload."
+          }
+        },
+        {
+          "id": "scope-mapping",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.HTTPConnection.__getitem__, __iter__, __len__, __eq__, and __hash__ inherited by starlette.websockets.WebSocket",
+            "signature": "WebSocket(scope, receive, send); parity workflow lookup_key selects one mapping key while the workflow observes mapping conversion, key order, length, and object identity",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "lookup_key",
+                "style": "keyword",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "scope-mapping",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose a Python WebSocket Mapping interface.",
+                "blocker": "The native WebSocket state machine does not retain a Python ASGI scope mapping."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.websockets.WebSocket mapping interface",
+              "signature": "WebSocket(scope, receive, send) provides Mapping access to its ASGI scope.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.websockets.WebSocket.scope-mapping.minimal-websocket-scope",
+              "dimension": "boundary",
+              "description": "Preserve the supplied minimal WebSocket scope through keyed lookup, dict conversion, key iteration order, and length. Pinned source: starlette/requests.py:90-96; starlette/websockets.py:26; tests/test_websockets.py::test_websocket_scope_interface; docs/websockets.md:20-23.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websockets.WebSocket.scope-mapping.object-identity",
+              "dimension": "boundary",
+              "description": "Preserve WebSocket object identity semantics over equivalent input scopes: the same instance compares equal to itself and remains hashable for set membership, while a distinct instance is not equal. Pinned source: starlette/requests.py:98-101; tests/test_websockets.py::test_websocket_scope_interface.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Python mapping protocol compatibility is outside the active ASGI benchmark workloads."
           }
         }
       ]

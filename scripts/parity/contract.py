@@ -346,6 +346,11 @@ REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
 REQUEST_CLIENT_REQUIREMENT = "starlette.request.client-address"
 REQUEST_SCOPE_MAPPING_REQUIREMENT = "starlette.requests.Request.scope-mapping.minimal-http-scope"
+WEBSOCKET_SCOPE_MAPPING_OPERATION = ("starlette.websockets.WebSocket", "scope-mapping")
+WEBSOCKET_SCOPE_MAPPING_REQUIREMENTS = {
+    "minimal_scope": "starlette.websockets.WebSocket.scope-mapping.minimal-websocket-scope",
+    "identity": "starlette.websockets.WebSocket.scope-mapping.object-identity",
+}
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
@@ -2168,6 +2173,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_CLIENT_OPERATION
                 or key == REQUEST_SCOPE_MAPPING_OPERATION
+                or key == WEBSOCKET_SCOPE_MAPPING_OPERATION
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
                 or key == REQUEST_BODY_STREAM_JSON_OPERATION
@@ -2383,6 +2389,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) == REQUEST_DEFAULT_RECEIVE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_CLIENT_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_SCOPE_MAPPING_OPERATION
+                        or (surface["id"], operation["id"]) == WEBSOCKET_SCOPE_MAPPING_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_SEND_PUSH_PROMISE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_IS_DISCONNECTED_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_FORM_OPERATION
@@ -12835,6 +12842,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_SCOPE_MAPPING_OPERATION
     )
+    is_websocket_scope_mapping = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == WEBSOCKET_SCOPE_MAPPING_OPERATION
+    )
     is_send_push_promise = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_SEND_PUSH_PROMISE_OPERATION
@@ -12917,6 +12928,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_iterate_threadpool
         else THREADPOOL_CASE_KEYS
         if is_threadpool
+        else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope", "lookup_key"}
+        if is_websocket_scope_mapping
         else WEBSOCKET_CASE_KEYS
         if is_websocket
         else HTTP_ENDPOINT_CASE_KEYS
@@ -13053,6 +13066,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     if is_request_scope_mapping:
         _exact(case, expected_case_keys, "Request scope-mapping case")
         _validate_request_scope_mapping_case(case)
+        return case
+    if is_websocket_scope_mapping:
+        _exact(case, expected_case_keys, "WebSocket scope-mapping case")
+        _validate_websocket_scope_mapping_case(case)
         return case
     if is_testclient_lifespan:
         _exact(case, expected_case_keys, "case")
@@ -17913,6 +17930,22 @@ def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
         raise ContractError("Request scope-mapping input must preserve the pinned minimal scope")
     if case["covers"] != [REQUEST_SCOPE_MAPPING_REQUIREMENT]:
         raise ContractError("Request scope-mapping case must cover its canonical requirement")
+
+
+def _validate_websocket_scope_mapping_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("WebSocket scope mapping parity targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["scope-mapping"]:
+        raise ContractError("WebSocket scope-mapping cases select scope-mapping without assets")
+    if not case["case_id"].startswith("starlette.websockets.WebSocket.scope-mapping."):
+        raise ContractError("WebSocket scope-mapping case ID must bind to the mapping interface")
+    if case["scope"] != {"type": "websocket", "path": "/abc/", "headers": []}:
+        raise ContractError("WebSocket scope-mapping input must preserve the pinned minimal scope")
+    lookup_key = _string(case["lookup_key"], "WebSocket scope-mapping lookup_key")
+    if lookup_key not in case["scope"]:
+        raise ContractError("WebSocket scope-mapping lookup_key must exist in the supplied scope")
+    if case["covers"] != list(WEBSOCKET_SCOPE_MAPPING_REQUIREMENTS.values()):
+        raise ContractError("WebSocket scope-mapping case must cover its canonical requirements")
 
 
 def _validate_send_push_promise_case(case: dict[str, Any]) -> None:

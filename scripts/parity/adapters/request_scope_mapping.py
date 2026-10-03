@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 
@@ -26,6 +27,59 @@ def run_request_scope_mapping_case(
         "mapping": _safe(dict(request)),
         "iteration_order": _safe(list(request)),
         "length": len(request),
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "scope-mapping",
+                "status": "ok",
+                "value": {"scope-mapping": value},
+            }
+        ],
+    }
+
+
+def run_websocket_scope_mapping_case(
+    case: dict[str, Any],
+    websocket_type: type[Any],
+) -> dict[str, Any]:
+    """Observe WebSocket's inherited mapping and identity behavior from its input scope."""
+
+    async def receive() -> dict[str, str]:
+        return {"type": "websocket.connect"}
+
+    async def send(_message: dict[str, Any]) -> None:
+        return None
+
+    websocket = websocket_type(dict(case["scope"]), receive=receive, send=send)
+    peer = websocket_type(dict(case["scope"]), receive=receive, send=send)
+
+    def probe(action: Callable[[], Any]) -> dict[str, Any]:
+        try:
+            return {"outcome": "ok", "value": _safe(action())}
+        except Exception as error:
+            error_type = type(error)
+            return {
+                "outcome": "error",
+                "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
+                "message": str(error),
+            }
+
+    value = {
+        "keyed_value": probe(lambda: websocket[case["lookup_key"]]),
+        "mapping": probe(lambda: dict(websocket)),
+        "iteration_order": probe(lambda: list(websocket)),
+        "length": probe(lambda: len(websocket)),
+        "identity": {
+            "self_equal": probe(lambda: websocket == websocket),
+            "distinct_equal": probe(lambda: websocket == peer),
+            "distinct_not_equal": probe(lambda: websocket != peer),
+            "self_in_set": probe(lambda: websocket in {websocket}),
+            "peer_in_self_set": probe(lambda: peer in {websocket}),
+            "self_set_equals_recreated_self_set": probe(lambda: {websocket} == {websocket}),
+        },
     }
     return {
         "case_id": case["case_id"],

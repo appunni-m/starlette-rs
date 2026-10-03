@@ -696,6 +696,10 @@
         {
           "operation_id": "convenience-sequence",
           "source_path": "starlette.websockets.WebSocket"
+        },
+        {
+          "operation_id": "scope-mapping",
+          "source_path": "starlette.requests.HTTPConnection.__getitem__, __iter__, __len__, __eq__, and __hash__ inherited by starlette.websockets.WebSocket"
         }
       ]
     },
