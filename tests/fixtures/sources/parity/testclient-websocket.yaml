@@ -719,6 +719,90 @@
       }
     },
     {
+      "case_id": "starlette.testclient.TestClient.websocket-session.application-url",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.application-url",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.receive-json-text-frame"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["127.0.0.1", 12345],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/123?a=abc",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [{"operation": "receive_json"}]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "scheme", "server", "path", "query_string"],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {"operation": "accept"},
+              {"operation": "send_url_json", "components": ["path", "port", "scheme"]},
+              {"operation": "close"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.application-url-explicit-port",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.application-url",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.receive-json-text-frame"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["127.0.0.1", 12345],
+        "headers": []
+      },
+      "websocket": {
+        "url": "ws://example.com:123/123?a=abc",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [{"operation": "receive_json"}]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "scheme", "server", "path", "query_string"],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {"operation": "accept"},
+              {"operation": "send_url_json", "components": ["path", "port", "scheme"]},
+              {"operation": "close"}
+            ]
+          }
+        ]
+      }
+    },
+    {
       "case_id": "starlette.testclient.TestClient.websocket-session.client-close-code-reason",
       "surface": "starlette.testclient.TestClient",
       "operation": "websocket-session",

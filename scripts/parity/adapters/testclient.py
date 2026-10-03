@@ -787,6 +787,14 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                     await websocket.send_json(action["value"], action.get("mode", "text"))
                 elif operation == "send_query_params_json":
                     await websocket.send_json({"params": query_params_value})
+                elif operation == "send_url_json":
+                    url = websocket.url
+                    value = {"url": str(url)}
+                    value.update(
+                        {component: getattr(url, component) for component in action["components"]}
+                    )
+                    application_values.append({"operation": operation, "value": value})
+                    await websocket.send_json(value)
                 elif operation == "close":
                     close_code = action.get("code", 1000)
                     if "reason" in action:

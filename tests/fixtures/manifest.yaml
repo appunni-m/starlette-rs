@@ -21541,6 +21541,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.websocket-session.application-url",
+              "dimension": "feature",
+              "description": "Construct the public WebSocket from the live TestClient ASGI scope, return str(websocket.url) and its path, port, and scheme properties through send_json, and close the socket. Compare the app values, emitted ASGI messages, and client receive_json result for relative and explicit-port URLs. Pinned source: starlette/requests.py:107-114; tests/test_websockets.py::test_websocket_url and ::test_websocket_port; docs/websockets.md:25-32.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.websocket-session.accept-handshake",
               "dimension": "success_path",
               "description": "Send websocket.connect when the session context starts, accept the supplied app handshake, and expose its selected subprotocol through accepted_subprotocol. Pinned source: starlette/testclient.py:102-117,259-267,656-677; tests/test_testclient.py::test_websocket_blocking_receive.",

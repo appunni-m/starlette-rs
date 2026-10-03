@@ -246,6 +246,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
     "query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.query-params-raw-path",
     "application_query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-query-params",
+    "application_url": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-url",
     "handshake": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accept-handshake",
     "extra_headers": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.extra-headers",
     "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
@@ -10388,6 +10389,19 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                     raise ContractError(f"{item_context}.mode must be text or binary")
             elif operation in {"observe_query_params", "send_query_params_json"}:
                 _exact(value, {"operation"}, item_context)
+            elif operation == "send_url_json":
+                action = _exact(value, {"operation", "components"}, item_context)
+                components = action["components"]
+                if (
+                    not isinstance(components, list)
+                    or not all(isinstance(component, str) for component in components)
+                    or len(components) != len(set(components))
+                    or not components
+                    or not set(components) <= {"path", "port", "scheme"}
+                ):
+                    raise ContractError(
+                        f"{item_context}.components must uniquely select path, port, or scheme"
+                    )
             elif operation == "close":
                 action = _exact(
                     value,
@@ -10447,6 +10461,9 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
     application_query_params_flow = len(actions) == 4 and [
         action.get("operation") for action in actions
     ] == ["observe_query_params", "accept", "send_query_params_json", "close"]
+    application_url_flow = len(actions) == 3 and [
+        action.get("operation") for action in actions
+    ] == ["accept", "send_url_json", "close"]
     if actions[0].get("operation") != "accept" and not application_query_params_flow:
         raise ContractError("TestClient WebSocket flow must accept before other actions")
     if "accept" in operations[1:] and not application_query_params_flow:
@@ -10479,6 +10496,8 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
         return "client-close-disconnect"
     if application_query_params_flow:
         return "application-query-params"
+    if application_url_flow:
+        return "application-url"
     if len(actions) == 2 and [action.get("operation") for action in actions] == [
         "accept",
         "close",
@@ -10894,6 +10913,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         }
         if flow_kind not in {
             "application-query-params",
+            "application-url",
             "application-close",
             "client-close-disconnect",
         }:
@@ -10916,6 +10936,25 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             expected_covers.update(
                 {
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_query_params"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["receive_json_text"],
+                }
+            )
+        elif flow_kind == "application-url":
+            if (
+                len(session_actions) != 1
+                or not client_json_workflow
+                or client_json_receive_mode != "text"
+                or "params" in websocket
+                or not websocket_url.partition("?")[2]
+                or not {"scheme", "server", "path", "query_string"} <= set(scope_fields)
+                or not {"path", "port", "scheme"} <= set(app_actions[0]["actions"][1]["components"])
+            ):
+                raise ContractError(
+                    "TestClient WebSocket URL flow requires an inline-query URL, projected URL scope fields, URL component observations, and one text receive_json action"
+                )
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_url"],
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["receive_json_text"],
                 }
             )
