@@ -10444,6 +10444,39 @@
               ]
             },
             {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.debug-html",
+              "dimension": "error_path",
+              "description": "With debug enabled, render the HTML traceback response when the HTTP Accept header permits text/html, then propagate the original application exception. Source: tests/middleware/test_errors.py::test_debug_html and starlette/middleware/errors.py::ServerErrorMiddleware.debug_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.debug-after-response-sent",
+              "dimension": "error_path",
+              "description": "With debug enabled, preserve an already-started application response when the app raises afterward and propagate the original exception without sending a second response. Source: tests/middleware/test_errors.py::test_debug_after_response_sent and starlette/middleware/errors.py::ServerErrorMiddleware.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.non-http-passthrough",
+              "dimension": "error_path",
+              "description": "Pass through a non-HTTP ASGI scope without constructing an HTTP error response and propagate the application exception unchanged. Source: tests/middleware/test_errors.py::test_debug_not_http and starlette/middleware/errors.py::ServerErrorMiddleware.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.errors.ServerErrorMiddleware.mutable-app",
               "dimension": "boundary",
               "description": "Honor the public app field value present when __call__ begins after the app was replaced following middleware construction.",

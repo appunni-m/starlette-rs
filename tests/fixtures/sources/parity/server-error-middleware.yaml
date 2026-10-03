@@ -103,6 +103,121 @@
       "observations": ["dispatch"]
     },
     {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.debug-html",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__call__",
+      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.debug-html"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "raise-runtime-error",
+          "label": "debug-html-app",
+          "message": "Something went wrong"
+        },
+        "handler": null,
+        "debug": true
+      },
+      "assignments": [],
+      "dispatch": {
+        "scope": {
+          "type": "http",
+          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [["YWNjZXB0", "dGV4dC9odG1sLCAqLyo="]],
+          "client": ["127.0.0.1", 12345],
+          "server": ["testserver", 80]
+        },
+        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
+        "send": {"kind": "capture-asgi-send"}
+      },
+      "observations": ["dispatch"]
+    },
+    {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.debug-after-response-sent",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__call__",
+      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.debug-after-response-sent"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "asgi-response-sequence-then-raise",
+          "label": "debug-after-response-app",
+          "messages": [
+            {"type": "http.response.start", "status": 204, "headers_base64_pairs": []},
+            {"type": "http.response.body", "body_base64": ""}
+          ],
+          "message": "Something went wrong"
+        },
+        "handler": null,
+        "debug": true
+      },
+      "assignments": [],
+      "dispatch": {
+        "scope": {
+          "type": "http",
+          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [],
+          "client": ["127.0.0.1", 12345],
+          "server": ["testserver", 80]
+        },
+        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
+        "send": {"kind": "capture-asgi-send"}
+      },
+      "observations": ["dispatch"]
+    },
+    {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.non-http-passthrough",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__call__",
+      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.non-http-passthrough"],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "raise-runtime-error",
+          "label": "websocket-error-app",
+          "message": "Something went wrong"
+        },
+        "handler": null,
+        "debug": false
+      },
+      "assignments": [],
+      "dispatch": {
+        "scope": {
+          "type": "websocket",
+          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "http_version": "1.1",
+          "scheme": "ws",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [],
+          "client": ["127.0.0.1", 12345],
+          "server": ["testserver", 80],
+          "subprotocols": []
+        },
+        "receive": [{"type": "websocket.connect"}],
+        "send": {"kind": "capture-asgi-send"}
+      },
+      "observations": ["dispatch"]
+    },
+    {
       "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.mutable-app",
       "surface": "starlette.middleware.errors.ServerErrorMiddleware",
       "operation": "__call__",

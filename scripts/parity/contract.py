@@ -1148,6 +1148,9 @@ SERVER_ERROR_MIDDLEWARE_REQUIREMENTS = {
     "construct": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.construct",
     "direct-call": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.direct-call",
     "default-response": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.default-response",
+    "debug-html": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.debug-html",
+    "debug-after-response-sent": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.debug-after-response-sent",
+    "non-http-passthrough": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.non-http-passthrough",
     "mutable-app": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.mutable-app",
     "mutable-handler": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.mutable-handler",
     "mutable-debug": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.mutable-debug",
@@ -14170,6 +14173,38 @@ def _validate_server_error_middleware_app(value: Any, context: str) -> None:
         _string(app["label"], f"{context}.label")
         _validate_asgi_middleware_app({"kind": app["kind"], "messages": app["messages"]})
         return
+    if kind == "asgi-response-sequence-then-raise":
+        app = _exact(value, {"kind", "label", "messages", "message"}, context)
+        _string(app["label"], f"{context}.label")
+        _string(app["message"], f"{context}.message")
+        messages = app["messages"]
+        normalized_messages = (
+            [
+                (
+                    {**message, "more_body": False}
+                    if isinstance(message, dict)
+                    and message.get("type") == "http.response.body"
+                    and "more_body" not in message
+                    else message
+                )
+                for message in messages
+            ]
+            if isinstance(messages, list)
+            else messages
+        )
+        _validate_asgi_middleware_app(
+            {"kind": "asgi-response-sequence", "messages": normalized_messages}
+        )
+        if (
+            len(messages) != 2
+            or messages[0]
+            != {"type": "http.response.start", "status": 204, "headers_base64_pairs": []}
+            or messages[1] != {"type": "http.response.body", "body_base64": ""}
+        ):
+            raise ContractError(
+                f"{context} must model the pinned empty 204 response before raising"
+            )
+        return
     raise ContractError(f"{context} must use a declared ASGI app kind")
 
 
@@ -14882,16 +14917,49 @@ def _validate_server_error_middleware_case(
         dispatch = _exact(
             case["dispatch"], {"scope", "receive", "send"}, "ServerErrorMiddleware dispatch input"
         )
-        if not isinstance(dispatch["scope"], dict) or dispatch["scope"].get("type") != "http":
-            raise ContractError("direct ServerErrorMiddleware error probes require an HTTP scope")
         _validate_asgi_middleware_dispatch(SERVER_ERROR_MIDDLEWARE_SURFACE, dispatch)
+        if assignment_fields and dispatch["scope"]["type"] != "http":
+            raise ContractError("ServerErrorMiddleware field-mutation probes require HTTP scope")
 
         if not assignment_fields:
-            if constructor["app"]["kind"] != "raise-runtime-error" or constructor["debug"]:
-                raise ContractError("direct call inputs must raise with debug mode disabled")
-            requirement_key = (
-                "direct-call" if constructor["handler"] is not None else "default-response"
-            )
+            scope_type = dispatch["scope"]["type"]
+            app_kind = constructor["app"]["kind"]
+            if scope_type == "websocket":
+                if (
+                    app_kind != "raise-runtime-error"
+                    or constructor["handler"] is not None
+                    or constructor["debug"]
+                ):
+                    raise ContractError(
+                        "non-HTTP passthrough input must raise with debug and handler disabled"
+                    )
+                requirement_key = "non-http-passthrough"
+            elif constructor["debug"]:
+                if app_kind == "raise-runtime-error" and constructor["handler"] is None:
+                    headers = dispatch["scope"]["headers_base64_pairs"]
+                    accepts_html = any(
+                        base64.b64decode(name, validate=True).lower() == b"accept"
+                        and base64.b64decode(value, validate=True).lower() == b"text/html, */*"
+                        for name, value in headers
+                    )
+                    if not accepts_html:
+                        raise ContractError(
+                            "debug HTML input must use the pinned text/html, */* Accept header"
+                        )
+                    requirement_key = "debug-html"
+                elif (
+                    app_kind == "asgi-response-sequence-then-raise"
+                    and constructor["handler"] is None
+                ):
+                    requirement_key = "debug-after-response-sent"
+                else:
+                    raise ContractError("direct debug input must match a declared probe")
+            elif app_kind == "raise-runtime-error":
+                requirement_key = (
+                    "direct-call" if constructor["handler"] is not None else "default-response"
+                )
+            else:
+                raise ContractError("direct call inputs must select a declared error probe")
             exercised = {SERVER_ERROR_MIDDLEWARE_REQUIREMENTS[requirement_key]}
         elif assignment_fields == ["app"]:
             if (

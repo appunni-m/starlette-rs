@@ -2687,16 +2687,16 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
                     ],
                 }
             elif message_type == "http.response.body":
-                _strict_object(
-                    spec,
-                    {"type", "body_base64", "more_body"},
-                    f"inner response message[{index}]",
-                )
+                expected_body_keys = {"type", "body_base64"}
+                if "more_body" in spec:
+                    expected_body_keys.add("more_body")
+                _strict_object(spec, expected_body_keys, f"inner response message[{index}]")
                 message = {
                     "type": message_type,
                     "body": _decode_b64(spec["body_base64"], "inner response body"),
-                    "more_body": spec["more_body"],
                 }
+                if "more_body" in spec:
+                    message["more_body"] = spec["more_body"]
             elif message_type == "http.response.pathsend":
                 _strict_object(
                     spec,
@@ -2916,14 +2916,18 @@ def _materialize_server_error_middleware_app(
     spec: dict[str, Any], app_calls: list[str], app_exceptions: list[BaseException]
 ) -> Any:
     label = spec["label"]
-    if spec["kind"] == "asgi-response-sequence":
+    if spec["kind"] in {"asgi-response-sequence", "asgi-response-sequence-then-raise"}:
         response_app = _materialize_asgi_sequence_app(
-            {"kind": spec["kind"], "messages": spec["messages"]}
+            {"kind": "asgi-response-sequence", "messages": spec["messages"]}
         )
 
         async def app(scope: Any, receive: Any, send: Any) -> None:
             app_calls.append(label)
             await response_app(scope, receive, send)
+            if spec["kind"] == "asgi-response-sequence-then-raise":
+                error = RuntimeError(spec["message"])
+                app_exceptions.append(error)
+                raise error
 
         return app
 

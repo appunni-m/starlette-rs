@@ -109,6 +109,7 @@ _HTML_TRACEBACK_PATH = re.compile(rb'(<span class="frame-filename">).*?(</span>)
 _HTML_TRACEBACK_LINE = re.compile(rb"(,\s*line <i>)\d+(</i>)")
 _HTML_SOURCE_LINE_NUMBER = re.compile(rb'(<span class="lineno">)\d+(\.</span>)')
 _HTML_FRAME_REFERENCE = re.compile(rb'((?:id|data-frame-id)=")[^"]*(")')
+_HTML_CLOSING_DIV_SEQUENCE = re.compile(rb"</div>(?:[ \t\r\n]*</div>)+")
 
 
 def _is_starlette_frame(filename: str) -> bool:
@@ -254,7 +255,7 @@ def _remove_starlette_html_frames(body: bytes) -> bytes:
 
 
 def _normalize_debug_traceback_body(body: bytes) -> bytes | None:
-    """Normalize only frame paths and line numbers in actual debug traceback bytes."""
+    """Normalize source-dependent frames and insignificant traceback HTML formatting."""
     if body.startswith(b"Traceback (most recent call last):"):
         if not _TEXT_TRACEBACK_FRAME.search(body):
             return None
@@ -271,6 +272,10 @@ def _normalize_debug_traceback_body(body: bytes) -> bytes | None:
         normalized = _HTML_TRACEBACK_PATH.sub(rb"\1<frame-path>\2", body)
         normalized = _HTML_TRACEBACK_LINE.sub(rb"\1<line>\2", normalized)
         normalized = _HTML_SOURCE_LINE_NUMBER.sub(rb"\1<line>\2", normalized)
+        normalized = _HTML_CLOSING_DIV_SEQUENCE.sub(
+            lambda match: b"\n".join([b"</div>"] * match.group().count(b"</div>")),
+            normalized,
+        )
         return _HTML_FRAME_REFERENCE.sub(rb"\1<frame-reference>\2", normalized)
     return None
 
