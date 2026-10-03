@@ -2960,6 +2960,7 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
     preaccept_receive_count = 0
     client_state = "CONNECTING"
     application_state = "CONNECTING"
+    application_close_attempted = False
     exercised: set[str] = set()
 
     def receive_input(context: str, expected_payload: str | None = None) -> str:
@@ -3139,11 +3140,22 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                     raise ContractError(f"{context}.arguments.code must be an integer")
                 if reason is not None and not isinstance(reason, str):
                     raise ContractError(f"{context}.arguments.reason must be a string or null")
-                exercised.add("starlette.websocket.api.close.framing")
-            if application_state != "CONNECTED":
-                raise ContractError(f"{context} requires a connected WebSocket")
             if method == "close":
-                application_state = "DISCONNECTED"
+                if application_state == "CONNECTED":
+                    exercised.add("starlette.websocket.api.close.framing")
+                    application_state = "DISCONNECTED"
+                    application_close_attempted = True
+                elif application_state == "DISCONNECTED" and application_close_attempted:
+                    requirement = "starlette.websocket.api.close.duplicate"
+                    if requirement not in case["covers"]:
+                        raise ContractError(f"{context} duplicate close must cover {requirement}")
+                    exercised.add(requirement)
+                else:
+                    raise ContractError(
+                        f"{context} close requires a connected WebSocket or an earlier close action"
+                    )
+            elif application_state != "CONNECTED":
+                raise ContractError(f"{context} requires a connected WebSocket")
         elif method == "send_denial_response":
             _exact(arguments, {"response"}, f"{context}.arguments")
             response = _exact(

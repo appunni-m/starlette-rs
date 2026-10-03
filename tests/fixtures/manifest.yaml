@@ -20389,6 +20389,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.websocket.api.close.duplicate",
+              "dimension": "error_path",
+              "description": "Call WebSocket.close after an earlier close call and compare the resulting action error, callback tape, and final states. Pinned source: starlette/websockets.py:59-99,180-181; tests/test_websockets.py::test_duplicate_close.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
