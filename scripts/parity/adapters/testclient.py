@@ -845,7 +845,10 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             nonlocal query_params_value
             for action in actions:
                 operation = action["operation"]
-                if operation == "accept":
+                if operation == "receive":
+                    message = await websocket.receive()
+                    application_values.append({"operation": operation, "value": _safe(message)})
+                elif operation == "accept":
                     accept_kwargs = {}
                     if "subprotocol" in action:
                         accept_kwargs["subprotocol"] = action["subprotocol"]
@@ -967,7 +970,14 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     application_exception_workflow = (
         len(app_input["actions"]) == 1 and app_input["actions"][0].get("operation") == "raise"
     )
+    preaccept_close_workflow = (
+        len(app_input["actions"]) == 1
+        and app_input["actions"][0].get("operation") == "websocket_flow"
+        and [action.get("operation") for action in app_input["actions"][0]["actions"]]
+        == ["receive", "close"]
+    )
     captured_error: BaseException | None = None
+    entry_disconnect = None
     websocket_kwargs = {"headers": request_headers}
     if "params" in websocket_input:
         websocket_kwargs["params"] = websocket_input["params"]
@@ -1024,6 +1034,15 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             "headers": exception.headers.multi_items(),
             "body_base64": base64.b64encode(exception.content).decode("ascii"),
         }
+    except WebSocketDisconnect as error:
+        if not preaccept_close_workflow:
+            raise
+        captured_error = error
+        entry_disconnect = {
+            "class": f"{type(error).__module__}.{type(error).__qualname__}",
+            "code": error.code,
+            "reason": error.reason,
+        }
     except Exception as error:
         if not application_exception_workflow:
             raise
@@ -1036,6 +1055,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             "accepted_subprotocol": accepted_subprotocol,
             "extra_headers": _safe(accepted_extra_headers),
             "actions": action_results,
+            "entry_disconnect": entry_disconnect,
         },
         "denial_response": denial_response,
     }
@@ -1062,7 +1082,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                 "kind": "exception",
                 "message": str(captured_error),
                 "stage": "websocket-session-entry",
-                "code": None,
+                "code": getattr(captured_error, "code", None),
                 "cause": (
                     {
                         "class": f"{type(cause).__module__}.{type(cause).__qualname__}",

@@ -1726,11 +1726,12 @@ fn websocket_disconnect(py: Python<'_>, message: &Bound<'_, PyDict>) -> PyResult
         .get_item("reason")?
         .unwrap_or_else(|| PyString::new(py, "").into_any());
     let kwargs = PyDict::new(py);
+    kwargs.set_item("code", code)?;
     kwargs.set_item("reason", reason)?;
     let exception_type = py
         .import("starlette.websockets")?
         .getattr("WebSocketDisconnect")?;
-    let exception = exception_type.call((code,), Some(&kwargs))?;
+    let exception = exception_type.call((), Some(&kwargs))?;
     Ok(PyErr::from_value(exception))
 }
 

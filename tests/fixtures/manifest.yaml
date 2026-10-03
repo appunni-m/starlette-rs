@@ -22011,6 +22011,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
+              "dimension": "error_path",
+              "description": "When an ASGI app consumes websocket.connect through WebSocket.receive() and calls WebSocket.close() before accepting, websocket_connect raises WebSocketDisconnect during session entry with the input close code and default reason. Pinned source: tests/test_websockets.py::test_rejected_connection; starlette/testclient.py:102-125,154-158; starlette/websockets.py:20-23,180-182.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.websocket-session.send-json-text-frame",
               "dimension": "success_path",
               "description": "Serialize the supplied Python value with the pinned compact JSON options (separators=(\",\", \":\"), ensure_ascii=False) and send it as a websocket.receive text frame. Pinned source: starlette/testclient.py:174-181; docs/testclient.md:222.",

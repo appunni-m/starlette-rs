@@ -248,6 +248,7 @@ TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | 
 TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
     "application_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-exception-propagation",
+    "rejected_connection": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.rejected-connection-disconnect",
     "query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.query-params-raw-path",
     "application_query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-query-params",
     "application_url": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-url",
@@ -10788,7 +10789,9 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                 raise ContractError(f"{item_context} must be an object")
             operation = value.get("operation")
             operations.append(operation)
-            if operation == "accept":
+            if operation == "receive":
+                _exact(value, {"operation"}, item_context)
+            elif operation == "accept":
                 expected = {"operation"} | (value.keys() & {"subprotocol", "headers_base64_pairs"})
                 action = _exact(value, expected, item_context)
                 if "subprotocol" in action:
@@ -10924,13 +10927,20 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                 raise ContractError(f"{item_context} has unsupported operation {operation!r}")
 
     validate_actions(actions, "TestClient WebSocket flow actions")
+    rejected_connection_flow = len(actions) == 2 and [
+        action.get("operation") for action in actions
+    ] == ["receive", "close"]
     application_query_params_flow = len(actions) == 4 and [
         action.get("operation") for action in actions
     ] == ["observe_query_params", "accept", "send_query_params_json", "close"]
     application_url_flow = len(actions) == 3 and [
         action.get("operation") for action in actions
     ] == ["accept", "send_url_json", "close"]
-    if actions[0].get("operation") != "accept" and not application_query_params_flow:
+    if (
+        actions[0].get("operation") != "accept"
+        and not application_query_params_flow
+        and not rejected_connection_flow
+    ):
         raise ContractError("TestClient WebSocket flow must accept before other actions")
     if "accept" in operations[1:] and not application_query_params_flow:
         raise ContractError("TestClient WebSocket flow may accept only once")
@@ -10962,6 +10972,8 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
         return "client-close-disconnect"
     if application_query_params_flow:
         return "application-query-params"
+    if rejected_connection_flow:
+        return "rejected-connection"
     if application_url_flow:
         return "application-url"
     if (
@@ -11364,6 +11376,21 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
 
     if accepted_flow_workflow:
         flow_kind = _validate_testclient_websocket_flow(app_actions)
+        if flow_kind == "rejected-connection":
+            if not no_client_actions:
+                raise ContractError(
+                    "TestClient WebSocket rejected-connection flow must have no client actions"
+                )
+            expected_covers = {
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["rejected_connection"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+            }
+            if set(case["covers"]) != expected_covers:
+                raise ContractError(
+                    "TestClient WebSocket covers must match the rejected-connection flow"
+                )
+            return
         if flow_kind == "scope-bytes" and (
             not client_binary_receive_workflow
             or not ("params" in websocket or "?" in websocket_url)
