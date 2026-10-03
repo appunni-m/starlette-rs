@@ -11018,6 +11018,13 @@ def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
 
 def _config_cast(cast_spec: Any) -> Any:
     if isinstance(cast_spec, dict):
+        if cast_spec["kind"] == "starlette-public-class":
+            from starlette.datastructures import URL, Secret
+
+            return {
+                "starlette.datastructures.Secret": Secret,
+                "starlette.datastructures.URL": URL,
+            }[cast_spec["symbol"]]
         converter = getattr(builtins, cast_spec["converter"])
 
         def custom_cast(value: Any) -> Any:
@@ -11026,6 +11033,19 @@ def _config_cast(cast_spec: Any) -> Any:
         custom_cast.__name__ = cast_spec["name"]
         return custom_cast
     return getattr(builtins, cast_spec)
+
+
+def _config_value_inspections(value: Any, selectors: list[str]) -> dict[str, Any]:
+    inspections = {}
+    for selector in selectors:
+        if selector == "repr":
+            inspected = repr(value)
+        elif selector == "truthiness":
+            inspected = bool(value)
+        else:
+            inspected = getattr(value, selector)
+        inspections[selector] = _json_safe(inspected)
+    return inspections
 
 
 def _run_config_environ_actions(case: dict[str, Any], environ: Any) -> list[dict[str, Any]]:
@@ -11106,6 +11126,10 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                             "outcome": "value",
                             "value": _json_safe(value),
                         }
+                        if "inspect" in lookup:
+                            result["inspections"] = _config_value_inspections(
+                                value, lookup["inspect"]
+                            )
                     results.append(result)
             finally:
                 os.chdir(previous_directory)

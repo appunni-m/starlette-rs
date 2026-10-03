@@ -18691,50 +18691,98 @@ def _validate_config_case(case: dict[str, Any]) -> None:
         for index, raw in enumerate(lookups):
             if not isinstance(raw, dict):
                 raise ContractError(f"Config lookups[{index}] must be an object")
-            lookup = _exact(
-                raw,
-                {"key", "cast", "default"}
-                if "cast" in raw and "default" in raw
-                else {"key", "cast"}
-                if "cast" in raw
-                else {"key", "default"}
-                if "default" in raw
-                else {"key"},
-                f"Config lookups[{index}]",
-            )
+            lookup_keys = {"key"}
+            lookup_keys.update(field for field in ("cast", "default", "inspect") if field in raw)
+            lookup = _exact(raw, lookup_keys, f"Config lookups[{index}]")
             key = _string(lookup["key"], f"Config lookups[{index}].key")
             cast = lookup.get("cast")
+            public_class: str | None = None
             if isinstance(cast, str):
                 if cast not in {"str", "bool", "int"}:
                     raise ContractError(f"Config lookups[{index}].cast is unsupported")
                 cast_operation = cast
             elif isinstance(cast, dict):
-                cast_spec = _exact(
-                    cast,
-                    {"kind", "name", "converter"},
-                    f"Config lookups[{index}].cast",
-                )
-                if cast_spec["kind"] != "python-callable":
-                    raise ContractError(
-                        f"Config lookups[{index}].cast.kind must be python-callable"
+                kind = cast.get("kind")
+                if kind == "python-callable":
+                    cast_spec = _exact(
+                        cast,
+                        {"kind", "name", "converter"},
+                        f"Config lookups[{index}].cast",
                     )
-                name = _string(cast_spec["name"], f"Config lookups[{index}].cast.name")
-                if not name.isidentifier() or keyword.iskeyword(name):
-                    raise ContractError(
-                        f"Config lookups[{index}].cast.name must be a Python identifier"
+                    name = _string(cast_spec["name"], f"Config lookups[{index}].cast.name")
+                    if not name.isidentifier() or keyword.iskeyword(name):
+                        raise ContractError(
+                            f"Config lookups[{index}].cast.name must be a Python identifier"
+                        )
+                    cast_operation = _string(
+                        cast_spec["converter"], f"Config lookups[{index}].cast.converter"
                     )
-                cast_operation = _string(
-                    cast_spec["converter"], f"Config lookups[{index}].cast.converter"
-                )
-                if cast_operation not in {"str", "bool", "int"}:
-                    raise ContractError(f"Config lookups[{index}].cast.converter is unsupported")
-                selected.add("starlette.config.Config.custom-cast-callback-boundary")
+                    if cast_operation not in {"str", "bool", "int"}:
+                        raise ContractError(
+                            f"Config lookups[{index}].cast.converter is unsupported"
+                        )
+                elif kind == "starlette-public-class":
+                    cast_spec = _exact(
+                        cast,
+                        {"kind", "symbol"},
+                        f"Config lookups[{index}].cast",
+                    )
+                    symbol = _string(cast_spec["symbol"], f"Config lookups[{index}].cast.symbol")
+                    if symbol not in {
+                        "starlette.datastructures.URL",
+                        "starlette.datastructures.Secret",
+                    }:
+                        raise ContractError(
+                            f"Config lookups[{index}].cast.symbol is unsupported: {symbol}"
+                        )
+                    public_class = symbol.rsplit(".", maxsplit=1)[-1]
+                    cast_operation = public_class
+                    selected.add("starlette.config.Config.custom-cast-callback-boundary")
+                    selected.add(
+                        "starlette.config.Config.cast-url-class"
+                        if public_class == "URL"
+                        else "starlette.config.Config.cast-secret-class"
+                    )
+                else:
+                    raise ContractError(f"Config lookups[{index}].cast.kind is unsupported: {kind}")
+                if kind == "python-callable":
+                    selected.add("starlette.config.Config.custom-cast-callback-boundary")
             elif cast is None:
                 cast_operation = None
             else:
                 raise ContractError(f"Config lookups[{index}].cast is unsupported")
+            inspect = lookup.get("inspect", [])
+            if (
+                not isinstance(inspect, list)
+                or any(not isinstance(selector, str) for selector in inspect)
+                or len(inspect) != len(set(inspect))
+            ):
+                raise ContractError(
+                    f"Config lookups[{index}].inspect must be a unique string array"
+                )
+            inspectable = {
+                "URL": {
+                    "scheme",
+                    "netloc",
+                    "path",
+                    "query",
+                    "fragment",
+                    "username",
+                    "password",
+                    "hostname",
+                    "port",
+                    "is_secure",
+                },
+                "Secret": {"repr", "truthiness"},
+            }
+            if inspect and (public_class is None or not set(inspect) <= inspectable[public_class]):
+                raise ContractError(
+                    f"Config lookups[{index}].inspect selectors do not match its public cast class"
+                )
             prefixed = config["env_prefix"] + key
             has_default = "default" in lookup
+            if cast is not None and has_default and lookup["default"] is None:
+                selected.add("starlette.config.Config.cast-skips-null-default")
             if (
                 config["env_prefix"]
                 and key in environ

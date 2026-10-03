@@ -4247,6 +4247,39 @@
               ]
             },
             {
+              "id": "starlette.config.Config.cast-url-class",
+              "dimension": "boundary",
+              "description": "Call the public URL class supplied as Config's cast and preserve its string and parsed path, username, and password observations. Upstream: starlette/config.py:123-126; tests/test_config.py::test_config.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.cast-secret-class",
+              "dimension": "boundary",
+              "description": "Call the public Secret class supplied as Config's cast and preserve its string value, redacted representation, and truthiness. Upstream: starlette/config.py:123-126; tests/test_config.py::test_config.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.cast-skips-null-default",
+              "dimension": "parameter_combination",
+              "description": "Return a None default without invoking the supplied cast. Upstream: starlette/config.py:123-126; tests/test_config.py::test_config.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.config.Config.explicit-encoding",
               "dimension": "parameter",
               "description": "Decode environment-file bytes with the explicitly supplied encoding. Pinned source: starlette/config.py:54-64, 111-121; tests/test_config.py::test_config_with_encoding; docs/config.md:123-133.",
