@@ -669,6 +669,8 @@ def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
         if "state" in spec:
             scope["state"] = dict(spec["state"])
         return scope
+    if set(spec) == {"type", "version", "method", "path"}:
+        return dict(spec)
     scope = {
         "type": spec["type"],
         "asgi": dict(spec["asgi"]),
@@ -8697,6 +8699,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     endpoint_spec = None
     route_kind = None
     exception_spec = None
+    background_task_spec = None
     if route_specs:
         route_spec = _exact_object(
             route_specs[0],
@@ -8727,6 +8730,31 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 or not 100 <= endpoint_spec["status_code"] <= 599
             ):
                 raise ValueError("BaseHTTPMiddleware route input is invalid")
+        elif route_kind == "plain-text-response-with-async-background-task":
+            endpoint_spec = _exact_object(
+                endpoint_spec,
+                {"kind", "content", "status_code", "background_task"},
+                "BaseHTTPMiddleware async background-task route endpoint",
+            )
+            if (
+                not isinstance(endpoint_spec["content"], str)
+                or type(endpoint_spec["status_code"]) is not int
+                or not 100 <= endpoint_spec["status_code"] <= 599
+            ):
+                raise ValueError("BaseHTTPMiddleware background-task route input is invalid")
+            background_task_spec = _exact_object(
+                endpoint_spec["background_task"],
+                {"kind", "delay_seconds"},
+                "BaseHTTPMiddleware background task input",
+            )
+            delay_seconds = background_task_spec["delay_seconds"]
+            if (
+                background_task_spec["kind"] != "async-delay"
+                or type(delay_seconds) not in {int, float}
+                or not math.isfinite(delay_seconds)
+                or not 0 <= delay_seconds <= 5
+            ):
+                raise ValueError("BaseHTTPMiddleware async background delay is invalid")
         elif route_kind == "request-body-response":
             _exact_object(endpoint_spec, {"kind"}, "BaseHTTPMiddleware request-body endpoint")
             if "POST" not in route_spec["methods"]:
@@ -9197,26 +9225,39 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "client",
         "server",
     }
-    if isinstance(scope_value, dict) and "extensions" in scope_value:
-        scope_keys.add("extensions")
-    scope_spec = _exact_object(scope_value, scope_keys, "BaseHTTPMiddleware HTTP scope")
-    _exact_object(
-        scope_spec["asgi"], {"version", "spec_version"}, "BaseHTTPMiddleware ASGI version"
-    )
+    source_sparse_scope = background_task_spec is not None
+    if source_sparse_scope:
+        scope_spec = _exact_object(
+            scope_value,
+            {"type", "version", "method", "path"},
+            "BaseHTTPMiddleware source-direct HTTP scope",
+        )
+        if scope_spec != {"type": "http", "version": "3", "method": "GET", "path": "/"}:
+            raise ValueError("background task case must preserve the pinned source's direct scope")
+    else:
+        if isinstance(scope_value, dict) and "extensions" in scope_value:
+            scope_keys.add("extensions")
+        scope_spec = _exact_object(scope_value, scope_keys, "BaseHTTPMiddleware HTTP scope")
+        _exact_object(
+            scope_spec["asgi"], {"version", "spec_version"}, "BaseHTTPMiddleware ASGI version"
+        )
     path = scope_spec["path"]
     if (
         scope_spec["type"] != "http"
-        or scope_spec["asgi"] != {"version": "3.0", "spec_version": "2.4"}
+        or (
+            not source_sparse_scope
+            and scope_spec["asgi"] != {"version": "3.0", "spec_version": "2.4"}
+        )
         or not isinstance(scope_spec["method"], str)
         or scope_spec["method"] not in {"GET", "POST"}
-        or scope_spec["scheme"] != "http"
-        or not isinstance(scope_spec["http_version"], str)
         or not isinstance(path, str)
+        or (not source_sparse_scope and scope_spec["scheme"] != "http")
+        or (not source_sparse_scope and not isinstance(scope_spec["http_version"], str))
         or (route_spec is not None and path != route_spec["path"])
         or (route_spec is None and downstream_spec is None and path == "/")
         or (route_spec is not None and scope_spec["method"] not in route_spec["methods"])
         or (returned == "call-next" and route_spec is None and downstream_spec is None)
-        or not isinstance(scope_spec["root_path"], str)
+        or (not source_sparse_scope and not isinstance(scope_spec["root_path"], str))
     ):
         raise ValueError("BaseHTTPMiddleware request scope does not select its declared route case")
     extensions = scope_spec.get("extensions", {})
@@ -9241,31 +9282,36 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             "FileResponse pathsend requires a GET route returned directly through call_next"
         )
-    if _decode_base64(scope_spec["raw_path_base64"], "BaseHTTPMiddleware raw path") != path.encode(
-        "ascii"
-    ) or _decode_base64(scope_spec["query_string_base64"], "BaseHTTPMiddleware query string"):
-        raise ValueError("BaseHTTPMiddleware scope raw path or query input is invalid")
-    headers = scope_spec["headers_base64_pairs"]
-    if not isinstance(headers, list):
-        raise ValueError("BaseHTTPMiddleware scope headers must be an array")
-    for index, pair in enumerate(headers):
-        if not isinstance(pair, list) or len(pair) != 2:
-            raise ValueError(f"BaseHTTPMiddleware scope header[{index}] is invalid")
-        for value in pair:
-            if not isinstance(value, str):
-                raise ValueError(f"BaseHTTPMiddleware scope header[{index}] is invalid")
-            _decode_base64(value, f"BaseHTTPMiddleware scope header[{index}]")
-    for name in ("client", "server"):
-        address = scope_spec[name]
-        if (
-            not isinstance(address, list)
-            or len(address) != 2
-            or not isinstance(address[0], str)
-            or type(address[1]) is not int
+    if not source_sparse_scope:
+        if _decode_base64(
+            scope_spec["raw_path_base64"], "BaseHTTPMiddleware raw path"
+        ) != path.encode("ascii") or _decode_base64(
+            scope_spec["query_string_base64"], "BaseHTTPMiddleware query string"
         ):
-            raise ValueError(f"BaseHTTPMiddleware scope.{name} must be a host/port pair")
+            raise ValueError("BaseHTTPMiddleware scope raw path or query input is invalid")
+        headers = scope_spec["headers_base64_pairs"]
+        if not isinstance(headers, list):
+            raise ValueError("BaseHTTPMiddleware scope headers must be an array")
+        for index, pair in enumerate(headers):
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ValueError(f"BaseHTTPMiddleware scope header[{index}] is invalid")
+            for value in pair:
+                if not isinstance(value, str):
+                    raise ValueError(f"BaseHTTPMiddleware scope header[{index}] is invalid")
+                _decode_base64(value, f"BaseHTTPMiddleware scope header[{index}]")
+        for name in ("client", "server"):
+            address = scope_spec[name]
+            if (
+                not isinstance(address, list)
+                or len(address) != 2
+                or not isinstance(address[0], str)
+                or type(address[1]) is not int
+            ):
+                raise ValueError(f"BaseHTTPMiddleware scope.{name} must be a host/port pair")
     receive_specs = request["receive"]
-    if not isinstance(receive_specs, list) or (not receive_specs and not file_response_pathsend):
+    if not isinstance(receive_specs, list) or (
+        not receive_specs and not (file_response_pathsend or source_sparse_scope)
+    ):
         raise ValueError("BaseHTTPMiddleware request requires HTTP body events")
     request_event_specs = []
     disconnect_event_indices = []
@@ -9314,7 +9360,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             "BaseHTTPMiddleware exhausted receive behavior",
         )
         allowed_receive_exceptions = (
-            {"NotImplementedError"} if file_response_pathsend else {"AssertionError"}
+            {"NotImplementedError"}
+            if file_response_pathsend or source_sparse_scope
+            else {"AssertionError"}
         )
         if (
             receive_after_events["kind"] != "raise"
@@ -9708,11 +9756,35 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.pathsend-event-forwarding"
         )
+    if source_sparse_scope:
+        if (
+            route_spec["methods"] != ["GET"]
+            or endpoint_spec["content"] != ""
+            or endpoint_spec["status_code"] != 200
+            or dispatch_actions
+            != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
+            or downstream_spec is not None
+            or receive_specs
+            or request["receive_after_events"]
+            != {
+                "kind": "raise",
+                "class": "NotImplementedError",
+                "message": "Should not be called!",
+            }
+            or send_checkpoints
+        ):
+            raise ValueError(
+                "background task case must preserve the pinned source response and unused receive callback"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.background-task-completes-after-response-send"
+        )
     if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
         raise ValueError("BaseHTTPMiddleware covers differ from its input actions")
 
     import anyio
     from starlette.applications import Starlette
+    from starlette.background import BackgroundTask
     from starlette.middleware import Middleware
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.requests import Request
@@ -9733,6 +9805,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     downstream_stream_cancellation_results: list[dict[str, Any]] = []
     downstream_stream_guard_fired = False
     file_response_temporary_directory = None
+    response_complete = asyncio.Event()
+    background_task_run = asyncio.Event()
+    background_task_events: list[dict[str, Any]] = []
 
     class InputDefinedBaseHTTPMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Any, call_next: Any) -> Any:
@@ -9925,6 +10000,27 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
 
             async def endpoint(_request: Any) -> Any:
                 return FileResponse(file_response_path)
+        elif background_task_spec is not None:
+            response_content = endpoint_spec["content"]
+            response_status_code = endpoint_spec["status_code"]
+            background_delay = background_task_spec["delay_seconds"]
+
+            async def sleep_and_set() -> None:
+                started = {"event": "background-task-start"}
+                background_task_events.append(started)
+                execution_trace.append(started)
+                await anyio.sleep(background_delay)
+                background_task_run.set()
+                completed = {"event": "background-task-complete"}
+                background_task_events.append(completed)
+                execution_trace.append(completed)
+
+            async def endpoint(_request: Any) -> Any:
+                return PlainTextResponse(
+                    response_content,
+                    status_code=response_status_code,
+                    background=BackgroundTask(sleep_and_set),
+                )
         else:
 
             def endpoint(_request: Any) -> Any:
@@ -10181,11 +10277,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     sent: list[dict[str, Any]] = []
     request_receive_events: list[dict[str, Any]] = []
     receive_index = 0
+    receive_call_count = 0
     send_index = 0
     send_checkpoint_indices = set(send_checkpoints)
 
     async def receive() -> dict[str, Any]:
-        nonlocal receive_index
+        nonlocal receive_index, receive_call_count
+        receive_call_count += 1
         if receive_index < len(incoming):
             message = incoming[receive_index]
             receive_index += 1
@@ -10205,6 +10303,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         execution_trace.append(
             {"event": "outer-send", "index": send_index, "message": _canonical_message(message)}
         )
+        if message["type"] == "http.response.body" and not message.get("more_body", False):
+            response_complete.set()
+            if source_sparse_scope:
+                execution_trace.append({"event": "response-complete"})
         if send_index in send_checkpoint_indices:
             await asyncio.sleep(0)
         send_index += 1
@@ -10220,6 +10322,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     if downstream_stream_guard_fired:
         raise TimeoutError(
             "input-defined BaseHTTPMiddleware streaming guard expired before http.disconnect"
+        )
+    if source_sparse_scope:
+        execution_trace.append(
+            {
+                "event": "background-task-run-observed",
+                "is_set": background_task_run.is_set(),
+            }
         )
     events = [_canonical_message(message) for message in sent]
     start = next((event for event in events if event["type"] == "http.response.start"), None)
@@ -10252,6 +10361,15 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "execution_trace": execution_trace,
         "propagated_exception": propagated_exception,
     }
+    if source_sparse_scope:
+        value.update(
+            {
+                "request_receive_call_count": receive_call_count,
+                "response_complete": response_complete.is_set(),
+                "background_task_run": background_task_run.is_set(),
+                "background_task_events": background_task_events,
+            }
+        )
     return {
         "case_id": case["case_id"],
         "status": "completed",

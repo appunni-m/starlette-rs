@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@30",
+      "input_schema": "migration-parity/parity-input@31",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -7792,6 +7792,54 @@
                   "comparison": {
                     "kind": "ordered"
                   }
+                },
+                {
+                  "path": "request_receive_call_count",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "application.routes.0.endpoint.background_task"
+                  }
+                },
+                {
+                  "path": "response_complete",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "application.routes.0.endpoint.background_task"
+                  }
+                },
+                {
+                  "path": "background_task_run",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "application.routes.0.endpoint.background_task"
+                  }
+                },
+                {
+                  "path": "background_task_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "application.routes.0.endpoint.background_task"
+                  }
                 }
               ],
               "error": {
@@ -8038,6 +8086,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.pathsend-event-forwarding",
               "dimension": "boundary",
               "description": "Forward a FileResponse http.response.pathsend event through the configured BaseHTTPMiddleware stack when the extension is present. Compare status, exact response headers, event ordering, and the input basename while normalizing only the harness temporary root. Upstream: tests/middleware/test_base.py:1219-1259; starlette/middleware/base.py:112-197; starlette/responses.py:344-392.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.background-task-completes-after-response-send",
+              "dimension": "boundary",
+              "description": "Invoke a configured BaseHTTPMiddleware app with the pinned direct ASGI scope and a receive callback that raises if called; capture the terminal response body send and confirm the delayed async response background task finishes before the app returns. Compare response status/headers/body, ordered ASGI events, receive callback calls, completion events, and propagated exceptions. Upstream: tests/middleware/test_base.py:269-312; starlette/middleware/base.py:112-197; starlette/responses.py:34-44,82-90; starlette/background.py:13-25.",
               "lanes": [
                 "parity"
               ],

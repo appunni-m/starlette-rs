@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 773 input-only cases across 84 files,
-covering 94 operations and 796 parity requirements. Its latest additions map
+The active parity manifest indexes 774 input-only cases across 84 files,
+covering 94 operations and 797 parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Four new TestClient cases
 cover TrustedHost exact and wildcard acceptance, invalid-host rejection, and
@@ -96,37 +96,40 @@ a valid symlinked root using TestClient, as well as middleware-configured Mount 
 handled HTTP exception responses observed through mounted middleware, ordered
 StaticFiles Last-Modified requests, and TestClient startup-error propagation. The exact
 operation and profile denominator is in the parity manifest; generated JSON
-and run results remain ignored local build outputs.
+and run results remain ignored local build outputs. A BaseHTTPMiddleware
+workflow also maps `test_run_background_tasks_even_if_client_disconnects` and
+compares response-send and async background-task completion.
 
-The latest full-slice correctness preflight is
-`79342a30-ffc9-408a-86b4-b080ff5faba6`. It ran from
-`2026-10-03T03:53:12.922Z` to `2026-10-03T03:56:12.840Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 773-case,
-796-requirement `parity-input@30` manifest. It selected 988 profile
-comparisons: 984 passed, zero failed, zero infrastructure errors, and four
+The latest full-slice correctness run is
+`26b4b08a-a37a-4c65-ae0d-1cbb78fa3a1a`. It ran from
+`2026-10-03T04:31:30.503Z` to `2026-10-03T04:34:49.723Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 774-case,
+797-requirement `parity-input@31` manifest. It selected 989 profile
+comparisons: 985 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 771 selected comparisons; Rust-native passed 213 of 217. The new
-StaticFiles symlink-root TestClient input matches the pinned source, including
-the response URL, status, body, and ASGI events. The four native `not_run`
-rows remain synchronous Request endpoint, bound-method endpoint, partial
-endpoint, and callable-instance ASGI dispatch. `make parity-run` exits 2
-because of those declared rows; the run completed with no parity failures or
-infrastructure errors.
+passed 772/772; Rust-native passed 213/217. The new BaseHTTPMiddleware
+background-task case passes: the final response body send precedes task
+completion, the task finishes before the app returns, and the receive callback
+is never called. The four native `not_run` rows remain synchronous Request
+endpoint, bound-method endpoint, partial endpoint, and callable-instance ASGI
+dispatch. `make parity-run` exits 2 because of those declared rows; the run
+completed with no parity failures or infrastructure errors.
 
-The Rust-native target used commit `27851ddad96379a363aa19d39c743a27ef19c82b`
+The Rust-native target used commit `31a0c9433627c94cef37d70f195825b187d4ff7e`
 with source fingerprint
-`27851ddad96379a363aa19d39c743a27ef19c82b+source-fnv1a64-f63b3847c266153e`.
+`31a0c9433627c94cef37d70f195825b187d4ff7e+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
-`09220a2a13300e19883081c550827da11691427570f989214ac79f5a6970b4bd`; its
+`915cdbbbff3c69a033195328b8dcb4e5e7a845f544765f071e5dc4c4fd8a9ae3`; its
 wheel SHA-256 is
-`43b58d2a80d809debe0be8c9e4287ff2f33e220359752dbefd7b4dfcba75f21c`. The
+`4b541292361f87e2fa772164362f5a29c806a20907449fb7c0f0ddb48d1ca5a1`. The
 manifest SHA-256 is
-`9f7b48ebc16e4bfee0290aa2ce08c48a3c9df3178c2202ef495cb7da7078c347`; the
+`45a55c267a9ff1fcaa68b65b96a7c2e1030a1307d6fd72fb2276e1a300dd2756`; the
 parity result artifact SHA-256 is
-`ea9c8249921ffdb885375c36af19740d021a1ade05977306a575f67cb87ded92`. Strict
-aggregation remains `not_proven` because the full compatibility denominator
-is incomplete and four Rust-native rows are `not_run`.
-
+`ce4c89772667731e60152ded1375ccfd0616ab8a47812be297da1a78223baabd`. The
+Python-package target was built from a dirty checkout; its canonical installed
+package-tree digest is recorded above. Strict aggregation remains `not_proven`
+because the full compatibility denominator is incomplete and four
+Rust-native rows are `not_run`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -157,8 +160,8 @@ artifact SHA-256:
 `de08af7fc064469b25efc09617286df5f86d2ac6c34aa1ff6d40e1dc42d095f8`. This
 bounded evidence does not establish full Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 506 input mappings, 51
-reasoned `not_applicable` rows, and 245 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 507 input mappings, 51
+reasoned `not_applicable` rows, and 244 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -183,7 +186,7 @@ matches escaped HTML, processor merge, `url_for`, response metadata, and the
 ASGI debug event. The 30 existing FileResponse behavior cases passed on both
 profiles where selected; the added scheduling case passed on the Python
 package profile. All eight SessionMiddleware cases passed on the Python package profile, and all
-twenty-one BaseHTTPMiddleware workflow cases passed there. Two additional
+twenty-two BaseHTTPMiddleware workflow cases passed there. Two additional
 ContextVar cases compare `call_next` context propagation with a pure-ASGI
 control. The workflow cases cover header
 mutation, replacement responses, body-cache replay, response-completion receive
@@ -195,8 +198,8 @@ followed by a downstream body read, dispatch body buffering followed by a
 downstream stream read, dispatch stream reads after downstream stream/body
 consumption, cached-stream replay after the downstream body read, a downstream body read
 after dispatch caches the request body, and a downstream stream read after
-dispatch exhausts `request.stream()`, plus request-disconnect checks with and
-without a cached body. The
+dispatch exhausts `request.stream()`, request-disconnect checks with and
+without a cached body, and async response-background-task completion. The
 `test_downstream_middleware_modifies_receive`
 wrapper case maps to `tests/middleware/test_base.py:979-1017`: dispatch
 observes `b"foo "`, the downstream wrapper doubles the body, and the endpoint
@@ -481,7 +484,7 @@ fourteen Response background-task workflows, six
 header-view and raw-pair probes, and a Router sequence that verifies live
 route-method and route-list mutations across
 dispatches, twenty URL scope-construction cases,
-twenty-one BaseHTTPMiddleware workflow cases, two BaseHTTPMiddleware ContextVar
+twenty-two BaseHTTPMiddleware workflow cases, two BaseHTTPMiddleware ContextVar
 cases, one Jinja2 template case, 31 FileResponse cases, 49 authored
 StaticFiles cases, four authentication cases,
 three configuration cases, four schema cases, and

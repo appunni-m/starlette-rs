@@ -801,9 +801,17 @@ def compare_workflows(
     def input_path_present(input_path: str) -> bool:
         value: Any = case
         for component in input_path.split("."):
-            if not isinstance(value, dict) or component not in value:
+            if isinstance(value, dict):
+                if component not in value:
+                    return False
+                value = value[component]
+            elif isinstance(value, list) and component.isdecimal():
+                index = int(component)
+                if index >= len(value):
+                    return False
+                value = value[index]
+            else:
                 return False
-            value = value[component]
         return True
 
     for step_id in selected:

@@ -23,7 +23,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@30"
+INPUT_SCHEMA = "migration-parity/parity-input@31"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -295,6 +295,7 @@ BASE_HTTP_REQUIREMENTS = {
     "repeated_disconnect_polling": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.repeated-disconnect-polling",
     "request_disconnect_observation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.request-disconnect-observation",
     "pathsend_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.pathsend-event-forwarding",
+    "background_task_completion": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.background-task-completes-after-response-send",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -1848,6 +1849,17 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
                         and observation["path"] == "requests"
                     )
+                    base_http_background_task_completion = (
+                        condition["input_key"] == "application.routes.0.endpoint.background_task"
+                        and key == BASE_HTTP_WORKFLOW_OPERATION_KEY
+                        and observation["path"]
+                        in {
+                            "request_receive_call_count",
+                            "response_complete",
+                            "background_task_run",
+                            "background_task_events",
+                        }
+                    )
                     if (
                         not response_header_probe
                         and not file_response_scheduling_probe
@@ -1861,6 +1873,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_application_mount
                         and not static_files_single_call
                         and not static_files_call_sequence
+                        and not base_http_background_task_completion
                     ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
@@ -8279,6 +8292,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError("BaseHTTPMiddleware workflow supports zero or one input route")
     route_kind: str | None = None
     route_methods: list[str] = []
+    background_task_spec: dict[str, Any] | None = None
     if routes:
         route = _exact(
             routes[0],
@@ -8311,6 +8325,31 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 or not 100 <= endpoint["status_code"] <= 599
             ):
                 raise ContractError("BaseHTTPMiddleware plain-text route input is invalid")
+        elif route_kind == "plain-text-response-with-async-background-task":
+            endpoint = _exact(
+                endpoint_value,
+                {"kind", "content", "status_code", "background_task"},
+                "BaseHTTPMiddleware async background-task route endpoint",
+            )
+            if (
+                not isinstance(endpoint["content"], str)
+                or type(endpoint["status_code"]) is not int
+                or not 100 <= endpoint["status_code"] <= 599
+            ):
+                raise ContractError("BaseHTTPMiddleware background-task route input is invalid")
+            background_task_spec = _exact(
+                endpoint["background_task"],
+                {"kind", "delay_seconds"},
+                "BaseHTTPMiddleware background task input",
+            )
+            delay_seconds = background_task_spec["delay_seconds"]
+            if (
+                background_task_spec["kind"] != "async-delay"
+                or type(delay_seconds) not in {int, float}
+                or not math.isfinite(delay_seconds)
+                or not 0 <= delay_seconds <= 5
+            ):
+                raise ContractError("BaseHTTPMiddleware async background delay is invalid")
         elif route_kind == "request-body-response":
             _exact(endpoint_value, {"kind"}, "BaseHTTPMiddleware request-body endpoint")
             if "POST" not in route_methods:
@@ -8815,19 +8854,32 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         "client",
         "server",
     }
-    if isinstance(scope_value, dict) and "extensions" in scope_value:
-        scope_keys.add("extensions")
-    scope = _exact(scope_value, scope_keys, "BaseHTTPMiddleware HTTP scope")
-    asgi = _exact(scope["asgi"], {"version", "spec_version"}, "BaseHTTPMiddleware ASGI version")
+    source_sparse_scope = background_task_spec is not None
+    if source_sparse_scope:
+        scope = _exact(
+            scope_value,
+            {"type", "version", "method", "path"},
+            "BaseHTTPMiddleware source-direct HTTP scope",
+        )
+        if scope != {"type": "http", "version": "3", "method": "GET", "path": "/"}:
+            raise ContractError(
+                "background task case must preserve the pinned source's direct scope"
+            )
+        asgi = None
+    else:
+        if isinstance(scope_value, dict) and "extensions" in scope_value:
+            scope_keys.add("extensions")
+        scope = _exact(scope_value, scope_keys, "BaseHTTPMiddleware HTTP scope")
+        asgi = _exact(scope["asgi"], {"version", "spec_version"}, "BaseHTTPMiddleware ASGI version")
     path = _string(scope["path"], "BaseHTTPMiddleware scope.path")
     if (
         scope["type"] != "http"
-        or asgi != {"version": "3.0", "spec_version": "2.4"}
+        or (not source_sparse_scope and asgi != {"version": "3.0", "spec_version": "2.4"})
         or not isinstance(scope["method"], str)
         or scope["method"] not in {"GET", "POST"}
-        or scope["scheme"] != "http"
-        or not isinstance(scope["http_version"], str)
-        or not isinstance(scope["root_path"], str)
+        or (not source_sparse_scope and scope["scheme"] != "http")
+        or (not source_sparse_scope and not isinstance(scope["http_version"], str))
+        or (not source_sparse_scope and not isinstance(scope["root_path"], str))
         or (bool(routes) and path != routes[0]["path"])
         or (not routes and downstream is None and path == "/")
         or (bool(routes) and scope["method"] not in route_methods)
@@ -8857,39 +8909,44 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "FileResponse pathsend requires a GET route returned directly through call_next"
         )
-    try:
-        raw_path = base64.b64decode(scope["raw_path_base64"], validate=True)
-        query_string = base64.b64decode(scope["query_string_base64"], validate=True)
-    except (ValueError, TypeError) as exc:
-        raise ContractError("BaseHTTPMiddleware scope path/query must be base64") from exc
-    if raw_path != path.encode("ascii") or query_string:
-        raise ContractError("BaseHTTPMiddleware scope raw path or query input is invalid")
-    if not isinstance(scope["headers_base64_pairs"], list):
-        raise ContractError("BaseHTTPMiddleware scope headers must be a base64 pair array")
-    for index, pair in enumerate(scope["headers_base64_pairs"]):
-        if (
-            not isinstance(pair, list)
-            or len(pair) != 2
-            or any(not isinstance(value, str) for value in pair)
-        ):
-            raise ContractError(f"BaseHTTPMiddleware scope header[{index}] is invalid")
+    if not source_sparse_scope:
         try:
-            for value in pair:
-                base64.b64decode(value, validate=True)
+            raw_path = base64.b64decode(scope["raw_path_base64"], validate=True)
+            query_string = base64.b64decode(scope["query_string_base64"], validate=True)
         except (ValueError, TypeError) as exc:
-            raise ContractError(f"BaseHTTPMiddleware scope header[{index}] is not base64") from exc
-    for name in ("client", "server"):
-        address = scope[name]
-        if (
-            not isinstance(address, list)
-            or len(address) != 2
-            or not isinstance(address[0], str)
-            or type(address[1]) is not int
-        ):
-            raise ContractError(f"BaseHTTPMiddleware scope.{name} must be a host/port pair")
+            raise ContractError("BaseHTTPMiddleware scope path/query must be base64") from exc
+        if raw_path != path.encode("ascii") or query_string:
+            raise ContractError("BaseHTTPMiddleware scope raw path or query input is invalid")
+        if not isinstance(scope["headers_base64_pairs"], list):
+            raise ContractError("BaseHTTPMiddleware scope headers must be a base64 pair array")
+        for index, pair in enumerate(scope["headers_base64_pairs"]):
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or any(not isinstance(value, str) for value in pair)
+            ):
+                raise ContractError(f"BaseHTTPMiddleware scope header[{index}] is invalid")
+            try:
+                for value in pair:
+                    base64.b64decode(value, validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError(
+                    f"BaseHTTPMiddleware scope header[{index}] is not base64"
+                ) from exc
+        for name in ("client", "server"):
+            address = scope[name]
+            if (
+                not isinstance(address, list)
+                or len(address) != 2
+                or not isinstance(address[0], str)
+                or type(address[1]) is not int
+            ):
+                raise ContractError(f"BaseHTTPMiddleware scope.{name} must be a host/port pair")
 
     receive = request["receive"]
-    if not isinstance(receive, list) or (not receive and not file_response_pathsend):
+    if not isinstance(receive, list) or (
+        not receive and not (file_response_pathsend or source_sparse_scope)
+    ):
         raise ContractError("BaseHTTPMiddleware request requires HTTP body event inputs")
     request_events: list[dict[str, Any]] = []
     disconnect_events: list[int] = []
@@ -8941,7 +8998,9 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             "BaseHTTPMiddleware exhausted receive behavior",
         )
         allowed_receive_exceptions = (
-            {"NotImplementedError"} if file_response_pathsend else {"AssertionError"}
+            {"NotImplementedError"}
+            if file_response_pathsend or source_sparse_scope
+            else {"AssertionError"}
         )
         if (
             receive_after_events["kind"] != "raise"
@@ -9290,6 +9349,26 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 "BaseHTTPMiddleware FileResponse input requires pathsend and an unused receive callback"
             )
         requirements.add(BASE_HTTP_REQUIREMENTS["pathsend_forwarding"])
+    if source_sparse_scope:
+        if (
+            route_methods != ["GET"]
+            or endpoint["content"] != ""
+            or endpoint["status_code"] != 200
+            or actions != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
+            or downstream is not None
+            or receive
+            or request["receive_after_events"]
+            != {
+                "kind": "raise",
+                "class": "NotImplementedError",
+                "message": "Should not be called!",
+            }
+            or send_checkpoints
+        ):
+            raise ContractError(
+                "background task case must preserve the pinned source response and unused receive callback"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["background_task_completion"])
     if set(case["covers"]) != requirements:
         raise ContractError(
             "BaseHTTPMiddleware covers must match the input middleware, request, and dispatch actions: "
