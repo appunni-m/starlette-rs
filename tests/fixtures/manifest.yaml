@@ -9610,7 +9610,7 @@
             {
               "id": "starlette.middleware.gzip.GZipMiddleware.partial-response-stream-bypass",
               "dimension": "boundary",
-              "description": "When gzip is negotiated, preserve every chunk of a streamed 206 partial response without compression and compare exact ordered ASGI events and body bytes.",
+              "description": "When gzip is negotiated, preserve a 206 partial response without compression and compare the exact ordered ASGI events and body bytes.",
               "lanes": [
                 "parity"
               ],
@@ -9663,6 +9663,42 @@
                 "parity"
               ],
               "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.identity-streaming-response",
+              "dimension": "mode",
+              "description": "Preserve a streaming response event sequence for an identity-only client while adding the public GZipMiddleware Vary behavior.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.cleared-exclude-content-types",
+              "dimension": "parameter_combination",
+              "description": "Compress an otherwise default-excluded media type when the caller explicitly supplies an empty exclusion list.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.identity-excluded-content-type",
+              "dimension": "parameter_combination",
+              "description": "Preserve a large explicitly excluded response unchanged for an identity-only client without adding gzip or Vary headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             }

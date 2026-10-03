@@ -1189,6 +1189,9 @@ GZIP_REQUIREMENT_CONSTRUCTION = "starlette.middleware.gzip.GZipMiddleware.constr
 GZIP_REQUIREMENTS = {
     "gzip-final-response": "starlette.middleware.gzip.GZipMiddleware.gzip-final-response",
     "identity-client": "starlette.middleware.gzip.GZipMiddleware.identity-client",
+    "identity-streaming-response": "starlette.middleware.gzip.GZipMiddleware.identity-streaming-response",
+    "identity-excluded-content-type": "starlette.middleware.gzip.GZipMiddleware.identity-excluded-content-type",
+    "cleared-exclude-content-types": "starlette.middleware.gzip.GZipMiddleware.cleared-exclude-content-types",
     "small-body-bypass": "starlette.middleware.gzip.GZipMiddleware.small-body-bypass",
     "excluded-content-type": "starlette.middleware.gzip.GZipMiddleware.excluded-content-type",
     "default-excluded-content-type": "starlette.middleware.gzip.GZipMiddleware.default-excluded-content-type",
@@ -22286,6 +22289,13 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
         )
     }
     media_family = media_type.partition("/")[0] + "/*"
+    default_excluded_media_types = {
+        content_type.partition(";")[0].strip().lower()
+        for content_type in GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES
+    }
+    default_excluded_media_type = media_type in default_excluded_media_types or (
+        media_family in default_excluded_media_types
+    )
     excluded = media_type in excluded_types or media_family in excluded_types
     default_excluded = constructor_uses_default_exclusions and excluded
     configured_excluded = not constructor_uses_default_exclusions and excluded
@@ -22337,6 +22347,27 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and compressible
     ):
         coverage.add(GZIP_REQUIREMENTS["identity-client"])
+    if accept_encoding.strip().lower() == b"identity" and complete_stream and compressible:
+        coverage.add(GZIP_REQUIREMENTS["identity-streaming-response"])
+    if (
+        accept_encoding.strip().lower() == b"identity"
+        and bool(body_messages)
+        and sum(body_lengths) >= minimum_size
+        and configured_excluded
+        and not content_encoded
+        and not partial_response
+    ):
+        coverage.add(GZIP_REQUIREMENTS["identity-excluded-content-type"])
+    if (
+        gzip_accepted
+        and constructor_args.get("exclude_content_types") == []
+        and default_excluded_media_type
+        and bool(body_messages)
+        and sum(body_lengths) >= minimum_size
+        and not content_encoded
+        and not partial_response
+    ):
+        coverage.add(GZIP_REQUIREMENTS["cleared-exclude-content-types"])
     if (
         gzip_accepted
         and len(body_messages) == 1
@@ -22395,13 +22426,7 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and not excluded
     ):
         coverage.add(GZIP_REQUIREMENTS["existing-encoding-stream-bypass"])
-    if (
-        gzip_accepted
-        and complete_stream
-        and partial_response
-        and not content_encoded
-        and not excluded
-    ):
+    if gzip_accepted and partial_response and not content_encoded and not excluded:
         coverage.add(GZIP_REQUIREMENTS["partial-response-stream-bypass"])
     if (
         gzip_accepted
