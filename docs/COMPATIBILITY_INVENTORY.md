@@ -91,9 +91,9 @@ StaticFiles Last-Modified requests, and TestClient startup-error propagation. Th
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice correctness run is
-`491c747e-66eb-42a5-9794-5db07405cdb6`. It ran from
-`2026-10-03T01:03:22.505Z` to `2026-10-03T01:06:26.201Z` against Starlette
+The latest full-slice correctness preflight is
+`b0b0f52e-5c0f-488d-8d42-a51b174e6b9e`. It ran from
+`2026-10-03T01:17:20.267Z` to `2026-10-03T01:20:29.209Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 757-case,
 787-requirement `parity-input@29` manifest. It selected 972 profile
 comparisons: 968 passed, zero failed, zero infrastructure errors, and four
@@ -107,17 +107,17 @@ bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 `make parity-run` exits 2 because of those declared rows; the run completed
 with no parity failures or infrastructure errors.
 
-The Rust-native target used commit `c89197468f10fbdfaddea31c3cdeb66bd333b7c7`
+The Rust-native target used commit `0b4b56b8faffbd4a37dcd11ccabafc87610bf24f`
 with source fingerprint
-`c89197468f10fbdfaddea31c3cdeb66bd333b7c7+source-fnv1a64-f63b3847c266153e`.
+`0b4b56b8faffbd4a37dcd11ccabafc87610bf24f+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
 `09220a2a13300e19883081c550827da11691427570f989214ac79f5a6970b4bd`; its
 wheel SHA-256 is
-`4153555b20daf815a4b1cbd9fa42822cc792ffa0b01bc638764668db9955ed26`. The
+`3b3b8f25e48facf5c50968bf968ec329e75306a1b5e35af6a62318e70f660c55`. The
 manifest SHA-256 is
 `26880cbbcb7af7c49cbe3849127543e9b6b270e210e1dd939debce4b1345bc98`; the
 parity result artifact SHA-256 is
-`18447365ac54eaf8be0f6b6a0e173ae49de272e54c74417ac249783e54c217a8`. Strict
+`775abd89e7bcb9d878666fe3c49353f4858461c4fefabdf38bb810f5369074f2`. Strict
 aggregation remains `not_proven` because the full compatibility denominator
 is incomplete and four Rust-native rows are `not_run`.
 
