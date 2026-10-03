@@ -1599,6 +1599,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.mounted-app-exception-propagation",
+              "dimension": "error_path",
+              "description": "Propagate an ordinary exception raised by a Route in a Starlette sub-application mounted at /sub through the outer Starlette application. Compare the exception class and message after the live ASGI dispatch. Upstream: tests/test_routing.py::test_exception_on_mounted_apps.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

@@ -981,6 +981,9 @@ STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS = {
     "mount_exception": (
         "starlette.applications.Starlette.__call__.mount-middleware-http-exception-response"
     ),
+    "mounted_app_exception_propagation": (
+        "starlette.applications.Starlette.__call__.mounted-app-exception-propagation"
+    ),
 }
 STARLETTE_ADD_ROUTE_OPERATION_KEY = ("starlette.applications.Starlette", "add_route")
 STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS = {
@@ -13759,7 +13762,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and not (is_starlette_add_route_workflow and len(case["steps"]) == 4)
         and not is_starlette_add_middleware_workflow
         and not is_starlette_add_exception_handler_workflow
-        and not (is_route_middleware_workflow and len(case["steps"]) == 5)
+        and not (is_route_middleware_workflow and len(case["steps"]) in {2, 3, 5})
         and not (is_middleware_construction and len(case["steps"]) == 1)
     ):
         raise ContractError("case must contain construction and dispatch steps")
@@ -15829,10 +15832,11 @@ def _is_route_middleware_workflow(case: Any) -> bool:
     if not isinstance(arguments, dict):
         return False
     routes = arguments.get("routes")
-    return (
-        isinstance(routes, dict)
-        and routes.get("kind") == "literal"
-        and _routes_have_local_middleware(routes.get("value"))
+    if not isinstance(routes, dict) or routes.get("kind") != "literal":
+        return False
+    route_values = routes.get("value")
+    return _routes_have_local_middleware(route_values) or (
+        _route_middleware_topology(route_values) == "mounted_app_exception_propagation"
     )
 
 
@@ -15878,8 +15882,19 @@ def _validate_route_middleware_spec(spec: Any, context: str) -> dict[str, Any]:
 
 
 def _validate_route_middleware_node(node: Any, context: str) -> dict[str, Any]:
-    if not isinstance(node, dict) or node.get("kind") not in {"http-route", "mount"}:
-        raise ContractError(f"{context} must be an HTTP route or Mount input")
+    if not isinstance(node, dict) or node.get("kind") not in {
+        "http-route",
+        "mount",
+        "starlette-app",
+    }:
+        raise ContractError(f"{context} must be an HTTP route, Mount, or Starlette app input")
+    if node["kind"] == "starlette-app":
+        node = _exact(node, {"kind", "routes"}, context)
+        if not isinstance(node["routes"], list) or not node["routes"]:
+            raise ContractError(f"{context}.routes must be a non-empty array")
+        for index, child in enumerate(node["routes"]):
+            _validate_route_middleware_node(child, f"{context}.routes[{index}]")
+        return node
     if node["kind"] == "http-route":
         allowed = {"kind", "path", "methods", "endpoint", "middleware", "name"}
         if node.keys() - allowed or not {"kind", "path", "methods", "endpoint"} <= node.keys():
@@ -15923,6 +15938,17 @@ def _validate_route_middleware_node(node: Any, context: str) -> dict[str, Any]:
                 raise ContractError(f"{context}.endpoint.status_code must be 403")
             if endpoint["detail"] != "auth":
                 raise ContractError(f"{context}.endpoint.detail must match the source input")
+        elif endpoint["kind"] == "raise-runtime-error":
+            endpoint = _exact(
+                endpoint,
+                {"kind", "exception_type", "message"},
+                f"{context}.endpoint",
+            )
+            if endpoint["exception_type"] != "Exception":
+                raise ContractError(
+                    f"{context}.endpoint.exception_type must match the source input"
+                )
+            _string(endpoint["message"], f"{context}.endpoint.message")
         else:
             raise ContractError(f"{context}.endpoint.kind is unsupported")
         if "middleware" in node:
@@ -15962,6 +15988,29 @@ def _validate_route_middleware_node(node: Any, context: str) -> dict[str, Any]:
 def _route_middleware_topology(routes: list[dict[str, Any]]) -> str | None:
     if not isinstance(routes, list) or any(not isinstance(route, dict) for route in routes):
         return None
+    if len(routes) == 1:
+        mount = routes[0]
+        app = mount.get("app")
+        if (
+            mount.get("kind") == "mount"
+            and mount.get("path") == "/sub"
+            and isinstance(app, dict)
+            and app.get("kind") == "starlette-app"
+            and app.get("routes")
+            == [
+                {
+                    "kind": "http-route",
+                    "path": "/",
+                    "methods": None,
+                    "endpoint": {
+                        "kind": "raise-runtime-error",
+                        "exception_type": "Exception",
+                        "message": "Exc",
+                    },
+                }
+            ]
+        ):
+            return "mounted_app_exception_propagation"
     if (
         len(routes) == 3
         and routes[0].get("kind") == "mount"
@@ -16021,10 +16070,22 @@ def _validate_route_middleware_workflow(case: dict[str, Any]) -> None:
     }
     routes = app_args["routes"]
     topology = _route_middleware_topology(routes)
-    expected_step_count = 5 if topology == "mount_exception" else 3
+    expected_step_count = {
+        "mount_exception": 5,
+        "mounted_app_exception_propagation": 2,
+    }.get(topology, 3)
     if topology is None or len(case["steps"]) != expected_step_count:
         raise ContractError("route middleware workflow must exercise one declared route topology")
     root = routes[0]
+    if topology == "mounted_app_exception_propagation":
+        step = case["steps"][1]
+        if step["step_id"] != "dispatch-mounted-error":
+            raise ContractError("mounted app exception workflow must select its dispatch")
+        arguments = {key: item["value"] for key, item in step["arguments"].items()}
+        scope = arguments["scope"]
+        if scope["type"] != "http" or scope["method"] != "GET" or scope["path"] != "/sub/":
+            raise ContractError("mounted app exception workflow must dispatch GET /sub/")
+        return
     if topology == "mount_exception":
         mount_routes = root["routes"]
         expected_home = {
@@ -16151,7 +16212,9 @@ def _validate_application_stimulus(
         raise ContractError(
             "application inputs must explicitly encode each Starlette constructor input"
         )
-    if _routes_have_local_middleware(args["routes"]):
+    if _routes_have_local_middleware(args["routes"]) or (
+        _route_middleware_topology(args["routes"]) == "mounted_app_exception_propagation"
+    ):
         _validate_route_middleware_application(args)
         return
     if not request_dispatch and _is_authentication_user_interface_application(args):
@@ -23287,6 +23350,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             "mount_routes": "mount_routes",
             "mount_app": "mount_app",
             "mount_exception": "mount_exception",
+            "mounted_app_exception_propagation": "mounted_app_exception_propagation",
         }.get(topology)
         return (
             {STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS[requirement_key]}

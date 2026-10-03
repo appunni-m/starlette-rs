@@ -1330,6 +1330,18 @@ def _routes_have_local_middleware(routes: Any) -> bool:
     )
 
 
+def _has_mounted_app_exception_route(routes: Any) -> bool:
+    return (
+        isinstance(routes, list)
+        and len(routes) == 1
+        and isinstance(routes[0], dict)
+        and routes[0].get("kind") == "mount"
+        and routes[0].get("path") == "/sub"
+        and isinstance(routes[0].get("app"), dict)
+        and routes[0]["app"].get("kind") == "starlette-app"
+    )
+
+
 def _materialize_application(
     app_spec: dict[str, Any],
 ) -> tuple[Any, list[str], list[dict[str, Any]], Any, list[dict[str, Any]]]:
@@ -1488,6 +1500,10 @@ def _materialize_application(
 
         def make_middleware_route(route_spec: dict[str, Any]) -> Any:
             kind = route_spec["kind"]
+            if kind == "starlette-app":
+                return Starlette(
+                    routes=[make_middleware_route(child) for child in route_spec["routes"]]
+                )
             if kind == "http-route":
                 endpoint_spec = route_spec["endpoint"]
                 if endpoint_spec["kind"] == "plain-response":
@@ -1514,6 +1530,11 @@ def _materialize_application(
                             status_code=endpoint_spec["status_code"],
                             detail=endpoint_spec["detail"],
                         )
+
+                elif endpoint_spec["kind"] == "raise-runtime-error":
+
+                    def endpoint(_request: Any) -> None:
+                        raise Exception(endpoint_spec["message"])
 
                 else:
                     raise ValueError("route-middleware endpoint uses an unsupported input kind")
@@ -2460,6 +2481,7 @@ async def _invoke(
     workflow_events: list[dict[str, Any]] | None = None,
     sync_endpoint_states: list[dict[str, Any]] | None = None,
     capture_dispatch_error: bool = False,
+    capture_dispatch_error_as_observation: bool = False,
     cancel_after_endpoint_entry: bool = False,
 ) -> dict[str, Any] | _CapturedDispatchError:
     scope = _make_scope(step_arguments["scope"])
@@ -2666,6 +2688,11 @@ async def _invoke(
         return result
     result["deprecation_warnings"] = list(getattr(app, "_parity_lifespan_warnings", []))
     result["sync_endpoint_observations"] = _observed_sync_endpoint(sync_endpoint_states or [])
+    if captured_exception is not None and capture_dispatch_error_as_observation:
+        return _CapturedDispatchError(
+            error=_dispatch_error(captured_exception),
+            partial_value=result,
+        )
     return result
 
 
@@ -12373,8 +12400,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("target adapter requires the application-construction step first")
     step_ids = [step["step_id"] for step in steps]
     is_request_dispatch = case["operation"] == "request-dispatch"
-    route_middleware_workflow = _routes_have_local_middleware(
-        steps[0]["arguments"]["routes"]["value"]
+    route_specs = steps[0]["arguments"]["routes"]["value"]
+    route_middleware_workflow = _routes_have_local_middleware(route_specs) or (
+        _has_mounted_app_exception_route(route_specs)
     )
     if is_request_dispatch:
         route_spec = steps[0]["arguments"]["routes"]["value"][0]
@@ -12394,7 +12422,8 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         ] or schedule != expected_schedule:
             raise ValueError("request-dispatch target case must contain application then dispatch")
     elif route_middleware_workflow:
-        if len(steps) < 3 or schedule != step_ids[1:]:
+        minimum_steps = 2 if _has_mounted_app_exception_route(route_specs) else 3
+        if len(steps) < minimum_steps or schedule != step_ids[1:]:
             raise ValueError(
                 "route middleware workflow must schedule its input dispatches in order"
             )
@@ -12494,6 +12523,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                 is_request_dispatch and step["operation"] == "request-dispatch",
                 sync_endpoint_states=sync_endpoint_states,
                 capture_dispatch_error=capture_dispatch_error,
+                capture_dispatch_error_as_observation=(
+                    _has_mounted_app_exception_route(route_specs)
+                ),
                 cancel_after_endpoint_entry=(
                     schedule == ["dispatch", "cancel-server-task"]
                     and step["operation"] == "request-dispatch"
