@@ -100,36 +100,37 @@ and run results remain ignored local build outputs. A BaseHTTPMiddleware
 workflow also maps `test_run_background_tasks_even_if_client_disconnects` and
 compares response-send and async background-task completion.
 
-The latest full-slice correctness run is
-`26b4b08a-a37a-4c65-ae0d-1cbb78fa3a1a`. It ran from
-`2026-10-03T04:31:30.503Z` to `2026-10-03T04:34:49.723Z` against Starlette
+The latest full-slice correctness preflight is
+`2cca93d5-9ce9-4a0b-bacb-6d8b0ce9581c`. It ran from
+`2026-10-03T04:46:58.077Z` to `2026-10-03T04:50:27.036Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 774-case,
 797-requirement `parity-input@31` manifest. It selected 989 profile
 comparisons: 985 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed 772/772; Rust-native passed 213/217. The new BaseHTTPMiddleware
-background-task case passes: the final response body send precedes task
-completion, the task finishes before the app returns, and the receive callback
-is never called. The four native `not_run` rows remain synchronous Request
-endpoint, bound-method endpoint, partial endpoint, and callable-instance ASGI
-dispatch. `make parity-run` exits 2 because of those declared rows; the run
+passed all 772 selected comparisons; Rust-native passed 213 of 217. The new
+BaseHTTPMiddleware case confirms that the terminal response body send precedes
+async background-task completion, that the task finishes before the app
+returns, and that its input callback is never called. The four native
+`not_run` rows remain synchronous Request endpoint, bound-method endpoint,
+partial endpoint, and callable-instance ASGI dispatch. The preflight ran on the
+clean `185e6279bba38c855def468348cea791082e82c8` commit; the `make parity-run`
+command still exits 2 because of those declared Rust-native rows. The run
 completed with no parity failures or infrastructure errors.
 
-The Rust-native target used commit `31a0c9433627c94cef37d70f195825b187d4ff7e`
+The Rust-native target used commit `185e6279bba38c855def468348cea791082e82c8`
 with source fingerprint
-`31a0c9433627c94cef37d70f195825b187d4ff7e+source-fnv1a64-f63b3847c266153e`.
+`185e6279bba38c855def468348cea791082e82c8+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
 `915cdbbbff3c69a033195328b8dcb4e5e7a845f544765f071e5dc4c4fd8a9ae3`; its
 wheel SHA-256 is
-`4b541292361f87e2fa772164362f5a29c806a20907449fb7c0f0ddb48d1ca5a1`. The
+`c0827a56d62e4eba51d61e2527576d4707fdfa948d6c05de5fc7b7f5b40bc268`. The
 manifest SHA-256 is
 `45a55c267a9ff1fcaa68b65b96a7c2e1030a1307d6fd72fb2276e1a300dd2756`; the
-parity result artifact SHA-256 is
-`ce4c89772667731e60152ded1375ccfd0616ab8a47812be297da1a78223baabd`. The
-Python-package target was built from a dirty checkout; its canonical installed
-package-tree digest is recorded above. Strict aggregation remains `not_proven`
-because the full compatibility denominator is incomplete and four
-Rust-native rows are `not_run`.
+`build/parity/upstream-benchmark-correctness-result.json` artifact SHA-256 is
+`6394d2b3eaf58f2a9c7c0b1b648c9d6db10e4bbb871b3c1f94ee2789a5f21873`. Strict
+aggregation remains `not_proven` because the full compatibility denominator
+is incomplete and four Rust-native rows are `not_run`.
+
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -138,27 +139,28 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run is
-`9d0286b8-e310-4154-b1fe-ad8aafb56e3a`. It measured all 74 declared workloads
-from `2026-10-03T03:57:49.535Z` to `2026-10-03T04:02:18.793Z`: six Router and
+`2d09bc2e-e714-42e4-a439-205d7ef43fcf`. It measured all 74 declared workloads
+from `2026-10-03T04:46:54.364Z` to `2026-10-03T04:51:51.718Z`: six Router and
 68 GZip, with zero failures or source/package `not_run` rows. Its clean target
-was commit `6ef4c71acc1929f4f07691ebd8c58be7b4555f8e` with working-tree
-SHA-256 `0b7bb25617cd162e08084a1ce2b148168ab06cda1b31e6874aab53856a761451`
+was commit `185e6279bba38c855def468348cea791082e82c8` with working-tree
+SHA-256 `0cf9049e47051cd7c8f60e735b6af4ab0137c99cfda3eedca5c0b18698601aed`
 and wheel SHA-256
-`a910b7544433666cecb98b05d059ac16f6190891a80b2ae22c5da5753cff50f0`.
-Correctness preflight `6f96ea01-694b-49a6-8808-d914eb8f0d7a` selected 988
-comparisons: 984 passed, zero failed, zero infrastructure errors, and four
+`c0827a56d62e4eba51d61e2527576d4707fdfa948d6c05de5fc7b7f5b40bc268`.
+Correctness preflight `2cca93d5-9ce9-4a0b-bacb-6d8b0ce9581c` selected 989
+comparisons: 985 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 771/771 and Rust-native passed 213/217. Rust-native remains `not_run`
+passed 772/772 and Rust-native passed 213/217. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. Median source/package latency ratios
-were 0.744 for Router and 0.980 for GZip; source latency was lower in five of
-six Router workloads and 54 of 68 GZip workloads. All 74 source/package
+were 0.748 for Router and 0.976 for GZip; source latency was lower in five of
+six Router workloads and 55 of 68 GZip workloads. All 74 source/package
 observation hashes matched. Manifest SHA-256:
-`9f7b48ebc16e4bfee0290aa2ce08c48a3c9df3178c2202ef495cb7da7078c347`;
+`45a55c267a9ff1fcaa68b65b96a7c2e1030a1307d6fd72fb2276e1a300dd2756`;
 benchmark input SHA-256:
 `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`; result
 artifact SHA-256:
-`de08af7fc064469b25efc09617286df5f86d2ac6c34aa1ff6d40e1dc42d095f8`. This
+`c1f28c762268097493bd132d381b11687c611c294232dd4fab6b64caf8e40ac9`. This
 bounded evidence does not establish full Starlette compatibility.
+
 The latest source inventory check dispositioned all 999 API candidate rows.
 The generated coverage matrix has 802 source rows: 507 input mappings, 51
 reasoned `not_applicable` rows, and 244 fixture backlog rows. Derive these
@@ -186,7 +188,7 @@ matches escaped HTML, processor merge, `url_for`, response metadata, and the
 ASGI debug event. The 30 existing FileResponse behavior cases passed on both
 profiles where selected; the added scheduling case passed on the Python
 package profile. All eight SessionMiddleware cases passed on the Python package profile, and all
-twenty-two BaseHTTPMiddleware workflow cases passed there. Two additional
+twenty-one BaseHTTPMiddleware workflow cases passed in that historical run. Two additional
 ContextVar cases compare `call_next` context propagation with a pure-ASGI
 control. The workflow cases cover header
 mutation, replacement responses, body-cache replay, response-completion receive

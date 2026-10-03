@@ -10,9 +10,9 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice correctness run is
-`26b4b08a-a37a-4c65-ae0d-1cbb78fa3a1a`. It ran from
-`2026-10-03T04:31:30.503Z` to `2026-10-03T04:34:49.723Z` against Starlette
+The latest full-slice correctness preflight is
+`2cca93d5-9ce9-4a0b-bacb-6d8b0ce9581c`. It ran from
+`2026-10-03T04:46:58.077Z` to `2026-10-03T04:50:27.036Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 774-case,
 797-requirement `parity-input@31` manifest. It selected 989 profile
 comparisons: 985 passed, zero failed, zero infrastructure errors, and four
@@ -22,25 +22,24 @@ BaseHTTPMiddleware case confirms that the terminal response body send precedes
 async background-task completion, that the task finishes before the app
 returns, and that its input callback is never called. The four native
 `not_run` rows remain synchronous Request endpoint, bound-method endpoint,
-partial endpoint, and callable-instance ASGI dispatch. `make parity-run` exits
-2 because of those declared rows; the run completed with no parity failures or
-infrastructure errors.
+partial endpoint, and callable-instance ASGI dispatch. The preflight ran on the
+clean `185e6279bba38c855def468348cea791082e82c8` commit; the `make parity-run`
+command still exits 2 because of those declared Rust-native rows. The run
+completed with no parity failures or infrastructure errors.
 
-The Rust-native target used commit `31a0c9433627c94cef37d70f195825b187d4ff7e`
+The Rust-native target used commit `185e6279bba38c855def468348cea791082e82c8`
 with source fingerprint
-`31a0c9433627c94cef37d70f195825b187d4ff7e+source-fnv1a64-f63b3847c266153e`.
+`185e6279bba38c855def468348cea791082e82c8+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
 `915cdbbbff3c69a033195328b8dcb4e5e7a845f544765f071e5dc4c4fd8a9ae3`; its
 wheel SHA-256 is
-`4b541292361f87e2fa772164362f5a29c806a20907449fb7c0f0ddb48d1ca5a1`. The
+`c0827a56d62e4eba51d61e2527576d4707fdfa948d6c05de5fc7b7f5b40bc268`. The
 manifest SHA-256 is
 `45a55c267a9ff1fcaa68b65b96a7c2e1030a1307d6fd72fb2276e1a300dd2756`; the
-parity result artifact SHA-256 is
-`ce4c89772667731e60152ded1375ccfd0616ab8a47812be297da1a78223baabd`. The
-Python-package target was built from a dirty checkout; its canonical installed
-package-tree digest is recorded above. Strict aggregation remains `not_proven`
-because the full compatibility denominator is incomplete and four
-Rust-native rows are `not_run`.
+`build/parity/upstream-benchmark-correctness-result.json` artifact SHA-256 is
+`6394d2b3eaf58f2a9c7c0b1b648c9d6db10e4bbb871b3c1f94ee2789a5f21873`. Strict
+aggregation remains `not_proven` because the full compatibility denominator
+is incomplete and four Rust-native rows are `not_run`.
 
 For `lifespan_send_messages`, the manifest declares a narrow
 `starlette-lifespan-router-frame` normalization: it removes only the
