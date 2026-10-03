@@ -2851,6 +2851,7 @@ fn run_streaming_response_case(case: &Value) -> Result<Value, String> {
 }
 
 fn run_file_response_case(case: &Value) -> Result<Value, String> {
+    let request_sequence = case.get("calls").is_some();
     let mut expected_fields = vec![
         "case_id",
         "surface",
@@ -2863,11 +2864,13 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         "header_pairs",
         "media_type",
         "filename",
-        "scope",
-        "incoming",
-        "send",
         "observations",
     ];
+    if request_sequence {
+        expected_fields.push("calls");
+    } else {
+        expected_fields.extend(["scope", "incoming", "send"]);
+    }
     if case.get("cookie_actions").is_some() {
         expected_fields.push("cookie_actions");
     }
@@ -2899,15 +2902,41 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         "FileResponse asgi-call target_profiles",
         false,
     )?;
-    if case.get("incoming") != Some(&json!([])) {
-        return Err(String::from(
-            "FileResponse asgi-call requires an empty incoming sequence",
-        ));
-    }
-    validate_capture_send(
-        case.get("send")
-            .ok_or_else(|| String::from("FileResponse asgi-call send input is missing"))?,
-    )?;
+    let call_inputs: Vec<&Map<String, Value>> = if request_sequence {
+        let calls = case
+            .get("calls")
+            .and_then(Value::as_array)
+            .filter(|calls| calls.len() >= 2)
+            .ok_or_else(|| String::from("FileResponse calls must contain at least two requests"))?;
+        calls
+            .iter()
+            .enumerate()
+            .map(|(index, call)| {
+                let call = exact_object(call, &["scope", "incoming", "send"], "FileResponse call")?;
+                if call.get("incoming") != Some(&json!([])) {
+                    return Err(format!(
+                        "FileResponse calls[{index}] requires empty receive"
+                    ));
+                }
+                validate_capture_send(
+                    call.get("send")
+                        .ok_or_else(|| format!("FileResponse calls[{index}] send is missing"))?,
+                )?;
+                Ok(call)
+            })
+            .collect::<Result<Vec<_>, String>>()?
+    } else {
+        if case.get("incoming") != Some(&json!([])) {
+            return Err(String::from(
+                "FileResponse asgi-call requires an empty incoming sequence",
+            ));
+        }
+        validate_capture_send(
+            case.get("send")
+                .ok_or_else(|| String::from("FileResponse asgi-call send input is missing"))?,
+        )?;
+        vec![case]
+    };
 
     let source_file = exact_object(
         case.get("file")
@@ -2993,13 +3022,6 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         }
     };
 
-    let (scope, pathsend_extension) = validated_file_response_scope(
-        case.get("scope")
-            .ok_or_else(|| String::from("FileResponse asgi-call scope is missing"))?,
-    )?;
-    let request_headers = parse_scope_request_headers(&scope, "FileResponse HTTP scope")?;
-    let method = string_field(&scope, "method", "FileResponse HTTP scope")?;
-
     let (temporary_directory, path) = create_file_response_input(file_name, &contents)?;
     let metadata = FileMetadata::from_unix_seconds(
         u64::try_from(contents.len()).map_err(|error| error.to_string())?,
@@ -3037,68 +3059,93 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     if let Some(actions) = case.get("cookie_actions") {
         apply_response_cookie_actions(&mut response, actions)?;
     }
-    let mut call = response
-        .call_state("http", method, &request_headers, pathsend_extension, false)
-        .map_err(|error| error.to_string())?;
+    let mut responses = Vec::with_capacity(call_inputs.len());
+    for call_input in call_inputs {
+        let (scope, pathsend_extension) = validated_file_response_scope(
+            call_input
+                .get("scope")
+                .ok_or_else(|| String::from("FileResponse call scope is missing"))?,
+        )?;
+        if request_sequence && pathsend_extension {
+            return Err(String::from(
+                "FileResponse call sequences do not combine with pathsend extensions",
+            ));
+        }
+        let request_headers = parse_scope_request_headers(&scope, "FileResponse HTTP scope")?;
+        let method = string_field(&scope, "method", "FileResponse HTTP scope")?;
+        let mut call = response
+            .call_state("http", method, &request_headers, pathsend_extension, false)
+            .map_err(|error| error.to_string())?;
 
-    let mut response_status = None;
-    let mut ordered_headers = Vec::new();
-    let mut response_bytes = Vec::new();
-    let mut events = Vec::new();
-    loop {
-        match call.step().map_err(|error| error.to_string())? {
-            FileResponseCallStep::Send(event) => {
-                match &event {
-                    FileResponseEvent::Start {
-                        status_code,
-                        headers,
-                    } => {
-                        response_status = Some(*status_code);
-                        ordered_headers = canonical_headers(headers);
+        let mut response_status = None;
+        let mut ordered_headers = Vec::new();
+        let mut response_bytes = Vec::new();
+        let mut events = Vec::new();
+        loop {
+            match call.step().map_err(|error| error.to_string())? {
+                FileResponseCallStep::Send(event) => {
+                    match &event {
+                        FileResponseEvent::Start {
+                            status_code,
+                            headers,
+                        } => {
+                            response_status = Some(*status_code);
+                            ordered_headers = canonical_headers(headers);
+                        }
+                        FileResponseEvent::Body { body, .. } => {
+                            response_bytes.extend_from_slice(body);
+                        }
+                        FileResponseEvent::Pathsend { .. } => {}
                     }
-                    FileResponseEvent::Body { body, .. } => {
-                        response_bytes.extend_from_slice(body);
-                    }
-                    FileResponseEvent::Pathsend { .. } => {}
+                    events.push(canonical_file_response_event(event));
+                    call.advance(FileResponseCallInput::<String>::Send(Ok(())))
+                        .map_err(|error| {
+                            format!("FileResponse send transition failed: {error:?}")
+                        })?;
                 }
-                events.push(canonical_file_response_event(event));
-                call.advance(FileResponseCallInput::<String>::Send(Ok(())))
-                    .map_err(|error| format!("FileResponse send transition failed: {error:?}"))?;
-            }
-            FileResponseCallStep::RunBackground => {
-                return Err(String::from(
-                    "FileResponse adapter has no background callback to execute",
-                ));
-            }
-            FileResponseCallStep::Complete => break,
-            FileResponseCallStep::Failed => {
-                return Err(String::from("FileResponse call reached a failed state"));
+                FileResponseCallStep::RunBackground => {
+                    return Err(String::from(
+                        "FileResponse adapter has no background callback to execute",
+                    ));
+                }
+                FileResponseCallStep::Complete => break,
+                FileResponseCallStep::Failed => {
+                    return Err(String::from("FileResponse call reached a failed state"));
+                }
             }
         }
+        let event_order = events
+            .iter()
+            .filter_map(|event| event.get("type").and_then(Value::as_str))
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        responses.push(json!({
+            "response_status": response_status,
+            "ordered_repeated_headers": ordered_headers,
+            "response_bytes": {
+                "encoding": "base64",
+                "data": encode_base64(&response_bytes),
+            },
+            "asgi_event_order": event_order,
+            "asgi_events": events,
+        }));
     }
     drop(temporary_directory);
-
-    let event_order = events
-        .iter()
-        .filter_map(|event| event.get("type").and_then(Value::as_str))
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
+    let value = if request_sequence {
+        json!({"responses": responses})
+    } else {
+        responses
+            .into_iter()
+            .next()
+            .ok_or_else(|| String::from("FileResponse call produced no observations"))?
+    };
     Ok(json!({
         "case_id": case_id,
         "status": "completed",
         "observations": [{
             "step_id": RESPONSE_OPERATION,
             "status": "ok",
-            "value": {
-                "response_status": response_status,
-                "ordered_repeated_headers": ordered_headers,
-                "response_bytes": {
-                    "encoding": "base64",
-                    "data": encode_base64(&response_bytes),
-                },
-                "asgi_event_order": event_order,
-                "asgi_events": events,
-            },
+            "value": value,
         }],
     }))
 }

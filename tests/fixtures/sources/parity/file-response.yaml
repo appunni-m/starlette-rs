@@ -2194,6 +2194,96 @@
       "observations": [
         "asgi-call"
       ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.multiple-calls",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.multiple-calls"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "file": {
+        "name": "README.txt",
+        "contents_base64": "IyBCw6FpWsOpCgpQb3dlcmZ1bCBhbmQgZXhxdWlzaXRlIFdTR0kvQVNHSSBmcmFtZXdvcmsvdG9vbGtpdC4KClRoZSBtaW5pbWl6ZSBpbXBsZW1lbnRhdGlvbiBvZiBtZXRob2RzIHJlcXVpcmVkIGluIHRoZSBXZWIgZnJhbWV3b3JrLiBObyByZWR1bmRhbnQgaW1wbGVtZW50YXRpb24gbWVhbnMgdGhhdCB5b3UgY2FuIGZyZWVseSBjdXN0b21pemUgZnVuY3Rpb25zIHdpdGhvdXQgY29uc2lkZXJpbmcgdGhlIGNvbmZsaWN0IHdpdGggYmFpemUncyBvd24gaW1wbGVtZW50YXRpb24uCgpVbmRlciB0aGUgQVNHSS9XU0dJIHByb3RvY29sLCB0aGUgaW50ZXJmYWNlIG9mIHRoZSByZXF1ZXN0IG9iamVjdCBhbmQgdGhlIHJlc3BvbnNlIG9iamVjdCBpcyBhbG1vc3QgdGhlIHNhbWUsIG9ubHkgbmVlZCB0byBhZGQgb3IgZGVsZXRlIGBhd2FpdGAgaW4gdGhlIGFwcHJvcHJpYXRlIHBsYWNlLiBJbiBhZGRpdGlvbiwgaXQgc2hvdWxkIGJlIG5vdGVkIHRoYXQgQVNHSSBzdXBwb3J0cyBXZWJTb2NrZXQgYnV0IFdTR0kgZG9lcyBub3QuCg==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "observations": [
+        "asgi-call"
+      ],
+      "calls": [
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/",
+            "raw_path_base64": "Lw==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "cmFuZ2U=",
+                "Ynl0ZXM9MC0xMDA="
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          }
+        },
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/",
+            "raw_path_base64": "Lw==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          }
+        }
+      ]
     }
   ]
 }

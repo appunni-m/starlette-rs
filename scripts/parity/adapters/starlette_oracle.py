@@ -7161,6 +7161,7 @@ def _run_redirect_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
+    request_sequence = "calls" in case
     case_keys = {
         "case_id",
         "surface",
@@ -7173,11 +7174,12 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         "header_pairs",
         "media_type",
         "filename",
-        "scope",
-        "incoming",
-        "send",
         "observations",
     }
+    if request_sequence:
+        case_keys.add("calls")
+    else:
+        case_keys.update({"scope", "incoming", "send"})
     if "cookie_actions" in case:
         case_keys.add("cookie_actions")
     if "chunk_size" in case:
@@ -7243,35 +7245,75 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if content_disposition_type not in {"attachment", "inline"}:
         raise ValueError("FileResponse content_disposition_type must be attachment or inline")
 
-    scope_spec = case["scope"]
-    scope_keys = {
-        "type",
-        "asgi",
-        "http_version",
-        "method",
-        "scheme",
-        "path",
-        "raw_path_base64",
-        "query_string_base64",
-        "root_path",
-        "headers_base64_pairs",
-        "client",
-        "server",
-    }
-    if isinstance(scope_spec, dict) and "extensions" in scope_spec:
-        scope_keys.add("extensions")
-    _strict_object(scope_spec, scope_keys, "FileResponse HTTP scope")
-    if scope_spec["type"] != "http":
-        raise ValueError("FileResponse ASGI-call requires an HTTP scope")
-    if "extensions" in scope_spec:
-        extensions = scope_spec["extensions"]
-        if not isinstance(extensions, dict) or any(
-            key != "http.response.pathsend" for key in extensions
+    if request_sequence:
+        if any(
+            key in case
+            for key in ("header_view_probe", "scheduling", "call_time_field_assignments")
         ):
-            raise ValueError("FileResponse scope.extensions may only declare pathsend")
-    if not isinstance(case["incoming"], list) or case["incoming"]:
+            raise ValueError(
+                "FileResponse call sequences do not combine with header, scheduling, or call-time probes"
+            )
+        call_specs = case["calls"]
+        if not isinstance(call_specs, list) or len(call_specs) < 2:
+            raise ValueError("FileResponse calls must contain at least two request inputs")
+        for index, call in enumerate(call_specs):
+            _strict_object(call, {"scope", "incoming", "send"}, f"FileResponse calls[{index}]")
+            if call["incoming"] != [] or call["send"] != {"kind": "capture-asgi-send"}:
+                raise ValueError(
+                    f"FileResponse calls[{index}] requires empty receive and captured send"
+                )
+            _strict_object(
+                call["scope"],
+                {
+                    "type",
+                    "asgi",
+                    "http_version",
+                    "method",
+                    "scheme",
+                    "path",
+                    "raw_path_base64",
+                    "query_string_base64",
+                    "root_path",
+                    "headers_base64_pairs",
+                    "client",
+                    "server",
+                },
+                f"FileResponse calls[{index}].scope",
+            )
+            if call["scope"]["type"] != "http":
+                raise ValueError("FileResponse call sequences require HTTP scopes")
+        scope_spec = call_specs[0]["scope"]
+    else:
+        call_specs = [{"scope": case["scope"], "incoming": case["incoming"], "send": case["send"]}]
+        scope_spec = case["scope"]
+        scope_keys = {
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        }
+        if isinstance(scope_spec, dict) and "extensions" in scope_spec:
+            scope_keys.add("extensions")
+        _strict_object(scope_spec, scope_keys, "FileResponse HTTP scope")
+        if scope_spec["type"] != "http":
+            raise ValueError("FileResponse ASGI-call requires an HTTP scope")
+        if "extensions" in scope_spec:
+            extensions = scope_spec["extensions"]
+            if not isinstance(extensions, dict) or any(
+                key != "http.response.pathsend" for key in extensions
+            ):
+                raise ValueError("FileResponse scope.extensions may only declare pathsend")
+    if call_specs[0]["incoming"] != []:
         raise ValueError("FileResponse ASGI-call requires an empty incoming stream")
-    if case["send"] != {"kind": "capture-asgi-send"}:
+    if call_specs[0]["send"] != {"kind": "capture-asgi-send"}:
         raise ValueError("send input must select the declared ASGI message collector")
 
     scheduling = case.get("scheduling")
@@ -7391,6 +7433,71 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             }
         for index, raw_action in enumerate(case.get("cookie_actions", [])):
             _apply_response_cookie_action(response, raw_action, index)
+        if request_sequence:
+
+            async def run_call_sequence() -> list[dict[str, Any]]:
+                observations = []
+                for call_spec in call_specs:
+                    call_scope = _make_scope(call_spec["scope"])
+                    call_sent: list[dict[str, Any]] = []
+
+                    async def call_receive() -> dict[str, Any]:
+                        return {"type": "http.disconnect"}
+
+                    async def call_send(
+                        message: dict[str, Any], captured: list[dict[str, Any]] = call_sent
+                    ) -> None:
+                        captured.append(message)
+
+                    await response(call_scope, call_receive, call_send)
+                    call_events = [_canonical_message(message) for message in call_sent]
+                    call_start = next(
+                        (
+                            message
+                            for message in call_sent
+                            if message["type"] == "http.response.start"
+                        ),
+                        None,
+                    )
+                    call_start_event = next(
+                        (event for event in call_events if event["type"] == "http.response.start"),
+                        None,
+                    )
+                    call_body = b"".join(
+                        message.get("body", b"")
+                        for message in call_sent
+                        if message["type"] == "http.response.body"
+                    )
+                    observations.append(
+                        {
+                            "response_status": (
+                                call_start["status"] if call_start is not None else None
+                            ),
+                            "ordered_repeated_headers": (
+                                call_start_event["headers"] if call_start_event is not None else []
+                            ),
+                            "response_bytes": {
+                                "encoding": "base64",
+                                "data": base64.b64encode(call_body).decode("ascii"),
+                            },
+                            "asgi_event_order": [event["type"] for event in call_events],
+                            "asgi_events": call_events,
+                        }
+                    )
+                return observations
+
+            response_sequence = asyncio.run(run_call_sequence())
+            return {
+                "case_id": case["case_id"],
+                "status": "completed",
+                "observations": [
+                    {
+                        "step_id": RESPONSE_OPERATION,
+                        "status": "ok",
+                        "value": {"responses": response_sequence},
+                    }
+                ],
+            }
         scope = _make_scope(scope_spec)
         sent: list[dict[str, Any]] = []
         event_loop_scheduling: dict[str, bool] | None = None

@@ -819,6 +819,9 @@ FILE_RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "incoming",
     "send",
 }
+FILE_RESPONSE_CALL_SEQUENCE_CASE_KEYS = (
+    FILE_RESPONSE_CASE_KEYS - {"scope", "incoming", "send"}
+) | {"calls"}
 STATIC_FILES_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "directory",
     "packages",
@@ -1849,6 +1852,23 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
                         and observation["path"] == "requests"
                     )
+                    file_response_single_call = (
+                        condition["input_key"] == "scope"
+                        and key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
+                        and observation["path"]
+                        in {
+                            "response_status",
+                            "ordered_repeated_headers",
+                            "response_bytes",
+                            "asgi_event_order",
+                            "asgi_events",
+                        }
+                    )
+                    file_response_call_sequence = (
+                        condition["input_key"] == "calls"
+                        and key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
+                        and observation["path"] == "responses"
+                    )
                     base_http_background_task_completion = (
                         condition["input_key"] == "application.routes.0.endpoint.background_task"
                         and key == BASE_HTTP_WORKFLOW_OPERATION_KEY
@@ -1873,6 +1893,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_application_mount
                         and not static_files_single_call
                         and not static_files_call_sequence
+                        and not file_response_single_call
+                        and not file_response_call_sequence
                         and not base_http_background_task_completion
                     ):
                         raise ContractError(
@@ -4531,6 +4553,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
+    call_sequence = "calls" in case
     optional_keys = {
         key
         for key in (
@@ -4544,12 +4567,70 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         )
         if key in case
     }
-    case_keys = FILE_RESPONSE_CASE_KEYS | optional_keys
+    case_keys = (
+        FILE_RESPONSE_CALL_SEQUENCE_CASE_KEYS if call_sequence else FILE_RESPONSE_CASE_KEYS
+    ) | optional_keys
     _exact(case, case_keys, "FileResponse asgi-call case")
     if case["surface"] != FILE_RESPONSE_SURFACE or case["operation"] != RESPONSE_OPERATION:
         raise ContractError("case is outside the declared FileResponse asgi-call operation")
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ContractError("FileResponse observations must select asgi-call")
+
+    call_specs: list[dict[str, Any]]
+    if call_sequence:
+        if any(
+            key in case
+            for key in ("header_view_probe", "scheduling", "call_time_field_assignments")
+        ):
+            raise ContractError(
+                "FileResponse call sequences do not combine with header, scheduling, or call-time probes"
+            )
+        raw_calls = case["calls"]
+        if not isinstance(raw_calls, list) or len(raw_calls) < 2:
+            raise ContractError("FileResponse calls must contain at least two request inputs")
+        call_specs = []
+        for index, raw_call in enumerate(raw_calls):
+            call = _exact(
+                raw_call,
+                {"scope", "incoming", "send"},
+                f"FileResponse calls[{index}]",
+            )
+            if call["incoming"] != [] or call["send"] != {"kind": "capture-asgi-send"}:
+                raise ContractError(
+                    f"FileResponse calls[{index}] requires empty receive and captured send"
+                )
+            scope = call["scope"]
+            scope_keys = {
+                "type",
+                "asgi",
+                "http_version",
+                "method",
+                "scheme",
+                "path",
+                "raw_path_base64",
+                "query_string_base64",
+                "root_path",
+                "headers_base64_pairs",
+                "client",
+                "server",
+            }
+            _exact(scope, scope_keys, f"FileResponse calls[{index}].scope")
+            if scope["type"] != "http":
+                raise ContractError("FileResponse call sequences require HTTP scopes")
+            _validate_dispatch_stimulus(
+                {"scope": scope, "receive": call["incoming"], "send": call["send"]},
+                request_dispatch=True,
+                allow_headers=True,
+            )
+            call_specs.append(call)
+        scope_spec = call_specs[0]["scope"]
+        incoming = call_specs[0]["incoming"]
+        send = call_specs[0]["send"]
+    else:
+        call_specs = [{"scope": case["scope"], "incoming": case["incoming"], "send": case["send"]}]
+        scope_spec = case["scope"]
+        incoming = case["incoming"]
+        send = case["send"]
 
     file_input = _exact(
         case["file"],
@@ -4687,7 +4768,6 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
                 "FileResponse call-time assignments must map their matching field requirement"
             )
 
-    scope_spec = case["scope"]
     scope_keys = {
         "type",
         "asgi",
@@ -4735,7 +4815,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "FileResponse pathsend coverage requires a GET without a Range request header"
             )
-    if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
+    if incoming != [] or send != {"kind": "capture-asgi-send"}:
         raise ContractError("FileResponse asgi-call requires empty receive and captured send")
     if "scheduling" in case:
         scheduling = _exact(
@@ -4810,7 +4890,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     _validate_cookie_actions(case)
     dispatch_scope = {key: value for key, value in scope_spec.items() if key != "extensions"}
     _validate_dispatch_stimulus(
-        {"scope": dispatch_scope, "receive": case["incoming"], "send": case["send"]},
+        {"scope": dispatch_scope, "receive": incoming, "send": send},
         request_dispatch=True,
         allow_headers=True,
     )
@@ -4849,6 +4929,54 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "FileResponse header_view_probe must map one range-view requirement"
             )
+
+    if call_sequence:
+        if len(call_specs) != 2:
+            raise ContractError("FileResponse call-sequence coverage requires exactly two requests")
+        first_scope = call_specs[0]["scope"]
+        second_scope = call_specs[1]["scope"]
+        if (
+            first_scope["method"] != "GET"
+            or second_scope["method"] != "GET"
+            or first_scope["path"] != second_scope["path"]
+            or first_scope["root_path"] != second_scope["root_path"]
+        ):
+            raise ContractError("FileResponse repeat-call inputs require same-path GET requests")
+
+        def request_range_values(scope: dict[str, Any]) -> list[str]:
+            values = []
+            for name, value in scope["headers_base64_pairs"]:
+                decoded_name = base64.b64decode(name, validate=True).decode("latin-1").lower()
+                if decoded_name == "range":
+                    values.append(base64.b64decode(value, validate=True).decode("latin-1"))
+            return values
+
+        first_ranges = request_range_values(first_scope)
+        if len(first_ranges) != 1 or request_range_values(second_scope):
+            raise ContractError(
+                "FileResponse repeat-call inputs require one first-request Range and none on the second"
+            )
+        range_value = first_ranges[0].strip()
+        if not range_value.startswith("bytes=") or "," in range_value:
+            raise ContractError("FileResponse repeat-call first request needs one byte range")
+        byte_range = range_value.removeprefix("bytes=").split("-", maxsplit=1)
+        if len(byte_range) != 2 or any(
+            not value.isascii() or not value.isdigit() for value in byte_range
+        ):
+            raise ContractError("FileResponse repeat-call range must be a bounded byte interval")
+        range_start = int(byte_range[0])
+        range_end = int(byte_range[1])
+        file_size = len(base64.b64decode(contents_base64, validate=True))
+        if range_start > range_end or range_start >= file_size:
+            raise ContractError("FileResponse repeat-call range must select existing file bytes")
+        requirement = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.multiple-calls"
+        if case["covers"] != [requirement]:
+            raise ContractError("FileResponse calls must map their repeated-call requirement")
+        if set(case["target_profiles"]) != {
+            "rust-native-local",
+            "python-package-cpython312",
+        }:
+            raise ContractError("FileResponse repeated calls require both target profiles")
 
 
 def _validate_static_files_case_stimulus(
@@ -11883,6 +12011,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_reverse_url
         else REDIRECT_RESPONSE_CASE_KEYS
         if is_redirect_response
+        else FILE_RESPONSE_CALL_SEQUENCE_CASE_KEYS
+        if is_file_response and isinstance(case, dict) and "calls" in case
         else FILE_RESPONSE_CASE_KEYS
         if is_file_response
         else STATIC_FILES_ASGI_CALL_SEQUENCE_CASE_KEYS

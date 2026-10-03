@@ -13325,6 +13325,9 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "scope"
                   }
                 },
                 {
@@ -13337,6 +13340,9 @@
                   },
                   "normalization": {
                     "kind": "multipart-range-boundary"
+                  },
+                  "condition": {
+                    "input_key": "scope"
                   }
                 },
                 {
@@ -13349,6 +13355,9 @@
                   },
                   "normalization": {
                     "kind": "multipart-range-boundary"
+                  },
+                  "condition": {
+                    "input_key": "scope"
                   }
                 },
                 {
@@ -13358,6 +13367,9 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "scope"
                   }
                 },
                 {
@@ -13378,6 +13390,9 @@
                         "kind": "file-response-temp-path"
                       }
                     ]
+                  },
+                  "condition": {
+                    "input_key": "scope"
                   }
                 },
                 {
@@ -13402,6 +13417,18 @@
                   },
                   "condition": {
                     "input_key": "scheduling"
+                  }
+                },
+                {
+                  "path": "responses",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "calls"
                   }
                 }
               ],
@@ -13446,6 +13473,18 @@
               "id": "starlette.responses.FileResponse.asgi-call.get",
               "dimension": "success_path",
               "description": "Construct a file response with deterministic file bytes and stat metadata and observe the complete direct HTTP GET response. Upstream: starlette/responses.py::FileResponse.__call__; tests/test_responses.py::test_file_response_without_range.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.multiple-calls",
+              "dimension": "boundary",
+              "description": "Invoke one FileResponse instance for a satisfiable Range GET and then a plain GET; compare both ordered ASGI responses and confirm the second call has no range state. Upstream: tests/test_responses.py::test_file_response_multiple_calls.",
               "lanes": [
                 "parity"
               ],
