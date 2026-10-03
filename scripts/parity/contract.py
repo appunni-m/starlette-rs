@@ -752,6 +752,46 @@ ROUTER_MOUNT_REQUIREMENTS = {
     "prefix_miss": "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss",
 }
 MOUNT_SURFACE = "starlette.routing.Mount"
+VALUE_FORMATTING_OPERATIONS.update(
+    {
+        (HTTP_ROUTE_SURFACE, VALUE_FORMATTING_OPERATION),
+        (WEBSOCKET_ROUTE_SURFACE, VALUE_FORMATTING_OPERATION),
+        (MOUNT_SURFACE, VALUE_FORMATTING_OPERATION),
+        (HOST_SURFACE, VALUE_FORMATTING_OPERATION),
+    }
+)
+ROUTE_ENDPOINT_NAME_OPERATION_KEY = (HTTP_ROUTE_SURFACE, "__init__")
+ROUTE_REPRESENTATION_REQUIREMENTS = {
+    HTTP_ROUTE_SURFACE: {
+        "inferred-methods": f"{HTTP_ROUTE_SURFACE}.__repr__.with-inferred-methods",
+        "class-endpoint-no-methods": f"{HTTP_ROUTE_SURFACE}.__repr__.class-endpoint-no-methods",
+    },
+    WEBSOCKET_ROUTE_SURFACE: {
+        "function-endpoint": f"{WEBSOCKET_ROUTE_SURFACE}.__repr__.function-endpoint",
+    },
+    MOUNT_SURFACE: {
+        "unnamed": f"{MOUNT_SURFACE}.__repr__.unnamed",
+        "named": f"{MOUNT_SURFACE}.__repr__.named",
+    },
+    HOST_SURFACE: {
+        "unnamed": f"{HOST_SURFACE}.__repr__.unnamed",
+        "named": f"{HOST_SURFACE}.__repr__.named",
+    },
+}
+ROUTE_ENDPOINT_NAME_REQUIREMENTS = {
+    "function": f"{HTTP_ROUTE_SURFACE}.endpoint-name.function",
+    "bound-method": f"{HTTP_ROUTE_SURFACE}.endpoint-name.method",
+    "class-method": f"{HTTP_ROUTE_SURFACE}.endpoint-name.classmethod",
+    "static-method": f"{HTTP_ROUTE_SURFACE}.endpoint-name.staticmethod",
+    "object": f"{HTTP_ROUTE_SURFACE}.endpoint-name.object",
+    "lambda": f"{HTTP_ROUTE_SURFACE}.endpoint-name.lambda",
+}
+ROUTE_ENDPOINT_NAME_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "path",
+    "methods",
+    "name",
+    "endpoints",
+}
 MOUNT_OPERATION = "route-dispatch"
 MOUNT_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "mount",
@@ -2042,6 +2082,25 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         ):
                             raise ContractError(
                                 f"{octx} permits Starlette Router.lifespan frame normalization only for ordered TestClient lifespan messages"
+                            )
+                    elif normalization_kind == "python-object-address":
+                        normalization_spec = _exact(
+                            normalization_spec,
+                            {"kind", "reason"},
+                            f"{octx}.normalization",
+                        )
+                        _string(normalization_spec["reason"], f"{octx}.normalization.reason")
+                        if (
+                            key
+                            not in {
+                                (MOUNT_SURFACE, VALUE_FORMATTING_OPERATION),
+                                (HOST_SURFACE, VALUE_FORMATTING_OPERATION),
+                            }
+                            or observation["path"] != "representation"
+                            or comparison["kind"] != "exact"
+                        ):
+                            raise ContractError(
+                                f"{octx} permits Python object-address normalization only for exact Mount/Host representations"
                             )
                     elif normalization_kind == "sequence":
                         _exact(
@@ -12659,6 +12718,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == HTTP_ROUTE_CALL_OPERATION_KEY
     )
+    is_route_endpoint_name = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == ROUTE_ENDPOINT_NAME_OPERATION_KEY
+    )
     is_router = (
         isinstance(case, dict)
         and case.get("surface") == ROUTER_SURFACE
@@ -12854,6 +12917,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_websocket_close
         else HTTP_ROUTE_CALL_CASE_KEYS
         if is_http_route_call
+        else ROUTE_ENDPOINT_NAME_CASE_KEYS
+        if is_route_endpoint_name
         else WEBSOCKET_ROUTE_CASE_KEYS
         if is_websocket_route
         else ROUTER_SEQUENCE_CASE_KEYS
@@ -13041,7 +13106,15 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_value_formatting:
         value_keys = (
-            {"instances"} if case["surface"] == EXCEPTION_VALUES_SURFACE else {"middleware"}
+            {"instances"}
+            if case["surface"] == EXCEPTION_VALUES_SURFACE
+            else {"middleware"}
+            if case["surface"] == MIDDLEWARE_CONFIG_SURFACE
+            else {"route"}
+            if case["surface"] in {HTTP_ROUTE_SURFACE, WEBSOCKET_ROUTE_SURFACE}
+            else {"mount"}
+            if case["surface"] == MOUNT_SURFACE
+            else {"host"}
         )
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | value_keys
     elif is_rust_owned_python:
@@ -13186,6 +13259,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     elif is_http_route_call:
         if case["operation"] != HTTP_ROUTE_CALL_OPERATION:
             raise ContractError("Route cases must use the inherited ASGI __call__ operation")
+    elif is_route_endpoint_name:
+        if case["operation"] != "__init__":
+            raise ContractError("Route endpoint-name cases must construct a Route")
     elif is_websocket_route:
         if case["operation"] != WEBSOCKET_ROUTE_OPERATION:
             raise ContractError(
@@ -13623,6 +13699,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_http_route_call:
         _validate_http_route_call_case_stimulus(case)
+        return case
+    if is_route_endpoint_name:
+        _validate_route_name_case(case)
         return case
     if is_websocket_route:
         _validate_websocket_route_case_stimulus(case)
@@ -21562,11 +21641,190 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_route_endpoint_spec(spec: Any, context: str) -> str:
+    if not isinstance(spec, dict) or not isinstance(spec.get("kind"), str):
+        raise ContractError(f"{context} requires an endpoint kind")
+    kind = spec["kind"]
+    keys_by_kind = {
+        "function": {"kind", "name", "async"},
+        "bound-method": {"kind", "class_name", "method_name", "async"},
+        "class-method": {"kind", "class_name", "method_name", "async"},
+        "static-method": {"kind", "class_name", "method_name", "async"},
+        "object": {"kind", "class_name"},
+        "lambda": {"kind"},
+    }
+    if kind not in keys_by_kind:
+        raise ContractError(f"{context}.kind is not a supported endpoint shape")
+    spec = _exact(spec, keys_by_kind[kind], context)
+    if kind == "function":
+        if not isinstance(spec["name"], str) or not spec["name"].isidentifier():
+            raise ContractError(f"{context}.name must be an identifier")
+    if kind in {"bound-method", "class-method", "static-method", "object"}:
+        if not isinstance(spec["class_name"], str) or not spec["class_name"].isidentifier():
+            raise ContractError(f"{context}.class_name must be an identifier")
+    if kind in {"bound-method", "class-method", "static-method"} and (
+        not isinstance(spec["method_name"], str) or not spec["method_name"].isidentifier()
+    ):
+        raise ContractError(f"{context}.method_name must be an identifier")
+    if "async" in spec and not isinstance(spec["async"], bool):
+        raise ContractError(f"{context}.async must be a boolean")
+    return kind
+
+
+def _validate_route_name_case(case: dict[str, Any]) -> None:
+    _exact(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "path",
+            "methods",
+            "name",
+            "endpoints",
+            "observations",
+        },
+        "Route endpoint-name case",
+    )
+    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+        raise ContractError("Route endpoint-name parity targets only the Python package profile")
+    if case["observations"] != ["route_names"]:
+        raise ContractError("Route endpoint-name cases select their declared ordered observation")
+    if not isinstance(case["path"], str) or not case["path"].startswith("/"):
+        raise ContractError("Route endpoint-name path must be an absolute route path")
+    methods = case["methods"]
+    if methods is not None and (
+        not isinstance(methods, list)
+        or any(not isinstance(method, str) for method in methods)
+        or len(methods) != len(set(methods))
+    ):
+        raise ContractError("Route endpoint-name methods must be null or unique strings")
+    if case["name"] is not None and not isinstance(case["name"], str):
+        raise ContractError("Route endpoint-name override must be null or a string")
+    endpoints = case["endpoints"]
+    if not isinstance(endpoints, list) or not endpoints:
+        raise ContractError("Route endpoint-name cases require input endpoint shapes")
+    exercised: set[str] = set()
+    for index, endpoint in enumerate(endpoints):
+        kind = _validate_route_endpoint_spec(endpoint, f"Route endpoint-name endpoints[{index}]")
+        exercised.add(ROUTE_ENDPOINT_NAME_REQUIREMENTS[kind])
+    if set(case["covers"]) != exercised:
+        raise ContractError(
+            "Route endpoint-name requirements must derive from the supplied callables"
+        )
+
+
+def _validate_route_value_spec(spec: Any, context: str) -> str:
+    if not isinstance(spec, dict):
+        raise ContractError(f"{context} must be an object")
+    spec = _exact(spec, {"path", "endpoint", "methods", "name"}, context)
+    if not isinstance(spec["path"], str) or not spec["path"].startswith("/"):
+        raise ContractError(f"{context}.path must be an absolute route path")
+    endpoint_kind = _validate_route_endpoint_spec(spec["endpoint"], f"{context}.endpoint")
+    methods = spec["methods"]
+    if methods is not None and (
+        not isinstance(methods, list)
+        or any(not isinstance(method, str) for method in methods)
+        or len(methods) != len(set(methods))
+    ):
+        raise ContractError(f"{context}.methods must be null or unique strings")
+    if spec["name"] is not None and not isinstance(spec["name"], str):
+        raise ContractError(f"{context}.name must be null or a string")
+    return endpoint_kind
+
+
+def _validate_route_repr_case(case: dict[str, Any]) -> None:
+    surface = case["surface"]
+    field = {
+        HTTP_ROUTE_SURFACE: "route",
+        WEBSOCKET_ROUTE_SURFACE: "route",
+        MOUNT_SURFACE: "mount",
+        HOST_SURFACE: "host",
+    }[surface]
+    _exact(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            field,
+            "observations",
+        },
+        "routing representation case",
+    )
+    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+        raise ContractError("routing representation parity targets only the Python package profile")
+    if case["observations"] != ["representation"]:
+        raise ContractError("routing representation cases select their declared observation")
+
+    spec = case[field]
+    if surface == HTTP_ROUTE_SURFACE:
+        endpoint_kind = _validate_route_value_spec(spec, "Route representation input")
+        if endpoint_kind == "function" and spec["methods"] is None:
+            requirement = ROUTE_REPRESENTATION_REQUIREMENTS[surface]["inferred-methods"]
+        elif endpoint_kind == "object" and spec["methods"] is None:
+            requirement = ROUTE_REPRESENTATION_REQUIREMENTS[surface]["class-endpoint-no-methods"]
+        else:
+            raise ContractError("Route representation inputs must select a pinned endpoint shape")
+    elif surface == WEBSOCKET_ROUTE_SURFACE:
+        spec = _exact(spec, {"path", "endpoint", "name"}, "WebSocketRoute representation input")
+        if not isinstance(spec["path"], str) or not spec["path"].startswith("/"):
+            raise ContractError("WebSocketRoute representation path must be absolute")
+        endpoint_kind = _validate_route_endpoint_spec(
+            spec["endpoint"], "WebSocketRoute representation endpoint"
+        )
+        if spec["name"] is not None and not isinstance(spec["name"], str):
+            raise ContractError("WebSocketRoute representation name must be null or a string")
+        if endpoint_kind != "function":
+            raise ContractError("WebSocketRoute representation requires an input callable")
+        requirement = ROUTE_REPRESENTATION_REQUIREMENTS[surface]["function-endpoint"]
+    elif surface == MOUNT_SURFACE:
+        spec = _exact(spec, {"path", "name", "routes"}, "Mount representation input")
+        if not isinstance(spec["path"], str) or (spec["path"] and not spec["path"].startswith("/")):
+            raise ContractError("Mount representation path must be empty or absolute")
+        if spec["name"] is not None and not isinstance(spec["name"], str):
+            raise ContractError("Mount representation name must be null or a string")
+        if not isinstance(spec["routes"], list) or not spec["routes"]:
+            raise ContractError("Mount representation requires the supplied child routes")
+        for index, route in enumerate(spec["routes"]):
+            _validate_route_value_spec(route, f"Mount representation routes[{index}]")
+        requirement = ROUTE_REPRESENTATION_REQUIREMENTS[surface][
+            "named" if spec["name"] else "unnamed"
+        ]
+    else:
+        spec = _exact(spec, {"host", "name", "routes"}, "Host representation input")
+        if not isinstance(spec["host"], str) or not spec["host"]:
+            raise ContractError("Host representation host must be a nonempty string")
+        if spec["name"] is not None and not isinstance(spec["name"], str):
+            raise ContractError("Host representation name must be null or a string")
+        if not isinstance(spec["routes"], list) or not spec["routes"]:
+            raise ContractError("Host representation requires the supplied child routes")
+        for index, route in enumerate(spec["routes"]):
+            _validate_route_value_spec(route, f"Host representation routes[{index}]")
+        requirement = ROUTE_REPRESENTATION_REQUIREMENTS[surface][
+            "named" if spec["name"] else "unnamed"
+        ]
+    if set(case["covers"]) != {requirement}:
+        raise ContractError(
+            "routing representation coverage must derive from its constructor input"
+        )
+
+
 def _validate_value_formatting_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("value-formatting parity currently targets the Python package profile")
     if case["assets"] != []:
         raise ContractError("value-formatting cases do not use external assets")
+
+    if case["surface"] in ROUTE_REPRESENTATION_REQUIREMENTS:
+        _validate_route_repr_case(case)
+        return
 
     if case["surface"] == EXCEPTION_VALUES_SURFACE:
         if case["observations"] != [VALUE_FORMATTING_OPERATION]:

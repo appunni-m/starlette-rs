@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 853 input-only cases across 85 files,
-covering 95 operations and 841 unique parity requirements. Its latest additions map
+The active parity manifest indexes 861 input-only cases across 86 files,
+covering 99 operations and 854 unique parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Four new TestClient cases
 cover TrustedHost exact and wildcard acceptance, invalid-host rejection, and
@@ -100,25 +100,32 @@ FileResponse errors for directory and missing-file paths. The exact operation
 and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs. A BaseHTTPMiddleware
 workflow also maps `test_run_background_tasks_even_if_client_disconnects` and
-compares response-send and async background-task completion.
+compares response-send and async background-task completion. The new
+[`route-representations.yaml`](../tests/fixtures/sources/parity/route-representations.yaml)
+input maps six pinned `Route.name` endpoint shapes and seven `Route`,
+`WebSocketRoute`, `Mount`, and `Host` representation cases. All eight cases
+passed source/package comparison; Mount and Host compare the complete repr
+after normalizing only the child Router's process-specific object address.
+The 13 corresponding upstream test rows are now mapped in the atlas; their
+existing `uncertain` API dispositions remain unchanged.
 
 The latest recorded correctness preflight is
-`387fa289-e483-4a48-a8bd-4d93fb57d431`. It ran from
-`2026-10-03T16:52:46.990Z` to `2026-10-03T16:56:59.255Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 853-case,
-841-requirement `parity-input@31` manifest. It selected 1,087 profile
-comparisons: 1,083 passed, zero failed, zero infrastructure errors, and four
+`d13c876a-5ce2-4064-b96c-65e50ebdedb1`. It ran from
+`2026-10-03T17:19:06.780Z` to `2026-10-03T17:22:45.688Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 861-case,
+854-requirement `parity-input@31` manifest. It selected 1,095 profile
+comparisons: 1,091 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 851 selected comparisons; Rust-native passed 232 of 236. The four
+passed all 859 selected comparisons; Rust-native passed 232 of 236. The four
 native `not_run` rows remain synchronous Request endpoint, bound-method
 endpoint, partial endpoint, and callable-instance ASGI dispatch. The parity
 runner reports those declared native rows as `not_run`; strict aggregation
 remains `not_proven` because the compatibility denominator is incomplete.
 
 For this preflight, the manifest SHA-256 is
-`4827e0fef97e38311db27ff74e39f703aa22f2cba07182e2d91656802ca69e6f`, and the
+`a536c5aa6c9c41266cc9fbde860ba8be60b7fda947fc35ace8f4ea622a4bfb2b`, and the
 correctness-result artifact SHA-256 is
-`7d1df26b7c987c9758ebe063bb8cc4dfd52881c0b61a9e3ce8737db98314855e`.
+`3f94065fd90cc44bdb3d8279e2bc5f4f9125f842876cfa3cbbdbe050fc0197e8`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -136,8 +143,8 @@ remains `not_run` for these 74 benchmark workload boundaries. These
 workload-specific results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 586 input mappings, 51
-reasoned `not_applicable` rows, and 165 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 599 input mappings, 51
+reasoned `not_applicable` rows, and 152 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

@@ -263,6 +263,7 @@
       "build/parity/inputs/parity/websocket-protocol.json",
       "build/parity/inputs/parity/websocket-route-dispatch.json",
       "build/parity/inputs/parity/http-route-call.json",
+      "build/parity/inputs/parity/route-representations.json",
       "build/parity/inputs/parity/websocket-state-sequence.json",
       "build/parity/inputs/parity/router-converter-dispatch.json",
       "build/parity/inputs/parity/router-slash-redirect.json",
@@ -15884,6 +15885,115 @@
             "applicability": "not_applicable",
             "reason": "Host reverse URL generation is outside the active benchmark workloads."
           }
+        },
+        {
+          "id": "value-formatting",
+          "kind": "value-formatting",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Host.__repr__",
+            "signature": "__repr__(self) -> str",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "scalar",
+              "observations": [
+                {
+                  "path": "representation",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "normalization": {
+                    "kind": "python-object-address",
+                    "reason": "The pinned Mount and Host representation assertions include the child Router default object repr; remove only its process-specific address while comparing the complete representation exactly."
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose Python Host values or their Python object representation protocol.",
+                "blocker": "No Rust-native Host object is declared for this Python compatibility observation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Host",
+              "signature": "__repr__(self) -> str",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Host.__repr__.unnamed",
+              "dimension": "parameter_combination",
+              "description": "Construct an unnamed Host with the pinned child Router and compare its complete repr after normalizing only the Router object address. Upstream: tests/test_routing.py::test_host_repr; starlette/routing.py:522.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Host.__repr__.named",
+              "dimension": "parameter_combination",
+              "description": "Construct a named Host with the pinned child Router and compare its complete repr after normalizing only the Router object address. Upstream: tests/test_routing.py::test_host_named_repr; starlette/routing.py:522.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only representation comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Routing value representation is outside the active Router/GZip benchmark workloads."
+          }
         }
       ]
     },
@@ -16303,6 +16413,115 @@
             "applicability": "not_applicable",
             "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
           }
+        },
+        {
+          "id": "value-formatting",
+          "kind": "value-formatting",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Mount.__repr__",
+            "signature": "__repr__(self) -> str",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "scalar",
+              "observations": [
+                {
+                  "path": "representation",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "normalization": {
+                    "kind": "python-object-address",
+                    "reason": "The pinned Mount and Host representation assertions include the child Router default object repr; remove only its process-specific address while comparing the complete representation exactly."
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose Python Mount values or their Python object representation protocol.",
+                "blocker": "No Rust-native Mount object is declared for this Python compatibility observation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Mount",
+              "signature": "__repr__(self) -> str",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Mount.__repr__.unnamed",
+              "dimension": "parameter_combination",
+              "description": "Construct an unnamed Mount with the pinned child Route and compare its complete repr after normalizing only the Router object address. Upstream: tests/test_routing.py::test_mount_repr; starlette/routing.py:460.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.__repr__.named",
+              "dimension": "parameter_combination",
+              "description": "Construct a named Mount with the pinned child Route and compare its complete repr after normalizing only the Router object address. Upstream: tests/test_routing.py::test_mount_named_repr; starlette/routing.py:460.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only representation comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Routing value representation is outside the active Router/GZip benchmark workloads."
+          }
         }
       ]
     },
@@ -16415,8 +16634,18 @@
               }
             ],
             "result": {
-              "shape": "none",
-              "observations": [],
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "route_names",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
               "error": {
                 "fields": [
                   "class",
@@ -16493,6 +16722,72 @@
               "id": "starlette.routing.Route.max_body_size.lower-application-limit",
               "dimension": "error_path",
               "description": "A route-level max_body_size governs a POST whose body exceeds the route limit but remains within the application limit. Upstream: starlette/routing.py:197-208; tests/middleware/test_body_limit.py:284-292.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.endpoint-name.function",
+              "dimension": "parameter_combination",
+              "description": "Construct Route from the pinned test_route_name function endpoint shape and observe the live Route.name value. Upstream: starlette/routing.py::Route.__init__; tests/test_routing.py::test_route_name.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.endpoint-name.method",
+              "dimension": "parameter_combination",
+              "description": "Construct Route from the pinned test_route_name bound instance method endpoint shape and observe the live Route.name value. Upstream: starlette/routing.py::Route.__init__; tests/test_routing.py::test_route_name.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.endpoint-name.classmethod",
+              "dimension": "parameter_combination",
+              "description": "Construct Route from the pinned test_route_name class method endpoint shape and observe the live Route.name value. Upstream: starlette/routing.py::Route.__init__; tests/test_routing.py::test_route_name.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.endpoint-name.staticmethod",
+              "dimension": "parameter_combination",
+              "description": "Construct Route from the pinned test_route_name static method endpoint shape and observe the live Route.name value. Upstream: starlette/routing.py::Route.__init__; tests/test_routing.py::test_route_name.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.endpoint-name.object",
+              "dimension": "parameter_combination",
+              "description": "Construct Route from the pinned test_route_name callable object endpoint shape and observe the live Route.name value. Upstream: starlette/routing.py::Route.__init__; tests/test_routing.py::test_route_name.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.endpoint-name.lambda",
+              "dimension": "parameter_combination",
+              "description": "Construct Route from the pinned test_route_name lambda endpoint shape and observe the live Route.name value. Upstream: starlette/routing.py::Route.__init__; tests/test_routing.py::test_route_name.",
               "lanes": [
                 "parity"
               ],
@@ -16902,6 +17197,111 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
+          }
+        },
+        {
+          "id": "value-formatting",
+          "kind": "value-formatting",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Route.__repr__",
+            "signature": "__repr__(self) -> str",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "scalar",
+              "observations": [
+                {
+                  "path": "representation",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose Python Route values or their Python object representation protocol.",
+                "blocker": "No Rust-native Route object is declared for this Python compatibility observation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Route",
+              "signature": "__repr__(self) -> str",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Route.__repr__.with-inferred-methods",
+              "dimension": "parameter_combination",
+              "description": "Construct Route from the pinned function endpoint and observe its complete repr with the inferred GET and HEAD method set. Upstream: tests/test_routing.py::test_route_repr; starlette/routing.py:290.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.__repr__.class-endpoint-no-methods",
+              "dimension": "parameter_combination",
+              "description": "Construct Route from the pinned callable-class endpoint with methods omitted and observe the complete repr. Upstream: tests/test_routing.py::test_route_repr_without_methods; starlette/routing.py:290.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only representation comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Routing value representation is outside the active Router/GZip benchmark workloads."
           }
         }
       ]
@@ -18084,6 +18484,100 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Reverse URL generation is outside the active dispatch benchmark workload."
+          }
+        },
+        {
+          "id": "value-formatting",
+          "kind": "value-formatting",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.WebSocketRoute.__repr__",
+            "signature": "__repr__(self) -> str",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "scalar",
+              "observations": [
+                {
+                  "path": "representation",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose Python WebSocketRoute values or their Python object representation protocol.",
+                "blocker": "No Rust-native WebSocketRoute object is declared for this Python compatibility observation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.WebSocketRoute",
+              "signature": "__repr__(self) -> str",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.WebSocketRoute.__repr__.function-endpoint",
+              "dimension": "parameter_combination",
+              "description": "Construct WebSocketRoute from the pinned async function endpoint and observe the complete repr. Upstream: tests/test_routing.py::test_websocket_route_repr; starlette/routing.py:359.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only representation comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Routing value representation is outside the active Router/GZip benchmark workloads."
           }
         }
       ]

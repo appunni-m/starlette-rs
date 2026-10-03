@@ -110,6 +110,20 @@ _HTML_TRACEBACK_LINE = re.compile(rb"(,\s*line <i>)\d+(</i>)")
 _HTML_SOURCE_LINE_NUMBER = re.compile(rb'(<span class="lineno">)\d+(\.</span>)')
 _HTML_FRAME_REFERENCE = re.compile(rb'((?:id|data-frame-id)=")[^"]*(")')
 _HTML_CLOSING_DIV_SEQUENCE = re.compile(rb"</div>(?:[ \t\r\n]*</div>)+")
+_PYTHON_OBJECT_ADDRESS = re.compile(r"(?<= object at )0x[0-9a-fA-F]+(?=>)")
+
+
+def _normalize_python_object_address(path: str, value: Any) -> str:
+    if path != "representation" or not isinstance(value, str):
+        raise ContractError(
+            "python-object-address normalization requires a routing representation string"
+        )
+    normalized, count = _PYTHON_OBJECT_ADDRESS.subn("0x<address>", value)
+    if count != 1:
+        raise ContractError(
+            "Mount and Host representations must contain exactly one Python object address"
+        )
+    return normalized
 
 
 def _is_starlette_frame(filename: str) -> bool:
@@ -1023,6 +1037,16 @@ def compare_workflows(
                             )
                         left_field = _normalize_starlette_lifespan_router_frame(left_field)
                         right_field = _normalize_starlette_lifespan_router_frame(right_field)
+                    elif kind == "python-object-address":
+                        if case.get("surface") not in {
+                            "starlette.routing.Mount",
+                            "starlette.routing.Host",
+                        }:
+                            raise ContractError(
+                                "python-object-address normalization is only allowed for Mount/Host representations"
+                            )
+                        left_field = _normalize_python_object_address(path, left_field)
+                        right_field = _normalize_python_object_address(path, right_field)
                     else:
                         raise ContractError(
                             f"unsupported normalization for {path}: {normalization_step!r}"

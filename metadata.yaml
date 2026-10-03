@@ -512,6 +512,10 @@
         {
           "operation_id": "url_path_for",
           "source_path": "starlette.routing.Host.url_path_for"
+        },
+        {
+          "operation_id": "value-formatting",
+          "source_path": "starlette.routing.Host.__repr__"
         }
       ]
     },
@@ -526,6 +530,10 @@
         {
           "operation_id": "url_path_for",
           "source_path": "starlette.routing.Mount.url_path_for"
+        },
+        {
+          "operation_id": "value-formatting",
+          "source_path": "starlette.routing.Mount.__repr__"
         }
       ]
     },
@@ -544,6 +552,10 @@
         {
           "operation_id": "url_path_for",
           "source_path": "starlette.routing.Route.url_path_for"
+        },
+        {
+          "operation_id": "value-formatting",
+          "source_path": "starlette.routing.Route.__repr__"
         }
       ]
     },
@@ -572,6 +584,10 @@
         {
           "operation_id": "url_path_for",
           "source_path": "starlette.routing.WebSocketRoute.url_path_for"
+        },
+        {
+          "operation_id": "value-formatting",
+          "source_path": "starlette.routing.WebSocketRoute.__repr__"
         }
       ]
     },

@@ -73,6 +73,13 @@ HTTP_ROUTE_CALL_CASE_KEYS = {
     "observations",
 }
 HOST_SURFACE = "starlette.routing.Host"
+MOUNT_SURFACE = "starlette.routing.Mount"
+ROUTE_REPRESENTATION_SURFACES = {
+    HTTP_ROUTE_SURFACE,
+    WEBSOCKET_ROUTE_SURFACE,
+    MOUNT_SURFACE,
+    HOST_SURFACE,
+}
 REDIRECT_RESPONSE_SURFACE = "starlette.responses.RedirectResponse"
 REDIRECT_RESPONSE_OPERATION = "asgi-call"
 RESPONSE_SURFACE = "starlette.responses.Response"
@@ -8023,7 +8030,196 @@ def _run_status_symbols_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _make_routing_endpoint(spec: dict[str, Any]) -> Any:
+    kind = spec["kind"]
+    keys_by_kind = {
+        "function": {"kind", "name", "async"},
+        "bound-method": {"kind", "class_name", "method_name", "async"},
+        "class-method": {"kind", "class_name", "method_name", "async"},
+        "static-method": {"kind", "class_name", "method_name", "async"},
+        "object": {"kind", "class_name"},
+        "lambda": {"kind"},
+    }
+    if kind not in keys_by_kind:
+        raise ValueError(f"unsupported Route endpoint shape: {kind!r}")
+    _exact_object(spec, keys_by_kind[kind], "routing endpoint shape")
+    if kind == "function":
+        if spec["async"]:
+
+            async def endpoint(*args: Any, **kwargs: Any) -> None:
+                return None
+
+        else:
+
+            def endpoint(*args: Any, **kwargs: Any) -> None:
+                return None
+
+        endpoint.__name__ = spec["name"]
+        return endpoint
+    if kind == "lambda":
+        return lambda *args, **kwargs: None
+    if kind == "object":
+        if spec["class_name"] == "Endpoint":
+
+            def call(self: Any, *args: Any, **kwargs: Any) -> None:
+                return None
+
+            endpoint_type = type(spec["class_name"], (), {"__call__": call})
+        else:
+            endpoint_type = type(spec["class_name"], (), {})
+        return endpoint_type()
+
+    method_name = spec["method_name"]
+    asynchronous = spec["async"]
+    if asynchronous:
+
+        async def method(*args: Any, **kwargs: Any) -> None:
+            return None
+
+    else:
+
+        def method(*args: Any, **kwargs: Any) -> None:
+            return None
+
+    method.__name__ = method_name
+    descriptor: Any = method
+    if kind == "class-method":
+        descriptor = classmethod(method)
+    elif kind == "static-method":
+        descriptor = staticmethod(method)
+    endpoint_type = type(spec["class_name"], (), {method_name: descriptor})
+    endpoint_instance = endpoint_type()
+    if kind == "class-method":
+        return getattr(endpoint_type, method_name)
+    return getattr(endpoint_instance, method_name)
+
+
+def _run_route_endpoint_name_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "path",
+            "methods",
+            "name",
+            "endpoints",
+            "observations",
+        },
+        "Route endpoint-name case",
+    )
+    from starlette.routing import Route
+
+    names = [
+        Route(
+            path=case["path"],
+            endpoint=_make_routing_endpoint(spec),
+            methods=case["methods"],
+            name=case["name"],
+        ).name
+        for spec in case["endpoints"]
+    ]
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "route_names",
+                "status": "ok",
+                "value": {"route_names": names},
+            }
+        ],
+    }
+
+
+def _make_routing_value(spec: dict[str, Any], surface: str) -> Any:
+    from starlette.routing import Host, Mount, Route, Router, WebSocketRoute
+
+    if surface == HTTP_ROUTE_SURFACE:
+        _exact_object(spec, {"path", "endpoint", "methods", "name"}, "Route representation input")
+        return Route(
+            path=spec["path"],
+            endpoint=_make_routing_endpoint(spec["endpoint"]),
+            methods=spec["methods"],
+            name=spec["name"],
+        )
+    if surface == WEBSOCKET_ROUTE_SURFACE:
+        _exact_object(
+            spec,
+            {"path", "endpoint", "name"},
+            "WebSocketRoute representation input",
+        )
+        return WebSocketRoute(
+            path=spec["path"],
+            endpoint=_make_routing_endpoint(spec["endpoint"]),
+            name=spec["name"],
+        )
+    if surface == MOUNT_SURFACE:
+        _exact_object(spec, {"path", "name", "routes"}, "Mount representation input")
+    else:
+        _exact_object(spec, {"host", "name", "routes"}, "Host representation input")
+    routes = []
+    for route_spec in spec["routes"]:
+        _exact_object(
+            route_spec,
+            {"path", "endpoint", "methods", "name"},
+            "mounted routing child",
+        )
+        routes.append(
+            Route(
+                path=route_spec["path"],
+                endpoint=_make_routing_endpoint(route_spec["endpoint"]),
+                methods=route_spec["methods"],
+                name=route_spec["name"],
+            )
+        )
+    if surface == MOUNT_SURFACE:
+        return Mount(path=spec["path"], routes=routes, name=spec["name"])
+    return Host(host=spec["host"], app=Router(routes=routes), name=spec["name"])
+
+
+def _run_routing_value_formatting_case(case: dict[str, Any]) -> dict[str, Any]:
+    field = {
+        HTTP_ROUTE_SURFACE: "route",
+        WEBSOCKET_ROUTE_SURFACE: "route",
+        MOUNT_SURFACE: "mount",
+        HOST_SURFACE: "host",
+    }[case["surface"]]
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            field,
+            "observations",
+        },
+        "routing value-formatting case",
+    )
+    value = _make_routing_value(case[field], case["surface"])
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "representation",
+                "status": "ok",
+                "value": {"representation": repr(value)},
+            }
+        ],
+    }
+
+
 def _run_value_formatting_case(case: dict[str, Any]) -> dict[str, Any]:
+    if case["surface"] in ROUTE_REPRESENTATION_SURFACES:
+        return _run_routing_value_formatting_case(case)
     if case["surface"] == EXCEPTION_VALUES_SURFACE:
         _exact_object(
             case,
@@ -11960,9 +12156,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if (
         isinstance(case, dict)
         and case.get("operation") == VALUE_FORMATTING_OPERATION
-        and case.get("surface") in {EXCEPTION_VALUES_SURFACE, MIDDLEWARE_CONFIG_SURFACE}
+        and case.get("surface")
+        in {EXCEPTION_VALUES_SURFACE, MIDDLEWARE_CONFIG_SURFACE, *ROUTE_REPRESENTATION_SURFACES}
     ):
         return _run_value_formatting_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        HTTP_ROUTE_SURFACE,
+        "__init__",
+    ):
+        return _run_route_endpoint_name_case(case)
     if isinstance(case, dict) and case.get("operation") in {"url_path_for", "url_for"}:
         return _run_reverse_url_case(case)
     if (
