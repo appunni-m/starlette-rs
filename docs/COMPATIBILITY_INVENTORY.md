@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 760 input-only cases across 84 files,
+The active parity manifest indexes 763 input-only cases across 84 files,
 covering 94 operations and 790 parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Recent additions include
@@ -94,7 +94,7 @@ and run results remain ignored local build outputs.
 The latest full-slice correctness preflight is
 `4e4f0992-fca1-4c3d-83bd-b2aa78652a84`. It ran from
 `2026-10-03T01:39:57.913Z` to `2026-10-03T01:43:14.719Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 760-case,
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 763-case,
 790-requirement `parity-input@29` manifest. It selected 975 profile
 comparisons: 971 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
@@ -150,8 +150,8 @@ artifact SHA-256:
 `1f83a6f791fa359f78a5e28fc14914b8512a54170e6e19b01f7cbae2b14e1457`. This
 bounded evidence does not establish full Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 491 input mappings, 51
-reasoned `not_applicable` rows, and 260 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 497 input mappings, 51
+reasoned `not_applicable` rows, and 254 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -490,7 +490,7 @@ and both final state enums on source, package, and Rust-native profiles; it
 does not compare payloads or Python exception metadata. The new
 `starlette.websockets.WebSocket.convenience-sequence` operation compares typed
 frames, action results and disconnect details, pre-accept rejection of typed
-receives, normal async-for iterator output, async-generator API
+receives, input-matched text/bytes/JSON exchanges, normal async-for iterator output, async-generator API
 availability/control calls, denial-response extension behavior, and final
 states. The separate
 `starlette.websockets.WebSocketClose.call-sequence` operation observes
