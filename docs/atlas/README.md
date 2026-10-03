@@ -30,13 +30,14 @@ active and incomplete. The current contract has 778 input-only cases across
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract, WebSocket text,
-bytes, and JSON send/receive exchange cases, and four TestClient TrustedHost
+bytes, and JSON send/receive exchange cases, a send-callback `OSError`
+disconnect case, and four TestClient TrustedHost
 cases for exact/wildcard acceptance, invalid-host rejection, and HTTPS www
 redirect following. Seven QueryParams cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `2453a17c-b052-4af8-b966-0c92f4d1fdf9` passed 991 of 995 selected profile
+full-slice run `063f3a8c-2251-45bd-82d1-4f0b325790e8` passed 992 of 996 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 775/775; Rust-native
+Python-callable rows `not_run`. The Python package passed 776/776; Rust-native
 passed 216/220. The new GZip streaming-response case
 passes against both targets. Six protected WebSocket authentication
 cases pass source/package comparison for plain and injection-wrapped routes
@@ -80,11 +81,11 @@ Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). It measured all 74 source/package workloads on
-clean commit `ff4ee37a53eed8ed49909c186dfe37efddd36f17`: six Router and 68
+clean commit `84ec4002f2a9eb0ca5b6efcc7dca7d733fd484b5`: six Router and 68
 GZip, with zero failures and matching normalized observation hashes for all 74.
-Its preflight selected 995 comparisons (991 pass, zero failures, four declared
-Rust-native `not_run`). Median source/package latency ratios were 0.747 for
-Router and 0.967 for GZip. Rust-native remains `not_run` for these 74 benchmark
+Its preflight selected 996 comparisons (992 pass, zero failures, four declared
+Rust-native `not_run`). Median source/package latency ratios were 0.735 for
+Router and 0.972 for GZip. Rust-native remains `not_run` for these 74 benchmark
 workload boundaries. These workload-specific results do not establish full
 Starlette compatibility.
 

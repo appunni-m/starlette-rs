@@ -11,31 +11,32 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest full-slice correctness run is
-`2453a17c-b052-4af8-b966-0c92f4d1fdf9`. It ran from
-`2026-10-03T05:41:16.697Z` to `2026-10-03T05:44:35.864Z` against Starlette
+`063f3a8c-2251-45bd-82d1-4f0b325790e8`. It ran from
+`2026-10-03T06:10:42.785Z` to `2026-10-03T06:13:50.597Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 778-case,
-801-requirement `parity-input@31` manifest. It selected 995 profile
-comparisons: 991 passed, zero failed, zero infrastructure errors, and four
+801-requirement `parity-input@31` manifest. It selected 996 profile
+comparisons: 992 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 775 selected comparisons; Rust-native passed 216 of 220. The new
-connected-state WebSocket receive/send invalid-message cases matched exactly
-on both profiles, including exception classes, messages, and final states. The
+passed all 776 selected comparisons; Rust-native passed 216 of 220. The new
+connected-state WebSocket send-callback `OSError` case matched the pinned
+exception details, callback tape, and protocol states on the Python-package
+profile; connected invalid-message cases also matched on both profiles. The
 four native `not_run` rows remain synchronous Request endpoint, bound-method
 endpoint, partial endpoint, and callable-instance ASGI dispatch. The run used
-clean commit `ff4ee37a53eed8ed49909c186dfe37efddd36f17`; `make parity-run`
+clean commit `84ec4002f2a9eb0ca5b6efcc7dca7d733fd484b5`; `make parity-run`
 returns status 2 because of those declared native rows, despite zero parity
 failures or infrastructure errors.
 
 The Rust-native source fingerprint is
-`ff4ee37a53eed8ed49909c186dfe37efddd36f17+source-fnv1a64-f9fd1d9d60c3cdb7`.
+`84ec4002f2a9eb0ca5b6efcc7dca7d733fd484b5+source-fnv1a64-f9fd1d9d60c3cdb7`.
 The Python-package target tree SHA-256 is
-`e15f78acef19a8300682e20620e73f754416de7ba6a03e8f6ee4c9e35c371d4f`; its
+`49a604888ecdefce4a95178aba5822012f6ee49a8be54e50b99e849bbb2539c9`; its
 wheel SHA-256 is
-`eed47452aa240b522dded57afeb67c7d26466d7929a4c91b4797f680933c5580`. The
+`fc338f5bdc24d9bbb9b047a863e648f4a4fdb98fb1308d3e99c100f8ca4b7ec9`. The
 manifest SHA-256 is
-`1871f88b38bc502b924cc68b3c5584e85d692d6b60f91cfd04520e607f018eb5`, and the
+`4df4d9d3e0751720fb616b6df55d266116f11a66c10885003297bd7c7191425a`, and the
 local result artifact SHA-256 is
-`86fa9fbd6bd9d500271cfaf699d19ddb75804455235a8d77e400023675c4bc8d`. Strict
+`b0b492935ca6fadf40ebd4f924820794b3fe984e11e94f7694acf568a28ea346`. Strict
 aggregation remains `not_proven` because the compatibility denominator is
 incomplete and four Rust-native rows are `not_run`.
 
@@ -1104,7 +1105,7 @@ The existing app-level `url_path_for` input is also linked to
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 775 Python-package comparisons passed.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 776 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 
