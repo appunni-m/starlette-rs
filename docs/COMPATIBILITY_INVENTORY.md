@@ -103,8 +103,8 @@ workflow also maps `test_run_background_tasks_even_if_client_disconnects` and
 compares response-send and async background-task completion.
 
 The latest recorded correctness preflight is
-`40402c2f-15f8-4f6e-9f8c-987832c5ec34`. It ran from
-`2026-10-03T16:46:54.401Z` to `2026-10-03T16:50:37.639Z` against Starlette
+`387fa289-e483-4a48-a8bd-4d93fb57d431`. It ran from
+`2026-10-03T16:52:46.990Z` to `2026-10-03T16:56:59.255Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 853-case,
 841-requirement `parity-input@31` manifest. It selected 1,087 profile
 comparisons: 1,083 passed, zero failed, zero infrastructure errors, and four
@@ -118,7 +118,7 @@ remains `not_proven` because the compatibility denominator is incomplete.
 For this preflight, the manifest SHA-256 is
 `4827e0fef97e38311db27ff74e39f703aa22f2cba07182e2d91656802ca69e6f`, and the
 correctness-result artifact SHA-256 is
-`2134141b03f2a61e427a462b18a65172db19b747dd3dc5e2c1e84d99bc0d0bc3`.
+`7d1df26b7c987c9758ebe063bb8cc4dfd52881c0b61a9e3ce8737db98314855e`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -128,9 +128,9 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`7ac5cb23-b97d-409e-949b-6b15c204aebb` measured all 74 source/package workloads
-on clean commit `af6f1a6162eaf76a0b83ea2576cf4e53a745b20e`: six Router and 68
-GZip, with zero failures. Its preflight selected 1,085 comparisons (1,081
+`374672e6-afdb-476e-a714-62ac982adbec` measured all 74 source/package workloads
+on clean commit `0e6ffb791f0145cf6df26932bffc94fe9c09dbcd`: six Router and 68
+GZip, with zero failures. Its preflight selected 1,087 comparisons (1,083
 passed, zero failures, four declared Rust-native `not_run`). Rust-native
 remains `not_run` for these 74 benchmark workload boundaries. These
 workload-specific results do not establish full Starlette compatibility.
