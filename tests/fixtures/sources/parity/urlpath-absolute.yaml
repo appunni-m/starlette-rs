@@ -14,7 +14,9 @@
         "starlette.datastructures.URLPath.make_absolute_url.protocol-scheme-selection",
         "starlette.datastructures.URLPath.make_absolute_url.route-host-override"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "route_graph": {
         "kind": "router",
@@ -23,7 +25,9 @@
             "kind": "http-route",
             "path": "/",
             "name": "homepage",
-            "methods": ["GET"],
+            "methods": [
+              "GET"
+            ],
             "observer": null
           },
           {
@@ -35,7 +39,9 @@
                 "kind": "http-route",
                 "path": "/{username:str}",
                 "name": "user",
-                "methods": ["GET"],
+                "methods": [
+                  "GET"
+                ],
                 "observer": null
               }
             ]
@@ -61,7 +67,9 @@
                 "kind": "http-route",
                 "path": "/profile",
                 "name": "profile",
-                "methods": ["GET"],
+                "methods": [
+                  "GET"
+                ],
                 "observer": null
               }
             ]
@@ -69,16 +77,45 @@
         ]
       },
       "lookups": [
-        {"name": "user", "path_params": {"username": "ada"}},
-        {"name": "homepage", "path_params": {}},
-        {"name": "user", "path_params": {"username": "tomchristie"}},
-        {"name": "websocket_endpoint", "path_params": {}},
-        {"name": "socket", "path_params": {"room": "blue"}},
+        {
+          "name": "user",
+          "path_params": {
+            "username": "ada"
+          }
+        },
+        {
+          "name": "homepage",
+          "path_params": {}
+        },
+        {
+          "name": "user",
+          "path_params": {
+            "username": "tomchristie"
+          }
+        },
+        {
+          "name": "websocket_endpoint",
+          "path_params": {}
+        },
+        {
+          "name": "socket",
+          "path_params": {
+            "room": "blue"
+          }
+        },
         {
           "name": "tenant",
-          "path_params": {"path": "/archive", "subdomain": "files"}
+          "path_params": {
+            "path": "/archive",
+            "subdomain": "files"
+          }
         },
-        {"name": "tenant:profile", "path_params": {"subdomain": "api"}}
+        {
+          "name": "tenant:profile",
+          "path_params": {
+            "subdomain": "api"
+          }
+        }
       ],
       "base_urls": [
         {
@@ -98,7 +135,126 @@
           "value": "http://origin.example/api/?source=url#anchor"
         }
       ],
-      "observations": ["absolute-url-results"]
+      "observations": [
+        "absolute-url-results"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URLPath.make-absolute-url.host-reverse-lookups",
+      "surface": "starlette.datastructures.URLPath",
+      "operation": "make-absolute-url",
+      "covers": [
+        "starlette.datastructures.URLPath.make_absolute_url.route-host-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "host-route",
+            "host": "www.example.org",
+            "name": null,
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "name": "homepage",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              },
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "name": "users",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          },
+          {
+            "kind": "host-route",
+            "host": "api.example.org",
+            "name": "api",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "name": "users",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          },
+          {
+            "kind": "host-route",
+            "host": "port.example.org:3600",
+            "name": "port",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "name": "homepage",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          },
+          {
+            "kind": "host-route",
+            "host": "{subdomain}.example.org",
+            "name": "subdomains",
+            "app": {
+              "kind": "scope-path-parameter-json",
+              "path_parameter": "subdomain"
+            }
+          }
+        ]
+      },
+      "lookups": [
+        {
+          "name": "homepage",
+          "path_params": {}
+        },
+        {
+          "name": "users",
+          "path_params": {}
+        },
+        {
+          "name": "api:users",
+          "path_params": {}
+        },
+        {
+          "name": "port:homepage",
+          "path_params": {}
+        },
+        {
+          "name": "subdomains",
+          "path_params": {
+            "subdomain": "foo",
+            "path": "/homepage"
+          }
+        }
+      ],
+      "base_urls": [
+        {
+          "kind": "string",
+          "value": "https://whatever"
+        }
+      ],
+      "observations": [
+        "absolute-url-results"
+      ]
     }
   ]
 }

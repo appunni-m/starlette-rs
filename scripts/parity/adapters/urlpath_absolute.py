@@ -9,7 +9,7 @@ def run_urlpath_absolute_case(case: dict[str, Any]) -> dict[str, Any]:
     """Resolve supplied route lookups against supplied string and URL bases."""
     from starlette.applications import Starlette
     from starlette.datastructures import URL
-    from starlette.responses import Response
+    from starlette.responses import JSONResponse, Response
     from starlette.routing import Host, Mount, Route, Router, WebSocketRoute
 
     async def http_endpoint(request: Any) -> Response:
@@ -42,9 +42,20 @@ def run_urlpath_absolute_case(case: dict[str, Any]) -> dict[str, Any]:
                 mount_arguments["routes"] = [build_route(route) for route in node["routes"]]
             return Mount(node["path"], name=node["name"], **mount_arguments)
         if kind == "host-route":
+            if "app" in node:
+                path_parameter = node["app"]["path_parameter"]
+
+                async def host_app(scope: Any, receive: Any, send: Any) -> None:
+                    await JSONResponse({path_parameter: scope["path_params"][path_parameter]})(
+                        scope, receive, send
+                    )
+
+                app = host_app
+            else:
+                app = Router(routes=[build_route(route) for route in node["routes"]])
             return Host(
                 node["host"],
-                app=Router(routes=[build_route(route) for route in node["routes"]]),
+                app=app,
                 name=node["name"],
             )
         if kind == "router":

@@ -7359,14 +7359,30 @@ def _validate_reverse_route_node(
             )
         return node
     if kind == "host-route":
-        node = _exact(node, {"kind", "host", "name", "routes"}, context)
+        host_keys = {"kind", "host", "name", "routes"}
+        if "app" in node:
+            host_keys.remove("routes")
+            host_keys.add("app")
+        node = _exact(node, host_keys, context)
         host = _string(node["host"], f"{context}.host")
         if not host or "/" in host:
             raise ContractError(f"{context}.host must be a non-empty host pattern")
-        _validate_reverse_path("/" + host, custom, f"{context}.host")
+        host_parameters = {
+            name
+            for name, _converter in _validate_reverse_path("/" + host, custom, f"{context}.host")
+        }
         if node["name"] is not None:
             _string(node["name"], f"{context}.name")
-        if not isinstance(node["routes"], list):
+        if "app" in node:
+            app = _exact(node["app"], {"kind", "path_parameter"}, f"{context}.app")
+            if app["kind"] != "scope-path-parameter-json":
+                raise ContractError(f"{context}.app.kind must be scope-path-parameter-json")
+            path_parameter = _string(app["path_parameter"], f"{context}.app.path_parameter")
+            if path_parameter not in host_parameters:
+                raise ContractError(
+                    f"{context}.app.path_parameter must name a Host pattern parameter"
+                )
+        elif not isinstance(node["routes"], list):
             raise ContractError(f"{context}.routes must be an array")
         for index, route in enumerate(node.get("routes", [])):
             _validate_reverse_route_node(
@@ -7475,7 +7491,7 @@ def _reverse_route_candidates(
             return []
         remaining = {key: value for key, value in path_params.items() if key not in host_parameters}
         results = []
-        for index, route in enumerate(node["routes"]):
+        for index, route in enumerate(node.get("routes", [])):
             results.extend(
                 (index, match)
                 for _nested_index, match in _reverse_route_candidates(
@@ -7558,7 +7574,7 @@ def _urlpath_route_profiles(
         remaining = {key: value for key, value in path_params.items() if key not in host_parameters}
         return [
             profile
-            for route in node["routes"]
+            for route in node.get("routes", [])
             for profile in _urlpath_route_profiles(
                 route, child_name, remaining, custom, host_override=True
             )
@@ -7719,6 +7735,9 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
             first_candidate = min(index for index, _route in candidates)
             if first_candidate > 0:
                 derived.add(rid("first-success"))
+            candidate_ids = {id(route) for _index, route in candidates}
+            if any(_reverse_candidate_mount_paths(graph, candidate_ids)):
+                derived.add(rid("mount-lookup-success"))
             first_route = next(route for index, route in candidates if index == first_candidate)
             parameters = dict(
                 _validate_reverse_path(first_route["path"], custom, "Router selected route path")
@@ -7772,6 +7791,21 @@ def _reverse_candidate_middleware_paths(
     paths: list[bool] = []
     for route in node.get("routes", []):
         paths.extend(_reverse_candidate_middleware_paths(route, candidates, has_middleware))
+    return paths
+
+
+def _reverse_candidate_mount_paths(
+    node: dict[str, Any], candidates: set[int], inherited_mount: bool = False
+) -> list[bool]:
+    """Return Mount ancestry for matching routes in route-list order."""
+    has_mount = inherited_mount or node["kind"] == "mount"
+    if id(node) in candidates:
+        return [has_mount]
+    if node["kind"] in {"http-route", "websocket-route"}:
+        return []
+    paths: list[bool] = []
+    for route in node.get("routes", []):
+        paths.extend(_reverse_candidate_mount_paths(route, candidates, has_mount))
     return paths
 
 

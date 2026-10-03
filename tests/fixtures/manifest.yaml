@@ -17266,6 +17266,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Router.url_path_for.mount-lookup-success",
+              "dimension": "success_path",
+              "description": "Router.url_path_for resolves a named Mount directly and resolves named child routes through a Mount path, preserving both mount and child parameters. Upstream: tests/test_routing.py::test_reverse_mount_urls; starlette/routing.py:363-452.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

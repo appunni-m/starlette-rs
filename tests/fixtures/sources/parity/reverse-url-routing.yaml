@@ -1122,6 +1122,218 @@
       "observations": [
         "reverse-url"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.mount-lookup-success.direct-mounted-app",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.mount-lookup-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/users",
+            "name": "users",
+            "app": {
+              "kind": "no-op-asgi"
+            }
+          }
+        ]
+      },
+      "lookup": {
+        "name": "users",
+        "path_params": {
+          "path": "/a"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.mount-lookup-success.nested-child-route",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.mount-lookup-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/{subpath}/users",
+            "name": "users",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/{username}",
+                "name": "user",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "users:user",
+        "path_params": {
+          "subpath": "test",
+          "username": "tom"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.mount-lookup-success.direct-mount-with-prefix-parameter",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.mount-lookup-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/{subpath}/users",
+            "name": "users",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/{username}",
+                "name": "user",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "users",
+        "path_params": {
+          "subpath": "test",
+          "path": "/tom"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.host-route-no-match",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.mismatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "host-route",
+            "host": "www.example.org",
+            "name": null,
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "name": "homepage",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              },
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "name": "users",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          },
+          {
+            "kind": "host-route",
+            "host": "api.example.org",
+            "name": "api",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "name": "users",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          },
+          {
+            "kind": "host-route",
+            "host": "port.example.org:3600",
+            "name": "port",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "name": "homepage",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "api",
+        "path_params": {
+          "path": "whatever",
+          "foo": "bar"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
     }
   ]
 }

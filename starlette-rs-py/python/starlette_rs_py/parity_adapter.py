@@ -7051,7 +7051,7 @@ def _build_reverse_route_node(
     node: dict[str, Any], lookup: dict[str, Any], observation: dict[str, Any]
 ) -> Any:
     from starlette.applications import Starlette
-    from starlette.responses import PlainTextResponse
+    from starlette.responses import JSONResponse, PlainTextResponse
     from starlette.routing import Host, Mount, Route, Router, WebSocketRoute
 
     kind = node["kind"]
@@ -7105,14 +7105,25 @@ def _build_reverse_route_node(
             ]
         )
     if kind == "host-route":
-        return Host(
-            node["host"],
-            app=Router(
+        if "app" in node:
+            path_parameter = node["app"]["path_parameter"]
+
+            async def host_app(scope: Any, receive: Any, send: Any) -> None:
+                await JSONResponse({path_parameter: scope["path_params"][path_parameter]})(
+                    scope, receive, send
+                )
+
+            app = host_app
+        else:
+            app = Router(
                 routes=[
                     _build_reverse_route_node(child, lookup, observation)
                     for child in node["routes"]
                 ]
-            ),
+            )
+        return Host(
+            node["host"],
+            app=app,
             name=node["name"],
         )
     raise ValueError(f"unsupported reverse URL route node kind: {kind!r}")
