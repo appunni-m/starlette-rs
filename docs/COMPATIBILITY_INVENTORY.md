@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 767 input-only cases across 84 files,
-covering 94 operations and 790 parity requirements. Its latest additions map
+The active parity manifest indexes 771 input-only cases across 84 files,
+covering 94 operations and 794 parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Four new TestClient cases
 cover TrustedHost exact and wildcard acceptance, invalid-host rejection, and
@@ -60,7 +60,10 @@ row now has input-only dispatch and reverse-URL cases on
 the Python package; the documented custom converter example is now mapped to
 the same dispatch and reverse-URL input cases. The six direct
 ServerErrorMiddleware inputs and three TestClient exception-
-chain inputs pass live source/package comparison in the latest run. Sixteen
+chain inputs pass live source/package comparison in the latest run. Four
+exception-formatting cases now map the exact constructor inputs from
+`test_http_str`, `test_http_repr`, `test_websocket_str`, and
+`test_websocket_repr` to Rust-backed `str()` and `repr()` observations. Sixteen
 Request.cookies inputs also pass their selected comparisons: an Okta-style
 JSON-like value with duplicate and unnamed segments, all 12 active edge and
 malformed parameter strings, multiple raw Cookie fields, quoted
@@ -94,35 +97,35 @@ operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest full-slice correctness preflight is
-`b35a96db-4512-4d0c-a981-b9f2b60b0cf4`. It ran from
-`2026-10-03T02:25:35.286Z` to `2026-10-03T02:28:42.489Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 767-case,
-790-requirement `parity-input@29` manifest. It selected 982 profile
-comparisons: 978 passed, zero failed, zero infrastructure errors, and four
+`adef681f-aa3c-4a03-8727-67830690aa6d`. It ran from
+`2026-10-03T02:49:16.162Z` to `2026-10-03T02:52:26.136Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 771-case,
+794-requirement `parity-input@29` manifest. It selected 986 profile
+comparisons: 982 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 765 selected comparisons; Rust-native passed 213 of 217. Four new
-TrustedHost TestClient cases match source/package status, URL, headers, body,
-and ASGI events for exact and wildcard hosts, an invalid host, and a followed
-HTTPS `www` redirect. The WebSocket pre-accept text/bytes/JSON receive cases
-and five text/bytes/JSON exchange cases match the pinned source in action
-results, ordered ASGI callback tapes, and final protocol states. The four
-native `not_run` rows
-remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
-and callable-instance ASGI dispatch. `make parity-run` exits 2 because of those
-declared rows; the run completed with no parity failures or infrastructure
-errors.
+passed all 769 selected comparisons; Rust-native passed 213 of 217. Four new
+exception formatting cases match exact source constructors and live string/
+representation values. Four TrustedHost TestClient cases also match source/package
+status, URL, headers, body, and ASGI events for exact and wildcard hosts, an
+invalid host, and a followed HTTPS `www` redirect. The WebSocket pre-accept
+text/bytes/JSON receive cases and five text/bytes/JSON exchange cases match the
+pinned source in action results, ordered ASGI callback tapes, and final
+protocol states. The four native `not_run` rows remain synchronous Request
+endpoint, bound-method endpoint, partial endpoint, and callable-instance ASGI
+dispatch. `make parity-run` exits 2 because of those declared rows; the run
+completed with no parity failures or infrastructure errors.
 
-The Rust-native target used commit `65eb0015ea0b3349abf5f1a31e6cb7713b8d9cd4`
+The Rust-native target used commit `676dd8d8719cf0b3b6390f6229f77caa9618027e`
 with source fingerprint
-`65eb0015ea0b3349abf5f1a31e6cb7713b8d9cd4+source-fnv1a64-f63b3847c266153e`.
+`676dd8d8719cf0b3b6390f6229f77caa9618027e+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
 `09220a2a13300e19883081c550827da11691427570f989214ac79f5a6970b4bd`; its
 wheel SHA-256 is
-`e817b0d8fe7ed24b1c428265c40f5f13d72e7bf32d8268358c537a7eaa54cccf`. The
+`a79622e9b0edb43aa5e6f217cea3e30c54d736c4d64078ba147223eb2183c50d`. The
 manifest SHA-256 is
-`a92f76ac2006b2734d778ce4ec4956c4d91da7fdfed5786bfe2d8122788d26d3`; the
+`6e433a46178057e32ce80df26856f2188bbba6bf507da9e3a3536a293bd37d34`; the
 parity result artifact SHA-256 is
-`29be60caa5eb514e3bfbfbaedf2d5166ce23c83b00bc80be529ae2d6de79d214`. Strict
+`5f9aedc5e33e9911fac5c3bd74461a82eebe0711767d1300d674b9ba59d43a95`. Strict
 aggregation remains `not_proven` because the full compatibility denominator
 is incomplete and four Rust-native rows are `not_run`.
 
@@ -134,29 +137,29 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run is
-`78cfd1d8-3445-4b56-870e-c1c22b85c3cd`. It measured all 74 declared workloads
-from `2026-10-03T02:25:29.806Z` to `2026-10-03T02:30:05.531Z`: six Router and
+`dd6ffac3-b546-4f84-8af2-5ff9e9161350`. It measured all 74 declared workloads
+from `2026-10-03T02:49:12.414Z` to `2026-10-03T02:53:51.989Z`: six Router and
 68 GZip, with zero failures or source/package `not_run` rows. Its clean target
-was commit `65eb0015ea0b3349abf5f1a31e6cb7713b8d9cd4` with working-tree SHA-256
-`49900cc45683f52abdb46448afc862d2c1d62cbd11c61631b7de5bd29b8de9ef` and wheel
-SHA-256 `e817b0d8fe7ed24b1c428265c40f5f13d72e7bf32d8268358c537a7eaa54cccf`.
-Correctness preflight `b35a96db-4512-4d0c-a981-b9f2b60b0cf4` selected 982
-comparisons: 978 passed, zero failed, zero infrastructure errors, and four
+was commit `676dd8d8719cf0b3b6390f6229f77caa9618027e` with working-tree SHA-256
+`e775c382ea5d5b58f8f1b36a30ddb67c328a8e22b2bc8316362624d2228c32af` and wheel
+SHA-256 `a79622e9b0edb43aa5e6f217cea3e30c54d736c4d64078ba147223eb2183c50d`.
+Correctness preflight `adef681f-aa3c-4a03-8727-67830690aa6d` selected 986
+comparisons: 982 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 765/765 and Rust-native passed 213/217. Rust-native remains `not_run`
+passed 769/769 and Rust-native passed 213/217. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. Median source/package latency ratios
-were 0.747 for Router and 0.977 for GZip; source latency was lower in five of
-six Router workloads and 58 of 68 GZip workloads. All 74 source/package
+were 0.740 for Router and 0.977 for GZip; source latency was lower in five of
+six Router workloads and 60 of 68 GZip workloads. All 74 source/package
 observation hashes matched. Manifest SHA-256:
-`a92f76ac2006b2734d778ce4ec4956c4d91da7fdfed5786bfe2d8122788d26d3`;
+`6e433a46178057e32ce80df26856f2188bbba6bf507da9e3a3536a293bd37d34`;
 benchmark input SHA-256:
 `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`; result
 artifact SHA-256:
-`d9dbdf5f3b5a75a8c7c4e4e75a0b2fbe8140fa0ab8b3cc9d74bf13d8fb560786`. This
+`1513eeb26ab3d26abb675f38dc3762a829db025221733c5a1e6d21c46a85c423`. This
 bounded evidence does not establish full Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 500 input mappings, 51
-reasoned `not_applicable` rows, and 251 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 504 input mappings, 51
+reasoned `not_applicable` rows, and 247 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
