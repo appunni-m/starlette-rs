@@ -148,10 +148,11 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`d4366f1b-c804-4277-ab52-09aa3debc29a` measured all 74 source/package workloads
-on clean commit `2471c669bcca1fae45e670c708d371886eb39bc4`: six Router and 68
-GZip, with zero failures. All 74 source/package workload comparisons passed;
-Rust-native remains `not_run` for these benchmark ASGI boundaries. These
+`cf46e526-d65d-424a-a0b5-bad74fcb2cc8` measured all 74 source/package workloads
+on clean commit `71c3476b6a366e6eb0ff0df7f7a94f0dcf553346`: six Router and 68
+GZip, with zero failures. The correctness preflight passed all 875 Python
+package comparisons; its four Rust-native `not_run` rows remain outside the
+benchmark boundary. These
 workload-specific results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
