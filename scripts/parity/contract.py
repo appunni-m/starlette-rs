@@ -898,6 +898,9 @@ STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS = {
     "route": "starlette.applications.Starlette.__call__.route-middleware-response-header",
     "mount_routes": "starlette.applications.Starlette.__call__.mount-routes-middleware-response-header",
     "mount_app": "starlette.applications.Starlette.__call__.mount-app-middleware-response-header",
+    "mount_exception": (
+        "starlette.applications.Starlette.__call__.mount-middleware-http-exception-response"
+    ),
 }
 STARLETTE_ADD_ROUTE_OPERATION_KEY = ("starlette.applications.Starlette", "add_route")
 STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS = {
@@ -12486,6 +12489,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and not (is_starlette_add_route_workflow and len(case["steps"]) == 4)
         and not is_starlette_add_middleware_workflow
         and not is_starlette_add_exception_handler_workflow
+        and not (is_route_middleware_workflow and len(case["steps"]) == 5)
         and not (is_middleware_construction and len(case["steps"]) == 1)
     ):
         raise ContractError("case must contain construction and dispatch steps")
@@ -14494,13 +14498,26 @@ def _is_route_middleware_workflow(case: Any) -> bool:
 
 
 def _validate_route_middleware_spec(spec: Any, context: str) -> dict[str, Any]:
-    spec = _exact(
-        spec,
-        {"kind", "scope_key", "scope_value", "response_header"},
-        context,
-    )
+    if not isinstance(spec, dict) or not isinstance(spec.get("kind"), str):
+        raise ContractError(f"{context} must declare a middleware kind")
+    if spec["kind"] == "append-response-header":
+        spec = _exact(spec, {"kind", "name"}, context)
+        name = _string(spec["name"], f"{context}.name")
+        try:
+            header_name = f"X-{name}".encode("ascii")
+        except UnicodeEncodeError as exc:
+            raise ContractError(f"{context}.name must produce an ASCII header name") from exc
+        valid_token_characters = (
+            "!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+        )
+        if any(
+            character not in valid_token_characters for character in header_name.decode("ascii")
+        ):
+            raise ContractError(f"{context}.name must produce a valid HTTP header token")
+        return spec
+    spec = _exact(spec, {"kind", "scope_key", "scope_value", "response_header"}, context)
     if spec["kind"] != "scope-and-response-header":
-        raise ContractError(f"{context}.kind must be scope-and-response-header")
+        raise ContractError(f"{context}.kind is unsupported")
     _string(spec["scope_key"], f"{context}.scope_key")
     if isinstance(spec["scope_value"], (dict, list)):
         raise ContractError(f"{context}.scope_value must be a JSON scalar")
@@ -14557,6 +14574,16 @@ def _validate_route_middleware_node(node: Any, context: str) -> dict[str, Any]:
             _string(endpoint["scope_key"], f"{context}.endpoint.scope_key")
             if type(endpoint["scope_value"]) is not bool:
                 raise ContractError(f"{context}.endpoint.scope_value must be boolean")
+        elif endpoint["kind"] == "sync-http-exception":
+            endpoint = _exact(
+                endpoint,
+                {"kind", "status_code", "detail"},
+                f"{context}.endpoint",
+            )
+            if endpoint["status_code"] != 403:
+                raise ContractError(f"{context}.endpoint.status_code must be 403")
+            if endpoint["detail"] != "auth":
+                raise ContractError(f"{context}.endpoint.detail must match the source input")
         else:
             raise ContractError(f"{context}.endpoint.kind is unsupported")
         if "middleware" in node:
@@ -14594,6 +14621,20 @@ def _validate_route_middleware_node(node: Any, context: str) -> dict[str, Any]:
 
 
 def _route_middleware_topology(routes: list[dict[str, Any]]) -> str | None:
+    if not isinstance(routes, list) or any(not isinstance(route, dict) for route in routes):
+        return None
+    if (
+        len(routes) == 3
+        and routes[0].get("kind") == "mount"
+        and routes[0].get("path") == "/mount"
+        and "routes" in routes[0]
+        and isinstance(routes[0]["routes"], list)
+        and len(routes[0]["routes"]) == 2
+        and all(isinstance(route, dict) for route in routes[0]["routes"])
+        and [route.get("path") for route in routes[0].get("routes", [])] == ["/err", "/home"]
+        and [route.get("path") for route in routes[1:]] == ["/err", "/home"]
+    ):
+        return "mount_exception"
     if len(routes) != 2 or routes[1].get("path") != "/home":
         return None
     first = routes[0]
@@ -14609,9 +14650,21 @@ def _route_middleware_topology(routes: list[dict[str, Any]]) -> str | None:
 
 
 def _validate_route_middleware_application(args: dict[str, Any]) -> None:
+    if not isinstance(args["routes"], list) or not args["routes"]:
+        raise ContractError("route middleware app requires a non-empty route tree")
+    topology = _route_middleware_topology(args["routes"])
+    if topology == "mount_exception":
+        if not isinstance(args["middleware"], list) or len(args["middleware"]) != 1:
+            raise ContractError("mounted exception workflow requires one app middleware")
+        app_middleware = _validate_route_middleware_spec(
+            args["middleware"][0], "application middleware[0]"
+        )
+        if app_middleware != {"kind": "append-response-header", "name": "Outer"}:
+            raise ContractError("mounted exception workflow requires the source Outer middleware")
+    elif args["middleware"] != []:
+        raise ContractError("existing route middleware fixtures require no app middleware")
     if (
         args["debug"] is not False
-        or args["middleware"] != []
         or args["exception_handlers"] != []
         or args["max_body_size"] is not None
         or _validate_lifespan_marker(args["lifespan"]) != "default"
@@ -14619,8 +14672,6 @@ def _validate_route_middleware_application(args: dict[str, Any]) -> None:
         raise ContractError(
             "route middleware app constructor inputs differ from the source fixture"
         )
-    if not isinstance(args["routes"], list) or not args["routes"]:
-        raise ContractError("route middleware app requires a non-empty route tree")
     for index, route in enumerate(args["routes"]):
         _validate_route_middleware_node(route, f"application routes[{index}]")
 
@@ -14631,9 +14682,63 @@ def _validate_route_middleware_workflow(case: dict[str, Any]) -> None:
     }
     routes = app_args["routes"]
     topology = _route_middleware_topology(routes)
-    if topology is None or len(case["steps"]) != 3:
+    expected_step_count = 5 if topology == "mount_exception" else 3
+    if topology is None or len(case["steps"]) != expected_step_count:
         raise ContractError("route middleware workflow must exercise one declared route topology")
     root = routes[0]
+    if topology == "mount_exception":
+        mount_routes = root["routes"]
+        expected_home = {
+            "kind": "http-route",
+            "path": "/home",
+            "methods": None,
+            "endpoint": {
+                "kind": "plain-response",
+                "content": "Hello, world",
+                "media_type": "text/plain",
+            },
+        }
+        expected_error = {
+            "kind": "http-route",
+            "path": "/err",
+            "methods": None,
+            "endpoint": {
+                "kind": "sync-http-exception",
+                "status_code": 403,
+                "detail": "auth",
+            },
+        }
+        expected_mount_middleware = [{"kind": "append-response-header", "name": "Mounted"}]
+        if (
+            mount_routes[0] != expected_error
+            or mount_routes[1] != expected_home
+            or root.get("middleware") != expected_mount_middleware
+            or routes[1] != expected_error
+            or routes[2] != expected_home
+        ):
+            raise ContractError("mounted exception route tree must match the pinned source order")
+        expected_paths = ["/home", "/err", "/mount/home", "/mount/err"]
+        expected_step_ids = [
+            "dispatch-home",
+            "dispatch-err",
+            "dispatch-mounted-home",
+            "dispatch-mounted-err",
+        ]
+        if [step["step_id"] for step in case["steps"][1:]] != expected_step_ids:
+            raise ContractError("mounted exception dispatches must preserve source request order")
+        app_middleware = app_args["middleware"]
+        if app_middleware != [{"kind": "append-response-header", "name": "Outer"}]:
+            raise ContractError("mounted exception workflow requires the source Outer middleware")
+        if root["middleware"] != expected_mount_middleware:
+            raise ContractError("mounted exception workflow requires the source Mounted middleware")
+        for index, step in enumerate(case["steps"][1:]):
+            arguments = {key: item["value"] for key, item in step["arguments"].items()}
+            scope = arguments["scope"]
+            if scope["type"] != "http" or scope["method"] != "GET":
+                raise ContractError("mounted exception workflow requires HTTP GET dispatches")
+            if scope["path"] != expected_paths[index]:
+                raise ContractError("mounted exception requests must preserve source path order")
+        return
     if routes[1] != {
         "kind": "http-route",
         "path": "/home",
@@ -21420,6 +21525,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             "route": "route",
             "mount_routes": "mount_routes",
             "mount_app": "mount_app",
+            "mount_exception": "mount_exception",
         }.get(topology)
         return (
             {STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS[requirement_key]}

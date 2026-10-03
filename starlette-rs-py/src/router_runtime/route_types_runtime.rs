@@ -4,16 +4,19 @@
 //! middleware constructors, and endpoint adapters. Route ordering, scope
 //! decisions, and path formatting live here.
 
+use std::cell::Cell;
 use std::collections::HashSet;
+use std::rc::Rc;
 
 use pyo3::class::basic::CompareOp;
 use pyo3::exceptions::{
-    PyAssertionError, PyKeyError, PyNotImplementedError, PyRuntimeError, PyStopAsyncIteration,
-    PyStopIteration, PyValueError,
+    PyAssertionError, PyException, PyKeyError, PyNotImplementedError, PyRuntimeError,
+    PyStopAsyncIteration, PyStopIteration, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyBytes, PyDict, PyList, PySet, PyString, PyTuple};
 
+use crate::application_runtime::exception_send_proxy;
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
 };
@@ -2795,6 +2798,9 @@ fn request_response(py: Python<'_>, args: RequestResponseArgs) -> PyResult<Py<Py
             http_exception_type: args.http_exception_type,
             run_in_threadpool: args.run_in_threadpool,
             request: None,
+            sender: None,
+            response_started: Rc::new(Cell::new(false)),
+            original_exception: None,
             pending: None,
         },
     )
@@ -2815,8 +2821,9 @@ struct RequestResponseArgs {
 #[derive(Clone, Copy)]
 enum RequestResponsePending {
     Endpoint,
-    ExceptionHandler,
     Response,
+    ExceptionHandler,
+    ExceptionResponse,
 }
 
 struct RequestResponseMachine {
@@ -2828,6 +2835,9 @@ struct RequestResponseMachine {
     http_exception_type: Py<PyAny>,
     run_in_threadpool: Py<PyAny>,
     request: Option<Py<PyAny>>,
+    sender: Option<Py<PyAny>>,
+    response_started: Rc<Cell<bool>>,
+    original_exception: Option<Py<PyAny>>,
     pending: Option<RequestResponsePending>,
 }
 
@@ -2865,6 +2875,11 @@ impl RequestResponseMachine {
                 .bind(py)
                 .call1((self.endpoint.bind(py), request.bind(py)))?
         };
+        self.sender = Some(exception_send_proxy(
+            py,
+            self.send.clone_ref(py),
+            self.response_started.clone(),
+        )?);
         self.request = Some(request);
         self.pending = Some(RequestResponsePending::Endpoint);
         Ok(MachineAction::Await(callback.unbind()))
@@ -2872,57 +2887,168 @@ impl RequestResponseMachine {
 
     fn resume_value(&mut self, py: Python<'_>, value: Py<PyAny>) -> PyResult<MachineAction> {
         match self.pending.take() {
-            Some(RequestResponsePending::Endpoint) => self.await_response(py, value),
+            Some(RequestResponsePending::Endpoint) => {
+                self.await_response(py, value, RequestResponsePending::Response)
+            }
             Some(RequestResponsePending::ExceptionHandler) if value.bind(py).is_none() => {
                 Ok(MachineAction::Complete(py.None()))
             }
-            Some(RequestResponsePending::ExceptionHandler) => self.await_response(py, value),
-            Some(RequestResponsePending::Response) => Ok(MachineAction::Complete(py.None())),
+            Some(RequestResponsePending::ExceptionHandler) => {
+                self.await_response(py, value, RequestResponsePending::ExceptionResponse)
+            }
+            Some(RequestResponsePending::Response | RequestResponsePending::ExceptionResponse) => {
+                Ok(MachineAction::Complete(py.None()))
+            }
             None => Err(PyRuntimeError::new_err(
                 "request endpoint completed without a pending operation",
             )),
         }
     }
 
-    fn await_response(&mut self, py: Python<'_>, response: Py<PyAny>) -> PyResult<MachineAction> {
-        let callback = response.bind(py).call1((
+    fn await_response(
+        &mut self,
+        py: Python<'_>,
+        response: Py<PyAny>,
+        pending: RequestResponsePending,
+    ) -> PyResult<MachineAction> {
+        let sender = self
+            .sender
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("request endpoint lost its send callback"))?;
+        let callback = match response.bind(py).call1((
             self.scope.bind(py),
             self.receive.bind(py),
-            self.send.bind(py),
-        ))?;
-        self.pending = Some(RequestResponsePending::Response);
+            sender.bind(py),
+        )) {
+            Ok(callback) => callback,
+            Err(error) => {
+                return match pending {
+                    RequestResponsePending::Response => self.handle_exception(py, error),
+                    RequestResponsePending::ExceptionResponse => {
+                        Err(self.chain_to_original(py, error))
+                    }
+                    RequestResponsePending::Endpoint | RequestResponsePending::ExceptionHandler => {
+                        Err(PyRuntimeError::new_err(
+                            "request response entered an invalid pending state",
+                        ))
+                    }
+                };
+            }
+        };
+        self.pending = Some(pending);
         Ok(MachineAction::Await(callback.unbind()))
     }
 
     fn resume_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
-        if !matches!(self.pending.take(), Some(RequestResponsePending::Endpoint)) {
+        match self.pending.take() {
+            Some(RequestResponsePending::Endpoint | RequestResponsePending::Response) => {
+                self.handle_exception(py, error)
+            }
+            Some(
+                RequestResponsePending::ExceptionHandler
+                | RequestResponsePending::ExceptionResponse,
+            ) => Err(self.chain_to_original(py, error)),
+            None => Err(error),
+        }
+    }
+
+    fn handle_exception(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        if !error.is_instance_of::<PyException>(py) {
             return Err(error);
         }
-        if !error
-            .value(py)
-            .is_instance(self.http_exception_type.bind(py))?
+        let exception = error.value(py).clone().into_any().unbind();
+        self.original_exception = Some(exception.clone_ref(py));
+        let handler = self
+            .select_exception_handler(py, exception.bind(py))
+            .map_err(|handler_error| self.chain_to_original(py, handler_error))?;
+        let Some(handler) = handler else {
+            return self.preserve_request_and_raise(py, error);
+        };
+        if handler.bind(py).is_none() {
+            return self.preserve_request_and_raise(py, error);
+        }
+        if self.response_started.get() {
+            let handled_error =
+                PyRuntimeError::new_err("Caught handled exception, but response already started.");
+            handled_error.set_cause(py, Some(error));
+            return Err(handled_error);
+        }
+
+        let request = self
+            .request
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("request endpoint lost its Request object"))?;
+        let is_async = crate::background::is_async_callable(py, handler.bind(py))
+            .map_err(|handler_error| self.chain_to_original(py, handler_error))?;
+        let callback = if is_async {
+            handler
+                .bind(py)
+                .call1((request.bind(py), exception.bind(py)))
+        } else {
+            self.run_in_threadpool.bind(py).call1((
+                handler.bind(py),
+                request.bind(py),
+                exception.bind(py),
+            ))
+        }
+        .map_err(|handler_error| self.chain_to_original(py, handler_error))?;
+        self.pending = Some(RequestResponsePending::ExceptionHandler);
+        Ok(MachineAction::Await(callback.unbind()))
+    }
+
+    fn select_exception_handler(
+        &self,
+        py: Python<'_>,
+        exception: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyAny>>> {
+        let scope = self.scope.bind(py).cast::<PyDict>()?;
+        let Some(handlers) = scope.get_item("starlette.exception_handlers")? else {
+            return Ok(None);
+        };
+        let handlers = handlers.cast::<PyTuple>()?;
+        let exception_handlers_value = handlers.get_item(0)?;
+        let exception_handlers = exception_handlers_value.cast::<PyDict>()?;
+        let status_handlers_value = handlers.get_item(1)?;
+        let status_handlers = status_handlers_value.cast::<PyDict>()?;
+
+        if exception.is_instance(self.http_exception_type.bind(py))? {
+            let status_code = exception.getattr("status_code")?;
+            if let Some(handler) = status_handlers.get_item(status_code)? {
+                if !handler.is_none() {
+                    return Ok(Some(handler.unbind()));
+                }
+            }
+        }
+
+        for exception_class in exception
+            .get_type()
+            .getattr("__mro__")?
+            .cast::<PyTuple>()?
+            .iter()
         {
-            return Err(error);
+            if let Some(handler) = exception_handlers.get_item(&exception_class)? {
+                return Ok(Some(handler.unbind()));
+            }
         }
+        Ok(None)
+    }
+
+    fn preserve_request_and_raise(&self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
         let scope = self.scope.bind(py).cast::<PyDict>()?;
         let request = self
             .request
             .as_ref()
             .ok_or_else(|| PyRuntimeError::new_err("request endpoint lost its Request object"))?;
-        let app = scope
-            .get_item("app")?
-            .unwrap_or_else(|| py.None().into_bound(py));
-        let exception_response = py.import("builtins")?.getattr("getattr")?.call1((
-            app,
-            "_exception_response",
-            py.None(),
-        ))?;
-        if exception_response.is_none() {
-            scope.set_item("starlette._exception_request", request.bind(py))?;
-            return Err(error);
+        scope.set_item("starlette._exception_request", request.bind(py))?;
+        Err(error)
+    }
+
+    fn chain_to_original(&self, py: Python<'_>, error: PyErr) -> PyErr {
+        if let Some(original) = self.original_exception.as_ref() {
+            if !error.value(py).is(original.bind(py)) {
+                error.set_context(py, Some(PyErr::from_value(original.bind(py).clone())));
+            }
         }
-        let callback = exception_response.call1((request.bind(py), error.value(py)))?;
-        self.pending = Some(RequestResponsePending::ExceptionHandler);
-        Ok(MachineAction::Await(callback.unbind()))
+        error
     }
 }

@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 752 input-only cases across 83 files,
-covering 94 operations and 782 parity requirements. Its latest additions map
+The active parity manifest indexes 757 input-only cases across 84 files,
+covering 94 operations and 787 parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Recent additions include
 direct FormData constructor/equality inputs; direct UploadFile constructor/repr, rollover, and threadpool-boundary cases; a ten-chunk 400-byte GZip streaming response using public defaults; and GZip final and
@@ -86,39 +86,38 @@ SessionMiddleware, and BaseHTTPMiddleware workflows), configuration,
 schemas, one bounded Python-package Jinja2 template workflow, direct
 `GZipResponder` construction and compression inputs, and invalid WebSocket
 JSON-mode inputs. The latest batch adds middleware-configured Mount URL lookup,
-ordered StaticFiles Last-Modified requests, and TestClient startup-error
-propagation. The exact
+handled HTTP exception responses observed through mounted middleware, ordered
+StaticFiles Last-Modified requests, and TestClient startup-error propagation. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice correctness preflight is
-`0477e171-4480-426b-93d4-2e5d388e960d`. It ran from
-`2026-10-02T23:15:41.788Z` to `2026-10-02T23:18:48.246Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 752-case,
-782-requirement `parity-input@29` manifest. It selected 967 profile
-comparisons: 963 passed, zero failed, zero infrastructure errors, and four
+The latest full-slice correctness run is
+`491c747e-66eb-42a5-9794-5db07405cdb6`. It ran from
+`2026-10-03T01:03:22.505Z` to `2026-10-03T01:06:26.201Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 757-case,
+787-requirement `parity-input@29` manifest. It selected 972 profile
+comparisons: 968 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 750 selected comparisons; Rust-native passed 213 of 217. The new
-multipart upload case follows the upstream route and `Request.form()` path;
-source and installed-package ASGI outputs match exactly at 413. It maps the
-oversized multipart request to the app-default body-limit requirement and
-does not isolate multipart framing overhead. The four native `not_run` rows
-remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
-and callable-instance ASGI dispatch. `make parity-run` exits 2 because of
-those declared rows; the run completed with no parity failures or
-infrastructure errors.
+passed all 755 selected comparisons; Rust-native passed 213 of 217. The new
+mounted-middleware exception input compares four ordered root and mounted
+HTTP dispatches; all response fields and ASGI event order match the pinned
+source, including both `X-Mounted` and `X-Outer` on the handled `/mount/err`
+response. The four native `not_run` rows remain synchronous Request endpoint,
+bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
+`make parity-run` exits 2 because of those declared rows; the run completed
+with no parity failures or infrastructure errors.
 
-The Rust-native target used commit `0ca02a3b9dc5ae8984b5bd4d0a650a8df0cf9f76`
+The Rust-native target used commit `c89197468f10fbdfaddea31c3cdeb66bd333b7c7`
 with source fingerprint
-`0ca02a3b9dc5ae8984b5bd4d0a650a8df0cf9f76+source-fnv1a64-f63b3847c266153e`.
+`c89197468f10fbdfaddea31c3cdeb66bd333b7c7+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
-`0556184dedcc650f02bd092fa01d827e7a1f77621971faa9671f381bdc8e2f7b`; its
+`09220a2a13300e19883081c550827da11691427570f989214ac79f5a6970b4bd`; its
 wheel SHA-256 is
-`df23e6a547783003a4ebe79f40f47a0c3d22236aabf0c8569141f69ae5e3713f`. The
+`4153555b20daf815a4b1cbd9fa42822cc792ffa0b01bc638764668db9955ed26`. The
 manifest SHA-256 is
-`cebcac7c69380279c581c7e2a42b679dd1d0448600bc98efe04f65a6b5eb5a21`; the
+`26880cbbcb7af7c49cbe3849127543e9b6b270e210e1dd939debce4b1345bc98`; the
 parity result artifact SHA-256 is
-`34c80ca8f160c98a4a4f786a3c6d47f56f8802d953a57929a3183f0f6e61d9fd`. Strict
+`18447365ac54eaf8be0f6b6a0e173ae49de272e54c74417ac249783e54c217a8`. Strict
 aggregation remains `not_proven` because the full compatibility denominator
 is incomplete and four Rust-native rows are `not_run`.
 
@@ -151,8 +150,8 @@ artifact SHA-256:
 `1f83a6f791fa359f78a5e28fc14914b8512a54170e6e19b01f7cbae2b14e1457`. This
 bounded evidence does not establish full Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 483 input mappings, 51
-reasoned `not_applicable` rows, and 268 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 488 input mappings, 51
+reasoned `not_applicable` rows, and 263 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

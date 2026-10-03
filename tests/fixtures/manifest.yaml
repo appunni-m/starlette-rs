@@ -1585,6 +1585,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.mount-middleware-http-exception-response",
+              "dimension": "boundary",
+              "description": "Append response headers through app-level and Mount-local middleware for successful and HTTPException(403, detail='auth') responses on root and mounted routes. Preserve the input request order and compare each live status, ordered response headers, body bytes, and ASGI events without scope mutation. Upstream: tests/test_routing.py::test_mounted_middleware_does_not_catch_exception.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

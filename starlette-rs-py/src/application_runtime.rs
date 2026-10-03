@@ -590,6 +590,21 @@ struct PyExceptionSendProxy {
     response_started: Rc<Cell<bool>>,
 }
 
+pub(crate) fn exception_send_proxy(
+    py: Python<'_>,
+    send: Py<PyAny>,
+    response_started: Rc<Cell<bool>>,
+) -> PyResult<Py<PyAny>> {
+    Py::new(
+        py,
+        PyExceptionSendProxy {
+            send,
+            response_started,
+        },
+    )
+    .map(|proxy| proxy.into_any())
+}
+
 #[pymethods]
 impl PyExceptionSendProxy {
     fn __call__(slf: Py<Self>, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
@@ -744,14 +759,8 @@ impl ExceptionMiddlewareCall {
                 .call1((scope, &self.receive, &self.send))?
         };
         self.connection = Some(connection.unbind());
-        let sender = Py::new(
-            py,
-            PyExceptionSendProxy {
-                send: self.send.clone_ref(py),
-                response_started: self.response_started.clone(),
-            },
-        )?
-        .into_any();
+        let sender =
+            exception_send_proxy(py, self.send.clone_ref(py), self.response_started.clone())?;
         self.sender = Some(sender.clone_ref(py));
         self.pending = Some(ExceptionPending::App);
         match self.app.bind(py).call1((scope, &self.receive, sender)) {

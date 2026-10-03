@@ -1200,6 +1200,19 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
             await receive()
             await self.app(scope, receive, send)
 
+    class AppendResponseHeaderMiddleware:
+        def __init__(self, app: Any, *, name: str) -> None:
+            self.app = app
+            self.response_header = (f"X-{name}".encode("ascii"), b"true")
+
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            async def modified_send(message: Any) -> None:
+                if message["type"] == "http.response.start":
+                    message["headers"].append(self.response_header)
+                await send(message)
+
+            await self.app(scope, receive, modified_send)
+
     async def base_http_passthrough(request: Any, call_next: Any) -> Any:
         return await call_next(request)
 
@@ -1226,7 +1239,14 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
 
     middleware = []
     for index, raw_spec in enumerate(middleware_specs):
-        spec = _strict_object(raw_spec, {"kind"}, f"application middleware[{index}]")
+        if isinstance(raw_spec, dict) and raw_spec.get("kind") == "append-response-header":
+            spec = _strict_object(
+                raw_spec,
+                {"kind", "name"},
+                f"application middleware[{index}]",
+            )
+        else:
+            spec = _strict_object(raw_spec, {"kind"}, f"application middleware[{index}]")
         if spec["kind"] == "copy-scope":
             middleware.append(Middleware(CopyScopeMiddleware))
         elif spec["kind"] == "read-before-application":
@@ -1237,6 +1257,8 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
             middleware.append(Middleware(BaseHTTPMiddleware, dispatch=base_http_read_body))
         elif spec["kind"] == "authentication-basic":
             middleware.append(Middleware(AuthenticationMiddleware, backend=BasicAuthBackend()))
+        elif spec["kind"] == "append-response-header":
+            middleware.append(Middleware(AppendResponseHeaderMiddleware, name=spec["name"]))
         else:
             raise ValueError(f"unsupported application middleware action: {spec['kind']!r}")
     return middleware
@@ -1433,6 +1455,14 @@ def _materialize_application(
                         ):
                             raise AssertionError("route middleware scope marker was not set")
                         return Response()
+
+                elif endpoint_spec["kind"] == "sync-http-exception":
+
+                    def endpoint(_request: Any) -> Any:
+                        raise HTTPException(
+                            status_code=endpoint_spec["status_code"],
+                            detail=endpoint_spec["detail"],
+                        )
 
                 else:
                     raise ValueError("route-middleware endpoint uses an unsupported input kind")
@@ -8911,6 +8941,25 @@ def _build_reverse_route_middleware(specs: list[dict[str, Any]]) -> list[Any]:
 
     configurations = []
     for spec in specs:
+        if spec["kind"] == "append-response-header":
+
+            class InputAppendResponseHeaderMiddleware:
+                def __init__(self, app: Any, *, name: str) -> None:
+                    self.app = app
+                    self.response_header = (f"X-{name}".encode("ascii"), b"true")
+
+                async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+                    async def modified_send(message: Any) -> None:
+                        if message["type"] == "http.response.start":
+                            message["headers"].append(self.response_header)
+                        await send(message)
+
+                    await self.app(scope, receive, modified_send)
+
+            configurations.append(
+                Middleware(InputAppendResponseHeaderMiddleware, name=spec["name"])
+            )
+            continue
 
         class InputScopeAndResponseHeaderMiddleware:
             def __init__(
@@ -11861,7 +11910,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                 "request-dispatch cases must contain application then request-dispatch"
             )
     elif route_middleware_workflow:
-        if len(steps) != 3 or schedule != step_ids[1:]:
+        if len(steps) < 3 or schedule != step_ids[1:]:
             raise ValueError(
                 "route middleware workflow must schedule its input dispatches in order"
             )
