@@ -205,6 +205,8 @@ TESTCLIENT_REQUIREMENTS = {
     "starlette_mount_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-mount-method-registration",
     "mounted_router_urls": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-router-url-sequence",
     "root_path_route_graph": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-route-graph",
+    "root_path_url_for": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-url-for",
+    "root_path_url_for_trailing_slash": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-url-for-trailing-slash",
     "starlette_host_routing": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-routing",
     "starlette_host_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-method-registration",
 }
@@ -9635,6 +9637,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     app_kind = raw_asgi_app.get("kind") if isinstance(raw_asgi_app, dict) else None
     is_sync_route = app_kind == "starlette-route"
     is_starlette_route_graph = app_kind == "starlette-route-graph"
+    is_starlette_url_for_route_graph = app_kind == "starlette-url-for-route-graph"
     is_starlette_app_debug = app_kind == "starlette-app-debug"
     is_server_error_middleware = app_kind == "server-error-middleware"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
@@ -9695,6 +9698,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             or is_cookie_round_trip
             or is_request_observer
             or is_starlette_route_graph
+            or is_starlette_url_for_route_graph
         ):
             raise ContractError(
                 "TestClient followup_requests require a supported multi-request app input"
@@ -9933,7 +9937,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             )
         exception_spec = None
         messages = []
-    elif is_starlette_route_graph:
+    elif is_starlette_route_graph or is_starlette_url_for_route_graph:
         asgi_app = _exact(
             raw_asgi_app,
             {"kind", "routes", "scope_fields"},
@@ -9962,7 +9966,47 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
 
         route_kinds: set[str] = set()
 
-        def validate_route_nodes(value: Any, context: str) -> None:
+        route_names: set[str] = set()
+        requested_route_names: list[str] = []
+
+        def validate_url_for_endpoint(value: Any, context: str) -> None:
+            endpoint = _exact(value, {"kind", "lookups"}, context)
+            lookups = endpoint["lookups"]
+            if (
+                endpoint["kind"] != "request-url-for-json"
+                or not isinstance(lookups, list)
+                or not lookups
+            ):
+                raise ContractError(f"{context} must contain request.url_for lookup inputs")
+            result_keys: set[str] = set()
+            for index, raw_lookup in enumerate(lookups):
+                lookup_context = f"{context}.lookups[{index}]"
+                lookup = _exact(raw_lookup, {"key", "name", "path_params"}, lookup_context)
+                result_key = _string(lookup["key"], f"{lookup_context}.key")
+                route_name = _string(lookup["name"], f"{lookup_context}.name")
+                path_params = lookup["path_params"]
+                if not result_key or not route_name or result_key in result_keys:
+                    raise ContractError(
+                        f"{lookup_context} requires a unique response key and non-empty route name"
+                    )
+                if not isinstance(path_params, dict) or any(
+                    not isinstance(key, str)
+                    or not key
+                    or type(parameter) not in {str, int, float}
+                    or (isinstance(parameter, float) and not math.isfinite(parameter))
+                    for key, parameter in path_params.items()
+                ):
+                    raise ContractError(
+                        f"{lookup_context}.path_params must map names to finite JSON scalars"
+                    )
+                result_keys.add(result_key)
+                requested_route_names.append(route_name)
+
+        def validate_route_nodes(
+            value: Any,
+            context: str,
+            namespace: tuple[str, ...] = (),
+        ) -> None:
             if not isinstance(value, list) or not value:
                 raise ContractError(f"{context} must be a non-empty route array")
             for index, raw_route in enumerate(value):
@@ -9995,9 +10039,13 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                         raise ContractError(
                             f"{route_context} requires an absolute path, unique name, and unique uppercase methods"
                         )
-                    validate_scope_json_endpoint(
-                        route["endpoint"], f"{route_context}.endpoint", "request-scope-json"
-                    )
+                    route_names.add(":".join((*namespace, route_name)))
+                    if is_starlette_url_for_route_graph:
+                        validate_url_for_endpoint(route["endpoint"], f"{route_context}.endpoint")
+                    else:
+                        validate_scope_json_endpoint(
+                            route["endpoint"], f"{route_context}.endpoint", "request-scope-json"
+                        )
                 elif route_kind == "mount-routes":
                     mount = _exact(
                         raw_route,
@@ -10010,8 +10058,16 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                         raise ContractError(
                             f"{route_context} requires an absolute path and non-empty name"
                         )
-                    validate_route_nodes(mount["routes"], f"{route_context}.routes")
+                    validate_route_nodes(
+                        mount["routes"],
+                        f"{route_context}.routes",
+                        (*namespace, mount_name),
+                    )
                 elif route_kind == "mount-asgi":
+                    if is_starlette_url_for_route_graph:
+                        raise ContractError(
+                            f"{route_context} cannot use an ASGI Mount for request.url_for lookup"
+                        )
                     mount = _exact(
                         raw_route,
                         {"kind", "path", "endpoint"},
@@ -10032,24 +10088,43 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             or not isinstance(asgi_app["scope_fields"], list)
             or any(not isinstance(field, str) for field in asgi_app["scope_fields"])
             or not {"type", "method", "path", "root_path"} <= set(asgi_app["scope_fields"])
-            or not {"route", "mount-asgi", "mount-routes"} <= route_kinds
+            or (
+                is_starlette_route_graph
+                and not {"route", "mount-asgi", "mount-routes"} <= route_kinds
+            )
+            or (is_starlette_url_for_route_graph and "route" not in route_kinds)
         ):
             raise ContractError(
-                "TestClient Starlette route graph requires each route node kind, an absolute root_path, and observable request scope"
+                "TestClient Starlette route graph requires its source route kinds, an absolute root_path, and observable request scope"
             )
         requests = [request, *followup_requests]
-        if (
-            len(requests) != 4
-            or [item["method"] for item in requests] != ["GET", "GET", "GET", "POST"]
-            or any(
-                item["headers_base64_pairs"]
+        if is_starlette_url_for_route_graph:
+            if any(requested_name not in route_names for requested_name in requested_route_names):
+                raise ContractError(
+                    "TestClient request.url_for route names must resolve within the input route graph"
+                )
+            invalid_request_sequence = any(
+                item["method"] != "GET"
+                or item.get("client_method") != "get"
+                or item["headers_base64_pairs"]
                 or base64.b64decode(item["body_base64"])
                 or not urlsplit(item["url"]).path.startswith(settings["root_path"])
                 for item in requests
             )
-        ):
+        else:
+            invalid_request_sequence = (
+                len(requests) != 4
+                or [item["method"] for item in requests] != ["GET", "GET", "GET", "POST"]
+                or any(
+                    item["headers_base64_pairs"]
+                    or base64.b64decode(item["body_base64"])
+                    or not urlsplit(item["url"]).path.startswith(settings["root_path"])
+                    for item in requests
+                )
+            )
+        if invalid_request_sequence:
             raise ContractError(
-                "TestClient Starlette route graph requires the four root-prefixed empty-body requests from test_paths_with_root_path"
+                "TestClient Starlette route graph requires root-prefixed empty-body requests"
             )
         exception_spec = None
         messages = []
@@ -10387,6 +10462,16 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["root_path_route_graph"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_starlette_url_for_route_graph:
+        root_path_requirement = (
+            "root_path_url_for_trailing_slash"
+            if settings["root_path"].endswith("/")
+            else "root_path_url_for"
+        )
+        expected_covers.add(TESTCLIENT_REQUIREMENTS[root_path_requirement])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+        if followup_requests:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
     if is_cookie_round_trip:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["cookie_round_trip"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])

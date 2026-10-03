@@ -129,25 +129,33 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await route_app(scope, receive, observed_send)
 
-    elif app_input["kind"] == "starlette-route-graph":
+    elif app_input["kind"] in {"starlette-route-graph", "starlette-url-for-route-graph"}:
         from starlette.applications import Starlette
         from starlette.responses import JSONResponse
         from starlette.routing import Mount, Route
 
-        def scope_response(endpoint_spec: dict[str, Any], scope: dict[str, Any]) -> Any:
-            value = {"name": endpoint_spec["name"]}
-            value.update({field: scope[field] for field in endpoint_spec["fields"]})
+        def endpoint_response(
+            endpoint_spec: dict[str, Any], scope: dict[str, Any], request: Any = None
+        ) -> Any:
+            if endpoint_spec["kind"] == "request-url-for-json":
+                value = {
+                    lookup["key"]: str(request.url_for(lookup["name"], **lookup["path_params"]))
+                    for lookup in endpoint_spec["lookups"]
+                }
+            else:
+                value = {"name": endpoint_spec["name"]}
+                value.update({field: scope[field] for field in endpoint_spec["fields"]})
             return JSONResponse(value)
 
         def request_endpoint_for(endpoint_spec: dict[str, Any]) -> Any:
             async def endpoint(request: Any) -> Any:
-                return scope_response(endpoint_spec, request.scope)
+                return endpoint_response(endpoint_spec, request.scope, request)
 
             return endpoint
 
         def asgi_endpoint_for(endpoint_spec: dict[str, Any]) -> Any:
             async def endpoint(scope: dict[str, Any], receive: Any, send: Any) -> None:
-                response = scope_response(endpoint_spec, scope)
+                response = endpoint_response(endpoint_spec, scope)
                 await response(scope, receive, send)
 
             return endpoint

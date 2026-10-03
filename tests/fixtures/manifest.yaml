@@ -21244,6 +21244,28 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.starlette-root-path-url-for",
+              "dimension": "protocol_variant",
+              "description": "Through one TestClient with root_path=/sub_path, call Request.url_for for a root Route and a route beneath a named Mount from both endpoints; compare the live absolute URLs, request scopes, responses, and ordered ASGI events. Upstream: tests/test_routing.py::test_url_for_with_root_path; starlette/requests.py:186-194; starlette/routing.py:363-425.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.starlette-root-path-url-for-trailing-slash",
+              "dimension": "parameter_combination",
+              "description": "Set the TestClient root_path with a trailing slash, then call Request.url_for for the root Route and compare its live absolute URL and response effects. Upstream: tests/test_routing.py::test_url_for_with_root_path_ending_with_slash; starlette/requests.py:186-194; starlette/routing.py:260-269.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.starlette-host-routing",
               "dimension": "success_path",
               "description": "Route an HTTPS TestClient request through Starlette TrustedHostMiddleware, a host-parameter Host route, a child Router, and a synchronous endpoint that returns the captured subdomain. Upstream: tests/test_applications.py::test_subdomain_route; starlette/applications.py:63-107; starlette/routing.py:466-490.",

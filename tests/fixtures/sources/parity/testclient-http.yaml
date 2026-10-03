@@ -2043,6 +2043,177 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.root-path-url-for",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.starlette-root-path-url-for"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "https://www.example.org/",
+        "raise_server_exceptions": true,
+        "root_path": "/sub_path",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/sub_path/",
+        "headers_base64_pairs": [],
+        "body_base64": "",
+        "client_method": "get"
+      },
+      "followup_requests": [
+        {
+          "method": "GET",
+          "url": "/sub_path/submount/",
+          "headers_base64_pairs": [],
+          "body_base64": "",
+          "client_method": "get"
+        }
+      ],
+      "asgi_app": {
+        "kind": "starlette-url-for-route-graph",
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path"
+        ],
+        "routes": [
+          {
+            "kind": "route",
+            "path": "/",
+            "name": "index",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "request-url-for-json",
+              "lookups": [
+                {
+                  "key": "index",
+                  "name": "index",
+                  "path_params": {}
+                },
+                {
+                  "key": "submount",
+                  "name": "mount:submount",
+                  "path_params": {}
+                }
+              ]
+            }
+          },
+          {
+            "kind": "mount-routes",
+            "path": "/submount",
+            "name": "mount",
+            "routes": [
+              {
+                "kind": "route",
+                "path": "/",
+                "name": "submount",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "request-url-for-json",
+                  "lookups": [
+                    {
+                      "key": "index",
+                      "name": "index",
+                      "path_params": {}
+                    },
+                    {
+                      "key": "submount",
+                      "name": "mount:submount",
+                      "path_params": {}
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.root-path-url-for-trailing-slash",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.starlette-root-path-url-for-trailing-slash"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "https://www.example.org/",
+        "raise_server_exceptions": true,
+        "root_path": "/sub_path/",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/sub_path/",
+        "headers_base64_pairs": [],
+        "body_base64": "",
+        "client_method": "get"
+      },
+      "asgi_app": {
+        "kind": "starlette-url-for-route-graph",
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path"
+        ],
+        "routes": [
+          {
+            "kind": "route",
+            "path": "/",
+            "name": "homepage",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "request-url-for-json",
+              "lookups": [
+                {
+                  "key": "index",
+                  "name": "homepage",
+                  "path_params": {}
+                }
+              ]
+            }
+          }
+        ]
+      }
     }
   ]
 }
