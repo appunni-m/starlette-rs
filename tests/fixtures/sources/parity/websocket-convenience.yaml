@@ -2089,6 +2089,74 @@
       "observations": [
         "convenience-sequence"
       ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.client-disconnect-on-send",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.send.text",
+        "starlette.websocket.api.send.os-error.disconnect-details"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-text",
+          "method": "send_text",
+          "arguments": {
+            "data": "Hello, world!"
+          },
+          "send_error": {
+            "kind": "os-error",
+            "message": ""
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
     }
   ]
 }

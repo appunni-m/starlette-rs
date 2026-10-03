@@ -127,6 +127,7 @@ WEBSOCKET_SURFACE = "starlette.websockets.WebSocket"
 WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
 WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
+WEBSOCKET_SEND_OSERROR_REQUIREMENT = "starlette.websocket.api.send.os-error.disconnect-details"
 WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS = {
     "receive": "starlette.websocket.api.receive.json.invalid-mode",
     "send": "starlette.websocket.api.send.json.invalid-mode",
@@ -2863,7 +2864,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                 )
                 if send_error["kind"] != "os-error":
                     raise ContractError(f"{context}.send_error.kind must be os-error")
-                _string(send_error["message"], f"{context}.send_error.message")
+                if not isinstance(send_error["message"], str):
+                    raise ContractError(f"{context}.send_error.message must be a string")
                 if message_type != "websocket.send" or application_state != "CONNECTED":
                     raise ContractError(
                         f"{context}.send_error requires websocket.send after accept while application_state is CONNECTED"
@@ -3056,7 +3058,8 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             send_error = _exact(action["send_error"], {"kind", "message"}, f"{context}.send_error")
             if send_error["kind"] != "os-error":
                 raise ContractError(f"{context}.send_error.kind must be os-error")
-            _string(send_error["message"], f"{context}.send_error.message")
+            if not isinstance(send_error["message"], str):
+                raise ContractError(f"{context}.send_error.message must be a string")
             if method not in {"send_text", "send_bytes", "send_json", "close"}:
                 raise ContractError(f"{context}.send_error requires a send convenience method")
 
@@ -3205,6 +3208,14 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                     )
             elif application_state != "CONNECTED":
                 raise ContractError(f"{context} requires a connected WebSocket")
+            if method == "send_text" and "send_error" in action:
+                if WEBSOCKET_SEND_OSERROR_REQUIREMENT not in case["covers"]:
+                    raise ContractError(
+                        f"{context} send callback OSError must cover "
+                        f"{WEBSOCKET_SEND_OSERROR_REQUIREMENT}"
+                    )
+                application_state = "DISCONNECTED"
+                exercised.add(WEBSOCKET_SEND_OSERROR_REQUIREMENT)
         elif method == "send_denial_response":
             _exact(arguments, {"response"}, f"{context}.arguments")
             response = _exact(

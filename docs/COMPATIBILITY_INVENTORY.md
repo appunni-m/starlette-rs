@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 777 input-only cases across 84 files,
-covering 94 operations and 800 parity requirements. Its latest additions map
+The active parity manifest indexes 778 input-only cases across 84 files,
+covering 94 operations and 801 parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Four new TestClient cases
 cover TrustedHost exact and wildcard acceptance, invalid-host rejection, and
@@ -103,8 +103,8 @@ compares response-send and async background-task completion.
 The latest full-slice correctness run is
 `2453a17c-b052-4af8-b966-0c92f4d1fdf9`. It ran from
 `2026-10-03T05:41:16.697Z` to `2026-10-03T05:44:35.864Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 777-case,
-800-requirement `parity-input@31` manifest. It selected 995 profile
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 778-case,
+801-requirement `parity-input@31` manifest. It selected 995 profile
 comparisons: 991 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
 passed all 775 selected comparisons; Rust-native passed 216 of 220. The new
@@ -146,8 +146,8 @@ workload boundaries. These workload-specific results do not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 510 input mappings, 51
-reasoned `not_applicable` rows, and 241 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 511 input mappings, 51
+reasoned `not_applicable` rows, and 240 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

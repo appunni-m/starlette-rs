@@ -20348,6 +20348,17 @@
               ]
             },
             {
+              "id": "starlette.websocket.api.send.os-error.disconnect-details",
+              "dimension": "error_path",
+              "description": "Call WebSocket.send_text after accept while the supplied ASGI send callback raises OSError, then compare WebSocketDisconnect details, callback tape, and final protocol states. Pinned source: starlette/websockets.py:77-89; tests/test_websockets.py:263-280.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.websocket.api.send.bytes",
               "dimension": "success_path",
               "description": "Frame bytes with WebSocket.send_bytes and compare the emitted ASGI event.",

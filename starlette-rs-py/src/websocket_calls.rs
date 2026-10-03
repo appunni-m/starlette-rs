@@ -419,7 +419,9 @@ impl WebSocketSendMachine {
         self.callback_pending = false;
         if self.catches_os_error && error.is_instance_of::<PyOSError>(py) {
             self.state.borrow_mut().send_failed();
-            let exception = self.disconnect_error.bind(py).call1((1006,))?;
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("code", 1006)?;
+            let exception = self.disconnect_error.bind(py).call((), Some(&kwargs))?;
             let disconnect = PyErr::from_value(exception);
             disconnect.set_context(py, Some(error));
             return Err(disconnect);
