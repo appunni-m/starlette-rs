@@ -415,6 +415,49 @@
       ]
     },
     {
+      "case_id": "starlette.testclient.TestClient.websocket-session.close-triggered-cancellation-and-cleanup.trio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup",
+        "starlette.testclient.TestClient.websocket-session.close-triggered-cancellation",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "/tenant",
+        "client": ["192.0.2.11", 4312],
+        "headers": [],
+        "backend": "trio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/chat?room=blue",
+        "subprotocols": ["chat.v1"],
+        "headers": [["x-session", "input"]],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path", "root_path", "headers", "subprotocols"],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {"operation": "accept", "subprotocol": "chat.v1"},
+              {"operation": "wait_forever"}
+            ]
+          }
+        ]
+      }
+    },
+    {
       "case_id": "starlette.testclient.TestClient.websocket-session.send-receive-json-text",
       "surface": "starlette.testclient.TestClient",
       "operation": "websocket-session",
@@ -1378,6 +1421,92 @@
             "actions": [
               {"operation": "receive"},
               {"operation": "close", "code": 1001}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.duplicate-disconnect-error-propagation.asyncio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.duplicate-disconnect-error-propagation",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["127.0.0.1", 12345],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [{"operation": "close"}]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path"],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {"operation": "accept"},
+              {"operation": "receive"},
+              {"operation": "receive"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.duplicate-disconnect-error-propagation.trio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.duplicate-disconnect-error-propagation",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["127.0.0.1", 12345],
+        "headers": [],
+        "backend": "trio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [{"operation": "close"}]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path"],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {"operation": "accept"},
+              {"operation": "receive"},
+              {"operation": "receive"}
             ]
           }
         ]

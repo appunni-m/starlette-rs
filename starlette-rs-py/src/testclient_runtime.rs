@@ -17,6 +17,7 @@ create_exception!(_core, WebSocketUpgrade, PyException);
 
 const WEBSOCKET_TASK_FAILURE_TYPE: &str = "starlette-rs.internal.websocket-app-failure";
 
+#[derive(Clone, Copy)]
 enum WebSocketTaskPhase {
     App,
     KeepAlive,
@@ -31,6 +32,7 @@ struct WebSocketTaskMachine {
     send: Py<PyAny>,
     signal_token: Py<PyAny>,
     phase: WebSocketTaskPhase,
+    failure_exception: Option<Py<PyAny>>,
 }
 
 #[pyclass]
@@ -56,6 +58,7 @@ impl WebSocketTaskCallable {
                 send: self.send.clone_ref(py),
                 signal_token: self.signal_token.clone_ref(py),
                 phase: WebSocketTaskPhase::App,
+                failure_exception: None,
             },
         )
     }
@@ -64,10 +67,12 @@ impl WebSocketTaskCallable {
 impl WebSocketTaskMachine {
     fn signal_app_failure(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
         self.phase = WebSocketTaskPhase::FailureSignal;
+        let exception = error.value(py).clone().into_any().unbind();
         let signal = PyDict::new(py);
         signal.set_item("type", WEBSOCKET_TASK_FAILURE_TYPE)?;
         signal.set_item("token", self.signal_token.bind(py))?;
-        signal.set_item("exception", error.value(py))?;
+        signal.set_item("exception", exception.bind(py))?;
+        self.failure_exception = Some(exception);
         let awaitable = self.send.bind(py).call1((signal,))?;
         Ok(MachineAction::Await(awaitable.unbind()))
     }
@@ -75,7 +80,7 @@ impl WebSocketTaskMachine {
 
 impl AwaitableStateMachine for WebSocketTaskMachine {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
-        match (&self.phase, input) {
+        match (self.phase, input) {
             (WebSocketTaskPhase::App, MachineResume::Start) => {
                 match self.runner.bind(py).call1((
                     self.app.bind(py),
@@ -97,7 +102,10 @@ impl AwaitableStateMachine for WebSocketTaskMachine {
                 MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error),
             ) => self.signal_app_failure(py, error),
             (WebSocketTaskPhase::FailureSignal, MachineResume::Value(_)) => {
-                Ok(MachineAction::Complete(py.None()))
+                let exception = self.failure_exception.take().ok_or_else(|| {
+                    PyRuntimeError::new_err("WebSocket app failure completed without an exception")
+                })?;
+                Err(PyErr::from_value(exception.into_bound(py)))
             }
             (
                 WebSocketTaskPhase::FailureSignal | WebSocketTaskPhase::KeepAlive,

@@ -248,6 +248,7 @@ TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | 
 TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
     "application_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-exception-propagation",
+    "duplicate_disconnect": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.duplicate-disconnect-error-propagation",
     "rejected_connection": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.rejected-connection-disconnect",
     "query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.query-params-raw-path",
     "application_query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-query-params",
@@ -10933,6 +10934,9 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
     rejected_connection_flow = len(actions) == 2 and [
         action.get("operation") for action in actions
     ] == ["receive", "close"]
+    duplicate_disconnect_flow = len(actions) == 3 and [
+        action.get("operation") for action in actions
+    ] == ["accept", "receive", "receive"]
     application_query_params_flow = len(actions) == 4 and [
         action.get("operation") for action in actions
     ] == ["observe_query_params", "accept", "send_query_params_json", "close"]
@@ -10977,6 +10981,8 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
         return "application-query-params"
     if rejected_connection_flow:
         return "rejected-connection"
+    if duplicate_disconnect_flow:
+        return "duplicate-disconnect"
     if application_url_flow:
         return "application-url"
     if (
@@ -11392,6 +11398,22 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             if set(case["covers"]) != expected_covers:
                 raise ContractError(
                     "TestClient WebSocket covers must match the rejected-connection flow"
+                )
+            return
+        if flow_kind == "duplicate-disconnect":
+            if not client_close_workflow or settings["raise_server_exceptions"] is not True:
+                raise ContractError(
+                    "TestClient WebSocket duplicate-disconnect flow requires one client close action and exception propagation"
+                )
+            expected_covers = {
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["duplicate_disconnect"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+            }
+            if set(case["covers"]) != expected_covers:
+                raise ContractError(
+                    "TestClient WebSocket covers must match the duplicate-disconnect flow"
                 )
             return
         if flow_kind == "scope-bytes" and (

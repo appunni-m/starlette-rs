@@ -22044,6 +22044,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.websocket-session.duplicate-disconnect-error-propagation",
+              "dimension": "error_path",
+              "description": "After accepting, consume the input client websocket.disconnect and call WebSocket.receive() again; compare the live application exception, TestClient session-exit propagation, event tape, app completion, and portal cleanup. Pinned source: tests/test_websockets.py::test_duplicate_disconnect; starlette/testclient.py:102-125,169-171; starlette/websockets.py:36-61.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
               "dimension": "error_path",
               "description": "When an ASGI app consumes websocket.connect through WebSocket.receive() and calls WebSocket.close() before accepting, websocket_connect raises WebSocketDisconnect during session entry with the input close code and default reason. Pinned source: tests/test_websockets.py::test_rejected_connection; starlette/testclient.py:102-125,154-158; starlette/websockets.py:20-23,180-182.",

@@ -976,7 +976,9 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         and [action.get("operation") for action in app_input["actions"][0]["actions"]]
         == ["receive", "close"]
     )
+    session_body_completed = False
     captured_error: BaseException | None = None
+    captured_error_stage = "websocket-session-entry"
     entry_disconnect = None
     websocket_kwargs = {"headers": request_headers}
     if "params" in websocket_input:
@@ -1024,6 +1026,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                     )
                 else:
                     action_results.append({"operation": action["operation"], "value": _safe(value)})
+            session_body_completed = True
     except WebSocketDenialResponse as exception:
         exception_type = type(exception)
         denial_response = {
@@ -1035,18 +1038,26 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             "body_base64": base64.b64encode(exception.content).decode("ascii"),
         }
     except WebSocketDisconnect as error:
-        if not preaccept_close_workflow:
+        if preaccept_close_workflow:
+            captured_error = error
+            entry_disconnect = {
+                "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                "code": error.code,
+                "reason": error.reason,
+            }
+        elif session_body_completed:
+            captured_error = error
+            captured_error_stage = "websocket-session-exit"
+        else:
             raise
-        captured_error = error
-        entry_disconnect = {
-            "class": f"{type(error).__module__}.{type(error).__qualname__}",
-            "code": error.code,
-            "reason": error.reason,
-        }
     except Exception as error:
-        if not application_exception_workflow:
+        if session_body_completed:
+            captured_error = error
+            captured_error_stage = "websocket-session-exit"
+        elif application_exception_workflow:
+            captured_error = error
+        else:
             raise
-        captured_error = error
     result = {
         "scope": scope_observations,
         "receive_messages": receive_observations,
@@ -1081,7 +1092,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                 "class": f"{type(captured_error).__module__}.{type(captured_error).__qualname__}",
                 "kind": "exception",
                 "message": str(captured_error),
-                "stage": "websocket-session-entry",
+                "stage": captured_error_stage,
                 "code": getattr(captured_error, "code", None),
                 "cause": (
                     {
