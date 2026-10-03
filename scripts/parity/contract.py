@@ -802,6 +802,10 @@ FILE_RESPONSE_MULTIPLE_RANGE_VIEW_REQUIREMENT = (
 FILE_RESPONSE_CONTENT_DISPOSITION_INLINE_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.content-disposition-inline"
 )
+FILE_RESPONSE_ERROR_REQUIREMENTS = {
+    "directory": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.directory-not-a-file-error",
+    "missing": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.missing-file-error",
+}
 FILE_RESPONSE_CALL_TIME_REQUIREMENTS = {
     "path": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.mutable-path",
     "status_code": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.mutable-status-code",
@@ -1879,6 +1883,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             "response_bytes",
                             "asgi_event_order",
                             "asgi_events",
+                            "dispatch_error",
                         }
                     )
                     file_response_call_sequence = (
@@ -4767,22 +4772,52 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         incoming = case["incoming"]
         send = case["send"]
 
-    file_input = _exact(
-        case["file"],
-        {"name", "contents_base64", "mtime_seconds"},
-        "FileResponse file input",
-    )
-    name = _string(file_input["name"], "FileResponse file.name")
-    if not name or name in {".", ".."} or "/" in name or "\\" in name:
-        raise ContractError("FileResponse file.name must be a basename")
-    contents_base64 = _string(file_input["contents_base64"], "FileResponse file.contents_base64")
-    try:
-        base64.b64decode(contents_base64, validate=True)
-    except (ValueError, TypeError) as exc:
-        raise ContractError("FileResponse file.contents_base64 must be valid base64") from exc
-    mtime_seconds = file_input["mtime_seconds"]
-    if type(mtime_seconds) not in {int, float} or not math.isfinite(mtime_seconds):
-        raise ContractError("FileResponse file.mtime_seconds must be a finite number")
+    file_input = case["file"]
+    error_path_kind: str | None = None
+    if (
+        isinstance(file_input, dict)
+        and isinstance(file_input.get("kind"), str)
+        and file_input["kind"] in FILE_RESPONSE_ERROR_REQUIREMENTS
+    ):
+        file_input = _exact(file_input, {"kind", "path"}, "FileResponse error-path input")
+        error_path_kind = _string(file_input["kind"], "FileResponse error-path kind")
+        path = _string(file_input["path"], "FileResponse error-path path")
+        path_value = Path(path)
+        if (
+            not path
+            or "\x00" in path
+            or "\\" in path
+            or path_value.is_absolute()
+            or ".." in path_value.parts
+        ):
+            raise ContractError("FileResponse error path must be a safe relative path")
+        if call_sequence or optional_keys:
+            raise ContractError(
+                "FileResponse error paths do not combine with call sequences or probes"
+            )
+        if case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]:
+            raise ContractError("FileResponse error paths select both public target profiles")
+        if case["covers"] != [FILE_RESPONSE_ERROR_REQUIREMENTS[error_path_kind]]:
+            raise ContractError("FileResponse error path must map its matching requirement")
+    else:
+        file_input = _exact(
+            file_input,
+            {"name", "contents_base64", "mtime_seconds"},
+            "FileResponse file input",
+        )
+        name = _string(file_input["name"], "FileResponse file.name")
+        if not name or name in {".", ".."} or "/" in name or "\\" in name:
+            raise ContractError("FileResponse file.name must be a basename")
+        contents_base64 = _string(
+            file_input["contents_base64"], "FileResponse file.contents_base64"
+        )
+        try:
+            base64.b64decode(contents_base64, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError("FileResponse file.contents_base64 must be valid base64") from exc
+        mtime_seconds = file_input["mtime_seconds"]
+        if type(mtime_seconds) not in {int, float} or not math.isfinite(mtime_seconds):
+            raise ContractError("FileResponse file.mtime_seconds must be a finite number")
 
     status_code = case["status_code"]
     if type(status_code) is not int or not 100 <= status_code <= 599:
@@ -4922,6 +4957,8 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     scope_spec = _exact(scope_spec, scope_keys, "FileResponse HTTP scope")
     if scope_spec["type"] != "http":
         raise ContractError("FileResponse ASGI-call requires an HTTP scope")
+    if error_path_kind is not None and scope_spec["method"].upper() != "GET":
+        raise ContractError("FileResponse error paths require a direct HTTP GET scope")
     if "extensions" in scope_spec:
         extensions = scope_spec["extensions"]
         if not isinstance(extensions, dict) or any(

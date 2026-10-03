@@ -13527,7 +13527,8 @@
                 {
                   "path": "response_status",
                   "value_types": [
-                    "integer"
+                    "integer",
+                    "null"
                   ],
                   "comparison": {
                     "kind": "exact"
@@ -13596,6 +13597,19 @@
                         "kind": "file-response-temp-path"
                       }
                     ]
+                  },
+                  "condition": {
+                    "input_key": "scope"
+                  }
+                },
+                {
+                  "path": "dispatch_error",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
                   },
                   "condition": {
                     "input_key": "scope"
@@ -13679,6 +13693,30 @@
               "id": "starlette.responses.FileResponse.asgi-call.get",
               "dimension": "success_path",
               "description": "Construct a file response with deterministic file bytes and stat metadata and observe the complete direct HTTP GET response. Upstream: starlette/responses.py::FileResponse.__call__; tests/test_responses.py::test_file_response_without_range.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.directory-not-a-file-error",
+              "dimension": "error_path",
+              "description": "Invoke FileResponse with an existing directory and compare the propagated RuntimeError class, message, dispatch stage, and empty ASGI output. Upstream: tests/test_responses.py::test_file_response_with_directory_raises_error; starlette/responses.py::FileResponse.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.missing-file-error",
+              "dimension": "error_path",
+              "description": "Invoke FileResponse with a nonexistent path and compare the propagated RuntimeError class, message, dispatch stage, and empty ASGI output. Upstream: tests/test_responses.py::test_file_response_with_missing_file_raises_error; starlette/responses.py::FileResponse.__call__.",
               "lanes": [
                 "parity"
               ],

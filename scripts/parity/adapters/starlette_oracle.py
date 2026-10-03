@@ -7297,26 +7297,53 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ValueError("FileResponse observations must select asgi-call")
 
-    file_spec = _strict_object(
-        case["file"], {"name", "contents_base64", "mtime_seconds"}, "FileResponse file"
-    )
-    name = file_spec["name"]
-    encoded_contents = file_spec["contents_base64"]
-    mtime_seconds = file_spec["mtime_seconds"]
-    if (
-        not isinstance(name, str)
-        or not name
-        or name in {".", ".."}
-        or "/" in name
-        or "\\" in name
-        or Path(name).name != name
-    ):
-        raise ValueError("FileResponse file.name must be a basename")
-    if not isinstance(encoded_contents, str):
-        raise ValueError("FileResponse file.contents_base64 must be a string")
-    if type(mtime_seconds) not in {int, float} or not math.isfinite(mtime_seconds):
-        raise ValueError("FileResponse file.mtime_seconds must be a finite number")
-    contents = _decode_b64(encoded_contents, "file.contents_base64")
+    file_spec = case["file"]
+    error_path: Path | None = None
+    file_kind = "regular"
+    if isinstance(file_spec, dict) and file_spec.get("kind") in {"directory", "missing"}:
+        file_spec = _strict_object(file_spec, {"kind", "path"}, "FileResponse error path")
+        file_kind = file_spec["kind"]
+        error_path_text = file_spec["path"]
+        if not isinstance(error_path_text, str):
+            raise ValueError("FileResponse error path must be a string")
+        error_path = Path(error_path_text)
+        if (
+            not error_path_text
+            or "\x00" in error_path_text
+            or "\\" in error_path_text
+            or error_path.is_absolute()
+            or ".." in error_path.parts
+        ):
+            raise ValueError("FileResponse error path must be a safe relative path")
+        if file_kind == "directory" and not error_path.is_dir():
+            raise ValueError("FileResponse directory error path is not a directory")
+        if file_kind == "missing" and error_path.exists():
+            raise ValueError("FileResponse missing-file error path already exists")
+        name = error_path.name or error_path.as_posix()
+        encoded_contents = ""
+        mtime_seconds = 0.0
+        contents = b""
+    else:
+        file_spec = _strict_object(
+            file_spec, {"name", "contents_base64", "mtime_seconds"}, "FileResponse file"
+        )
+        name = file_spec["name"]
+        encoded_contents = file_spec["contents_base64"]
+        mtime_seconds = file_spec["mtime_seconds"]
+        if (
+            not isinstance(name, str)
+            or not name
+            or name in {".", ".."}
+            or "/" in name
+            or "\\" in name
+            or Path(name).name != name
+        ):
+            raise ValueError("FileResponse file.name must be a basename")
+        if not isinstance(encoded_contents, str):
+            raise ValueError("FileResponse file.contents_base64 must be a string")
+        if type(mtime_seconds) not in {int, float} or not math.isfinite(mtime_seconds):
+            raise ValueError("FileResponse file.mtime_seconds must be a finite number")
+        contents = _decode_b64(encoded_contents, "file.contents_base64")
 
     if type(case["status_code"]) is not int:
         raise ValueError("FileResponse status_code must be an integer")
@@ -7435,8 +7462,25 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
     with tempfile.TemporaryDirectory(prefix="starlette-file-response-") as directory:
         path = Path(directory) / name
-        if scheduling is None:
+        if file_kind != "regular":
+            path = Path(file_spec["path"])
+            stat_result = None
+        elif scheduling is None:
             path.write_bytes(contents)
+            stat_result = os.stat_result(
+                (
+                    stat.S_IFREG | 0o644,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0,
+                    len(contents),
+                    mtime_seconds,
+                    mtime_seconds,
+                    mtime_seconds,
+                )
+            )
         else:
             try:
                 os.mkfifo(path)
@@ -7454,20 +7498,20 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                         "the temporary filesystem does not provide POSIX FIFO support",
                     )
                 raise
-        stat_result = os.stat_result(
-            (
-                stat.S_IFREG | 0o644,
-                0,
-                0,
-                1,
-                0,
-                0,
-                len(contents),
-                mtime_seconds,
-                mtime_seconds,
-                mtime_seconds,
+            stat_result = os.stat_result(
+                (
+                    stat.S_IFREG | 0o644,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0,
+                    len(contents),
+                    mtime_seconds,
+                    mtime_seconds,
+                    mtime_seconds,
+                )
             )
-        )
         response_class = (
             type("ConfiguredFileResponse", (FileResponse,), {"max_ranges": case["max_ranges"]})
             if "max_ranges" in case
@@ -7599,12 +7643,18 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         async def receive() -> dict[str, Any]:
             return {"type": "http.disconnect"}
 
+        captured_dispatch_error: dict[str, Any] | None = None
         if scheduling is None:
 
             async def send(message: dict[str, Any]) -> None:
                 sent.append(message)
 
-            asyncio.run(response(scope, receive, send))
+            try:
+                asyncio.run(response(scope, receive, send))
+            except Exception as exc:
+                if file_kind == "regular":
+                    raise
+                captured_dispatch_error = _dispatch_error(exc)
         else:
             start_marker_path = Path(directory) / "response-started"
             loop_marker_path = Path(directory) / "event-loop-marker"
@@ -7733,16 +7783,13 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             "ordered_repeated_headers": (
                 response_start_event["headers"] if response_start_event is not None else []
             ),
-            "response_bytes": (
-                {
-                    "encoding": "base64",
-                    "data": base64.b64encode(response_body).decode("ascii"),
-                }
-                if response_start is not None
-                else None
-            ),
+            "response_bytes": {
+                "encoding": "base64",
+                "data": base64.b64encode(response_body).decode("ascii"),
+            },
             "asgi_event_order": [event["type"] for event in events],
             "asgi_events": events,
+            "dispatch_error": captured_dispatch_error,
         }
         if header_view_probe_value is not None:
             observation["header_view_probe"] = header_view_probe_value

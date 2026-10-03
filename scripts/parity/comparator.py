@@ -976,6 +976,12 @@ def compare_workflows(
                             )
                         else:
                             file_input = case.get("file")
+                        if (
+                            case.get("surface") == "starlette.responses.FileResponse"
+                            and isinstance(file_input, dict)
+                            and file_input.get("kind") in {"directory", "missing"}
+                        ):
+                            continue
                         if not isinstance(file_input, dict) or not isinstance(
                             file_input.get("name"), str
                         ):

@@ -35,13 +35,13 @@ use starlette_rs::{
     ApplicationRoute, AsgiScopeKind, CommaSeparatedStrings, CookieOptions, Cookies,
     DEFAULT_EXCLUDED_CONTENT_TYPES, DetailedRouteMatch, FileMetadata,
     FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
-    FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader, GzipResponseStart, HostPattern,
-    HttpScope, LifespanAction, LifespanState, Mount as NativeMount, MountChild, MountScope,
-    MultiDict as NativeMultiDict, NamedRouteError, NamedRouteTable, PathConverter,
-    PathParameterCapture, QueryParams, RequestBodyAccumulator, RequestHeaders, Response,
-    ResponseEvent, RouteTable, Starlette as NativeApplication, StaticFiles as NativeStaticFiles,
-    StaticFilesError, StaticFilesResponse, StreamingResponse, StreamingResponseEvent,
-    WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
+    FileResponseError, FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader,
+    GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState, Mount as NativeMount,
+    MountChild, MountScope, MultiDict as NativeMultiDict, NamedRouteError, NamedRouteTable,
+    PathConverter, PathParameterCapture, QueryParams, RequestBodyAccumulator, RequestHeaders,
+    Response, ResponseEvent, RouteTable, Starlette as NativeApplication,
+    StaticFiles as NativeStaticFiles, StaticFilesError, StaticFilesResponse, StreamingResponse,
+    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
 };
 use unicode_general_category as _;
 
@@ -2938,34 +2938,74 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         vec![case]
     };
 
-    let source_file = exact_object(
-        case.get("file")
-            .ok_or_else(|| String::from("FileResponse asgi-call file is missing"))?,
-        &["name", "contents_base64", "mtime_seconds"],
-        "FileResponse file",
-    )?;
-    let file_name = string_field(source_file, "name", "FileResponse file")?;
-    if file_name.is_empty()
-        || file_name == "."
-        || file_name == ".."
-        || file_name.contains('/')
-        || file_name.contains('\\')
-        || file_name.as_bytes().contains(&0)
-    {
-        return Err(String::from(
-            "FileResponse file.name must be a non-empty basename",
-        ));
-    }
-    let contents = decode_base64(
-        string_field(source_file, "contents_base64", "FileResponse file")?,
-        "FileResponse file.contents_base64",
-    )?;
-    let mtime_number = source_file
-        .get("mtime_seconds")
-        .and_then(Value::as_f64)
-        .filter(|value| value.is_finite())
-        .ok_or_else(|| String::from("FileResponse file.mtime_seconds must be finite"))?;
-    let mtime_text = python_float_text_for_input(mtime_number);
+    let source_file = case
+        .get("file")
+        .ok_or_else(|| String::from("FileResponse asgi-call file is missing"))?;
+    let (temporary_directory, path, stat_override, error_path_kind) =
+        if source_file.get("kind").and_then(Value::as_str).is_some() {
+            let source_file =
+                exact_object(source_file, &["kind", "path"], "FileResponse error path")?;
+            let kind = string_field(source_file, "kind", "FileResponse error path")?;
+            if request_sequence || (kind != "directory" && kind != "missing") {
+                return Err(String::from("FileResponse error path kind is unsupported"));
+            }
+            let path_text = string_field(source_file, "path", "FileResponse error path")?;
+            let path = Path::new(path_text);
+            if path_text.is_empty()
+                || path_text.contains('\\')
+                || path_text.as_bytes().contains(&0)
+                || path.is_absolute()
+                || path
+                    .components()
+                    .any(|component| matches!(component, std::path::Component::ParentDir))
+            {
+                return Err(String::from(
+                    "FileResponse error path must be a safe relative path",
+                ));
+            }
+            if (kind == "directory" && !path.is_dir()) || (kind == "missing" && path.exists()) {
+                return Err(format!(
+                    "FileResponse {kind} error path does not match the current filesystem"
+                ));
+            }
+            (None, path.to_path_buf(), None, Some(kind.to_owned()))
+        } else {
+            let source_file = exact_object(
+                source_file,
+                &["name", "contents_base64", "mtime_seconds"],
+                "FileResponse file",
+            )?;
+            let file_name = string_field(source_file, "name", "FileResponse file")?;
+            if file_name.is_empty()
+                || file_name == "."
+                || file_name == ".."
+                || file_name.contains('/')
+                || file_name.contains('\\')
+                || file_name.as_bytes().contains(&0)
+            {
+                return Err(String::from(
+                    "FileResponse file.name must be a non-empty basename",
+                ));
+            }
+            let contents = decode_base64(
+                string_field(source_file, "contents_base64", "FileResponse file")?,
+                "FileResponse file.contents_base64",
+            )?;
+            let mtime_number = source_file
+                .get("mtime_seconds")
+                .and_then(Value::as_f64)
+                .filter(|value| value.is_finite())
+                .ok_or_else(|| String::from("FileResponse file.mtime_seconds must be finite"))?;
+            let mtime_text = python_float_text_for_input(mtime_number);
+            let (temporary_directory, path) = create_file_response_input(file_name, &contents)?;
+            let metadata = FileMetadata::from_unix_seconds(
+                u64::try_from(contents.len()).map_err(|error| error.to_string())?,
+                mtime_number,
+                mtime_text,
+            )
+            .map_err(|error| error.to_string())?;
+            (Some(temporary_directory), path, Some(metadata), None)
+        };
 
     let status_code = case
         .get("status_code")
@@ -3022,18 +3062,11 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         }
     };
 
-    let (temporary_directory, path) = create_file_response_input(file_name, &contents)?;
-    let metadata = FileMetadata::from_unix_seconds(
-        u64::try_from(contents.len()).map_err(|error| error.to_string())?,
-        mtime_number,
-        mtime_text,
-    )
-    .map_err(|error| error.to_string())?;
     let mut options = FileResponseOptions {
         media_type,
         filename,
         content_disposition_type,
-        stat_override: Some(metadata),
+        stat_override,
         ..FileResponseOptions::default()
     };
     if let Some(value) = case.get("chunk_size") {
@@ -3060,6 +3093,7 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         apply_response_cookie_actions(&mut response, actions)?;
     }
     let mut responses = Vec::with_capacity(call_inputs.len());
+    let mut captured_dispatch_error = None;
     for call_input in call_inputs {
         let (scope, pathsend_extension) = validated_file_response_scope(
             call_input
@@ -3073,9 +3107,30 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         }
         let request_headers = parse_scope_request_headers(&scope, "FileResponse HTTP scope")?;
         let method = string_field(&scope, "method", "FileResponse HTTP scope")?;
-        let mut call = response
-            .call_state("http", method, &request_headers, pathsend_extension, false)
-            .map_err(|error| error.to_string())?;
+        let mut call = match response.call_state(
+            "http",
+            method,
+            &request_headers,
+            pathsend_extension,
+            false,
+        ) {
+            Ok(call) => call,
+            Err(error) if error_path_kind.is_some() => {
+                captured_dispatch_error = Some(file_response_dispatch_error(error)?);
+                responses.push(json!({
+                    "response_status": null,
+                    "ordered_repeated_headers": [],
+                    "response_bytes": {
+                        "encoding": "base64",
+                        "data": "",
+                    },
+                    "asgi_event_order": [],
+                    "asgi_events": [],
+                }));
+                break;
+            }
+            Err(error) => return Err(error.to_string()),
+        };
 
         let mut response_status = None;
         let mut ordered_headers = Vec::new();
@@ -3130,15 +3185,23 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             "asgi_events": events,
         }));
     }
-    drop(temporary_directory);
     let value = if request_sequence {
         json!({"responses": responses})
     } else {
-        responses
+        let mut response = responses
             .into_iter()
             .next()
-            .ok_or_else(|| String::from("FileResponse call produced no observations"))?
+            .ok_or_else(|| String::from("FileResponse call produced no observations"))?;
+        let response_object = response
+            .as_object_mut()
+            .ok_or_else(|| String::from("FileResponse observation is not an object"))?;
+        response_object.insert(
+            String::from("dispatch_error"),
+            captured_dispatch_error.unwrap_or(Value::Null),
+        );
+        response
     };
+    drop(temporary_directory);
     Ok(json!({
         "case_id": case_id,
         "status": "completed",
@@ -3147,6 +3210,25 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             "status": "ok",
             "value": value,
         }],
+    }))
+}
+
+fn file_response_dispatch_error(error: FileResponseError) -> Result<Value, String> {
+    let is_compatibility_runtime_error = matches!(
+        &error,
+        FileResponseError::MissingFile(_) | FileResponseError::NotAFile(_)
+    );
+    if !is_compatibility_runtime_error {
+        return Err(error.to_string());
+    }
+    Ok(json!({
+        "class": "builtins.RuntimeError",
+        "kind": "exception",
+        "message": error.to_string(),
+        "stage": "dispatch",
+        "code": null,
+        "cause": null,
+        "suppress_context": false,
     }))
 }
 
