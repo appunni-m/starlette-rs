@@ -1242,13 +1242,29 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
     return middleware
 
 
+def _routes_have_local_middleware(routes: Any) -> bool:
+    if not isinstance(routes, list):
+        return False
+    return any(
+        isinstance(route, dict)
+        and (
+            "middleware" in route
+            or _routes_have_local_middleware(route.get("routes"))
+            or (
+                isinstance(route.get("app"), dict) and _routes_have_local_middleware([route["app"]])
+            )
+        )
+        for route in routes
+    )
+
+
 def _materialize_application(
     app_spec: dict[str, Any],
 ) -> tuple[Any, list[str], list[dict[str, Any]], Any, list[dict[str, Any]]]:
     from starlette.applications import Starlette
     from starlette.exceptions import HTTPException, WebSocketException
     from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
-    from starlette.routing import Route, WebSocketRoute
+    from starlette.routing import Mount, Route, WebSocketRoute
 
     if set(app_spec) != {
         "debug",
@@ -1391,6 +1407,69 @@ def _materialize_application(
         WebSocketException,
         handler_calls,
     )
+
+    if any(
+        isinstance(route, dict) and route.get("kind") == "mount" for route in app_spec["routes"]
+    ) or any(isinstance(route, dict) and "middleware" in route for route in app_spec["routes"]):
+        from starlette.responses import Response
+
+        def make_middleware_route(route_spec: dict[str, Any]) -> Any:
+            kind = route_spec["kind"]
+            if kind == "http-route":
+                endpoint_spec = route_spec["endpoint"]
+                if endpoint_spec["kind"] == "plain-response":
+
+                    def endpoint(_request: Any) -> Any:
+                        return Response(
+                            endpoint_spec["content"], media_type=endpoint_spec["media_type"]
+                        )
+
+                elif endpoint_spec["kind"] == "scope-assert-empty-response":
+
+                    def endpoint(request: Any) -> Any:
+                        if (
+                            request.scope.get(endpoint_spec["scope_key"])
+                            is not endpoint_spec["scope_value"]
+                        ):
+                            raise AssertionError("route middleware scope marker was not set")
+                        return Response()
+
+                else:
+                    raise ValueError("route-middleware endpoint uses an unsupported input kind")
+                middleware = _build_reverse_route_middleware(route_spec.get("middleware", []))
+                return Route(
+                    route_spec["path"],
+                    endpoint=endpoint,
+                    methods=route_spec["methods"],
+                    name=route_spec.get("name"),
+                    middleware=middleware,
+                )
+            if kind != "mount":
+                raise ValueError("route-middleware node must be an HTTP route or Mount")
+            middleware = _build_reverse_route_middleware(route_spec.get("middleware", []))
+            if "app" in route_spec:
+                return Mount(
+                    route_spec["path"],
+                    app=make_middleware_route(route_spec["app"]),
+                    middleware=middleware,
+                )
+            return Mount(
+                route_spec["path"],
+                routes=[make_middleware_route(child) for child in route_spec["routes"]],
+                middleware=middleware,
+            )
+
+        route_objects = [make_middleware_route(route) for route in app_spec["routes"]]
+        app = Starlette(
+            debug=app_spec["debug"],
+            routes=route_objects,
+            middleware=_materialize_application_middleware(app_spec["middleware"]),
+            exception_handlers=exception_handlers,
+            lifespan=lifespan,
+            max_body_size=app_spec["max_body_size"],
+        )
+        return app, lifecycle_trace, request_observations, route_endpoint, sync_endpoint_states
+
     for route in app_spec["routes"]:
         if isinstance(route, dict) and route.get("kind") == "websocket-route":
             _strict_object(route, {"kind", "path", "endpoint"}, "WebSocket route input")
@@ -11759,6 +11838,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     step_ids = [step["step_id"] for step in steps]
     schedule = case["execution_schedule"]
     is_request_dispatch = case["operation"] == "request-dispatch"
+    route_middleware_workflow = _routes_have_local_middleware(
+        steps[0]["arguments"]["routes"]["value"]
+    )
     if is_request_dispatch:
         endpoint_spec = steps[0]["arguments"]["routes"]["value"][0]["endpoint"]
         expected_schedule = (
@@ -11777,6 +11859,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         ):
             raise ValueError(
                 "request-dispatch cases must contain application then request-dispatch"
+            )
+    elif route_middleware_workflow:
+        if len(steps) != 3 or schedule != step_ids[1:]:
+            raise ValueError(
+                "route middleware workflow must schedule its input dispatches in order"
             )
     elif step_ids not in (
         ["application", "lifecycle"],
@@ -11819,15 +11906,17 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("ASGI route workflows must build one public Starlette application")
     application_arguments = {name: item["value"] for name, item in steps[0]["arguments"].items()}
     route_spec = application_arguments["routes"][0]
-    endpoint_kind = route_spec["endpoint"]["kind"]
+    endpoint_spec = route_spec.get("endpoint") if isinstance(route_spec, dict) else None
+    endpoint_kind = endpoint_spec.get("kind") if isinstance(endpoint_spec, dict) else None
     capture_dispatch_error = (
         is_request_dispatch
+        or route_middleware_workflow
         or endpoint_kind
         in {
             "asgi-callable-action-sequence",
             "raise-runtime-error",
         }
-        or route_spec["kind"] == "websocket-route"
+        or route_spec.get("kind") == "websocket-route"
     )
     (
         app,
@@ -11862,7 +11951,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         results: list[dict[str, Any]] = []
         for step in steps[1:]:
             args = {name: item["value"] for name, item in step["arguments"].items()}
-            if route_spec["endpoint"]["kind"] == "sync-plain-text-response":
+            if endpoint_kind == "sync-plain-text-response":
                 for state in sync_endpoint_states:
                     with state["lock"]:
                         state["invocation_count"] = 0

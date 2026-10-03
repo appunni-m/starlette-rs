@@ -268,6 +268,7 @@
       "build/parity/inputs/parity/router-cache-invalidation.json",
       "build/parity/inputs/parity/router-mounted-child-live-add.json",
       "build/parity/inputs/parity/router-class-based-endpoints.json",
+      "build/parity/inputs/parity/route-middleware-dispatch.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/request-cookies.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
@@ -1545,6 +1546,39 @@
               "id": "starlette.asgi.lifespan.cancel-during-exit",
               "dimension": "error_path",
               "description": "Cancellation during lifespan context exit emits shutdown.failed and propagates cancellation after cleanup. Upstream: starlette/routing.py::Router.lifespan.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.route-middleware-response-header",
+              "dimension": "protocol_variant",
+              "description": "Route-local middleware mutates the request scope, adds a response header to the selected route, and leaves an unrelated sibling response unmodified. Upstream: tests/test_routing.py::test_base_route_middleware[route_with_middleware].",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.mount-routes-middleware-response-header",
+              "dimension": "protocol_variant",
+              "description": "Middleware on a Mount constructed from child routes mutates request scope and adds a response header only for the mounted route, while a sibling response remains unmodified. Upstream: tests/test_routing.py::test_base_route_middleware[mounted_routes_with_middleware].",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.mount-app-middleware-response-header",
+              "dimension": "protocol_variant",
+              "description": "Middleware on a Mount wrapping an input-provided Route mutates request scope and adds a response header only for that mounted route, while a sibling response remains unmodified. Upstream: tests/test_routing.py::test_base_route_middleware[mounted_app_with_middleware].",
               "lanes": [
                 "parity"
               ],
