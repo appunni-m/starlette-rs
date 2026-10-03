@@ -247,6 +247,7 @@ TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | 
 }
 TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
+    "application_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-exception-propagation",
     "query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.query-params-raw-path",
     "application_query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-query-params",
     "application_url": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-url",
@@ -10992,9 +10993,13 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
 
 
 def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
+    settings_keys = {"base_url", "raise_server_exceptions", "root_path", "client", "headers"}
+    raw_settings = case["testclient"]
+    if isinstance(raw_settings, dict):
+        settings_keys |= raw_settings.keys() & {"backend", "backend_options"}
     settings = _exact(
-        case["testclient"],
-        {"base_url", "raise_server_exceptions", "root_path", "client", "headers"},
+        raw_settings,
+        settings_keys,
         "TestClient settings",
     )
     base_url = _string(settings["base_url"], "TestClient.base_url")
@@ -11026,6 +11031,13 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context}[{index}] must contain two strings")
 
     validate_string_pairs(settings["headers"], "TestClient.headers")
+    if ("backend" in settings) != ("backend_options" in settings):
+        raise ContractError("TestClient backend and backend_options must be supplied together")
+    if "backend" in settings:
+        if settings["backend"] not in {"asyncio", "trio"}:
+            raise ContractError("TestClient.backend must be asyncio or trio")
+        if not isinstance(settings["backend_options"], dict):
+            raise ContractError("TestClient.backend_options must be a record")
 
     def validate_base64(value: Any, context: str) -> None:
         if not isinstance(value, str):
@@ -11227,8 +11239,44 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         and isinstance(app_actions[0], dict)
         and app_actions[0].get("operation") == "websocket_flow"
     )
-    if no_client_actions and accepted_flow_workflow:
+    application_exception_workflow = (
+        isinstance(app_actions, list)
+        and len(app_actions) == 1
+        and isinstance(app_actions[0], dict)
+        and app_actions[0].get("operation") == "raise"
+    )
+    if no_client_actions and (accepted_flow_workflow or application_exception_workflow):
         denial_workflow = False
+    if application_exception_workflow:
+        if not no_client_actions or settings["raise_server_exceptions"] is not True:
+            raise ContractError(
+                "TestClient WebSocket app exception cases require no client actions and server exception propagation"
+            )
+        raise_action = _exact(
+            app_actions[0],
+            {"operation", "exception_class", "message"},
+            "TestClient WebSocket application exception action",
+        )
+        exception_class = _string(
+            raise_action["exception_class"],
+            "TestClient WebSocket application exception class",
+        )
+        exception_type = getattr(builtins, exception_class, None)
+        if not isinstance(exception_type, type) or not issubclass(exception_type, Exception):
+            raise ContractError(
+                "TestClient WebSocket application exception class must name a built-in Exception"
+            )
+        _string(raise_action["message"], "TestClient WebSocket application exception message")
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_exception"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError(
+                "TestClient WebSocket covers must match the application exception workflow"
+            )
+        return
     if denial_workflow:
         if (
             not isinstance(app_actions, list)

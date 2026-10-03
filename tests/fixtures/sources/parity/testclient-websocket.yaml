@@ -1222,6 +1222,84 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.application-exception-propagation.asyncio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["127.0.0.1", 12345],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/123?a=abc",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path", "query_string"],
+        "actions": [
+          {
+            "operation": "raise",
+            "exception_class": "AssertionError",
+            "message": "assert False"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.application-exception-propagation.trio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["127.0.0.1", 12345],
+        "headers": [],
+        "backend": "trio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/123?a=abc",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path", "query_string"],
+        "actions": [
+          {
+            "operation": "raise",
+            "exception_class": "AssertionError",
+            "message": "assert False"
+          }
+        ]
+      }
     }
   ]
 }

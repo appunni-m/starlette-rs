@@ -823,6 +823,9 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         for action in app_input["actions"]:
             if action["operation"] == "receive":
                 await observed_receive(receive)
+            elif action["operation"] == "raise":
+                exception_type = getattr(builtins, action["exception_class"])
+                raise exception_type(action["message"])
             else:
                 message = _message(action["message"])
                 await observed_send(send, message)
@@ -952,6 +955,8 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         root_path=settings["root_path"],
         client=tuple(settings["client"]),
         headers=dict(settings["headers"]),
+        backend=settings.get("backend", "asyncio"),
+        backend_options=settings.get("backend_options", {}),
     )
     session_input = websocket_input.get("subprotocols")
     request_headers = dict(websocket_input["headers"])
@@ -959,6 +964,10 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     accepted_subprotocol = None
     accepted_extra_headers = None
     denial_response = None
+    application_exception_workflow = (
+        len(app_input["actions"]) == 1 and app_input["actions"][0].get("operation") == "raise"
+    )
+    captured_error: BaseException | None = None
     websocket_kwargs = {"headers": request_headers}
     if "params" in websocket_input:
         websocket_kwargs["params"] = websocket_input["params"]
@@ -1015,6 +1024,10 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             "headers": exception.headers.multi_items(),
             "body_base64": base64.b64encode(exception.content).decode("ascii"),
         }
+    except Exception as error:
+        if not application_exception_workflow:
+            raise
+        captured_error = error
     result = {
         "scope": scope_observations,
         "receive_messages": receive_observations,
@@ -1038,10 +1051,35 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         ),
     }
     client.close()
+    observation = {"step_id": "websocket-session", "status": "ok", "value": result}
+    if captured_error is not None:
+        cause = captured_error.__cause__
+        observation = {
+            "step_id": "websocket-session",
+            "status": "error",
+            "error": {
+                "class": f"{type(captured_error).__module__}.{type(captured_error).__qualname__}",
+                "kind": "exception",
+                "message": str(captured_error),
+                "stage": "websocket-session-entry",
+                "code": None,
+                "cause": (
+                    {
+                        "class": f"{type(cause).__module__}.{type(cause).__qualname__}",
+                        "message": str(cause),
+                        "attributes": _safe(vars(cause)),
+                    }
+                    if cause is not None
+                    else None
+                ),
+                "suppress_context": bool(captured_error.__suppress_context__),
+            },
+            "partial_value": result,
+        }
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [{"step_id": "websocket-session", "status": "ok", "value": result}],
+        "observations": [observation],
     }
 
 

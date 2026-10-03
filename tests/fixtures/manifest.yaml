@@ -22000,6 +22000,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
+              "dimension": "error_path",
+              "description": "When the input ASGI app raises before sending a WebSocket handshake, websocket_connect propagates the original application exception during session entry and closes the portal thread. Pinned source: tests/test_websockets.py::test_websocket_exception; starlette/testclient.py:102-125.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.websocket-session.send-json-text-frame",
               "dimension": "success_path",
               "description": "Serialize the supplied Python value with the pinned compact JSON options (separators=(\",\", \":\"), ensure_ascii=False) and send it as a websocket.receive text frame. Pinned source: starlette/testclient.py:174-181; docs/testclient.md:222.",

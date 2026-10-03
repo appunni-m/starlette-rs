@@ -15,6 +15,105 @@ use crate::awaitable::{
 
 create_exception!(_core, WebSocketUpgrade, PyException);
 
+const WEBSOCKET_TASK_FAILURE_TYPE: &str = "starlette-rs.internal.websocket-app-failure";
+
+enum WebSocketTaskPhase {
+    App,
+    KeepAlive,
+    FailureSignal,
+}
+
+struct WebSocketTaskMachine {
+    runner: Py<PyAny>,
+    app: Py<PyAny>,
+    scope: Py<PyDict>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    signal_token: Py<PyAny>,
+    phase: WebSocketTaskPhase,
+}
+
+#[pyclass]
+struct WebSocketTaskCallable {
+    runner: Py<PyAny>,
+    app: Py<PyAny>,
+    scope: Py<PyDict>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    signal_token: Py<PyAny>,
+}
+
+#[pymethods]
+impl WebSocketTaskCallable {
+    fn __call__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        into_sendable_python_awaitable(
+            py,
+            WebSocketTaskMachine {
+                runner: self.runner.clone_ref(py),
+                app: self.app.clone_ref(py),
+                scope: self.scope.clone_ref(py),
+                receive: self.receive.clone_ref(py),
+                send: self.send.clone_ref(py),
+                signal_token: self.signal_token.clone_ref(py),
+                phase: WebSocketTaskPhase::App,
+            },
+        )
+    }
+}
+
+impl WebSocketTaskMachine {
+    fn signal_app_failure(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        self.phase = WebSocketTaskPhase::FailureSignal;
+        let signal = PyDict::new(py);
+        signal.set_item("type", WEBSOCKET_TASK_FAILURE_TYPE)?;
+        signal.set_item("token", self.signal_token.bind(py))?;
+        signal.set_item("exception", error.value(py))?;
+        let awaitable = self.send.bind(py).call1((signal,))?;
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+}
+
+impl AwaitableStateMachine for WebSocketTaskMachine {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match (&self.phase, input) {
+            (WebSocketTaskPhase::App, MachineResume::Start) => {
+                match self.runner.bind(py).call1((
+                    self.app.bind(py),
+                    self.scope.bind(py),
+                    self.receive.bind(py),
+                    self.send.bind(py),
+                )) {
+                    Ok(awaitable) => Ok(MachineAction::Await(awaitable.unbind())),
+                    Err(error) => self.signal_app_failure(py, error),
+                }
+            }
+            (WebSocketTaskPhase::App, MachineResume::Value(_)) => {
+                self.phase = WebSocketTaskPhase::KeepAlive;
+                let awaitable = py.import("anyio")?.getattr("sleep_forever")?.call0()?;
+                Ok(MachineAction::Await(awaitable.unbind()))
+            }
+            (
+                WebSocketTaskPhase::App,
+                MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error),
+            ) => self.signal_app_failure(py, error),
+            (WebSocketTaskPhase::FailureSignal, MachineResume::Value(_)) => {
+                Ok(MachineAction::Complete(py.None()))
+            }
+            (
+                WebSocketTaskPhase::FailureSignal | WebSocketTaskPhase::KeepAlive,
+                MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error),
+            ) => Err(error),
+            (WebSocketTaskPhase::FailureSignal, MachineResume::Start)
+            | (WebSocketTaskPhase::KeepAlive, MachineResume::Start) => Err(
+                PyRuntimeError::new_err("WebSocket app task resumed before awaiting its phase"),
+            ),
+            (WebSocketTaskPhase::KeepAlive, MachineResume::Value(_)) => {
+                Ok(MachineAction::Complete(py.None()))
+            }
+        }
+    }
+}
+
 #[pyclass(name = "TestClientTransport")]
 pub(crate) struct PyTestClientTransport {
     app: Py<PyAny>,
@@ -406,6 +505,7 @@ struct PyWebSocketTestSession {
     app_to_client_send: Option<Py<PyAny>>,
     app_to_client_receive: Option<Py<PyAny>>,
     task: Option<Py<PyAny>>,
+    failure_signal_token: Option<Py<PyAny>>,
     accepted_subprotocol: Option<String>,
     extra_headers: Option<Py<PyAny>>,
     accepted: bool,
@@ -435,6 +535,7 @@ impl PyWebSocketTestSession {
             app_to_client_send: None,
             app_to_client_receive: None,
             task: None,
+            failure_signal_token: None,
             accepted_subprotocol: None,
             extra_headers: None,
             accepted: false,
@@ -487,17 +588,20 @@ impl PyWebSocketTestSession {
 
         let receive = client_to_app_receive.bind(py).getattr("receive")?.unbind();
         let send = app_to_client_send.bind(py).getattr("send")?.unbind();
-        let task_args = PyTuple::new(
+        let signal_token = py.import("builtins")?.getattr("object")?.call0()?.unbind();
+        self.failure_signal_token = Some(signal_token.clone_ref(py));
+        let task_callable = Py::new(
             py,
-            [
-                self.runner.bind(py),
-                self.app.bind(py),
-                self.scope.bind(py),
-                receive.bind(py),
-                send.bind(py),
-            ],
+            WebSocketTaskCallable {
+                runner: self.runner.clone_ref(py),
+                app: self.app.clone_ref(py),
+                scope: self.scope.clone_ref(py),
+                receive,
+                send,
+                signal_token,
+            },
         )?;
-        let task = portal.call_method1("start_task_soon", task_args)?;
+        let task = portal.call_method1("start_task_soon", (task_callable,))?;
 
         self.client_to_app_send = Some(client_to_app_send);
         self.client_to_app_receive = Some(client_to_app_receive);
@@ -607,10 +711,30 @@ impl PyWebSocketTestSession {
         let stream = self.app_to_client_receive.as_ref().ok_or_else(|| {
             PyRuntimeError::new_err("WebSocketTestSession client receive stream is unavailable")
         })?;
-        portal
+        let message = portal
             .bind(py)
             .call_method1("call", (stream.bind(py).getattr("receive")?,))
-            .map(Bound::unbind)
+            .map(Bound::unbind)?;
+        if let Ok(message_dict) = message.bind(py).cast::<PyDict>() {
+            if let Some(message_type) = message_dict.get_item("type")? {
+                if let Ok(message_type) = message_type.extract::<String>() {
+                    if message_type == WEBSOCKET_TASK_FAILURE_TYPE {
+                        if let (Some(token), Some(expected_token)) = (
+                            message_dict.get_item("token")?,
+                            self.failure_signal_token.as_ref(),
+                        ) {
+                            if token.is(expected_token.bind(py)) {
+                                let exception = message_dict
+                                    .get_item("exception")?
+                                    .ok_or_else(|| PyKeyError::new_err("exception"))?;
+                                return Err(PyErr::from_value(exception));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(message)
     }
 
     fn send_text_inner(&self, py: Python<'_>, data: &str) -> PyResult<()> {
@@ -675,6 +799,7 @@ impl PyWebSocketTestSession {
         }
 
         self.task = None;
+        self.failure_signal_token = None;
         self.portal = None;
         let manager = self.portal_manager.take();
         if let Some(manager) = manager {
