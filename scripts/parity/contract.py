@@ -7299,13 +7299,20 @@ def _validate_reverse_route_node(
         return node
     if kind == "mount":
         mount_keys = {"kind", "path", "name", "routes"}
+        if "app" in node:
+            mount_keys.remove("routes")
+            mount_keys.add("app")
         if "middleware" in node:
             mount_keys.add("middleware")
         node = _exact(node, mount_keys, context)
         _validate_reverse_path(node["path"], custom, f"{context}.path")
         if node["name"] is not None:
             _string(node["name"], f"{context}.name")
-        if not isinstance(node["routes"], list):
+        if "app" in node:
+            app = _exact(node["app"], {"kind"}, f"{context}.app")
+            if app["kind"] != "no-op-asgi":
+                raise ContractError(f"{context}.app.kind must be no-op-asgi")
+        elif not isinstance(node["routes"], list):
             raise ContractError(f"{context}.routes must be an array")
         if "middleware" in node:
             middleware = node["middleware"]
@@ -7343,7 +7350,7 @@ def _validate_reverse_route_node(
                     raise ContractError(
                         f"{middleware_context}.response_header must use ASGI-compatible bytes"
                     ) from exc
-        for index, route in enumerate(node["routes"]):
+        for index, route in enumerate(node.get("routes", [])):
             _validate_reverse_route_node(
                 route,
                 f"{context}.routes[{index}]",
@@ -7361,7 +7368,7 @@ def _validate_reverse_route_node(
             _string(node["name"], f"{context}.name")
         if not isinstance(node["routes"], list):
             raise ContractError(f"{context}.routes must be an array")
-        for index, route in enumerate(node["routes"]):
+        for index, route in enumerate(node.get("routes", [])):
             _validate_reverse_route_node(
                 route,
                 f"{context}.routes[{index}]",
@@ -7409,7 +7416,7 @@ def _reverse_route_candidates(
         return [(0, node)] if node["name"] == name and expected == set(path_params) else []
     if kind in {"router", "starlette-app"}:
         results: list[tuple[int, dict[str, Any]]] = []
-        for index, route in enumerate(node["routes"]):
+        for index, route in enumerate(node.get("routes", [])):
             results.extend(
                 (index, match)
                 for _nested_index, match in _reverse_route_candidates(
@@ -7441,7 +7448,7 @@ def _reverse_route_candidates(
         if "path" in path_params:
             remaining["path"] = path_params["path"]
         results = []
-        for index, route in enumerate(node["routes"]):
+        for index, route in enumerate(node.get("routes", [])):
             results.extend(
                 (index, match)
                 for _nested_index, match in _reverse_route_candidates(
@@ -7497,7 +7504,7 @@ def _urlpath_route_profiles(
     if kind in {"router", "starlette-app"}:
         return [
             profile
-            for route in node["routes"]
+            for route in node.get("routes", [])
             for profile in _urlpath_route_profiles(
                 route, name, path_params, custom, host_override=host_override
             )
@@ -7535,7 +7542,7 @@ def _urlpath_route_profiles(
 def _reverse_route_nodes(node: dict[str, Any]) -> list[dict[str, Any]]:
     if node["kind"] in {"router", "starlette-app", "mount", "host-route"}:
         result: list[dict[str, Any]] = []
-        for child in node["routes"]:
+        for child in node.get("routes", []):
             result.extend(_reverse_route_nodes(child))
         return result
     return [node]
@@ -7546,14 +7553,14 @@ def _reverse_effective_observer_paths(
 ) -> list[tuple[str, list[str]]]:
     if node["kind"] in {"router", "starlette-app", "host-route"}:
         result: list[tuple[str, list[str]]] = []
-        for child in node["routes"]:
+        for child in node.get("routes", []):
             result.extend(_reverse_effective_observer_paths(child, prefix))
         return result
     if node["kind"] == "mount":
         mount_path = node["path"]
         next_prefix = prefix.rstrip("/") + mount_path
         result = []
-        for child in node["routes"]:
+        for child in node.get("routes", []):
             result.extend(_reverse_effective_observer_paths(child, next_prefix))
         return result
     if node["observer"] == "request-url-for":
@@ -7566,7 +7573,9 @@ def _reverse_node_depth(node: dict[str, Any], kind: str) -> int:
     if node["kind"] not in {"router", "starlette-app", "mount", "host-route"}:
         return 0
     own = 1 if node["kind"] == kind else 0
-    return own + max((_reverse_node_depth(child, kind) for child in node["routes"]), default=0)
+    return own + max(
+        (_reverse_node_depth(child, kind) for child in node.get("routes", [])), default=0
+    )
 
 
 def _validate_native_router_url_path_for_case(
@@ -7695,6 +7704,8 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
             derived.add(rid("mismatch"))
     elif surface == "starlette.applications.Starlette" and found:
         derived.add(rid("forwarder"))
+        if _reverse_node_depth(graph, "mount") > 1:
+            derived.add(rid("double-mount"))
         candidate_ids = {id(route) for _index, route in candidates}
         middleware_paths = _reverse_candidate_middleware_paths(graph, candidate_ids)
         if middleware_paths and middleware_paths[0]:

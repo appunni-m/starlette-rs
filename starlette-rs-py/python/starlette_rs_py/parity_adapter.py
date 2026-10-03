@@ -7084,6 +7084,12 @@ def _build_reverse_route_node(
         mount_arguments = {}
         if "middleware" in node:
             mount_arguments["middleware"] = _build_reverse_route_middleware(node["middleware"])
+        if "app" in node:
+
+            async def no_op_asgi(scope: Any, receive: Any, send: Any) -> None:
+                del scope, receive, send
+
+            return Mount(node["path"], app=no_op_asgi, name=node["name"], **mount_arguments)
         return Mount(
             node["path"],
             routes=[

@@ -868,6 +868,50 @@
       ]
     },
     {
+      "case_id": "starlette.applications.Starlette.url_path_for.double-mount",
+      "surface": "starlette.applications.Starlette",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.applications.Starlette.url_path_for.forwarder",
+        "starlette.applications.Starlette.url_path_for.double-mount"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "starlette-app",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/mount",
+            "name": "mount",
+            "routes": [
+              {
+                "kind": "mount",
+                "path": "/static",
+                "name": "static",
+                "app": {
+                  "kind": "no-op-asgi"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "mount:static",
+        "path_params": {
+          "path": "123"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
       "case_id": "starlette.routing.Route.url_path_for.datetime-converter",
       "surface": "starlette.routing.Route",
       "operation": "url_path_for",

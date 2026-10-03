@@ -2845,6 +2845,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.applications.Starlette.url_path_for.double-mount",
+              "dimension": "success_path",
+              "description": "Starlette.url_path_for resolves mount:static through an outer /mount Mount and an inner /static Mount backed by the source no-op ASGI app, returning /mount/static/123. Upstream: tests/test_routing.py::test_url_for_with_double_mount; starlette/routing.py:363-452.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
