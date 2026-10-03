@@ -21805,6 +21805,12 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
             if is_cors_state_sequence
             else [scope]
         )
+        app_messages = constructor["app"].get("messages", [])
+        app_response_start = app_messages[0] if app_messages else {}
+        app_response_header_names = {
+            base64.b64decode(name, validate=True).decode("latin-1").lower()
+            for name, _value in app_response_start.get("headers_base64_pairs", [])
+        }
         for cors_scope in cors_dispatch_scopes:
             cors_headers = decoded_headers(cors_scope)
             request_method = cors_headers.get("access-control-request-method")
@@ -21837,7 +21843,39 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
                     and re.fullmatch(constructor["allow_origin_regex"], request_origin) is not None
                 )
             )
+            if (
+                cors_scope.get("type") == "http"
+                and request_origin is not None
+                and constructor["allow_origin_regex"] is not None
+                and re.fullmatch(constructor["allow_origin_regex"], request_origin) is not None
+            ):
+                covered.add(suffix("regex-origin-reflection"))
+            if (
+                cors_scope.get("type") == "http"
+                and request_origin is not None
+                and constructor["allow_origin_regex"] is not None
+                and re.match(constructor["allow_origin_regex"], request_origin) is not None
+                and re.fullmatch(constructor["allow_origin_regex"], request_origin) is None
+            ):
+                covered.add(suffix("regex-fullmatch-origin"))
             allowed_request_headers = {value.lower() for value in constructor["allow_headers"]}
+            if (
+                cors_scope.get("type") == "http"
+                and cors_scope.get("method") == "OPTIONS"
+                and request_method is not None
+                and request_origin is not None
+                and "*" in constructor["allow_origins"]
+                and constructor["allow_credentials"]
+                and (
+                    "*" in constructor["allow_methods"]
+                    or request_method in constructor["allow_methods"]
+                )
+                and (
+                    "*" in allowed_request_headers
+                    or all(value in allowed_request_headers for value in request_headers)
+                )
+            ):
+                covered.add(suffix("preflight-credentialed-wildcard-origin-reflection"))
             if (
                 cors_scope.get("type") == "http"
                 and cors_scope.get("method") == "OPTIONS"
@@ -21855,6 +21893,51 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
                 )
             ):
                 covered.add(CORS_PRIVATE_NETWORK_DENIAL_REQUIREMENT)
+            if (
+                cors_scope.get("type") == "http"
+                and cors_scope.get("method") == "OPTIONS"
+                and request_method is not None
+                and cors_headers.get("access-control-request-private-network") == "true"
+                and constructor["allow_private_network"]
+                and request_origin_allowed
+                and (
+                    "*" in constructor["allow_methods"]
+                    or request_method in constructor["allow_methods"]
+                )
+                and (
+                    "*" in allowed_request_headers
+                    or all(value in allowed_request_headers for value in request_headers)
+                )
+            ):
+                covered.add(suffix("private-network-access-allowed"))
+            if (
+                cors_scope.get("type") == "http"
+                and cors_scope.get("method") != "OPTIONS"
+                and request_origin is not None
+                and "*" in constructor["allow_origins"]
+                and not constructor["allow_credentials"]
+                and "cookie" not in cors_headers
+                and "vary" in app_response_header_names
+            ):
+                covered.add(suffix("wildcard-noncredentialed-vary-preserved"))
+        has_wildcard_preflight = any(
+            cors_scope.get("type") == "http"
+            and cors_scope.get("method") == "OPTIONS"
+            and decoded_headers(cors_scope).get("access-control-request-method") is not None
+            for cors_scope in cors_dispatch_scopes
+        )
+        has_simple_origin_request = any(
+            cors_scope.get("type") == "http"
+            and cors_scope.get("method") != "OPTIONS"
+            and decoded_headers(cors_scope).get("origin") is not None
+            for cors_scope in cors_dispatch_scopes
+        )
+        if (
+            constructor["allow_methods"] == ["*"]
+            and has_wildcard_preflight
+            and has_simple_origin_request
+        ):
+            covered.add(suffix("wildcard-method-preflight-and-simple-passthrough"))
         if is_cors_state_sequence:
             sequence_scopes = [
                 {name: descriptor["value"] for name, descriptor in step["arguments"].items()}[
@@ -22007,7 +22090,6 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
         if (
             "*" in origins
             and constructor["allow_credentials"]
-            and "cookie" in headers
             and any(
                 base64.b64decode(name, validate=True).lower() == b"vary"
                 for name, _value in constructor["app"]["messages"][0]["headers_base64_pairs"]
