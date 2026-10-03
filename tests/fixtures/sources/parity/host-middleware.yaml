@@ -106,6 +106,110 @@
       ]
     },
     {
+      "case_id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__call__.http-explicit-secure-default-port",
+      "surface": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.construct",
+        "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.http-redirect-default-port"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "Y29udGVudC10eXBl",
+                        "dGV4dC9wbGFpbg=="
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "YXBw",
+                    "more_body": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/",
+                "raw_path_base64": "Lw==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "aG9zdA==",
+                    "dGVzdHNlcnZlcjo0NDM="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  443
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": []
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
       "case_id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__call__.http-nondefault-port-query",
       "surface": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
       "operation": "__call__",

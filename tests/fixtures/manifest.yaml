@@ -11777,7 +11777,7 @@
             {
               "id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.http-redirect-default-port",
               "dimension": "success_path",
-              "description": "Redirect cleartext HTTP to HTTPS without retaining the default port.",
+              "description": "Omit source-scheme and redirected-scheme default ports during the cleartext HTTP redirect.",
               "lanes": [
                 "parity"
               ],

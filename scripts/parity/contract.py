@@ -22403,7 +22403,7 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
         if scope["type"] in {"http", "websocket"} and scheme in {"http", "ws"}:
             if scheme == "ws":
                 covered.add(suffix("websocket-redirect"))
-            elif scope["server"][1] == 80:
+            elif scope["server"][1] in {80, 443}:
                 covered.add(suffix("http-redirect-default-port"))
             elif scope["query_string_base64"]:
                 covered.add(suffix("http-redirect-preserves-port-and-query"))
