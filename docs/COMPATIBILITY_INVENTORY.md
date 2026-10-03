@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 772 input-only cases across 84 files,
-covering 94 operations and 795 parity requirements. Its latest additions map
+The active parity manifest indexes 773 input-only cases across 84 files,
+covering 94 operations and 796 parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Four new TestClient cases
 cover TrustedHost exact and wildcard acceptance, invalid-host rejection, and
@@ -50,7 +50,8 @@ workflows, and one URL query-parameter operations input. Seven direct QueryParam
 map equality and blank-value behavior to `test_queryparams` and
 `test_url_blank_params`. Three StaticFiles
 HTML fallback scenarios cover directory index/fallback selection and missing
-file exceptions. Seven built-in float/UUID converter cases now observe matched
+file exceptions. A TestClient case serves a file through a valid symlinked
+StaticFiles root. Seven built-in float/UUID converter cases now observe matched
 path parameter types and invalid-segment misses on both profiles. Added
 default-string match and slash-boundary inputs plus int/path parameter
 observations on both profiles; the routing docs now map all five built-in
@@ -90,44 +91,40 @@ authentication, middleware (including the default middleware-boundary trace and 
 SessionMiddleware, and BaseHTTPMiddleware workflows), configuration,
 schemas, one bounded Python-package Jinja2 template workflow, direct
 `GZipResponder` construction and compression inputs, and invalid WebSocket
-JSON-mode inputs. The latest batch adds middleware-configured Mount URL lookup,
+JSON-mode inputs. The latest batch adds a StaticFiles directory served through
+a valid symlinked root using TestClient, as well as middleware-configured Mount URL lookup,
 handled HTTP exception responses observed through mounted middleware, ordered
 StaticFiles Last-Modified requests, and TestClient startup-error propagation. The exact
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
 The latest full-slice correctness preflight is
-`35d568e3-eaf2-4177-9a33-377f6043bd9b`. It ran from
-`2026-10-03T03:18:25.981Z` to `2026-10-03T03:21:22.843Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 772-case,
-795-requirement `parity-input@29` manifest. It selected 987 profile
-comparisons: 983 passed, zero failed, zero infrastructure errors, and four
+`854e53e3-7305-4cc0-9622-8096f1282d98`. It ran from
+`2026-10-03T03:44:25.513Z` to `2026-10-03T03:47:37.440Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 773-case,
+796-requirement `parity-input@30` manifest. It selected 988 profile
+comparisons: 984 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 770 selected comparisons; Rust-native passed 213 of 217. The new
-WebSocket double-close input matches the source's exact `RuntimeError`, one
-close callback, and final protocol states. Four exception formatting cases
-match their source constructors and live string/representation values. Four
-TrustedHost TestClient cases also match source/package status, URL, headers,
-body, and ASGI events for exact and wildcard hosts, an invalid host, and a
-followed HTTPS `www` redirect. The WebSocket pre-accept text/bytes/JSON receive
-cases and five text/bytes/JSON exchange cases match the pinned source in action
-results, ordered ASGI callback tapes, and final protocol states. The four
-native `not_run` rows remain synchronous Request endpoint, bound-method
-endpoint, partial endpoint, and callable-instance ASGI dispatch. `make
-parity-run` exits 2 because of those declared rows; the run completed with no
-parity failures or infrastructure errors.
+passed all 771 selected comparisons; Rust-native passed 213 of 217. The new
+StaticFiles symlink-root TestClient input matches the pinned source, including
+the response URL, status, body, and ASGI events. The four native `not_run`
+rows remain synchronous Request endpoint, bound-method endpoint, partial
+endpoint, and callable-instance ASGI dispatch. `make parity-run` exits 2
+because of those declared rows; the run completed with no parity failures or
+infrastructure errors. The Python-package target was marked dirty for this
+run, so this is diagnostic evidence pending a clean rerun.
 
-The Rust-native target used commit `6e512d420dc65097fefd2cf1a5383c5b47dccb09`
+The Rust-native target used commit `b11428bb5093a44281d96d09b9bbcb37a998a947`
 with source fingerprint
-`6e512d420dc65097fefd2cf1a5383c5b47dccb09+source-fnv1a64-f63b3847c266153e`.
+`b11428bb5093a44281d96d09b9bbcb37a998a947+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
 `09220a2a13300e19883081c550827da11691427570f989214ac79f5a6970b4bd`; its
 wheel SHA-256 is
-`8bd8db78db563cf0d151416b1465a40bc38b235534e27e8eb8edf7029f7fd0bb`. The
+`43b58d2a80d809debe0be8c9e4287ff2f33e220359752dbefd7b4dfcba75f21c`. The
 manifest SHA-256 is
-`b2b739fc18091af448584d36adb4b54b24fbe30a0a56ba183d0be2e46d40896a`; the
+`9f7b48ebc16e4bfee0290aa2ce08c48a3c9df3178c2202ef495cb7da7078c347`; the
 parity result artifact SHA-256 is
-`f88284494fa1f39ffe7ee4d006407c3cd1ebd084c62d3f497d9f8ed4091b2ec2`. Strict
+`46949f978f17187bc008ccf465a9a459776ef5e18b88148a0ee99b742965c8ed`. Strict
 aggregation remains `not_proven` because the full compatibility denominator
 is incomplete and four Rust-native rows are `not_run`.
 
@@ -160,8 +157,8 @@ artifact SHA-256:
 `ab8b58304f0af5787b67e03df822534721134e0651ea096855046cd7f831b2f6`. This
 bounded evidence does not establish full Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 505 input mappings, 51
-reasoned `not_applicable` rows, and 246 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 506 input mappings, 51
+reasoned `not_applicable` rows, and 245 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

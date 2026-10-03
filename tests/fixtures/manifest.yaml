@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@29",
+      "input_schema": "migration-parity/parity-input@30",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -21026,6 +21026,17 @@
               "id": "starlette.testclient.TestClient.request-response.mounted-static-files",
               "dimension": "feature",
               "description": "Mount input-defined StaticFiles beneath a Starlette app and compare the TestClient file GET and method-not-allowed POST responses through the app middleware stack. Upstream: tests/test_applications.py::test_app_mount; starlette/applications.py:78-83; starlette/routing.py:147-190; starlette/staticfiles.py:130-141.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.static-files-root-symlink-follow",
+              "dimension": "input_family",
+              "description": "Configure the public StaticFiles ASGI app with an input-defined directory symlink and follow_symlink=True, then GET /index.html through TestClient; compare the request scope, HTTPX response URL/status/headers/body, and ordered ASGI send events. Upstream: tests/test_staticfiles.py::test_staticfiles_self_symlinks (tests/test_staticfiles.py:630-646); starlette/staticfiles.py:84-102; starlette/testclient.py:422-452.",
               "lanes": [
                 "parity"
               ],

@@ -23,7 +23,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@29"
+INPUT_SCHEMA = "migration-parity/parity-input@30"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -200,6 +200,7 @@ TESTCLIENT_REQUIREMENTS = {
     "request_sequence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-up-request-sequence",
     "cookie_round_trip": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.cookie-persistence-round-trip",
     "mounted_static_files": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-static-files",
+    "static_files_root_symlink": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.static-files-root-symlink-follow",
     "starlette_mount_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-mount-method-registration",
     "mounted_router_urls": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-router-url-sequence",
     "starlette_host_routing": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-routing",
@@ -9353,6 +9354,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     is_starlette_app_debug = app_kind == "starlette-app-debug"
     is_server_error_middleware = app_kind == "server-error-middleware"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
+    is_static_files_root_symlink = app_kind == "static-files-root-symlink"
     is_starlette_app_static_mount_method = app_kind == "starlette-app-static-mount-method"
     is_starlette_app_static_mount = app_kind in {
         "starlette-app-static-mount",
@@ -9493,6 +9495,72 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 "TestClient Starlette TrustedHost input must define a GET route and allowed-host list"
             )
         _string(endpoint["content"], "TestClient TrustedHost endpoint content")
+        exception_spec = None
+        messages = []
+    elif is_static_files_root_symlink:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {
+                "kind",
+                "directory",
+                "root_symlink_target",
+                "files",
+                "follow_symlink",
+                "scope_fields",
+            },
+            "TestClient StaticFiles root-symlink app",
+        )
+        directory = _string(asgi_app["directory"], "TestClient StaticFiles directory")
+        directory_components = _static_files_relative_components(
+            directory,
+            "TestClient StaticFiles directory",
+            allow_parent=False,
+        )
+        directory = "/".join(directory_components)
+        root_target = _string(
+            asgi_app["root_symlink_target"], "TestClient StaticFiles root_symlink_target"
+        )
+        root_target_components = _static_files_relative_components(
+            root_target,
+            "TestClient StaticFiles root_symlink_target",
+            allow_parent=False,
+        )
+        root_target = "/".join(root_target_components)
+        if (
+            directory == root_target
+            or directory.startswith(f"{root_target}/")
+            or root_target.startswith(f"{directory}/")
+        ):
+            raise ContractError(
+                "TestClient StaticFiles root and symlink target must be distinct non-overlapping trees"
+            )
+        if asgi_app["follow_symlink"] is not True:
+            raise ContractError(
+                "TestClient StaticFiles root-symlink input must enable follow_symlink"
+            )
+        static_files = asgi_app["files"]
+        if not isinstance(static_files, list) or not static_files:
+            raise ContractError("TestClient StaticFiles root-symlink files must be non-empty")
+        file_paths: set[str] = set()
+        for index, file_input in enumerate(static_files):
+            file_path, _ = _validate_static_asset_file(
+                file_input, f"TestClient StaticFiles root-symlink files[{index}]"
+            )
+            if file_path in file_paths:
+                raise ContractError("TestClient StaticFiles root-symlink file paths must be unique")
+            file_paths.add(file_path)
+        if (
+            request["method"] != "GET"
+            or request.get("client_method") != "get"
+            or request["url"] != "/index.html"
+            or file_paths != {"index.html"}
+            or followup_requests
+            or request["headers_base64_pairs"]
+            or base64.b64decode(request["body_base64"])
+        ):
+            raise ContractError(
+                "TestClient StaticFiles root-symlink input must GET the input-defined /index.html file"
+            )
         exception_spec = None
         messages = []
     elif is_starlette_app_static_mount:
@@ -9896,6 +9964,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_response"])
     if is_starlette_app_trusted_host:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_trusted_host"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_static_files_root_symlink:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["static_files_root_symlink"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if is_starlette_app_static_mount:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_static_files"])

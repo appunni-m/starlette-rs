@@ -262,6 +262,36 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await starlette_application(scope, receive, observed_send)
 
+    elif app_input["kind"] == "static-files-root-symlink":
+        from starlette.staticfiles import StaticFiles
+
+        temporary_filesystem = tempfile.TemporaryDirectory(
+            prefix="starlette-static-root-symlink-parity-"
+        )
+        workspace = Path(temporary_filesystem.name)
+        configured_root = workspace.joinpath(*app_input["directory"].split("/"))
+        target_root = workspace.joinpath(*app_input["root_symlink_target"].split("/"))
+        target_root.mkdir(parents=True)
+        for file_input in app_input["files"]:
+            path = target_root.joinpath(*file_input["path"].split("/"))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(base64.b64decode(file_input["contents_base64"]))
+            os.utime(path, (file_input["mtime_seconds"], file_input["mtime_seconds"]))
+        configured_root.parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(os.path.relpath(target_root, configured_root.parent), configured_root)
+        static_files = StaticFiles(
+            directory=str(configured_root), follow_symlink=app_input["follow_symlink"]
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await static_files(scope, receive, observed_send)
+
     elif app_input["kind"] in {
         "starlette-app-static-mount",
         "starlette-app-static-mount-method",

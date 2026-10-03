@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@29",
+  "schema": "migration-parity/parity-input@30",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call.rooted-file-get",

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@29",
+  "schema": "migration-parity/parity-input@30",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.asgi3-default-client",
@@ -1056,6 +1056,58 @@
           "headers",
           "client",
           "server"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.static-files-root-symlink-follow",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.static-files-root-symlink-follow"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/index.html",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "static-files-root-symlink",
+        "directory": "statics_symlink",
+        "root_symlink_target": "statics",
+        "follow_symlink": true,
+        "files": [
+          {
+            "path": "index.html",
+            "contents_base64": "PGgxPkhlbGxvPC9oMT4=",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path"
         ]
       }
     },
