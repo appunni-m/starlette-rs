@@ -135,25 +135,26 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark run is
-`b75f49f5-2d66-4330-a5e1-60eadd15edfc`. It measured all 74 declared workloads
-from `2026-10-03T03:25:43.816Z` to `2026-10-03T03:30:24.041Z`: six Router and
+`9d0286b8-e310-4154-b1fe-ad8aafb56e3a`. It measured all 74 declared workloads
+from `2026-10-03T03:57:49.535Z` to `2026-10-03T04:02:18.793Z`: six Router and
 68 GZip, with zero failures or source/package `not_run` rows. Its clean target
-was commit `b2e95b9b31c8d6be07d8a2b729a420cbb16e5505` with working-tree SHA-256
-`a7fb8cda2d958757701765ca1be4113b249ffa4f1abd0de2d280c4b35cdccdc8` and wheel
-SHA-256 `93e41474225fd929830a1f60ef9b6bb76dc9f01eeb7c6366ff83dc1097994567`.
-Correctness preflight `96c0baf5-3535-43ea-bbee-87da02ae6e35` selected 987
-comparisons: 983 passed, zero failed, zero infrastructure errors, and four
+was commit `6ef4c71acc1929f4f07691ebd8c58be7b4555f8e` with working-tree
+SHA-256 `0b7bb25617cd162e08084a1ce2b148168ab06cda1b31e6874aab53856a761451`
+and wheel SHA-256
+`a910b7544433666cecb98b05d059ac16f6190891a80b2ae22c5da5753cff50f0`.
+Correctness preflight `6f96ea01-694b-49a6-8808-d914eb8f0d7a` selected 988
+comparisons: 984 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable comparisons were `not_run`; the Python package
-passed 770/770 and Rust-native passed 213/217. Rust-native remains `not_run`
+passed 771/771 and Rust-native passed 213/217. Rust-native remains `not_run`
 for all 74 benchmark workload boundaries. Median source/package latency ratios
-were 0.733 for Router and 0.974 for GZip; source latency was lower in five of
-six Router workloads and 58 of 68 GZip workloads. All 74 source/package
+were 0.744 for Router and 0.980 for GZip; source latency was lower in five of
+six Router workloads and 54 of 68 GZip workloads. All 74 source/package
 observation hashes matched. Manifest SHA-256:
-`b2b739fc18091af448584d36adb4b54b24fbe30a0a56ba183d0be2e46d40896a`;
+`9f7b48ebc16e4bfee0290aa2ce08c48a3c9df3178c2202ef495cb7da7078c347`;
 benchmark input SHA-256:
 `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`; result
 artifact SHA-256:
-`ab8b58304f0af5787b67e03df822534721134e0651ea096855046cd7f831b2f6`. This
+`de08af7fc064469b25efc09617286df5f86d2ac6c34aa1ff6d40e1dc42d095f8`. This
 bounded evidence does not establish full Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
 The generated coverage matrix has 802 source rows: 506 input mappings, 51
