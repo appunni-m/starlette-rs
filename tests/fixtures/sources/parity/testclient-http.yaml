@@ -1636,6 +1636,225 @@
           "headers"
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.trusted-host-exact-testserver",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.starlette-trusted-host-middleware"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "starlette-app-trusted-host",
+        "allowed_hosts": [
+          "testserver",
+          "*.testserver"
+        ],
+        "path": "/",
+        "endpoint": {
+          "kind": "sync-plain-text-response",
+          "content": "OK"
+        },
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "headers",
+          "client",
+          "server"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.trusted-host-wildcard-subdomain-testserver",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.starlette-trusted-host-middleware"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://subdomain.testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "starlette-app-trusted-host",
+        "allowed_hosts": [
+          "testserver",
+          "*.testserver"
+        ],
+        "path": "/",
+        "endpoint": {
+          "kind": "sync-plain-text-response",
+          "content": "OK"
+        },
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "headers",
+          "client",
+          "server"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.trusted-host-invalidhost",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.starlette-trusted-host-middleware"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://invalidhost",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "starlette-app-trusted-host",
+        "allowed_hosts": [
+          "testserver",
+          "*.testserver"
+        ],
+        "path": "/",
+        "endpoint": {
+          "kind": "sync-plain-text-response",
+          "content": "OK"
+        },
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "headers",
+          "client",
+          "server"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.trusted-host-www-redirect",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.starlette-trusted-host-middleware"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "https://example.com",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "starlette-app-trusted-host",
+        "allowed_hosts": [
+          "www.example.com"
+        ],
+        "path": "/",
+        "endpoint": {
+          "kind": "sync-plain-text-response",
+          "content": "OK"
+        },
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "headers",
+          "client",
+          "server"
+        ]
+      }
     }
   ]
 }
