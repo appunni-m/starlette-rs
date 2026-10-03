@@ -2961,6 +2961,19 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
         coverage.add(f"{requirement_prefix}.binary-exchange")
     if send_oserror_action_valid and incoming_types[:1] == ["websocket.connect"]:
         coverage.add(f"{requirement_prefix}.send-oserror-disconnect")
+    if not incoming_types and action_signature[:2] == [
+        ("send", "websocket.accept"),
+        ("send", "websocket.accept"),
+    ]:
+        coverage.add("starlette.websocket.state.connected-send-invalid-type")
+    if incoming_types[:2] == ["websocket.connect", "websocket.connect"] and action_signature[
+        :3
+    ] == [
+        ("receive", None),
+        ("send", "websocket.accept"),
+        ("receive", None),
+    ]:
+        coverage.add("starlette.websocket.state.connected-receive-invalid-type")
     if operation == WEBSOCKET_STATE_OPERATION:
         if denial_response_started:
             coverage.add("starlette.websocket.state.denial-response-start")

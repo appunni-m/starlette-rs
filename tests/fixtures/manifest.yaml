@@ -20070,6 +20070,30 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.websocket.state.connected-send-invalid-type",
+              "dimension": "error_path",
+              "description": "Send websocket.accept to move the application to CONNECTED, then send websocket.accept again and compare the fully qualified RuntimeError class, exact invalid-message wording, and unchanged state enums. Upstream: tests/test_websockets.py::test_send_wrong_message_type and starlette/websockets.py::WebSocket.send at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.connected-receive-invalid-type",
+              "dimension": "error_path",
+              "description": "Receive websocket.connect, send websocket.accept, then receive websocket.connect while CONNECTED and compare the fully qualified RuntimeError class, exact invalid-message wording, and unchanged state enums. Upstream: tests/test_websockets.py::test_receive_wrong_message_type and starlette/websockets.py::WebSocket.receive at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
