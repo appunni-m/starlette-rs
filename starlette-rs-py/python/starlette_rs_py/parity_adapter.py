@@ -9479,19 +9479,35 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 or not 100 <= endpoint_spec["status_code"] <= 599
             ):
                 raise ValueError("BaseHTTPMiddleware background-task route input is invalid")
+            raw_background_task = endpoint_spec["background_task"]
+            background_task_fields = {"kind", "delay_seconds"}
+            if isinstance(raw_background_task, dict) and raw_background_task.get("kind") == (
+                "async-delay-and-raise"
+            ):
+                background_task_fields.add("exception")
             background_task_spec = _exact_object(
-                endpoint_spec["background_task"],
-                {"kind", "delay_seconds"},
+                raw_background_task,
+                background_task_fields,
                 "BaseHTTPMiddleware background task input",
             )
             delay_seconds = background_task_spec["delay_seconds"]
             if (
-                background_task_spec["kind"] != "async-delay"
+                background_task_spec["kind"] not in {"async-delay", "async-delay-and-raise"}
                 or type(delay_seconds) not in {int, float}
                 or not math.isfinite(delay_seconds)
                 or not 0 <= delay_seconds <= 5
             ):
                 raise ValueError("BaseHTTPMiddleware async background delay is invalid")
+            if background_task_spec["kind"] == "async-delay-and-raise":
+                failure = _exact_object(
+                    background_task_spec["exception"],
+                    {"class", "message"},
+                    "BaseHTTPMiddleware background exception input",
+                )
+                if failure["class"] not in {"Exception", "ValueError"} or not isinstance(
+                    failure["message"], str
+                ):
+                    raise ValueError("BaseHTTPMiddleware background exception input is invalid")
         elif route_kind == "request-body-response":
             _exact_object(endpoint_spec, {"kind"}, "BaseHTTPMiddleware request-body endpoint")
             if "POST" not in route_spec["methods"]:
@@ -9962,7 +9978,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "client",
         "server",
     }
-    source_sparse_scope = background_task_spec is not None
+    background_task_case = background_task_spec is not None
+    source_sparse_scope = background_task_case and background_task_spec["kind"] == "async-delay"
     if source_sparse_scope:
         scope_spec = _exact_object(
             scope_value,
@@ -10493,7 +10510,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.pathsend-event-forwarding"
         )
-    if source_sparse_scope:
+    if background_task_case:
         if (
             route_spec["methods"] != ["GET"]
             or endpoint_spec["content"] != ""
@@ -10501,20 +10518,50 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             or dispatch_actions
             != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
             or downstream_spec is not None
-            or receive_specs
-            or request["receive_after_events"]
-            != {
-                "kind": "raise",
-                "class": "NotImplementedError",
-                "message": "Should not be called!",
-            }
             or send_checkpoints
         ):
             raise ValueError(
-                "background task case must preserve the pinned source response and unused receive callback"
+                "background task case must preserve the pinned GET response and dispatch"
             )
+        if source_sparse_scope:
+            if receive_specs or request["receive_after_events"] != {
+                "kind": "raise",
+                "class": "NotImplementedError",
+                "message": "Should not be called!",
+            }:
+                raise ValueError(
+                    "background completion case must preserve the pinned direct ASGI receive callback"
+                )
+        elif (
+            request_event_specs != [{"type": "http.request", "body_base64": "", "more_body": False}]
+            or request["receive_after_events"] != "disconnect"
+            or [
+                (
+                    _decode_base64(name, "scope header name"),
+                    _decode_base64(value, "scope header value"),
+                )
+                for name, value in scope_spec["headers_base64_pairs"]
+            ]
+            != [
+                (b"host", b"testserver"),
+                (b"accept", b"*/*"),
+                (b"accept-encoding", b"gzip, deflate"),
+                (b"connection", b"keep-alive"),
+                (b"user-agent", b"testclient"),
+            ]
+            or scope_spec["client"] != ["testclient", 50000]
+            or scope_spec["server"] != ["testserver", 80]
+        ):
+            raise ValueError(
+                "background failure case must replay the pinned empty TestClient GET scope and receive input"
+            )
+        background_requirement = (
+            "background-task-completes-after-response-send"
+            if background_task_spec["kind"] == "async-delay"
+            else "background-task-failure-propagates-after-response-send"
+        )
         required_covers.add(
-            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.background-task-completes-after-response-send"
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.{background_requirement}"
         )
     if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
         raise ValueError("BaseHTTPMiddleware covers differ from its input actions")
@@ -10747,6 +10794,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 background_task_events.append(started)
                 execution_trace.append(started)
                 await anyio.sleep(background_delay)
+                if background_task_spec["kind"] == "async-delay-and-raise":
+                    exception_type = getattr(builtins, background_task_spec["exception"]["class"])
+                    raise exception_type(background_task_spec["exception"]["message"])
                 background_task_run.set()
                 completed = {"event": "background-task-complete"}
                 background_task_events.append(completed)
@@ -11021,6 +11071,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     async def receive() -> dict[str, Any]:
         nonlocal receive_index, receive_call_count
         receive_call_count += 1
+        if background_task_case:
+            execution_trace.append(
+                {"event": "request-receive-call", "call_index": receive_call_count - 1}
+            )
         if receive_index < len(incoming):
             message = incoming[receive_index]
             receive_index += 1
@@ -11042,7 +11096,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         )
         if message["type"] == "http.response.body" and not message.get("more_body", False):
             response_complete.set()
-            if source_sparse_scope:
+            if background_task_case:
                 execution_trace.append({"event": "response-complete"})
         if send_index in send_checkpoint_indices:
             await asyncio.sleep(0)
@@ -11060,7 +11114,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         raise TimeoutError(
             "input-defined BaseHTTPMiddleware streaming guard expired before http.disconnect"
         )
-    if source_sparse_scope:
+    if background_task_case:
         execution_trace.append(
             {
                 "event": "background-task-run-observed",
@@ -11098,7 +11152,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "execution_trace": execution_trace,
         "propagated_exception": propagated_exception,
     }
-    if source_sparse_scope:
+    if background_task_case:
         value.update(
             {
                 "request_receive_call_count": receive_call_count,

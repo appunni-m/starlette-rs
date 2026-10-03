@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 778 input-only cases in 84 indexed files,
-covering 94 operations and 801 parity requirements. Recent additions include a StaticFiles directory served through a valid symlinked root with TestClient; a BaseHTTPMiddleware async background-task completion workflow; route-local HTTP exception responses observed through mounted middleware; WebSocket double-close, connected invalid-send/invalid-receive, and send-callback `OSError` inputs with exact errors and state observations; custom `BaseUser` property overrides, `Request.user` type and `Request.auth.scopes` observations, and the documented login `next` query redirect; a Starlette multipart upload through `Request.form()` under the app body limit; direct UploadFile constructor/repr, rollover, and
+The active contract contains 878 input-only cases in 88 indexed files,
+covering 101 operations and 862 parity requirements. Recent additions include a StaticFiles directory served through a valid symlinked root with TestClient; BaseHTTPMiddleware async background-task completion and failure-propagation workflows; route-local HTTP exception responses observed through mounted middleware; WebSocket double-close, connected invalid-send/invalid-receive, and send-callback `OSError` inputs with exact errors and state observations; custom `BaseUser` property overrides, `Request.user` type and `Request.auth.scopes` observations, and the documented login `next` query redirect; a Starlette multipart upload through `Request.form()` under the app body limit; direct UploadFile constructor/repr, rollover, and
 threadpool-boundary inputs; GZip final/streaming thread-threshold comparisons;
 the shared AnyIO thread-pool limiter; generic Request/WebSocket lifespan-state
 typing; routed authentication UI and protected HTTP routes; six protected WebSocket cases for plain and injected endpoint forms, and three documentation-derived BasicAuth cases for wrong-scheme, malformed base64, and non-ASCII credentials.
@@ -47,9 +47,10 @@ input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest integrated
 run for the active `parity-input@31` contract,
-`063f3a8c-2251-45bd-82d1-4f0b325790e8`, passed 992 of 996 selected comparisons,
-with zero failures or infrastructure errors and four Rust-native Python-callable
-rows `not_run`. The Python package passed 776/776; Rust-native passed 216/220.
+`7ce60ba1-d2b9-46ba-844b-827de62fe3de`, passed 1,108 of 1,112 selected
+comparisons, with zero failures or infrastructure errors and four Rust-native
+Python-callable rows `not_run`. The Python package passed 876/876; Rust-native
+passed 232/236.
 The four native `not_run` rows are
 synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make test` exits with status 2 for those
@@ -69,8 +70,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 511 input mappings,
-51 source-backed `not_applicable` rows, and 240 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 611 input mappings,
+51 source-backed `not_applicable` rows, and 140 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
@@ -247,8 +248,8 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest clean full-slice run `063f3a8c-2251-45bd-82d1-4f0b325790e8`
-selected 996 comparisons: 992 passed, with four declared Rust-native
+The latest integrated full-slice run `7ce60ba1-d2b9-46ba-844b-827de62fe3de`
+selected 1,112 comparisons: 1,108 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
 errors. The WebSocket send-callback `OSError` behavior now has an exact
 source/package mapping; other WebSocket source

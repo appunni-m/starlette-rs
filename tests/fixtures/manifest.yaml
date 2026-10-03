@@ -8178,6 +8178,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.background-task-failure-propagates-after-response-send",
+              "dimension": "error_path",
+              "description": "Replay the pinned TestClient empty GET as a complete HTTP ASGI scope and request event through the configured BaseHTTPMiddleware app; the delayed async response background task raises ValueError(\"TEST\"). Compare response status/headers/body and ordered ASGI events before the propagated exception, task start/failure observations, receive callback calls, and exception class/message. This maps tests/middleware/test_base.py::test_run_background_tasks_raise_exceptions. Upstream: tests/middleware/test_base.py:315-335; starlette/middleware/base.py:112-197; starlette/responses.py:34-44,82-90; starlette/background.py:13-25.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

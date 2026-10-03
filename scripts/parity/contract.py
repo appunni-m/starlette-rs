@@ -308,6 +308,7 @@ BASE_HTTP_REQUIREMENTS = {
     "request_disconnect_observation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.request-disconnect-observation",
     "pathsend_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.pathsend-event-forwarding",
     "background_task_completion": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.background-task-completes-after-response-send",
+    "background_task_failure": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.background-task-failure-propagates-after-response-send",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -8939,19 +8940,36 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 or not 100 <= endpoint["status_code"] <= 599
             ):
                 raise ContractError("BaseHTTPMiddleware background-task route input is invalid")
+            raw_background_task = endpoint["background_task"]
+            background_task_fields = {"kind", "delay_seconds"}
+            if isinstance(raw_background_task, dict) and raw_background_task.get("kind") == (
+                "async-delay-and-raise"
+            ):
+                background_task_fields.add("exception")
             background_task_spec = _exact(
-                endpoint["background_task"],
-                {"kind", "delay_seconds"},
+                raw_background_task,
+                background_task_fields,
                 "BaseHTTPMiddleware background task input",
             )
             delay_seconds = background_task_spec["delay_seconds"]
             if (
-                background_task_spec["kind"] != "async-delay"
+                background_task_spec["kind"] not in {"async-delay", "async-delay-and-raise"}
                 or type(delay_seconds) not in {int, float}
                 or not math.isfinite(delay_seconds)
                 or not 0 <= delay_seconds <= 5
             ):
                 raise ContractError("BaseHTTPMiddleware async background delay is invalid")
+            if background_task_spec["kind"] == "async-delay-and-raise":
+                failure = _exact(
+                    background_task_spec["exception"],
+                    {"class", "message"},
+                    "BaseHTTPMiddleware background exception input",
+                )
+                if failure["class"] not in {"Exception", "ValueError"}:
+                    raise ContractError(
+                        "BaseHTTPMiddleware background exception must be Exception or ValueError"
+                    )
+                _string(failure["message"], "BaseHTTPMiddleware background exception.message")
         elif route_kind == "request-body-response":
             _exact(endpoint_value, {"kind"}, "BaseHTTPMiddleware request-body endpoint")
             if "POST" not in route_methods:
@@ -9456,7 +9474,8 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         "client",
         "server",
     }
-    source_sparse_scope = background_task_spec is not None
+    background_task_case = background_task_spec is not None
+    source_sparse_scope = background_task_case and background_task_spec["kind"] == "async-delay"
     if source_sparse_scope:
         scope = _exact(
             scope_value,
@@ -9951,26 +9970,54 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 "BaseHTTPMiddleware FileResponse input requires pathsend and an unused receive callback"
             )
         requirements.add(BASE_HTTP_REQUIREMENTS["pathsend_forwarding"])
-    if source_sparse_scope:
+    if background_task_case:
         if (
             route_methods != ["GET"]
             or endpoint["content"] != ""
             or endpoint["status_code"] != 200
             or actions != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
             or downstream is not None
-            or receive
-            or request["receive_after_events"]
-            != {
-                "kind": "raise",
-                "class": "NotImplementedError",
-                "message": "Should not be called!",
-            }
             or send_checkpoints
         ):
             raise ContractError(
-                "background task case must preserve the pinned source response and unused receive callback"
+                "background task case must preserve the pinned GET response and dispatch"
             )
-        requirements.add(BASE_HTTP_REQUIREMENTS["background_task_completion"])
+        if source_sparse_scope:
+            if receive or request["receive_after_events"] != {
+                "kind": "raise",
+                "class": "NotImplementedError",
+                "message": "Should not be called!",
+            }:
+                raise ContractError(
+                    "background completion case must preserve the pinned direct ASGI receive callback"
+                )
+        elif (
+            request_events != [{"type": "http.request", "body_base64": "", "more_body": False}]
+            or request["receive_after_events"] != "disconnect"
+            or [
+                (base64.b64decode(name), base64.b64decode(value))
+                for name, value in scope["headers_base64_pairs"]
+            ]
+            != [
+                (b"host", b"testserver"),
+                (b"accept", b"*/*"),
+                (b"accept-encoding", b"gzip, deflate"),
+                (b"connection", b"keep-alive"),
+                (b"user-agent", b"testclient"),
+            ]
+            or scope["client"] != ["testclient", 50000]
+            or scope["server"] != ["testserver", 80]
+        ):
+            raise ContractError(
+                "background failure case must replay the pinned empty TestClient GET scope and receive input"
+            )
+        requirements.add(
+            BASE_HTTP_REQUIREMENTS[
+                "background_task_completion"
+                if background_task_spec["kind"] == "async-delay"
+                else "background_task_failure"
+            ]
+        )
     if set(case["covers"]) != requirements:
         raise ContractError(
             "BaseHTTPMiddleware covers must match the input middleware, request, and dispatch actions: "

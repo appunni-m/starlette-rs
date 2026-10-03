@@ -106,9 +106,11 @@ handled HTTP exception responses observed through mounted middleware, ordered
 StaticFiles Last-Modified requests, TestClient startup-error propagation, and
 FileResponse errors for directory and missing-file paths. The exact operation
 and profile denominator is in the parity manifest; generated JSON
-and run results remain ignored local build outputs. A BaseHTTPMiddleware
-workflow also maps `test_run_background_tasks_even_if_client_disconnects` and
-compares response-send and async background-task completion. The new
+and run results remain ignored local build outputs. BaseHTTPMiddleware
+workflows map `test_run_background_tasks_even_if_client_disconnects` and
+`test_run_background_tasks_raise_exceptions`, comparing background-task
+completion and exact `ValueError("TEST")` propagation through the TestClient GET
+scope. The new
 [`route-representations.yaml`](../tests/fixtures/sources/parity/route-representations.yaml)
 input maps six pinned `Route.name` endpoint shapes and seven `Route`,
 `WebSocketRoute`, `Mount`, and `Host` representation cases. All eight cases
@@ -122,23 +124,26 @@ for both one repeated name and multiple repeated names, and passed source/packag
 comparison.
 
 The latest correctness preflight is
-`d5da903c-ec9e-4303-a030-45839d14d236`. It ran from
-`2026-10-03T20:36:12.151Z` to `2026-10-03T20:39:37.067Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` on clean Starlette-RS
-commit `2471c669bcca1fae45e670c708d371886eb39bc4` and the active 867-case,
-861-requirement `parity-input@31` manifest. It selected 1,101 profile
-comparisons: 1,097 passed, zero failed, zero infrastructure errors, and four
+`7ce60ba1-d2b9-46ba-844b-827de62fe3de`. It ran from
+`2026-10-03T21:49:30.584Z` to `2026-10-03T21:53:07.303Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 878-case,
+862-requirement `parity-input@31` manifest. It selected 1,112 profile
+comparisons: 1,108 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 865 selected comparisons; Rust-native passed 232 of 236. The four
+passed all 876 selected comparisons; Rust-native passed 232 of 236. The four
 native `not_run` rows remain synchronous Request endpoint, bound-method
 endpoint, partial endpoint, and callable-instance ASGI dispatch. The parity
 runner reports those declared native rows as `not_run`; strict aggregation
 remains `not_proven` because the compatibility denominator is incomplete.
 
 For this preflight, the manifest SHA-256 is
-`859e01d947133b5e57a7b68da961c4f1a59913c9683144109d4810d6ffab565e`, and the
+`943da38b9288b5c8cf538dd579e0ca3a11a0c7c4aae831111d0e1585478f1df4`; the
+Python package tree SHA-256 is
+`8c303a6a18bc8fe31e89e10f107fb1f755fb7bbb99c4923f61f0d65aba79836d`, its
+wheel SHA-256 is
+`7e7432bd1cf9784e09625bce1b3e1e84b5e7b7ed2749d6b143c164764ac0b650`, and the
 correctness-result artifact SHA-256 is
-`8c8091b38e0fe67a02483ae6f0d6d771d8bb8a83fc24e0a1570a39e006c78b40`.
+`d3690e8d200f2ab6c133faa66d8cc02fceeda9707c152ef7fe47dff76ad69e52`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -156,8 +161,8 @@ benchmark boundary. These
 workload-specific results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 610 input mappings, 51
-reasoned `not_applicable` rows, and 141 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 611 input mappings, 51
+reasoned `not_applicable` rows, and 140 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -305,7 +310,7 @@ maps to `tests/middleware/test_errors.py::test_handler`; the default-response
 and field-mutation probes map to their pinned source behavior without claiming
 additional upstream test rows. All six inputs pass live source/package comparison in the latest full-slice run.
 Direct debug construction, non-HTTP pass-through, errors after response start,
-background-task errors, and other built-in/user middleware combinations remain open. The
+other background-task workflows, and built-in/user middleware combinations remain open. The
 active TestClient contract compares twenty-five input-driven HTTP request/response
 cases over twenty-six requirements, including exception identity and
 cause/context chaining, six context-managed lifespan cases over eleven
