@@ -129,6 +129,69 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await route_app(scope, receive, observed_send)
 
+    elif app_input["kind"] == "starlette-route-graph":
+        from starlette.applications import Starlette
+        from starlette.responses import JSONResponse
+        from starlette.routing import Mount, Route
+
+        def scope_response(endpoint_spec: dict[str, Any], scope: dict[str, Any]) -> Any:
+            value = {"name": endpoint_spec["name"]}
+            value.update({field: scope[field] for field in endpoint_spec["fields"]})
+            return JSONResponse(value)
+
+        def request_endpoint_for(endpoint_spec: dict[str, Any]) -> Any:
+            async def endpoint(request: Any) -> Any:
+                return scope_response(endpoint_spec, request.scope)
+
+            return endpoint
+
+        def asgi_endpoint_for(endpoint_spec: dict[str, Any]) -> Any:
+            async def endpoint(scope: dict[str, Any], receive: Any, send: Any) -> None:
+                response = scope_response(endpoint_spec, scope)
+                await response(scope, receive, send)
+
+            return endpoint
+
+        def build_routes(route_specs: list[dict[str, Any]]) -> list[Any]:
+            routes = []
+            for route_spec in route_specs:
+                if route_spec["kind"] == "route":
+                    routes.append(
+                        Route(
+                            route_spec["path"],
+                            request_endpoint_for(route_spec["endpoint"]),
+                            methods=route_spec["methods"],
+                            name=route_spec["name"],
+                        )
+                    )
+                elif route_spec["kind"] == "mount-routes":
+                    routes.append(
+                        Mount(
+                            route_spec["path"],
+                            name=route_spec["name"],
+                            routes=build_routes(route_spec["routes"]),
+                        )
+                    )
+                else:
+                    routes.append(
+                        Mount(
+                            route_spec["path"],
+                            app=asgi_endpoint_for(route_spec["endpoint"]),
+                        )
+                    )
+            return routes
+
+        route_app = Starlette(routes=build_routes(app_input["routes"]))
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await route_app(scope, receive, observed_send)
+
     elif app_input["kind"] == "starlette-app-debug":
         from starlette.applications import Starlette
         from starlette.routing import Route

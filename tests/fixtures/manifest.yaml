@@ -21233,6 +21233,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.starlette-root-path-route-graph",
+              "dimension": "protocol_variant",
+              "description": "Construct the pinned Starlette route graph with a direct Route, an ASGI Mount, and a nested route Mount; issue the four root-prefixed requests through one TestClient and compare live response payloads and request scopes. Upstream: tests/test_routing.py::test_paths_with_root_path; starlette/routing.py:363-425; starlette/testclient.py:422-452.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.starlette-host-routing",
               "dimension": "success_path",
               "description": "Route an HTTPS TestClient request through Starlette TrustedHostMiddleware, a host-parameter Host route, a child Router, and a synchronous endpoint that returns the captured subdomain. Upstream: tests/test_applications.py::test_subdomain_route; starlette/applications.py:63-107; starlette/routing.py:466-490.",

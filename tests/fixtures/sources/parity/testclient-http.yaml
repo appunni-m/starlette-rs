@@ -1907,6 +1907,142 @@
           "server"
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.root-path-route-graph",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.starlette-root-path-route-graph"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "https://www.example.org/",
+        "raise_server_exceptions": true,
+        "root_path": "/root",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/root/path",
+        "headers_base64_pairs": [],
+        "body_base64": "",
+        "client_method": "get"
+      },
+      "followup_requests": [
+        {
+          "method": "GET",
+          "url": "/root/asgipath/",
+          "headers_base64_pairs": [],
+          "body_base64": "",
+          "client_method": "get"
+        },
+        {
+          "method": "GET",
+          "url": "/root/sub/path",
+          "headers_base64_pairs": [],
+          "body_base64": "",
+          "client_method": "get"
+        },
+        {
+          "method": "POST",
+          "url": "/root/root-queue/path",
+          "headers_base64_pairs": [],
+          "body_base64": "",
+          "client_method": "post"
+        }
+      ],
+      "asgi_app": {
+        "kind": "starlette-route-graph",
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path"
+        ],
+        "routes": [
+          {
+            "kind": "route",
+            "path": "/path",
+            "name": "path",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "request-scope-json",
+              "name": "path",
+              "fields": [
+                "path",
+                "root_path"
+              ]
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/root-queue/path",
+            "name": "queue_path",
+            "methods": [
+              "POST"
+            ],
+            "endpoint": {
+              "kind": "request-scope-json",
+              "name": "queue_path",
+              "fields": [
+                "path",
+                "root_path"
+              ]
+            }
+          },
+          {
+            "kind": "mount-asgi",
+            "path": "/asgipath",
+            "endpoint": {
+              "kind": "asgi-scope-json",
+              "name": "asgipath",
+              "fields": [
+                "path",
+                "root_path"
+              ]
+            }
+          },
+          {
+            "kind": "mount-routes",
+            "path": "/sub",
+            "name": "mount",
+            "routes": [
+              {
+                "kind": "route",
+                "path": "/path",
+                "name": "subpath",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "request-scope-json",
+                  "name": "subpath",
+                  "fields": [
+                    "path",
+                    "root_path"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }
