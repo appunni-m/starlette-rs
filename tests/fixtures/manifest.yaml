@@ -17255,6 +17255,17 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Router.url_path_for.converter-error-propagation",
+              "dimension": "error_path",
+              "description": "Router.url_path_for propagates the built-in string converter AssertionError for an empty or slash-containing value supplied to a named route, including through an unnamed Mount. Upstream: tests/test_routing.py::test_url_path_for[slash-and-empty-string-values]; starlette/routing.py:427-452.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

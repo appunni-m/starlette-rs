@@ -7719,6 +7719,17 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
             first_candidate = min(index for index, _route in candidates)
             if first_candidate > 0:
                 derived.add(rid("first-success"))
+            first_route = next(route for index, route in candidates if index == first_candidate)
+            parameters = dict(
+                _validate_reverse_path(first_route["path"], custom, "Router selected route path")
+            )
+            if any(
+                converter == "str"
+                and isinstance(params.get(name), str)
+                and (not params[name] or "/" in params[name])
+                for name, converter in parameters.items()
+            ):
+                derived.add(rid("converter-error-propagation"))
         else:
             derived.add(rid("mismatch"))
     elif surface == "starlette.routing.Mount":

@@ -405,6 +405,94 @@
       ]
     },
     {
+      "case_id": "starlette.routing.Router.url_path_for.converter-error-propagation.slash",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.converter-error-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/users",
+            "name": null,
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/{username:str}",
+                "name": "user",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "user",
+        "path_params": {
+          "username": "ada/lovelace"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.converter-error-propagation.empty",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.converter-error-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/users",
+            "name": null,
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/{username:str}",
+                "name": "user",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "user",
+        "path_params": {
+          "username": ""
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
       "case_id": "starlette.routing.Mount.url_path_for.direct-path",
       "surface": "starlette.routing.Mount",
       "operation": "url_path_for",
