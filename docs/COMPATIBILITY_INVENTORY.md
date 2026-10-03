@@ -103,8 +103,8 @@ workflow also maps `test_run_background_tasks_even_if_client_disconnects` and
 compares response-send and async background-task completion.
 
 The latest recorded correctness preflight is
-`6da54ebf-a7de-4477-aedf-9131a82929b2`. It ran from
-`2026-10-03T15:40:04.138Z` to `2026-10-03T15:43:37.579Z` against Starlette
+`b8f8bbb8-9aef-40a9-ba08-61a6e7e4c927`. It ran from
+`2026-10-03T16:14:43.156Z` to `2026-10-03T16:18:33.597Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 851-case,
 839-requirement `parity-input@31` manifest. It selected 1,085 profile
 comparisons: 1,081 passed, zero failed, zero infrastructure errors, and four
@@ -116,9 +116,9 @@ runner reports those declared native rows as `not_run`; strict aggregation
 remains `not_proven` because the compatibility denominator is incomplete.
 
 For this preflight, the manifest SHA-256 is
-`55daf9d475531bdc6444c0165f8ddf3b26771b0429973029018cc2fc0c3fac07`, and the
+`9f890d3248465cf2cf352997cb4eb68ee935290914e31342e23d49f083a02d7d`, and the
 correctness-result artifact SHA-256 is
-`48801e36634bc4f1767a205683bdca0d6339898ff40fd62448fcf2c95c9e0afe`.
+`9a916063ed954dbbae8d5282ac9dc9e9172e6106afcdeb53d8d1c3e0b2b902aa`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -136,8 +136,8 @@ remains `not_run` for these 74 benchmark workload boundaries. These
 workload-specific results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 583 input mappings, 51
-reasoned `not_applicable` rows, and 168 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 584 input mappings, 51
+reasoned `not_applicable` rows, and 167 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

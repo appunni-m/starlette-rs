@@ -1873,6 +1873,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
                         and observation["path"] == "requests"
                     )
+                    trusted_host_constructor_probe = (
+                        condition["input_key"] == "constructor_probes"
+                        and key == (TRUSTED_HOST_SURFACE, "__call__")
+                        and observation["path"] == "constructor_probes"
+                    )
                     file_response_single_call = (
                         condition["input_key"] == "scope"
                         and key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
@@ -1915,6 +1920,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_application_mount
                         and not static_files_single_call
                         and not static_files_call_sequence
+                        and not trusted_host_constructor_probe
                         and not file_response_single_call
                         and not file_response_call_sequence
                         and not base_http_background_task_completion
@@ -12861,6 +12867,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         }
     elif is_formdata:
         expected_case_keys = FORM_DATA_CASE_KEYS
+    if (
+        isinstance(case, dict)
+        and case.get("surface") in ASGI_MIDDLEWARE_SURFACES
+        and "constructor_probes" in case
+    ):
+        expected_case_keys = expected_case_keys | {"constructor_probes"}
     if is_router and isinstance(case, dict) and "observe_router_scope" in case:
         expected_case_keys = expected_case_keys | {"observe_router_scope"}
     if is_router and isinstance(case, dict) and "max_body_size" in case:
@@ -13880,6 +13892,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         _validate_gzip_constructor_stimulus(app_args)
     elif is_protocol_middleware:
         _validate_asgi_middleware_constructor(case["surface"], app_args)
+        if "constructor_probes" in case:
+            _validate_asgi_middleware_constructor_probes(
+                case["surface"], case["constructor_probes"]
+            )
     else:
         _validate_application_stimulus(
             app_args,
@@ -21874,6 +21890,36 @@ def _validate_asgi_middleware_constructor(surface: str, args: dict[str, Any]) ->
         raise ContractError(f"unsupported protocol middleware surface: {surface}")
 
     _validate_asgi_middleware_app(args["app"])
+
+
+def _validate_asgi_middleware_constructor_probes(surface: str, probes: Any) -> None:
+    if surface != TRUSTED_HOST_SURFACE:
+        raise ContractError("constructor attribute probes are not declared for this middleware")
+    if not isinstance(probes, list) or not probes:
+        raise ContractError("middleware constructor_probes must be a non-empty array")
+
+    probe_ids: set[str] = set()
+    supported_attributes = {"allowed_hosts", "allow_any", "www_redirect"}
+    for index, raw_probe in enumerate(probes):
+        context = f"middleware constructor_probes[{index}]"
+        probe = _exact(raw_probe, {"probe_id", "attributes"}, context)
+        probe_id = _string(probe["probe_id"], f"{context}.probe_id")
+        attributes = probe["attributes"]
+        if not probe_id or probe_id in probe_ids:
+            raise ContractError(f"{context}.probe_id must be non-empty and unique")
+        probe_ids.add(probe_id)
+        if (
+            not isinstance(attributes, list)
+            or not attributes
+            or any(
+                not isinstance(attribute, str) or attribute not in supported_attributes
+                for attribute in attributes
+            )
+            or len(attributes) != len(set(attributes))
+        ):
+            raise ContractError(
+                f"{context}.attributes must select unique declared TrustedHostMiddleware attributes"
+            )
 
 
 def _validate_asgi_middleware_app(value: Any) -> None:

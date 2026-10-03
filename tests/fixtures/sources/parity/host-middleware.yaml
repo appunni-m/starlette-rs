@@ -1191,6 +1191,12 @@
       "covers": [
         "starlette.middleware.trustedhost.TrustedHostMiddleware.default-allowed-hosts"
       ],
+      "constructor_probes": [
+        {
+          "probe_id": "default-allowed-hosts",
+          "attributes": ["allowed_hosts"]
+        }
+      ],
       "execution_schedule": [
         "dispatch"
       ],

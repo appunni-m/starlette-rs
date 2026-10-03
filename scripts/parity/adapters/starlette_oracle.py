@@ -3103,6 +3103,15 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                 }
             ],
         }
+    constructor_probe_observations = [
+        {
+            "probe_id": probe["probe_id"],
+            "attributes": {
+                name: _json_safe(getattr(middleware, name)) for name in probe["attributes"]
+            },
+        }
+        for probe in case.get("constructor_probes", [])
+    ]
     if case["operation"] == "__init__":
         return {
             "case_id": case["case_id"],
@@ -3123,6 +3132,8 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
             )
             value = await _invoke(middleware, dispatch_arguments, [], [], None, False)
             selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
+            if constructor_probe_observations:
+                selected["constructor_probes"] = constructor_probe_observations
             if case["surface"] == CORS_SURFACE:
                 selected["downstream_call_trace"] = downstream_call_trace[trace_start:]
             observations.append(

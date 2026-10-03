@@ -12060,6 +12060,18 @@
                   "comparison": {
                     "kind": "bytes"
                   }
+                },
+                {
+                  "path": "constructor_probes",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "constructor_probes"
+                  }
                 }
               ],
               "error": {
