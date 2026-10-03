@@ -21552,6 +21552,39 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.websocket-session.application-iter-text",
+              "dimension": "protocol_variant",
+              "description": "Accept a TestClient WebSocket, iterate input text frames with WebSocket.iter_text(), send a prefix response for each yielded message, and observe context cleanup delivering disconnect. Pinned source: starlette/websockets.py:144-149; tests/test_websockets.py::test_websocket_iter_text; docs/websockets.md:76-98.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.application-iter-bytes",
+              "dimension": "protocol_variant",
+              "description": "Accept a TestClient WebSocket, iterate binary input frames with WebSocket.iter_bytes(), send a prefix response for each yielded message, and observe context cleanup delivering disconnect. Pinned source: starlette/websockets.py:151-156; tests/test_websockets.py::test_websocket_iter_bytes; docs/websockets.md:76-98.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.application-iter-json",
+              "dimension": "protocol_variant",
+              "description": "Accept a TestClient WebSocket, iterate JSON messages with WebSocket.iter_json(), send the input value under a source-selected object key, and observe context cleanup delivering disconnect. Pinned source: starlette/websockets.py:158-163; tests/test_websockets.py::test_websocket_iter_json; docs/websockets.md:76-98.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.websocket-session.accept-handshake",
               "dimension": "success_path",
               "description": "Send websocket.connect when the session context starts, accept the supplied app handshake, and expose its selected subprotocol through accepted_subprotocol. Pinned source: starlette/testclient.py:102-117,259-267,656-677; tests/test_testclient.py::test_websocket_blocking_receive.",

@@ -785,6 +785,16 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                     )
                 elif operation == "send_json":
                     await websocket.send_json(action["value"], action.get("mode", "text"))
+                elif operation == "iterate":
+                    iterator = getattr(websocket, action["method"])()
+                    on_item = action["on_item"]
+                    async for item in iterator:
+                        if on_item["operation"] == "send_text_prefix":
+                            await websocket.send_text(on_item["prefix"] + item)
+                        elif on_item["operation"] == "send_bytes_prefix":
+                            await websocket.send_bytes(on_item["prefix"].encode("utf-8") + item)
+                        else:
+                            await websocket.send_json({on_item["key"]: item})
                 elif operation == "send_query_params_json":
                     await websocket.send_json({"params": query_params_value})
                 elif operation == "send_url_json":

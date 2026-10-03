@@ -1012,6 +1012,216 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.iter-text",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.text-message-exchange",
+        "starlette.testclient.TestClient.websocket-session.application-iter-text"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "send_text",
+            "text": "Hello, world!"
+          },
+          {
+            "operation": "receive_text"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "iterate",
+                "method": "iter_text",
+                "on_item": {
+                  "operation": "send_text_prefix",
+                  "prefix": "Message was: "
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.iter-bytes",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.binary-message-exchange",
+        "starlette.testclient.TestClient.websocket-session.application-iter-bytes"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "send_bytes",
+            "data_base64": "SGVsbG8sIHdvcmxkIQ=="
+          },
+          {
+            "operation": "receive_bytes"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "iterate",
+                "method": "iter_bytes",
+                "on_item": {
+                  "operation": "send_bytes_prefix",
+                  "prefix": "Message was: "
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.iter-json",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.send-json-text-frame",
+        "starlette.testclient.TestClient.websocket-session.receive-json-text-frame",
+        "starlette.testclient.TestClient.websocket-session.application-iter-json"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "send_json",
+            "value": {
+              "hello": "world"
+            }
+          },
+          {
+            "operation": "receive_json"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "iterate",
+                "method": "iter_json",
+                "on_item": {
+                  "operation": "send_json_object",
+                  "key": "message"
+                }
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }

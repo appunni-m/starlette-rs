@@ -264,6 +264,9 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "send_json_binary": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.send-json-binary-frame",
     "receive_json_text": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.receive-json-text-frame",
     "receive_json_binary": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.receive-json-binary-frame",
+    "iterator_text": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-iter-text",
+    "iterator_bytes": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-iter-bytes",
+    "iterator_json": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-iter-json",
 }
 BASE_HTTP_WORKFLOW_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "application",
@@ -10387,6 +10390,38 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                 mode = _string(action.get("mode", "text"), f"{item_context}.mode")
                 if mode not in {"text", "binary"}:
                     raise ContractError(f"{item_context}.mode must be text or binary")
+            elif operation == "iterate":
+                action = _exact(value, {"operation", "method", "on_item"}, item_context)
+                method = _string(action["method"], f"{item_context}.method")
+                if method == "iter_text":
+                    response = _exact(
+                        action["on_item"],
+                        {"operation", "prefix"},
+                        f"{item_context}.on_item",
+                    )
+                    if response["operation"] != "send_text_prefix":
+                        raise ContractError("iter_text must send each item with send_text_prefix")
+                    _string(response["prefix"], f"{item_context}.on_item.prefix")
+                elif method == "iter_bytes":
+                    response = _exact(
+                        action["on_item"],
+                        {"operation", "prefix"},
+                        f"{item_context}.on_item",
+                    )
+                    if response["operation"] != "send_bytes_prefix":
+                        raise ContractError("iter_bytes must send each item with send_bytes_prefix")
+                    _string(response["prefix"], f"{item_context}.on_item.prefix")
+                elif method == "iter_json":
+                    response = _exact(
+                        action["on_item"],
+                        {"operation", "key"},
+                        f"{item_context}.on_item",
+                    )
+                    if response["operation"] != "send_json_object":
+                        raise ContractError("iter_json must send each item with send_json_object")
+                    _string(response["key"], f"{item_context}.on_item.key")
+                else:
+                    raise ContractError(f"{item_context}.method must select a WebSocket iterator")
             elif operation in {"observe_query_params", "send_query_params_json"}:
                 _exact(value, {"operation"}, item_context)
             elif operation == "send_url_json":
@@ -10498,6 +10533,17 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
         return "application-query-params"
     if application_url_flow:
         return "application-url"
+    if (
+        len(actions) == 2
+        and actions[0].get("operation") == "accept"
+        and actions[1].get("operation") == "iterate"
+    ):
+        method = actions[1]["method"]
+        return {
+            "iter_text": "iterator-text",
+            "iter_bytes": "iterator-bytes",
+            "iter_json": "iterator-json",
+        }[method]
     if len(actions) == 2 and [action.get("operation") for action in actions] == [
         "accept",
         "close",
@@ -10902,6 +10948,15 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "TestClient WebSocket app JSON modes must match the client frame modes"
                 )
+        elif flow_kind == "iterator-json":
+            if (
+                not client_json_exchange
+                or client_json_send_mode != "text"
+                or client_json_receive_mode != "text"
+            ):
+                raise ContractError(
+                    "iter_json requires TestClient send_json and receive_json text frames"
+                )
         elif client_json_exchange:
             raise ContractError(
                 "TestClient send_json and receive_json require a JSON exchange app flow"
@@ -10975,7 +11030,39 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["client_close"],
                 }
             )
-        else:
+        elif flow_kind == "iterator-text":
+            if [action.get("operation") for action in session_actions] != [
+                "send_text",
+                "receive_text",
+            ]:
+                raise ContractError("iter_text requires a client text send/receive exchange")
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["iterator_text"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["text_messages"],
+                }
+            )
+        elif flow_kind == "iterator-bytes":
+            if [action.get("operation") for action in session_actions] != [
+                "send_bytes",
+                "receive_bytes",
+            ]:
+                raise ContractError("iter_bytes requires a client bytes send/receive exchange")
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["iterator_bytes"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["binary_messages"],
+                }
+            )
+        elif flow_kind == "iterator-json":
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["iterator_json"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["send_json_text"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["receive_json_text"],
+                }
+            )
+        elif flow_kind == "json-exchange":
             expected_covers.update(
                 {
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["send_json_" + str(client_json_send_mode)],
@@ -10984,6 +11071,8 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     ],
                 }
             )
+        else:
+            raise ContractError(f"Unsupported TestClient WebSocket flow kind: {flow_kind}")
         flow_accept = next(
             action for action in app_actions[0]["actions"] if action["operation"] == "accept"
         )
