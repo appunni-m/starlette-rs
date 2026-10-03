@@ -103,8 +103,8 @@ workflow also maps `test_run_background_tasks_even_if_client_disconnects` and
 compares response-send and async background-task completion.
 
 The latest recorded correctness preflight is
-`b8f8bbb8-9aef-40a9-ba08-61a6e7e4c927`. It ran from
-`2026-10-03T16:14:43.156Z` to `2026-10-03T16:18:33.597Z` against Starlette
+`03ccc30a-d780-4cf6-b806-8073121ace50`. It ran from
+`2026-10-03T16:25:49.269Z` to `2026-10-03T16:30:40.595Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 851-case,
 839-requirement `parity-input@31` manifest. It selected 1,085 profile
 comparisons: 1,081 passed, zero failed, zero infrastructure errors, and four
@@ -116,9 +116,9 @@ runner reports those declared native rows as `not_run`; strict aggregation
 remains `not_proven` because the compatibility denominator is incomplete.
 
 For this preflight, the manifest SHA-256 is
-`9f890d3248465cf2cf352997cb4eb68ee935290914e31342e23d49f083a02d7d`, and the
+`8a07e52a86b1c4dc555371f905ed823f6578b168f4f05b901881d0ae25f59eec`, and the
 correctness-result artifact SHA-256 is
-`9a916063ed954dbbae8d5282ac9dc9e9172e6106afcdeb53d8d1c3e0b2b902aa`.
+`1126cb8030bc20626cf55fdc5912e56354e865d6c7a6da35be0a82bf7786a847`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -128,8 +128,8 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`fad435a6-ecfc-44c2-ac0f-c7d993a71e58` measured all 74 source/package workloads
-on clean commit `801398f41146e6a0a2468265d06d9b11652eee02`: six Router and 68
+`7ac5cb23-b97d-409e-949b-6b15c204aebb` measured all 74 source/package workloads
+on clean commit `af6f1a6162eaf76a0b83ea2576cf4e53a745b20e`: six Router and 68
 GZip, with zero failures. Its preflight selected 1,085 comparisons (1,081
 passed, zero failures, four declared Rust-native `not_run`). Rust-native
 remains `not_run` for these 74 benchmark workload boundaries. These
