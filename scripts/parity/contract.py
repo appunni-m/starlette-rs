@@ -11247,10 +11247,61 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             "TestClient WebSocket actions must be empty, receive one JSON/binary frame, send and receive one JSON frame, or send one text/byte frame and receive one frame"
         )
 
-    asgi_app = _exact(
-        case["asgi_app"], {"kind", "scope_fields", "actions"}, "TestClient WebSocket ASGI app"
+    raw_asgi_app = case["asgi_app"]
+    is_starlette_websocket_route_error = (
+        isinstance(raw_asgi_app, dict)
+        and raw_asgi_app.get("kind") == "starlette-websocket-route-error"
     )
-    if asgi_app["kind"] != "asgi3":
+    if is_starlette_websocket_route_error:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "path", "endpoint_exception", "scope_fields"},
+            "TestClient Starlette WebSocket route error app",
+        )
+        route_path = _string(asgi_app["path"], "TestClient WebSocket route path")
+        parsed_websocket_url = urlsplit(websocket_url)
+        if (
+            not route_path.startswith("/")
+            or parsed_websocket_url.path != route_path
+            or parsed_websocket_url.query
+            or "params" in websocket
+            or settings["base_url"] != "http://testserver"
+            or settings["root_path"]
+            or settings["headers"]
+            or settings["raise_server_exceptions"] is not True
+            or settings.get("backend") not in {"asyncio", "trio"}
+            or settings.get("backend_options") != {}
+            or settings["client"] != ["testclient", 50000]
+            or websocket["subprotocols"]
+            or websocket["headers"]
+            or session_actions
+        ):
+            raise ContractError(
+                "Starlette WebSocket route exception input must match the pinned TestClient error connection"
+            )
+        exception_spec = _exact(
+            asgi_app["endpoint_exception"],
+            {"class", "message"},
+            "TestClient Starlette WebSocket route endpoint exception",
+        )
+        exception_class = _string(
+            exception_spec["class"], "TestClient Starlette WebSocket route exception class"
+        )
+        exception_type = getattr(builtins, exception_class, None)
+        if not isinstance(exception_type, type) or not issubclass(exception_type, Exception):
+            raise ContractError(
+                "TestClient Starlette WebSocket route exception class must name a built-in Exception"
+            )
+        _string(exception_spec["message"], "TestClient Starlette WebSocket route exception message")
+        app_actions = []
+    else:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "scope_fields", "actions"},
+            "TestClient WebSocket ASGI app",
+        )
+        app_actions = asgi_app["actions"]
+    if asgi_app["kind"] != "asgi3" and not is_starlette_websocket_route_error:
         raise ContractError("This TestClient WebSocket workflow accepts an ASGI3 callable")
     scope_fields = asgi_app["scope_fields"]
     allowed_scope_fields = {
@@ -11277,14 +11328,13 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         or len(scope_fields) != len(set(scope_fields))
     ):
         raise ContractError("TestClient WebSocket scope_fields must be unique supported scope keys")
-    app_actions = asgi_app["actions"]
     accepted_flow_workflow = (
         isinstance(app_actions, list)
         and len(app_actions) == 1
         and isinstance(app_actions[0], dict)
         and app_actions[0].get("operation") == "websocket_flow"
     )
-    application_exception_workflow = (
+    application_exception_workflow = is_starlette_websocket_route_error or (
         isinstance(app_actions, list)
         and len(app_actions) == 1
         and isinstance(app_actions[0], dict)
@@ -11297,21 +11347,27 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "TestClient WebSocket app exception cases require no client actions and server exception propagation"
             )
-        raise_action = _exact(
-            app_actions[0],
-            {"operation", "exception_class", "message"},
-            "TestClient WebSocket application exception action",
-        )
+        if is_starlette_websocket_route_error:
+            exception_spec = asgi_app["endpoint_exception"]
+        else:
+            raise_action = _exact(
+                app_actions[0],
+                {"operation", "exception_class", "message"},
+                "TestClient WebSocket application exception action",
+            )
+            exception_spec = {
+                "class": raise_action["exception_class"],
+                "message": raise_action["message"],
+            }
         exception_class = _string(
-            raise_action["exception_class"],
-            "TestClient WebSocket application exception class",
+            exception_spec["class"], "TestClient WebSocket application exception class"
         )
         exception_type = getattr(builtins, exception_class, None)
         if not isinstance(exception_type, type) or not issubclass(exception_type, Exception):
             raise ContractError(
                 "TestClient WebSocket application exception class must name a built-in Exception"
             )
-        _string(raise_action["message"], "TestClient WebSocket application exception message")
+        _string(exception_spec["message"], "TestClient WebSocket application exception message")
         expected_covers = {
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_exception"],

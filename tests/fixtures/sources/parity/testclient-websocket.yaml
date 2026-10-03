@@ -1345,6 +1345,80 @@
       }
     },
     {
+      "case_id": "starlette.testclient.TestClient.websocket-session.starlette-route-unhandled-error.asyncio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/runtime_error",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "starlette-websocket-route-error",
+        "path": "/runtime_error",
+        "endpoint_exception": {
+          "class": "RuntimeError",
+          "message": "Yikes"
+        },
+        "scope_fields": ["type", "path", "root_path", "headers"]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.starlette-route-unhandled-error.trio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": [],
+        "backend": "trio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/runtime_error",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "starlette-websocket-route-error",
+        "path": "/runtime_error",
+        "endpoint_exception": {
+          "class": "RuntimeError",
+          "message": "Yikes"
+        },
+        "scope_fields": ["type", "path", "root_path", "headers"]
+      }
+    },
+    {
       "case_id": "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect.asyncio",
       "surface": "starlette.testclient.TestClient",
       "operation": "websocket-session",

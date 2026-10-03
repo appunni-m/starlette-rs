@@ -947,16 +947,36 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         finally:
             application_state["completed"] = True
 
-    async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
-        record_scope(scope)
-        application_state["thread"] = threading.current_thread()
-        try:
-            if app_input["actions"][0]["operation"] == "websocket_flow":
-                await run_websocket_flow(scope, receive, send)
-            else:
-                await run_app_body(receive, send)
-        finally:
-            application_state["completed"] = True
+    if app_input["kind"] == "starlette-websocket-route-error":
+        from starlette.applications import Starlette
+        from starlette.routing import WebSocketRoute
+
+        exception_type = getattr(builtins, app_input["endpoint_exception"]["class"])
+
+        def endpoint(_websocket: Any) -> None:
+            raise exception_type(app_input["endpoint_exception"]["message"])
+
+        starlette_application = Starlette(routes=[WebSocketRoute(app_input["path"], endpoint)])
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            application_state["thread"] = threading.current_thread()
+            try:
+                await starlette_application(scope, receive, send)
+            finally:
+                application_state["completed"] = True
+    else:
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            application_state["thread"] = threading.current_thread()
+            try:
+                if app_input["actions"][0]["operation"] == "websocket_flow":
+                    await run_websocket_flow(scope, receive, send)
+                else:
+                    await run_app_body(receive, send)
+            finally:
+                application_state["completed"] = True
 
     client = TestClient(
         app,
@@ -974,13 +994,14 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     accepted_subprotocol = None
     accepted_extra_headers = None
     denial_response = None
-    application_exception_workflow = (
+    application_exception_workflow = app_input["kind"] == "starlette-websocket-route-error" or (
         len(app_input["actions"]) == 1 and app_input["actions"][0].get("operation") == "raise"
     )
+    app_actions = app_input.get("actions", [])
     preaccept_close_workflow = (
-        len(app_input["actions"]) == 1
-        and app_input["actions"][0].get("operation") == "websocket_flow"
-        and [action.get("operation") for action in app_input["actions"][0]["actions"]]
+        len(app_actions) == 1
+        and app_actions[0].get("operation") == "websocket_flow"
+        and [action.get("operation") for action in app_actions[0]["actions"]]
         == ["receive", "close"]
     )
     session_body_completed = False
