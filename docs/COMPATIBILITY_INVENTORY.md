@@ -114,9 +114,10 @@ for both one repeated name and multiple repeated names, and passed source/packag
 comparison.
 
 The latest recorded correctness preflight is
-`0e7903fe-1877-4d84-a50d-18404b6f0094`. It ran from
-`2026-10-03T17:51:56.405Z` to `2026-10-03T17:55:41.276Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 862-case,
+`c08c29dc-47f9-4d40-8e73-93bedc27b5ba`. It ran from
+`2026-10-03T17:57:59.465Z` to `2026-10-03T18:01:46.851Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` on clean Starlette-RS
+commit `3461bbd6d8450790ea185905734f57c915eeb9f4` and the active 862-case,
 856-requirement `parity-input@31` manifest. It selected 1,096 profile
 comparisons: 1,092 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
@@ -129,7 +130,7 @@ remains `not_proven` because the compatibility denominator is incomplete.
 For this preflight, the manifest SHA-256 is
 `cf25c8a15c17f3f5b6e5f24a334ee19518f0c7fa690b599fe6f73b213f58d410`, and the
 correctness-result artifact SHA-256 is
-`3527713309c45c5d04e861a9d88b4755a07cc1352080fdd9a5deac07df5482b5`.
+`b792b2c5c2fa8bfdded27ca3f05f5faeed7c0ce8253412e723eea1cba3c44b2e`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -139,11 +140,10 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`374672e6-afdb-476e-a714-62ac982adbec` measured all 74 source/package workloads
-on clean commit `0e6ffb791f0145cf6df26932bffc94fe9c09dbcd`: six Router and 68
-GZip, with zero failures. Its preflight selected 1,087 comparisons (1,083
-passed, zero failures, four declared Rust-native `not_run`). Rust-native
-remains `not_run` for these 74 benchmark workload boundaries. These
+`06f0c262-27f1-49f4-b0e2-d41eff99e9c9` measured all 74 source/package workloads
+on clean commit `3461bbd6d8450790ea185905734f57c915eeb9f4`: six Router and 68
+GZip, with zero failures. All 74 source/package workload comparisons passed;
+Rust-native remains `not_run` for these benchmark ASGI boundaries. These
 workload-specific results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
