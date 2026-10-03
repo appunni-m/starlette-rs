@@ -47,10 +47,11 @@ input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest correctness
 preflight for the active `parity-input@31` contract,
-`027c5659-eac2-4c5d-ad25-476f3765cade`, passed 1,110 of 1,114 selected
+`3790690f-f38f-4819-a503-92052f8b990e`, passed 1,110 of 1,114 selected
 comparisons, with zero failures or infrastructure errors and four Rust-native
 Python-callable rows `not_run`. The Python package passed 878/878; Rust-native
-passed 232/236. The Python-package target tree was dirty during this run.
+passed 232/236. Both targets were clean at commit
+`cdec554a1b66da99f6d12cdddd07fe159bd8c112`.
 The four native `not_run` rows are
 synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make test` exits with status 2 for those
@@ -248,10 +249,10 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest integrated full-slice run `027c5659-eac2-4c5d-ad25-476f3765cade`
+The latest integrated full-slice run `3790690f-f38f-4819-a503-92052f8b990e`
 selected 1,114 comparisons: 1,110 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
-errors. The Python-package target tree was dirty during this run. The WebSocket send-callback `OSError` behavior now has an exact
+errors. The WebSocket send-callback `OSError` behavior now has an exact
 source/package mapping; other WebSocket source
 rows remain in `fixture-backlog.csv`, and similar method names do not close
 rows whose stimuli or observation selectors differ.
