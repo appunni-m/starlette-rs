@@ -652,6 +652,8 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                 client_method = current_request.get("client_method")
                 if client_method == "get":
                     current_response = client.get(current_request["url"], **request_kwargs)
+                elif client_method == "head":
+                    current_response = client.head(current_request["url"], **request_kwargs)
                 elif client_method == "post":
                     request_kwargs["content"] = base64.b64decode(current_request["body_base64"])
                     current_response = client.post(current_request["url"], **request_kwargs)

@@ -10117,10 +10117,10 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             client_method = request["client_method"]
             if (
                 not isinstance(client_method, str)
-                or client_method not in {"get", "post"}
+                or client_method not in {"get", "head", "post"}
                 or client_method.upper() != method
             ):
-                raise ContractError(f"{context}.client_method must match GET or POST method")
+                raise ContractError(f"{context}.client_method must match GET, HEAD, or POST method")
         validate_pairs(request["headers_base64_pairs"], f"{context}.headers_base64_pairs")
         validate_base64(request["body_base64"], f"{context}.body_base64")
         if request.get("client_method") == "get" and base64.b64decode(request["body_base64"]):
