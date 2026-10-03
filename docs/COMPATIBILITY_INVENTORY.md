@@ -119,24 +119,24 @@ input maps `test_duplicated_param_names`; it observes live constructor results
 for both one repeated name and multiple repeated names, and passed source/package
 comparison.
 
-The latest recorded correctness preflight is
-`a823915d-f327-4578-8580-803974ca5339`. It ran from
-`2026-10-03T19:59:39.495Z` to `2026-10-03T20:03:09.610Z` against Starlette
+The latest correctness preflight is
+`d5da903c-ec9e-4303-a030-45839d14d236`. It ran from
+`2026-10-03T20:36:12.151Z` to `2026-10-03T20:39:37.067Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` on clean Starlette-RS
-commit `b04f39d3336fe0590ac321235504e64c67ba80ba` and the active 866-case,
-859-requirement `parity-input@31` manifest. It selected 1,100 profile
-comparisons: 1,096 passed, zero failed, zero infrastructure errors, and four
+commit `2471c669bcca1fae45e670c708d371886eb39bc4` and the active 867-case,
+861-requirement `parity-input@31` manifest. It selected 1,101 profile
+comparisons: 1,097 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 864 selected comparisons; Rust-native passed 232 of 236. The four
+passed all 865 selected comparisons; Rust-native passed 232 of 236. The four
 native `not_run` rows remain synchronous Request endpoint, bound-method
 endpoint, partial endpoint, and callable-instance ASGI dispatch. The parity
 runner reports those declared native rows as `not_run`; strict aggregation
 remains `not_proven` because the compatibility denominator is incomplete.
 
 For this preflight, the manifest SHA-256 is
-`f333910f754f6c8ea76cda781cd178d59654bf21c184e747095c84366fbf5ee4`, and the
+`859e01d947133b5e57a7b68da961c4f1a59913c9683144109d4810d6ffab565e`, and the
 correctness-result artifact SHA-256 is
-`487c738572fbfa946d3cfc81bc42f07b35107f88424746d17cd3f5a4575db8d1`.
+`8c8091b38e0fe67a02483ae6f0d6d771d8bb8a83fc24e0a1570a39e006c78b40`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -146,8 +146,8 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`a0702969-c26d-4638-a468-86696148a092` measured all 74 source/package workloads
-on clean commit `b04f39d3336fe0590ac321235504e64c67ba80ba`: six Router and 68
+`d4366f1b-c804-4277-ab52-09aa3debc29a` measured all 74 source/package workloads
+on clean commit `2471c669bcca1fae45e670c708d371886eb39bc4`: six Router and 68
 GZip, with zero failures. All 74 source/package workload comparisons passed;
 Rust-native remains `not_run` for these benchmark ASGI boundaries. These
 workload-specific results do not establish full Starlette compatibility.
@@ -328,10 +328,10 @@ re-entry behavior, close-message errors, and explicit close reasons remain in
 the fixture backlog.
 `asgi-core.app.test_app_debug` is mapped to the TestClient input that mutates
 debug after construction; direct debug-enabled construction remains a separate
-documentation backlog item. Parity run
-`9680559c-cd61-46e8-beb8-f4a7c26a814f` completed 1097 of 1101 selected
+documentation backlog item. The latest full-slice parity run
+`d5da903c-ec9e-4303-a030-45839d14d236` completed 1097 of 1101 selected
 comparisons with zero failures and zero infrastructure errors. The Python
-package passed 865/865 comparisons, including the new schema endpoint response
+package passed 865/865 comparisons, including the schema endpoint response
 and ASGI trace; Rust-native passed 232/236, with four unsupported callable rows
 marked `not_run`. This slice does not prove full Starlette replacement parity.
 The current Router/GZip source/package benchmark lane is
