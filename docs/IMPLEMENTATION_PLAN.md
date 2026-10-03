@@ -93,8 +93,8 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The generated coverage matrix contains 802 source rows: 511 input mappings,
-51 source-backed `not_applicable` rows, and 240 fixture-backlog rows. These
+The generated coverage matrix contains 802 source rows: 611 input mappings,
+51 source-backed `not_applicable` rows, and 140 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.

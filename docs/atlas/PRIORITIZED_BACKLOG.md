@@ -47,7 +47,7 @@ input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest integrated
 run for the active `parity-input@31` contract,
-`7ce60ba1-d2b9-46ba-844b-827de62fe3de`, passed 1,108 of 1,112 selected
+`1e13043c-7838-419d-90bf-3ddff986ca9f`, passed 1,108 of 1,112 selected
 comparisons, with zero failures or infrastructure errors and four Rust-native
 Python-callable rows `not_run`. The Python package passed 876/876; Rust-native
 passed 232/236.
@@ -248,7 +248,7 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest integrated full-slice run `7ce60ba1-d2b9-46ba-844b-827de62fe3de`
+The latest integrated full-slice run `1e13043c-7838-419d-90bf-3ddff986ca9f`
 selected 1,112 comparisons: 1,108 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
 errors. The WebSocket send-callback `OSError` behavior now has an exact

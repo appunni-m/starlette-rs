@@ -124,8 +124,8 @@ for both one repeated name and multiple repeated names, and passed source/packag
 comparison.
 
 The latest correctness preflight is
-`7ce60ba1-d2b9-46ba-844b-827de62fe3de`. It ran from
-`2026-10-03T21:49:30.584Z` to `2026-10-03T21:53:07.303Z` against Starlette
+`1e13043c-7838-419d-90bf-3ddff986ca9f`. It ran from
+`2026-10-03T21:55:50.989Z` to `2026-10-03T21:59:24.377Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 878-case,
 862-requirement `parity-input@31` manifest. It selected 1,112 profile
 comparisons: 1,108 passed, zero failed, zero infrastructure errors, and four
@@ -141,9 +141,10 @@ For this preflight, the manifest SHA-256 is
 Python package tree SHA-256 is
 `8c303a6a18bc8fe31e89e10f107fb1f755fb7bbb99c4923f61f0d65aba79836d`, its
 wheel SHA-256 is
-`7e7432bd1cf9784e09625bce1b3e1e84b5e7b7ed2749d6b143c164764ac0b650`, and the
+`070699434d43c8bc6f551a89fe8598f0068f082531d3f757c6d689cda195b9c5`, and the
 correctness-result artifact SHA-256 is
-`d3690e8d200f2ab6c133faa66d8cc02fceeda9707c152ef7fe47dff76ad69e52`.
+`40eaebb0c9d5721f3cd8b1d2082c45e393316b89eb9ec9e3f30f044153cd35b6` at
+`build/parity/upstream-benchmark-correctness-result.json`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -153,12 +154,14 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`cf46e526-d65d-424a-a0b5-bad74fcb2cc8` measured all 74 source/package workloads
-on clean commit `71c3476b6a366e6eb0ff0df7f7a94f0dcf553346`: six Router and 68
-GZip, with zero failures. The correctness preflight passed all 875 Python
-package comparisons; its four Rust-native `not_run` rows remain outside the
-benchmark boundary. These
-workload-specific results do not establish full Starlette compatibility.
+`2016fd65-88cf-4ae9-abfa-95f286643fc8` measured all 74 source/package workloads
+on clean commit `31babf3e68fc4aeca702e14e96bcc05a78e07950`: six Router and 68
+GZip, with zero failures and matching normalized observation hashes for all
+74 workloads. Its correctness preflight
+`1e13043c-7838-419d-90bf-3ddff986ca9f` passed 1,108 of 1,112 selected
+comparisons: 876/876 Python-package comparisons and 232/236 Rust-native
+comparisons, with four Rust-native `not_run` rows. These workload-specific
+results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
 The generated coverage matrix has 802 source rows: 611 input mappings, 51

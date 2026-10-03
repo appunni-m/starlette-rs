@@ -11,8 +11,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest full-slice correctness run is
-`7ce60ba1-d2b9-46ba-844b-827de62fe3de`. It ran from
-`2026-10-03T21:49:30.584Z` to `2026-10-03T21:53:07.303Z` against Starlette
+`1e13043c-7838-419d-90bf-3ddff986ca9f`. It ran from
+`2026-10-03T21:55:50.989Z` to `2026-10-03T21:59:24.377Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 878-case,
 862-requirement `parity-input@31` manifest. It selected 1,112 profile
 comparisons: 1,108 passed, zero failed, zero infrastructure errors, and four
@@ -30,11 +30,12 @@ The Rust-native source fingerprint is
 The Python-package target tree SHA-256 is
 `8c303a6a18bc8fe31e89e10f107fb1f755fb7bbb99c4923f61f0d65aba79836d`; its
 wheel SHA-256 is
-`7e7432bd1cf9784e09625bce1b3e1e84b5e7b7ed2749d6b143c164764ac0b650`. The
+`070699434d43c8bc6f551a89fe8598f0068f082531d3f757c6d689cda195b9c5`. The
 manifest SHA-256 is
 `943da38b9288b5c8cf538dd579e0ca3a11a0c7c4aae831111d0e1585478f1df4`, and the
 local correctness-gate result artifact SHA-256 is
-`d3690e8d200f2ab6c133faa66d8cc02fceeda9707c152ef7fe47dff76ad69e52`. Strict
+`40eaebb0c9d5721f3cd8b1d2082c45e393316b89eb9ec9e3f30f044153cd35b6` at
+`build/parity/upstream-benchmark-correctness-result.json`. Strict
 aggregation remains `not_proven` because the compatibility denominator is
 incomplete and four Rust-native rows are `not_run`.
 
