@@ -11,8 +11,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest full-slice correctness preflight is
-`854e53e3-7305-4cc0-9622-8096f1282d98`. It ran from
-`2026-10-03T03:44:25.513Z` to `2026-10-03T03:47:37.440Z` against Starlette
+`79342a30-ffc9-408a-86b4-b080ff5faba6`. It ran from
+`2026-10-03T03:53:12.922Z` to `2026-10-03T03:56:12.840Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 773-case,
 796-requirement `parity-input@30` manifest. It selected 988 profile
 comparisons: 984 passed, zero failed, zero infrastructure errors, and four
@@ -23,12 +23,11 @@ including the response URL, status, body, and ASGI events. The four native
 `not_run` rows remain synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. `make parity-run` exits
 2 because of those declared rows; the run completed with no parity failures or
-infrastructure errors. The Python-package target was marked dirty for this
-run, so it is diagnostic evidence pending a clean rerun.
+infrastructure errors.
 
-The Rust-native target used commit `b11428bb5093a44281d96d09b9bbcb37a998a947`
+The Rust-native target used commit `27851ddad96379a363aa19d39c743a27ef19c82b`
 with source fingerprint
-`b11428bb5093a44281d96d09b9bbcb37a998a947+source-fnv1a64-f63b3847c266153e`.
+`27851ddad96379a363aa19d39c743a27ef19c82b+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
 `09220a2a13300e19883081c550827da11691427570f989214ac79f5a6970b4bd`; its
 wheel SHA-256 is
@@ -36,7 +35,7 @@ wheel SHA-256 is
 manifest SHA-256 is
 `9f7b48ebc16e4bfee0290aa2ce08c48a3c9df3178c2202ef495cb7da7078c347`; the
 parity result artifact SHA-256 is
-`46949f978f17187bc008ccf465a9a459776ef5e18b88148a0ee99b742965c8ed`. Strict
+`ea9c8249921ffdb885375c36af19740d021a1ade05977306a575f67cb87ded92`. Strict
 aggregation remains `not_proven` because the full compatibility denominator
 is incomplete and four Rust-native rows are `not_run`.
 For `lifespan_send_messages`, the manifest declares a narrow

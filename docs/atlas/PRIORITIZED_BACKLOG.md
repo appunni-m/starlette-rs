@@ -47,11 +47,9 @@ input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest integrated
 run for the active `parity-input@30` contract,
-`854e53e3-7305-4cc0-9622-8096f1282d98`, passed 984 of 988 selected comparisons,
+`79342a30-ffc9-408a-86b4-b080ff5faba6`, passed 984 of 988 selected comparisons,
 with zero failures or infrastructure errors and four Rust-native Python-callable
 rows `not_run`. The Python package passed 771/771; Rust-native passed 213/217.
-The Python-package target was marked dirty for this run, so it is diagnostic
-evidence pending a clean rerun.
 The four native `not_run` rows are
 synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make test` exits with status 2 for those
