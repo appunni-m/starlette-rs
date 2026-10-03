@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 778 input-only cases across 84 files,
-covering 94 operations and 801 parity requirements. Its latest additions map
+The active parity manifest indexes 780 input-only cases across 84 files,
+covering 94 operations and 802 parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Four new TestClient cases
 cover TrustedHost exact and wildcard acceptance, invalid-host rejection, and
@@ -30,8 +30,9 @@ inputs compare generic `Request[State]` and
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
 pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
 default decoding in WebSocketEndpoint, TestClient lifespan task/RunVar
-continuity under asyncio and Trio, and lifespan task-group child lifecycle
-ordering under both backends. A shared AnyIO thread-pool limiter input checks
+continuity under asyncio and Trio, lifespan task-group child lifecycle
+ordering under both backends, and WebSocket URL text/components for relative
+and explicit-port connections. A shared AnyIO thread-pool limiter input checks
 the default capacity, a configured limit, shared Starlette/AnyIO consumers,
 and restoration of the default. The file-like StreamingResponse input compares
 newline-delimited binary body chunks through the installed Python package. It
@@ -101,32 +102,30 @@ workflow also maps `test_run_background_tasks_even_if_client_disconnects` and
 compares response-send and async background-task completion.
 
 The latest full-slice correctness run is
-`063f3a8c-2251-45bd-82d1-4f0b325790e8`. It ran from
-`2026-10-03T06:10:42.785Z` to `2026-10-03T06:13:50.597Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 778-case,
-801-requirement `parity-input@31` manifest. It selected 996 profile
-comparisons: 992 passed, zero failed, zero infrastructure errors, and four
+`202fb893-41c1-487b-bb71-e3c27f3cb8b7`. It ran from
+`2026-10-03T06:50:23.305Z` to `2026-10-03T06:53:36.344Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 780-case,
+802-requirement `parity-input@31` manifest. It selected 998 profile
+comparisons: 994 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 776 selected comparisons; Rust-native passed 216 of 220. The new
-connected-state WebSocket send-callback `OSError` case matched the pinned
-exception details, callback tape, and protocol states on the Python-package
-profile; connected invalid-message cases also matched on both profiles. The
-four native `not_run` rows remain synchronous Request endpoint, bound-method
-endpoint, partial endpoint, and callable-instance ASGI dispatch. The run used
-clean commit `84ec4002f2a9eb0ca5b6efcc7dca7d733fd484b5`; `make parity-run`
-returns status 2 because of those declared native rows, despite zero parity
-failures or infrastructure errors.
+passed all 778 selected comparisons; Rust-native passed 216 of 220. The two
+new WebSocket URL cases matched the pinned source for URL text plus `.path`,
+`.port`, and `.scheme`, covering a relative URL and an explicit port of 123.
+The four native `not_run` rows remain synchronous Request endpoint,
+bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
+`make parity-run` returns status 2 because of those declared native rows,
+despite zero parity failures or infrastructure errors.
 
 The Rust-native source fingerprint is
-`84ec4002f2a9eb0ca5b6efcc7dca7d733fd484b5+source-fnv1a64-f9fd1d9d60c3cdb7`.
+`dc39f2876fb00bd403aa000f5558bcdda5837238+source-fnv1a64-f9fd1d9d60c3cdb7`.
 The Python-package target tree SHA-256 is
 `49a604888ecdefce4a95178aba5822012f6ee49a8be54e50b99e849bbb2539c9`; its
 wheel SHA-256 is
-`fc338f5bdc24d9bbb9b047a863e648f4a4fdb98fb1308d3e99c100f8ca4b7ec9`. The
+`cce2ccf73baf245c2153d01f41abe60de4cbb0f01b96b108eda755ea75a0d4dc`. The
 manifest SHA-256 is
-`4df4d9d3e0751720fb616b6df55d266116f11a66c10885003297bd7c7191425a`, and the
-local result artifact SHA-256 is
-`b0b492935ca6fadf40ebd4f924820794b3fe984e11e94f7694acf568a28ea346`. Strict
+`5d0cf80c854593c54bed70f52e57e773d23e069e4f7ed95d96b510c538fb90a6`, and the
+local correctness-gate result artifact SHA-256 is
+`e6e9da9f736e6d76b822dcacd4de919965c9cb9ef7e81a01eefa0c045e0f82a2`. Strict
 aggregation remains `not_proven` because the compatibility denominator is
 incomplete and four Rust-native rows are `not_run`.
 
@@ -138,17 +137,17 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). It measured all 74 source/package workloads on
-clean commit `84ec4002f2a9eb0ca5b6efcc7dca7d733fd484b5`: six Router and 68
+clean commit `dc39f2876fb00bd403aa000f5558bcdda5837238`: six Router and 68
 GZip, with zero failures and matching normalized observation hashes for all 74.
-Its preflight selected 996 comparisons (992 pass, zero failures, four declared
-Rust-native `not_run`). Median source/package latency ratios were 0.735 for
-Router and 0.972 for GZip. Rust-native remains `not_run` for these 74 benchmark
+Its preflight selected 998 comparisons (994 pass, zero failures, four declared
+Rust-native `not_run`). Median source/package latency ratios were 0.747 for
+Router and 0.976 for GZip. Rust-native remains `not_run` for these 74 benchmark
 workload boundaries. These workload-specific results do not establish full
 Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 511 input mappings, 51
-reasoned `not_applicable` rows, and 240 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 514 input mappings, 51
+reasoned `not_applicable` rows, and 237 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -302,8 +301,8 @@ cases over twenty-six requirements, including exception identity and
 cause/context chaining, six context-managed lifespan cases over eleven
 requirements, including an input-driven Starlette async-context-manager
 callback mapped to `tests/test_applications.py::test_app_async_cm_lifespan` and
-`docs/lifespan.md:142-158`, and sixteen WebSocket session inputs over twenty
-requirements. Those inputs cover text and binary exchange, accepted handshake
+`docs/lifespan.md:142-158`, and eighteen WebSocket session inputs over twenty-one
+requirements, including live URL string and component reads. Those inputs cover text and binary exchange, accepted handshake
 headers through `WebSocketTestSession.extra_headers`, compact JSON text
 and UTF-8 binary JSON frames, streamed denial responses, concurrent JSON
 receive progress while the app is blocked, disconnect exception fields,
@@ -315,7 +314,7 @@ observations are described in [the parity contract](PARITY.md#testclient-websock
 The additional-header cases map to `tests/test_websockets.py::test_additional_headers`
 and `test_no_additional_headers`; their live outputs preserve the accepted header
 pairs and the empty list. The JSON text and binary cases are input-mapped to the documented
-`WebSocketTestSession.send_json()` and `receive_json()` methods. All sixteen
+`WebSocketTestSession.send_json()` and `receive_json()` methods. All eighteen
 active WebSocket inputs are included in the latest full-slice run, and the
 Python-package comparisons pass. TestClient streaming bodies, lifespan
 re-entry behavior, close-message errors, and explicit close reasons remain in
