@@ -19301,7 +19301,8 @@ def _validate_schema_route_input(route: Any, context: str) -> tuple[set[str], bo
             raise ContractError(f"{context}.endpoint must describe a function or class")
         if endpoint["kind"] == "function":
             endpoint = _exact(endpoint, {"kind", "docstring"}, f"{context}.endpoint")
-            _string(endpoint["docstring"], f"{context}.endpoint.docstring")
+            if endpoint["docstring"] is not None:
+                _string(endpoint["docstring"], f"{context}.endpoint.docstring")
             handler_count = 1
         else:
             endpoint = _exact(endpoint, {"kind", "handlers"}, f"{context}.endpoint")
@@ -19312,7 +19313,7 @@ def _validate_schema_route_input(route: Any, context: str) -> tuple[set[str], bo
                 or any(
                     not isinstance(name, str)
                     or not name.isidentifier()
-                    or not isinstance(docstring, str)
+                    or (docstring is not None and not isinstance(docstring, str))
                     for name, docstring in handlers.items()
                 )
             ):
@@ -19444,7 +19445,7 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
         has_converter = False
         has_mount = False
         has_host = False
-        has_head_only = False
+        has_head = False
         has_excluded = False
         has_class_endpoint = False
         for index, route in enumerate(case["routes"]):
@@ -19456,7 +19457,7 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
             has_mount |= route.get("kind") == "mount"
             has_host |= route.get("kind") == "host"
             if route.get("kind") == "route":
-                has_head_only |= route.get("methods") == ["HEAD"]
+                has_head |= "HEAD" in route.get("methods", [])
                 has_excluded |= route.get("include_in_schema") is False
                 endpoint = route.get("endpoint", {})
                 has_class_endpoint |= endpoint.get("kind") == "class"
@@ -19473,7 +19474,7 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
                 has_converter,
                 has_mount,
                 has_host,
-                has_head_only,
+                has_head,
                 has_excluded,
                 has_class_endpoint,
             ]

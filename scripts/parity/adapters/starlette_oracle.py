@@ -11600,8 +11600,8 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _schema_function(docstring: str, name: str = "endpoint") -> Any:
-    async def endpoint(*_args: Any, **_kwargs: Any) -> None:
+def _schema_function(docstring: str | None, name: str = "endpoint") -> Any:
+    def endpoint(*_args: Any, **_kwargs: Any) -> None:
         return None
 
     endpoint.__name__ = name
@@ -11616,7 +11616,7 @@ def _schema_endpoint(spec: dict[str, Any]) -> Any:
         name: _schema_function(docstring, name) for name, docstring in spec["handlers"].items()
     }
     methods["__call__"] = _schema_function("", "__call__")
-    return type("SchemaEndpoint", (), methods)()
+    return type("SchemaEndpoint", (), methods)
 
 
 def _schema_routes(specs: list[dict[str, Any]]) -> list[Any]:

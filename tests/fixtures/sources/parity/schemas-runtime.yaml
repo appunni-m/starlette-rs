@@ -150,6 +150,132 @@
         "paths": {"/health": {"get": {"responses": {"200": {"description": "Healthy"}}}}}
       },
       "observations": ["media-type", "rendered-bytes"]
+    },
+    {
+      "case_id": "starlette.schemas.SchemaGenerator.schema-generation.pinned-test-schema-generation",
+      "surface": "starlette.schemas.SchemaGenerator",
+      "operation": "schema-generation",
+      "covers": [
+        "starlette.schemas.SchemaGenerator.get_schema",
+        "starlette.schemas.BaseSchemaGenerator.get_endpoints",
+        "starlette.schemas.BaseSchemaGenerator._remove_converter",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "base_schema": {
+        "openapi": "3.0.0",
+        "info": {"title": "Example API", "version": "1.0"}
+      },
+      "routes": [
+        {
+          "kind": "websocket-route",
+          "path": "/ws",
+          "endpoint": {"kind": "function", "docstring": "ws"}
+        },
+        {
+          "kind": "route",
+          "path": "/users/{id:int}",
+          "methods": ["GET"],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "\n    responses:\n        200:\n            description: A user.\n            examples:\n                {\"username\": \"tom\"}\n    "
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/users",
+          "methods": ["GET", "HEAD"],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "\n    responses:\n      200:\n        description: A list of users.\n        examples:\n          [{\"username\": \"tom\"}, {\"username\": \"lucy\"}]\n    "
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/users",
+          "methods": ["POST"],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "\n    responses:\n      200:\n        description: A user.\n        examples:\n          {\"username\": \"tom\"}\n    "
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/orgs",
+          "endpoint": {
+            "kind": "class",
+            "handlers": {
+              "get": "\n        responses:\n          200:\n            description: A list of organisations.\n            examples:\n              [{\"name\": \"Foo Corp.\"}, {\"name\": \"Acme Ltd.\"}]\n        ",
+              "post": "\n        responses:\n          200:\n            description: An organisation.\n            examples:\n              {\"name\": \"Foo Corp.\"}\n        "
+            }
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/regular-docstring-and-schema",
+          "endpoint": {
+            "kind": "function",
+            "docstring": "\n    This a regular docstring example (not included in schema)\n\n    ---\n\n    responses:\n      200:\n        description: This is included in the schema.\n    "
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/regular-docstring",
+          "endpoint": {
+            "kind": "function",
+            "docstring": "\n    This a regular docstring example (not included in schema)\n    "
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/no-docstring",
+          "endpoint": {"kind": "function", "docstring": null}
+        },
+        {
+          "kind": "route",
+          "path": "/schema",
+          "methods": ["GET"],
+          "include_in_schema": false,
+          "endpoint": {"kind": "function", "docstring": null}
+        },
+        {
+          "kind": "mount",
+          "path": "/subapp",
+          "routes": [
+            {
+              "kind": "route",
+              "path": "/subapp-endpoint",
+              "endpoint": {
+                "kind": "function",
+                "docstring": "\n    responses:\n      200:\n        description: This endpoint is part of a subapp.\n    "
+              }
+            }
+          ]
+        },
+        {
+          "kind": "host",
+          "host": "sub.domain.com",
+          "routes": [
+            {
+              "kind": "mount",
+              "path": "/subapp2",
+              "routes": [
+                {
+                  "kind": "route",
+                  "path": "/subapp-endpoint",
+                  "endpoint": {
+                    "kind": "function",
+                    "docstring": "\n    responses:\n      200:\n        description: This endpoint is part of a subapp.\n    "
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "observations": ["endpoints", "schema"]
     }
   ]
 }
