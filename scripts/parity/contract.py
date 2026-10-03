@@ -1226,7 +1226,7 @@ def _is_cors_dispatch_sequence(case: dict[str, Any]) -> bool:
         case.get("surface") == CORS_SURFACE
         and case.get("operation") == "__call__"
         and isinstance(steps, list)
-        and len(steps) in {3, 4}
+        and len(steps) >= 3
         and all(isinstance(step, dict) for step in steps)
         and steps[0].get("surface") == CORS_SURFACE
         and steps[0].get("operation") == "__init__"
@@ -21814,6 +21814,21 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
                 if value.strip()
             ]
             request_origin = cors_headers.get("origin")
+            if (
+                request_origin is not None
+                and "*" not in constructor["allow_origins"]
+                and request_origin in constructor["allow_origins"]
+            ):
+                covered.add(suffix("explicit-origin-match-reflects-and-varies"))
+            if (
+                cors_scope.get("type") == "http"
+                and request_origin is not None
+                and request_method is None
+                and "*" in constructor["allow_origins"]
+                and constructor["allow_credentials"]
+                and "cookie" not in cors_headers
+            ):
+                covered.add(suffix("credentialed-wildcard-origin-reflection-without-cookie"))
             request_origin_allowed = request_origin is not None and (
                 "*" in constructor["allow_origins"]
                 or request_origin in constructor["allow_origins"]

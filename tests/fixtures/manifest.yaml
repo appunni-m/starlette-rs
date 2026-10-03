@@ -9034,6 +9034,28 @@
               ]
             },
             {
+              "id": "starlette.middleware.cors.CORSMiddleware.credentialed-wildcard-origin-reflection-without-cookie",
+              "dimension": "success_path",
+              "description": "Reflect the request Origin on a simple response when wildcard origins and credentials are enabled, even when the request has no Cookie header. Pinned source: tests/middleware/test_cors.py::test_cors_allow_all; starlette/middleware/cors.py:156-179.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.explicit-origin-match-reflects-and-varies",
+              "dimension": "success_path",
+              "description": "Reflect an explicitly allowed request Origin and add it to Vary for simple and preflight responses. Pinned source: tests/middleware/test_cors.py::test_cors_allow_specific_origin; starlette/middleware/cors.py:110-115,170-179.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.cors.CORSMiddleware.preflight-wildcard-credential-private-network",
               "dimension": "protocol_variant",
               "description": "Handle a wildcard preflight request with credentials and private-network permission.",
