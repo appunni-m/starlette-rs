@@ -4545,6 +4545,26 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
 
     def make_route(route_spec: dict[str, Any], route_index: int) -> Any:
         response_spec = route_spec["endpoint"]
+        if response_spec.get("kind") in {"starlette-response", "json-response"}:
+
+            async def fixed_response_endpoint(_request: Any) -> Any:
+                route_index_observations.append(route_index)
+                if response_spec["kind"] == "json-response":
+                    return JSONResponse(
+                        response_spec["content"], status_code=response_spec["status_code"]
+                    )
+                return Response(
+                    content=response_spec["content"],
+                    status_code=response_spec["status_code"],
+                    media_type=response_spec["media_type"],
+                )
+
+            return Route(
+                route_spec["path"],
+                endpoint=fixed_response_endpoint,
+                methods=route_spec["methods"],
+                max_body_size=route_spec.get("max_body_size"),
+            )
         if response_spec.get("kind") == "request-body-echo":
             _exact_object(response_spec, {"kind"}, "request-body echo endpoint")
 
@@ -4727,6 +4747,21 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
 
     def make_host_route(route_spec: dict[str, Any], route_index: int) -> Any:
         app_spec = route_spec["app"]
+
+        if app_spec["kind"] == "router":
+            app = Router(routes=[make_route(child, route_index) for child in app_spec["routes"]])
+            return Host(route_spec["host"], app, name=route_spec["name"])
+
+        if app_spec["kind"] == "scope-path-parameter-json":
+            path_parameter = app_spec["path_parameter"]
+
+            async def subdomain_app(scope: Any, receive: Any, send: Any) -> None:
+                route_index_observations.append(route_index)
+                await JSONResponse({path_parameter: scope["path_params"][path_parameter]})(
+                    scope, receive, send
+                )
+
+            return Host(route_spec["host"], subdomain_app, name=route_spec["name"])
 
         async def app(scope: Any, receive: Any, send: Any) -> None:
             route_index_observations.append(route_index)

@@ -3816,6 +3816,33 @@ def _validate_http_route_input(
             raise ContractError(
                 f"{context}.endpoint must use the declared fixed plain-text response input"
             )
+    elif endpoint["kind"] == "starlette-response":
+        endpoint = _exact(
+            endpoint,
+            {"kind", "content", "status_code", "media_type"},
+            f"{context}.endpoint",
+        )
+        if (
+            not isinstance(endpoint["content"], str)
+            or type(endpoint["status_code"]) is not int
+            or endpoint["status_code"] != 200
+            or endpoint["media_type"] != "text/plain"
+        ):
+            raise ContractError(f"{context}.endpoint must use a fixed 200 text/plain Response")
+    elif endpoint["kind"] == "json-response":
+        endpoint = _exact(
+            endpoint,
+            {"kind", "content", "status_code"},
+            f"{context}.endpoint",
+        )
+        if type(endpoint["status_code"]) is not int or endpoint["status_code"] != 200:
+            raise ContractError(f"{context}.endpoint.status_code must be 200")
+        try:
+            json.dumps(endpoint["content"], allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ContractError(
+                f"{context}.endpoint.content must contain JSON-compatible values"
+            ) from exc
     elif endpoint["kind"] == "converted-path-response":
         endpoint = _exact(
             endpoint,
@@ -3981,20 +4008,41 @@ def _validate_host_route_input(route: Any, context: str) -> dict[str, Any]:
     )
     if unsupported:
         raise ContractError(f"{context}.host uses undeclared convertors: {unsupported}")
-    app = _exact(
-        route["app"],
-        {"kind", "content", "status_code", "media_type", "cookies"},
-        f"{context}.app",
-    )
-    if (
-        app["kind"] != "plain-text-response"
-        or not isinstance(app["content"], str)
-        or type(app["status_code"]) is not int
-        or app["status_code"] != 200
-        or app["media_type"] != "text/plain"
-        or app["cookies"] != []
-    ):
-        raise ContractError(f"{context}.app must use the fixed plain-text response input")
+    app_context = f"{context}.app"
+    raw_app = route["app"]
+    if not isinstance(raw_app, dict) or not isinstance(raw_app.get("kind"), str):
+        raise ContractError(f"{app_context} must declare a supported Host app kind")
+    if raw_app["kind"] == "plain-text-response":
+        app = _exact(
+            raw_app,
+            {"kind", "content", "status_code", "media_type", "cookies"},
+            app_context,
+        )
+        if (
+            not isinstance(app["content"], str)
+            or type(app["status_code"]) is not int
+            or app["status_code"] != 200
+            or app["media_type"] != "text/plain"
+            or app["cookies"] != []
+        ):
+            raise ContractError(f"{app_context} must use the fixed plain-text response input")
+    elif raw_app["kind"] == "router":
+        app = _exact(raw_app, {"kind", "routes"}, app_context)
+        if not isinstance(app["routes"], list) or not app["routes"]:
+            raise ContractError(f"{app_context}.routes must be a non-empty array")
+        for index, child in enumerate(app["routes"]):
+            _validate_http_route_input(
+                child,
+                f"{app_context}.routes[{index}]",
+                allow_http_endpoint=True,
+            )
+    elif raw_app["kind"] == "scope-path-parameter-json":
+        app = _exact(raw_app, {"kind", "path_parameter"}, app_context)
+        path_parameter = _string(app["path_parameter"], f"{app_context}.path_parameter")
+        if path_parameter not in {name for name, _converter in parameters}:
+            raise ContractError(f"{app_context}.path_parameter must name a Host pattern parameter")
+    else:
+        raise ContractError(f"{app_context}.kind is unsupported")
     return route
 
 
@@ -6767,6 +6815,20 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     if selected_host_route_index is not None:
         derived.add("starlette.routing.Router.route-dispatch.host-route-match")
         selected_host_route = routes[selected_host_route_index]
+        host_app = selected_host_route["app"]
+        if host_app["kind"] == "router":
+            child_route_path = _route_path_after_root(path, root_path)
+            if any(
+                _route_method_matches(route, method)
+                and _route_template_matches(route["path"], child_route_path, custom_convertors)
+                for route in host_app["routes"]
+            ):
+                derived.add("starlette.routing.Router.route-dispatch.host-route-child-dispatch")
+        elif host_app["kind"] == "scope-path-parameter-json":
+            derived.add("starlette.routing.Router.route-dispatch.host-path-parameter-propagation")
+        configured_host_port = _host_pattern_port(selected_host_route["host"])
+        if configured_host_port is not None and request_host_port != configured_host_port:
+            derived.add("starlette.routing.Router.route-dispatch.host-configured-port-ignored")
         if (
             _route_template_parameters(selected_host_route["host"])
             and _host_pattern_port(selected_host_route["host"]) is not None

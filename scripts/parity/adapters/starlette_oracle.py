@@ -6665,6 +6665,23 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 
             return request_body_echo
 
+        if endpoint_spec.get("kind") in {"starlette-response", "json-response"}:
+
+            async def fixed_response_endpoint(_request: Any) -> Any:
+                if is_router:
+                    route_index_observations.append(route_index)
+                if endpoint_spec["kind"] == "json-response":
+                    return JSONResponse(
+                        endpoint_spec["content"], status_code=endpoint_spec["status_code"]
+                    )
+                return Response(
+                    content=endpoint_spec["content"],
+                    status_code=endpoint_spec["status_code"],
+                    media_type=endpoint_spec["media_type"],
+                )
+
+            return fixed_response_endpoint
+
         if endpoint_spec.get("kind") == "http-class-based-endpoint":
             _strict_object(endpoint_spec, {"kind", "handlers"}, "HTTP class endpoint input")
 
@@ -6820,6 +6837,28 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         return endpoint
 
     def make_host_app(app_spec: dict[str, Any], route_index: int) -> Any:
+        if app_spec["kind"] == "router":
+            return Router(
+                routes=[
+                    Route(
+                        route_spec["path"],
+                        make_endpoint(route_spec["endpoint"], route_index),
+                        methods=route_spec["methods"],
+                    )
+                    for route_spec in app_spec["routes"]
+                ]
+            )
+        if app_spec["kind"] == "scope-path-parameter-json":
+            path_parameter = app_spec["path_parameter"]
+
+            async def subdomain_app(scope: Any, receive: Any, send: Any) -> None:
+                route_index_observations.append(route_index)
+                await JSONResponse({path_parameter: scope["path_params"][path_parameter]})(
+                    scope, receive, send
+                )
+
+            return subdomain_app
+
         async def host_app(scope: Any, receive: Any, send: Any) -> None:
             route_index_observations.append(route_index)
             response = PlainTextResponse(
@@ -6877,15 +6916,27 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                         raise ValueError(
                             "Host route input must be a declared Router host-route record"
                         )
-                    app_spec = _strict_object(
-                        route_spec["app"],
-                        {"kind", "content", "status_code", "media_type", "cookies"},
-                        "Host route app response",
-                    )
-                    if app_spec["kind"] != "plain-text-response" or app_spec["cookies"]:
-                        raise ValueError(
-                            "Host route app must use a plain-text response without cookies"
+                    app_spec = route_spec["app"]
+                    if app_spec["kind"] == "plain-text-response":
+                        app_spec = _strict_object(
+                            app_spec,
+                            {"kind", "content", "status_code", "media_type", "cookies"},
+                            "Host route app response",
                         )
+                        if app_spec["cookies"]:
+                            raise ValueError(
+                                "Host route app plain-text response cannot set cookies"
+                            )
+                    elif app_spec["kind"] == "router":
+                        _strict_object(app_spec, {"kind", "routes"}, "Host route Router app")
+                    elif app_spec["kind"] == "scope-path-parameter-json":
+                        _strict_object(
+                            app_spec,
+                            {"kind", "path_parameter"},
+                            "Host path-parameter JSON app",
+                        )
+                    else:
+                        raise ValueError("Host route app kind is unsupported")
                     route_objects.append(
                         Host(
                             route_spec["host"],

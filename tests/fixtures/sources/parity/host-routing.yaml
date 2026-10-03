@@ -274,6 +274,1180 @@
       "observations": [
         "reverse-url"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-router.api-users",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-match",
+        "starlette.routing.Router.route-dispatch.host-route-child-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "www.example.org",
+          "name": null,
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              },
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "All users",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "api.example.org",
+          "name": "api",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "json-response",
+                  "content": {
+                    "users": [
+                      {
+                        "username": "tom"
+                      }
+                    ]
+                  },
+                  "status_code": 200
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "port.example.org:3600",
+          "name": "port",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/users",
+        "raw_path_base64": "L3VzZXJz",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "YXBpLmV4YW1wbGUub3Jn"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "api.example.org",
+          443
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-router.api-homepage-not-found",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "www.example.org",
+          "name": null,
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              },
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "All users",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "api.example.org",
+          "name": "api",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "json-response",
+                  "content": {
+                    "users": [
+                      {
+                        "username": "tom"
+                      }
+                    ]
+                  },
+                  "status_code": 200
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "port.example.org:3600",
+          "name": "port",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "YXBpLmV4YW1wbGUub3Jn"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "api.example.org",
+          443
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-router.www-users",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-match",
+        "starlette.routing.Router.route-dispatch.host-route-child-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "www.example.org",
+          "name": null,
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              },
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "All users",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "api.example.org",
+          "name": "api",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "json-response",
+                  "content": {
+                    "users": [
+                      {
+                        "username": "tom"
+                      }
+                    ]
+                  },
+                  "status_code": 200
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "port.example.org:3600",
+          "name": "port",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/users",
+        "raw_path_base64": "L3VzZXJz",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "d3d3LmV4YW1wbGUub3Jn"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "www.example.org",
+          443
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-router.www-homepage",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-match",
+        "starlette.routing.Router.route-dispatch.host-route-child-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "www.example.org",
+          "name": null,
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              },
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "All users",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "api.example.org",
+          "name": "api",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "json-response",
+                  "content": {
+                    "users": [
+                      {
+                        "username": "tom"
+                      }
+                    ]
+                  },
+                  "status_code": 200
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "port.example.org:3600",
+          "name": "port",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "d3d3LmV4YW1wbGUub3Jn"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "www.example.org",
+          443
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-router.port-users-not-found",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "www.example.org",
+          "name": null,
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              },
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "All users",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "api.example.org",
+          "name": "api",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "json-response",
+                  "content": {
+                    "users": [
+                      {
+                        "username": "tom"
+                      }
+                    ]
+                  },
+                  "status_code": 200
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "port.example.org:3600",
+          "name": "port",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/users",
+        "raw_path_base64": "L3VzZXJz",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "cG9ydC5leGFtcGxlLm9yZzozNjAw"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "port.example.org",
+          3600
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-router.port-homepage-exact-port",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-match",
+        "starlette.routing.Router.route-dispatch.host-route-child-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "www.example.org",
+          "name": null,
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              },
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "All users",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "api.example.org",
+          "name": "api",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "json-response",
+                  "content": {
+                    "users": [
+                      {
+                        "username": "tom"
+                      }
+                    ]
+                  },
+                  "status_code": 200
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "port.example.org:3600",
+          "name": "port",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "cG9ydC5leGFtcGxlLm9yZzozNjAw"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "port.example.org",
+          3600
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-router.port-homepage-no-port",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-match",
+        "starlette.routing.Router.route-dispatch.host-route-child-dispatch",
+        "starlette.routing.Router.route-dispatch.host-configured-port-ignored"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "www.example.org",
+          "name": null,
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              },
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "All users",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "api.example.org",
+          "name": "api",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "json-response",
+                  "content": {
+                    "users": [
+                      {
+                        "username": "tom"
+                      }
+                    ]
+                  },
+                  "status_code": 200
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "port.example.org:3600",
+          "name": "port",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "cG9ydC5leGFtcGxlLm9yZw=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "port.example.org",
+          443
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-router.port-homepage-other-port",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-match",
+        "starlette.routing.Router.route-dispatch.host-route-child-dispatch",
+        "starlette.routing.Router.route-dispatch.host-configured-port-ignored"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "www.example.org",
+          "name": null,
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              },
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "All users",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "api.example.org",
+          "name": "api",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/users",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "json-response",
+                  "content": {
+                    "users": [
+                      {
+                        "username": "tom"
+                      }
+                    ]
+                  },
+                  "status_code": 200
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "host-route",
+          "host": "port.example.org:3600",
+          "name": "port",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "kind": "starlette-response",
+                  "content": "Hello, world",
+                  "status_code": 200,
+                  "media_type": "text/plain"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "cG9ydC5leGFtcGxlLm9yZzo1NjAw"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "port.example.org",
+          5600
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-router.subdomain-path-parameter-json",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-match",
+        "starlette.routing.Router.route-dispatch.host-path-parameter-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "{subdomain}.example.org",
+          "name": "subdomains",
+          "app": {
+            "kind": "scope-path-parameter-json",
+            "path_parameter": "subdomain"
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "Zm9vLmV4YW1wbGUub3Jn"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "foo.example.org",
+          443
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "observe_router_scope": true
     }
   ]
 }
