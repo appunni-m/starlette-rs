@@ -1083,6 +1083,7 @@
       "surface": "starlette.websockets.WebSocket",
       "operation": "convenience-sequence",
       "covers": [
+        "starlette.websocket.api.receive.raw",
         "starlette.websocket.api.denial-response.present"
       ],
       "target_profiles": [
@@ -1122,8 +1123,18 @@
           "websocket.http.response": {}
         }
       },
-      "incoming": [],
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
       "actions": [
+        {
+          "action_id": "receive-connect",
+          "method": "receive",
+          "arguments": {}
+        },
         {
           "action_id": "send-denial-response",
           "method": "send_denial_response",
@@ -2151,6 +2162,155 @@
           "send_error": {
             "kind": "os-error",
             "message": ""
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.denial-response-streaming",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.raw",
+        "starlette.websocket.api.denial-response.present",
+        "starlette.websocket.api.denial-response.streaming"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [],
+        "extensions": {
+          "websocket.http.response": {}
+        }
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-connect",
+          "method": "receive",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-denial-response",
+          "method": "send_denial_response",
+          "arguments": {
+            "response": {
+              "kind": "streaming",
+              "status_code": 403,
+              "chunks_base64": [
+                "aGVsbG8=",
+                "d29ybGQ="
+              ]
+            }
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.denial-response-file",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.raw",
+        "starlette.websocket.api.denial-response.present",
+        "starlette.websocket.api.denial-response.file"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [],
+        "extensions": {
+          "websocket.http.response": {}
+        }
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-connect",
+          "method": "receive",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-denial-response",
+          "method": "send_denial_response",
+          "arguments": {
+            "response": {
+              "kind": "file",
+              "status_code": 401,
+              "content_base64": "dGVzdCBjb250ZW50",
+              "filename": "denial.txt",
+              "mtime_seconds": 1600000000
+            }
           }
         }
       ],

@@ -4,7 +4,7 @@
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
     "inventory": {
-      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, application and route-level body-size limits, exception-handler registration and middleware-stack snapshots, async endpoint loop/task/thread ownership and request-task cancellation, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods and iterator protocol, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile also compares StaticFiles constructor-time and lazy directory checks, repeated successful configuration checks, and BaseHTTPMiddleware ContextVar propagation across call_next with a pure-ASGI control. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension. The active Python-package profile also covers response-attached BackgroundTask and BackgroundTasks async/sync execution, synchronous callback cancellation while its worker is held for cancellation delivery, sequential task ordering, failure propagation, and callable shape classification for async/sync bound methods, callable objects, partials, and nested partials. The active Python-package profile also includes routed AuthenticationMiddleware and requires decorator comparisons for async, sync, HTTPEndpoint, and injected endpoint forms. It also includes bounded synchronous TestClient HTTP request/response and WebSocket text/binary exchange and pre-acceptance denial-response slices, plus context-managed lifespan startup/shutdown with timeout deprecation-warning parity; streaming request bodies and remaining error-policy cases are separate compatibility work.",
+      "authority": "Pinned Starlette 1.6.0 source; this slice defines direct ASGI response, Request/routing, application and route-level body-size limits, exception-handler registration and middleware-stack snapshots, async endpoint loop/task/thread ownership and request-task cancellation, GZipMiddleware and RequestBodyLimitMiddleware, WebSocket route dispatch, raw WebSocket protocol and projected state transitions, typed WebSocket convenience methods, iterator protocol, and streaming/file-backed denial responses, WebSocketClose framing/attributes, and a public Router route-selection slice over string, int, float, UUID, and path converters, route ordering, and root_path handling. The bounded routing slice also includes a Mount child-scope projection. This slice also ports configuration value lookup and environment mappings, URL scope construction with Host validation, server fallback, authority-in-path protection, and query parameter operations, docstring-based schema generation, and OpenAPI response rendering. The bounded Python-package profile also covers SessionMiddleware signed-cookie workflows, cookie attributes and expiry, session mutation flags, Vary-on-access, and clearing. The same workflow also samples the source WebSocket cookie-loading branch and non-HTTP lifespan pass-through. The bounded Python-package profile also covers BaseHTTPMiddleware request/response workflows through configured Middleware or a direct ASGI wrapper, including response-header mutation, body/stream replay, disconnect and cancellation ordering, exception propagation, and FileResponse pathsend forwarding. The active Python-package profile also compares StaticFiles constructor-time and lazy directory checks, repeated successful configuration checks, and BaseHTTPMiddleware ContextVar propagation across call_next with a pure-ASGI control. The active Python-package profile now also includes one input-driven Jinja2Templates workflow over directory loading, autoescape, context processors, url_for, response metadata, and the ASGI debug extension. The active Python-package profile also covers response-attached BackgroundTask and BackgroundTasks async/sync execution, synchronous callback cancellation while its worker is held for cancellation delivery, sequential task ordering, failure propagation, and callable shape classification for async/sync bound methods, callable objects, partials, and nested partials. The active Python-package profile also includes routed AuthenticationMiddleware and requires decorator comparisons for async, sync, HTTPEndpoint, and injected endpoint forms. It also includes bounded synchronous TestClient HTTP request/response and WebSocket text/binary exchange and pre-acceptance denial-response slices, plus context-managed lifespan startup/shutdown with timeout deprecation-warning parity; streaming request bodies and remaining error-policy cases are separate compatibility work.",
       "revision": "4f250d6b814587e20c5365f0a5f0c4d42bcb929f",
       "command_id": "inventory-slice"
     }
@@ -20122,7 +20122,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.websockets.WebSocket",
-            "signature": "Parity workflow: call public convenience methods from the supplied action sequence, exercise typed receive/send framing, accepted headers, iterator async-for and async-generator controls, and denial-response dispatch; compare returned values/errors, the ASGI callback tape, and final protocol states.",
+            "signature": "Parity workflow: call public WebSocket methods from the supplied action sequence, exercise raw and typed receive/send framing, accepted headers, iterator async-for and async-generator controls, and denial-response dispatch with fixed, streaming, or file-backed response inputs; compare returned values/errors, the ASGI callback tape, and final protocol states.",
             "parameters": [
               {
                 "id": "scope",
@@ -20263,6 +20263,17 @@
               "id": "starlette.websocket.api.receive.bytes",
               "dimension": "success_path",
               "description": "Receive a binary ASGI frame through WebSocket.receive_bytes and compare the returned bytes.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.receive.raw",
+              "dimension": "boundary",
+              "description": "Call WebSocket.receive with an input-supplied ASGI message and compare its returned message and protocol state. Upstream: starlette/websockets.py:47-61; tests/test_websockets.py::test_send_denial_response_with_streaming_response and test_send_denial_response_with_file_response.",
               "lanes": [
                 "parity"
               ],
@@ -20494,6 +20505,28 @@
               "id": "starlette.websocket.api.denial-response.present",
               "dimension": "protocol_variant",
               "description": "Invoke WebSocket.send_denial_response with the ASGI denial-response extension present and compare the emitted response events.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.denial-response.streaming",
+              "dimension": "protocol_variant",
+              "description": "Pass an input-defined StreamingResponse through WebSocket.send_denial_response and compare response-start metadata, body event order, final body bytes, and WebSocket states. Upstream: tests/test_websockets.py::test_send_denial_response_with_streaming_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.denial-response.file",
+              "dimension": "protocol_variant",
+              "description": "Pass an input-defined FileResponse through WebSocket.send_denial_response and compare response-start metadata, body event order, file bytes, and WebSocket states using a supplied filename and modification time. Upstream: tests/test_websockets.py::test_send_denial_response_with_file_response.",
               "lanes": [
                 "parity"
               ],

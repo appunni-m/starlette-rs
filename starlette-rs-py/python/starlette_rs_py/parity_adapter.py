@@ -3938,13 +3938,14 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
         )
     import builtins
 
-    from starlette.responses import Response
+    from starlette.responses import FileResponse, Response, StreamingResponse
     from starlette.websockets import WebSocket
 
     incoming = [_materialize_websocket_message(message) for message in case["incoming"]]
     incoming_index = 0
     callback_tape: list[dict[str, Any]] = []
     pending_send_error: dict[str, Any] | None = None
+    file_response_directory: tempfile.TemporaryDirectory[str] | None = None
 
     async def receive() -> dict[str, Any]:
         nonlocal incoming_index
@@ -3967,7 +3968,7 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
     websocket = WebSocket(_make_websocket_scope(case["scope"]), receive, send)
 
     async def run_actions() -> list[dict[str, Any]]:
-        nonlocal pending_send_error
+        nonlocal file_response_directory, pending_send_error
         results: list[dict[str, Any]] = []
         for action in case["actions"]:
             action_id = action["action_id"]
@@ -3993,6 +3994,8 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                             ]
                         )
                     value = await websocket.accept(**kwargs)
+                elif method == "receive":
+                    value = _canonical_websocket_message(await websocket.receive())
                 elif method in {"receive_text", "receive_bytes"}:
                     value = await getattr(websocket, method)()
                 elif method == "receive_json":
@@ -4030,22 +4033,53 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                         value = await iterator.aclose()
                 elif method == "send_denial_response":
                     response_spec = arguments["response"]
-                    header_pairs = response_spec["headers_base64_pairs"]
-                    response_headers = {
-                        _decode_base64(pair[0], "WebSocket denial response header name").decode(
-                            "latin-1"
-                        ): _decode_base64(pair[1], "WebSocket denial response header value").decode(
-                            "latin-1"
+                    response_kind = response_spec.get("kind", "response")
+                    if response_kind == "streaming":
+
+                        async def response_content(
+                            chunks: list[str] = response_spec["chunks_base64"],
+                        ) -> AsyncIterator[bytes]:
+                            for chunk in chunks:
+                                yield _decode_base64(chunk, "WebSocket denial stream chunk")
+
+                        response = StreamingResponse(
+                            response_content(), status_code=response_spec["status_code"]
                         )
-                        for pair in header_pairs
-                    }
-                    response = Response(
-                        content=_decode_base64(
-                            response_spec["content_base64"], "WebSocket denial response content"
-                        ),
-                        status_code=response_spec["status_code"],
-                        headers=response_headers,
-                    )
+                    elif response_kind == "file":
+                        if file_response_directory is None:
+                            file_response_directory = tempfile.TemporaryDirectory(
+                                prefix="starlette-websocket-denial-parity-"
+                            )
+                        file_path = Path(file_response_directory.name) / response_spec["filename"]
+                        file_path.write_bytes(
+                            _decode_base64(
+                                response_spec["content_base64"],
+                                "WebSocket denial file content",
+                            )
+                        )
+                        os.utime(
+                            file_path,
+                            (response_spec["mtime_seconds"], response_spec["mtime_seconds"]),
+                        )
+                        response = FileResponse(file_path, status_code=response_spec["status_code"])
+                    else:
+                        header_pairs = response_spec["headers_base64_pairs"]
+                        response_headers = {
+                            _decode_base64(pair[0], "WebSocket denial response header name").decode(
+                                "latin-1"
+                            ): _decode_base64(
+                                pair[1], "WebSocket denial response header value"
+                            ).decode("latin-1")
+                            for pair in header_pairs
+                        }
+                        response = Response(
+                            content=_decode_base64(
+                                response_spec["content_base64"],
+                                "WebSocket denial response content",
+                            ),
+                            status_code=response_spec["status_code"],
+                            headers=response_headers,
+                        )
                     value = await websocket.send_denial_response(response)
                 else:
                     raise ValueError(f"unsupported WebSocket convenience action: {method!r}")
@@ -4071,7 +4105,11 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                 pending_send_error = None
         return results
 
-    action_results = asyncio.run(run_actions())
+    try:
+        action_results = asyncio.run(run_actions())
+    finally:
+        if file_response_directory is not None:
+            file_response_directory.cleanup()
     available = {
         "action_results": action_results,
         "asgi_callback_tape": callback_tape,

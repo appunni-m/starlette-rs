@@ -3150,6 +3150,13 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                     exercised.add("starlette.websocket.api.disconnect.details")
             else:
                 raise ContractError(f"{context} requires a connected WebSocket")
+        elif method == "receive":
+            if arguments:
+                raise ContractError(f"{context}.arguments must be empty for receive")
+            message_type = receive_input(context)
+            exercised.add("starlette.websocket.api.receive.raw")
+            if message_type == "websocket.disconnect":
+                exercised.add("starlette.websocket.api.disconnect.details")
         elif method in {"iter_text", "iter_bytes", "iter_json"}:
             if arguments:
                 raise ContractError(f"{context}.arguments must be empty for {method}")
@@ -3222,36 +3229,74 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                 exercised.add(WEBSOCKET_SEND_OSERROR_REQUIREMENT)
         elif method == "send_denial_response":
             _exact(arguments, {"response"}, f"{context}.arguments")
-            response = _exact(
-                arguments["response"],
-                {"status_code", "content_base64", "headers_base64_pairs"},
-                f"{context}.arguments.response",
-            )
+            response_input = arguments["response"]
+            response_context = f"{context}.arguments.response"
+            if not isinstance(response_input, dict):
+                raise ContractError(f"{response_context} must be an object")
+            response_kind = response_input.get("kind", "response")
+            if response_kind == "response":
+                response = _exact(
+                    response_input,
+                    {"status_code", "content_base64", "headers_base64_pairs"},
+                    response_context,
+                )
+                try:
+                    base64.b64decode(response["content_base64"], validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(f"{response_context}.content_base64 is invalid") from exc
+                response_headers = response["headers_base64_pairs"]
+            elif response_kind == "streaming":
+                response = _exact(
+                    response_input,
+                    {"kind", "status_code", "chunks_base64"},
+                    response_context,
+                )
+                chunks = response["chunks_base64"]
+                if not isinstance(chunks, list) or not chunks:
+                    raise ContractError(f"{response_context}.chunks_base64 must be non-empty")
+                for index, chunk in enumerate(chunks):
+                    try:
+                        base64.b64decode(chunk, validate=True)
+                    except (ValueError, TypeError) as exc:
+                        raise ContractError(
+                            f"{response_context}.chunks_base64[{index}] is invalid"
+                        ) from exc
+                response_headers = []
+            elif response_kind == "file":
+                response = _exact(
+                    response_input,
+                    {"kind", "status_code", "content_base64", "filename", "mtime_seconds"},
+                    response_context,
+                )
+                try:
+                    base64.b64decode(response["content_base64"], validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(f"{response_context}.content_base64 is invalid") from exc
+                filename = _string(response["filename"], f"{response_context}.filename")
+                if not filename or filename in {".", ".."} or "/" in filename or "\\" in filename:
+                    raise ContractError(
+                        f"{response_context}.filename must be a single path component"
+                    )
+                if type(response["mtime_seconds"]) is not int:
+                    raise ContractError(f"{response_context}.mtime_seconds must be an integer")
+                response_headers = []
+            else:
+                raise ContractError(f"{response_context}.kind is unsupported")
             if not isinstance(response["status_code"], int) or isinstance(
                 response["status_code"], bool
             ):
-                raise ContractError(f"{context}.arguments.response.status_code must be an integer")
-            try:
-                base64.b64decode(response["content_base64"], validate=True)
-            except (ValueError, TypeError) as exc:
-                raise ContractError(
-                    f"{context}.arguments.response.content_base64 is invalid"
-                ) from exc
-            if not isinstance(response["headers_base64_pairs"], list):
-                raise ContractError(
-                    f"{context}.arguments.response.headers_base64_pairs must be an array"
-                )
-            for pair in response["headers_base64_pairs"]:
+                raise ContractError(f"{response_context}.status_code must be an integer")
+            if not isinstance(response_headers, list):
+                raise ContractError(f"{response_context}.headers_base64_pairs must be an array")
+            for pair in response_headers:
                 if not isinstance(pair, list) or len(pair) != 2:
-                    raise ContractError(
-                        f"{context}.arguments.response header must be a two-item array"
-                    )
+                    raise ContractError(f"{response_context} header must be a two-item array")
                 for value in pair:
                     try:
                         base64.b64decode(value, validate=True)
                     except (ValueError, TypeError) as exc:
                         raise ContractError(
-                            f"{context}.arguments.response header contains invalid base64"
+                            f"{response_context} header contains invalid base64"
                         ) from exc
             extension_present = "websocket.http.response" in case["scope"].get("extensions", {})
             if application_state != "CONNECTING":
@@ -3261,6 +3306,8 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             if extension_present:
                 application_state = "DISCONNECTED"
                 exercised.add("starlette.websocket.api.denial-response.present")
+                if response_kind in {"streaming", "file"}:
+                    exercised.add(f"starlette.websocket.api.denial-response.{response_kind}")
             else:
                 exercised.add("starlette.websocket.api.denial-response.absent")
         elif method == "iterator-probe":
