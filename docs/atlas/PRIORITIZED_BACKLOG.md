@@ -46,14 +46,12 @@ and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest correctness
-preflight before adding the TestClient HEAD input used the 880-case
-`parity-input@31` contract,
-`3790690f-f38f-4819-a503-92052f8b990e`, passed 1,110 of 1,114 selected
+preflight for the active 881-case `parity-input@31` contract,
+`44adfc91-dd1f-4052-a30f-d6f5161b1318`, passed 1,111 of 1,115 selected
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 878/878; Rust-native
+Python-callable rows `not_run`. The Python package passed 879/879; Rust-native
 passed 232/236. Both targets were clean at commit
-`cdec554a1b66da99f6d12cdddd07fe159bd8c112`.
-The new HEAD-body-suppression case awaits the next clean-tree preflight.
+`a71146fd57fb091347db25fcf5255d40f8881134`.
 The four native `not_run` rows are
 synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make test` exits with status 2 for those
@@ -251,9 +249,8 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest integrated full-slice run before the TestClient HEAD input,
-`3790690f-f38f-4819-a503-92052f8b990e`,
-selected 1,114 comparisons: 1,110 passed, with four declared Rust-native
+The latest integrated full-slice run `44adfc91-dd1f-4052-a30f-d6f5161b1318`
+selected 1,115 comparisons: 1,111 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
 errors. The WebSocket send-callback `OSError` behavior now has an exact
 source/package mapping; other WebSocket source

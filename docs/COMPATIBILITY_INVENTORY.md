@@ -123,18 +123,18 @@ input maps `test_duplicated_param_names`; it observes live constructor results
 for both one repeated name and multiple repeated names, and passed source/package
 comparison.
 
-The latest clean-tree correctness preflight before the TestClient HEAD input is
-`3790690f-f38f-4819-a503-92052f8b990e`. It ran from
-`2026-10-03T22:24:15.858Z` to `2026-10-03T22:27:49.056Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the prior 880-case,
-862-requirement `parity-input@31` manifest. It selected 1,114 profile
-comparisons: 1,110 passed, zero failed, zero infrastructure errors, and four
+The latest clean-tree correctness preflight is
+`44adfc91-dd1f-4052-a30f-d6f5161b1318`. It ran from
+`2026-10-03T22:39:39.039Z` to `2026-10-03T22:43:14.884Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 881-case,
+862-requirement `parity-input@31` manifest. It selected 1,115 profile
+comparisons: 1,111 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 878 selected comparisons; Rust-native passed 232 of 236. The two
+passed all 879 selected comparisons; Rust-native passed 232 of 236. The two
 new TestClient reason-phrase inputs match the source, including the standard
 204 phrase and the empty phrase for unknown status 123. Both targets were
-clean at commit `cdec554a1b66da99f6d12cdddd07fe159bd8c112`. This run predates
-the newly added HEAD-body-suppression input. The four native
+clean at commit `a71146fd57fb091347db25fcf5255d40f8881134`. The new
+HEAD-body-suppression input also passes exactly. The four native
 `not_run` rows remain synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. Strict aggregation
 remains `not_proven` because the compatibility denominator is incomplete and
@@ -145,9 +145,9 @@ For this preflight, the manifest SHA-256 is
 Python package tree SHA-256 is
 `8c303a6a18bc8fe31e89e10f107fb1f755fb7bbb99c4923f61f0d65aba79836d`, its
 wheel SHA-256 is
-`8cbbc46fb23cc4045f28e2b1985054af34109c7fd96b011f450f763faeeb5997`, and the
+`d24460bdede6fddbab56d82d8eceb8304e316f46cd2d98cbbcddd9a988793521`, and the
 correctness-result artifact SHA-256 is
-`3171f2d451d74911ee6d8f2711d6f5fd92b06b2908f9af38844c7751e15e49df` at
+`bda65f7675163e8674fcda56a7dc7606845304ddd6be45c9517c7f88eb1f3b2b` at
 `build/parity/upstream-benchmark-correctness-result.json`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
@@ -158,12 +158,12 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`e57acefe-db3b-4f18-b782-c68a081d5b92` measured all 74 source/package workloads
-on clean commit `cdec554a1b66da99f6d12cdddd07fe159bd8c112`: six Router and 68
+`d89066a7-ad77-4840-b49b-6e4732534ae7` measured all 74 source/package workloads
+on clean commit `a71146fd57fb091347db25fcf5255d40f8881134`: six Router and 68
 GZip, with zero failures and matching normalized observation hashes for all
 74 workloads. Its correctness preflight
-`3790690f-f38f-4819-a503-92052f8b990e` passed 1,110 of 1,114 selected
-comparisons: 878/878 Python-package comparisons and 232/236 Rust-native
+`44adfc91-dd1f-4052-a30f-d6f5161b1318` passed 1,111 of 1,115 selected
+comparisons: 879/879 Python-package comparisons and 232/236 Rust-native
 comparisons, with four Rust-native `not_run` rows. Median source/package
 latency ratios were 0.740 for Router and 0.978 for GZip. These workload-specific
 results do not establish full Starlette compatibility.

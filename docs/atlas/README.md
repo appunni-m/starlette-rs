@@ -81,10 +81,10 @@ Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). Run
-`e57acefe-db3b-4f18-b782-c68a081d5b92` measured all 74 source/package workloads
-on clean commit `cdec554a1b66da99f6d12cdddd07fe159bd8c112`: six Router and 68
+`d89066a7-ad77-4840-b49b-6e4732534ae7` measured all 74 source/package workloads
+on clean commit `a71146fd57fb091347db25fcf5255d40f8881134`: six Router and 68
 GZip, with zero failures and matching normalized observation hashes for all 74.
-Its correctness preflight selected 1,114 comparisons (1,110 passed, zero
+Its correctness preflight selected 1,115 comparisons (1,111 passed, zero
 failures, four declared Rust-native `not_run`). Median source/package latency
 ratios were 0.740 for Router and 0.978 for GZip. Rust-native remains `not_run`
 for these 74 benchmark workload boundaries. These workload-specific results do
