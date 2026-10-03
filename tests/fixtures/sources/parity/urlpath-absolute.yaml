@@ -21,9 +21,29 @@
         "routes": [
           {
             "kind": "http-route",
-            "path": "/users/{username:str}",
-            "name": "user",
+            "path": "/",
+            "name": "homepage",
             "methods": ["GET"],
+            "observer": null
+          },
+          {
+            "kind": "mount",
+            "path": "/users",
+            "name": null,
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/{username:str}",
+                "name": "user",
+                "methods": ["GET"],
+                "observer": null
+              }
+            ]
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/ws",
+            "name": "websocket_endpoint",
             "observer": null
           },
           {
@@ -50,6 +70,9 @@
       },
       "lookups": [
         {"name": "user", "path_params": {"username": "ada"}},
+        {"name": "homepage", "path_params": {}},
+        {"name": "user", "path_params": {"username": "tomchristie"}},
+        {"name": "websocket_endpoint", "path_params": {}},
         {"name": "socket", "path_params": {"room": "blue"}},
         {
           "name": "tenant",
@@ -58,6 +81,14 @@
         {"name": "tenant:profile", "path_params": {"subdomain": "api"}}
       ],
       "base_urls": [
+        {
+          "kind": "string",
+          "value": "https://example.org"
+        },
+        {
+          "kind": "string",
+          "value": "https://example.org/root_path/"
+        },
         {
           "kind": "string",
           "value": "https://base.example/root_path/?source=string#fragment"

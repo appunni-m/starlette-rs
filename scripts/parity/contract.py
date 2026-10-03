@@ -7509,6 +7509,35 @@ def _urlpath_route_profiles(
                 route, name, path_params, custom, host_override=host_override
             )
         ]
+    if kind == "mount":
+        mount_parameters = {
+            key for key, _ in _validate_reverse_path(node["path"], custom, "Mount.path")
+        }
+        mount_parameters.add("path")
+        if node["name"] is not None and name == node["name"]:
+            return (
+                [("", host_override)]
+                if "path" in path_params and mount_parameters == set(path_params)
+                else []
+            )
+        if node["name"] is None:
+            child_name = name
+        elif name.startswith(node["name"] + ":"):
+            child_name = name[len(node["name"]) + 1 :]
+        else:
+            return []
+        remaining = {
+            key: value for key, value in path_params.items() if key not in mount_parameters
+        }
+        if "path" in path_params:
+            remaining["path"] = path_params["path"]
+        return [
+            profile
+            for route in node.get("routes", [])
+            for profile in _urlpath_route_profiles(
+                route, child_name, remaining, custom, host_override=host_override
+            )
+        ]
     if kind == "host-route":
         host_parameters = {
             key for key, _ in _validate_reverse_path("/" + node["host"], custom, "Host.host")

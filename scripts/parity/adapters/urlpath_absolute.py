@@ -10,7 +10,7 @@ def run_urlpath_absolute_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.applications import Starlette
     from starlette.datastructures import URL
     from starlette.responses import Response
-    from starlette.routing import Host, Route, Router, WebSocketRoute
+    from starlette.routing import Host, Mount, Route, Router, WebSocketRoute
 
     async def http_endpoint(request: Any) -> Response:
         del request
@@ -30,6 +30,17 @@ def run_urlpath_absolute_case(case: dict[str, Any]) -> dict[str, Any]:
             )
         if kind == "websocket-route":
             return WebSocketRoute(node["path"], websocket_endpoint, name=node["name"])
+        if kind == "mount":
+            mount_arguments = {}
+            if "app" in node:
+
+                async def no_op_asgi(scope: Any, receive: Any, send: Any) -> None:
+                    del scope, receive, send
+
+                mount_arguments["app"] = no_op_asgi
+            else:
+                mount_arguments["routes"] = [build_route(route) for route in node["routes"]]
+            return Mount(node["path"], name=node["name"], **mount_arguments)
         if kind == "host-route":
             return Host(
                 node["host"],
