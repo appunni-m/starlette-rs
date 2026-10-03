@@ -502,7 +502,7 @@ behaviors.
 This remains a bounded slice. Additional synchronous cancellation schedules,
 context variables, concurrency, and broader middleware/error interactions with
 background failures remain unproven. The latest integrated full-slice run
-selected 1,117 comparisons; the Python package passed 880/880 and Rust-native
+`e78022fc-8103-49fb-8ddc-d78034285764` selected 1,118 comparisons; the Python package passed 881/881 and Rust-native
 passed 233/237, with four Request-dispatch callable rows marked `not_run`.
 
 ### HTTPException default-response slice: bounded parity verified

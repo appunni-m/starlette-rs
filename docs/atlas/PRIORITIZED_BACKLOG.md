@@ -46,19 +46,20 @@ and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest clean-tree
-correctness preflight used the 882-case `parity-input@31` contract,
-`1f384b79-04f1-4f76-9281-d522890c5a84`, and passed
-1,113 of 1,117 selected comparisons, with zero failures or infrastructure
-errors and four Rust-native Python-callable rows `not_run`. The Python package
-passed 880/880; Rust-native passed 233/237. Both targets were clean at commit
-`2de1e56b38c32d9d1b89445190f37bd1e7739515`. The StaticFiles pathlib-root case,
-the two TestClient reason-phrase cases, and HEAD-body suppression all pass.
-The four native `not_run` rows are synchronous Request endpoint, bound-method
-endpoint, partial endpoint, and callable-instance ASGI dispatch. `make test`
-exits with status 2 for those declared rows. Full run identities and package
-hashes are recorded in [Migration parity contract and evidence](../PARITY.md);
-this bounded evidence does not establish full Starlette parity or release
-readiness.
+correctness preflight used the 883-case `parity-input@31` contract,
+`e78022fc-8103-49fb-8ddc-d78034285764`, and passed 1,114 of 1,118
+selected comparisons, with zero failures or infrastructure errors and four Rust-native Python-callable
+rows `not_run`. The Python package passed 881/881; Rust-native passed 233/237.
+Both targets were clean at commit
+`b0e7d3c8a060fb9748acb6c7bb704c991cc53a00`. The StaticFiles lookup
+`TimeoutError` input matches the pinned source exactly for the TestClient 500
+response, response metadata, scope, and ordered ASGI events. The pathlib-root,
+reason-phrase, and HEAD-body-suppression cases also pass. The four native
+`not_run` rows are synchronous Request endpoint, bound-method endpoint, partial
+endpoint, and callable-instance ASGI dispatch. `make test` exits with status 2
+for those declared rows. Full run identities and package hashes are recorded
+in [Migration parity contract and evidence](../PARITY.md); this bounded
+evidence does not establish full Starlette parity or release readiness.
 
 The six protected-WebSocket authentication cases map the upstream
 `test_websocket_authentication_required` row across plain and injection-wrapped
@@ -251,8 +252,8 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest integrated full-slice run `1f384b79-04f1-4f76-9281-d522890c5a84`
-selected 1,117 comparisons: 1,113 passed, with four declared Rust-native
+The latest integrated full-slice run `e78022fc-8103-49fb-8ddc-d78034285764`
+selected 1,118 comparisons: 1,114 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
 errors. The WebSocket send-callback `OSError` behavior now has an exact
 source/package mapping; other WebSocket source
