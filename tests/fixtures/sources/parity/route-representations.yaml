@@ -41,7 +41,7 @@
         {"kind": "object", "class_name": "Endpoint"},
         {"kind": "lambda"}
       ],
-      "observations": ["route_names"]
+      "observations": ["constructor_results"]
     },
     {
       "case_id": "starlette.routing.Route.value-formatting.inferred-methods",

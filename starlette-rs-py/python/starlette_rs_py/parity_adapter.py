@@ -8095,42 +8095,84 @@ def _make_routing_endpoint(spec: dict[str, Any]) -> Any:
 
 
 def _run_route_endpoint_name_case(case: dict[str, Any]) -> dict[str, Any]:
-    _exact_object(
-        case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "path",
-            "methods",
-            "name",
-            "endpoints",
-            "observations",
-        },
-        "Route endpoint-name case",
-    )
     from starlette.routing import Route
 
-    names = [
-        Route(
-            path=case["path"],
-            endpoint=_make_routing_endpoint(spec),
-            methods=case["methods"],
-            name=case["name"],
-        ).name
-        for spec in case["endpoints"]
-    ]
+    if "attempts" in case:
+        _exact_object(
+            case,
+            {
+                "case_id",
+                "surface",
+                "operation",
+                "covers",
+                "target_profiles",
+                "assets",
+                "attempts",
+                "observations",
+            },
+            "Route constructor-error case",
+        )
+        constructors = case["attempts"]
+    else:
+        _exact_object(
+            case,
+            {
+                "case_id",
+                "surface",
+                "operation",
+                "covers",
+                "target_profiles",
+                "assets",
+                "path",
+                "methods",
+                "name",
+                "endpoints",
+                "observations",
+            },
+            "Route endpoint-name case",
+        )
+        constructors = [
+            {
+                "path": case["path"],
+                "endpoint": endpoint,
+                "methods": case["methods"],
+                "name": case["name"],
+            }
+            for endpoint in case["endpoints"]
+        ]
+
+    results = []
+    for constructor in constructors:
+        _exact_object(
+            constructor,
+            {"path", "endpoint", "methods", "name"},
+            "Route constructor input",
+        )
+        try:
+            route = Route(
+                path=constructor["path"],
+                endpoint=_make_routing_endpoint(constructor["endpoint"]),
+                methods=constructor["methods"],
+                name=constructor["name"],
+            )
+        except Exception as error:
+            results.append(
+                {
+                    "outcome": "error",
+                    "exception_class": f"{type(error).__module__}.{type(error).__qualname__}",
+                    "exception_message": str(error),
+                }
+            )
+        else:
+            results.append({"outcome": "constructed", "route_name": route.name})
     return {
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [
             {
-                "step_id": "route_names",
+                "step_id": "constructor_results",
                 "status": "ok",
-                "value": {"route_names": names},
+                "value": {"constructor_results": results},
             }
         ],
     }

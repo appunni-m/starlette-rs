@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 861 input-only cases across 86 files,
-covering 99 operations and 854 unique parity requirements. Its latest additions map
+The active parity manifest indexes 862 input-only cases across 87 files,
+covering 99 operations and 856 unique parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Four new TestClient cases
 cover TrustedHost exact and wildcard acceptance, invalid-host rejection, and
@@ -107,26 +107,29 @@ input maps six pinned `Route.name` endpoint shapes and seven `Route`,
 passed source/package comparison; Mount and Host compare the complete repr
 after normalizing only the child Router's process-specific object address.
 The 13 corresponding upstream test rows are now mapped in the atlas; their
-existing `uncertain` API dispositions remain unchanged.
+existing `uncertain` API dispositions remain unchanged. The new
+[`route-constructor-errors.yaml`](../tests/fixtures/sources/parity/route-constructor-errors.yaml)
+input maps `test_duplicated_param_names`; it observes live constructor results
+for both one repeated name and multiple repeated names, and passed source/package
+comparison.
 
 The latest recorded correctness preflight is
-`95739107-bfd0-4fe2-82aa-0c7fabde9320`. It ran from
-`2026-10-03T17:32:16.048Z` to `2026-10-03T17:36:04.739Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` on clean Starlette-RS
-commit `88516b62156469e610d22ed1ed988778af7a60dc` and the active 861-case,
-854-requirement `parity-input@31` manifest. It selected 1,095 profile
-comparisons: 1,091 passed, zero failed, zero infrastructure errors, and four
+`0e7903fe-1877-4d84-a50d-18404b6f0094`. It ran from
+`2026-10-03T17:51:56.405Z` to `2026-10-03T17:55:41.276Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 862-case,
+856-requirement `parity-input@31` manifest. It selected 1,096 profile
+comparisons: 1,092 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 859 selected comparisons; Rust-native passed 232 of 236. The four
+passed all 860 selected comparisons; Rust-native passed 232 of 236. The four
 native `not_run` rows remain synchronous Request endpoint, bound-method
 endpoint, partial endpoint, and callable-instance ASGI dispatch. The parity
 runner reports those declared native rows as `not_run`; strict aggregation
 remains `not_proven` because the compatibility denominator is incomplete.
 
 For this preflight, the manifest SHA-256 is
-`a536c5aa6c9c41266cc9fbde860ba8be60b7fda947fc35ace8f4ea622a4bfb2b`, and the
+`cf25c8a15c17f3f5b6e5f24a334ee19518f0c7fa690b599fe6f73b213f58d410`, and the
 correctness-result artifact SHA-256 is
-`df5f34a2d609f8cf57d1a24cc7350eb3a48d29875075d653138d913a4bd78af3`.
+`3527713309c45c5d04e861a9d88b4755a07cc1352080fdd9a5deac07df5482b5`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -144,8 +147,8 @@ remains `not_run` for these 74 benchmark workload boundaries. These
 workload-specific results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 599 input mappings, 51
-reasoned `not_applicable` rows, and 152 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 600 input mappings, 51
+reasoned `not_applicable` rows, and 151 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

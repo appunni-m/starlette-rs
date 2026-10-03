@@ -264,6 +264,7 @@
       "build/parity/inputs/parity/websocket-route-dispatch.json",
       "build/parity/inputs/parity/http-route-call.json",
       "build/parity/inputs/parity/route-representations.json",
+      "build/parity/inputs/parity/route-constructor-errors.json",
       "build/parity/inputs/parity/websocket-state-sequence.json",
       "build/parity/inputs/parity/router-converter-dispatch.json",
       "build/parity/inputs/parity/router-slash-redirect.json",
@@ -16637,7 +16638,7 @@
               "shape": "record",
               "observations": [
                 {
-                  "path": "route_names",
+                  "path": "constructor_results",
                   "value_types": [
                     "sequence"
                   ],
@@ -16788,6 +16789,28 @@
               "id": "starlette.routing.Route.endpoint-name.lambda",
               "dimension": "parameter_combination",
               "description": "Construct Route from the pinned test_route_name lambda endpoint shape and observe the live Route.name value. Upstream: starlette/routing.py::Route.__init__; tests/test_routing.py::test_route_name.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.__init__.duplicate-parameter-name-single",
+              "dimension": "error_path",
+              "description": "Construct Route from an input path with one distinct repeated parameter name and observe the live constructor error. Upstream: starlette/routing.py:93-153; tests/test_routing.py::test_duplicated_param_names.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.__init__.duplicate-parameter-name-multiple",
+              "dimension": "error_path",
+              "description": "Construct Route from an input path with multiple distinct repeated parameter names and observe the live constructor error. Upstream: starlette/routing.py:93-153; tests/test_routing.py::test_duplicated_param_names.",
               "lanes": [
                 "parity"
               ],

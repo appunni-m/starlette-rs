@@ -786,11 +786,18 @@ ROUTE_ENDPOINT_NAME_REQUIREMENTS = {
     "object": f"{HTTP_ROUTE_SURFACE}.endpoint-name.object",
     "lambda": f"{HTTP_ROUTE_SURFACE}.endpoint-name.lambda",
 }
+ROUTE_CONSTRUCTOR_ERROR_REQUIREMENTS = {
+    "single": f"{HTTP_ROUTE_SURFACE}.__init__.duplicate-parameter-name-single",
+    "multiple": f"{HTTP_ROUTE_SURFACE}.__init__.duplicate-parameter-name-multiple",
+}
 ROUTE_ENDPOINT_NAME_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "path",
     "methods",
     "name",
     "endpoints",
+}
+ROUTE_CONSTRUCTOR_ERROR_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "attempts",
 }
 MOUNT_OPERATION = "route-dispatch"
 MOUNT_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
@@ -12917,6 +12924,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_websocket_close
         else HTTP_ROUTE_CALL_CASE_KEYS
         if is_http_route_call
+        else ROUTE_CONSTRUCTOR_ERROR_CASE_KEYS
+        if is_route_endpoint_name and "attempts" in case
         else ROUTE_ENDPOINT_NAME_CASE_KEYS
         if is_route_endpoint_name
         else WEBSOCKET_ROUTE_CASE_KEYS
@@ -13701,7 +13710,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         _validate_http_route_call_case_stimulus(case)
         return case
     if is_route_endpoint_name:
-        _validate_route_name_case(case)
+        if "attempts" in case:
+            _validate_route_constructor_error_case(case)
+        else:
+            _validate_route_name_case(case)
         return case
     if is_websocket_route:
         _validate_websocket_route_case_stimulus(case)
@@ -21691,8 +21703,8 @@ def _validate_route_name_case(case: dict[str, Any]) -> None:
     )
     if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
         raise ContractError("Route endpoint-name parity targets only the Python package profile")
-    if case["observations"] != ["route_names"]:
-        raise ContractError("Route endpoint-name cases select their declared ordered observation")
+    if case["observations"] != ["constructor_results"]:
+        raise ContractError("Route endpoint-name cases select constructor results")
     if not isinstance(case["path"], str) or not case["path"].startswith("/"):
         raise ContractError("Route endpoint-name path must be an absolute route path")
     methods = case["methods"]
@@ -21715,6 +21727,45 @@ def _validate_route_name_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "Route endpoint-name requirements must derive from the supplied callables"
         )
+
+
+def _validate_route_constructor_error_case(case: dict[str, Any]) -> None:
+    _exact(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "attempts",
+            "observations",
+        },
+        "Route constructor-error case",
+    )
+    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+        raise ContractError("Route constructor-error parity targets only the Python package")
+    if case["observations"] != ["constructor_results"]:
+        raise ContractError("Route constructor-error cases select their declared observation")
+    attempts = case["attempts"]
+    if not isinstance(attempts, list) or not attempts:
+        raise ContractError("Route constructor-error cases require route constructor inputs")
+
+    exercised: set[str] = set()
+    for index, attempt in enumerate(attempts):
+        _validate_route_value_spec(attempt, f"Route constructor-error attempts[{index}]")
+        parameter_names = [name for name, _converter in _route_template_parameters(attempt["path"])]
+        counts: dict[str, int] = {}
+        for name in parameter_names:
+            counts[name] = counts.get(name, 0) + 1
+        duplicate_names = [name for name, count in counts.items() if count > 1]
+        if not duplicate_names:
+            raise ContractError("Route constructor-error inputs must repeat a path parameter name")
+        duplicate_kind = "single" if len(duplicate_names) == 1 else "multiple"
+        exercised.add(ROUTE_CONSTRUCTOR_ERROR_REQUIREMENTS[duplicate_kind])
+    if set(case["covers"]) != exercised:
+        raise ContractError("Route constructor-error coverage must derive from repeated path names")
 
 
 def _validate_route_value_spec(spec: Any, context: str) -> str:

@@ -1,0 +1,31 @@
+{
+  "schema": "migration-parity/parity-input@31",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Route.__init__.duplicate-parameter-names",
+      "surface": "starlette.routing.Route",
+      "operation": "__init__",
+      "covers": [
+        "starlette.routing.Route.__init__.duplicate-parameter-name-single",
+        "starlette.routing.Route.__init__.duplicate-parameter-name-multiple"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "attempts": [
+        {
+          "path": "/{id}/{id}",
+          "endpoint": {"kind": "function", "name": "user", "async": false},
+          "methods": null,
+          "name": null
+        },
+        {
+          "path": "/{id}/{name}/{id}/{name}",
+          "endpoint": {"kind": "function", "name": "user", "async": false},
+          "methods": null,
+          "name": null
+        }
+      ],
+      "observations": ["constructor_results"]
+    }
+  ]
+}
