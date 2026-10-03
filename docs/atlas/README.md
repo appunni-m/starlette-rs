@@ -25,8 +25,8 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 767 input-only cases across
-84 indexed files, 94 operations, and 790 requirements. It includes direct
+active and incomplete. The current contract has 777 input-only cases across
+84 indexed files, 94 operations, and 800 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract, WebSocket text,
@@ -34,10 +34,10 @@ bytes, and JSON send/receive exchange cases, and four TestClient TrustedHost
 cases for exact/wildcard acceptance, invalid-host rejection, and HTTPS www
 redirect following. Seven QueryParams cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `b35a96db-4512-4d0c-a981-b9f2b60b0cf4` passed 978 of 982
-selected profile comparisons, with zero failures or infrastructure errors and
-four Rust-native Python-callable rows `not_run`. The Python package passed
-765/765; Rust-native passed 213/217. The new GZip streaming-response case
+full-slice run `2453a17c-b052-4af8-b966-0c92f4d1fdf9` passed 991 of 995 selected profile
+comparisons, with zero failures or infrastructure errors and four Rust-native
+Python-callable rows `not_run`. The Python package passed 775/775; Rust-native
+passed 216/220. The new GZip streaming-response case
 passes against both targets. Six protected WebSocket authentication
 cases pass source/package comparison for plain and injection-wrapped routes
 with missing, malformed, and valid Basic credentials. Three documentation-derived
@@ -62,7 +62,8 @@ including lone-surrogate strings through parsing, sequence values, and subclass
 `__repr__`. The PyO3 boundary uses UTF-32LE with `surrogatepass`; parsing and
 formatting remain Rust-owned. Asyncio and Trio TestClient lifespan task-group
 child lifecycle cases also pass on the Python package. The WebSocket state
-sequence covers ten cases, including four denial-response transitions;
+sequence covers twelve cases, including four denial-response transitions and
+connected invalid-send/invalid-receive cases;
 package-only convenience inputs
 check fresh-iterator `asend(non-None)` and invalid JSON modes. GZip adds direct
 package-profile `GZipResponder` checks for exclusion normalization and
@@ -73,18 +74,19 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 500 input mappings, 51
-reasoned `not_applicable` rows, and 251 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 510 input mappings, 51
+reasoned `not_applicable` rows, and 241 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `78cfd1d8-3445-4b56-870e-c1c22b85c3cd` measured all
-74 source/package workloads after correctness preflight
-`b35a96db-4512-4d0c-a981-b9f2b60b0cf4`. Median per-workload source/package
-latency ratios were 0.747 for Router and 0.977 for GZip; source latency was
-lower on five of six Router workloads and 58 of 68 GZip workloads. All 74
-source/package observation hashes matched. See
-[Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
-bounded results do not establish full compatibility.
+The latest correctness-gated Router/GZip benchmark is recorded in
+[Benchmark mapping](../BENCHMARKS.md). It measured all 74 source/package workloads on
+clean commit `ff4ee37a53eed8ed49909c186dfe37efddd36f17`: six Router and 68
+GZip, with zero failures and matching normalized observation hashes for all 74.
+Its preflight selected 995 comparisons (991 pass, zero failures, four declared
+Rust-native `not_run`). Median source/package latency ratios were 0.747 for
+Router and 0.967 for GZip. Rust-native remains `not_run` for these 74 benchmark
+workload boundaries. These workload-specific results do not establish full
+Starlette compatibility.
 
 At the source-mapping checkpoint, the parity manifest indexed 118 input-only cases
 across 18 files: 38 request/routing cases, 21 reverse-URL cases, four direct

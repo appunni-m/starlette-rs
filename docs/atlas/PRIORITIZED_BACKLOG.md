@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 774 input-only cases in 84 indexed files,
-covering 94 operations and 797 parity requirements. Recent additions include a StaticFiles directory served through a valid symlinked root with TestClient; a BaseHTTPMiddleware async background-task completion workflow; route-local HTTP exception responses observed through mounted middleware; a WebSocket double-close input that captures its exact error and one-close callback tape; custom `BaseUser` property overrides, `Request.user` type and `Request.auth.scopes` observations, and the documented login `next` query redirect; a Starlette multipart upload through `Request.form()` under the app body limit; direct UploadFile constructor/repr, rollover, and
+The active contract contains 777 input-only cases in 84 indexed files,
+covering 94 operations and 800 parity requirements. Recent additions include a StaticFiles directory served through a valid symlinked root with TestClient; a BaseHTTPMiddleware async background-task completion workflow; route-local HTTP exception responses observed through mounted middleware; WebSocket double-close and connected invalid-send/invalid-receive inputs with exact errors and state observations; custom `BaseUser` property overrides, `Request.user` type and `Request.auth.scopes` observations, and the documented login `next` query redirect; a Starlette multipart upload through `Request.form()` under the app body limit; direct UploadFile constructor/repr, rollover, and
 threadpool-boundary inputs; GZip final/streaming thread-threshold comparisons;
 the shared AnyIO thread-pool limiter; generic Request/WebSocket lifespan-state
 typing; routed authentication UI and protected HTTP routes; six protected WebSocket cases for plain and injected endpoint forms, and three documentation-derived BasicAuth cases for wrong-scheme, malformed base64, and non-ASCII credentials.
@@ -47,9 +47,9 @@ input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest integrated
 run for the active `parity-input@31` contract,
-`26b4b08a-a37a-4c65-ae0d-1cbb78fa3a1a`, passed 985 of 989 selected comparisons,
+`2453a17c-b052-4af8-b966-0c92f4d1fdf9`, passed 991 of 995 selected comparisons,
 with zero failures or infrastructure errors and four Rust-native Python-callable
-rows `not_run`. The Python package passed 772/772; Rust-native passed 213/217.
+rows `not_run`. The Python package passed 775/775; Rust-native passed 216/220.
 The four native `not_run` rows are
 synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make test` exits with status 2 for those
@@ -69,8 +69,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 507 input mappings,
-51 source-backed `not_applicable` rows, and 244 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 510 input mappings,
+51 source-backed `not_applicable` rows, and 241 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

@@ -32,8 +32,8 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 767 input-only cases in 84 indexed files,
-covering 94 operations and 790 requirements, including direct FormData
+The active parity contract contains 777 input-only cases in 84 indexed files,
+covering 94 operations and 800 requirements, including direct FormData
 constructor/equality inputs; direct UploadFile constructor/repr, spooled-file
 rollover, and threadpool-boundary inputs, and Python-package-only
 GZip final and streaming response inputs at the `thread_minimum_size` boundary, an input-defined shared
@@ -56,7 +56,8 @@ isolation workflow, one default middleware-boundary trace, sixteen Request.cooki
 parser and dictionary-boundary inputs, and the TestClient cookie-persistence
 round trip for `test_request_cookies`, including every active
 parameter from the edge-case and malformed-cookie source rows. New WebSocket
-inputs add four denial-response state transitions, a fresh-iterator
+inputs add four denial-response state transitions and exact connected invalid-
+send/invalid-receive errors, a fresh-iterator
 `asend(non-None)` error boundary, and invalid JSON-mode cases. Direct
 `GZipResponder` package inputs cover configured exclusion normalization and
 compression without negotiation. TestClient lifespan inputs also start and
@@ -92,8 +93,8 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The generated coverage matrix contains 802 source rows: 500 input mappings,
-51 source-backed `not_applicable` rows, and 251 fixture-backlog rows. These
+The generated coverage matrix contains 802 source rows: 510 input mappings,
+51 source-backed `not_applicable` rows, and 241 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.
