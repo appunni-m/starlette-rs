@@ -11,7 +11,6 @@ use pyo3::types::{PyDict, PyList, PyModule, PyString};
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(schemas_optional_yaml_module, module)?)?;
     module.add_function(wrap_pyfunction!(schemas_openapi_render, module)?)?;
-    module.add_function(wrap_pyfunction!(schemas_openapi_response_init, module)?)?;
     module.add_function(wrap_pyfunction!(schemas_base_get_schema, module)?)?;
     module.add_function(wrap_pyfunction!(schemas_generator_init, module)?)?;
     module.add_function(wrap_pyfunction!(schemas_get_endpoints, module)?)?;
@@ -54,29 +53,6 @@ fn schemas_openapi_render(
     rendered
         .call_method1("encode", ("utf-8",))
         .map(Bound::unbind)
-}
-
-#[pyfunction(name = "_schemas_openapi_response_init")]
-#[pyo3(signature = (yaml, content, status_code=200, headers=None, media_type=None))]
-fn schemas_openapi_response_init(
-    py: Python<'_>,
-    yaml: &Bound<'_, PyAny>,
-    content: &Bound<'_, PyAny>,
-    status_code: u16,
-    headers: Option<Py<PyAny>>,
-    media_type: Option<String>,
-) -> PyResult<Py<PyAny>> {
-    let body = schemas_openapi_render(py, yaml, content)?;
-    let media_type = media_type
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "application/vnd.oai.openapi".to_owned());
-    let response_type = py.import("starlette_rs_py._core")?.getattr("Response")?;
-    let kwargs = PyDict::new(py);
-    kwargs.set_item("content", body)?;
-    kwargs.set_item("status_code", status_code)?;
-    kwargs.set_item("headers", headers)?;
-    kwargs.set_item("media_type", media_type)?;
-    response_type.call((), Some(&kwargs)).map(Bound::unbind)
 }
 
 #[pyfunction(name = "_schemas_base_get_schema")]

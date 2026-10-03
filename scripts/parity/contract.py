@@ -421,6 +421,7 @@ SCHEMA_OPERATIONS = {
     ("starlette.schemas.SchemaGenerator", "schema-generation"),
     ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"),
     ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
+    ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"),
 }
 TEMPLATING_OPERATION = ("starlette.templating.Jinja2Templates", "template-response")
 TEMPLATING_REQUIREMENTS = {
@@ -13162,6 +13163,12 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 "docstrings",
             },
             ("starlette.schemas.OpenAPIResponse", "openapi-response-render"): {"content"},
+            ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"): {
+                "base_schema",
+                "routes",
+                "scope",
+                "incoming",
+            },
             TEMPLATING_OPERATION: {
                 "template_files",
                 "template_name",
@@ -19286,7 +19293,9 @@ def _validate_config_case(case: dict[str, Any]) -> None:
         raise ContractError("Environ mapping coverage must match its action sequence")
 
 
-def _validate_schema_route_input(route: Any, context: str) -> tuple[set[str], bool]:
+def _validate_schema_route_input(
+    route: Any, context: str, *, allow_schema_endpoint: bool = False
+) -> tuple[set[str], bool]:
     if not isinstance(route, dict) or not isinstance(route.get("kind"), str):
         raise ContractError(f"{context} must be a route object")
     kind = route["kind"]
@@ -19297,9 +19306,15 @@ def _validate_schema_route_input(route: Any, context: str) -> tuple[set[str], bo
         item = _exact(route, allowed, context)
         _string(item["path"], f"{context}.path")
         endpoint = item["endpoint"]
-        if not isinstance(endpoint, dict) or endpoint.get("kind") not in {"function", "class"}:
+        endpoint_kinds = {"function", "class"}
+        if allow_schema_endpoint and kind == "route":
+            endpoint_kinds.add("schema-response")
+        if not isinstance(endpoint, dict) or endpoint.get("kind") not in endpoint_kinds:
             raise ContractError(f"{context}.endpoint must describe a function or class")
-        if endpoint["kind"] == "function":
+        if endpoint["kind"] == "schema-response":
+            _exact(endpoint, {"kind"}, f"{context}.endpoint")
+            handler_count = 1
+        elif endpoint["kind"] == "function":
             endpoint = _exact(endpoint, {"kind", "docstring"}, f"{context}.endpoint")
             if endpoint["docstring"] is not None:
                 _string(endpoint["docstring"], f"{context}.endpoint.docstring")
@@ -19346,7 +19361,9 @@ def _validate_schema_route_input(route: Any, context: str) -> tuple[set[str], bo
         has_child = False
         for index, child in enumerate(nested_routes):
             child_selected, child_present = _validate_schema_route_input(
-                child, f"{context}.routes[{index}]"
+                child,
+                f"{context}.routes[{index}]",
+                allow_schema_endpoint=allow_schema_endpoint,
             )
             selected |= child_selected
             has_child |= child_present
@@ -19524,6 +19541,144 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
                 "starlette.schemas.BaseSchemaGenerator.parse_docstring.non-mapping-filter",
             }:
                 raise ContractError("docstring parsing coverage must match its input examples")
+        return
+
+    if operation == ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"):
+        observations = [
+            "response-status",
+            "content-type",
+            "ordered-repeated-headers",
+            "response-bytes",
+            "asgi-event-order",
+            "asgi-events",
+        ]
+        if case["observations"] != observations:
+            raise ContractError("schema endpoint must select its HTTP response and ASGI events")
+        if not isinstance(case["base_schema"], dict) or not isinstance(case["routes"], list):
+            raise ContractError("schema endpoint base_schema and routes must be records and arrays")
+        scope = _exact(
+            case["scope"],
+            {
+                "type",
+                "asgi",
+                "http_version",
+                "method",
+                "scheme",
+                "path",
+                "raw_path_base64",
+                "query_string_base64",
+                "root_path",
+                "headers_base64_pairs",
+                "client",
+                "server",
+            },
+            "OpenAPIResponse schema endpoint HTTP scope",
+        )
+        if (
+            scope["type"] != "http"
+            or scope["asgi"] != {"version": "3.0", "spec_version": "2.4"}
+            or scope["method"] != "GET"
+            or scope["scheme"] != "http"
+        ):
+            raise ContractError("schema endpoint must use an ASGI 3.0 HTTP GET scope")
+        for key in ("http_version", "path"):
+            _string(scope[key], f"schema endpoint scope.{key}")
+        if not isinstance(scope["root_path"], str):
+            raise ContractError("schema endpoint scope.root_path must be a string")
+        try:
+            expected_raw_path = base64.b64encode(scope["path"].encode("ascii")).decode("ascii")
+        except UnicodeEncodeError as exc:
+            raise ContractError("schema endpoint scope.path must be ASCII") from exc
+        if scope["raw_path_base64"] != expected_raw_path:
+            raise ContractError("schema endpoint raw_path must match its input path")
+        for key in ("raw_path_base64", "query_string_base64"):
+            if not isinstance(scope[key], str):
+                raise ContractError(f"schema endpoint scope.{key} must be base64 text")
+            try:
+                base64.b64decode(scope[key], validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ContractError(f"schema endpoint scope.{key} is invalid base64") from exc
+        headers = scope["headers_base64_pairs"]
+        if not isinstance(headers, list):
+            raise ContractError("schema endpoint scope headers must be an array")
+        for index, pair in enumerate(headers):
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError(f"schema endpoint scope header[{index}] must be a pair")
+            for value in pair:
+                if not isinstance(value, str):
+                    raise ContractError(
+                        f"schema endpoint scope header[{index}] values must be base64 text"
+                    )
+                try:
+                    base64.b64decode(value, validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(
+                        f"schema endpoint scope header[{index}] is invalid base64"
+                    ) from exc
+        for key in ("client", "server"):
+            address = scope[key]
+            if (
+                not isinstance(address, list)
+                or len(address) != 2
+                or not isinstance(address[0], str)
+                or not isinstance(address[1], int)
+                or isinstance(address[1], bool)
+            ):
+                raise ContractError(f"schema endpoint scope.{key} must be a host/port pair")
+
+        incoming = case["incoming"]
+        if not isinstance(incoming, list) or len(incoming) != 1:
+            raise ContractError("schema endpoint must provide one complete HTTP request message")
+        request_message = _exact(
+            incoming[0],
+            {"type", "body_base64", "more_body"},
+            "schema endpoint request message",
+        )
+        if request_message["type"] != "http.request" or request_message["more_body"] is not False:
+            raise ContractError("schema endpoint request must be a terminal http.request message")
+        if not isinstance(request_message["body_base64"], str):
+            raise ContractError("schema endpoint request body must be base64 text")
+        try:
+            request_body = base64.b64decode(request_message["body_base64"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError("schema endpoint request body must be base64") from exc
+        if request_body:
+            raise ContractError("schema endpoint request body must be empty")
+
+        if not case["routes"]:
+            raise ContractError("schema endpoint requires the pinned application route graph")
+        selected: set[str] = set()
+        schema_routes = []
+        for index, route in enumerate(case["routes"]):
+            route_selected, _ = _validate_schema_route_input(
+                route,
+                f"OpenAPIResponse schema endpoint routes[{index}]",
+                allow_schema_endpoint=True,
+            )
+            selected |= route_selected
+            if (
+                isinstance(route, dict)
+                and route.get("kind") == "route"
+                and isinstance(route.get("endpoint"), dict)
+                and route["endpoint"].get("kind") == "schema-response"
+            ):
+                schema_routes.append(route)
+        if (
+            len(schema_routes) != 1
+            or schema_routes[0].get("methods") != ["GET"]
+            or schema_routes[0].get("include_in_schema") is not False
+            or schema_routes[0].get("path") != scope["path"]
+        ):
+            raise ContractError(
+                "schema endpoint must be one hidden GET route selected by its HTTP scope"
+            )
+        if not selected:
+            raise ContractError("schema endpoint route graph must contain HTTP routes")
+        if set(case["covers"]) != {
+            "starlette.schemas.SchemaGenerator.OpenAPIResponse.endpoint-generation",
+            "starlette.schemas.OpenAPIResponse.asgi-response-call",
+        }:
+            raise ContractError("schema endpoint coverage must match generation and ASGI response")
         return
 
     if operation != ("starlette.schemas.OpenAPIResponse", "openapi-response-render"):

@@ -128,6 +128,7 @@ SCHEMA_OPERATIONS = {
     ("starlette.schemas.SchemaGenerator", "schema-generation"),
     ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"),
     ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
+    ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"),
 }
 URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
 URL_SCOPE_OPERATION = ("starlette.datastructures.URL", "scope-construction")
@@ -11609,9 +11610,15 @@ def _schema_function(docstring: str | None, name: str = "endpoint") -> Any:
     return endpoint
 
 
-def _schema_endpoint(spec: dict[str, Any]) -> Any:
+def _schema_endpoint(spec: dict[str, Any], schema_generator: Any = None) -> Any:
     if spec["kind"] == "function":
         return _schema_function(spec["docstring"])
+    if spec["kind"] == "schema-response":
+
+        def endpoint(request: Any) -> Any:
+            return schema_generator.OpenAPIResponse(request=request)
+
+        return endpoint
     methods = {
         name: _schema_function(docstring, name) for name, docstring in spec["handlers"].items()
     }
@@ -11619,7 +11626,7 @@ def _schema_endpoint(spec: dict[str, Any]) -> Any:
     return type("SchemaEndpoint", (), methods)
 
 
-def _schema_routes(specs: list[dict[str, Any]]) -> list[Any]:
+def _schema_routes(specs: list[dict[str, Any]], schema_generator: Any = None) -> list[Any]:
     from starlette.routing import Host, Mount, Route, Router, WebSocketRoute
 
     routes = []
@@ -11631,13 +11638,29 @@ def _schema_routes(specs: list[dict[str, Any]]) -> list[Any]:
                 kwargs["methods"] = spec["methods"]
             if "include_in_schema" in spec:
                 kwargs["include_in_schema"] = spec["include_in_schema"]
-            routes.append(Route(spec["path"], _schema_endpoint(spec["endpoint"]), **kwargs))
+            routes.append(
+                Route(
+                    spec["path"],
+                    _schema_endpoint(spec["endpoint"], schema_generator),
+                    **kwargs,
+                )
+            )
         elif kind == "websocket-route":
             routes.append(WebSocketRoute(spec["path"], _schema_endpoint(spec["endpoint"])))
         elif kind == "mount":
-            routes.append(Mount(spec["path"], routes=_schema_routes(spec["routes"])))
+            routes.append(
+                Mount(
+                    spec["path"],
+                    routes=_schema_routes(spec["routes"], schema_generator),
+                )
+            )
         else:
-            routes.append(Host(spec["host"], Router(routes=_schema_routes(spec["routes"]))))
+            routes.append(
+                Host(
+                    spec["host"],
+                    Router(routes=_schema_routes(spec["routes"], schema_generator)),
+                )
+            )
     return routes
 
 
@@ -11838,7 +11861,60 @@ def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
             else:
                 parsed_docstrings.append({"outcome": "value", "value": _json_safe(parsed)})
         value = {"parsed-docstrings": parsed_docstrings, "exception": first_error}
-    else:
+    elif surface_operation == ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"):
+        from starlette.applications import Starlette
+        from starlette.schemas import SchemaGenerator
+
+        generator = SchemaGenerator(case["base_schema"])
+        application = Starlette(routes=_schema_routes(case["routes"], schema_generator=generator))
+        scope = _make_scope(case["scope"])
+        incoming = iter(_message(message) for message in case["incoming"])
+        sent: list[dict[str, Any]] = []
+
+        async def receive() -> dict[str, Any]:
+            try:
+                return next(incoming)
+            except StopIteration:
+                return {"type": "http.disconnect"}
+
+        async def send(message: dict[str, Any]) -> None:
+            sent.append(message)
+
+        async def dispatch() -> None:
+            await application(scope, receive, send)
+
+        asyncio.run(dispatch())
+        events = [_canonical_message(message) for message in sent]
+        response_start = next(
+            (message for message in sent if message["type"] == "http.response.start"),
+            None,
+        )
+        response_start_event = next(
+            (event for event in events if event["type"] == "http.response.start"),
+            None,
+        )
+        response_body = b"".join(
+            message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+        )
+        content_types = [
+            value.decode("latin-1")
+            for name, value in (response_start or {}).get("headers", [])
+            if name.lower() == b"content-type"
+        ]
+        value = {
+            "response-status": (response_start or {}).get("status"),
+            "content-type": content_types[0] if content_types else None,
+            "ordered-repeated-headers": (
+                response_start_event["headers"] if response_start_event is not None else []
+            ),
+            "response-bytes": {
+                "encoding": "base64",
+                "data": base64.b64encode(response_body).decode("ascii"),
+            },
+            "asgi-event-order": [event["type"] for event in events],
+            "asgi-events": events,
+        }
+    elif surface_operation == ("starlette.schemas.OpenAPIResponse", "openapi-response-render"):
         from starlette.requests import Request
         from starlette.schemas import OpenAPIResponse, SchemaGenerator
 

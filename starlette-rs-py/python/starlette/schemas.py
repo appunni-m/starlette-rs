@@ -28,10 +28,7 @@ class OpenAPIResponse(Response):
         media_type: str | None = None,
         background: Any = None,
     ) -> None:
-        self._inner = _core._schemas_openapi_response_init(
-            yaml, content, status_code, headers, media_type
-        )
-        self.background = background
+        super().__init__(content, status_code, headers, media_type, background)
 
     def render(self, content: Any) -> bytes:
         return _core._schemas_openapi_render(yaml, content)

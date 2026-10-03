@@ -17,12 +17,13 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 866 input-only cases across 88 files,
-covering 100 operations and 859 unique parity requirements. Recent parity inputs
+The active parity manifest indexes 867 input-only cases across 88 files,
+covering 101 operations and 861 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
-14-byte length. A schema-generation input now maps the pinned test's route graph,
-including missing docstrings and mounted/hosted routes. The active fixtures also
+14-byte length. Schema inputs map the pinned route graph, including missing
+docstrings and mounted/hosted routes, and exercise its hidden `/schema` endpoint
+through the installed ASGI application. The active fixtures also
 map 11 routed protected-HTTP
 authentication behaviors and six protected-WebSocket authentication behaviors
 from the pinned auth tests. Four new TestClient cases
@@ -152,8 +153,8 @@ Rust-native remains `not_run` for these benchmark ASGI boundaries. These
 workload-specific results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 607 input mappings, 51
-reasoned `not_applicable` rows, and 144 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 609 input mappings, 51
+reasoned `not_applicable` rows, and 142 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -327,10 +328,13 @@ re-entry behavior, close-message errors, and explicit close reasons remain in
 the fixture backlog.
 `asgi-core.app.test_app_debug` is mapped to the TestClient input that mutates
 debug after construction; direct debug-enabled construction remains a separate
-documentation backlog item. The parity artifact status for the latest run is
-`completed`; the four
-explicitly unsupported Rust-native callable rows kept its all-target gate
-incomplete. The current Router/GZip source/package benchmark lane is
+documentation backlog item. Parity run
+`9680559c-cd61-46e8-beb8-f4a7c26a814f` completed 1097 of 1101 selected
+comparisons with zero failures and zero infrastructure errors. The Python
+package passed 865/865 comparisons, including the new schema endpoint response
+and ASGI trace; Rust-native passed 232/236, with four unsupported callable rows
+marked `not_run`. This slice does not prove full Starlette replacement parity.
+The current Router/GZip source/package benchmark lane is
 `completed` for all 74 declared workloads, but does not establish full
 Starlette replacement parity; Rust-native remains outside those benchmark
 boundaries. Ignored local results live in

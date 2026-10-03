@@ -276,6 +276,193 @@
         }
       ],
       "observations": ["endpoints", "schema"]
+    },
+    {
+      "case_id": "starlette.schemas.OpenAPIResponse.schema-endpoint-asgi-call.pinned-test-schema-endpoint",
+      "surface": "starlette.schemas.OpenAPIResponse",
+      "operation": "schema-endpoint-asgi-call",
+      "covers": [
+        "starlette.schemas.SchemaGenerator.OpenAPIResponse.endpoint-generation",
+        "starlette.schemas.OpenAPIResponse.asgi-response-call"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "base_schema": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Example API",
+          "version": "1.0"
+        }
+      },
+      "routes": [
+        {
+          "kind": "websocket-route",
+          "path": "/ws",
+          "endpoint": {
+            "kind": "function",
+            "docstring": "ws"
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/users/{id:int}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "\n    responses:\n        200:\n            description: A user.\n            examples:\n                {\"username\": \"tom\"}\n    "
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/users",
+          "methods": [
+            "GET",
+            "HEAD"
+          ],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "\n    responses:\n      200:\n        description: A list of users.\n        examples:\n          [{\"username\": \"tom\"}, {\"username\": \"lucy\"}]\n    "
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/users",
+          "methods": [
+            "POST"
+          ],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "\n    responses:\n      200:\n        description: A user.\n        examples:\n          {\"username\": \"tom\"}\n    "
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/orgs",
+          "endpoint": {
+            "kind": "class",
+            "handlers": {
+              "get": "\n        responses:\n          200:\n            description: A list of organisations.\n            examples:\n              [{\"name\": \"Foo Corp.\"}, {\"name\": \"Acme Ltd.\"}]\n        ",
+              "post": "\n        responses:\n          200:\n            description: An organisation.\n            examples:\n              {\"name\": \"Foo Corp.\"}\n        "
+            }
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/regular-docstring-and-schema",
+          "endpoint": {
+            "kind": "function",
+            "docstring": "\n    This a regular docstring example (not included in schema)\n\n    ---\n\n    responses:\n      200:\n        description: This is included in the schema.\n    "
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/regular-docstring",
+          "endpoint": {
+            "kind": "function",
+            "docstring": "\n    This a regular docstring example (not included in schema)\n    "
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/no-docstring",
+          "endpoint": {
+            "kind": "function",
+            "docstring": null
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/schema",
+          "methods": [
+            "GET"
+          ],
+          "include_in_schema": false,
+          "endpoint": {
+            "kind": "schema-response"
+          }
+        },
+        {
+          "kind": "mount",
+          "path": "/subapp",
+          "routes": [
+            {
+              "kind": "route",
+              "path": "/subapp-endpoint",
+              "endpoint": {
+                "kind": "function",
+                "docstring": "\n    responses:\n      200:\n        description: This endpoint is part of a subapp.\n    "
+              }
+            }
+          ]
+        },
+        {
+          "kind": "host",
+          "host": "sub.domain.com",
+          "routes": [
+            {
+              "kind": "mount",
+              "path": "/subapp2",
+              "routes": [
+                {
+                  "kind": "route",
+                  "path": "/subapp-endpoint",
+                  "endpoint": {
+                    "kind": "function",
+                    "docstring": "\n    responses:\n      200:\n        description: This endpoint is part of a subapp.\n    "
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/schema",
+        "raw_path_base64": "L3NjaGVtYQ==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [
+        {
+          "type": "http.request",
+          "body_base64": "",
+          "more_body": false
+        }
+      ],
+      "observations": [
+        "response-status",
+        "content-type",
+        "ordered-repeated-headers",
+        "response-bytes",
+        "asgi-event-order",
+        "asgi-events"
+      ]
     }
   ]
 }

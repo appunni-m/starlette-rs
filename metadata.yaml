@@ -608,6 +608,10 @@
         {
           "operation_id": "openapi-response-render",
           "source_path": "starlette.schemas.OpenAPIResponse.render and BaseSchemaGenerator.OpenAPIResponse"
+        },
+        {
+          "operation_id": "schema-endpoint-asgi-call",
+          "source_path": "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse and OpenAPIResponse ASGI response call"
         }
       ]
     },
