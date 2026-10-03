@@ -110,9 +110,10 @@ The 13 corresponding upstream test rows are now mapped in the atlas; their
 existing `uncertain` API dispositions remain unchanged.
 
 The latest recorded correctness preflight is
-`d13c876a-5ce2-4064-b96c-65e50ebdedb1`. It ran from
-`2026-10-03T17:19:06.780Z` to `2026-10-03T17:22:45.688Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 861-case,
+`95739107-bfd0-4fe2-82aa-0c7fabde9320`. It ran from
+`2026-10-03T17:32:16.048Z` to `2026-10-03T17:36:04.739Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` on clean Starlette-RS
+commit `88516b62156469e610d22ed1ed988778af7a60dc` and the active 861-case,
 854-requirement `parity-input@31` manifest. It selected 1,095 profile
 comparisons: 1,091 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
@@ -125,7 +126,7 @@ remains `not_proven` because the compatibility denominator is incomplete.
 For this preflight, the manifest SHA-256 is
 `a536c5aa6c9c41266cc9fbde860ba8be60b7fda947fc35ace8f4ea622a4bfb2b`, and the
 correctness-result artifact SHA-256 is
-`3f94065fd90cc44bdb3d8279e2bc5f4f9125f842876cfa3cbbdbe050fc0197e8`.
+`df5f34a2d609f8cf57d1a24cc7350eb3a48d29875075d653138d913a4bd78af3`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
