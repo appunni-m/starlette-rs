@@ -19381,7 +19381,7 @@
             {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.head-file",
               "dimension": "parameter_combination",
-              "description": "Serve an input-defined file with HEAD and compare headers and the empty body event. Upstream: tests/test_staticfiles.py::test_staticfiles_head.",
+              "description": "Serve the input-defined <file content> asset with HEAD and compare response headers and the empty body event. Upstream: tests/test_staticfiles.py::test_staticfiles_never_read_file_for_head_method.",
               "lanes": [
                 "parity"
               ],
