@@ -22544,6 +22544,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.static-files-unhandled-os-error",
+              "dimension": "error_path",
+              "description": "When the mounted StaticFiles.lookup_path callback raises the input-defined TimeoutError, preserve the error through the Python/Rust lookup boundary and compare ServerErrorMiddleware's 500 response through TestClient. Upstream: tests/test_staticfiles.py::test_staticfiles_unhandled_os_error_returns_500; starlette/staticfiles.py:107-129; starlette/middleware/errors.py:150-188; starlette/testclient.py:348-367.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.starlette-mount-method-registration",
               "dimension": "boundary",
               "description": "Register a named StaticFiles child through Starlette.mount, observe the application.routes entry and mounted child path/root_path for each request, then compare GET and method-not-allowed POST response events. Upstream: starlette/applications.py:98-100; starlette/routing.py:363-425; tests/test_applications.py::test_app_mount.",

@@ -363,6 +363,41 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await static_files(scope, receive, observed_send)
 
+    elif app_input["kind"] == "static-files-lookup-error":
+        from starlette.applications import Starlette
+        from starlette.routing import Mount
+        from starlette.staticfiles import StaticFiles
+
+        temporary_filesystem = tempfile.TemporaryDirectory(
+            prefix="starlette-static-lookup-error-parity-"
+        )
+        directory = Path(temporary_filesystem.name).joinpath(*app_input["directory"].split("/"))
+        directory.mkdir(parents=True)
+        for file_input in app_input["files"]:
+            path = directory.joinpath(*file_input["path"].split("/"))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(base64.b64decode(file_input["contents_base64"]))
+            mtime_seconds = file_input["mtime_seconds"]
+            os.utime(path, (mtime_seconds, mtime_seconds))
+
+        exception_type = getattr(builtins, app_input["lookup_error"]["class"])
+
+        class FailingStaticFiles(StaticFiles):
+            def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
+                raise exception_type()
+
+        static_files = FailingStaticFiles(directory=str(directory))
+        starlette_application = Starlette(routes=[Mount("/", app=static_files, name="static")])
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await starlette_application(scope, receive, observed_send)
+
     elif app_input["kind"] in {
         "starlette-app-static-mount",
         "starlette-app-static-mount-method",

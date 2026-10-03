@@ -203,6 +203,7 @@ TESTCLIENT_REQUIREMENTS = {
     "cookie_round_trip": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.cookie-persistence-round-trip",
     "mounted_static_files": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-static-files",
     "static_files_root_symlink": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.static-files-root-symlink-follow",
+    "static_files_unhandled_os_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.static-files-unhandled-os-error",
     "starlette_mount_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-mount-method-registration",
     "mounted_router_urls": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-router-url-sequence",
     "root_path_route_graph": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-route-graph",
@@ -10086,6 +10087,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     is_raw_asgi_error = app_kind == "raw-asgi-error"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
     is_static_files_root_symlink = app_kind == "static-files-root-symlink"
+    is_static_files_lookup_error = app_kind == "static-files-lookup-error"
     is_starlette_app_static_mount_method = app_kind == "starlette-app-static-mount-method"
     is_starlette_app_static_mount = app_kind in {
         "starlette-app-static-mount",
@@ -10293,6 +10295,54 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         ):
             raise ContractError(
                 "TestClient StaticFiles root-symlink input must GET the input-defined /index.html file"
+            )
+        exception_spec = None
+        messages = []
+    elif is_static_files_lookup_error:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "directory", "files", "lookup_error", "scope_fields"},
+            "TestClient StaticFiles lookup-error app",
+        )
+        directory = _string(asgi_app["directory"], "TestClient StaticFiles directory")
+        _static_files_relative_components(
+            directory,
+            "TestClient StaticFiles directory",
+            allow_parent=False,
+        )
+        static_files = asgi_app["files"]
+        if not isinstance(static_files, list) or not static_files:
+            raise ContractError("TestClient StaticFiles lookup-error files must be non-empty")
+        file_paths: set[str] = set()
+        for index, file_input in enumerate(static_files):
+            file_path, _ = _validate_static_asset_file(
+                file_input, f"TestClient StaticFiles lookup-error files[{index}]"
+            )
+            if file_path in file_paths:
+                raise ContractError("TestClient StaticFiles lookup-error paths must be unique")
+            file_paths.add(file_path)
+        lookup_error = _exact(
+            asgi_app["lookup_error"],
+            {"class"},
+            "TestClient StaticFiles lookup error",
+        )
+        if lookup_error["class"] != "TimeoutError":
+            raise ContractError(
+                "TestClient StaticFiles lookup error must match the pinned TimeoutError stimulus"
+            )
+        if (
+            request["method"] != "GET"
+            or request.get("client_method") != "get"
+            or file_paths != {urlsplit(request["url"]).path.removeprefix("/")}
+            or not urlsplit(request["url"]).path.startswith("/")
+            or urlsplit(request["url"]).path.count("/") != 1
+            or followup_requests
+            or request["headers_base64_pairs"]
+            or base64.b64decode(request["body_base64"])
+            or settings["raise_server_exceptions"] is not False
+        ):
+            raise ContractError(
+                "TestClient StaticFiles lookup-error input must GET its single asset with captured server errors"
             )
         exception_spec = None
         messages = []
@@ -10915,6 +10965,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     if is_static_files_root_symlink:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["static_files_root_symlink"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_static_files_lookup_error:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["static_files_unhandled_os_error"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
     if is_starlette_app_static_mount:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_static_files"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])

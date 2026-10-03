@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 882 input-only cases in 88 indexed files,
-covering 101 operations and 862 parity requirements. Recent additions include a StaticFiles directory served through a valid symlinked root with TestClient; BaseHTTPMiddleware async background-task completion and failure-propagation workflows; route-local HTTP exception responses observed through mounted middleware; WebSocket double-close, connected invalid-send/invalid-receive, and send-callback `OSError` inputs with exact errors and state observations; custom `BaseUser` property overrides, `Request.user` type and `Request.auth.scopes` observations, and the documented login `next` query redirect; a Starlette multipart upload through `Request.form()` under the app body limit; direct UploadFile constructor/repr, rollover, and
+The active contract contains 883 input-only cases in 88 indexed files,
+covering 101 operations and 863 parity requirements. Recent additions include a StaticFiles directory served through a valid symlinked root with TestClient; BaseHTTPMiddleware async background-task completion and failure-propagation workflows; route-local HTTP exception responses observed through mounted middleware; WebSocket double-close, connected invalid-send/invalid-receive, and send-callback `OSError` inputs with exact errors and state observations; custom `BaseUser` property overrides, `Request.user` type and `Request.auth.scopes` observations, and the documented login `next` query redirect; a Starlette multipart upload through `Request.form()` under the app body limit; direct UploadFile constructor/repr, rollover, and
 threadpool-boundary inputs; GZip final/streaming thread-threshold comparisons;
 the shared AnyIO thread-pool limiter; generic Request/WebSocket lifespan-state
 typing; routed authentication UI and protected HTTP routes; six protected WebSocket cases for plain and injected endpoint forms, and three documentation-derived BasicAuth cases for wrong-scheme, malformed base64, and non-ASCII credentials.
@@ -62,8 +62,9 @@ readiness.
 
 The six protected-WebSocket authentication cases map the upstream
 `test_websocket_authentication_required` row across plain and injection-wrapped
-endpoints. The full replacement remains active and incomplete; these slice
-results do not establish full Starlette parity.
+endpoints. The StaticFiles lookup TimeoutError path now maps the upstream 500
+response case through TestClient. The full replacement remains active and
+incomplete; these slice results do not establish full Starlette parity.
 
 The endpoint-callable-shapes backlog item is mapped in the generated coverage
 matrix. The package-only input slice covers async functions, bound methods,
@@ -72,8 +73,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 614 input mappings,
-51 source-backed `not_applicable` rows, and 137 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 615 input mappings,
+51 source-backed `not_applicable` rows, and 136 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 882 input-only cases across 88 files,
-covering 101 operations and 862 unique parity requirements. Recent parity inputs
+The active parity manifest indexes 883 input-only cases across 88 files,
+covering 101 operations and 863 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -101,7 +101,7 @@ SessionMiddleware, and BaseHTTPMiddleware workflows), configuration,
 schemas, one bounded Python-package Jinja2 template workflow, direct
 `GZipResponder` construction and compression inputs, and invalid WebSocket
 JSON-mode inputs. The latest batch adds a StaticFiles directory served through
-a valid symlinked root using TestClient, as well as middleware-configured Mount URL lookup,
+a valid symlinked root using TestClient, an unhandled StaticFiles lookup TimeoutError captured as a TestClient 500, and middleware-configured Mount URL lookup,
 handled HTTP exception responses observed through mounted middleware, ordered
 StaticFiles Last-Modified requests, TestClient startup-error propagation, and
 FileResponse errors for directory and missing-file paths. The exact operation
@@ -169,8 +169,8 @@ latency ratios were 0.751 for Router and 0.977 for GZip. These workload-specific
 results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 614 input mappings, 51
-reasoned `not_applicable` rows, and 137 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 615 input mappings, 51
+reasoned `not_applicable` rows, and 136 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

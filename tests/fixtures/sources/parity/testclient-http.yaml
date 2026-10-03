@@ -1112,6 +1112,60 @@
       }
     },
     {
+      "case_id": "starlette.testclient.TestClient.request-response.static-files-unhandled-os-error",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.static-files-unhandled-os-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/example.txt",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "static-files-lookup-error",
+        "directory": "public",
+        "files": [
+          {
+            "path": "example.txt",
+            "contents_base64": "PGZpbGUgY29udGVudD4=",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "lookup_error": {
+          "class": "TimeoutError"
+        },
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path"
+        ]
+      }
+    },
+    {
       "case_id": "starlette.testclient.TestClient.request-response.router-mounted-url-sequence",
       "surface": "starlette.testclient.TestClient",
       "operation": "request-response",
