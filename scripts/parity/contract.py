@@ -20335,9 +20335,14 @@ def _validate_value_formatting_case(case: dict[str, Any]) -> None:
                 except ValueError:
                     if arguments["detail"] is None:
                         exercised.add("starlette.exception-values.http-invalid-status")
+                    else:
+                        exercised.add("starlette.exception-values.http-str")
+                        exercised.add("starlette.exception-values.http-repr")
                 else:
                     if arguments["detail"] is None:
                         exercised.add("starlette.exception-values.http-default-detail")
+                    exercised.add("starlette.exception-values.http-str")
+                    exercised.add("starlette.exception-values.http-repr")
                 allowed_fields = {"status_code", "detail", "headers"}
                 if subclass_name is not None and mutations:
                     exercised.add("starlette.exception-values.http-subclass-mutable-fields")
@@ -20348,6 +20353,8 @@ def _validate_value_formatting_case(case: dict[str, Any]) -> None:
                     raise ContractError(f"{context}.code must be an integer")
                 if not arguments["reason"]:
                     exercised.add("starlette.exception-values.websocket-reason-default")
+                exercised.add("starlette.exception-values.websocket-str")
+                exercised.add("starlette.exception-values.websocket-repr")
                 allowed_fields = {"code", "reason"}
                 if subclass_name is not None and mutations:
                     exercised.add("starlette.exception-values.websocket-subclass-mutable-fields")

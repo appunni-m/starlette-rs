@@ -7194,6 +7194,20 @@
               ]
             },
             {
+              "id": "starlette.exception-values.http-str",
+              "dimension": "parameter_combination",
+              "description": "Match the pinned test_http_str inputs for status-derived and supplied HTTP details, including a supplied headers mapping; observe the live public string and representation. Upstream: tests/test_exceptions.py::test_http_str; starlette/exceptions.py:7-16.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.exception-values.http-repr",
+              "dimension": "parameter_combination",
+              "description": "Match the pinned test_http_repr inputs for base and subclass HTTPException values with default and supplied details; observe dynamic-class public representations. Upstream: tests/test_exceptions.py::test_http_repr; starlette/exceptions.py:18-20.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
               "id": "starlette.exception-values.http-invalid-status",
               "dimension": "error_path",
               "description": "Construct HTTPException with an unsupported status and default detail; preserve the CPython HTTPStatus ValueError class and message. Upstream: starlette/exceptions.py:7-10.",
@@ -7225,6 +7239,20 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.exception-values.websocket-str",
+              "dimension": "parameter_combination",
+              "description": "Match the pinned test_websocket_str inputs for an omitted reason and the supplied Policy Violation reason; observe the live public string and representation. Upstream: tests/test_exceptions.py::test_websocket_str; starlette/exceptions.py:23-29.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.exception-values.websocket-repr",
+              "dimension": "parameter_combination",
+              "description": "Match the pinned test_websocket_repr inputs for base and subclass WebSocketException values with supplied reasons; observe dynamic-class public representations. Upstream: tests/test_exceptions.py::test_websocket_repr; starlette/exceptions.py:31-33.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
             },
             {
               "id": "starlette.exception-values.websocket-subclass-mutable-fields",
