@@ -590,6 +590,13 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await response(scope, receive, observed_send)
 
+    elif app_input["kind"] == "raw-asgi-error":
+
+        async def app(scope: dict[str, Any], _receive: Any, _send: Any) -> None:
+            record_scope(scope)
+            exception_type = getattr(builtins, app_input["exception"]["class"])
+            raise exception_type(app_input["exception"]["message"])
+
     elif app_input["kind"] == "asgi2":
 
         def app(scope: dict[str, Any]) -> Any:

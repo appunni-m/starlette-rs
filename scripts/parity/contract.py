@@ -9817,6 +9817,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     is_starlette_url_for_route_graph = app_kind == "starlette-url-for-route-graph"
     is_starlette_app_debug = app_kind == "starlette-app-debug"
     is_server_error_middleware = app_kind == "server-error-middleware"
+    is_raw_asgi_error = app_kind == "raw-asgi-error"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
     is_static_files_root_symlink = app_kind == "static-files-root-symlink"
     is_starlette_app_static_mount_method = app_kind == "starlette-app-static-mount-method"
@@ -10544,6 +10545,29 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             )
         exception_spec = None
         messages = []
+    elif is_raw_asgi_error:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "exception", "scope_fields"},
+            "TestClient raw ASGI error app",
+        )
+        if (
+            settings["raise_server_exceptions"] is not False
+            or settings["base_url"] != "http://testserver"
+            or settings["root_path"]
+            or settings["headers"]
+            or request["method"] != "GET"
+            or request.get("client_method") != "get"
+            or request["url"] != "/"
+            or request["headers_base64_pairs"]
+            or base64.b64decode(request["body_base64"])
+            or followup_requests
+        ):
+            raise ContractError(
+                "TestClient raw ASGI error input must match the pinned empty GET with server exceptions suppressed"
+            )
+        exception_spec = asgi_app["exception"]
+        messages = []
     else:
         asgi_app_keys = {"kind", "scope_fields", "receive_count", "messages"}
         if isinstance(raw_asgi_app, dict) and "exception" in raw_asgi_app:
@@ -10695,9 +10719,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "TestClient ASGI app exception.class must name a built-in Exception"
             )
-        if is_starlette_app_debug:
+        if is_starlette_app_debug or is_raw_asgi_error:
             if not isinstance(exception_spec["message"], str):
-                raise ContractError("TestClient Starlette app exception.message must be a string")
+                raise ContractError("TestClient app exception.message must be a string")
         else:
             _string(exception_spec["message"], "TestClient ASGI app exception.message")
         expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
