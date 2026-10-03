@@ -91,9 +91,9 @@ StaticFiles Last-Modified requests, and TestClient startup-error propagation. Th
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice correctness run is
-`a779145f-bb41-457d-9465-8b0084c760bf`. It ran from
-`2026-10-03T01:33:19.977Z` to `2026-10-03T01:36:32.436Z` against Starlette
+The latest full-slice correctness preflight is
+`4e4f0992-fca1-4c3d-83bd-b2aa78652a84`. It ran from
+`2026-10-03T01:39:57.913Z` to `2026-10-03T01:43:14.719Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 760-case,
 790-requirement `parity-input@29` manifest. It selected 975 profile
 comparisons: 971 passed, zero failed, zero infrastructure errors, and four
@@ -107,17 +107,17 @@ and callable-instance ASGI dispatch. `make parity-run` exits 2 because of those
 declared rows; the run completed with no parity failures or infrastructure
 errors.
 
-The Rust-native target used commit `0b4b56b8faffbd4a37dcd11ccabafc87610bf24f`
+The Rust-native target used commit `467fe9efa1a74ec3ec4b4c3cc2e49d5273545197`
 with source fingerprint
-`0b4b56b8faffbd4a37dcd11ccabafc87610bf24f+source-fnv1a64-f63b3847c266153e`.
+`467fe9efa1a74ec3ec4b4c3cc2e49d5273545197+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
 `09220a2a13300e19883081c550827da11691427570f989214ac79f5a6970b4bd`; its
 wheel SHA-256 is
-`4c026661ac0124ed48d17be6b9890f2d8a0e35880a7f9fd151d091de2e0d0398`. The
+`48c2416d8030fc0f4eac90da84f616826d7950caa95d5058084edc3fc2b1b1fc`. The
 manifest SHA-256 is
 `a92f76ac2006b2734d778ce4ec4956c4d91da7fdfed5786bfe2d8122788d26d3`; the
 parity result artifact SHA-256 is
-`f12f375a480022ca6003d9a89302a3fbb2f990a574a3ed323bf58c991632c3a6`. Strict
+`412196fc68e8aed6e9827afc961d054cc66ccbd26dd8d71726bb1db5b95a0b9a`. Strict
 aggregation remains `not_proven` because the full compatibility denominator
 is incomplete and four Rust-native rows are `not_run`.
 
