@@ -57,6 +57,21 @@ WEBSOCKET_CLOSE_SURFACE = "starlette.websockets.WebSocketClose"
 WEBSOCKET_CLOSE_OPERATION = "call-sequence"
 WEBSOCKET_ROUTE_SURFACE = "starlette.routing.WebSocketRoute"
 WEBSOCKET_ROUTE_OPERATION = "route-dispatch"
+HTTP_ROUTE_SURFACE = "starlette.routing.Route"
+HTTP_ROUTE_CALL_OPERATION = "__call__"
+HTTP_ROUTE_CALL_CASE_KEYS = {
+    "case_id",
+    "surface",
+    "operation",
+    "covers",
+    "target_profiles",
+    "assets",
+    "route",
+    "scope",
+    "incoming",
+    "send",
+    "observations",
+}
 HOST_SURFACE = "starlette.routing.Host"
 REDIRECT_RESPONSE_SURFACE = "starlette.responses.RedirectResponse"
 REDIRECT_RESPONSE_OPERATION = "asgi-call"
@@ -4343,6 +4358,76 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
         "status": "completed",
         "observations": [
             {"step_id": WEBSOCKET_ROUTE_OPERATION, "status": "ok", "value": available}
+        ],
+    }
+
+
+def _run_http_route_call_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(case, HTTP_ROUTE_CALL_CASE_KEYS, "Route __call__ case")
+    if (case["surface"], case["operation"]) != (HTTP_ROUTE_SURFACE, HTTP_ROUTE_CALL_OPERATION):
+        raise ValueError("workflow is outside the Route.__call__ operation")
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+
+    endpoint_spec = case["route"]["endpoint"]
+    if set(endpoint_spec) != {"kind", "content"} or endpoint_spec["kind"] != (
+        "plain-text-response-asgi-app"
+    ):
+        raise ValueError("Route endpoint input is outside the plain-text ASGI response shape")
+    route = Route(case["route"]["path"], endpoint=PlainTextResponse(endpoint_spec["content"]))
+    scope = _make_scope(case["scope"])
+    incoming = [_make_message(message) for message in case["incoming"]]
+    incoming_index = 0
+    sent_messages: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        nonlocal incoming_index
+        if incoming_index >= len(incoming):
+            raise ValueError("Route.__call__ exhausted its input-only receive sequence")
+        message = incoming[incoming_index]
+        incoming_index += 1
+        return message
+
+    async def send(message: dict[str, Any]) -> None:
+        sent_messages.append(message)
+
+    asyncio.run(route(scope, receive, send))
+    if incoming_index != len(incoming):
+        raise ValueError("Route.__call__ left input receive messages unconsumed")
+    response_start = next(
+        (message for message in sent_messages if message["type"] == "http.response.start"),
+        None,
+    )
+    response_body = b"".join(
+        message.get("body", b"")
+        for message in sent_messages
+        if message["type"] == "http.response.body"
+    )
+    available = {
+        "route_scope": {
+            "app_present": "app" in scope,
+            "router_present": "router" in scope,
+            "endpoint_present": "endpoint" in scope,
+            "endpoint_is_route_endpoint": scope.get("endpoint") is route.endpoint,
+            "path_params_present": "path_params" in scope,
+            "path_params": {
+                name: {"value": _json_safe(value), "type": type(value).__name__}
+                for name, value in scope.get("path_params", {}).items()
+            },
+        },
+        "asgi_events": [_canonical_message(message) for message in sent_messages],
+        "response_status": response_start["status"] if response_start is not None else None,
+        "response_bytes": (
+            {"encoding": "base64", "data": base64.b64encode(response_body).decode("ascii")}
+            if response_start is not None
+            else None
+        ),
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {"step_id": HTTP_ROUTE_CALL_OPERATION, "status": "ok", "value": available}
         ],
     }
 
@@ -11916,6 +12001,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == WEBSOCKET_CLOSE_OPERATION
     ):
         return _run_websocket_close_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == HTTP_ROUTE_SURFACE
+        and case.get("operation") == HTTP_ROUTE_CALL_OPERATION
+    ):
+        return _run_http_route_call_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == WEBSOCKET_ROUTE_SURFACE

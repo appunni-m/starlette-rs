@@ -262,6 +262,7 @@
       "build/parity/inputs/parity/server-error-middleware.json",
       "build/parity/inputs/parity/websocket-protocol.json",
       "build/parity/inputs/parity/websocket-route-dispatch.json",
+      "build/parity/inputs/parity/http-route-call.json",
       "build/parity/inputs/parity/websocket-state-sequence.json",
       "build/parity/inputs/parity/router-converter-dispatch.json",
       "build/parity/inputs/parity/router-slash-redirect.json",
@@ -16513,6 +16514,180 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Route construction and per-route body-size configuration are outside the active dispatch benchmark workload."
+          }
+        },
+        {
+          "id": "__call__",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.BaseRoute.__call__",
+            "signature": "async __call__(scope: Scope, receive: Receive, send: Send) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "stream",
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "route_scope",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "null",
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "response_bytes",
+                  "value_types": [
+                    "null",
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not expose a Python BaseRoute ASGI-call boundary.",
+                "blocker": "No Rust-native Route object is declared for this Python source-versus-package call operation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Route.__call__",
+              "signature": "async ASGI application call inherited from BaseRoute",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Route.__call__.standalone-match",
+              "dimension": "success_path",
+              "description": "Calling a Route directly as an ASGI application matches its path and dispatches the configured ASGI response endpoint. Upstream: starlette/routing.py::BaseRoute.__call__; tests/test_routing.py::test_standalone_route_matches.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.__call__.standalone-not-found",
+              "dimension": "error_path",
+              "description": "Calling a Route directly as an ASGI application for a nonmatching path sends Starlette's 404 response. Upstream: starlette/routing.py::BaseRoute.__call__; tests/test_routing.py::test_standalone_route_does_not_match.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only ASGI call workflow makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "The standalone Route call is outside the active Router/GZip benchmark workloads."
           }
         },
         {

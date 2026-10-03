@@ -695,6 +695,19 @@ WEBSOCKET_ROUTE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "endpoint_actions",
 }
 WEBSOCKET_ROUTE_OBSERVATIONS = (WEBSOCKET_ROUTE_OPERATION,)
+HTTP_ROUTE_SURFACE = "starlette.routing.Route"
+HTTP_ROUTE_CALL_OPERATION = "__call__"
+HTTP_ROUTE_CALL_OPERATION_KEY = (HTTP_ROUTE_SURFACE, HTTP_ROUTE_CALL_OPERATION)
+HTTP_ROUTE_CALL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "route",
+    "scope",
+    "incoming",
+    "send",
+}
+HTTP_ROUTE_CALL_REQUIREMENTS = {
+    "matched": "starlette.routing.Route.__call__.standalone-match",
+    "not_found": "starlette.routing.Route.__call__.standalone-not-found",
+}
 ROUTER_SURFACE = "starlette.routing.Router"
 ROUTER_OPERATION = "route-dispatch"
 ROUTER_URL_PATH_FOR_OPERATION = "url_path_for"
@@ -2249,6 +2262,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         {"python-package-cpython312"}
                         if (surface["id"], operation["id"])
                         in {
+                            HTTP_ROUTE_CALL_OPERATION_KEY,
                             (WEBSOCKET_ROUTE_SURFACE, WEBSOCKET_ROUTE_OPERATION),
                             (WEBSOCKET_SURFACE, WEBSOCKET_OPERATION),
                             (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION),
@@ -3684,6 +3698,36 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "WebSocketRoute case claims requirements not exercised by its dispatch inputs: "
             f"{sorted(unexercised)}"
+        )
+
+
+def _validate_http_route_call_case_stimulus(case: dict[str, Any]) -> None:
+    _exact(case, HTTP_ROUTE_CALL_CASE_KEYS, "Route __call__ case")
+    if (case["surface"], case["operation"]) != HTTP_ROUTE_CALL_OPERATION_KEY:
+        raise ContractError("case is outside the Route.__call__ operation")
+    if case["observations"] != [HTTP_ROUTE_CALL_OPERATION]:
+        raise ContractError("Route.__call__ observations must select the ASGI call result")
+    route = _exact(case["route"], {"path", "endpoint"}, "Route input")
+    path = _string(route["path"], "Route.path")
+    if not path.startswith("/") or "{" in path or "}" in path:
+        raise ContractError("Route.__call__ parity cases require an absolute static path")
+    endpoint = _exact(route["endpoint"], {"kind", "content"}, "Route endpoint")
+    if endpoint["kind"] != "plain-text-response-asgi-app":
+        raise ContractError("Route endpoint kind must be plain-text-response-asgi-app")
+    _string(endpoint["content"], "Route endpoint.content")
+    _validate_route_dispatch_io(case)
+    scope = case["scope"]
+    if scope["method"] != "GET" or scope["root_path"] != "":
+        raise ContractError("Route.__call__ cases require a direct GET scope with empty root_path")
+    requirement = (
+        HTTP_ROUTE_CALL_REQUIREMENTS["matched"]
+        if path == scope["path"]
+        else HTTP_ROUTE_CALL_REQUIREMENTS["not_found"]
+    )
+    if set(case["covers"]) != {requirement}:
+        raise ContractError(
+            "Route.__call__ coverage must follow the static path match in its input: "
+            f"expected={[requirement]}, actual={sorted(case['covers'])}"
         )
 
 
@@ -12611,6 +12655,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         and case.get("surface") == WEBSOCKET_ROUTE_SURFACE
         and case.get("operation") == WEBSOCKET_ROUTE_OPERATION
     )
+    is_http_route_call = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == HTTP_ROUTE_CALL_OPERATION_KEY
+    )
     is_router = (
         isinstance(case, dict)
         and case.get("surface") == ROUTER_SURFACE
@@ -12804,6 +12852,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_websocket_endpoint
         else WEBSOCKET_CLOSE_CASE_KEYS
         if is_websocket_close
+        else HTTP_ROUTE_CALL_CASE_KEYS
+        if is_http_route_call
         else WEBSOCKET_ROUTE_CASE_KEYS
         if is_websocket_route
         else ROUTER_SEQUENCE_CASE_KEYS
@@ -13133,6 +13183,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
             raise ContractError(
                 "WebSocketClose cases must use the declared call-sequence operation"
             )
+    elif is_http_route_call:
+        if case["operation"] != HTTP_ROUTE_CALL_OPERATION:
+            raise ContractError("Route cases must use the inherited ASGI __call__ operation")
     elif is_websocket_route:
         if case["operation"] != WEBSOCKET_ROUTE_OPERATION:
             raise ContractError(
@@ -13567,6 +13620,9 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         return case
     if is_websocket_close:
         _validate_websocket_close_case_stimulus(case)
+        return case
+    if is_http_route_call:
+        _validate_http_route_call_case_stimulus(case)
         return case
     if is_websocket_route:
         _validate_websocket_route_case_stimulus(case)

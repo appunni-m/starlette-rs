@@ -538,6 +538,10 @@
           "source_path": "starlette.routing.Route.__init__"
         },
         {
+          "operation_id": "__call__",
+          "source_path": "starlette.routing.BaseRoute.__call__"
+        },
+        {
           "operation_id": "url_path_for",
           "source_path": "starlette.routing.Route.url_path_for"
         }
