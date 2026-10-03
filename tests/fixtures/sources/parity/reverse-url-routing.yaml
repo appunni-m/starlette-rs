@@ -1334,6 +1334,104 @@
       "observations": [
         "reverse-url"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.host-mount-nested-lookup",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.host-mount-nested-lookup",
+        "starlette.routing.Router.url_path_for.mount-lookup-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "host-route",
+            "host": "{subdomain}.example.org",
+            "name": "sub",
+            "routes": [
+              {
+                "kind": "mount",
+                "path": "/users",
+                "name": "users",
+                "routes": [
+                  {
+                    "kind": "http-route",
+                    "path": "/",
+                    "name": "user_list",
+                    "methods": [
+                      "GET"
+                    ],
+                    "observer": null
+                  },
+                  {
+                    "kind": "http-route",
+                    "path": "/{username}",
+                    "name": "user_detail",
+                    "methods": [
+                      "GET"
+                    ],
+                    "observer": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "sub:users:user_detail",
+        "path_params": {
+          "subdomain": "foo",
+          "username": "ada"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.mount-lookup-success.static-app-path",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.mount-lookup-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/static",
+            "name": "static",
+            "app": {
+              "kind": "no-op-asgi"
+            }
+          }
+        ]
+      },
+      "lookup": {
+        "name": "static",
+        "path_params": {
+          "path": "/css/base.css"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
     }
   ]
 }

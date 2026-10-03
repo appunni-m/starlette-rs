@@ -255,6 +255,121 @@
       "observations": [
         "absolute-url-results"
       ]
+    },
+    {
+      "case_id": "starlette.datastructures.URLPath.make-absolute-url.host-mount-reverse-lookups",
+      "surface": "starlette.datastructures.URLPath",
+      "operation": "make-absolute-url",
+      "covers": [
+        "starlette.datastructures.URLPath.make_absolute_url.route-host-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "host-route",
+            "host": "{subdomain}.example.org",
+            "name": "sub",
+            "routes": [
+              {
+                "kind": "mount",
+                "path": "/users",
+                "name": "users",
+                "routes": [
+                  {
+                    "kind": "http-route",
+                    "path": "/",
+                    "name": "user_list",
+                    "methods": [
+                      "GET"
+                    ],
+                    "observer": null
+                  },
+                  {
+                    "kind": "http-route",
+                    "path": "/{username}",
+                    "name": "user_detail",
+                    "methods": [
+                      "GET"
+                    ],
+                    "observer": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "lookups": [
+        {
+          "name": "sub:users:user_detail",
+          "path_params": {
+            "subdomain": "foo",
+            "username": "ada"
+          }
+        },
+        {
+          "name": "sub:users:user_list",
+          "path_params": {
+            "subdomain": "foo"
+          }
+        }
+      ],
+      "base_urls": [
+        {
+          "kind": "string",
+          "value": "https://whatever"
+        }
+      ],
+      "observations": [
+        "absolute-url-results"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URLPath.make-absolute-url.static-mounted-app-path",
+      "surface": "starlette.datastructures.URLPath",
+      "operation": "make-absolute-url",
+      "covers": [
+        "starlette.datastructures.URLPath.make_absolute_url.base-authority-fallback"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/static",
+            "name": "static",
+            "app": {
+              "kind": "no-op-asgi"
+            }
+          }
+        ]
+      },
+      "lookups": [
+        {
+          "name": "static",
+          "path_params": {
+            "path": "/css/base.css"
+          }
+        }
+      ],
+      "base_urls": [
+        {
+          "kind": "string",
+          "value": "https://whatever"
+        }
+      ],
+      "observations": [
+        "absolute-url-results"
+      ]
     }
   ]
 }

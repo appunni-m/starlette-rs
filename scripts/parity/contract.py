@@ -7800,6 +7800,8 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
             candidate_ids = {id(route) for _index, route in candidates}
             if any(_reverse_candidate_mount_paths(graph, candidate_ids)):
                 derived.add(rid("mount-lookup-success"))
+            if any(_reverse_candidate_host_mount_paths(graph, candidate_ids)):
+                derived.add(rid("host-mount-nested-lookup"))
             first_route = next(route for index, route in candidates if index == first_candidate)
             parameters = dict(
                 _validate_reverse_path(first_route["path"], custom, "Router selected route path")
@@ -7868,6 +7870,25 @@ def _reverse_candidate_mount_paths(
     paths: list[bool] = []
     for route in node.get("routes", []):
         paths.extend(_reverse_candidate_mount_paths(route, candidates, has_mount))
+    return paths
+
+
+def _reverse_candidate_host_mount_paths(
+    node: dict[str, Any],
+    candidates: set[int],
+    inherited_host: bool = False,
+    inherited_mount: bool = False,
+) -> list[bool]:
+    """Return whether each matching candidate is nested under both Host and Mount."""
+    has_host = inherited_host or node["kind"] == "host-route"
+    has_mount = inherited_mount or node["kind"] == "mount"
+    if id(node) in candidates:
+        return [has_host and has_mount]
+    if node["kind"] in {"http-route", "websocket-route"}:
+        return []
+    paths: list[bool] = []
+    for route in node.get("routes", []):
+        paths.extend(_reverse_candidate_host_mount_paths(route, candidates, has_host, has_mount))
     return paths
 
 

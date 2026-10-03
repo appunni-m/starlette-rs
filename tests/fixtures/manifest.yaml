@@ -17310,6 +17310,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Router.url_path_for.host-mount-nested-lookup",
+              "dimension": "success_path",
+              "description": "Router.url_path_for resolves a named child Route through a named Mount nested under a named Host, consuming the host and child path parameters. Pinned source: docs/routing.md:240-254; starlette/routing.py:363-452,493-511.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
