@@ -364,7 +364,8 @@ dependencies feature-gated and unsupported coverage source-backed.
 
 The pinned Starlette 1.6.0 Router/GZip workload catalog contains six Router
 and 68 GZip benchmark IDs. All 74 have input-only descriptors and exact
-source-versus-installed-package correctness gates. Latest run
+source-versus-installed-package correctness gates. Validation at this
+milestone used run
 `8bf84b86-3b0f-4003-81bb-bbace448bdcd` ran from
 `2026-10-02T14:11:40.374Z` to `2026-10-02T14:15:51.851Z` and measured all
 74 source/package workloads with zero failures and zero source/package

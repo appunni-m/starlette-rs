@@ -11,32 +11,31 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest full-slice correctness preflight is
-`4e4f0992-fca1-4c3d-83bd-b2aa78652a84`. It ran from
-`2026-10-03T01:39:57.913Z` to `2026-10-03T01:43:14.719Z` against Starlette
+`81dee84a-7234-4c6f-8070-aa2939740254`. It ran from
+`2026-10-03T01:56:15.467Z` to `2026-10-03T01:59:20.448Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 763-case,
-790-requirement `parity-input@29` manifest. It selected 975 profile
-comparisons: 971 passed, zero failed, zero infrastructure errors, and four
+790-requirement `parity-input@29` manifest. It selected 978 profile
+comparisons: 974 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 758 selected comparisons; Rust-native passed 213 of 217. The three
-new WebSocket pre-accept inputs compare `receive_text`, `receive_bytes`, and
-`receive_json`; source and installed package agree on each exact action error,
-empty ASGI callback tape, and unchanged connecting states. The four native
+passed all 761 selected comparisons; Rust-native passed 213 of 217. The WebSocket pre-accept cases and five text/bytes/JSON exchange cases match
+the source in exact action results, ordered ASGI callback tapes, and final
+protocol states. The four native
 `not_run` rows remain synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. `make parity-run` exits
 2 because of those declared rows; the run completed with no parity failures or
 infrastructure errors.
 
-The Rust-native target used commit `467fe9efa1a74ec3ec4b4c3cc2e49d5273545197`
+The Rust-native target used commit `865e92df074e7fea3c1bcb1dc0cefb86651521ae`
 with source fingerprint
-`467fe9efa1a74ec3ec4b4c3cc2e49d5273545197+source-fnv1a64-f63b3847c266153e`.
+`865e92df074e7fea3c1bcb1dc0cefb86651521ae+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
 `09220a2a13300e19883081c550827da11691427570f989214ac79f5a6970b4bd`; its
 wheel SHA-256 is
-`48c2416d8030fc0f4eac90da84f616826d7950caa95d5058084edc3fc2b1b1fc`. The
+`5b5e607389ba91415c76684bc722e0a0f9020dce2f33d2261f98ed450c6ee6f4`. The
 manifest SHA-256 is
 `a92f76ac2006b2734d778ce4ec4956c4d91da7fdfed5786bfe2d8122788d26d3`; the
 parity result artifact SHA-256 is
-`412196fc68e8aed6e9827afc961d054cc66ccbd26dd8d71726bb1db5b95a0b9a`. Strict
+`b6d5c28c05b3bd919bce8acdecd84d895578e3cac2412a880d61c705f8d1fe82`. Strict
 aggregation remains `not_proven` because the full compatibility denominator
 is incomplete and four Rust-native rows are `not_run`.
 For `lifespan_send_messages`, the manifest declares a narrow
@@ -46,18 +45,9 @@ context lines from startup/shutdown failure messages. Rust implements this
 protocol without that Python frame; all other event fields and traceback
 frames remain exact.
 
-The installed package tree SHA-256 is
-`0ff61870c9dc405705c37505ae0501a90ec6eb8001c6343b954c5ca29cdd5195`; its
-wheel SHA-256 is
-`3c5d219d0907f8acf0f9761863b34f3929c090fa25ba95a5b72d27632bc1551f`. The
-manifest SHA-256 is
-`4762fb8bc2d95606907b4ecbb7d03ef64f1ab06e12bdf55385036c6b0e9f3ec3`; the
-result artifact SHA-256 is
-`7390833ce9deeefaf2c4acb24ce933c5eaadb6b04632fde2fb1819d4fb944c7e`.
-Strict aggregation remains `not_proven` because the full compatibility
-denominator is incomplete and four Rust-native rows are `not_run`. UploadFile
-scheduling parity now covers these rolled and in-memory operation inputs;
-direct construction, omitted-size operations, and default/custom-header repr cases now pass the source comparison.
+UploadFile scheduling parity covers rolled and in-memory operation inputs;
+direct construction, omitted-size operations, and default/custom-header repr
+cases now pass the source comparison.
 
 ## Input-only cases
 

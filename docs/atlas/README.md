@@ -25,17 +25,17 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 744 input-only cases across
-83 indexed files, 94 operations, and 778 requirements. It includes direct
+active and incomplete. The current contract has 763 input-only cases across
+84 indexed files, 94 operations, and 790 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
-generic Request/WebSocket lifespan-state typing contract. Seven QueryParams
-cases
+generic Request/WebSocket lifespan-state typing contract and WebSocket text,
+bytes, and JSON send/receive exchange cases. Seven QueryParams cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `4dfe6d43-9217-4485-8407-f0bc698bc984` passed 955 of 959
+full-slice run `81dee84a-7234-4c6f-8070-aa2939740254` passed 974 of 978
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
-742/742; Rust-native passed 213/217. The new GZip streaming-response case
+761/761; Rust-native passed 213/217. The new GZip streaming-response case
 passes against both targets. Six protected WebSocket authentication
 cases pass source/package comparison for plain and injection-wrapped routes
 with missing, malformed, and valid Basic credentials. Three documentation-derived
@@ -71,15 +71,15 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 466 input mappings, 51
-reasoned `not_applicable` rows, and 285 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 497 input mappings, 51
+reasoned `not_applicable` rows, and 254 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `f27d8bf9-0a55-4e27-8aef-5b30c8b27afb` measured all
+The latest Router/GZip run `5723c0b6-b88d-4489-b465-4968021a10aa` measured all
 74 source/package workloads after correctness preflight
-`4dfe6d43-9217-4485-8407-f0bc698bc984`. Median per-workload source/package
-latency ratios were 0.767 for Router and 0.973 for GZip; source latency was
-lower on five of six Router workloads and 56 of 68 GZip workloads. All 74
+`81dee84a-7234-4c6f-8070-aa2939740254`. Median per-workload source/package
+latency ratios were 0.747 for Router and 0.972 for GZip; source latency was
+lower on five of six Router workloads and 57 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.
