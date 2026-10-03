@@ -629,6 +629,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     def response_observation(value: Any) -> dict[str, Any]:
         return {
             "status_code": value.status_code,
+            "reason_phrase": value.reason_phrase,
             "url": str(value.url),
             "headers": value.headers.multi_items(),
             "body_base64": base64.b64encode(value.content).decode("ascii"),

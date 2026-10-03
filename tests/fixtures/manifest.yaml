@@ -22381,7 +22381,7 @@
             {
               "id": "starlette.testclient.TestClient.request-response.response-and-debug",
               "dimension": "success_path",
-              "description": "Translate input ASGI response-start, debug, and body messages into the public HTTPX response URL, status, ordered headers, body, and response extensions. Pinned source: starlette/testclient.py:327-367; tests/test_testclient.py::test_debug_info_in_response_extensions.",
+              "description": "Translate input ASGI response-start, debug, and body messages into the public HTTPX response URL, status, reason phrase, ordered headers, body, and response extensions, including standard and unknown numeric status phrases. Pinned source: starlette/testclient.py:327-367; tests/test_testclient.py::test_debug_info_in_response_extensions; tests/test_responses.py::test_response_phrase.",
               "lanes": [
                 "parity"
               ],

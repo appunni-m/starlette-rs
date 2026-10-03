@@ -8,7 +8,7 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 878 input-only cases in 88 indexed files,
+The active contract contains 880 input-only cases in 88 indexed files,
 covering 101 operations and 862 parity requirements. Recent additions include a StaticFiles directory served through a valid symlinked root with TestClient; BaseHTTPMiddleware async background-task completion and failure-propagation workflows; route-local HTTP exception responses observed through mounted middleware; WebSocket double-close, connected invalid-send/invalid-receive, and send-callback `OSError` inputs with exact errors and state observations; custom `BaseUser` property overrides, `Request.user` type and `Request.auth.scopes` observations, and the documented login `next` query redirect; a Starlette multipart upload through `Request.form()` under the app body limit; direct UploadFile constructor/repr, rollover, and
 threadpool-boundary inputs; GZip final/streaming thread-threshold comparisons;
 the shared AnyIO thread-pool limiter; generic Request/WebSocket lifespan-state
@@ -45,12 +45,12 @@ cases now pass on both target profiles. Default-string match/slash-boundary
 and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
-binary line chunks through the installed Python package. The latest integrated
-run for the active `parity-input@31` contract,
-`1e13043c-7838-419d-90bf-3ddff986ca9f`, passed 1,108 of 1,112 selected
+binary line chunks through the installed Python package. The latest correctness
+preflight for the active `parity-input@31` contract,
+`027c5659-eac2-4c5d-ad25-476f3765cade`, passed 1,110 of 1,114 selected
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 876/876; Rust-native
-passed 232/236.
+Python-callable rows `not_run`. The Python package passed 878/878; Rust-native
+passed 232/236. The Python-package target tree was dirty during this run.
 The four native `not_run` rows are
 synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make test` exits with status 2 for those
@@ -70,8 +70,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 611 input mappings,
-51 source-backed `not_applicable` rows, and 140 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 612 input mappings,
+51 source-backed `not_applicable` rows, and 139 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
@@ -248,10 +248,10 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest integrated full-slice run `1e13043c-7838-419d-90bf-3ddff986ca9f`
-selected 1,112 comparisons: 1,108 passed, with four declared Rust-native
+The latest integrated full-slice run `027c5659-eac2-4c5d-ad25-476f3765cade`
+selected 1,114 comparisons: 1,110 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
-errors. The WebSocket send-callback `OSError` behavior now has an exact
+errors. The Python-package target tree was dirty during this run. The WebSocket send-callback `OSError` behavior now has an exact
 source/package mapping; other WebSocket source
 rows remain in `fixture-backlog.csv`, and similar method names do not close
 rows whose stimuli or observation selectors differ.

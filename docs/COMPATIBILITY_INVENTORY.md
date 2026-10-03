@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 877 input-only cases across 88 files,
-covering 101 operations and 861 unique parity requirements. Recent parity inputs
+The active parity manifest indexes 880 input-only cases across 88 files,
+covering 101 operations and 862 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -124,26 +124,29 @@ for both one repeated name and multiple repeated names, and passed source/packag
 comparison.
 
 The latest correctness preflight is
-`1e13043c-7838-419d-90bf-3ddff986ca9f`. It ran from
-`2026-10-03T21:55:50.989Z` to `2026-10-03T21:59:24.377Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 878-case,
-862-requirement `parity-input@31` manifest. It selected 1,112 profile
-comparisons: 1,108 passed, zero failed, zero infrastructure errors, and four
+`027c5659-eac2-4c5d-ad25-476f3765cade`. It ran from
+`2026-10-03T22:13:54.383Z` to `2026-10-03T22:17:19.917Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 880-case,
+862-requirement `parity-input@31` manifest. It selected 1,114 profile
+comparisons: 1,110 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 876 selected comparisons; Rust-native passed 232 of 236. The four
-native `not_run` rows remain synchronous Request endpoint, bound-method
-endpoint, partial endpoint, and callable-instance ASGI dispatch. The parity
-runner reports those declared native rows as `not_run`; strict aggregation
-remains `not_proven` because the compatibility denominator is incomplete.
+passed all 878 selected comparisons; Rust-native passed 232 of 236. The two
+new TestClient reason-phrase inputs match the source, including the standard
+204 phrase and the empty phrase for unknown status 123. The Python-package
+target was a dirty tree, so this preflight is not clean-commit evidence. The
+four native `not_run` rows remain synchronous Request endpoint, bound-method
+endpoint, partial endpoint, and callable-instance ASGI dispatch. Strict
+aggregation remains `not_proven` because the compatibility denominator is
+incomplete and four Rust-native rows are `not_run`.
 
 For this preflight, the manifest SHA-256 is
-`943da38b9288b5c8cf538dd579e0ca3a11a0c7c4aae831111d0e1585478f1df4`; the
+`1a1b6bf4110ce5cc158f6a8b2848d5481c3366cc4494fb07fc5b063de85246ab`; the
 Python package tree SHA-256 is
 `8c303a6a18bc8fe31e89e10f107fb1f755fb7bbb99c4923f61f0d65aba79836d`, its
 wheel SHA-256 is
-`070699434d43c8bc6f551a89fe8598f0068f082531d3f757c6d689cda195b9c5`, and the
+`7fa58bc2d87d85b01a331e95876130dbf3cc4f9b8c029f2baa83d9f39d3124fe`, and the
 correctness-result artifact SHA-256 is
-`40eaebb0c9d5721f3cd8b1d2082c45e393316b89eb9ec9e3f30f044153cd35b6` at
+`7c32f586dd3bfeac92722228cf8c5f06741c9c24eecfe3ae2776e582050814c1` at
 `build/parity/upstream-benchmark-correctness-result.json`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
@@ -160,12 +163,14 @@ GZip, with zero failures and matching normalized observation hashes for all
 74 workloads. Its correctness preflight
 `1e13043c-7838-419d-90bf-3ddff986ca9f` passed 1,108 of 1,112 selected
 comparisons: 876/876 Python-package comparisons and 232/236 Rust-native
-comparisons, with four Rust-native `not_run` rows. These workload-specific
+comparisons, with four Rust-native `not_run` rows. This preflight belongs to
+the previously measured clean benchmark commit. The latest preflight is
+`027c5659-eac2-4c5d-ad25-476f3765cade` and is described above. These workload-specific
 results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 611 input mappings, 51
-reasoned `not_applicable` rows, and 140 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 612 input mappings, 51
+reasoned `not_applicable` rows, and 139 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
