@@ -1586,6 +1586,174 @@
       "observations": [
         "convenience-sequence"
       ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.receive-text-before-accept",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.text.before-accept"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-text-before-accept",
+          "method": "receive_text",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.receive-bytes-before-accept",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.bytes.before-accept"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-bytes-before-accept",
+          "method": "receive_bytes",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.receive-json-before-accept",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.json.before-accept"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-json-before-accept",
+          "method": "receive_json",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
     }
   ]
 }

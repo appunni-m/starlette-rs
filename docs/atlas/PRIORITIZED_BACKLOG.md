@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 757 input-only cases in 84 indexed files,
-covering 94 operations and 787 parity requirements. Recent additions include route-local HTTP exception responses observed through mounted middleware; custom `BaseUser` property overrides, `Request.user` type and `Request.auth.scopes` observations, and the documented login `next` query redirect; a Starlette multipart upload through `Request.form()` under the app body limit; direct UploadFile constructor/repr, rollover, and
+The active contract contains 760 input-only cases in 84 indexed files,
+covering 94 operations and 790 parity requirements. Recent additions include route-local HTTP exception responses observed through mounted middleware; custom `BaseUser` property overrides, `Request.user` type and `Request.auth.scopes` observations, and the documented login `next` query redirect; a Starlette multipart upload through `Request.form()` under the app body limit; direct UploadFile constructor/repr, rollover, and
 threadpool-boundary inputs; GZip final/streaming thread-threshold comparisons;
 the shared AnyIO thread-pool limiter; generic Request/WebSocket lifespan-state
 typing; routed authentication UI and protected HTTP routes; six protected WebSocket cases for plain and injected endpoint forms, and three documentation-derived BasicAuth cases for wrong-scheme, malformed base64, and non-ASCII credentials.
@@ -35,18 +35,19 @@ ServerErrorMiddleware cases, three TestClient exception-chain cases covering
 no chain, implicit context, and explicit cause through BaseHTTPMiddleware, a
 default middleware-boundary trace, and sixteen Request.cookies inputs pass live
 source/package comparison, including the sequential TestClient cookie
-round-trip from `test_request_cookies`. Added direct `GZipResponder` inputs and
-invalid WebSocket JSON-mode inputs pass exact source/package comparison. Three
+round-trip from `test_request_cookies`. Added direct `GZipResponder` inputs, invalid WebSocket JSON-mode inputs, and
+pre-accept `receive_text`/`receive_bytes`/`receive_json` cases pass exact
+source/package comparison. Three
 StaticFiles HTML fallback scenarios and seven built-in float/UUID converter
 cases now pass on both target profiles. Default-string match/slash-boundary
 and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest integrated run for the active
-`parity-input@29` contract, `b0b0f52e-5c0f-488d-8d42-a51b174e6b9e`, passed
-968 of 972 selected comparisons, with zero failures or infrastructure errors
+`parity-input@29` contract, `a779145f-bb41-457d-9465-8b0084c760bf`, passed
+971 of 975 selected comparisons, with zero failures or infrastructure errors
 and four Rust-native Python-callable rows `not_run`. The Python package passed
-755/755; Rust-native passed 213/217. The four native `not_run` rows are
+758/758; Rust-native passed 213/217. The four native `not_run` rows are
 synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make test` exits with status 2 for those
 declared rows. Full run identities and package hashes are recorded in
@@ -65,8 +66,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 488 input mappings,
-51 source-backed `not_applicable` rows, and 263 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 491 input mappings,
+51 source-backed `not_applicable` rows, and 260 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

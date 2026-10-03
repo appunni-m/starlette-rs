@@ -2957,6 +2957,7 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
     ]
     action_ids: set[str] = set()
     incoming_index = 0
+    preaccept_receive_count = 0
     client_state = "CONNECTING"
     application_state = "CONNECTING"
     exercised: set[str] = set()
@@ -3047,6 +3048,8 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             else:
                 exercised.add("starlette.websocket.api.accept.empty-headers")
         elif method in {"receive_text", "receive_bytes", "receive_json"}:
+            success_requirement: str
+            preaccept_requirement: str
             if method == "receive_json":
                 _exact_keys = {"mode"}
                 if set(arguments) - _exact_keys:
@@ -3060,24 +3063,36 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                     exercised.add(WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS["receive"])
                 else:
                     payload = "text" if mode == "text" else "bytes_base64"
-                    exercised.add(f"starlette.websocket.api.receive.json.{mode}")
+                    success_requirement = f"starlette.websocket.api.receive.json.{mode}"
+                preaccept_requirement = "starlette.websocket.api.receive.json.before-accept"
             else:
                 if arguments:
                     raise ContractError(f"{context}.arguments must be empty for {method}")
                 mode = None
                 invalid_mode = False
                 payload = "text" if method == "receive_text" else "bytes_base64"
-                exercised.add(
+                success_requirement = (
                     "starlette.websocket.api.receive.text"
                     if method == "receive_text"
                     else "starlette.websocket.api.receive.bytes"
                 )
-            if application_state != "CONNECTED":
-                raise ContractError(f"{context} requires a connected WebSocket")
-            if not invalid_mode:
+                preaccept_requirement = (
+                    "starlette.websocket.api.receive.text.before-accept"
+                    if method == "receive_text"
+                    else "starlette.websocket.api.receive.bytes.before-accept"
+                )
+            if invalid_mode:
+                continue
+            if application_state == "CONNECTING":
+                exercised.add(preaccept_requirement)
+                preaccept_receive_count += 1
+            elif application_state == "CONNECTED":
+                exercised.add(success_requirement)
                 message_type = receive_input(context, payload)
                 if message_type == "websocket.disconnect":
                     exercised.add("starlette.websocket.api.disconnect.details")
+            else:
+                raise ContractError(f"{context} requires a connected WebSocket")
         elif method in {"iter_text", "iter_bytes", "iter_json"}:
             if arguments:
                 raise ContractError(f"{context}.arguments must be empty for {method}")
@@ -3236,7 +3251,12 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
         else:
             raise ContractError(f"{context}.method is unsupported: {method!r}")
 
-    if incoming_index != len(incoming_types):
+    if incoming_index != len(incoming_types) and not (
+        preaccept_receive_count == len(actions) == 1
+        and incoming_types == ["websocket.connect"]
+        and client_state == "CONNECTING"
+        and application_state == "CONNECTING"
+    ):
         raise ContractError(
             "WebSocket convenience sequence must consume every supplied incoming message exactly once"
         )

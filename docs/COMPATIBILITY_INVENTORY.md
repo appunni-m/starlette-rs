@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 757 input-only cases across 84 files,
-covering 94 operations and 787 parity requirements. Its latest additions map
+The active parity manifest indexes 760 input-only cases across 84 files,
+covering 94 operations and 790 parity requirements. Its latest additions map
 11 routed protected-HTTP authentication behaviors and six protected-WebSocket
 authentication behaviors from the pinned auth tests. Recent additions include
 direct FormData constructor/equality inputs; direct UploadFile constructor/repr, rollover, and threadpool-boundary cases; a ten-chunk 400-byte GZip streaming response using public defaults; and GZip final and
@@ -91,21 +91,21 @@ StaticFiles Last-Modified requests, and TestClient startup-error propagation. Th
 operation and profile denominator is in the parity manifest; generated JSON
 and run results remain ignored local build outputs.
 
-The latest full-slice correctness preflight is
-`b0b0f52e-5c0f-488d-8d42-a51b174e6b9e`. It ran from
-`2026-10-03T01:17:20.267Z` to `2026-10-03T01:20:29.209Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 757-case,
-787-requirement `parity-input@29` manifest. It selected 972 profile
-comparisons: 968 passed, zero failed, zero infrastructure errors, and four
+The latest full-slice correctness run is
+`a779145f-bb41-457d-9465-8b0084c760bf`. It ran from
+`2026-10-03T01:33:19.977Z` to `2026-10-03T01:36:32.436Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 760-case,
+790-requirement `parity-input@29` manifest. It selected 975 profile
+comparisons: 971 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 755 selected comparisons; Rust-native passed 213 of 217. The new
-mounted-middleware exception input compares four ordered root and mounted
-HTTP dispatches; all response fields and ASGI event order match the pinned
-source, including both `X-Mounted` and `X-Outer` on the handled `/mount/err`
-response. The four native `not_run` rows remain synchronous Request endpoint,
-bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
-`make parity-run` exits 2 because of those declared rows; the run completed
-with no parity failures or infrastructure errors.
+passed all 758 selected comparisons; Rust-native passed 213 of 217. Three new
+WebSocket cases compare `receive_text`, `receive_bytes`, and `receive_json`
+before acceptance; source and package agree on each action error, empty ASGI
+callback tape, and unchanged connecting states. The four native `not_run` rows
+remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
+and callable-instance ASGI dispatch. `make parity-run` exits 2 because of those
+declared rows; the run completed with no parity failures or infrastructure
+errors.
 
 The Rust-native target used commit `0b4b56b8faffbd4a37dcd11ccabafc87610bf24f`
 with source fingerprint
@@ -113,11 +113,11 @@ with source fingerprint
 The Python-package target tree SHA-256 is
 `09220a2a13300e19883081c550827da11691427570f989214ac79f5a6970b4bd`; its
 wheel SHA-256 is
-`3b3b8f25e48facf5c50968bf968ec329e75306a1b5e35af6a62318e70f660c55`. The
+`4c026661ac0124ed48d17be6b9890f2d8a0e35880a7f9fd151d091de2e0d0398`. The
 manifest SHA-256 is
-`26880cbbcb7af7c49cbe3849127543e9b6b270e210e1dd939debce4b1345bc98`; the
+`a92f76ac2006b2734d778ce4ec4956c4d91da7fdfed5786bfe2d8122788d26d3`; the
 parity result artifact SHA-256 is
-`775abd89e7bcb9d878666fe3c49353f4858461c4fefabdf38bb810f5369074f2`. Strict
+`f12f375a480022ca6003d9a89302a3fbb2f990a574a3ed323bf58c991632c3a6`. Strict
 aggregation remains `not_proven` because the full compatibility denominator
 is incomplete and four Rust-native rows are `not_run`.
 
@@ -150,8 +150,8 @@ artifact SHA-256:
 `1f83a6f791fa359f78a5e28fc14914b8512a54170e6e19b01f7cbae2b14e1457`. This
 bounded evidence does not establish full Starlette compatibility.
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 488 input mappings, 51
-reasoned `not_applicable` rows, and 263 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 491 input mappings, 51
+reasoned `not_applicable` rows, and 260 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -489,9 +489,10 @@ those six input sequences and compares action outcomes, exact error messages,
 and both final state enums on source, package, and Rust-native profiles; it
 does not compare payloads or Python exception metadata. The new
 `starlette.websockets.WebSocket.convenience-sequence` operation compares typed
-frames, action results and disconnect details, normal async-for iterator
-output, async-generator API availability/control calls, denial-response
-extension behavior, and final states. The separate
+frames, action results and disconnect details, pre-accept rejection of typed
+receives, normal async-for iterator output, async-generator API
+availability/control calls, denial-response extension behavior, and final
+states. The separate
 `starlette.websockets.WebSocketClose.call-sequence` operation observes
 construction defaults, mutable properties, and its ASGI close event. These
 inputs all pass in the latest integrated Python-package run, and the six

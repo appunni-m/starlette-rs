@@ -20154,6 +20154,39 @@
               ]
             },
             {
+              "id": "starlette.websocket.api.receive.text.before-accept",
+              "dimension": "error_path",
+              "description": "Call receive_text while the application state is connecting and compare the action error, callback tape, and final protocol states. Pinned source: starlette/websockets.py:116-120; tests/test_websockets.py::test_receive_text_before_accept.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.receive.bytes.before-accept",
+              "dimension": "error_path",
+              "description": "Call receive_bytes while the application state is connecting and compare the action error, callback tape, and final protocol states. Pinned source: starlette/websockets.py:123-128; tests/test_websockets.py::test_receive_bytes_before_accept.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.receive.json.before-accept",
+              "dimension": "error_path",
+              "description": "Call receive_json with a valid mode while the application state is connecting and compare the action error, callback tape, and final protocol states. Pinned source: starlette/websockets.py:128-135; tests/test_websockets.py::test_receive_json_before_accept.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.websocket.api.send.text",
               "dimension": "success_path",
               "description": "Frame a string with WebSocket.send_text and compare the emitted ASGI event.",
