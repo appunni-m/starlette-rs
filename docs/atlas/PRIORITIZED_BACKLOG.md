@@ -8,7 +8,7 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 881 input-only cases in 88 indexed files,
+The active contract contains 882 input-only cases in 88 indexed files,
 covering 101 operations and 862 parity requirements. Recent additions include a StaticFiles directory served through a valid symlinked root with TestClient; BaseHTTPMiddleware async background-task completion and failure-propagation workflows; route-local HTTP exception responses observed through mounted middleware; WebSocket double-close, connected invalid-send/invalid-receive, and send-callback `OSError` inputs with exact errors and state observations; custom `BaseUser` property overrides, `Request.user` type and `Request.auth.scopes` observations, and the documented login `next` query redirect; a Starlette multipart upload through `Request.form()` under the app body limit; direct UploadFile constructor/repr, rollover, and
 threadpool-boundary inputs; GZip final/streaming thread-threshold comparisons;
 the shared AnyIO thread-pool limiter; generic Request/WebSocket lifespan-state
@@ -46,12 +46,14 @@ and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest correctness
-preflight for the active 881-case `parity-input@31` contract,
+preflight before adding the StaticFiles pathlib-root input used the 881-case
+`parity-input@31` contract,
 `44adfc91-dd1f-4052-a30f-d6f5161b1318`, passed 1,111 of 1,115 selected
 comparisons, with zero failures or infrastructure errors and four Rust-native
 Python-callable rows `not_run`. The Python package passed 879/879; Rust-native
 passed 232/236. Both targets were clean at commit
 `a71146fd57fb091347db25fcf5255d40f8881134`.
+The pathlib-root case awaits the next clean-tree preflight.
 The four native `not_run` rows are
 synchronous Request endpoint, bound-method endpoint, partial endpoint, and
 callable-instance ASGI dispatch. `make test` exits with status 2 for those
@@ -71,8 +73,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 613 input mappings,
-51 source-backed `not_applicable` rows, and 138 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 614 input mappings,
+51 source-backed `not_applicable` rows, and 137 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

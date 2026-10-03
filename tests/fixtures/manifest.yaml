@@ -19441,7 +19441,7 @@
             {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.rooted-file-get",
               "dimension": "success_path",
-              "description": "Serve an input-defined file below the configured root with GET and compare status, ordered headers, bytes, and ASGI events. Upstream: tests/test_staticfiles.py::test_staticfiles.",
+              "description": "Serve an input-defined file below the configured pathlib.Path root with GET and compare status, ordered headers, bytes, and ASGI events. Upstream: tests/test_staticfiles.py::test_staticfiles and test_staticfiles_with_pathlib.",
               "lanes": [
                 "parity"
               ],

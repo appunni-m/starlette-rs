@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 881 input-only cases across 88 files,
+The active parity manifest indexes 882 input-only cases across 88 files,
 covering 101 operations and 862 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
@@ -123,18 +123,18 @@ input maps `test_duplicated_param_names`; it observes live constructor results
 for both one repeated name and multiple repeated names, and passed source/package
 comparison.
 
-The latest clean-tree correctness preflight is
+The latest clean-tree correctness preflight before the StaticFiles pathlib-root input is
 `44adfc91-dd1f-4052-a30f-d6f5161b1318`. It ran from
 `2026-10-03T22:39:39.039Z` to `2026-10-03T22:43:14.884Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 881-case,
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the prior 881-case,
 862-requirement `parity-input@31` manifest. It selected 1,115 profile
 comparisons: 1,111 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
 passed all 879 selected comparisons; Rust-native passed 232 of 236. The two
 new TestClient reason-phrase inputs match the source, including the standard
 204 phrase and the empty phrase for unknown status 123. Both targets were
-clean at commit `a71146fd57fb091347db25fcf5255d40f8881134`. The new
-HEAD-body-suppression input also passes exactly. The four native
+clean at commit `a71146fd57fb091347db25fcf5255d40f8881134`. That run predates
+the StaticFiles pathlib-root input. The four native
 `not_run` rows remain synchronous Request endpoint, bound-method endpoint,
 partial endpoint, and callable-instance ASGI dispatch. Strict aggregation
 remains `not_proven` because the compatibility denominator is incomplete and
@@ -169,8 +169,8 @@ latency ratios were 0.740 for Router and 0.978 for GZip. These workload-specific
 results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 613 input mappings, 51
-reasoned `not_applicable` rows, and 138 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 614 input mappings, 51
+reasoned `not_applicable` rows, and 137 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
