@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 867 input-only cases across 88 files,
+The active parity manifest indexes 877 input-only cases across 88 files,
 covering 101 operations and 861 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
@@ -66,7 +66,9 @@ converter examples to these inputs and map the separate `request.path_params`
 example to its existing endpoint input. The `test_datetime_convertor` source
 row now has input-only dispatch and reverse-URL cases on
 the Python package; the documented custom converter example is now mapped to
-the same dispatch and reverse-URL input cases. The six direct
+the same dispatch and reverse-URL input cases. The `test_route_converters` row
+now maps the five pinned request paths and all five named `Router.url_path_for`
+lookups, preserving the UUID object input. The six direct
 ServerErrorMiddleware inputs and three TestClient exception-
 chain inputs pass live source/package comparison in the latest run. Four
 exception-formatting cases now map the exact constructor inputs from
@@ -153,8 +155,8 @@ Rust-native remains `not_run` for these benchmark ASGI boundaries. These
 workload-specific results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 609 input mappings, 51
-reasoned `not_applicable` rows, and 142 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 610 input mappings, 51
+reasoned `not_applicable` rows, and 141 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

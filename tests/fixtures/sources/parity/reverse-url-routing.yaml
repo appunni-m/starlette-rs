@@ -1432,6 +1432,419 @@
       "observations": [
         "reverse-url"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.source-route-converter.int",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.first-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "name": "homepage",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/int/{param:int}",
+            "name": "int-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/float/{param:float}",
+            "name": "float-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/path/{param:path}",
+            "name": "path-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/uuid/{param:uuid}",
+            "name": "uuid-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/path-with-parentheses({param:int})",
+            "name": "path-with-parentheses",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "int-convertor",
+        "path_params": {
+          "param": 5
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.source-route-converter.float",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.first-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "name": "homepage",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/int/{param:int}",
+            "name": "int-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/float/{param:float}",
+            "name": "float-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/path/{param:path}",
+            "name": "path-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/uuid/{param:uuid}",
+            "name": "uuid-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/path-with-parentheses({param:int})",
+            "name": "path-with-parentheses",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "float-convertor",
+        "path_params": {
+          "param": 25.5
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.source-route-converter.path",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.first-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "name": "homepage",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/int/{param:int}",
+            "name": "int-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/float/{param:float}",
+            "name": "float-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/path/{param:path}",
+            "name": "path-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/uuid/{param:uuid}",
+            "name": "uuid-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/path-with-parentheses({param:int})",
+            "name": "path-with-parentheses",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "path-convertor",
+        "path_params": {
+          "param": "some/example"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.source-route-converter.uuid",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.first-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "name": "homepage",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/int/{param:int}",
+            "name": "int-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/float/{param:float}",
+            "name": "float-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/path/{param:path}",
+            "name": "path-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/uuid/{param:uuid}",
+            "name": "uuid-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/path-with-parentheses({param:int})",
+            "name": "path-with-parentheses",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "uuid-convertor",
+        "path_params": {
+          "param": {
+            "kind": "uuid-value",
+            "value": "ec38df32-ceda-4cfa-9b4a-1aeb94ad551a"
+          }
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.source-route-converter.parentheses-int",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.first-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "name": "homepage",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/int/{param:int}",
+            "name": "int-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/float/{param:float}",
+            "name": "float-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/path/{param:path}",
+            "name": "path-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/uuid/{param:uuid}",
+            "name": "uuid-convertor",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "http-route",
+            "path": "/path-with-parentheses({param:int})",
+            "name": "path-with-parentheses",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "path-with-parentheses",
+        "path_params": {
+          "param": 7
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
     }
   ]
 }

@@ -4812,6 +4812,25 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                 max_body_size=route_spec.get("max_body_size"),
             )
 
+        if response_spec.get("kind") == "sync-path-parameter-json-response":
+
+            def path_parameter_endpoint(request: Any, raw: dict[str, Any] = response_spec) -> Any:
+                route_index_observations.append(route_index)
+                value = request.path_params[raw["path_parameter"]]
+                if raw["value_transform"] == "string":
+                    value = str(value)
+                return JSONResponse(
+                    {raw["json_key"]: value},
+                    status_code=raw["status_code"],
+                )
+
+            return Route(
+                route_spec["path"],
+                endpoint=path_parameter_endpoint,
+                methods=route_spec["methods"],
+                max_body_size=route_spec.get("max_body_size"),
+            )
+
         if response_spec.get("kind") == "sync-plain-text-response":
             if set(response_spec) != {
                 "kind",
@@ -7198,6 +7217,20 @@ def _reverse_url_path_value(url_path: Any) -> dict[str, str]:
     return {"path": str(url_path), "protocol": url_path.protocol, "host": url_path.host}
 
 
+def _reverse_lookup_path_params(lookup: dict[str, Any]) -> dict[str, Any]:
+    from datetime import datetime
+    from uuid import UUID
+
+    return {
+        name: datetime(*value["components"])  # noqa: DTZ001  # Preserve Starlette's naive converter value.
+        if isinstance(value, dict) and value["kind"] == "datetime-components"
+        else UUID(value["value"])
+        if isinstance(value, dict) and value["kind"] == "uuid-value"
+        else value
+        for name, value in lookup["path_params"].items()
+    }
+
+
 def _build_reverse_route_middleware(specs: list[dict[str, Any]]) -> list[Any]:
     from starlette.middleware import Middleware
 
@@ -7260,7 +7293,7 @@ def _build_reverse_route_middleware(specs: list[dict[str, Any]]) -> list[Any]:
 
 def _request_url_value(request: Any, lookup: dict[str, Any]) -> dict[str, Any]:
     try:
-        return {"url": str(request.url_for(lookup["name"], **lookup["path_params"]))}
+        return {"url": str(request.url_for(lookup["name"], **_reverse_lookup_path_params(lookup)))}
     except Exception as exc:
         return {"error": _reverse_url_error(exc)}
 
@@ -7438,12 +7471,7 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
             observed = asyncio.run(run_request())
         else:
             graph = _build_reverse_route_node(graph_spec, lookup, observation)
-            path_params = {
-                name: datetime(*value["components"])  # noqa: DTZ001
-                if isinstance(value, dict)
-                else value
-                for name, value in lookup["path_params"].items()
-            }
+            path_params = _reverse_lookup_path_params(lookup)
             result = graph.url_path_for(lookup["name"], **path_params)
             observed = _reverse_url_path_value(result)
     except Exception as exc:

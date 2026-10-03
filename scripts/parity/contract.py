@@ -13,6 +13,7 @@ import re
 import statistics
 import subprocess
 import sys
+import uuid
 from datetime import datetime
 from email import policy as email_policy
 from email.parser import BytesParser
@@ -4018,6 +4019,30 @@ def _validate_http_route_input(
             )
         if endpoint["format"] != converter["format"]:
             raise ContractError(f"{context}.endpoint.format must match its datetime converter")
+        _string(endpoint["json_key"], f"{context}.endpoint.json_key")
+        if type(endpoint["status_code"]) is not int or endpoint["status_code"] != 200:
+            raise ContractError(f"{context}.endpoint.status_code must be 200")
+    elif endpoint["kind"] == "sync-path-parameter-json-response":
+        endpoint = _exact(
+            endpoint,
+            {"kind", "path_parameter", "json_key", "value_transform", "status_code"},
+            f"{context}.endpoint",
+        )
+        path_parameter_map = dict(path_parameters)
+        path_parameter = _string(endpoint["path_parameter"], f"{context}.endpoint.path_parameter")
+        converter_name = path_parameter_map.get(path_parameter)
+        if endpoint["value_transform"] == "identity":
+            if converter_name not in {"str", "int", "float", "path"}:
+                raise ContractError(
+                    f"{context}.endpoint identity transform requires a scalar built-in path converter"
+                )
+        elif endpoint["value_transform"] == "string":
+            if converter_name != "uuid":
+                raise ContractError(
+                    f"{context}.endpoint string transform requires a UUID path converter"
+                )
+        else:
+            raise ContractError(f"{context}.endpoint.value_transform is unsupported")
         _string(endpoint["json_key"], f"{context}.endpoint.json_key")
         if type(endpoint["status_code"]) is not int or endpoint["status_code"] != 200:
             raise ContractError(f"{context}.endpoint.status_code must be 200")
@@ -8098,9 +8123,14 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
                 and isinstance(value["components"], list)
                 and len(value["components"]) == 6
                 and all(type(component) is int for component in value["components"])
+            ) and not (
+                isinstance(value, dict)
+                and set(value) == {"kind", "value"}
+                and value["kind"] == "uuid-value"
+                and isinstance(value["value"], str)
             ):
                 raise ContractError(
-                    "reverse URL object path parameter values must be datetime components"
+                    "reverse URL object path parameter values must be datetime components or a UUID value"
                 )
 
     request_scope = case["request_scope"]
@@ -8178,14 +8208,39 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
         )
     for parameter, value in lookup["path_params"].items():
         if isinstance(value, dict):
-            if key[0] != "starlette.routing.Route" or not isinstance(graph, dict):
-                raise ContractError("datetime component values require direct Route.url_path_for")
-            parameter_convertors = dict(_validate_reverse_path(graph["path"], custom, "Route.path"))
-            converter_name = parameter_convertors.get(parameter)
-            if custom.get(converter_name, {}).get("kind") != "datetime":
-                raise ContractError(
-                    "datetime component values require a matching datetime route converter"
+            if value["kind"] == "datetime-components":
+                if key[0] != "starlette.routing.Route" or not isinstance(graph, dict):
+                    raise ContractError(
+                        "datetime component values require direct Route.url_path_for"
+                    )
+                parameter_convertors = dict(
+                    _validate_reverse_path(graph["path"], custom, "Route.path")
                 )
+                converter_name = parameter_convertors.get(parameter)
+                if custom.get(converter_name, {}).get("kind") != "datetime":
+                    raise ContractError(
+                        "datetime component values require a matching datetime route converter"
+                    )
+            else:
+                try:
+                    uuid.UUID(value["value"])
+                except (AttributeError, TypeError, ValueError) as exc:
+                    raise ContractError("UUID path parameter value must be a valid UUID") from exc
+                if key[0] not in {"starlette.routing.Route", "starlette.routing.Router"}:
+                    raise ContractError("UUID values require direct Route or Router url_path_for")
+                candidates = _reverse_route_candidates(
+                    graph, lookup["name"], lookup["path_params"], custom
+                )
+                if not candidates:
+                    raise ContractError("UUID value requires a successful named route lookup")
+                selected_route = min(candidates, key=lambda item: item[0])[1]
+                parameter_convertors = dict(
+                    _validate_reverse_path(
+                        selected_route["path"], custom, "UUID selected route path"
+                    )
+                )
+                if parameter_convertors.get(parameter) != "uuid":
+                    raise ContractError("UUID value requires a matching UUID route converter")
     if key == ROUTER_URL_PATH_FOR_OPERATION_KEY and "rust-native-local" in case["target_profiles"]:
         _validate_native_router_url_path_for_case(graph, lookup, custom)
     if key[0] == "starlette.requests.Request" and allow_observer:

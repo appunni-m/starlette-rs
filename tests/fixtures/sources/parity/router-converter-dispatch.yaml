@@ -1280,7 +1280,7 @@
       "routes": [
         {
           "kind": "http-route",
-          "path": "/café/v1+alpha/{not-valid-name}/{value:str}",
+          "path": "/caf\u00e9/v1+alpha/{not-valid-name}/{value:str}",
           "methods": [
             "GET"
           ],
@@ -1302,7 +1302,7 @@
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
-        "path": "/café/v1+alpha/{not-valid-name}/ada",
+        "path": "/caf\u00e9/v1+alpha/{not-valid-name}/ada",
         "raw_path_base64": "L2NhZsOpL3YxK2FscGhhL3tub3QtdmFsaWQtbmFtZX0vYWRh",
         "query_string_base64": "",
         "root_path": "",
@@ -2396,6 +2396,311 @@
       "custom_convertors": [],
       "redirect_slashes": true,
       "max_body_size": 5
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.source-route-converter.int",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.int-converter-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/int/{param:int}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "sync-path-parameter-json-response",
+            "path_parameter": "param",
+            "json_key": "int",
+            "value_transform": "identity",
+            "status_code": 200
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/int/5",
+        "raw_path_base64": "L2ludC81",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "observe_router_scope": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.source-route-converter.parentheses-int",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.int-converter-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/path-with-parentheses({param:int})",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "sync-path-parameter-json-response",
+            "path_parameter": "param",
+            "json_key": "int",
+            "value_transform": "identity",
+            "status_code": 200
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/path-with-parentheses(7)",
+        "raw_path_base64": "L3BhdGgtd2l0aC1wYXJlbnRoZXNlcyg3KQ==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "observe_router_scope": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.source-route-converter.float",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.float-converter-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/float/{param:float}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "sync-path-parameter-json-response",
+            "path_parameter": "param",
+            "json_key": "float",
+            "value_transform": "identity",
+            "status_code": 200
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/float/25.5",
+        "raw_path_base64": "L2Zsb2F0LzI1LjU=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "observe_router_scope": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.source-route-converter.path",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.path-converter-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/path/{param:path}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "sync-path-parameter-json-response",
+            "path_parameter": "param",
+            "json_key": "path",
+            "value_transform": "identity",
+            "status_code": 200
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/path/some/example",
+        "raw_path_base64": "L3BhdGgvc29tZS9leGFtcGxl",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "observe_router_scope": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.source-route-converter.uuid",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.uuid-converter-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/uuid/{param:uuid}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "sync-path-parameter-json-response",
+            "path_parameter": "param",
+            "json_key": "uuid",
+            "value_transform": "string",
+            "status_code": 200
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/uuid/ec38df32-ceda-4cfa-9b4a-1aeb94ad551a",
+        "raw_path_base64": "L3V1aWQvZWMzOGRmMzItY2VkYS00Y2ZhLTliNGEtMWFlYjk0YWQ1NTFh",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "observe_router_scope": true
     }
   ]
 }
