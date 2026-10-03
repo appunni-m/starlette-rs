@@ -34,7 +34,7 @@ bytes, and JSON send/receive exchange cases, and four TestClient TrustedHost
 cases for exact/wildcard acceptance, invalid-host rejection, and HTTPS www
 redirect following. Seven QueryParams cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `b44e9f27-c991-495c-9c54-38d06f6d3539` passed 978 of 982
+full-slice run `b35a96db-4512-4d0c-a981-b9f2b60b0cf4` passed 978 of 982
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
 765/765; Rust-native passed 213/217. The new GZip streaming-response case
@@ -77,11 +77,11 @@ The generated coverage matrix has 802 source rows: 500 input mappings, 51
 reasoned `not_applicable` rows, and 251 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
-The latest Router/GZip run `5723c0b6-b88d-4489-b465-4968021a10aa` measured all
+The latest Router/GZip run `78cfd1d8-3445-4b56-870e-c1c22b85c3cd` measured all
 74 source/package workloads after correctness preflight
-`81dee84a-7234-4c6f-8070-aa2939740254`. Median per-workload source/package
-latency ratios were 0.747 for Router and 0.972 for GZip; source latency was
-lower on five of six Router workloads and 57 of 68 GZip workloads. All 74
+`b35a96db-4512-4d0c-a981-b9f2b60b0cf4`. Median per-workload source/package
+latency ratios were 0.747 for Router and 0.977 for GZip; source latency was
+lower on five of six Router workloads and 58 of 68 GZip workloads. All 74
 source/package observation hashes matched. See
 [Benchmark mapping](../BENCHMARKS.md) for the timing summary and limits. These
 bounded results do not establish full compatibility.

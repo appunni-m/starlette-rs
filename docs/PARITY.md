@@ -11,8 +11,8 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest full-slice correctness preflight is
-`b44e9f27-c991-495c-9c54-38d06f6d3539`. It ran from
-`2026-10-03T02:17:23.389Z` to `2026-10-03T02:20:21.760Z` against Starlette
+`b35a96db-4512-4d0c-a981-b9f2b60b0cf4`. It ran from
+`2026-10-03T02:25:35.286Z` to `2026-10-03T02:28:42.489Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 767-case,
 790-requirement `parity-input@29` manifest. It selected 982 profile
 comparisons: 978 passed, zero failed, zero infrastructure errors, and four
@@ -28,17 +28,17 @@ partial endpoint, and callable-instance ASGI dispatch. `make parity-run` exits
 2 because of those declared rows; the run completed with no parity failures or
 infrastructure errors.
 
-The Rust-native target used commit `0e6d41a0d7ff27e91cb887a543900c55240c9213`
+The Rust-native target used commit `65eb0015ea0b3349abf5f1a31e6cb7713b8d9cd4`
 with source fingerprint
-`0e6d41a0d7ff27e91cb887a543900c55240c9213+source-fnv1a64-f63b3847c266153e`.
+`65eb0015ea0b3349abf5f1a31e6cb7713b8d9cd4+source-fnv1a64-f63b3847c266153e`.
 The Python-package target tree SHA-256 is
 `09220a2a13300e19883081c550827da11691427570f989214ac79f5a6970b4bd`; its
 wheel SHA-256 is
-`9ee951842d262da10a311fb50a42b6d03671c92f70d9d482359f63d8e3b3c116`. The
+`e817b0d8fe7ed24b1c428265c40f5f13d72e7bf32d8268358c537a7eaa54cccf`. The
 manifest SHA-256 is
 `a92f76ac2006b2734d778ce4ec4956c4d91da7fdfed5786bfe2d8122788d26d3`; the
 parity result artifact SHA-256 is
-`3fb9189b2936d029dbf74c4e835f7179a99c59b3e7a1090e60bbcacf561f707b`. Strict
+`29be60caa5eb514e3bfbfbaedf2d5166ce23c83b00bc80be529ae2d6de79d214`. Strict
 aggregation remains `not_proven` because the full compatibility denominator
 is incomplete and four Rust-native rows are `not_run`.
 For `lifespan_send_messages`, the manifest declares a narrow
