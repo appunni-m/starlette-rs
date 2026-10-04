@@ -712,6 +712,10 @@
           "source_path": "starlette.websockets.WebSocket"
         },
         {
+          "operation_id": "constructor-contract",
+          "source_path": "starlette.websockets.WebSocket.__init__"
+        },
+        {
           "operation_id": "scope-mapping",
           "source_path": "starlette.requests.HTTPConnection.__getitem__, __iter__, __len__, __eq__, and __hash__ inherited by starlette.websockets.WebSocket"
         }

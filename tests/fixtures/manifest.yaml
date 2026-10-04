@@ -21969,6 +21969,110 @@
           }
         },
         {
+          "id": "constructor-contract",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.websockets.WebSocket.__init__",
+            "signature": "For each input-defined constructor probe, call WebSocket with the supplied scope and callback references and observe construction or the exact Python exception class and message.",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "constructor_probes",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "constructor_attempts",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python WebSocket constructor or Python callback objects.",
+                "blocker": "This input compares the public Python constructor signature and Python TypeError details."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.websockets.WebSocket.__init__",
+              "signature": "WebSocket(scope, receive, send)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.websockets.WebSocket.constructor.required-callables",
+              "dimension": "error_path",
+              "description": "Compare constructor calls selected by the input, including callback omission and explicit callback construction, with exact Python outcomes. Pinned source: starlette/websockets.py:26-31; docs: docs/websockets.md:5-17.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Input-only constructor comparisons make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Python constructor signature compatibility is outside the active ASGI benchmark workloads."
+          }
+        },
+        {
           "id": "scope-mapping",
           "kind": "protocol_operation",
           "classification": "endpoint",

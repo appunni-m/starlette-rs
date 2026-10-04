@@ -354,6 +354,11 @@ WEBSOCKET_SCOPE_MAPPING_REQUIREMENTS = {
     "minimal_scope": "starlette.websockets.WebSocket.scope-mapping.minimal-websocket-scope",
     "identity": "starlette.websockets.WebSocket.scope-mapping.object-identity",
 }
+WEBSOCKET_CONSTRUCTOR_OPERATION = (
+    "starlette.websockets.WebSocket",
+    "constructor-contract",
+)
+WEBSOCKET_CONSTRUCTOR_REQUIREMENT = "starlette.websockets.WebSocket.constructor.required-callables"
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
@@ -2179,6 +2184,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_CLIENT_OPERATION
                 or key == REQUEST_SCOPE_MAPPING_OPERATION
                 or key == WEBSOCKET_SCOPE_MAPPING_OPERATION
+                or key == WEBSOCKET_CONSTRUCTOR_OPERATION
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
                 or key == REQUEST_BODY_STREAM_JSON_OPERATION
@@ -2395,6 +2401,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) == REQUEST_CLIENT_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_SCOPE_MAPPING_OPERATION
                         or (surface["id"], operation["id"]) == WEBSOCKET_SCOPE_MAPPING_OPERATION
+                        or (surface["id"], operation["id"]) == WEBSOCKET_CONSTRUCTOR_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_SEND_PUSH_PROMISE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_IS_DISCONNECTED_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_FORM_OPERATION
@@ -13003,6 +13010,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == WEBSOCKET_SCOPE_MAPPING_OPERATION
     )
+    is_websocket_constructor = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == WEBSOCKET_CONSTRUCTOR_OPERATION
+    )
     is_send_push_promise = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_SEND_PUSH_PROMISE_OPERATION
@@ -13087,6 +13098,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_threadpool
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope", "lookup_key"}
         if is_websocket_scope_mapping
+        else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope", "constructor_probes"}
+        if is_websocket_constructor
         else WEBSOCKET_CASE_KEYS
         if is_websocket
         else HTTP_ENDPOINT_CASE_KEYS
@@ -13227,6 +13240,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     if is_websocket_scope_mapping:
         _exact(case, expected_case_keys, "WebSocket scope-mapping case")
         _validate_websocket_scope_mapping_case(case)
+        return case
+    if is_websocket_constructor:
+        _exact(case, expected_case_keys, "WebSocket constructor case")
+        _validate_websocket_constructor_case(case)
         return case
     if is_testclient_lifespan:
         _exact(case, expected_case_keys, "case")
@@ -18141,6 +18158,46 @@ def _validate_websocket_scope_mapping_case(case: dict[str, Any]) -> None:
         raise ContractError("WebSocket scope-mapping lookup_key must exist in the supplied scope")
     if case["covers"] != list(WEBSOCKET_SCOPE_MAPPING_REQUIREMENTS.values()):
         raise ContractError("WebSocket scope-mapping case must cover its canonical requirements")
+
+
+def _validate_websocket_constructor_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("WebSocket constructor parity targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["constructor-contract"]:
+        raise ContractError(
+            "WebSocket constructor cases select constructor-contract without assets"
+        )
+    if not case["case_id"].startswith("starlette.websockets.WebSocket.constructor-contract."):
+        raise ContractError("WebSocket constructor case ID must bind to the constructor interface")
+    if case["scope"] != {"type": "websocket", "path": "/abc/", "headers": []}:
+        raise ContractError("WebSocket constructor input must preserve the declared minimal scope")
+    probes = case["constructor_probes"]
+    if not isinstance(probes, list) or len(probes) != 2:
+        raise ContractError("WebSocket constructor cases must provide both declared call forms")
+    probe_ids: set[str] = set()
+    argument_forms: set[tuple[str, ...]] = set()
+    for index, raw_probe in enumerate(probes):
+        context = f"WebSocket constructor probe[{index}]"
+        probe = _exact(raw_probe, {"probe_id", "arguments"}, context)
+        probe_id = _string(probe["probe_id"], f"{context}.probe_id")
+        if not probe_id or probe_id in probe_ids:
+            raise ContractError(f"{context}.probe_id must be non-empty and unique")
+        probe_ids.add(probe_id)
+        arguments = probe["arguments"]
+        if (
+            not isinstance(arguments, list)
+            or any(
+                not isinstance(argument, str) or argument not in {"scope", "receive", "send"}
+                for argument in arguments
+            )
+            or len(arguments) != len(set(arguments))
+        ):
+            raise ContractError(f"{context}.arguments must select unique constructor inputs")
+        argument_forms.add(tuple(arguments))
+    if argument_forms != {("scope",), ("scope", "receive", "send")}:
+        raise ContractError("WebSocket constructor probes must compare both documented call forms")
+    if case["covers"] != [WEBSOCKET_CONSTRUCTOR_REQUIREMENT]:
+        raise ContractError("WebSocket constructor case must cover its canonical requirement")
 
 
 def _validate_send_push_promise_case(case: dict[str, Any]) -> None:

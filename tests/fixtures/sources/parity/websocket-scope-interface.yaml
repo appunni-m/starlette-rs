@@ -22,6 +22,42 @@
       "observations": [
         "scope-mapping"
       ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.constructor-contract.documented-optional-callbacks",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "constructor-contract",
+      "covers": [
+        "starlette.websockets.WebSocket.constructor.required-callables"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "path": "/abc/",
+        "headers": []
+      },
+      "constructor_probes": [
+        {
+          "probe_id": "documented-scope-only",
+          "arguments": [
+            "scope"
+          ]
+        },
+        {
+          "probe_id": "explicit-callbacks",
+          "arguments": [
+            "scope",
+            "receive",
+            "send"
+          ]
+        }
+      ],
+      "observations": [
+        "constructor-contract"
+      ]
     }
   ]
 }

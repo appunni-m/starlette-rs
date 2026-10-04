@@ -41,6 +41,57 @@ def run_request_scope_mapping_case(
     }
 
 
+def run_websocket_constructor_case(
+    case: dict[str, Any],
+    websocket_type: type[Any],
+) -> dict[str, Any]:
+    """Compare the input-selected public WebSocket constructor argument forms."""
+
+    async def receive() -> dict[str, str]:
+        return {"type": "websocket.connect"}
+
+    async def send(_message: dict[str, Any]) -> None:
+        return None
+
+    supplied = {
+        "scope": dict(case["scope"]),
+        "receive": receive,
+        "send": send,
+    }
+    attempts = []
+    for probe in case["constructor_probes"]:
+        try:
+            websocket = websocket_type(*(supplied[name] for name in probe["arguments"]))
+        except Exception as error:
+            error_type = type(error)
+            attempt = {
+                "probe_id": probe["probe_id"],
+                "outcome": "error",
+                "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
+                "message": str(error),
+            }
+        else:
+            attempt = {
+                "probe_id": probe["probe_id"],
+                "outcome": "constructed",
+                "client_state": _safe(websocket.client_state.name),
+                "application_state": _safe(websocket.application_state.name),
+            }
+        attempts.append(attempt)
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "constructor-contract",
+                "status": "ok",
+                "value": {"constructor_attempts": attempts},
+            }
+        ],
+    }
+
+
 def run_websocket_scope_mapping_case(
     case: dict[str, Any],
     websocket_type: type[Any],
