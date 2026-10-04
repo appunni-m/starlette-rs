@@ -124,8 +124,8 @@ for both one repeated name and multiple repeated names, and passed source/packag
 comparison.
 
 The latest clean-tree correctness preflight is
-`c9e7a940-c697-44d0-902e-63500ab3e524`. It ran from
-`2026-10-04T03:29:21.192Z` to `2026-10-04T03:32:01.952Z` against Starlette
+`ce2e6173-733d-4c5b-ad08-fae5742b5f25`. It ran from
+`2026-10-04T03:37:28.643Z` to `2026-10-04T03:40:32.703Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 892-case,
 874-requirement `parity-input@31` manifest. It selected 1,129 profile
 comparisons: 1,125 passed, zero failed, zero infrastructure errors, and four
@@ -141,23 +141,23 @@ HTTPException handler input matches for status 429, JSON detail, and both
 exception-provided response headers. The module-global
 `starlette.config.environ` input and recent StaticFiles/TestClient cases also
 match exactly. Both targets were clean at commit
-`9da93566cce0b30a9678e58336fbdc8a158281fa`. The four native `not_run` rows
+`9f8c853a9794f87283a7ce5ec2e3c6f1f568e916`. The four native `not_run` rows
 remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
 and callable-instance ASGI dispatch. Strict aggregation remains `not_proven`
 because the compatibility denominator is incomplete and four Rust-native rows
 are `not_run`.
 
 The Rust-native target revision and source fingerprint are
-`9da93566cce0b30a9678e58336fbdc8a158281fa+source-fnv1a64-64035a396e9dceba`.
+`9f8c853a9794f87283a7ce5ec2e3c6f1f568e916+source-fnv1a64-64035a396e9dceba`.
 The Python-package target tree SHA-256 is
 `00b1293cfc6c2df6d5a6cd3557623a80330f8a6dbc7ecae02cebbd1a55e04ae4`; its
 wheel SHA-256 is
-`dc0005ceff094b06579a76e0dd9ec4c9cee8310696fa4efe483e647c2d1cf67f`. The
+`4539b16d346d307453afab86dd272969f7479e78828d1559fe63be2a80f2d403`. The
 manifest SHA-256 is
 `c0ec486cd19397c73d46eba18cf54ea2d396a74b92478343cd576b4c8c77d04c`, and the
 local correctness-result artifact SHA-256 is
-`5b2f004693217294c748298822f5da323ec28c9d1203e330d79c8e4d657126c7` at
-`build/parity/parity-result.json`.
+`0b563390a29895069584edb6e5126bea03df1fd69eaa9959bea41ea7507fd8f6` at
+`build/parity/upstream-benchmark-correctness-result.json`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -167,16 +167,15 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`1ef2c2d8-cd85-455a-8d6e-1ca295e471b2` measured all 74 source/package
+`ccaf428c-f303-4ead-aa59-98fb375c07ad` measured all 74 source/package
 workloads on clean commit
-`4c7c9a9b82429b8be49184cac959e43e72fe3ff4`: six Router and 68 GZip, with
+`9f8c853a9794f87283a7ce5ec2e3c6f1f568e916`: six Router and 68 GZip, with
 zero failures and matching normalized observation hashes for all 74 workloads.
-Its correctness preflight
-`c9572d7b-b74e-47e5-8594-0db859293e73` passed 1,123 of 1,127 selected comparisons:
-889/889 Python-package comparisons and 234/238 Rust-native comparisons, with
-four Rust-native `not_run` rows. Median source/package latency ratios were
-0.744 for Router and 0.979 for GZip. These workload-specific results do not
-establish full Starlette compatibility.
+Its correctness preflight `ce2e6173-733d-4c5b-ad08-fae5742b5f25` passed
+1,125/1,129 selected comparisons: 890/890 Python-package comparisons and
+235/239 Rust-native comparisons, with four Rust-native `not_run` rows. Median
+source/package latency ratios were 0.736 for Router and 0.971 for GZip. These
+workload-specific results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
 The generated coverage matrix currently has 802 source rows: 625 input mappings,
@@ -355,7 +354,7 @@ the fixture backlog.
 `asgi-core.app.test_app_debug` is mapped to the TestClient input that mutates
 debug after construction; direct debug-enabled construction remains a separate
 documentation backlog item. The latest full-slice parity run
-`c9e7a940-c697-44d0-902e-63500ab3e524` selected 1,129 comparisons: 1,125
+`ce2e6173-733d-4c5b-ad08-fae5742b5f25` selected 1,129 comparisons: 1,125
 passed with zero failures and zero infrastructure errors. The Python package
 passed 890/890 comparisons; Rust-native passed 235/239, with four unsupported
 callable rows marked `not_run`. This slice does not prove full Starlette

@@ -37,7 +37,7 @@ redirect following. Seven QueryParams cases
 map equality and blank-value behavior to two pinned test rows. The new literal
 GET `/func` Router case maps the upstream dispatch check and passes on both
 target profiles; the upstream test does not call `Router.add_route`. The latest
-full-slice run `c9e7a940-c697-44d0-902e-63500ab3e524` passed 1,125 of 1,129
+full-slice run `ce2e6173-733d-4c5b-ad08-fae5742b5f25` passed 1,125 of 1,129
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
 890/890; Rust-native passed 235/239. The background-task server-error case
@@ -84,14 +84,14 @@ Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). Run
-`1ef2c2d8-cd85-455a-8d6e-1ca295e471b2` measured all 74 source/package
+`ccaf428c-f303-4ead-aa59-98fb375c07ad` measured all 74 source/package
 workloads on clean commit
-`4c7c9a9b82429b8be49184cac959e43e72fe3ff4`: six Router and 68 GZip, with
+`9f8c853a9794f87283a7ce5ec2e3c6f1f568e916`: six Router and 68 GZip, with
 zero failures and matching normalized observation hashes for all 74. Its
-correctness preflight `c9572d7b-b74e-47e5-8594-0db859293e73` selected 1,127
-comparisons (1,123 passed, zero failures, zero infrastructure errors, four
+correctness preflight `ce2e6173-733d-4c5b-ad08-fae5742b5f25` selected 1,129
+comparisons (1,125 passed, zero failures, zero infrastructure errors, four
 declared Rust-native `not_run`). Median
-source/package latency ratios were 0.744 for Router and 0.979 for GZip.
+source/package latency ratios were 0.736 for Router and 0.971 for GZip.
 Rust-native remains `not_run` for these 74 benchmark workload boundaries.
 These workload-specific results do not establish full Starlette compatibility.
 

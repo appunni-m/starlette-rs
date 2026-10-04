@@ -11,7 +11,7 @@ incomplete.
 
 The active contract contains 892 input-only cases in 88 indexed files,
 covering 103 operations and 874 parity requirements. The latest clean-tree
-preflight, `c9e7a940-c697-44d0-902e-63500ab3e524`, selected 1,129 profile
+preflight, `ce2e6173-733d-4c5b-ad08-fae5742b5f25`, selected 1,129 profile
 comparisons: 1,125 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable cases were `not_run`. The Python package passed
 890/890 comparisons; Rust-native passed 235/239. The new literal GET `/func`
