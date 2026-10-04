@@ -31,7 +31,7 @@ from .fault_contracts import (
 )
 
 MANIFEST_SCHEMA = "migration-parity/manifest@4"
-INPUT_SCHEMA = "migration-parity/parity-input@38"
+INPUT_SCHEMA = "migration-parity/parity-input@39"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@6"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -259,6 +259,7 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "websocket_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.websocket-lifespan-state",
     "request_state_typing": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.request-state-generic-typing",
     "websocket_state_typing": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.websocket-state-generic-typing",
+    "router_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.router-lifespan-state",
     "application_callback": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.application-callback-entry-exit",
     "task_group_lifecycle": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.task-group-child-lifecycle",
     "task_runvar_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.same-task-and-runvar-context-continuity",
@@ -2008,6 +2009,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
                         and observation["path"] == "scope_mutation_trace"
                     )
+                    testclient_lifespan_state_after = (
+                        condition["input_key"] == "asgi_app.lifespan_state"
+                        and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
+                        and observation["path"] == "lifespan_state_after"
+                    )
                     multidict_typing_contract = (
                         condition["input_key"] == "typing_contract"
                         and key == MULTIDICT_OPERATION
@@ -2104,6 +2110,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_lifespan_runvar_context
                         and not testclient_lifespan_typing_contract
                         and not testclient_lifespan_scope_mutation_trace
+                        and not testclient_lifespan_state_after
                         and not multidict_typing_contract
                         and not testclient_application_debug
                         and not testclient_application_host
@@ -13562,6 +13569,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         ["enter"],
         ["enter", "exit"],
         ["enter", "request", "request", "websocket", "exit"],
+        ["enter", "request", "request", "exit"],
         [
             "enter",
             "request",
@@ -13866,24 +13874,35 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             )
         return
 
-    if isinstance(asgi_app_value, dict) and asgi_app_value.get("kind") == "starlette-state":
+    is_router_state = (
+        isinstance(asgi_app_value, dict) and asgi_app_value.get("kind") == "starlette-router-state"
+    )
+    if isinstance(asgi_app_value, dict) and asgi_app_value.get("kind") in {
+        "starlette-state",
+        "starlette-router-state",
+    }:
+        stateful_keys = {
+            "kind",
+            "scope_fields",
+            "loop_relations",
+            "lifespan_state",
+            "routes",
+            "typing_contract",
+        }
+        if not is_router_state:
+            stateful_keys.add("app_state")
         asgi_app = _exact(
             asgi_app_value,
-            {
-                "kind",
-                "scope_fields",
-                "loop_relations",
-                "lifespan_state",
-                "app_state",
-                "routes",
-                "typing_contract",
-            },
-            "TestClient stateful Starlette app",
+            stateful_keys,
+            "TestClient stateful Starlette or Router app",
         )
-        if client_operations != ["enter", "request", "request", "websocket", "exit"]:
-            raise ContractError(
-                "Stateful lifespan cases require two HTTP requests and one WebSocket"
-            )
+        expected_client_operations = (
+            ["enter", "request", "request", "exit"]
+            if is_router_state
+            else ["enter", "request", "request", "websocket", "exit"]
+        )
+        if client_operations != expected_client_operations:
+            raise ContractError("Stateful lifespan actions do not match the declared app shape")
         if case["testclient"]["backend"] != "asyncio":
             raise ContractError("Stateful lifespan cases require the asyncio TestClient backend")
 
@@ -13940,7 +13959,8 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             except (TypeError, ValueError) as exc:
                 raise ContractError(f"{context} must contain JSON-compatible values") from exc
 
-        for state_key in ("lifespan_state", "app_state"):
+        state_keys = ("lifespan_state",) if is_router_state else ("lifespan_state", "app_state")
+        for state_key in state_keys:
             state = asgi_app[state_key]
             if not isinstance(state, dict):
                 raise ContractError(f"Stateful lifespan {state_key} must be an object")
@@ -13998,32 +14018,42 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
                     raise ContractError(f"{context}.path must resolve within lifespan_state")
                 current = current[key]
             typed_connections.add((connection, type_parameter))
-        if typed_connections != {
-            ("Request", state_type_name),
-            ("WebSocket", state_type_name),
-            ("Request", None),
-        }:
+        expected_typed_connections = (
+            {("Request", state_type_name), ("Request", None)}
+            if is_router_state
+            else {
+                ("Request", state_type_name),
+                ("WebSocket", state_type_name),
+                ("Request", None),
+            }
+        )
+        if typed_connections != expected_typed_connections:
             raise ContractError(
-                "Stateful lifespan typing must cover generic Request, generic WebSocket, and the default Request state"
+                "Stateful lifespan typing does not cover the declared connection contracts"
             )
 
         routes = asgi_app["routes"]
-        if not isinstance(routes, list) or len(routes) != 3:
+        required_route_count = 1 if is_router_state else 3
+        if not isinstance(routes, list) or len(routes) != required_route_count:
             raise ContractError(
-                "Stateful lifespan app requires two HTTP routes and one WebSocket route"
+                "Stateful lifespan route count does not match its declared app shape"
             )
         route_index: dict[tuple[str, str], dict[str, Any]] = {}
-        state_sources = {
-            "http": {
-                "request",
-                "app",
-                "request_app",
-                "scope_app",
-                "request_app_state",
-                "lifespan",
-            },
-            "websocket": {"websocket", "app", "lifespan"},
-        }
+        state_sources = (
+            {"http": {"request", "lifespan"}, "websocket": set()}
+            if is_router_state
+            else {
+                "http": {
+                    "request",
+                    "app",
+                    "request_app",
+                    "scope_app",
+                    "request_app_state",
+                    "lifespan",
+                },
+                "websocket": {"websocket", "app", "lifespan"},
+            }
+        )
 
         def validate_state_reference(reference: Any, context: str, transport: str) -> None:
             reference = _exact(reference, {"source", "path", "access"}, context)
@@ -14053,6 +14083,8 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
                 )
                 _string(route["method"], f"Stateful HTTP route[{route_number}].method")
             elif transport == "websocket":
+                if is_router_state:
+                    raise ContractError("Router lifespan-state cases use HTTP routes only")
                 route = _exact(
                     route_value,
                     {"transport", "path", "actions"},
@@ -14115,6 +14147,33 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
                             "Stateful set access must select attribute or item access"
                         )
                     validate_json_value(action["value"], f"{context}.value")
+                elif operation == "append" and is_router_state:
+                    action = _exact(
+                        action_value,
+                        {"operation", "target", "path", "access", "value"},
+                        context,
+                    )
+                    if action["target"] != "request":
+                        raise ContractError("Router lifespan-state append targets Request.state")
+                    state_path = action["path"]
+                    if (
+                        not isinstance(state_path, list)
+                        or not state_path
+                        or any(not isinstance(item, str) for item in state_path)
+                    ):
+                        raise ContractError("Stateful append path must contain string keys")
+                    if action["access"] not in {"attribute", "item"}:
+                        raise ContractError("Stateful append access must select attribute or item")
+                    current: Any = asgi_app["lifespan_state"]
+                    for key in state_path:
+                        if not isinstance(current, dict) or key not in current:
+                            raise ContractError(
+                                "Stateful append path must resolve within lifespan_state"
+                            )
+                        current = current[key]
+                    if not isinstance(current, list):
+                        raise ContractError("Stateful append path must resolve to a list")
+                    validate_json_value(action["value"], f"{context}.value")
                 elif operation == "identity":
                     action = _exact(
                         action_value,
@@ -14143,10 +14202,11 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             if route is None or request["method"] != route["method"]:
                 raise ContractError("Stateful HTTP action must match a declared route and method")
             requested_routes.add(("http", request["url"]))
-        websocket_action = client_actions[websocket_indexes[0]]
-        if ("websocket", websocket_action["url"]) not in route_index:
-            raise ContractError("Stateful WebSocket action must match a declared route")
-        requested_routes.add(("websocket", websocket_action["url"]))
+        if websocket_indexes:
+            websocket_action = client_actions[websocket_indexes[0]]
+            if ("websocket", websocket_action["url"]) not in route_index:
+                raise ContractError("Stateful WebSocket action must match a declared route")
+            requested_routes.add(("websocket", websocket_action["url"]))
         if requested_routes != set(route_index):
             raise ContractError("Every stateful route must be exercised exactly by client actions")
         for access in accesses:
@@ -14170,21 +14230,35 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
                     "Stateful lifespan typed state mapping must also be read by its live route input"
                 )
 
-        expected_covers = {
-            TESTCLIENT_LIFESPAN_REQUIREMENTS[key]
-            for key in (
-                "startup",
-                "managed_request",
-                "shutdown",
-                "http_state",
-                "shallow_copy",
-                "app_state",
-                "app_state_via_request_app",
-                "websocket_state",
-                "request_state_typing",
-                "websocket_state_typing",
-            )
-        }
+        if is_router_state:
+            expected_covers = {
+                TESTCLIENT_LIFESPAN_REQUIREMENTS[key]
+                for key in (
+                    "startup",
+                    "managed_request",
+                    "shutdown",
+                    "http_state",
+                    "shallow_copy",
+                    "router_state",
+                )
+            }
+            expected_covers.add("starlette.asgi.lifespan.scope-state-merge")
+        else:
+            expected_covers = {
+                TESTCLIENT_LIFESPAN_REQUIREMENTS[key]
+                for key in (
+                    "startup",
+                    "managed_request",
+                    "shutdown",
+                    "http_state",
+                    "shallow_copy",
+                    "app_state",
+                    "app_state_via_request_app",
+                    "websocket_state",
+                    "request_state_typing",
+                    "websocket_state_typing",
+                )
+            }
         covers = case["covers"]
         if (
             not isinstance(covers, list)
@@ -14308,6 +14382,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["websocket_state"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["request_state_typing"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["websocket_state_typing"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["router_state"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["application_callback"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["task_group_lifecycle"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["task_runvar_context"],

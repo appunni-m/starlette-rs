@@ -1911,7 +1911,7 @@ def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
         return _run_starlette_lifespan_case(case)
     if case["asgi_app"]["kind"] == "starlette-lifespan-runvar":
         return _run_starlette_lifespan_runvar_case(case)
-    if case["asgi_app"]["kind"] == "starlette-state":
+    if case["asgi_app"]["kind"] in {"starlette-state", "starlette-router-state"}:
         from scripts.parity.adapters.testclient_state import (
             run_testclient_stateful_lifespan_case,
         )

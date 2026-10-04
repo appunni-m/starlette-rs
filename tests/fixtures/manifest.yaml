@@ -210,7 +210,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@38",
+      "input_schema": "migration-parity/parity-input@39",
       "result_schema": "migration-parity/parity-result@6",
       "command_id": "parity"
     },
@@ -24315,6 +24315,18 @@
                   "condition": {
                     "input_key": "asgi_app.typing_contract"
                   }
+                },
+                {
+                  "path": "lifespan_state_after",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.lifespan_state"
+                  }
                 }
               ],
               "error": {
@@ -24525,6 +24537,17 @@
               "id": "starlette.testclient.TestClient.lifespan-context.same-task-and-runvar-context-continuity",
               "dimension": "boundary",
               "description": "Keep the TestClient lifespan callback in one task, propagate its AnyIO RunVar context to managed HTTP requests, isolate transient requests outside the context, and create a new lifespan task and RunVar context on re-entry. Pinned source: tests/test_testclient.py:89-164; tests/conftest.py:12-23; starlette/testclient.py:112-130,422-426,679-749; docs/testclient.md:79-84; docs/lifespan.md:142-158.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.router-lifespan-state",
+              "dimension": "boundary",
+              "description": "Run a Router with an async lifespan context manager that yields mutable state; send two requests to the same route and observe request-local top-level assignments, shared nested mutation, lifecycle cleanup state, and the yielded mapping. Pinned source: tests/test_routing.py::test_lifespan_state_async_cm; starlette/routing.py::Router.lifespan.",
               "lanes": [
                 "parity"
               ],

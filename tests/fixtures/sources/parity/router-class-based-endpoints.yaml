@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@38",
+  "schema": "migration-parity/parity-input@39",
   "cases": [
     {
       "case_id": "starlette.routing.Router.route-dispatch.http-endpoint-default-get",

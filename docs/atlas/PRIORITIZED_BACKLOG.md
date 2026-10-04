@@ -8,9 +8,9 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@38` with 927 input-only cases in 91
-indexed files: 925 oracle parity cases and two target-only fault contracts. It
-covers 104 operations and 899 parity requirements. The older full-slice run
+The active contract uses `parity-input@39` with 928 input-only cases in 91
+indexed files: 926 oracle parity cases and two target-only fault contracts. It
+covers 104 operations and 900 parity requirements. The older full-slice run
 was recorded against the preceding manifest revision:
 `a0bcf0da-4746-4490-843d-45653d987ea1` selected 1,160 profile comparisons:
 1,156 passed, zero failed, zero infrastructure errors, and four Rust-native
@@ -19,6 +19,16 @@ comparisons; Rust-native passed 244/248. The target-only route-cache poison
 fault contract also passed its HTTP 500 status and body assertions. The result
 artifact and target build identity are recorded in
 [Migration parity contract and evidence](../PARITY.md).
+
+The active contract also maps `routing.test_lifespan_state_async_cm` to the
+Router state propagation exercised through TestClient. Instrumented run
+`f54a933e-0dbf-441f-9d25-78eb7bfa3556` passed one exact source/package case and
+both target-only fault contracts; oracle applicability remains
+`not_applicable` for those fault rows. Coverage MCP verified 470 newly covered
+Rust lines and a 1.915-point gain from a matching baseline, with 3,244/24,539
+lines covered after union. Full-suite regression status remains unknown. See
+[Migration parity contract and evidence](../PARITY.md) for report receipts and
+build identities.
 
 The mixed-protocol Router source test `routing.test_protocol_switch` is now
 mapped to one HTTP and two WebSocket TestClient inputs. Selected run
@@ -69,7 +79,7 @@ manifest SHA-256 is
 normal selected run does not claim full-suite parity; the incremental coverage
 comparison is recorded below.
 
-The active 927-case contract maps `routing.test_raise_on_startup` to an actual
+The active 928-case contract maps `routing.test_raise_on_startup` to an actual
 `Router(lifespan=...)` whose input-defined lifespan context manager raises
 `RuntimeError` before yielding. Instrumented selected run
 `1323e01e-4cac-40fb-a940-88d31f770fca` passed the source/package comparison and
@@ -89,7 +99,7 @@ instrumented wheel SHA-256
 `4a7f21daede2267586ddbb9d7ced7d8993fd9a4a9b8e46bd178ef8c76b48bd2a`; see
 [Migration parity contract and evidence](../PARITY.md) for run IDs and receipts.
 
-The clean full-manifest preflight for the active 927-case contract
+The preceding clean full-manifest preflight for the 927-case contract
 `ff54cb4d-3390-463b-8ffd-96febc69b24b` selected 1,173 profile comparisons:
 1,169 passed, zero failed, zero infrastructure errors, and four Rust-native
 callable-boundary rows were `not_run`. The installed Python package passed
@@ -154,8 +164,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 658 input mappings,
-51 source-backed `not_applicable` rows, and 95 fixture-backlog rows, as
+The current coverage matrix has 804 source rows: 659 input mappings,
+51 source-backed `not_applicable` rows, and 94 fixture-backlog rows, as
 reported by the generated atlas. The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 

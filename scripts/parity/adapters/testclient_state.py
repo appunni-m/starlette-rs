@@ -76,6 +76,15 @@ def _apply_state_actions(
             observations[action["name"]] = _state_reference(
                 connection, action["left"], lifespan_state
             ) is _state_reference(connection, action["right"], lifespan_state)
+        elif action["operation"] == "append":
+            target = _state_owner(connection, action["target"], lifespan_state)
+            path = action["path"]
+            current = (
+                getattr(target, path[0]) if action["access"] == "attribute" else target[path[0]]
+            )
+            for key in path[1:]:
+                current = current[key]
+            current.append(action["value"])
         else:
             target = _state_owner(connection, action["target"], lifespan_state)
             path = action["path"]
@@ -259,7 +268,7 @@ def _typecheck_consumer(state: dict[str, Any], contract: dict[str, Any]) -> dict
 def run_testclient_stateful_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.applications import Starlette
     from starlette.responses import JSONResponse
-    from starlette.routing import Route, WebSocketRoute
+    from starlette.routing import Route, Router, WebSocketRoute
     from starlette.testclient import TestClient
 
     settings = case["testclient"]
@@ -324,9 +333,12 @@ def run_testclient_stateful_lifespan_case(case: dict[str, Any]) -> dict[str, Any
     async def lifespan(_app: Any) -> Any:
         yield lifespan_state
 
-    app = Starlette(routes=routes, lifespan=lifespan)
-    for key, value in app_input["app_state"].items():
-        setattr(app.state, key, value)
+    if app_input["kind"] == "starlette-router-state":
+        app = Router(routes=routes, lifespan=lifespan)
+    else:
+        app = Starlette(routes=routes, lifespan=lifespan)
+        for key, value in app_input["app_state"].items():
+            setattr(app.state, key, value)
 
     async def instrumented_app(scope: dict[str, Any], receive: Any, send: Any) -> None:
         connection_type = scope["type"]
@@ -439,6 +451,7 @@ def run_testclient_stateful_lifespan_case(case: dict[str, Any]) -> dict[str, Any
         "action_errors": action_errors,
         "loop_relations": loop_relations,
         "typing_contract": _typecheck_consumer(lifespan_state, app_input["typing_contract"]),
+        "lifespan_state_after": _safe(lifespan_state),
     }
     return {
         "case_id": case["case_id"],
