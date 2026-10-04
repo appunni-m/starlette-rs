@@ -2246,6 +2246,135 @@
       "observations": [
         "base-http-workflow"
       ]
+    },
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.shared-request-state-across-three-layers",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.await-call-next-header-mutation",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.shared-request-state-across-middleware-layers"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "plain-text-response",
+              "content": "OK",
+              "status_code": 200
+            }
+          }
+        ],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "set-request-state",
+                "name": "foo",
+                "value": "foo"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          },
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "set-request-state",
+                "name": "bar",
+                "value": "bar"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "set-call-next-response-header-from-request-state",
+                "name": "X-State-Foo",
+                "state_name": "foo"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          },
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "set-call-next-response-header-from-request-state",
+                "name": "X-State-Bar",
+                "state_name": "bar"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [
+            ["aG9zdA==", "dGVzdHNlcnZlcg=="],
+            ["YWNjZXB0", "Ki8q"],
+            ["YWNjZXB0LWVuY29kaW5n", "Z3ppcCwgZGVmbGF0ZQ=="],
+            ["Y29ubmVjdGlvbg==", "a2VlcC1hbGl2ZQ=="],
+            ["dXNlci1hZ2VudA==", "dGVzdGNsaWVudA=="]
+          ],
+          "client": [
+            "testclient",
+            50000
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "receive_after_events": "disconnect",
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
     }
   ]
 }

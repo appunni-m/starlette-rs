@@ -8410,6 +8410,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.shared-request-state-across-middleware-layers",
+              "dimension": "boundary",
+              "description": "Stack three BaseHTTPMiddleware layers that write distinct Request.state values before call_next and read those values afterward to set response headers. Compare the exact status, ordered headers, body, and ASGI event sequence. This maps tests/middleware/test_base.py::test_state_data_across_multiple_middlewares. Upstream: tests/middleware/test_base.py:123-176; starlette/middleware/base.py:96-203; starlette/requests.py:313-328.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

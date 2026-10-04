@@ -3478,15 +3478,82 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("BaseHTTPMiddleware route endpoint kind is unsupported")
 
     middleware_specs = application["middleware"]
-    if not isinstance(middleware_specs, list) or len(middleware_specs) != 1:
-        raise ValueError("BaseHTTPMiddleware workflow requires one configured Middleware")
-    middleware_spec = _strict_object(
-        middleware_specs[0],
-        {"kind", "dispatch_actions"},
-        "BaseHTTPMiddleware configured Middleware",
-    )
-    if middleware_spec["kind"] != "base-http-middleware":
+    if not isinstance(middleware_specs, list) or len(middleware_specs) not in {1, 3}:
+        raise ValueError(
+            "BaseHTTPMiddleware workflow requires one Middleware or a three-layer state stack"
+        )
+    middleware_layers = [
+        _strict_object(
+            value,
+            {"kind", "dispatch_actions"},
+            f"BaseHTTPMiddleware configured Middleware[{index}]",
+        )
+        for index, value in enumerate(middleware_specs)
+    ]
+    if any(layer["kind"] != "base-http-middleware" for layer in middleware_layers):
         raise ValueError("configured middleware must be a BaseHTTPMiddleware subclass")
+    stacked_request_state = len(middleware_layers) == 3
+    stacked_state_header_mutation = False
+    if stacked_request_state:
+        if (
+            route_spec is None
+            or route_kind != "plain-text-response"
+            or route_spec["methods"] != ["GET"]
+        ):
+            raise ValueError("three-layer Request.state parity requires one GET text route")
+        for layer_index, layer in enumerate(middleware_layers):
+            layer_actions = layer["dispatch_actions"]
+            if not isinstance(layer_actions, list) or not layer_actions:
+                raise ValueError("BaseHTTPMiddleware dispatch_actions must be non-empty")
+            layer_awaited = False
+            layer_returned = False
+            for action_index, raw_action in enumerate(layer_actions):
+                context = f"BaseHTTPMiddleware layer[{layer_index}] action[{action_index}]"
+                if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
+                    raise ValueError(f"{context} must be tagged")
+                kind = raw_action["kind"]
+                if kind == "set-request-state":
+                    action = _strict_object(raw_action, {"kind", "name", "value"}, context)
+                    if layer_awaited or layer_returned:
+                        raise ValueError("Request.state writes must precede call_next")
+                    if (
+                        not isinstance(action["name"], str)
+                        or not action["name"]
+                        or not isinstance(action["value"], str)
+                    ):
+                        raise ValueError("Request.state write input is invalid")
+                elif kind == "await-call-next":
+                    _strict_object(raw_action, {"kind"}, context)
+                    if layer_awaited or layer_returned:
+                        raise ValueError("each BaseHTTPMiddleware layer must await call_next once")
+                    layer_awaited = True
+                elif kind == "set-call-next-response-header-from-request-state":
+                    action = _strict_object(raw_action, {"kind", "name", "state_name"}, context)
+                    if not layer_awaited or layer_returned:
+                        raise ValueError("state-derived response headers must follow call_next")
+                    if (
+                        not isinstance(action["name"], str)
+                        or not action["name"]
+                        or not isinstance(action["state_name"], str)
+                        or not action["state_name"]
+                        or any(char in action["name"] for char in "\r\n:")
+                    ):
+                        raise ValueError("state-derived response header input is invalid")
+                    stacked_state_header_mutation = True
+                elif kind == "return-call-next-response":
+                    _strict_object(raw_action, {"kind"}, context)
+                    if (
+                        not layer_awaited
+                        or layer_returned
+                        or action_index != len(layer_actions) - 1
+                    ):
+                        raise ValueError("each middleware layer must return call_next's response")
+                    layer_returned = True
+                else:
+                    raise ValueError(f"{context} has an unsupported state-stack action")
+            if not layer_awaited or not layer_returned:
+                raise ValueError("each middleware layer must await and return call_next")
+    middleware_spec = middleware_layers[0]
     dispatch_actions = middleware_spec["dispatch_actions"]
     if not isinstance(dispatch_actions, list) or not dispatch_actions:
         raise ValueError("BaseHTTPMiddleware dispatch_actions must be non-empty")
@@ -3504,6 +3571,16 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         kind = raw_action["kind"]
         if kind == "read-request-body":
             _strict_object(raw_action, {"kind"}, context)
+        elif kind == "set-request-state":
+            action = _strict_object(raw_action, {"kind", "name", "value"}, context)
+            if awaited or returned is not None:
+                raise ValueError("Request.state writes must precede call_next")
+            if (
+                not isinstance(action["name"], str)
+                or not action["name"]
+                or not isinstance(action["value"], str)
+            ):
+                raise ValueError("Request.state write input is invalid")
         elif kind == "read-request-stream-next":
             _strict_object(raw_action, {"kind"}, context)
         elif kind == "check-request-is-disconnected":
@@ -3565,6 +3642,19 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 or any(char in action["name"] + action["value"] for char in "\r\n")
             ):
                 raise ValueError("BaseHTTPMiddleware response header input is invalid")
+            saw_header_mutation = True
+        elif kind == "set-call-next-response-header-from-request-state":
+            action = _strict_object(raw_action, {"kind", "name", "state_name"}, context)
+            if not awaited or returned is not None or saw_header_mutation:
+                raise ValueError("state-derived response header requires call_next")
+            if (
+                not isinstance(action["name"], str)
+                or not action["name"]
+                or not isinstance(action["state_name"], str)
+                or not action["state_name"]
+                or any(char in action["name"] for char in "\r\n:")
+            ):
+                raise ValueError("state-derived response header input is invalid")
             saw_header_mutation = True
         elif kind == "return-call-next-response":
             _strict_object(raw_action, {"kind"}, context)
@@ -3834,9 +3924,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     required_covers = {
         f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware"
     }
-    if saw_header_mutation:
+    if saw_header_mutation or stacked_state_header_mutation:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.await-call-next-header-mutation"
+        )
+    if stacked_request_state:
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.shared-request-state-across-middleware-layers"
         )
     if returned == "replacement":
         required_covers.add(
@@ -4516,10 +4610,17 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     background_task_events: list[dict[str, Any]] = []
 
     class InputDefinedBaseHTTPMiddleware(BaseHTTPMiddleware):
+        def __init__(self, app: Any, dispatch_actions_for_case: list[dict[str, Any]] | None = None):
+            self._input_dispatch_actions = (
+                dispatch_actions if dispatch_actions_for_case is None else dispatch_actions_for_case
+            )
+            super().__init__(app)
+
         async def dispatch(self, request: Any, call_next: Any) -> Any:
             response = None
             stream_iterator = None
-            for action_index, action in enumerate(dispatch_actions):
+            input_actions = self._input_dispatch_actions
+            for action_index, action in enumerate(input_actions):
                 kind = action["kind"]
                 if kind == "read-request-body":
                     body = await request.body()
@@ -4529,6 +4630,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                             "body_base64": base64.b64encode(body).decode("ascii"),
                         }
                     )
+                elif kind == "set-request-state":
+                    setattr(request.state, action["name"], action["value"])
                 elif kind == "check-request-is-disconnected":
                     disconnected = await request.is_disconnected()
                     dispatch_disconnect_checks.append(
@@ -4596,7 +4699,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 elif kind == "await-call-next":
                     response = await call_next(request)
                 elif kind == "await-call-next-catching-exception":
-                    action = dispatch_actions[action_index]
+                    action = input_actions[action_index]
                     exception_type = getattr(builtins, action["exception_class"])
                     try:
                         response = await call_next(request)
@@ -4615,6 +4718,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         )
                 elif kind == "set-call-next-response-header":
                     response.headers[action["name"]] = action["value"]
+                elif kind == "set-call-next-response-header-from-request-state":
+                    response.headers[action["name"]] = getattr(request.state, action["state_name"])
                 elif kind == "return-call-next-response":
                     return response
                 elif kind == "return-plain-text-response":
@@ -4742,7 +4847,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         app = Starlette(
             debug=application["debug"],
             routes=routes,
-            middleware=[Middleware(InputDefinedBaseHTTPMiddleware)],
+            middleware=[
+                Middleware(
+                    InputDefinedBaseHTTPMiddleware,
+                    dispatch_actions_for_case=middleware_spec["dispatch_actions"],
+                )
+                for middleware_spec in middleware_layers
+            ],
         )
     elif downstream_spec is not None and downstream_spec["kind"] == "asgi-sequence":
 
@@ -5000,7 +5111,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         app = Starlette(
             debug=application["debug"],
             routes=[],
-            middleware=[Middleware(InputDefinedBaseHTTPMiddleware)],
+            middleware=[
+                Middleware(
+                    InputDefinedBaseHTTPMiddleware,
+                    dispatch_actions_for_case=middleware_spec["dispatch_actions"],
+                )
+                for middleware_spec in middleware_layers
+            ],
         )
 
     scope = _make_scope(scope_spec)

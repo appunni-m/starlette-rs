@@ -334,6 +334,7 @@ BASE_HTTP_REQUIREMENTS = {
     "pathsend_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.pathsend-event-forwarding",
     "background_task_completion": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.background-task-completes-after-response-send",
     "background_task_failure": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.background-task-failure-propagates-after-response-send",
+    "shared_request_state": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.shared-request-state-across-middleware-layers",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -9475,15 +9476,76 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             raise ContractError("BaseHTTPMiddleware route endpoint kind is unsupported")
 
     middleware = application["middleware"]
-    if not isinstance(middleware, list) or len(middleware) != 1:
-        raise ContractError("BaseHTTPMiddleware input requires one configured middleware")
-    custom = _exact(
-        middleware[0],
-        {"kind", "dispatch_actions"},
-        "BaseHTTPMiddleware configured Middleware input",
-    )
-    if custom["kind"] != "base-http-middleware":
+    if not isinstance(middleware, list) or len(middleware) not in {1, 3}:
+        raise ContractError(
+            "BaseHTTPMiddleware input requires one middleware or a three-layer state stack"
+        )
+    custom_layers = [
+        _exact(
+            value,
+            {"kind", "dispatch_actions"},
+            f"BaseHTTPMiddleware configured Middleware input[{index}]",
+        )
+        for index, value in enumerate(middleware)
+    ]
+    if any(layer["kind"] != "base-http-middleware" for layer in custom_layers):
         raise ContractError("configured middleware must be a BaseHTTPMiddleware subclass")
+    stacked_request_state = len(custom_layers) == 3
+    stacked_state_header_mutation = False
+    if stacked_request_state:
+        if not routes or route_kind != "plain-text-response" or route_methods != ["GET"]:
+            raise ContractError("three-layer Request.state parity requires one GET text route")
+        for layer_index, layer in enumerate(custom_layers):
+            layer_actions = layer["dispatch_actions"]
+            if not isinstance(layer_actions, list) or not layer_actions:
+                raise ContractError("BaseHTTPMiddleware dispatch_actions must be non-empty")
+            layer_awaited = False
+            layer_returned = False
+            for action_index, raw_action in enumerate(layer_actions):
+                context = f"BaseHTTPMiddleware layer[{layer_index}] action[{action_index}]"
+                if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
+                    raise ContractError(f"{context} must be a tagged object")
+                kind = raw_action["kind"]
+                if kind == "set-request-state":
+                    action = _exact(raw_action, {"kind", "name", "value"}, context)
+                    if layer_awaited or layer_returned:
+                        raise ContractError("Request.state writes must precede call_next")
+                    _string(action["name"], f"{context}.name")
+                    _string(action["value"], f"{context}.value")
+                    if not action["name"]:
+                        raise ContractError("Request.state names must be non-empty")
+                elif kind == "await-call-next":
+                    _exact(raw_action, {"kind"}, context)
+                    if layer_awaited or layer_returned:
+                        raise ContractError("each middleware layer must await call_next once")
+                    layer_awaited = True
+                elif kind == "set-call-next-response-header-from-request-state":
+                    action = _exact(raw_action, {"kind", "name", "state_name"}, context)
+                    if not layer_awaited or layer_returned:
+                        raise ContractError("state-derived response headers must follow call_next")
+                    _string(action["name"], f"{context}.name")
+                    _string(action["state_name"], f"{context}.state_name")
+                    if (
+                        not action["name"]
+                        or not action["state_name"]
+                        or any(char in action["name"] for char in "\r\n:")
+                    ):
+                        raise ContractError("state-derived response header names must be valid")
+                    stacked_state_header_mutation = True
+                elif kind == "return-call-next-response":
+                    _exact(raw_action, {"kind"}, context)
+                    if (
+                        not layer_awaited
+                        or layer_returned
+                        or action_index != len(layer_actions) - 1
+                    ):
+                        raise ContractError("each layer must return call_next's response")
+                    layer_returned = True
+                else:
+                    raise ContractError(f"{context} has an unsupported state-stack action")
+            if not layer_awaited or not layer_returned:
+                raise ContractError("each middleware layer must await and return call_next")
+    custom = custom_layers[0]
     actions = custom["dispatch_actions"]
     if not isinstance(actions, list) or not actions:
         raise ContractError("BaseHTTPMiddleware dispatch_actions must be a non-empty array")
@@ -9504,6 +9566,12 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             _exact(raw_action, {"kind"}, context)
             if returned is not None:
                 raise ContractError("request.body() reads must precede the dispatch return")
+        elif kind == "set-request-state":
+            action = _exact(raw_action, {"kind", "name", "value"}, context)
+            if awaited or returned is not None:
+                raise ContractError("Request.state writes must precede call_next")
+            _string(action["name"], f"{context}.name")
+            _string(action["value"], f"{context}.value")
         elif kind == "read-request-stream-next":
             _exact(raw_action, {"kind"}, context)
             if returned is not None:
@@ -9565,6 +9633,19 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             _string(action["value"], f"{context}.value")
             if any(char in action["name"] + action["value"] for char in "\r\n"):
                 raise ContractError("BaseHTTPMiddleware header input cannot contain CR or LF")
+            saw_header_mutation = True
+        elif kind == "set-call-next-response-header-from-request-state":
+            action = _exact(raw_action, {"kind", "name", "state_name"}, context)
+            if not awaited or returned is not None or saw_header_mutation:
+                raise ContractError("state-derived response header requires call_next")
+            _string(action["name"], f"{context}.name")
+            _string(action["state_name"], f"{context}.state_name")
+            if (
+                not action["name"]
+                or not action["state_name"]
+                or any(char in action["name"] for char in "\r\n:")
+            ):
+                raise ContractError("state-derived response header names must be valid")
             saw_header_mutation = True
         elif kind == "return-call-next-response":
             _exact(raw_action, {"kind"}, context)
@@ -10067,8 +10148,10 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError("send_checkpoints must contain unique output-send indices from 0 to 2")
 
     requirements = {BASE_HTTP_REQUIREMENTS["construct"]}
-    if saw_header_mutation:
+    if saw_header_mutation or stacked_state_header_mutation:
         requirements.add(BASE_HTTP_REQUIREMENTS["header_mutation"])
+    if stacked_request_state:
+        requirements.add(BASE_HTTP_REQUIREMENTS["shared_request_state"])
     if returned == "replacement":
         requirements.add(BASE_HTTP_REQUIREMENTS["replacement_response"])
     body = b"".join(base64.b64decode(event["body_base64"]) for event in request_events)
