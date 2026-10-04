@@ -49,15 +49,15 @@ result artifact SHA-256 is
 four declared Rust-native rows remain `not_run`; this is an incomplete strict
 gate, not a failed source/package comparison. This run is evidence for its
 recorded dirty-tree source fingerprint, not a clean-commit run.
-The latest clean Router/GZip benchmark run `a90823bd-790b-48a6-982c-8f7f29ecc740`
+The latest clean Router/GZip benchmark run `2a01020b-4fa6-415f-943f-60749594c409`
 measured all 74 source/package workloads on clean commit
-`eafe5d3d0d62bb3c34cdf52aec0a971b735c4171`, with zero failures and matching
-normalized observations. Its correctness preflight `211aee32-565e-4ec6-a1ac-962bf7ad1e4c`
-selected 1,134 comparisons: 1,130 passed, zero failed, zero infrastructure
+`9feacc145b729fe52395e84fadabd22d9d8c10d2`, with zero failures and matching
+normalized observations. Its correctness preflight `40056730-de5f-4233-a552-afe0b382f0b3`
+selected 1,140 comparisons: 1,136 passed, zero failed, zero infrastructure
 errors, and four Rust-native rows were `not_run`; the Python package passed
-893/893 and Rust-native passed 237/241. Median source/package latency ratios
-were 0.739 for Router and 0.976 for GZip. Source latency was lower in 5/6
-Router and 55/68 GZip workloads; normalized observation hashes matched for
+893/893 and Rust-native passed 243/247. Median source/package latency ratios
+were 0.755 for Router and 0.975 for GZip. Source latency was lower in 5/6
+Router and 58/68 GZip workloads; normalized observation hashes matched for
 74/74. Rust-native remains `not_run` for these 74 equivalent ASGI workload
 boundaries. See [Benchmark mapping](BENCHMARKS.md) for the run identity and
 artifact hash. These workload-specific results do not establish full Starlette

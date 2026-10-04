@@ -168,14 +168,14 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`2dcfd852-43d9-4e1b-9d82-207e482534e5` measured all 74 source/package
+`2a01020b-4fa6-415f-943f-60749594c409` measured all 74 source/package
 workloads on clean commit
-`5bcb4bb925304739a16c93484559ff2350c0548a`: six Router and 68 GZip, with
-zero failures and matching normalized observations for all 74 workloads. Its
-correctness preflight `53fd98e2-6728-40c7-bb13-7b498906fa10` selected 1,132
-comparisons: 1,128 passed, zero failed, zero infrastructure errors, and four
-Rust-native `not_run`; the Python package passed 891/891 and Rust-native passed
-237/241. Median source/package latency ratios were 0.730 for Router and 0.968
+`9feacc145b729fe52395e84fadabd22d9d8c10d2`: six Router and 68 GZip, with zero
+failures and matching normalized observations for all 74 workloads. Its
+correctness preflight `40056730-de5f-4233-a552-afe0b382f0b3` selected 1,140
+comparisons: 1,136 passed, zero failed, zero infrastructure errors, and four
+Rust-native `not_run`; the Python package passed 893/893 and Rust-native passed
+243/247. Median source/package latency ratios were 0.755 for Router and 0.975
 for GZip. These workload-specific results do not establish full Starlette
 compatibility.
 
