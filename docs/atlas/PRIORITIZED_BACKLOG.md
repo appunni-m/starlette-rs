@@ -8,9 +8,9 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@36` with 923 input-only cases in 91
-indexed files: 921 oracle parity cases and two target-only fault contracts. It
-covers 104 operations and 897 parity requirements. The older full-slice run
+The active contract uses `parity-input@36` with 925 input-only cases in 91
+indexed files: 923 oracle parity cases and two target-only fault contracts. It
+covers 104 operations and 899 parity requirements. The older full-slice run
 was recorded against the preceding manifest revision:
 `a0bcf0da-4746-4490-843d-45653d987ea1` selected 1,160 profile comparisons:
 1,156 passed, zero failed, zero infrastructure errors, and four Rust-native
@@ -41,7 +41,7 @@ comparison found 1,230 newly covered Rust lines; full-suite regressions were
 not checked. The fixture mapping and evidence details are in
 [Migration parity contract and evidence](../PARITY.md).
 
-The active 923-case contract adds concurrent BaseHTTPMiddleware response
+The preceding 923-case contract added concurrent BaseHTTPMiddleware response
 background-task completion. Normal selected run
 `44a904ac-ec91-46c6-9363-68c9ddfeea77` passed one source/package parity case
 and both target-only route-cache fault contracts. Coverage MCP verified 701
@@ -49,6 +49,14 @@ new Rust lines and a 2.857-point incremental gain from a matching instrumented
 batch; the full suite was not rerun, so regression status remains unknown.
 Fault rows remain `not_applicable` to the oracle. Evidence details are in
 [Migration parity contract and evidence](../PARITY.md).
+
+The active 925-case contract adds ASGI parity inputs for the default
+`StaticFiles(follow_symlink=False)` behavior on external file and directory
+symlinks. Selected run `1c302ec6-419c-470c-b8e8-e8f33aa84559` passed four
+source/package profile comparisons and both target-only route-cache fault
+contracts; the fault rows retain oracle applicability `not_applicable`. This
+selected batch makes no new coverage claim and does not rerun the full suite.
+Evidence details are in [Migration parity contract and evidence](../PARITY.md).
 
 The prior 920-case full preflight `84769d51-0203-41bf-8569-be53a5cbe99c`
 passed 916/916 Python-package comparisons and both fault contracts. Rust-native

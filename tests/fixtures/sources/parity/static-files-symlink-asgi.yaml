@@ -110,6 +110,116 @@
       "incoming": [],
       "send": {"kind": "capture-asgi-send"},
       "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-file-rejected",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-file-rejected"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "path_limit_stress": null,
+      "permission_denial_stress": null,
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [
+          {
+            "path": "outside/page.html",
+            "contents_base64": "PGgxPkhlbGxvPC9oMT4=",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "symlinks": [
+          {
+            "path": "index.html",
+            "target": "../outside/page.html"
+          }
+        ]
+      },
+      "packages": [],
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/index.html",
+        "raw_path_base64": "L2luZGV4Lmh0bWw=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-directory-rejected",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-directory-rejected"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "path_limit_stress": null,
+      "permission_denial_stress": null,
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [
+          {
+            "path": "outside/page.html",
+            "contents_base64": "PGgxPkhlbGxvPC9oMT4=",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "symlinks": [
+          {
+            "path": "html",
+            "target": "../outside"
+          }
+        ]
+      },
+      "packages": [],
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/html/page.html",
+        "raw_path_base64": "L2h0bWwvcGFnZS5odG1s",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
     }
   ]
 }

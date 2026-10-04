@@ -5957,7 +5957,9 @@ def _validate_static_files_case_stimulus(
     method = scope["method"]
     derived: set[str] = set()
     filesystem_requirement_by_lookup = {
+        "external-file-link.follow-symlink-disabled": "follow-symlink-file-rejected",
         "external-file-link.follow-symlink-enabled": "follow-symlink-file-served",
+        "external-directory-link.follow-symlink-disabled": "follow-symlink-directory-rejected",
         "external-directory-link.follow-symlink-enabled": "follow-symlink-directory-served",
         "parent-traversal.follow-symlink-disabled": "parent-traversal-rejected",
         "configured-root-symlink-traversal": "configured-root-symlink-traversal-rejected",

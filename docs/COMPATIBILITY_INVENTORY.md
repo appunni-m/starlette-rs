@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@36` and indexes 923 input-only cases across 91 files (921 oracle parity cases and two target-only fault contracts), covering 104 operations and 897 unique parity requirements. Recent parity inputs
+The active parity manifest uses `parity-input@36` and indexes 925 input-only cases across 91 files (923 oracle parity cases and two target-only fault contracts), covering 104 operations and 899 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -396,7 +396,7 @@ Rust-native cases exercise the corresponding trees through explicit roots; they
 do not claim Python package discovery. This boundary uses no upstream
 Starlette runtime import or added runtime dependency.
 
-The 54 authored StaticFiles cases are a correctness slice, not complete
+The 56 authored StaticFiles cases are a correctness slice, not complete
 coverage of its 36 upstream test functions. A package-only async-boundary case
 checks that a bound `lookup_path` override runs on an AnyIO worker while the
 event loop advances, then compares the ASGI response. Fourteen `lookup_path`

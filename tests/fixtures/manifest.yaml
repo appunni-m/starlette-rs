@@ -20159,6 +20159,30 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-file-rejected",
+              "dimension": "input_family",
+              "description": "With the documented default follow_symlink=False, request an input-defined external file through an in-root file symlink and compare the live not-found outcome and ASGI events. Upstream: docs/staticfiles.md (follow_symlink default); starlette/staticfiles.py::StaticFiles.lookup_path and get_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-directory-rejected",
+              "dimension": "input_family",
+              "description": "With the documented default follow_symlink=False, request an input-defined external file through an in-root directory symlink and compare the live not-found outcome and ASGI events. Upstream: docs/staticfiles.md (follow_symlink default); starlette/staticfiles.py::StaticFiles.lookup_path and get_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.conditional-date-match",
               "dimension": "parameter_combination",
               "description": "Supply an If-Modified-Since value for an input-defined asset and compare the live validator response. Upstream: tests/test_staticfiles.py::test_staticfiles_304_with_last_modified_compare_last_req.",
