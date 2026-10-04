@@ -1296,6 +1296,34 @@ and the manifest SHA-256 is
 `d5c7a33a96974b63fd6714ee20c7242a24522aa0100978f1609a023c0f9f4224`. This
 focused run does not claim full-suite parity or an incremental coverage result.
 
+The clean full-manifest preflight used by the current benchmark run
+`5a69e4da-e6e8-47d6-b4d9-01f613c41e77` selected 1,172 profile comparisons:
+1,168 passed, zero failed, zero infrastructure errors, and four Rust-native
+callable-boundary rows were `not_run`. The installed Python package passed
+922/922 comparisons; Rust-native passed 246/250, and both target-only
+route-cache fault contracts passed. The preflight result SHA-256 is
+`c807e1d0fac0f2801d1c661eeddd458fad0a4dd0d89bcdee3c36fb8caf8a8e1f`; it uses
+the active manifest SHA-256
+`d5c7a33a96974b63fd6714ee20c7242a24522aa0100978f1609a023c0f9f4224`. These
+results cover the active package slice and do not establish full Starlette
+parity.
+
+Coverage MCP compared a matching instrumented normal-route baseline
+(`46489f3c-2f0f-4805-b0d9-052abf074c46`) with the Router shutdown-error case
+and the same two fault contracts (`2c9b89b4-3f7f-47fb-bc88-0331f8b2c684`).
+Matching source/build receipts verified 431 newly covered Rust lines: the
+baseline covered 2,774/24,539 lines, the new batch 2,543/24,539, and their
+union 3,205/24,539, a 1.756 percentage-point gain. Coverage MCP reported
+`improved` with verified evidence; regression status is unknown because the
+full suite was not rerun. Both reports use manifest SHA-256
+`d5c7a33a96974b63fd6714ee20c7242a24522aa0100978f1609a023c0f9f4224`, target
+tree SHA-256
+`35c05c09bccec31ff3b6eed9126860907a6c87dfcd8299a64997c0e6f25cf78f`, and
+instrumented wheel SHA-256
+`ee0994b002a34a6ab4ecb84f1a2ce1a4fd892d7c2821af6ccac50703a1c2b755`. The
+reports and receipts remain under ignored
+`build/parity/coverage/router-lifespan/`.
+
 ### TestClient exception policy
 
 [`testclient-http.yaml`](../tests/fixtures/sources/parity/testclient-http.yaml)

@@ -66,7 +66,31 @@ both target-only route-cache fault contracts; the fault rows remain
 `7b8fbf52f10ca1fa96015939962975cafea7ae6758217a4a0985b3ff297f25f0`, and the
 manifest SHA-256 is
 `d5c7a33a96974b63fd6714ee20c7242a24522aa0100978f1609a023c0f9f4224`. This
-selected run does not claim full-suite parity or incremental coverage.
+normal selected run does not claim full-suite parity; the incremental coverage
+comparison is recorded below.
+
+The clean full-manifest preflight used by the active benchmark run
+`5a69e4da-e6e8-47d6-b4d9-01f613c41e77` selected 1,172 profile comparisons:
+1,168 passed, zero failed, zero infrastructure errors, and four Rust-native
+callable-boundary rows were `not_run`. The installed Python package passed
+922/922 comparisons; Rust-native passed 246/250, and both target-only
+route-cache fault contracts passed. The preflight remains bounded evidence and
+does not establish full Starlette parity; details are in
+[Migration parity contract and evidence](../PARITY.md).
+
+Coverage MCP compared the Router shutdown-error case plus both target-only
+fault contracts against a matching instrumented normal-route baseline. Matching
+source/build receipts verified 431 newly covered Rust lines (1.756 percentage
+points): baseline 2,774/24,539, batch 2,543/24,539, and union 3,205/24,539.
+The result is `improved`; full-suite regression status is unknown because the
+full suite was not rerun. Reports bind to active manifest SHA-256
+`d5c7a33a96974b63fd6714ee20c7242a24522aa0100978f1609a023c0f9f4224`, target
+tree SHA-256
+`35c05c09bccec31ff3b6eed9126860907a6c87dfcd8299a64997c0e6f25cf78f`, and
+instrumented wheel SHA-256
+`ee0994b002a34a6ab4ecb84f1a2ce1a4fd892d7c2821af6ccac50703a1c2b755`. See
+[Migration parity contract and evidence](../PARITY.md) for the run IDs and
+receipts location.
 
 The prior 920-case full preflight `84769d51-0203-41bf-8569-be53a5cbe99c`
 passed 916/916 Python-package comparisons and both fault contracts. Rust-native
