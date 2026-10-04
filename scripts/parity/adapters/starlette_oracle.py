@@ -3494,9 +3494,23 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(middleware_specs, list) or not middleware_specs:
         raise ValueError("BaseHTTPMiddleware workflow requires configured middleware")
     middleware_layers = []
+    base_http_layers = []
+    context_manager_cleanup_spec = None
     for index, value in enumerate(middleware_specs):
         context = f"BaseHTTPMiddleware configured Middleware[{index}]"
-        if isinstance(value, dict) and set(value) == {"kind", "constructor_dispatch"}:
+        if isinstance(value, dict) and value.get("kind") == "async-context-manager-cleanup":
+            layer = _strict_object(value, {"kind", "exit_delay_seconds"}, context)
+            delay_seconds = layer["exit_delay_seconds"]
+            if (
+                type(delay_seconds) not in {int, float}
+                or not math.isfinite(delay_seconds)
+                or not 0 <= delay_seconds <= 5
+            ):
+                raise ValueError("context-manager exit delay must be finite and between 0 and 5")
+            if context_manager_cleanup_spec is not None:
+                raise ValueError("BaseHTTPMiddleware workflow supports one cleanup middleware")
+            context_manager_cleanup_spec = layer
+        elif isinstance(value, dict) and set(value) == {"kind", "constructor_dispatch"}:
             layer = _strict_object(value, {"kind", "constructor_dispatch"}, context)
             if layer["constructor_dispatch"] != "call-next":
                 raise ValueError("BaseHTTPMiddleware constructor dispatch must select call-next")
@@ -3507,10 +3521,23 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         else:
             layer = _strict_object(value, {"kind", "dispatch_actions"}, context)
         middleware_layers.append(layer)
-    if any(layer["kind"] != "base-http-middleware" for layer in middleware_layers):
+        if layer["kind"] == "base-http-middleware":
+            base_http_layers.append(layer)
+        elif layer["kind"] != "async-context-manager-cleanup":
+            raise ValueError("configured middleware must be a BaseHTTPMiddleware subclass")
+    if not base_http_layers:
         raise ValueError("configured middleware must be a BaseHTTPMiddleware subclass")
+    if context_manager_cleanup_spec is not None and (
+        len(middleware_layers) != 2
+        or middleware_layers[0]["kind"] != "base-http-middleware"
+        or middleware_layers[1] != context_manager_cleanup_spec
+        or len(base_http_layers) != 1
+    ):
+        raise ValueError(
+            "context-manager cleanup input requires BaseHTTPMiddleware followed by one cleanup layer"
+        )
     layer_kinds = []
-    for layer in middleware_layers:
+    for layer in base_http_layers:
         layer_actions = layer["dispatch_actions"]
         if isinstance(layer_actions, list):
             layer_kinds.extend(
@@ -3519,7 +3546,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 if isinstance(action, dict) and isinstance(action.get("kind"), str)
             )
     stacked_request_state = (
-        len(middleware_layers) == 3
+        len(base_http_layers) == 3
         and any(kind == "set-request-state" for kind in layer_kinds)
         and any(kind == "set-call-next-response-header-from-request-state" for kind in layer_kinds)
     )
@@ -3528,7 +3555,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "observe-call-next-response-background",
         "set-call-next-response-background-task",
     }
-    stacked_disconnect_lifecycle = len(middleware_layers) > 1 and bool(
+    stacked_disconnect_lifecycle = len(base_http_layers) > 1 and bool(
         lifecycle_action_kinds.intersection(layer_kinds)
     )
     stacked_state_header_mutation = False
@@ -3539,7 +3566,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             or route_spec["methods"] != ["GET"]
         ):
             raise ValueError("three-layer Request.state parity requires one GET text route")
-        for layer_index, layer in enumerate(middleware_layers):
+        for layer_index, layer in enumerate(base_http_layers):
             layer_actions = layer["dispatch_actions"]
             if not isinstance(layer_actions, list) or not layer_actions:
                 raise ValueError("BaseHTTPMiddleware dispatch_actions must be non-empty")
@@ -3598,7 +3625,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             or route_spec["methods"] != ["GET"]
         ):
             raise ValueError("middleware lifecycle stack requires the direct GET disconnect route")
-        for layer_index, layer in enumerate(middleware_layers):
+        for layer_index, layer in enumerate(base_http_layers):
             layer_actions = layer["dispatch_actions"]
             if not isinstance(layer_actions, list) or not layer_actions:
                 raise ValueError("BaseHTTPMiddleware dispatch_actions must be non-empty")
@@ -3670,9 +3697,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError(
                     "each lifecycle layer requires one start, completion, and background observation"
                 )
-    elif len(middleware_layers) > 1:
+    elif len(base_http_layers) > 1:
         raise ValueError("multi-layer BaseHTTPMiddleware input requires a declared stack workflow")
-    middleware_spec = middleware_layers[0]
+    middleware_spec = base_http_layers[0]
     dispatch_actions = middleware_spec["dispatch_actions"]
     if not isinstance(dispatch_actions, list) or not dispatch_actions:
         raise ValueError("BaseHTTPMiddleware dispatch_actions must be non-empty")
@@ -4767,6 +4794,14 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.{background_requirement}"
         )
+    if context_manager_cleanup_spec is not None:
+        if background_task_spec is None or background_task_spec["kind"] != "async-delay":
+            raise ValueError(
+                "context-manager cleanup input requires the pinned delayed async background task"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.async-context-manager-cleanup-completes"
+        )
     if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
         raise ValueError("BaseHTTPMiddleware covers differ from its input actions")
 
@@ -4937,7 +4972,27 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     )
             raise RuntimeError("BaseHTTPMiddleware dispatch action sequence returned no response")
 
+    class InputDefinedAsyncContextManagerMiddleware:
+        def __init__(self, app: Any, exit_delay_seconds: float):
+            self.app = app
+            self.exit_delay_seconds = exit_delay_seconds
+
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            async def cleanup() -> None:
+                execution_trace.append({"event": "context-manager-cleanup-start"})
+                await anyio.sleep(self.exit_delay_seconds)
+                execution_trace.append({"event": "context-manager-cleanup-complete"})
+
+            async with contextlib.AsyncExitStack() as stack:
+                stack.push_async_callback(cleanup)
+                await self.app(scope, receive, send)
+
     def configured_middleware(middleware_spec: dict[str, Any]) -> Any:
+        if middleware_spec["kind"] == "async-context-manager-cleanup":
+            return Middleware(
+                InputDefinedAsyncContextManagerMiddleware,
+                exit_delay_seconds=middleware_spec["exit_delay_seconds"],
+            )
         if "constructor_dispatch" in middleware_spec:
 
             async def passthrough_dispatch(request: Any, call_next: Any) -> Any:
@@ -5394,6 +5449,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             async with anyio.create_task_group() as task_group:
                 for _ in range(concurrent_calls):
                     task_group.start_soon(app, scope, receive, send)
+        if context_manager_cleanup_spec is not None:
+            execution_trace.append({"event": "application-return"})
 
     try:
         asyncio.run(invoke_application())
@@ -9512,7 +9569,14 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if surface == STREAMING_RESPONSE_SURFACE:
         required_fields.add("streaming")
         required_fields.update(
-            key for key in ("background", "receive_behavior", "stream_lifecycle") if key in case
+            key
+            for key in (
+                "background",
+                "receive_behavior",
+                "stream_lifecycle",
+                "call_time_field_assignments",
+            )
+            if key in case
         )
     _strict_object(
         case,
@@ -9875,6 +9939,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             background_event_loop,
         )
     response = response_type(**response_arguments)
+    for field, value in case.get("call_time_field_assignments", {}).items():
+        setattr(response, field, value)
     try:
         for index, raw_action in enumerate(case.get("header_actions", [])):
             _apply_response_header_action(response, raw_action, index)

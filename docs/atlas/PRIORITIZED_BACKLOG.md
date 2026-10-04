@@ -8,9 +8,9 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@39` with 929 input-only cases in 91
-indexed files: 927 oracle parity cases and two target-only fault contracts. It
-covers 104 operations and 901 parity requirements.
+The active contract uses `parity-input@40` with 931 input-only cases in 91
+indexed files: 929 oracle parity cases and two target-only fault contracts. It
+covers 104 operations and 903 parity requirements.
 
 The latest clean full-slice preflight
 `d3ebe854-b035-45af-98b5-45ae6e72d83d` selected 1,175 profile comparisons:
@@ -167,8 +167,8 @@ correctness-gated benchmark `d0bba2ec-079e-4d21-822e-e0ddbf0133ef` measured all
 non-equivalent ASGI boundary. The full Starlette compatibility denominator
 remains incomplete.
 
-The generated coverage matrix contains 804 source rows: 660 input mappings,
-51 reasoned `not_applicable` rows, and 93 fixture-backlog rows. These changing
+The generated coverage matrix contains 804 source rows: 661 input mappings,
+51 reasoned `not_applicable` rows, and 92 fixture-backlog rows. These changing
 counts are derived from the generated atlas CSV files. The pinned denominator remains 514 upstream test
 functions and 24 documented pages. Four Rust-native `not_run` rows remain for
 synchronous Request endpoints, bound methods, partials, and callable-instance
@@ -188,8 +188,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 660 input mappings,
-51 source-backed `not_applicable` rows, and 93 fixture-backlog rows, as
+The current coverage matrix has 804 source rows: 661 input mappings,
+51 source-backed `not_applicable` rows, and 92 fixture-backlog rows, as
 reported by the generated atlas. The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 

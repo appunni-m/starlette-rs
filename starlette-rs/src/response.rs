@@ -1103,6 +1103,27 @@ impl StreamingResponse {
         StreamingResponseCall::new(self, has_background_callback)
     }
 
+    /// Starts a streaming ASGI call using the supplied status code for its start event.
+    ///
+    /// This lets compatibility adapters preserve a caller-mutated public
+    /// `status_code` without changing the response's constructor-time state.
+    #[must_use]
+    pub fn call_state_with_status_code(
+        &self,
+        status_code: u16,
+        has_background_callback: bool,
+    ) -> StreamingResponseCall {
+        let mut call = self.call_state(has_background_callback);
+        if let StreamingResponseEvent::Start {
+            status_code: call_status_code,
+            ..
+        } = &mut call.start_event
+        {
+            *call_status_code = status_code;
+        }
+        call
+    }
+
     /// Returns the ASGI response events in send order.
     ///
     /// Every input chunk is sent with `more_body=true`. The sequence always

@@ -31,7 +31,7 @@ from .fault_contracts import (
 )
 
 MANIFEST_SCHEMA = "migration-parity/manifest@4"
-INPUT_SCHEMA = "migration-parity/parity-input@39"
+INPUT_SCHEMA = "migration-parity/parity-input@40"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@6"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -336,6 +336,7 @@ BASE_HTTP_REQUIREMENTS = {
     "pathsend_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.pathsend-event-forwarding",
     "background_task_completion": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.background-task-completes-after-response-send",
     "background_task_failure": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.background-task-failure-propagates-after-response-send",
+    "context_manager_cleanup": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.async-context-manager-cleanup-completes",
     "shared_request_state": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.shared-request-state-across-middleware-layers",
     "stacked_disconnect_background_lifecycle": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.stacked-client-disconnect-background-lifecycle",
 }
@@ -897,6 +898,9 @@ STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS = {
 }
 STREAMING_RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
+STREAMING_RESPONSE_MUTABLE_STATUS_REQUIREMENT = (
+    f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.mutable-status-code"
+)
 RESPONSE_OPERATION = "asgi-call"
 RESPONSE_BACKGROUND_REQUIREMENTS = {
     "async_task": "starlette.responses.Response.asgi-call.background-async-task",
@@ -6735,7 +6739,13 @@ def _validate_static_asset_file(value: Any, context: str) -> tuple[str, float]:
 def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     optional_keys = {
         key
-        for key in ("background", "receive_behavior", "stream_lifecycle", "cookie_actions")
+        for key in (
+            "background",
+            "receive_behavior",
+            "stream_lifecycle",
+            "cookie_actions",
+            "call_time_field_assignments",
+        )
         if key in case
     }
     case_keys = STREAMING_RESPONSE_CASE_KEYS | optional_keys
@@ -6757,6 +6767,30 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     _validate_cookie_actions(case)
     if type(case["status_code"]) is not int or case["status_code"] != 200:
         raise ContractError("StreamingResponse status_code must be 200 for this input slice")
+    call_time_field_assignments = case.get("call_time_field_assignments")
+    if call_time_field_assignments is not None:
+        assignments = _exact(
+            call_time_field_assignments,
+            {"status_code"},
+            "StreamingResponse call-time field assignments",
+        )
+        assigned_status_code = assignments["status_code"]
+        if (
+            type(assigned_status_code) is not int
+            or not 100 <= assigned_status_code <= 599
+            or assigned_status_code == case["status_code"]
+        ):
+            raise ContractError(
+                "StreamingResponse call-time status_code must be a distinct valid HTTP status"
+            )
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError(
+                "StreamingResponse mutable status_code input is limited to the Python-package profile"
+            )
+        if case["streaming"] != "sync" or websocket_scope:
+            raise ContractError(
+                "StreamingResponse mutable status_code input requires a direct synchronous HTTP stream"
+            )
     if case["streaming"] not in {
         "sync",
         "file-like",
@@ -7001,6 +7035,25 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or (
                 any(kind == "memoryview-base64" for kind, _value in chunks)
                 and case["target_profiles"] != ["python-package-cpython312"]
+            )
+            or (
+                call_time_field_assignments is not None
+                and stimulus
+                != (
+                    (
+                        ("text", "1"),
+                        ("text", ", "),
+                        ("text", "2"),
+                        ("text", ", "),
+                        ("text", "3"),
+                        ("text", ", "),
+                        ("text", "4"),
+                        ("text", ", "),
+                        ("text", "5"),
+                    ),
+                    (),
+                    "text/plain",
+                )
             )
         ):
             raise ContractError("StreamingResponse chunks and headers are outside this input slice")
@@ -9506,9 +9559,24 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     if not isinstance(middleware, list) or not middleware:
         raise ContractError("BaseHTTPMiddleware input requires at least one configured middleware")
     custom_layers = []
+    middleware_layers = []
+    context_manager_cleanup_spec = None
     for index, value in enumerate(middleware):
         context = f"BaseHTTPMiddleware configured Middleware input[{index}]"
-        if isinstance(value, dict) and set(value) == {"kind", "constructor_dispatch"}:
+        if isinstance(value, dict) and value.get("kind") == "async-context-manager-cleanup":
+            layer = _exact(value, {"kind", "exit_delay_seconds"}, context)
+            delay_seconds = layer["exit_delay_seconds"]
+            if (
+                type(delay_seconds) not in {int, float}
+                or not math.isfinite(delay_seconds)
+                or not 0 <= delay_seconds <= 5
+            ):
+                raise ContractError("context-manager exit delay must be finite and between 0 and 5")
+            if context_manager_cleanup_spec is not None:
+                raise ContractError("BaseHTTPMiddleware workflow supports one cleanup middleware")
+            context_manager_cleanup_spec = layer
+            middleware_layers.append(layer)
+        elif isinstance(value, dict) and set(value) == {"kind", "constructor_dispatch"}:
             layer = dict(_exact(value, {"kind", "constructor_dispatch"}, context))
             if layer["constructor_dispatch"] != "call-next":
                 raise ContractError("BaseHTTPMiddleware constructor dispatch must select call-next")
@@ -9516,11 +9584,23 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 {"kind": "await-call-next"},
                 {"kind": "return-call-next-response"},
             ]
+            custom_layers.append(layer)
+            middleware_layers.append(layer)
         else:
             layer = _exact(value, {"kind", "dispatch_actions"}, context)
-        custom_layers.append(layer)
+            custom_layers.append(layer)
+            middleware_layers.append(layer)
     if any(layer["kind"] != "base-http-middleware" for layer in custom_layers):
         raise ContractError("configured middleware must be a BaseHTTPMiddleware subclass")
+    if context_manager_cleanup_spec is not None and (
+        len(middleware_layers) != 2
+        or middleware_layers[0]["kind"] != "base-http-middleware"
+        or middleware_layers[1] != context_manager_cleanup_spec
+        or len(custom_layers) != 1
+    ):
+        raise ContractError(
+            "context-manager cleanup input requires BaseHTTPMiddleware followed by one cleanup layer"
+        )
     constructor_dispatch_layers = [
         layer for layer in custom_layers if "constructor_dispatch" in layer
     ]
@@ -9548,6 +9628,17 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     stacked_disconnect_lifecycle = len(custom_layers) > 1 and bool(
         lifecycle_action_kinds.intersection(layer_kinds)
     )
+    if context_manager_cleanup_spec is not None and (
+        route_kind != "plain-text-response-with-async-background-task"
+        or route_methods != ["GET"]
+        or background_task_spec is None
+        or background_task_spec["kind"] != "async-delay"
+        or custom_layers[0]["dispatch_actions"]
+        != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
+    ):
+        raise ContractError(
+            "context-manager cleanup input requires the pinned GET, delayed background task, and pass-through dispatch"
+        )
     stacked_state_header_mutation = False
     if stacked_request_state:
         if not routes or route_kind != "plain-text-response" or route_methods != ["GET"]:
@@ -10749,6 +10840,8 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 else "background_task_failure"
             ]
         )
+    if context_manager_cleanup_spec is not None:
+        requirements.add(BASE_HTTP_REQUIREMENTS["context_manager_cleanup"])
     if set(case["covers"]) != requirements:
         raise ContractError(
             "BaseHTTPMiddleware covers must match the input middleware, request, and dispatch actions: "
@@ -15173,7 +15266,14 @@ def validate_case(
         expected_case_keys = SESSION_WORKFLOW_CASE_KEYS
     if is_streaming_response:
         expected_case_keys = expected_case_keys | {
-            key for key in ("background", "receive_behavior", "stream_lifecycle") if key in case
+            key
+            for key in (
+                "background",
+                "receive_behavior",
+                "stream_lifecycle",
+                "call_time_field_assignments",
+            )
+            if key in case
         }
     if is_run_until_first_complete and "external_cancel_after_event_id" in case:
         expected_case_keys = expected_case_keys | {"external_cancel_after_event_id"}

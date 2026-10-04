@@ -329,6 +329,7 @@ impl PyStreamingResponse {
             .map_err(response_error)
     }
 
+    #[pyo3(signature = (scope, receive, send, background=None, status_code_override=None))]
     fn asgi_call(
         &self,
         py: Python<'_>,
@@ -336,6 +337,7 @@ impl PyStreamingResponse {
         receive: Py<PyAny>,
         send: Py<PyAny>,
         background: Option<Py<PyAny>>,
+        status_code_override: Option<u16>,
     ) -> PyResult<Py<PyAny>> {
         let websocket = is_websocket_scope(scope)?;
         let spec_at_least_24 = if websocket {
@@ -349,6 +351,7 @@ impl PyStreamingResponse {
                 py,
                 StreamingDisconnectCallMachine {
                     response: self.inner.clone(),
+                    status_code_override,
                     content: self.content.clone_ref(py),
                     async_iterable: self.async_iterable,
                     charset: self.charset.clone(),
@@ -369,7 +372,11 @@ impl PyStreamingResponse {
         into_python_awaitable(
             py,
             StreamingCallMachine {
-                call: self.inner.call_state(background.is_some()),
+                call: streaming_response_call_state(
+                    &self.inner,
+                    status_code_override,
+                    background.is_some(),
+                ),
                 content: self.content.clone_ref(py),
                 iterator: None,
                 sentinel: None,
@@ -613,6 +620,7 @@ enum StreamingDisconnectPending {
 
 struct StreamingDisconnectCallMachine {
     response: NativeStreamingResponse,
+    status_code_override: Option<u16>,
     content: Py<PyAny>,
     async_iterable: bool,
     charset: String,
@@ -742,7 +750,7 @@ impl StreamingDisconnectCallMachine {
         let task_group = self.task_group_ref(py)?;
         let cancel_scope = task_group.getattr("cancel_scope")?.unbind();
         let stream = StreamingCallMachine {
-            call: self.response.call_state(false),
+            call: streaming_response_call_state(&self.response, self.status_code_override, false),
             content: self.content.clone_ref(py),
             iterator: None,
             sentinel: None,
@@ -1004,6 +1012,19 @@ impl AwaitableFactory {
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyStreamingResponse>()
+}
+
+fn streaming_response_call_state(
+    response: &NativeStreamingResponse,
+    status_code_override: Option<u16>,
+    has_background_callback: bool,
+) -> StreamingResponseCall {
+    match status_code_override {
+        Some(status_code) => {
+            response.call_state_with_status_code(status_code, has_background_callback)
+        }
+        None => response.call_state(has_background_callback),
+    }
 }
 
 fn is_websocket_scope(scope: &Bound<'_, PyDict>) -> PyResult<bool> {

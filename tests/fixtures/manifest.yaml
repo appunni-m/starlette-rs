@@ -210,7 +210,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@39",
+      "input_schema": "migration-parity/parity-input@40",
       "result_schema": "migration-parity/parity-result@6",
       "command_id": "parity"
     },
@@ -8448,6 +8448,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.async-context-manager-cleanup-completes",
+              "dimension": "boundary",
+              "description": "Invoke the pinned direct ASGI GET through pass-through BaseHTTPMiddleware and an outer input-defined pure-ASGI middleware that registers an async AsyncExitStack cleanup callback. The endpoint sends an empty response with a delayed async background callback; cleanup is also delayed. Compare exact response events and the live execution trace through response completion, background-task completion, cleanup start/completion, and application return. This maps tests/middleware/test_base.py::test_run_context_manager_exit_even_if_client_disconnects; that test's receive callback raises if called and supplies no disconnect event. Upstream: tests/middleware/test_base.py:415-470; starlette/middleware/base.py:112-203; starlette/responses.py:34-44,82-90; starlette/background.py:13-25.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.shared-request-state-across-middleware-layers",
               "dimension": "boundary",
               "description": "Stack three BaseHTTPMiddleware layers that write distinct Request.state values before call_next and read those values afterward to set response headers. Compare the exact status, ordered headers, body, and ASGI event sequence. This maps tests/middleware/test_base.py::test_state_data_across_multiple_middlewares. Upstream: tests/middleware/test_base.py:123-176; starlette/middleware/base.py:96-203; starlette/requests.py:313-328.",
@@ -15860,6 +15871,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.mutable-status-code",
+              "dimension": "boundary",
+              "description": "Assign an input-defined public StreamingResponse.status_code after construction and compare the emitted response-start status. The constructor uses status 200 and the public mutation selects 201. Pinned source: starlette/responses.py:228-237,255-256.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },

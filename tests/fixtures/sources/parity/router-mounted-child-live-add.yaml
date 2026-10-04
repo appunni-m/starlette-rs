@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@39",
+  "schema": "migration-parity/parity-input@40",
   "cases": [
     {
       "case_id": "starlette.routing.Router.route-dispatch.mount-child-live-add-route",

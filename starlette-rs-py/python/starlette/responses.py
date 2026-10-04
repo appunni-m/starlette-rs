@@ -153,6 +153,7 @@ class StreamingResponse(Response):
         media_type: str | None = None,
         background: Any = None,
     ) -> None:
+        self.status_code = status_code
         self.background = background
         self._inner = _core.StreamingResponse(
             content, status_code, headers, media_type, self.charset
@@ -162,7 +163,7 @@ class StreamingResponse(Response):
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         self._sync_raw_headers()
-        await self._inner.asgi_call(scope, receive, send, self.background)
+        await self._inner.asgi_call(scope, receive, send, self.background, self.status_code)
 
 
 class FileResponse(Response):

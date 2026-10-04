@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@39",
+  "schema": "migration-parity/parity-input@40",
   "cases": [
     {
       "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.configured-header-mutation",
@@ -2773,6 +2773,69 @@
         },
         "send_checkpoints": [],
         "concurrent_calls": 2
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.async-context-manager-cleanup-completes",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.background-task-completes-after-response-send",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.async-context-manager-cleanup-completes"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "plain-text-response-with-async-background-task",
+              "content": "",
+              "status_code": 200,
+              "background_task": {
+                "kind": "async-delay",
+                "delay_seconds": 0.1
+              }
+            }
+          }
+        ],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "constructor_dispatch": "call-next"
+          },
+          {
+            "kind": "async-context-manager-cleanup",
+            "exit_delay_seconds": 0.1
+          }
+        ]
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "version": "3",
+          "method": "GET",
+          "path": "/"
+        },
+        "receive": [],
+        "receive_after_events": {
+          "kind": "raise",
+          "class": "NotImplementedError",
+          "message": "Should not be called!"
+        },
+        "send_checkpoints": []
       },
       "observations": [
         "base-http-workflow"

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@39",
+  "schema": "migration-parity/parity-input@40",
   "cases": [
     {
       "case_id": "starlette.datastructures.CommaSeparatedStrings.consumer-sequence.test-csv",
