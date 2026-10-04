@@ -1,5 +1,5 @@
     {
-  "schema": "migration-parity/parity-input@35",
+  "schema": "migration-parity/parity-input@36",
   "cases": [
     {
       "case_id": "starlette.config.Config.value-resolution.public-url-and-secret-casts",

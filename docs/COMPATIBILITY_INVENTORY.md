@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@35` and indexes 917 input-only cases across 91 files (915 oracle parity cases and two target-only fault contracts), covering 104 operations and 892 unique parity requirements. Recent parity inputs
+The active parity manifest uses `parity-input@36` and indexes 923 input-only cases across 91 files (921 oracle parity cases and two target-only fault contracts), covering 104 operations and 897 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -36,7 +36,8 @@ streaming responses at the configured `thread_minimum_size` boundary. Other rece
 inputs compare generic `Request[State]` and
 `WebSocket[State]` type contracts,
 surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
-pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
+pure-ASGI control, concurrent BaseHTTPMiddleware background-task completion,
+CORSMiddleware private-network-access denial, empty-text
 default decoding in WebSocketEndpoint, TestClient lifespan task/RunVar
 continuity under asyncio and Trio, lifespan task-group child lifecycle
 ordering under both backends, and WebSocket URL text/components for relative

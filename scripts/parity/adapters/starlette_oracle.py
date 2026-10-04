@@ -3493,14 +3493,20 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     middleware_specs = application["middleware"]
     if not isinstance(middleware_specs, list) or not middleware_specs:
         raise ValueError("BaseHTTPMiddleware workflow requires configured middleware")
-    middleware_layers = [
-        _strict_object(
-            value,
-            {"kind", "dispatch_actions"},
-            f"BaseHTTPMiddleware configured Middleware[{index}]",
-        )
-        for index, value in enumerate(middleware_specs)
-    ]
+    middleware_layers = []
+    for index, value in enumerate(middleware_specs):
+        context = f"BaseHTTPMiddleware configured Middleware[{index}]"
+        if isinstance(value, dict) and set(value) == {"kind", "constructor_dispatch"}:
+            layer = _strict_object(value, {"kind", "constructor_dispatch"}, context)
+            if layer["constructor_dispatch"] != "call-next":
+                raise ValueError("BaseHTTPMiddleware constructor dispatch must select call-next")
+            layer["dispatch_actions"] = [
+                {"kind": "await-call-next"},
+                {"kind": "return-call-next-response"},
+            ]
+        else:
+            layer = _strict_object(value, {"kind", "dispatch_actions"}, context)
+        middleware_layers.append(layer)
     if any(layer["kind"] != "base-http-middleware" for layer in middleware_layers):
         raise ValueError("configured middleware must be a BaseHTTPMiddleware subclass")
     layer_kinds = []
@@ -4085,11 +4091,22 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response"
         )
 
-    request = _strict_object(
-        case["request"],
-        {"scope", "receive", "receive_after_events", "send_checkpoints"},
-        "BaseHTTPMiddleware request",
-    )
+    request_fields = {"scope", "receive", "receive_after_events", "send_checkpoints"}
+    if isinstance(case["request"], dict) and "concurrent_calls" in case["request"]:
+        request_fields.add("concurrent_calls")
+    request = _strict_object(case["request"], request_fields, "BaseHTTPMiddleware request")
+    concurrent_calls = request.get("concurrent_calls", 1)
+    if type(concurrent_calls) is not int or not 1 <= concurrent_calls <= 4:
+        raise ValueError("BaseHTTPMiddleware concurrent_calls must be an integer from 1 to 4")
+    if concurrent_calls > 1 and (
+        background_task_spec is None
+        or background_task_spec["kind"] != "async-delay"
+        or "constructor_dispatch" not in middleware_layers[0]
+        or len(middleware_layers) != 1
+    ):
+        raise ValueError(
+            "concurrent BaseHTTPMiddleware calls require constructor call-next dispatch and an async background task"
+        )
     scope_value = request["scope"]
     scope_keys = {
         "type",
@@ -4703,7 +4720,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     if background_task_case:
         if (
             route_spec["methods"] != ["GET"]
-            or endpoint_spec["content"] != ""
+            or (concurrent_calls == 1 and endpoint_spec["content"] != "")
             or endpoint_spec["status_code"] != 200
             or dispatch_actions
             != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
@@ -4920,6 +4937,18 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     )
             raise RuntimeError("BaseHTTPMiddleware dispatch action sequence returned no response")
 
+    def configured_middleware(middleware_spec: dict[str, Any]) -> Any:
+        if "constructor_dispatch" in middleware_spec:
+
+            async def passthrough_dispatch(request: Any, call_next: Any) -> Any:
+                return await call_next(request)
+
+            return Middleware(BaseHTTPMiddleware, dispatch=passthrough_dispatch)
+        return Middleware(
+            InputDefinedBaseHTTPMiddleware,
+            dispatch_actions_for_case=middleware_spec["dispatch_actions"],
+        )
+
     routes = []
     if route_spec is not None:
         if route_kind == "request-body-response":
@@ -5051,11 +5080,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             debug=application["debug"],
             routes=routes,
             middleware=[
-                Middleware(
-                    InputDefinedBaseHTTPMiddleware,
-                    dispatch_actions_for_case=middleware_spec["dispatch_actions"],
-                )
-                for middleware_spec in middleware_layers
+                configured_middleware(middleware_spec) for middleware_spec in middleware_layers
             ],
         )
     elif downstream_spec is not None and downstream_spec["kind"] == "asgi-sequence":
@@ -5315,11 +5340,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             debug=application["debug"],
             routes=[],
             middleware=[
-                Middleware(
-                    InputDefinedBaseHTTPMiddleware,
-                    dispatch_actions_for_case=middleware_spec["dispatch_actions"],
-                )
-                for middleware_spec in middleware_layers
+                configured_middleware(middleware_spec) for middleware_spec in middleware_layers
             ],
         )
 
@@ -5366,8 +5387,16 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             await asyncio.sleep(0)
         send_index += 1
 
+    async def invoke_application() -> None:
+        if concurrent_calls == 1:
+            await app(scope, receive, send)
+        else:
+            async with anyio.create_task_group() as task_group:
+                for _ in range(concurrent_calls):
+                    task_group.start_soon(app, scope, receive, send)
+
     try:
-        asyncio.run(app(scope, receive, send))
+        asyncio.run(invoke_application())
         propagated_exception = None
     except Exception as exc:
         propagated_exception = _base_http_exception_value(exc)

@@ -210,7 +210,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@35",
+      "input_schema": "migration-parity/parity-input@36",
       "result_schema": "migration-parity/parity-result@6",
       "command_id": "parity"
     },
@@ -8428,7 +8428,7 @@
             {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.background-task-completes-after-response-send",
               "dimension": "boundary",
-              "description": "Invoke a configured BaseHTTPMiddleware app with the pinned direct ASGI scope and a receive callback that raises if called; capture the terminal response body send and confirm the delayed async response background task finishes before the app returns. Compare response status/headers/body, ordered ASGI events, receive callback calls, completion events, and propagated exceptions. Upstream: tests/middleware/test_base.py:269-312; starlette/middleware/base.py:112-197; starlette/responses.py:34-44,82-90; starlette/background.py:13-25.",
+              "description": "Invoke a configured BaseHTTPMiddleware app with the pinned direct ASGI scope and a receive callback that raises if called; capture the terminal response body send and confirm the delayed async response background task finishes before the app returns. Also run concurrent direct ASGI calls and compare response-body/background-task ordering. Compare response status/headers/body, ordered ASGI events, receive callback calls, completion events, and propagated exceptions. Upstream: tests/middleware/test_base.py:269-312,360-411; starlette/middleware/base.py:112-203; starlette/responses.py:34-44,82-90; starlette/background.py:13-25.",
               "lanes": [
                 "parity"
               ],

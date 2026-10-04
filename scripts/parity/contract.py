@@ -31,7 +31,7 @@ from .fault_contracts import (
 )
 
 MANIFEST_SCHEMA = "migration-parity/manifest@4"
-INPUT_SCHEMA = "migration-parity/parity-input@35"
+INPUT_SCHEMA = "migration-parity/parity-input@36"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@6"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -9495,16 +9495,27 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     middleware = application["middleware"]
     if not isinstance(middleware, list) or not middleware:
         raise ContractError("BaseHTTPMiddleware input requires at least one configured middleware")
-    custom_layers = [
-        _exact(
-            value,
-            {"kind", "dispatch_actions"},
-            f"BaseHTTPMiddleware configured Middleware input[{index}]",
-        )
-        for index, value in enumerate(middleware)
-    ]
+    custom_layers = []
+    for index, value in enumerate(middleware):
+        context = f"BaseHTTPMiddleware configured Middleware input[{index}]"
+        if isinstance(value, dict) and set(value) == {"kind", "constructor_dispatch"}:
+            layer = dict(_exact(value, {"kind", "constructor_dispatch"}, context))
+            if layer["constructor_dispatch"] != "call-next":
+                raise ContractError("BaseHTTPMiddleware constructor dispatch must select call-next")
+            layer["dispatch_actions"] = [
+                {"kind": "await-call-next"},
+                {"kind": "return-call-next-response"},
+            ]
+        else:
+            layer = _exact(value, {"kind", "dispatch_actions"}, context)
+        custom_layers.append(layer)
     if any(layer["kind"] != "base-http-middleware" for layer in custom_layers):
         raise ContractError("configured middleware must be a BaseHTTPMiddleware subclass")
+    constructor_dispatch_layers = [
+        layer for layer in custom_layers if "constructor_dispatch" in layer
+    ]
+    if constructor_dispatch_layers and len(custom_layers) != 1:
+        raise ContractError("constructor dispatch input requires one BaseHTTPMiddleware layer")
     layer_kinds = []
     for layer in custom_layers:
         layer_actions = layer["dispatch_actions"]
@@ -10078,11 +10089,22 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     if returned == "call-next" and not routes and downstream is None:
         raise ContractError("call_next response requires a configured route or downstream ASGI app")
 
-    request = _exact(
-        case["request"],
-        {"scope", "receive", "receive_after_events", "send_checkpoints"},
-        "BaseHTTPMiddleware request input",
-    )
+    request_fields = {"scope", "receive", "receive_after_events", "send_checkpoints"}
+    request_value = case["request"]
+    if isinstance(request_value, dict) and "concurrent_calls" in request_value:
+        request_fields.add("concurrent_calls")
+    request = _exact(request_value, request_fields, "BaseHTTPMiddleware request input")
+    concurrent_calls = request.get("concurrent_calls", 1)
+    if type(concurrent_calls) is not int or not 1 <= concurrent_calls <= 4:
+        raise ContractError("BaseHTTPMiddleware concurrent_calls must be an integer from 1 to 4")
+    if concurrent_calls > 1 and (
+        background_task_spec is None
+        or background_task_spec["kind"] != "async-delay"
+        or not constructor_dispatch_layers
+    ):
+        raise ContractError(
+            "concurrent BaseHTTPMiddleware calls require constructor call-next dispatch and an async background task"
+        )
     scope_value = request["scope"]
     scope_keys = {
         "type",
@@ -10672,7 +10694,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     if background_task_case:
         if (
             route_methods != ["GET"]
-            or endpoint["content"] != ""
+            or (concurrent_calls == 1 and endpoint["content"] != "")
             or endpoint["status_code"] != 200
             or actions != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
             or downstream is not None

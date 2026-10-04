@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@35` with 922 input-only cases in 91
-indexed files: 920 oracle parity cases and two target-only fault contracts. It
+The active contract uses `parity-input@36` with 923 input-only cases in 91
+indexed files: 921 oracle parity cases and two target-only fault contracts. It
 covers 104 operations and 897 parity requirements. The older full-slice run
 was recorded against the preceding manifest revision:
 `a0bcf0da-4746-4490-843d-45653d987ea1` selected 1,160 profile comparisons:
@@ -33,12 +33,21 @@ target-only fault contracts: `189e7aa9-c5e9-4da9-8b22-27761ae7e537`,
 exception-propagation case against the normal-route baseline and reported 249
 newly covered Rust lines; it did not check full-suite regressions.
 
-The current 922-case manifest maps the ten-layer
+The preceding 922-case manifest maps the ten-layer
 `test_multiple_middlewares_stacked_client_disconnected` behavior. Selected run
 `3202352e-f31a-416f-92d0-471df84a52fa` passed that oracle comparison and both
 target-only fault contracts. Coverage MCP's matching-receipt incremental
 comparison found 1,230 newly covered Rust lines; full-suite regressions were
 not checked. The fixture mapping and evidence details are in
+[Migration parity contract and evidence](../PARITY.md).
+
+The active 923-case contract adds concurrent BaseHTTPMiddleware response
+background-task completion. Normal selected run
+`44a904ac-ec91-46c6-9363-68c9ddfeea77` passed one source/package parity case
+and both target-only route-cache fault contracts. Coverage MCP verified 701
+new Rust lines and a 2.857-point incremental gain from a matching instrumented
+batch; the full suite was not rerun, so regression status remains unknown.
+Fault rows remain `not_applicable` to the oracle. Evidence details are in
 [Migration parity contract and evidence](../PARITY.md).
 
 The prior 920-case full preflight `84769d51-0203-41bf-8569-be53a5cbe99c`
@@ -70,8 +79,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 655 input mappings,
-51 source-backed `not_applicable` rows, and 98 fixture-backlog rows, as
+The current coverage matrix has 804 source rows: 656 input mappings,
+51 source-backed `not_applicable` rows, and 97 fixture-backlog rows, as
 reported by the generated atlas. The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 
