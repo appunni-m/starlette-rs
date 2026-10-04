@@ -1,6 +1,11 @@
 # Migration parity contract and evidence
 
-The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2`, `scope.mode: slice`, and `parity-input@34` authored definitions. It contains 911 input-only cases in 90 indexed files, covering 104 operations and 890 parity requirements. Recent inputs compare standard and unknown numeric HTTP response reason phrases through TestClient, HEAD-response body suppression, StaticFiles directory handling when the root is a pathlib.Path, and propagation of a StaticFiles lookup TimeoutError into TestClient’s 500 response. Recent additions include source-shaped TestClient requests for TrustedHost exact-host acceptance, wildcard-subdomain acceptance, invalid-host rejection, HTTPS `www` redirect following, base-URL path-prefix merging, and redirect following through an input-defined ASGI path-response map; custom HTTP authentication-error responses, invalid `requires` decoration, synchronous and asynchronous redirect flows, direct `State` plus lifespan-state observations, route-local handling of HTTP exceptions before mounted middleware unwinds, and direct FormData constructor/equality inputs; direct `UploadFile` constructor/repr, spooled-file rollover, and threadpool-boundary cases across rolled and in-memory thresholds; a pinned GZip streaming-response case with ten input-defined 400-byte chunks and public defaults; GZip final-response and streaming-body cases at the configured `thread_minimum_size` boundary; an input-derived AnyIO thread-pool limiter case; generic `Request[State]` and `WebSocket[State]` type contracts; app-state attributes read through `request.app.state`; default string-converter match and slash-boundary cases; expanded route-scope path-parameter observations for string/int/path converters; input-defined datetime converter dispatch and reverse URL formatting; seven QueryParams cases; seven built-in float/UUID converter cases; three StaticFiles HTML fallback scenarios; a StaticFiles directory served through a valid symlinked root using TestClient; a middleware-configured Mount URL lookup; ordered StaticFiles `If-Modified-Since` requests; a TestClient lifespan startup error; TestClient WebSocket accepted-header observations and URL string/component observations for relative and explicit-port URLs; pre-accept WebSocket `receive_text`, `receive_bytes`, and `receive_json` comparisons; exact text, binary, and JSON send/receive exchanges; an input-defined WebSocket `client_state` reset followed by an invalid receive; WebSocket header observations for ordered repeated values, case-varied lookups, and immutable assignment; input-defined WebSocket duplicate-close, connected invalid-send/invalid-receive, and send-callback `OSError` disconnect comparisons; CORSMiddleware private-network-access denial; an empty-text WebSocketEndpoint default-decoding failure; TestClient lifespan task/RunVar continuity and task-group child lifecycle under asyncio and Trio; surrounding pure-ASGI ContextVar observations for BaseHTTPMiddleware and its pure-ASGI control; BaseHTTPMiddleware exception propagation without a chain, through implicit context, and through an explicit cause; and BaseHTTPMiddleware response-background-task completion and failure propagation; a new Starlette application case checks synchronous error-handler invocation after a response background task fails; a status-module case captures the deprecation warning callsite. Existing inputs cover file-like StreamingResponse chunk boundaries, Rust-backed `CommaSeparatedStrings` including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles configuration and conditional responses; CORSMiddleware origin-isolation and wildcard-without-credentials; Request.cookies edge, invalid, and mapping cases; WebSocket denial and close transitions; direct `GZipResponder`; and broad application, request, response, middleware, and routing boundaries. Recent additions include routed authentication user-interface and protected HTTP routes covering async/sync functions, HTTPEndpoint, injection-wrapped endpoints, and malformed Basic credentials; three documentation-derived BasicAuth inputs cover a wrong scheme, malformed base64, and non-ASCII credentials; six protected WebSocket cases cover plain and injection-wrapped endpoints with absent, malformed, and valid Basic credentials; authentication observations compare custom `BaseUser` overrides, concrete `Request.user` types, middleware-populated `Request.auth.scopes`, and the documented login `next` query redirect; an app-level multipart upload through `Request.form()` under the body limit; and module-global `starlette.config.environ` mutation and Config lookup behavior, plus custom `HTTPException` header forwarding, both built-in and registered `WebSocketException` close policies, and a direct WebSocket constructor signature comparison. A new FileResponse case checks that the input-defined async background task runs after response events and produces `6, 7, 8, 9`. The new literal GET `/func` Router case maps `test_router_add_route` to dispatch behavior; that upstream test never calls `Router.add_route`. New TestClient inputs map `test_mount_at_root` to GET `/` against a root `Mount`, and `test_router_middleware` to GET `/` through a Router-level middleware response; both inputs passed live source/package comparison in run `89f3c4b9-6b92-4631-964e-cdeecdb480e9`, recorded below.
+The active input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@2`, `scope.mode: slice`, and `parity-input@34` authored definitions. It contains 912 input-only cases in 90 indexed files, covering 104 operations and 890 parity requirements. Recent inputs compare standard and unknown numeric HTTP response reason phrases through TestClient, HEAD-response body suppression, StaticFiles directory handling when the root is a pathlib.Path, and propagation of a StaticFiles lookup TimeoutError into TestClient’s 500 response. Recent additions include source-shaped TestClient requests for TrustedHost exact-host acceptance, wildcard-subdomain acceptance, invalid-host rejection, HTTPS `www` redirect following, base-URL path-prefix merging, and redirect following through an input-defined ASGI path-response map; custom HTTP authentication-error responses, invalid `requires` decoration, synchronous and asynchronous redirect flows, direct `State` plus lifespan-state observations, route-local handling of HTTP exceptions before mounted middleware unwinds, and direct FormData constructor/equality inputs; direct `UploadFile` constructor/repr, spooled-file rollover, and threadpool-boundary cases across rolled and in-memory thresholds; a pinned GZip streaming-response case with ten input-defined 400-byte chunks and public defaults; GZip final-response and streaming-body cases at the configured `thread_minimum_size` boundary; an input-derived AnyIO thread-pool limiter case; generic `Request[State]` and `WebSocket[State]` type contracts; app-state attributes read through `request.app.state`; default string-converter match and slash-boundary cases; expanded route-scope path-parameter observations for string/int/path converters; input-defined datetime converter dispatch and reverse URL formatting; seven QueryParams cases; seven built-in float/UUID converter cases; three StaticFiles HTML fallback scenarios; a StaticFiles directory served through a valid symlinked root using TestClient; a middleware-configured Mount URL lookup; ordered StaticFiles `If-Modified-Since` requests; TestClient lifespan startup-error and missing-scope-state cases; TestClient WebSocket accepted-header observations and URL string/component observations for relative and explicit-port URLs; pre-accept WebSocket `receive_text`, `receive_bytes`, and `receive_json` comparisons; exact text, binary, and JSON send/receive exchanges; an input-defined WebSocket `client_state` reset followed by an invalid receive; WebSocket header observations for ordered repeated values, case-varied lookups, and immutable assignment; input-defined WebSocket duplicate-close, connected invalid-send/invalid-receive, and send-callback `OSError` disconnect comparisons; CORSMiddleware private-network-access denial; an empty-text WebSocketEndpoint default-decoding failure; TestClient lifespan task/RunVar continuity and task-group child lifecycle under asyncio and Trio; surrounding pure-ASGI ContextVar observations for BaseHTTPMiddleware and its pure-ASGI control; BaseHTTPMiddleware exception propagation without a chain, through implicit context, and through an explicit cause; and BaseHTTPMiddleware response-background-task completion and failure propagation; a new Starlette application case checks synchronous error-handler invocation after a response background task fails; a status-module case captures the deprecation warning callsite. Existing inputs cover file-like StreamingResponse chunk boundaries, Rust-backed `CommaSeparatedStrings` including lone-surrogate input; `iterate_in_threadpool` and `run_until_first_complete`; StaticFiles configuration and conditional responses; CORSMiddleware origin-isolation and wildcard-without-credentials; Request.cookies edge, invalid, and mapping cases; WebSocket denial and close transitions; direct `GZipResponder`; and broad application, request, response, middleware, and routing boundaries. Recent additions include routed authentication user-interface and protected HTTP routes covering async/sync functions, HTTPEndpoint, injection-wrapped endpoints, and malformed Basic credentials; three documentation-derived BasicAuth inputs cover a wrong scheme, malformed base64, and non-ASCII credentials; six protected WebSocket cases cover plain and injection-wrapped endpoints with absent, malformed, and valid Basic credentials; authentication observations compare custom `BaseUser` overrides, concrete `Request.user` types, middleware-populated `Request.auth.scopes`, and the documented login `next` query redirect; an app-level multipart upload through `Request.form()` under the body limit; and module-global `starlette.config.environ` mutation and Config lookup behavior, plus custom `HTTPException` header forwarding, both built-in and registered `WebSocketException` close policies, and a direct WebSocket constructor signature comparison. A new FileResponse case checks that the input-defined async background task runs after response events and produces `6, 7, 8, 9`. The new literal GET `/func` Router case maps `test_router_add_route` to dispatch behavior; that upstream test never calls `Router.add_route`. New TestClient inputs map `test_mount_at_root` to GET `/` against a root `Mount`, and `test_router_middleware` to GET `/` through a Router-level middleware response; both inputs passed live source/package comparison in run `89f3c4b9-6b92-4631-964e-cdeecdb480e9`, recorded below.
+
+The `tests/test_routing.py::test_lifespan_state_unsupported` input deletes
+`state` from TestClient's lifespan scope before calling a Router whose lifespan
+callback yields a mapping. It compares `lifespan.startup.failed`, TestClient's
+propagated `RuntimeError`, and callback cleanup.
 The new TestClient case maps `tests/test_requests.py::test_request_url_starlette_context`: custom Starlette middleware constructs `Request(scope, receive)`, calls `url_for("homepage")`, and captures the absolute URL during GET `/home`.
 
 [`exception-middleware-typing.yaml`](../tests/fixtures/sources/parity/exception-middleware-typing.yaml) maps the pinned `tests/test_exceptions.py::test_handlers_annotations` contract. Its input-derived Mypy probes accept both synchronous and asynchronous `JSONResponse` catch-all handlers and reject a handler returning `int` with the same diagnostics for the pinned source and installed package. This case passed in full-slice run `83186334-c2e3-45e6-aae6-4f1711f5c0e0`.
@@ -13,22 +18,21 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest clean full-slice correctness preflight `1dddc83f-cd42-452d-aee8-15dbaceec30c`
-ran from `2026-10-04T13:09:37.538Z` to `2026-10-04T13:13:54.427Z` against
-Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 911
-input-only cases, 890 requirements, and `parity-input@34` from manifest SHA-256
-`2b1129eafcc679bff83d9cd736325d0e481a9ec2f86bb8c24d3374a575a0ada8` on clean
-commit `6c1f6641384e4f853936e6134fa3c004d337c089`.
+The latest clean full-slice correctness preflight
+`65044ac3-c6fc-4bdb-9b3b-422ef77afdc7` ran from `2026-10-04T13:53:23.381Z` to
+`2026-10-04T13:57:28.878Z` against Starlette 1.6.0 at
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 912 input-only cases, 890
+requirements, and `parity-input@34` from manifest SHA-256
+`d48ed7738c1d57d806d0796a9d24a34ac5922ac64de16964d9265b1ccf01c1dc` on clean
+commit `460e81e45a04a0f25cad82879d12fbdfee57d009`.
 
-It selected 1,157 profile comparisons: 1,153 passed, zero failed, zero
+It selected 1,158 profile comparisons: 1,154 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
-`not_run`. The installed Python package passed 909/909; Rust-native passed
-244/248. The status-module case compares all public constants, deprecated
-aliases, warning category/message/filename/line, unknown-attribute behavior,
-and `dir(status)`; all five requirements passed exact source/package comparison.
-The `ExceptionMiddleware.__init__` typing input maps
-`test_handlers_annotations`: source and installed-package Mypy reveal the same
-constructor signature, accept the input-defined synchronous and asynchronous
+`not_run`. The installed Python package passed 910/910; Rust-native passed
+244/248. The new Router lifespan-state case and the status-module warning
+callsite case pass exact source/package comparison. The `ExceptionMiddleware`
+typing input maps `test_handlers_annotations`: source and installed-package
+Mypy reveal the same constructor signature, accept synchronous and asynchronous
 catch-all handlers, and emit the same diagnostic rejecting a handler annotated
 to return `int`.
 
@@ -36,21 +40,21 @@ The four native `not_run` rows remain synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 `make parity-run` reports these explicitly and exits nonzero while they remain
 unsupported. The clean installed wheel SHA-256 is
-`a114b1757e9095e40475d8db846cdb771f93847c085d3ce0104ac4b8b6adcfc5`; the
+`84e667da44513d3085600326a6fc191165cffbfbd485e837b18ab1b75ffc15d4`; the
 preflight artifact SHA-256 is
-`5ba57120acf2b2ecc0dd1752f4ea54c4e5dec5ede193fd482280885f2e52034c` at
+`7d045af2fc51a49b0dd372f9fd1becae3305f258eefdae6e4b29196fdaa6daff` at
 `build/parity/upstream-benchmark-correctness-result.json`. This is an incomplete
 native/full-replacement boundary, not a failed Python source/package comparison.
 
 The latest clean Router/GZip benchmark run
-`653933f5-989a-49dd-afe6-38debaa418ff` measured all 74 source/package workloads
-on commit `6c1f6641384e4f853936e6134fa3c004d337c089`: six Router and 68 GZip,
+`d9611ffe-f749-4643-b2a2-1e7002749bb3` measured all 74 source/package workloads
+on commit `460e81e45a04a0f25cad82879d12fbdfee57d009`: six Router and 68 GZip,
 with zero failures and matching normalized observations for all workloads. Its
 preflight is the full-slice run above. Rust-native remains `not_run` for these
-74 equivalent ASGI workload boundaries. The latest median source/package
-latency ratios were 0.745 for Router and 0.977 for GZip; source latency was
-lower in 5/6 Router and 55/68 GZip workloads. These workload-specific results
-do not establish full Starlette compatibility. See [Benchmark mapping](BENCHMARKS.md)
+74 equivalent ASGI workload boundaries. Median source/package latency ratios
+were 0.759 for Router and 0.959 for GZip; source latency was lower in 4/6
+Router and 56/68 GZip workloads. These workload-specific results do not
+establish full Starlette compatibility. See [Benchmark mapping](BENCHMARKS.md)
 for artifact hashes and measurement details.
 
 For `lifespan_send_messages`, the manifest declares a narrow
@@ -74,7 +78,7 @@ category/message/filename/line, unknown-attribute behavior, and `dir(status)`.
 The source and installed-package adapters use the same shared consumer callsite
 so the warning's `stacklevel` resolves identically. All five requirements pass
 exact source/package comparison in clean full-slice run
-`1dddc83f-cd42-452d-aee8-15dbaceec30c`. This case exercises the Python package
+`65044ac3-c6fc-4bdb-9b3b-422ef77afdc7`. This case exercises the Python package
 boundary; it makes no Rust-native claim.
 
 ### Direct UploadFile constructor, repr, rollover, and threadpool boundary

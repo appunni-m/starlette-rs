@@ -9,20 +9,21 @@ incomplete.
 ## Current parity snapshot
 
 
-The active contract uses `parity-input@34` with 910 input-only cases in 90
-indexed files, covering 104 operations and 888 parity requirements. The latest
-full-slice run, `6d05fbc6-aef3-47d1-b0a7-82d390e9c117`, selected 1,156 profile
-comparisons: 1,152 passed, zero failed, zero infrastructure errors, and four
+The active contract uses `parity-input@34` with 912 input-only cases in 90
+indexed files, covering 104 operations and 890 parity requirements. The latest
+full-slice run, `65044ac3-c6fc-4bdb-9b3b-422ef77afdc7`, selected 1,158 profile
+comparisons: 1,154 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable cases were `not_run`. The Python package passed
-908/908 comparisons; Rust-native passed 244/248. The TestClient URL-prefix
+910/910 comparisons; Rust-native passed 244/248. The TestClient lifespan
+missing-scope-state case, URL-prefix
 merge and followed-redirect inputs, plus both TestClient Request.url_for
 cases passed source/package comparison: the bare-ASGI missing-context exception
 and the custom-middleware `homepage` URL `http://testserver/home`. The live Router
 mutation and literal GET `/func` cases matched on both targets; the upstream
 `/func` test does not call `Router.add_route`.
 
-The generated coverage matrix contains 804 source rows: 645 input mappings,
-51 source-backed `not_applicable` entries, and 108 fixture-backlog rows. The
+The generated coverage matrix contains 804 source rows: 650 input mappings,
+51 source-backed `not_applicable` entries, and 103 fixture-backlog rows. The
 pinned denominator remains 514 upstream test functions and 24 documented pages.
 Derive changing mapping and backlog counts from the generated atlas CSV files.
 The four native `not_run` rows remain synchronous Request endpoint,
@@ -45,8 +46,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 645 input mappings,
-51 source-backed `not_applicable` rows, and 108 fixture-backlog rows. Derive
+The current coverage matrix has 804 source rows: 650 input mappings,
+51 source-backed `not_applicable` rows, and 103 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
@@ -223,8 +224,8 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest full-slice run `6d05fbc6-aef3-47d1-b0a7-82d390e9c117` selected
-1,156 comparisons: 1,152 passed, with four declared Rust-native
+The latest full-slice run `65044ac3-c6fc-4bdb-9b3b-422ef77afdc7` selected
+1,158 comparisons: 1,154 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
 errors. The TestClient URL-prefix merge and followed-redirect behaviors, the
 WebSocket send-callback `OSError` behavior, and both TestClient

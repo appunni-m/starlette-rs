@@ -25,8 +25,8 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 910 input-only cases across
-90 indexed files, 104 operations, and 888 requirements. It includes direct
+active and incomplete. The current contract has 912 input-only cases across
+90 indexed files, 104 operations, and 890 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract, WebSocket text,
@@ -41,10 +41,10 @@ case compares input-defined background-task completion after response sends. The
 profiles; the upstream test does not call `Router.add_route`. The live-route
 mutation case also passes on both profiles, exercising method addition and
 route append after earlier dispatches. The latest full-slice run
-`6d05fbc6-aef3-47d1-b0a7-82d390e9c117` passed 1,152 of 1,156 selected profile
+`65044ac3-c6fc-4bdb-9b3b-422ef77afdc7` passed 1,154 of 1,158 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 908/908; Rust-native
-passed 244/248. Both new TestClient URL-prefix merge and followed-redirect
+Python-callable rows `not_run`. The Python package passed 910/910; Rust-native
+passed 244/248. The TestClient lifespan state-support case, URL-prefix merge, and followed-redirect
 cases passed source/package comparison, as did both TestClient Request.url_for
 cases: the bare-ASGI case preserves the missing-context exception, and
 the custom-middleware case resolves `homepage` to `http://testserver/home`.
@@ -94,21 +94,21 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix currently has 804 source rows: 645 input
-mappings, 51 reasoned `not_applicable` rows, and 108 fixture-backlog rows.
+The generated coverage matrix currently has 804 source rows: 650 input
+mappings, 51 reasoned `not_applicable` rows, and 103 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). Run
-`3d1c47ad-65e2-48a5-b42b-b943499d60df` measured all 74 source/package
+`d9611ffe-f749-4643-b2a2-1e7002749bb3` measured all 74 source/package
 workloads on clean commit
-`c2f254b89b3748209e4c60998850ce41a635dfac`: six Router and 68 GZip, with zero
+`460e81e45a04a0f25cad82879d12fbdfee57d009`: six Router and 68 GZip, with zero
 failures and matching normalized observations for all 74. Its correctness
-preflight `6d05fbc6-aef3-47d1-b0a7-82d390e9c117` selected 1,156 comparisons
-(1,152 passed, zero failures, zero infrastructure errors, four declared
-Rust-native `not_run`). The Python package passed 908/908; Rust-native passed
-244/248. Median source/package latency ratios were 0.743 for Router and 0.965
-for GZip. Source latency was lower in 5/6 Router and 54/68 GZip workloads.
+preflight `65044ac3-c6fc-4bdb-9b3b-422ef77afdc7` selected 1,158 comparisons
+(1,154 passed, zero failures, zero infrastructure errors, four declared
+Rust-native `not_run`). The Python package passed 910/910; Rust-native passed
+244/248. Median source/package latency ratios were 0.759 for Router and 0.959
+for GZip. Source latency was lower in 4/6 Router and 56/68 GZip workloads.
 Rust-native remains `not_run` for these 74 benchmark workload boundaries.
 These results do not establish full Starlette compatibility.
 
@@ -298,7 +298,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 804 source rows:
-645 `existing` mappings, 108 `backlog` rows, and 51 reasoned `not_applicable`
+650 `existing` mappings, 103 `backlog` rows, and 51 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity
