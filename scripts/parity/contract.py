@@ -207,6 +207,8 @@ TESTCLIENT_REQUIREMENTS = {
     "request_sequence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-up-request-sequence",
     "cookie_round_trip": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.cookie-persistence-round-trip",
     "mounted_static_files": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-static-files",
+    "static_files_head_middleware": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.static-files-head-through-middleware",
+    "static_files_relative_directory": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.static-files-relative-directory",
     "static_files_root_symlink": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.static-files-root-symlink-follow",
     "static_files_unhandled_os_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.static-files-unhandled-os-error",
     "starlette_mount_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-mount-method-registration",
@@ -10494,11 +10496,14 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     is_path_response_map = app_kind == "path-response-map"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
     is_static_files_root_symlink = app_kind == "static-files-root-symlink"
+    is_static_files_relative_directory = app_kind == "static-files-relative-directory"
     is_static_files_lookup_error = app_kind == "static-files-lookup-error"
     is_starlette_app_static_mount_method = app_kind == "starlette-app-static-mount-method"
+    is_starlette_app_static_head_middleware = app_kind == "starlette-app-static-head-middleware"
     is_starlette_app_static_mount = app_kind in {
         "starlette-app-static-mount",
         "starlette-app-static-mount-method",
+        "starlette-app-static-head-middleware",
     }
     is_router_mounted_response = app_kind == "router-mounted-response"
     is_router_middleware_response = app_kind == "router-middleware-response"
@@ -10837,6 +10842,50 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             )
         exception_spec = None
         messages = []
+    elif is_static_files_relative_directory:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "directory", "files", "follow_symlink", "scope_fields"},
+            "TestClient StaticFiles relative-directory app",
+        )
+        directory = _string(asgi_app["directory"], "TestClient StaticFiles directory")
+        _static_files_relative_components(
+            directory,
+            "TestClient StaticFiles relative directory",
+            allow_parent=False,
+        )
+        if asgi_app["follow_symlink"] is not True:
+            raise ContractError(
+                "TestClient StaticFiles relative-directory input must enable follow_symlink"
+            )
+        static_files = asgi_app["files"]
+        if not isinstance(static_files, list) or not static_files:
+            raise ContractError("TestClient StaticFiles relative-directory files must be non-empty")
+        file_paths: set[str] = set()
+        for index, file_input in enumerate(static_files):
+            file_path, _ = _validate_static_asset_file(
+                file_input, f"TestClient StaticFiles relative-directory files[{index}]"
+            )
+            if file_path in file_paths:
+                raise ContractError(
+                    "TestClient StaticFiles relative-directory file paths must be unique"
+                )
+            file_paths.add(file_path)
+        if (
+            len(file_paths) != 1
+            or request["method"] != "GET"
+            or request.get("client_method") != "get"
+            or urlsplit(request["url"]).path != f"/{next(iter(file_paths))}"
+            or urlsplit(request["url"]).query
+            or followup_requests
+            or request["headers_base64_pairs"]
+            or base64.b64decode(request["body_base64"])
+        ):
+            raise ContractError(
+                "TestClient StaticFiles relative-directory input must GET one input-defined asset"
+            )
+        exception_spec = None
+        messages = []
     elif is_static_files_lookup_error:
         asgi_app = _exact(
             raw_asgi_app,
@@ -10907,7 +10956,25 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             if file_path in asset_paths:
                 raise ContractError("TestClient StaticFiles mount file paths must be unique")
             asset_paths.add(file_path)
-        if (
+        if is_starlette_app_static_head_middleware:
+            if (
+                len(asset_paths) != 1
+                or base64.b64decode(asgi_app["files"][0]["contents_base64"]) != b"x" * 100
+            ):
+                raise ContractError(
+                    "TestClient StaticFiles HEAD middleware input must use one 100-byte x asset"
+                )
+            if (
+                followup_requests
+                or request["method"] != "HEAD"
+                or request.get("client_method") != "head"
+                or request["headers_base64_pairs"]
+                or base64.b64decode(request["body_base64"])
+            ):
+                raise ContractError(
+                    "TestClient StaticFiles middleware input must issue one empty HEAD"
+                )
+        elif (
             len(followup_requests) != 1
             or request["method"] != "GET"
             or followup_requests[0]["method"] != "POST"
@@ -11702,6 +11769,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     if is_starlette_app_trusted_host:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_trusted_host"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_static_files_relative_directory:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["static_files_relative_directory"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if is_static_files_root_symlink:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["static_files_root_symlink"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
@@ -11709,8 +11779,11 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["static_files_unhandled_os_error"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
     if is_starlette_app_static_mount:
-        expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_static_files"])
-        expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
+        if is_starlette_app_static_head_middleware:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["static_files_head_middleware"])
+        else:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_static_files"])
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if is_starlette_app_static_mount_method:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_mount_method_registration"])

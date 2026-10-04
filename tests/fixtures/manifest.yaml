@@ -23184,6 +23184,28 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.static-files-head-through-middleware",
+              "dimension": "protocol_variant",
+              "description": "Mount an input-defined 100-byte StaticFiles asset under /static, wrap the Starlette app in the pinned pass-through BaseHTTPMiddleware shape, and issue HEAD through TestClient. Compare scope, status, Content-Length, body suppression, and ordered ASGI response events. Upstream: tests/test_staticfiles.py::test_staticfiles_head_with_middleware; starlette/staticfiles.py:130-141; starlette/middleware/base.py:171-245.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.static-files-relative-directory",
+              "dimension": "input_family",
+              "description": "Create a temporary asset under an input-defined directory rooted beneath the current working directory, configure StaticFiles with the corresponding relative path and follow_symlink=True, and request the asset through TestClient. Compare scope, response URL/status/headers/body, and ordered ASGI response events. Upstream: tests/test_staticfiles.py::test_staticfiles_relative_directory_symlinks; starlette/staticfiles.py:40-56,84-102.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.static-files-root-symlink-follow",
               "dimension": "input_family",
               "description": "Configure the public StaticFiles ASGI app with an input-defined directory symlink and follow_symlink=True, then GET /index.html through TestClient; compare the request scope, HTTPX response URL/status/headers/body, and ordered ASGI send events. Upstream: tests/test_staticfiles.py::test_staticfiles_self_symlinks (tests/test_staticfiles.py:630-646); starlette/staticfiles.py:84-102; starlette/testclient.py:422-452.",

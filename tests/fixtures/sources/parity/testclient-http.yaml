@@ -1233,6 +1233,115 @@
       }
     },
     {
+      "case_id": "starlette.testclient.TestClient.request-response.static-files-head-through-middleware",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.static-files-head-through-middleware"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "HEAD",
+        "client_method": "head",
+        "url": "/static/example.txt",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "starlette-app-static-head-middleware",
+        "mount_path": "/static",
+        "files": [
+          {
+            "path": "example.txt",
+            "contents_base64": "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path",
+          "headers",
+          "client",
+          "server"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.static-files-relative-directory",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.static-files-relative-directory"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/example.txt",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "static-files-relative-directory",
+        "directory": "tests/statics",
+        "follow_symlink": true,
+        "files": [
+          {
+            "path": "example.txt",
+            "contents_base64": "MTIzCg==",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path",
+          "headers",
+          "client",
+          "server"
+        ]
+      }
+    },
+    {
       "case_id": "starlette.testclient.TestClient.request-response.static-files-unhandled-os-error",
       "surface": "starlette.testclient.TestClient",
       "operation": "request-response",

@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@34` and indexes 912 input-only
-cases across 90 files, covering 104 operations and 890 unique parity requirements. Recent parity inputs
+The active parity manifest uses `parity-input@34` and indexes 914 input-only
+cases across 90 files, covering 104 operations and 892 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -30,7 +30,8 @@ from the pinned auth tests. Four TestClient cases cover TrustedHost exact and
 wildcard acceptance, invalid-host rejection, and following the HTTPS `www`
 redirect. Two additional TestClient inputs cover base-URL path-prefix merging
 and default redirect following through an input-defined raw ASGI path-response
-map. Recent additions include
+map. Two new TestClient cases map HEAD through pass-through middleware and
+CWD-relative StaticFiles with follow_symlink enabled. Recent additions include
 direct FormData constructor/equality inputs; direct UploadFile constructor/repr, rollover, and threadpool-boundary cases; a ten-chunk 400-byte GZip streaming response using public defaults; and GZip final and
 streaming responses at the configured `thread_minimum_size` boundary. Other recent
 inputs compare generic `Request[State]` and
@@ -128,17 +129,18 @@ input maps `test_duplicated_param_names`; it observes live constructor results
 for both one repeated name and multiple repeated names, and passed source/package
 comparison.
 
-The latest clean full-slice correctness preflight
-`65044ac3-c6fc-4bdb-9b3b-422ef77afdc7` ran from `2026-10-04T13:53:23.381Z` to
-`2026-10-04T13:57:28.878Z`. It used 912 input-only cases, 890 requirements,
+The latest full-slice correctness preflight
+`933aa11d-76cd-46b2-841d-564db70c1306` ran from `2026-10-04T14:21:51.814Z` to
+`2026-10-04T14:27:22.180Z`. It used 914 input-only cases, 892 requirements,
 and `parity-input@34` from manifest SHA-256
-`d48ed7738c1d57d806d0796a9d24a34ac5922ac64de16964d9265b1ccf01c1dc` on clean
-commit `460e81e45a04a0f25cad82879d12fbdfee57d009`.
+`0cbd6f609cd859f21b2a2e8bd0e8910c46d5678539337d045c355f936c79c93b`. The
+Python-package target tree SHA-256 was
+`6c10cc52ad5d3117dce70518f55bb3d1c7bb49d99d75be8a1c3ed19834fcc0cb`.
 
-It selected 1,158 profile comparisons: 1,154 passed, zero failed, zero
+It selected 1,160 profile comparisons: 1,156 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
-`not_run`. The Python-package profile passed 910/910; Rust-native passed
-244/248. The TestClient lifespan case maps `test_lifespan_state_unsupported`
+`not_run`. The Python-package profile passed 912/912; Rust-native passed
+244/248. Both new StaticFiles cases pass exact source/package comparisons. The TestClient lifespan case maps `test_lifespan_state_unsupported`
 and compares removal of lifespan scope state, the startup failure, propagated
 `RuntimeError`, and callback cleanup. The TestClient URL-prefix merge and
 followed-redirect inputs and the `ExceptionMiddleware.__init__` type-contract
@@ -148,10 +150,10 @@ return annotation.
 
 The four Rust-native `not_run` rows remain synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
-The clean installed wheel SHA-256 is
-`84e667da44513d3085600326a6fc191165cffbfbd485e837b18ab1b75ffc15d4`; the
+The installed wheel SHA-256 is
+`c3665d9f58688bbe95494ca7989c444b6dd250d1534e7482374d05a505722eaa`; the
 preflight result artifact SHA-256 is
-`7d045af2fc51a49b0dd372f9fd1becae3305f258eefdae6e4b29196fdaa6daff` at
+`3a28a6c9a44f7a04e251c91780de7e6cadea6518a4e0d5612fdb4c04c9049b73` at
 `build/parity/upstream-benchmark-correctness-result.json`.
 
 The latest clean Router/GZip benchmark run

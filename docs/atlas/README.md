@@ -25,8 +25,8 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 912 input-only cases across
-90 indexed files, 104 operations, and 890 requirements. It includes direct
+active and incomplete. The current contract has 914 input-only cases across
+90 indexed files, 104 operations, and 892 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract, WebSocket text,
@@ -41,10 +41,12 @@ case compares input-defined background-task completion after response sends. The
 profiles; the upstream test does not call `Router.add_route`. The live-route
 mutation case also passes on both profiles, exercising method addition and
 route append after earlier dispatches. The latest full-slice run
-`65044ac3-c6fc-4bdb-9b3b-422ef77afdc7` passed 1,154 of 1,158 selected profile
+`933aa11d-76cd-46b2-841d-564db70c1306` passed 1,156 of 1,160 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 910/910; Rust-native
-passed 244/248. The TestClient lifespan state-support case, URL-prefix merge, and followed-redirect
+Python-callable rows `not_run`. The Python package passed 912/912; Rust-native
+passed 244/248. TestClient HEAD through pass-through BaseHTTPMiddleware and
+CWD-relative StaticFiles with follow_symlink enabled both matched the pinned
+source. The TestClient lifespan state-support case, URL-prefix merge, and followed-redirect
 cases passed source/package comparison, as did both TestClient Request.url_for
 cases: the bare-ASGI case preserves the missing-context exception, and
 the custom-middleware case resolves `homepage` to `http://testserver/home`.

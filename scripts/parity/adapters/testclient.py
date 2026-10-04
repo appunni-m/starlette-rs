@@ -400,6 +400,36 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await static_files(scope, receive, observed_send)
 
+    elif app_input["kind"] == "static-files-relative-directory":
+        from starlette.staticfiles import StaticFiles
+
+        temporary_filesystem = tempfile.TemporaryDirectory(
+            prefix="starlette-static-relative-parity-", dir=Path.cwd()
+        )
+        workspace = Path(temporary_filesystem.name)
+        relative_workspace = workspace.relative_to(Path.cwd())
+        directory_components = app_input["directory"].split("/")
+        directory = workspace.joinpath(*directory_components)
+        directory.mkdir(parents=True)
+        for file_input in app_input["files"]:
+            path = directory.joinpath(*file_input["path"].split("/"))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(base64.b64decode(file_input["contents_base64"]))
+            os.utime(path, (file_input["mtime_seconds"], file_input["mtime_seconds"]))
+        relative_directory = relative_workspace.joinpath(*directory_components)
+        static_files = StaticFiles(
+            directory=str(relative_directory), follow_symlink=app_input["follow_symlink"]
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await static_files(scope, receive, observed_send)
+
     elif app_input["kind"] == "static-files-lookup-error":
         from starlette.applications import Starlette
         from starlette.routing import Mount
@@ -438,6 +468,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     elif app_input["kind"] in {
         "starlette-app-static-mount",
         "starlette-app-static-mount-method",
+        "starlette-app-static-head-middleware",
     }:
         from starlette.applications import Starlette
         from starlette.routing import Mount
@@ -472,6 +503,20 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                 app_input["mount_path"],
                 static_files,
                 name=app_input["mount_method_name"],
+            )
+        elif app_input["kind"] == "starlette-app-static-head-middleware":
+            from starlette.middleware import Middleware
+            from starlette.middleware.base import BaseHTTPMiddleware
+            from starlette.requests import Request
+            from starlette.responses import Response
+
+            async def does_nothing_middleware(request: Request, call_next: Any) -> Response:
+                return await call_next(request)
+
+            static_files = StaticFiles(directory=str(directory))
+            starlette_application = Starlette(
+                routes=[Mount(app_input["mount_path"], app=static_files, name="static")],
+                middleware=[Middleware(BaseHTTPMiddleware, dispatch=does_nothing_middleware)],
             )
         else:
             static_files = StaticFiles(directory=str(directory))

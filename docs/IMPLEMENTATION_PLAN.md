@@ -32,8 +32,8 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 912 input-only cases in 90 indexed files,
-covering 104 operations and 890 requirements, including direct FormData
+The active parity contract contains 914 input-only cases in 90 indexed files,
+covering 104 operations and 892 requirements, including direct FormData
 constructor/equality inputs; direct UploadFile constructor/repr, spooled-file
 rollover, and threadpool-boundary inputs, and Python-package-only
 GZip final and streaming response inputs at the `thread_minimum_size` boundary, an input-defined shared
