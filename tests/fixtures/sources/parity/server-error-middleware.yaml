@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@31",
+  "schema": "migration-parity/parity-input@32",
   "cases": [
     {
       "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__init__.direct-construction",

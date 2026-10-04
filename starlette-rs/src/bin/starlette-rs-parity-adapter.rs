@@ -3018,6 +3018,9 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     if case.get("content_disposition_type").is_some() {
         expected_fields.push("content_disposition_type");
     }
+    if case.get("background_task").is_some() {
+        expected_fields.push("background_task");
+    }
     let case = exact_object(case, &expected_fields, "FileResponse asgi-call case")?;
     let case_id = string_field(case, "case_id", "FileResponse asgi-call case")?;
     if !case_id.starts_with(&format!("{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}."))
@@ -3196,6 +3199,41 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             ));
         }
     };
+    let background_task = case
+        .get("background_task")
+        .map(|value| {
+            let task = exact_object(
+                value,
+                &["kind", "start", "stop", "separator"],
+                "FileResponse background task",
+            )?;
+            if string_field(task, "kind", "FileResponse background task")?
+                != "append-number-sequence"
+            {
+                return Err(String::from(
+                    "FileResponse background task kind is unsupported",
+                ));
+            }
+            let start = task.get("start").and_then(Value::as_i64).ok_or_else(|| {
+                String::from("FileResponse background task start must be an integer")
+            })?;
+            let stop = task.get("stop").and_then(Value::as_i64).ok_or_else(|| {
+                String::from("FileResponse background task stop must be an integer")
+            })?;
+            if start > stop || stop.saturating_sub(start) > 1000 {
+                return Err(String::from(
+                    "FileResponse background task requires an increasing bounded integer range",
+                ));
+            }
+            let separator = string_field(task, "separator", "FileResponse background task")?;
+            Ok((start, stop, separator.to_owned()))
+        })
+        .transpose()?;
+    if background_task.is_some() && (request_sequence || error_path_kind.is_some()) {
+        return Err(String::from(
+            "FileResponse background task requires one regular-file request",
+        ));
+    }
 
     let mut options = FileResponseOptions {
         media_type,
@@ -3229,6 +3267,8 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     }
     let mut responses = Vec::with_capacity(call_inputs.len());
     let mut captured_dispatch_error = None;
+    let mut execution_trace = Vec::new();
+    let mut background_value = String::new();
     for call_input in call_inputs {
         let (scope, pathsend_extension) = validated_file_response_scope(
             call_input
@@ -3247,7 +3287,7 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             method,
             &request_headers,
             pathsend_extension,
-            false,
+            background_task.is_some(),
         ) {
             Ok(call) => call,
             Err(error) if error_path_kind.is_some() => {
@@ -3274,6 +3314,12 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         loop {
             match call.step().map_err(|error| error.to_string())? {
                 FileResponseCallStep::Send(event) => {
+                    let event_type = match &event {
+                        FileResponseEvent::Start { .. } => "http.response.start",
+                        FileResponseEvent::Body { .. } => "http.response.body",
+                        FileResponseEvent::Pathsend { .. } => "http.response.pathsend",
+                    };
+                    execution_trace.push(String::from(event_type));
                     match &event {
                         FileResponseEvent::Start {
                             status_code,
@@ -3294,9 +3340,21 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                         })?;
                 }
                 FileResponseCallStep::RunBackground => {
-                    return Err(String::from(
-                        "FileResponse adapter has no background callback to execute",
-                    ));
+                    let (start, stop, separator) = background_task.as_ref().ok_or_else(|| {
+                        String::from("FileResponse requested a missing background task input")
+                    })?;
+                    execution_trace.push(String::from("background.start"));
+                    for number in *start..=*stop {
+                        background_value.push_str(&number.to_string());
+                        if number != *stop {
+                            background_value.push_str(separator);
+                        }
+                    }
+                    execution_trace.push(String::from("background.complete"));
+                    call.advance(FileResponseCallInput::<String>::BackgroundFinished(Ok(())))
+                        .map_err(|error| {
+                            format!("FileResponse background transition failed: {error:?}")
+                        })?;
                 }
                 FileResponseCallStep::Complete => break,
                 FileResponseCallStep::Failed => {
@@ -3334,6 +3392,16 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             String::from("dispatch_error"),
             captured_dispatch_error.unwrap_or(Value::Null),
         );
+        if background_task.is_some() {
+            response_object.insert(
+                String::from("background_task"),
+                json!({
+                    "initial_value": "",
+                    "value": background_value,
+                    "execution_trace": execution_trace,
+                }),
+            );
+        }
         response
     };
     drop(temporary_directory);

@@ -7548,6 +7548,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         case_keys.add("call_time_field_assignments")
     if "content_disposition_type" in case:
         case_keys.add("content_disposition_type")
+    if "background_task" in case:
+        case_keys.add("background_task")
     _strict_object(
         case,
         case_keys,
@@ -7625,6 +7627,36 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     content_disposition_type = case.get("content_disposition_type", "attachment")
     if content_disposition_type not in {"attachment", "inline"}:
         raise ValueError("FileResponse content_disposition_type must be attachment or inline")
+    background_task_spec = case.get("background_task")
+    background = None
+    background_value_parts: list[str] = []
+    execution_trace: list[str] = []
+    if background_task_spec is not None:
+        _strict_object(
+            background_task_spec,
+            {"kind", "start", "stop", "separator"},
+            "FileResponse background task",
+        )
+        if background_task_spec["kind"] != "append-number-sequence":
+            raise ValueError("FileResponse background task kind is unsupported")
+        import anyio
+        from starlette.background import BackgroundTask
+
+        async def run_background_task(start: int, stop: int, separator: str) -> None:
+            execution_trace.append("background.start")
+            for number in range(start, stop + 1):
+                background_value_parts.append(str(number))
+                if number != stop:
+                    background_value_parts.append(separator)
+                await anyio.lowlevel.checkpoint()
+            execution_trace.append("background.complete")
+
+        background = BackgroundTask(
+            run_background_task,
+            start=background_task_spec["start"],
+            stop=background_task_spec["stop"],
+            separator=background_task_spec["separator"],
+        )
 
     if request_sequence:
         if any(
@@ -7783,6 +7815,7 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             status_code=case["status_code"],
             headers=dict(header_pairs),
             media_type=media_type,
+            background=background,
             filename=filename,
             stat_result=stat_result,
             content_disposition_type=content_disposition_type,
@@ -7909,6 +7942,7 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
             async def send(message: dict[str, Any]) -> None:
                 sent.append(message)
+                execution_trace.append(message["type"])
 
             try:
                 asyncio.run(response(scope, receive, send))
@@ -8056,6 +8090,12 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             observation["header_view_probe"] = header_view_probe_value
         if event_loop_scheduling is not None:
             observation["event_loop_scheduling"] = event_loop_scheduling
+        if background_task_spec is not None:
+            observation["background_task"] = {
+                "initial_value": "",
+                "value": "".join(background_value_parts),
+                "execution_trace": execution_trace,
+            }
     return {
         "case_id": case["case_id"],
         "status": "completed",

@@ -24,7 +24,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@31"
+INPUT_SCHEMA = "migration-parity/parity-input@32"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -1975,6 +1975,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
                         and observation["path"] == "responses"
                     )
+                    file_response_background_task = (
+                        condition["input_key"] == "background_task"
+                        and key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
+                        and observation["path"] == "background_task"
+                    )
                     base_http_background_task_completion = (
                         condition["input_key"] == "application.routes.0.endpoint.background_task"
                         and key == BASE_HTTP_WORKFLOW_OPERATION_KEY
@@ -2002,6 +2007,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not trusted_host_constructor_probe
                         and not file_response_single_call
                         and not file_response_call_sequence
+                        and not file_response_background_task
                         and not base_http_background_task_completion
                     ):
                         raise ContractError(
@@ -4903,6 +4909,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             "scheduling",
             "call_time_field_assignments",
             "content_disposition_type",
+            "background_task",
         )
         if key in case
     }
@@ -4914,6 +4921,33 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("case is outside the declared FileResponse asgi-call operation")
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ContractError("FileResponse observations must select asgi-call")
+
+    background_task = case.get("background_task")
+    if background_task is not None:
+        background_task = _exact(
+            background_task,
+            {"kind", "start", "stop", "separator"},
+            "FileResponse background task",
+        )
+        if background_task["kind"] != "append-number-sequence":
+            raise ContractError("FileResponse background task kind is unsupported")
+        start = background_task["start"]
+        stop = background_task["stop"]
+        if (
+            type(start) is not int
+            or type(stop) is not int
+            or not -(2**63) <= start < 2**63
+            or not -(2**63) <= stop < 2**63
+            or start > stop
+        ):
+            raise ContractError("FileResponse background task requires an increasing integer range")
+        if stop - start > 1000:
+            raise ContractError("FileResponse background task range exceeds 1001 values")
+        _string(background_task["separator"], "FileResponse background task separator")
+        if call_sequence or "scheduling" in case:
+            raise ContractError(
+                "FileResponse background task cannot combine with call sequences or scheduling probes"
+            )
 
     call_specs: list[dict[str, Any]]
     if call_sequence:
@@ -5017,6 +5051,8 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         mtime_seconds = file_input["mtime_seconds"]
         if type(mtime_seconds) not in {int, float} or not math.isfinite(mtime_seconds):
             raise ContractError("FileResponse file.mtime_seconds must be a finite number")
+    if background_task is not None and error_path_kind is not None:
+        raise ContractError("FileResponse background task requires a regular file input")
 
     status_code = case["status_code"]
     if type(status_code) is not int or not 100 <= status_code <= 599:
@@ -13258,6 +13294,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                     "scheduling",
                     "call_time_field_assignments",
                     "content_disposition_type",
+                    "background_task",
                 )
                 if key in case
             }
