@@ -431,6 +431,9 @@ WSGI_BOUNDARY_REQUIREMENTS = {
     "module-import-warning": f"{WSGI_BOUNDARY_SURFACE}.module-import-warning.deprecation-warning",
 }
 STATUS_OPERATION = ("starlette.status", "module-symbol-sequence")
+STATUS_WARNING_CALLSITE_REQUIREMENT = (
+    "starlette.status.module-symbol-sequence.deprecated-warning-callsite"
+)
 CONFIG_OPERATIONS = {
     ("starlette.config.Config", "value-resolution"),
     ("starlette.config.Config", "constructor-warning"),
@@ -19944,6 +19947,7 @@ def _validate_status_symbols_case(case: dict[str, Any]) -> None:
     exercised = {"starlette.status.module-symbol-sequence.public-integer-constants"}
     if deprecated_names:
         exercised.add("starlette.status.module-symbol-sequence.deprecated-aliases")
+        exercised.add(STATUS_WARNING_CALLSITE_REQUIREMENT)
     if missing_names:
         exercised.add("starlette.status.module-symbol-sequence.unknown-attribute")
     if case["observe_directory"]:

@@ -21257,6 +21257,17 @@
               ]
             },
             {
+              "id": "starlette.status.module-symbol-sequence.deprecated-warning-callsite",
+              "dimension": "boundary",
+              "description": "Record the warning filename and line selected by the deprecated alias warning's stacklevel for stable input-driven call sites. Upstream: starlette/status.py:190-205; tests/test_status.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.status.module-symbol-sequence.unknown-attribute",
               "dimension": "error_path",
               "description": "Read an input-defined missing status name and observe the module AttributeError. Upstream: starlette/status.py.",

@@ -40,6 +40,7 @@ from scripts.parity.adapters.staticfiles_config import (
     STATIC_FILES_CONFIGURATION_OPERATION,
     run_static_files_configuration_case,
 )
+from scripts.parity.adapters.status_module import run_status_module_sequence
 
 REQUEST_SCHEMA = "migration-parity/adapter-request@1"
 RESPONSE_SCHEMA = "migration-parity/adapter-response@1"
@@ -8191,72 +8192,7 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_status_symbols_case(case: dict[str, Any]) -> dict[str, Any]:
-    _exact_object(
-        case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "public_names",
-            "deprecated_names",
-            "missing_names",
-            "observe_directory",
-            "observations",
-        },
-        "status module-symbol-sequence case",
-    )
-    from starlette import status
-
-    public_names = list(status.__all__)
-    public_values = {name: getattr(status, name) for name in case["public_names"]}
-    with warnings.catch_warnings(record=True) as recorded:
-        warnings.simplefilter("always")
-        deprecated_values = [
-            {"name": name, "value": getattr(status, name)} for name in case["deprecated_names"]
-        ]
-    missing_attributes = []
-    for name in case["missing_names"]:
-        try:
-            value = getattr(status, name)
-        except AttributeError as exc:
-            missing_attributes.append(
-                {
-                    "name": name,
-                    "outcome": "attribute-error",
-                    "message": str(exc),
-                }
-            )
-        else:
-            missing_attributes.append(
-                {"name": name, "outcome": "value", "value": _json_safe(value)}
-            )
-    values = {
-        "public_names": public_names,
-        "public_values": public_values,
-        "deprecated_values_and_warnings": {
-            "values": deprecated_values,
-            "warnings": [
-                {
-                    "category": f"{item.category.__module__}.{item.category.__qualname__}",
-                    "message": str(item.message),
-                }
-                for item in recorded
-            ],
-        },
-        "directory": dir(status) if case["observe_directory"] else None,
-        "missing_attribute": missing_attributes,
-    }
-    return {
-        "case_id": case["case_id"],
-        "status": "completed",
-        "observations": [
-            {"step_id": selector, "status": "ok", "value": values}
-            for selector in case["observations"]
-        ],
-    }
+    return run_status_module_sequence(case, _exact_object, _json_safe)
 
 
 def _make_routing_endpoint(spec: dict[str, Any]) -> Any:

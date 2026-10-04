@@ -8,6 +8,7 @@
       "covers": [
         "starlette.status.module-symbol-sequence.public-integer-constants",
         "starlette.status.module-symbol-sequence.deprecated-aliases",
+        "starlette.status.module-symbol-sequence.deprecated-warning-callsite",
         "starlette.status.module-symbol-sequence.unknown-attribute",
         "starlette.status.module-symbol-sequence.directory-listing"
       ],
