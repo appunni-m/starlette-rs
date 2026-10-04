@@ -19,30 +19,31 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest clean full-slice correctness preflight
-`a00a461a-758f-4934-b559-4c25522fcdbb` ran against Starlette 1.6.0 at
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the then-active 928-case contract.
-It selected 1,174 profile comparisons: 1,170 passed, zero failed, zero
+`d3ebe854-b035-45af-98b5-45ae6e72d83d` ran against Starlette 1.6.0 at
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 929-case contract.
+It selected 1,175 profile comparisons: 1,171 passed, zero failed, zero
 infrastructure errors, and four Rust-native callable-boundary rows were
-`not_run`. The installed Python package passed 924/924; Rust-native passed
+`not_run`. The installed Python package passed 925/925; Rust-native passed
 246/250. Both target-only route-cache fault contracts passed (2/2) and remain
 `not_applicable` to the source oracle. The result SHA-256 is
-`086d2e97f599f3eb688436fe82bb9277f2081d1e3dd72639efdaa0a56d891015`; it uses
+`d5f490a74d567202df532a4a8489336044c28171bf99f6847afeacdcb26fc1c5`; it uses
 manifest SHA-256
-`4b415afca096dfba1458e672154450efbc4878efb4ef36796fffd5fdc19e948c`, clean
-target revision `df17754b6758bbc481ee5b399935ce663c82cbc2`, target tree
+`d2353e4a5aa660147c39f9567241f4104bb58029ffd5cb219284093bf899014b`, clean
+target revision `b56ee2a609c07c62c03291c7441b228db5c73351`, target tree
 SHA-256 `a61aae38e6a1f26630de04d38590a3acc21df02ba53807a56d633b95a08a0555`,
 and installed wheel SHA-256
-`388026fe68c727376468090679ef7a7e603a6e6ed1f85fc9ba4d723683c645d8`. These
+`f95254e689f1c80399ea496847a8d9ea3c9bf1f14459c95dafaf5cce3cb9e6e1`. These
 results cover the active package slice and do not establish full Starlette
 parity.
 
 The latest clean Router/GZip benchmark run
-`8d54aaf4-2166-4707-a1c6-9ce612e48a19` measured all 74 source/package workloads
+`eaea39eb-c40f-448a-b2fd-1907c75f4ae7` measured all 74 source/package workloads
 on the same clean revision. It recorded zero failures and matching normalized
 observations for all 74 workloads; all 74 Rust-native workload boundaries
-remain `not_run`. These workload-specific measurements do not establish full
-Starlette compatibility; see [Benchmark mapping](BENCHMARKS.md) for timing and
-artifact details.
+remain `not_run`. Its correctness preflight is the full-slice run above.
+These workload-specific measurements do not establish full Starlette
+compatibility; see [Benchmark mapping](BENCHMARKS.md) for timing and artifact
+details.
 
 An earlier clean full-slice correctness preflight
 `7607d008-0ee2-4186-8efd-60fba190fc47` ran from `2026-10-04T14:39:29.292Z` to

@@ -40,12 +40,13 @@ case compares input-defined background-task completion after response sends. The
 `/func` Router case maps the upstream dispatch check and passes on both target
 profiles; the upstream test does not call `Router.add_route`. The live-route
 mutation case also passes on both profiles, exercising method addition and
-route append after earlier dispatches. The latest clean full-slice run before the nested TestClient addition,
-`a00a461a-758f-4934-b559-4c25522fcdbb` passed 1,170 of 1,174 selected profile
+route append after earlier dispatches. Latest clean full-slice preflight
+`d3ebe854-b035-45af-98b5-45ae6e72d83d` passed 1,171 of 1,175 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 924/924; Rust-native
-passed 246/250. The nested TestClient case then passed 1/1 source/package
-comparison with both target-only fault contracts passing 2/2. TestClient HEAD through pass-through BaseHTTPMiddleware and
+Python-callable rows `not_run`. The Python package passed 925/925; Rust-native
+passed 246/250. Both target-only fault contracts passed 2/2 and remain
+`not_applicable` to the source oracle. The nested TestClient case passed 1/1
+source/package comparison. TestClient HEAD through pass-through BaseHTTPMiddleware and
 CWD-relative StaticFiles with follow_symlink enabled both matched the pinned
 source. The TestClient lifespan state-support case, URL-prefix merge, and followed-redirect
 cases passed source/package comparison, as did both TestClient Request.url_for
@@ -103,16 +104,14 @@ Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). Run
-`d06b1c3c-e3c2-4003-9545-758d1f846f32` measured all 74 source/package
+`eaea39eb-c40f-448a-b2fd-1907c75f4ae7` measured all 74 source/package
 workloads on clean commit
-`b4d64546f2a2c3bb9da16d41e3fa0d61f2bc8dea`: six Router and 68 GZip, with zero
+`b56ee2a609c07c62c03291c7441b228db5c73351`: six Router and 68 GZip, with zero
 failures and matching normalized observations for all 74. Its correctness
-preflight `7607d008-0ee2-4186-8efd-60fba190fc47` selected 1,160 comparisons
-(1,156 passed, zero failures, zero infrastructure errors, four declared
-Rust-native `not_run`). The Python package passed 912/912; Rust-native passed
-244/248. Median source/package latency ratios were 0.726 for Router and 0.975
-for GZip. Source latency was lower in 5/6 Router and 63/68 GZip workloads.
-Rust-native remains `not_run` for these 74 benchmark workload boundaries.
+preflight `d3ebe854-b035-45af-98b5-45ae6e72d83d` selected 1,175 comparisons
+(1,171 passed, zero failures, zero infrastructure errors, four declared
+Rust-native `not_run`). The Python package passed 925/925; Rust-native passed
+246/250. All 74 Rust-native benchmark workload boundaries remain `not_run`.
 These results do not establish full Starlette compatibility.
 
 At the source-mapping checkpoint, the parity manifest indexed 118 input-only cases

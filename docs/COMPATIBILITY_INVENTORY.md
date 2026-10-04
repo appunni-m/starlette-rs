@@ -130,42 +130,29 @@ for both one repeated name and multiple repeated names, and passed source/packag
 comparison.
 
 The latest clean full-slice correctness preflight
-`7607d008-0ee2-4186-8efd-60fba190fc47` ran from `2026-10-04T14:39:29.292Z` to
-`2026-10-04T14:43:58.397Z`. It used 914 input-only cases, 892 requirements,
-and `parity-input@35` from manifest SHA-256
-`0cbd6f609cd859f21b2a2e8bd0e8910c46d5678539337d045c355f936c79c93b` on clean
-commit `b4d64546f2a2c3bb9da16d41e3fa0d61f2bc8dea`. The Python-package target
-tree SHA-256 was
-`6c10cc52ad5d3117dce70518f55bb3d1c7bb49d99d75be8a1c3ed19834fcc0cb`.
-
-It selected 1,160 profile comparisons: 1,156 passed, zero failed, zero
-infrastructure errors, and four Rust-native Python-callable rows were
-`not_run`. The Python-package profile passed 912/912; Rust-native passed
-244/248. Both new StaticFiles cases pass exact source/package comparisons. The TestClient lifespan case maps `test_lifespan_state_unsupported`
-and compares removal of lifespan scope state, the startup failure, propagated
-`RuntimeError`, and callback cleanup. The TestClient URL-prefix merge and
-followed-redirect inputs and the `ExceptionMiddleware.__init__` type-contract
-input also passed source/package comparison; its source/package Mypy consumers
-agree on the constructor signature and rejection diagnostic for an `int`
-return annotation.
-
-The four Rust-native `not_run` rows remain synchronous Request endpoint,
-bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
-The installed wheel SHA-256 is
-`24d988298400c1f65037d45be8b1adc3ddbc49fec032b1e6b04bbe59dc02c5b5`; the
-preflight result artifact SHA-256 is
-`10dbfa229b5fedbc7d473416fcca032abd777ad9866d038b14184c0ea2ec8d67` at
-`build/parity/upstream-benchmark-correctness-result.json`.
+`d3ebe854-b035-45af-98b5-45ae6e72d83d` used 929 input-only cases and 901
+requirements from manifest SHA-256
+`d2353e4a5aa660147c39f9567241f4104bb58029ffd5cb219284093bf899014b` on clean
+commit `b56ee2a609c07c62c03291c7441b228db5c73351`. It selected 1,175 profile
+comparisons: 1,171 passed, zero failed, zero infrastructure errors, and four
+Rust-native callable-boundary rows were `not_run`. The Python package passed
+925/925; Rust-native passed 246/250. Both target-only route-cache fault
+contracts passed (2/2) and remain `not_applicable` to the source oracle. The
+target tree SHA-256 is
+`a61aae38e6a1f26630de04d38590a3acc21df02ba53807a56d633b95a08a0555`; the
+installed wheel SHA-256 is
+`f95254e689f1c80399ea496847a8d9ea3c9bf1f14459c95dafaf5cce3cb9e6e1`. The
+preflight result SHA-256 is
+`d5f490a74d567202df532a4a8489336044c28171bf99f6847afeacdcb26fc1c5`. The four
+Rust-native `not_run` rows remain synchronous Request endpoint, bound-method
+endpoint, partial endpoint, and callable-instance ASGI dispatch.
 
 The latest clean Router/GZip benchmark run
-`d06b1c3c-e3c2-4003-9545-758d1f846f32` measured all 74 source/package workloads
-on commit `b4d64546f2a2c3bb9da16d41e3fa0d61f2bc8dea`: six Router and 68 GZip,
-with zero failures and matching normalized observations. The Python package
-passed 912/912 preflight comparisons; four Rust-native preflight rows remain
-`not_run`. Median source/package latency ratios were 0.726 for Router and
-0.975 for GZip. Source latency was lower in 5/6 Router and 63/68 GZip
-workloads. These workload-specific results do not establish full Starlette
-compatibility.
+`eaea39eb-c40f-448a-b2fd-1907c75f4ae7` measured all 74 source/package workloads
+on the same clean revision: six Router and 68 GZip, with zero failures and
+matching normalized observations for all 74. All 74 Rust-native workload
+boundaries remain `not_run`. Its correctness preflight is the full-slice run
+above. See [Benchmark mapping](BENCHMARKS.md) for timing and artifact details.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -173,18 +160,9 @@ the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
 comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
-The latest correctness-gated Router/GZip benchmark is recorded in
-[Benchmark mapping](BENCHMARKS.md). Run
-`d06b1c3c-e3c2-4003-9545-758d1f846f32` measured all 74 source/package workloads
-on clean commit `b4d64546f2a2c3bb9da16d41e3fa0d61f2bc8dea`: six Router and 68
-GZip, with zero failures and matching normalized observations for all 74
-workloads. Its correctness preflight is the full-slice run above: 1,160
-comparisons, 1,156 passed, zero failures, zero infrastructure errors, and four
-Rust-native `not_run`; the Python package passed 912/912 and Rust-native passed
-244/248. Median source/package latency ratios were 0.726 for Router and 0.975
-for GZip. Source latency was lower in 5/6 Router and 63/68 GZip workloads.
-These workload-specific results do not establish full Starlette
-compatibility.
+The correctness-gated Router/GZip benchmark is recorded in
+[Benchmark mapping](BENCHMARKS.md). The latest run is summarized above;
+workload-specific measurements do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
 The generated coverage matrix currently has 804 source rows: 660 input mappings,

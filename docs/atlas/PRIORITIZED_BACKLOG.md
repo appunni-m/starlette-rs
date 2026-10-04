@@ -12,25 +12,25 @@ The active contract uses `parity-input@39` with 929 input-only cases in 91
 indexed files: 927 oracle parity cases and two target-only fault contracts. It
 covers 104 operations and 901 parity requirements.
 
-The latest clean full-slice preflight before the nested TestClient addition,
-`a00a461a-758f-4934-b559-4c25522fcdbb`
-selected 1,174 profile comparisons: 1,170 passed, zero failed, zero
-infrastructure errors, and four Rust-native callable-boundary cases were
-`not_run`. The installed Python package passed 924/924 comparisons;
-Rust-native passed 246/250. Both target-only fault contracts passed and remain
-`not_applicable` to the source oracle. The active manifest SHA-256 is
-`4b415afca096dfba1458e672154450efbc4878efb4ef36796fffd5fdc19e948c`; the
-target was clean at `df17754b6758bbc481ee5b399935ce663c82cbc2`. This is bounded
+The latest clean full-slice preflight
+`d3ebe854-b035-45af-98b5-45ae6e72d83d` selected 1,175 profile comparisons:
+1,171 passed, zero failed, zero infrastructure errors, and four Rust-native
+callable-boundary cases were `not_run`. The installed Python package passed
+925/925 comparisons; Rust-native passed 246/250. Both target-only fault
+contracts passed (2/2) and remain `not_applicable` to the source oracle. The
+active manifest SHA-256 is
+`d2353e4a5aa660147c39f9567241f4104bb58029ffd5cb219284093bf899014b`; the
+target was clean at `b56ee2a609c07c62c03291c7441b228db5c73351`. This is bounded
 package-slice evidence, not full Starlette parity.
 
-The nested TestClient input added after that full-slice run passed in selected
-run `8c90f08e-3bf0-4ea2-9d98-0c7f8de847a2` (1/1 source/package comparison and
-2/2 target-only fault contracts). Coverage MCP verified 26 newly covered Rust
+The nested TestClient case also passed focused selected run
+`8c90f08e-3bf0-4ea2-9d98-0c7f8de847a2` (1/1 source/package comparison and 2/2
+target-only fault contracts). Coverage MCP verified 26 newly covered Rust
 lines (0.106 percentage points): baseline 2,774/24,539, batch 2,755/24,539,
 and union 2,800/24,539. Full-suite regression status is unknown. The run and
 coverage receipts are recorded in [Migration parity contract and evidence](../PARITY.md).
 
-The correctness-gated benchmark `8d54aaf4-2166-4707-a1c6-9ce612e48a19`
+The correctness-gated benchmark `eaea39eb-c40f-448a-b2fd-1907c75f4ae7`
 measured 74/74 source/package workloads with zero failures; Rust-native remains
 `not_run` for all 74 boundaries. See [Benchmark mapping](../BENCHMARKS.md) for
 workload-specific timings and hashes.
