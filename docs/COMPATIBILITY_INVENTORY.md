@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 891 input-only cases across 88 files,
-covering 103 operations and 873 unique parity requirements. Recent parity inputs
+The active parity manifest indexes 892 input-only cases across 88 files,
+covering 103 operations and 874 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -124,37 +124,40 @@ for both one repeated name and multiple repeated names, and passed source/packag
 comparison.
 
 The latest clean-tree correctness preflight is
-`c9572d7b-b74e-47e5-8594-0db859293e73`. It ran from
-`2026-10-04T03:03:58.026Z` to `2026-10-04T03:07:08.213Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 891-case,
-873-requirement `parity-input@31` manifest. It selected 1,127 profile
-comparisons: 1,123 passed, zero failed, zero infrastructure errors, and four
+`c9e7a940-c697-44d0-902e-63500ab3e524`. It ran from
+`2026-10-04T03:29:21.192Z` to `2026-10-04T03:32:01.952Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 892-case,
+874-requirement `parity-input@31` manifest. It selected 1,129 profile
+comparisons: 1,125 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed 889/889 comparisons; Rust-native passed 234/238. The new
-background-task server-error case preserved the completed 204 response and
-invoked the sync Exception handler exactly once in source and package. The new
-WebSocketException reason input matches the pinned source for close code 1008
-and reason `policy violation`; the custom HTTPException handler input matches
-for status 429, JSON detail, and both exception-provided response headers. The
-module-global `starlette.config.environ` input and recent StaticFiles/TestClient
-cases also match exactly. Both targets were clean at commit
-`4c7c9a9b82429b8be49184cac959e43e72fe3ff4`. The four native `not_run` rows
+passed 890/890 comparisons; Rust-native passed 235/239. The literal GET
+`/func` Router case passed on both profiles, selecting route index 0 and
+returning the source response. It maps dispatch in `test_router_add_route`,
+which does not call that method. The background-task server-error case
+preserved the completed 204 response and invoked the sync Exception handler
+exactly once in source and package. The WebSocketException reason input matches
+the pinned source for close code 1008 and reason `policy violation`; the custom
+HTTPException handler input matches for status 429, JSON detail, and both
+exception-provided response headers. The module-global
+`starlette.config.environ` input and recent StaticFiles/TestClient cases also
+match exactly. Both targets were clean at commit
+`9da93566cce0b30a9678e58336fbdc8a158281fa`. The four native `not_run` rows
 remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
 and callable-instance ASGI dispatch. Strict aggregation remains `not_proven`
 because the compatibility denominator is incomplete and four Rust-native rows
 are `not_run`.
 
 The Rust-native target revision and source fingerprint are
-`4c7c9a9b82429b8be49184cac959e43e72fe3ff4+source-fnv1a64-64035a396e9dceba`.
+`9da93566cce0b30a9678e58336fbdc8a158281fa+source-fnv1a64-64035a396e9dceba`.
 The Python-package target tree SHA-256 is
 `00b1293cfc6c2df6d5a6cd3557623a80330f8a6dbc7ecae02cebbd1a55e04ae4`; its
 wheel SHA-256 is
-`f38f59bb199c8d34b4da698ab56245e98ca1cb197bb3497879f14fb86024b604`. The
+`dc0005ceff094b06579a76e0dd9ec4c9cee8310696fa4efe483e647c2d1cf67f`. The
 manifest SHA-256 is
-`220aad447f79a25fc8ff1944d50c79ab1151f6e4b17d4d3b706e34d73743ca13`, and the
-local correctness-gate result artifact SHA-256 is
-`2a206a479c02ab3ce8cbe34fa4debd215c9ae1265a2b4ffd2aaf648324c21364` at
-`build/parity/upstream-benchmark-correctness-result.json`.
+`c0ec486cd19397c73d46eba18cf54ea2d396a74b92478343cd576b4c8c77d04c`, and the
+local correctness-result artifact SHA-256 is
+`5b2f004693217294c748298822f5da323ec28c9d1203e330d79c8e4d657126c7` at
+`build/parity/parity-result.json`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
@@ -176,8 +179,8 @@ four Rust-native `not_run` rows. Median source/package latency ratios were
 establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 802 source rows: 624 input mappings,
-51 reasoned `not_applicable` rows, and 127 fixture backlog rows. Derive these
+The generated coverage matrix currently has 802 source rows: 625 input mappings,
+51 reasoned `not_applicable` rows, and 126 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -352,9 +355,9 @@ the fixture backlog.
 `asgi-core.app.test_app_debug` is mapped to the TestClient input that mutates
 debug after construction; direct debug-enabled construction remains a separate
 documentation backlog item. The latest full-slice parity run
-`c9572d7b-b74e-47e5-8594-0db859293e73` selected 1,127 comparisons: 1,123
+`c9e7a940-c697-44d0-902e-63500ab3e524` selected 1,129 comparisons: 1,125
 passed with zero failures and zero infrastructure errors. The Python package
-passed 889/889 comparisons; Rust-native passed 234/238, with four unsupported
+passed 890/890 comparisons; Rust-native passed 235/239, with four unsupported
 callable rows marked `not_run`. This slice does not prove full Starlette
 replacement parity.
 The current Router/GZip source/package benchmark lane is

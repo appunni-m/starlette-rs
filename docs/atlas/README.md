@@ -25,8 +25,8 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 891 input-only cases across
-88 indexed files, 103 operations, and 873 requirements. It includes direct
+active and incomplete. The current contract has 892 input-only cases across
+88 indexed files, 103 operations, and 874 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract, WebSocket text,
@@ -34,11 +34,13 @@ bytes, and JSON send/receive exchange cases, a send-callback `OSError`
 disconnect case, and four TestClient TrustedHost
 cases for exact/wildcard acceptance, invalid-host rejection, and HTTPS www
 redirect following. Seven QueryParams cases
-map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `c9572d7b-b74e-47e5-8594-0db859293e73` passed 1,123 of 1,127
+map equality and blank-value behavior to two pinned test rows. The new literal
+GET `/func` Router case maps the upstream dispatch check and passes on both
+target profiles; the upstream test does not call `Router.add_route`. The latest
+full-slice run `c9e7a940-c697-44d0-902e-63500ab3e524` passed 1,125 of 1,129
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
-889/889; Rust-native passed 234/238. The new background-task server-error case
+890/890; Rust-native passed 235/239. The background-task server-error case
 and latest WebSocket header input pass source/package comparison. The GZip streaming-response case
 passes against both targets. Six protected WebSocket authentication
 cases pass source/package comparison for plain and injection-wrapped routes
@@ -76,8 +78,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix currently has 802 source rows: 624 input
-mappings, 51 reasoned `not_applicable` rows, and 127 fixture-backlog rows.
+The generated coverage matrix currently has 802 source rows: 625 input
+mappings, 51 reasoned `not_applicable` rows, and 126 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in

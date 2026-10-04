@@ -8,60 +8,26 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract contains 886 input-only cases in 88 indexed files,
-covering 102 operations and 868 parity requirements. Recent additions include a StaticFiles directory served through a valid symlinked root with TestClient; BaseHTTPMiddleware async background-task completion and failure-propagation workflows; route-local HTTP exception responses observed through mounted middleware; WebSocket double-close, connected invalid-send/invalid-receive, and send-callback `OSError` inputs with exact errors and state observations; custom `BaseUser` property overrides, `Request.user` type and `Request.auth.scopes` observations, and the documented login `next` query redirect; a Starlette multipart upload through `Request.form()` under the app body limit; module-global `starlette.config.environ` mutation and Config read-freeze behavior; custom `HTTPException` handler header forwarding; WebSocketException reason forwarding; direct UploadFile constructor/repr, rollover, and
-threadpool-boundary inputs; GZip final/streaming thread-threshold comparisons;
-the shared AnyIO thread-pool limiter; generic Request/WebSocket lifespan-state
-typing; routed authentication UI and protected HTTP routes; six protected WebSocket cases for plain and injected endpoint forms, and three documentation-derived BasicAuth cases for wrong-scheme, malformed base64, and non-ASCII credentials.
-Seven QueryParams
-cases map equality and blank-value behavior to two pinned test rows. New
-focused inputs cover
-surrounding pure-ASGI ContextVar observations around BaseHTTPMiddleware and a
-pure-ASGI control, CORSMiddleware private-network-access denial, empty-text
-default decoding in WebSocketEndpoint, TestClient lifespan task/RunVar
-continuity, and task-group child lifecycle under asyncio and Trio. Rust-backed
-`CommaSeparatedStrings` parsing and sequence formatting, including lone
-surrogate values, are included, alongside
-the three-request CORS
-origin-isolation input, five async Request endpoint
-callable-shape and failure cases, three direct `run_in_threadpool` cases,
-including the shared AnyIO limiter,
-`iterate_in_threadpool` iteration and async-generator protocol behavior,
-Config casts, TestClient debug responses, synchronous Request endpoint worker
-cancellation and failure, ASGI callable-instance success and failure, direct
-State sequences, application state reads through `request.app.state`,
-application registration workflows, six direct
-ServerErrorMiddleware cases, three TestClient exception-chain cases covering
-no chain, implicit context, and explicit cause through BaseHTTPMiddleware, a
-default middleware-boundary trace, and sixteen Request.cookies inputs pass live
-source/package comparison, including the sequential TestClient cookie
-round-trip from `test_request_cookies`. Added direct `GZipResponder` inputs, invalid WebSocket JSON-mode inputs,
-pre-accept typed-receive cases, and exact text/bytes/JSON send/receive exchange
-cases pass source/package comparison. Four new TestClient inputs map exact and
-wildcard TrustedHost acceptance, invalid-host rejection, and following the
-HTTPS `www` redirect against the pinned middleware suite. Three
-StaticFiles HTML fallback scenarios and seven built-in float/UUID converter
-cases now pass on both target profiles. Default-string match/slash-boundary
-and int/path converter scope inputs also pass on both profiles. The
-input-defined datetime converter dispatch and reverse-format cases pass on the
-Python-package profile. The file-like StreamingResponse case compares exact
-binary line chunks through the installed Python package. The latest clean-tree
-correctness preflight used the 886-case `parity-input@31` contract,
-`7df4c713-d5e7-4567-b5cd-a817363800b7`, and passed 1,117 of 1,121
-selected comparisons, with zero failures or infrastructure errors and four Rust-native Python-callable
-rows `not_run`. The Python package passed 884/884; Rust-native passed 233/237.
-Both targets were clean at commit
-`b4816c38a28dd307c2cded1b71241a0b7717ae1a`. The module-global environ input
-matches source for pre-read mutation, Config lookups, frozen late mutations,
-and live `os.environ` iteration and length. The StaticFiles lookup
-`TimeoutError` input matches the pinned source exactly for the TestClient 500
-response, response metadata, scope, and ordered ASGI events. The pathlib-root,
-reason-phrase, and HEAD-body-suppression cases also pass. The four native
-`not_run` rows are synchronous Request endpoint, bound-method endpoint, partial
-endpoint, and callable-instance ASGI dispatch. `make test` exits with status 2
-for those declared rows. Full run identities and package hashes are recorded
-in [Migration parity contract and evidence](../PARITY.md); this bounded
-evidence does not establish full Starlette parity or release readiness.
+
+The active contract contains 892 input-only cases in 88 indexed files,
+covering 103 operations and 874 parity requirements. The latest clean-tree
+preflight, `c9e7a940-c697-44d0-902e-63500ab3e524`, selected 1,129 profile
+comparisons: 1,125 passed, zero failed, zero infrastructure errors, and four
+Rust-native Python-callable cases were `not_run`. The Python package passed
+890/890 comparisons; Rust-native passed 235/239. The new literal GET `/func`
+Router case passes on both targets and maps the upstream `test_router_add_route`
+dispatch behavior; that test does not call `Router.add_route`.
+
+The generated coverage matrix contains 802 source rows: 625 input mappings,
+51 source-backed `not_applicable` entries, and 126 fixture-backlog rows. The
+pinned denominator remains 514 upstream test functions and 24 documented pages.
+Derive changing mapping and backlog counts from the generated atlas CSV files.
+The four native `not_run` rows remain synchronous Request endpoint,
+bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
+The full replacement goal remains active and incomplete; this bounded evidence
+does not establish full Starlette parity or release readiness. Full run
+identities and package hashes are recorded in
+[Migration parity contract and evidence](../PARITY.md).
 
 The six protected-WebSocket authentication cases map the upstream
 `test_websocket_authentication_required` row across plain and injection-wrapped
@@ -76,8 +42,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 618 input mappings,
-51 source-backed `not_applicable` rows, and 133 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 625 input mappings,
+51 source-backed `not_applicable` rows, and 126 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
