@@ -1103,6 +1103,26 @@ equivalent ASGI workload boundaries, so all 74 native benchmark rows remain
 `not_run`. These prior full preflight and benchmark runs still do not establish
 full Starlette parity.
 
+The fresh full preflight for the active 920-case manifest is run
+`84769d51-0203-41bf-8569-be53a5cbe99c`. It selected 1,164 profile comparisons:
+1,160 passed, zero failed, zero infrastructure errors, and four Rust-native
+callable-boundary rows were `not_run`. The Python package passed 916/916;
+Rust-native passed 244/248; and both target-only fault contracts passed. Its
+result SHA-256 is
+`f998d067c21944f77a87c6c5d0e245b9e27281c09c3bbd6122b754bfedb2e1f4`.
+
+The current correctness-gated benchmark run
+`d0bba2ec-079e-4d21-822e-e0ddbf0133ef` measured 74/74 source/package
+workloads, with zero failures or unmeasured workloads. All 74 Rust-native
+workloads remain `not_run` because their ASGI boundary is not equivalent. Its
+result SHA-256 is
+`a03f960a2b7718b6612db7bcc6c51a18b71dd9befd4f9faa855706218dd9ef47`. Both
+runs use manifest SHA-256
+`b200928d5b42a445729d6cf6609eb6724b019696dadc4cccaad3d5bc9779b7c6`, clean
+target revision `bdb9f46c78d13e2bc837f67af3d141c4fd293b21`, and target tree
+SHA-256 `d66b547bab6d9525a44adc67f00ce5afc5ac1a46dc0b1c32c7d484c1a3c81ce1`.
+They update current evidence but do not establish full Starlette parity.
+
 On the current 920-case manifest, selected run
 `29e8e772-6df8-46ee-9be9-05f8c1a57859` executed the three input cases for
 `tests/test_routing.py::test_protocol_switch`: HTTP route selection and
