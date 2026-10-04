@@ -1082,6 +1082,20 @@ instrumented wheel SHA-256
 `0ac058ea91360474baf4bbb91dbb85cb4dfe3569bbe178d8beca02e47e292049`. Reports
 and receipts remain under ignored `build/parity/coverage/`.
 
+The clean full preflight on the current 917-case manifest is run
+`f2adb5d3-34ae-4406-85ac-f36ea9101536`. It selected 1,161 profile comparisons:
+the Python package passed 913/913, Rust-native passed 244/248 with four
+callable-boundary cases `not_run`, and both target-only fault contracts passed;
+there were zero failures and zero infrastructure errors. Its result SHA-256 is
+`538b10f4dfc19fbcbded2e79eec7fad4280ad9047b8e70199ea51106edf4d7b6`. The
+correctness-gated benchmark run `8a3f6576-289e-45e7-a434-5fb8dc831110` then
+measured 74/74 pinned source/package workloads with zero failures and zero
+unmeasured workloads. Its result SHA-256 is
+`440eb7a2b6b167ce3194932f18406c6eb0f0e0062890c03dff22d3479b9179e2`; the
+preflight SHA-256 is the value above. The Rust-native API does not expose the
+equivalent ASGI workload boundaries, so all 74 native benchmark rows remain
+`not_run`. These current runs still do not establish full Starlette parity.
+
 Earlier full-slice run `a0bcf0da-4746-4490-843d-45653d987ea1`, against the
 preceding 915-case `manifest@3` contract, completed from
 `2026-10-04T15:21:32.383Z` to `2026-10-04T15:25:54.530Z`. It selected 1,160

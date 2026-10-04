@@ -27,6 +27,13 @@ target-only fault contracts: `189e7aa9-c5e9-4da9-8b22-27761ae7e537`,
 exception-propagation case against the normal-route baseline and reported 249
 newly covered Rust lines; it did not check full-suite regressions.
 
+The current full preflight `f2adb5d3-34ae-4406-85ac-f36ea9101536` passed
+913/913 Python-package comparisons and both fault contracts. Rust-native passed
+244/248, with four callable-boundary cases `not_run`. Its correctness-gated
+source/package benchmark `8a3f6576-289e-45e7-a434-5fb8dc831110` measured all
+74 workloads. These results update the active evidence, but the full Starlette
+compatibility denominator remains incomplete.
+
 The generated coverage matrix contains 804 source rows. Its current fixture
 mapping, reasoned `not_applicable`, and backlog counts are derived from the
 generated atlas CSV files. The pinned denominator remains 514 upstream test
