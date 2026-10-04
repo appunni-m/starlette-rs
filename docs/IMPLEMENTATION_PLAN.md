@@ -32,8 +32,11 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 914 input-only cases in 90 indexed files,
-covering 104 operations and 892 requirements, including direct FormData
+The active parity contract contains 929 input-only cases in 91 indexed files
+(927 oracle parity cases and two target-only fault contracts), covering 104
+operations and 901 requirements. Recent additions include the nested TestClient
+case that constructs an inner client inside an input-defined synchronous outer
+endpoint, plus direct FormData
 constructor/equality inputs; direct UploadFile constructor/repr, spooled-file
 rollover, and threadpool-boundary inputs, and Python-package-only
 GZip final and streaming response inputs at the `thread_minimum_size` boundary, an input-defined shared
@@ -94,8 +97,8 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The generated coverage matrix contains 804 source rows: 659 input mappings,
-51 source-backed `not_applicable` rows, and 94 fixture-backlog rows. These
+The generated coverage matrix contains 804 source rows: 660 input mappings,
+51 source-backed `not_applicable` rows, and 93 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.

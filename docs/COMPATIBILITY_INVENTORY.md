@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@39` and indexes 928 input-only cases across 91 files (926 oracle parity cases and two target-only fault contracts), covering 104 operations and 900 unique parity requirements. Recent parity inputs
+The active parity manifest uses `parity-input@39` and indexes 929 input-only cases across 91 files (927 oracle parity cases and two target-only fault contracts), covering 104 operations and 901 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -29,7 +29,7 @@ from the pinned auth tests. Four TestClient cases cover TrustedHost exact and
 wildcard acceptance, invalid-host rejection, and following the HTTPS `www`
 redirect. Two additional TestClient inputs cover base-URL path-prefix merging
 and default redirect following through an input-defined raw ASGI path-response
-map. Two new TestClient cases map HEAD through pass-through middleware and
+map. A nested TestClient case also constructs an input-defined inner app and client inside a synchronous endpoint and observes both live request/response paths. Two new TestClient cases map HEAD through pass-through middleware and
 CWD-relative StaticFiles with follow_symlink enabled. Recent additions include
 direct FormData constructor/equality inputs; direct UploadFile constructor/repr, rollover, and threadpool-boundary cases; a ten-chunk 400-byte GZip streaming response using public defaults; and GZip final and
 streaming responses at the configured `thread_minimum_size` boundary. Other recent
@@ -187,8 +187,8 @@ These workload-specific results do not establish full Starlette
 compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 804 source rows: 659 input mappings,
-51 reasoned `not_applicable` rows, and 94 fixture backlog rows. Derive these
+The generated coverage matrix currently has 804 source rows: 660 input mappings,
+51 reasoned `not_applicable` rows, and 93 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -337,8 +337,8 @@ and field-mutation probes map to their pinned source behavior without claiming
 additional upstream test rows. All six inputs pass live source/package comparison in the latest full-slice run.
 Direct debug construction, non-HTTP pass-through, errors after response start,
 other background-task workflows, and built-in/user middleware combinations remain open. The
-active TestClient contract compares twenty-five input-driven HTTP request/response
-cases over twenty-six requirements, including exception identity and
+active TestClient contract compares fifty-four input-driven HTTP request/response
+cases over forty-eight covered requirements, including exception identity and
 cause/context chaining, six context-managed lifespan cases over eleven
 requirements, including an input-driven Starlette async-context-manager
 callback mapped to `tests/test_applications.py::test_app_async_cm_lifespan` and

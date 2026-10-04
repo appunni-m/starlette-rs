@@ -22928,6 +22928,16 @@
                   }
                 },
                 {
+                  "path": "nested_testclient",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
                   "path": "request_content_generator_yields",
                   "value_types": [
                     "sequence"
@@ -23210,6 +23220,17 @@
               "id": "starlette.testclient.TestClient.request-response.routed-sync-endpoint-worker-thread",
               "dimension": "boundary",
               "description": "Verify that the synchronous endpoint used by TestClient runs exactly once on an AnyIO worker thread. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_applications.py::test_func_route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.nested-testclient-from-sync-endpoint",
+              "dimension": "boundary",
+              "description": "Run a synchronous outer Starlette endpoint through TestClient; construct an inner TestClient there from the input-defined Starlette app, issue its input-defined route request, return the inner response JSON, and capture both live responses, ASGI scopes/events, and their observed sequence. Upstream: tests/test_testclient.py:50-67; starlette/testclient.py:422-428; starlette/routing.py:78-88.",
               "lanes": [
                 "parity"
               ],

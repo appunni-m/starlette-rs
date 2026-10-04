@@ -3296,6 +3296,92 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.nested-testclient-from-sync-endpoint",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.routed-sync-endpoint-get",
+        "starlette.testclient.TestClient.request-response.nested-testclient-from-sync-endpoint"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "starlette-nested-testclient",
+        "path": "/",
+        "endpoint": {
+          "kind": "sync-inner-testclient-json-response"
+        },
+        "inner_testclient": {
+          "base_url": "http://testserver",
+          "raise_server_exceptions": true,
+          "root_path": "",
+          "client": [
+            "testclient",
+            50000
+          ],
+          "headers": []
+        },
+        "inner_request": {
+          "method": "GET",
+          "client_method": "get",
+          "url": "/",
+          "headers_base64_pairs": [],
+          "body_base64": ""
+        },
+        "inner_app": {
+          "path": "/",
+          "endpoint": {
+            "kind": "sync-json-response",
+            "content": {
+              "mock": "example"
+            }
+          },
+          "scope_fields": [
+            "type",
+            "method",
+            "path",
+            "root_path",
+            "client",
+            "server",
+            "state"
+          ]
+        },
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path",
+          "client",
+          "server",
+          "state"
+        ]
+      }
     }
   ]
 }

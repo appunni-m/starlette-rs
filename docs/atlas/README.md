@@ -25,26 +25,27 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 914 input-only cases across
-90 indexed files, 104 operations, and 892 requirements. It includes direct
+active and incomplete. The current contract has 929 input-only cases across
+91 indexed files (927 oracle parity cases and two target-only fault contracts),
+104 operations, and 901 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract, WebSocket text,
 bytes, and JSON send/receive exchange cases, a send-callback `OSError`
 disconnect case, and four TestClient TrustedHost
 cases for exact/wildcard acceptance, invalid-host rejection, and HTTPS www
-redirect following, plus TestClient base-URL path-prefix merging and default
-redirect following. Seven QueryParams cases
+redirect following, plus TestClient base-URL path-prefix merging, default redirect following, and nested-client execution from a synchronous endpoint. Seven QueryParams cases
 map equality and blank-value behavior to two pinned test rows. A FileResponse
 case compares input-defined background-task completion after response sends. The literal GET
 `/func` Router case maps the upstream dispatch check and passes on both target
 profiles; the upstream test does not call `Router.add_route`. The live-route
 mutation case also passes on both profiles, exercising method addition and
-route append after earlier dispatches. The latest full-slice run
-`7607d008-0ee2-4186-8efd-60fba190fc47` passed 1,156 of 1,160 selected profile
+route append after earlier dispatches. The latest clean full-slice run before the nested TestClient addition,
+`a00a461a-758f-4934-b559-4c25522fcdbb` passed 1,170 of 1,174 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 912/912; Rust-native
-passed 244/248. TestClient HEAD through pass-through BaseHTTPMiddleware and
+Python-callable rows `not_run`. The Python package passed 924/924; Rust-native
+passed 246/250. The nested TestClient case then passed 1/1 source/package
+comparison with both target-only fault contracts passing 2/2. TestClient HEAD through pass-through BaseHTTPMiddleware and
 CWD-relative StaticFiles with follow_symlink enabled both matched the pinned
 source. The TestClient lifespan state-support case, URL-prefix merge, and followed-redirect
 cases passed source/package comparison, as did both TestClient Request.url_for
@@ -96,8 +97,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix currently has 804 source rows: 659 input
-mappings, 51 reasoned `not_applicable` rows, and 94 fixture-backlog rows.
+The generated coverage matrix currently has 804 source rows: 660 input
+mappings, 51 reasoned `not_applicable` rows, and 93 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in

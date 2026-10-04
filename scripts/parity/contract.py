@@ -208,6 +208,7 @@ TESTCLIENT_REQUIREMENTS = {
     "sync_route_get": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-get",
     "sync_route_head": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-head",
     "sync_route_worker_thread": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-worker-thread",
+    "nested_testclient": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.nested-testclient-from-sync-endpoint",
     "base_url_path_merge": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.base-url-path-prefix-merge",
     "app_debug_mutation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.application-debug-mutation",
     "app_debug_response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.debug-error-response",
@@ -10820,6 +10821,7 @@ def _validate_testclient_case(
     raw_asgi_app = case["asgi_app"]
     app_kind = raw_asgi_app.get("kind") if isinstance(raw_asgi_app, dict) else None
     is_sync_route = app_kind == "starlette-route"
+    is_nested_testclient = app_kind == "starlette-nested-testclient"
     is_starlette_route_graph = app_kind == "starlette-route-graph"
     is_starlette_protocol_switch = app_kind == "starlette-protocol-switch"
     is_starlette_url_for_route_graph = app_kind in {
@@ -10938,6 +10940,7 @@ def _validate_testclient_case(
             or is_cookie_round_trip
             or is_request_observer
             or is_sync_route
+            or is_nested_testclient
             or is_starlette_route_graph
             or is_starlette_url_for_route_graph
         ):
@@ -11020,6 +11023,116 @@ def _validate_testclient_case(
             )
         messages = []
         exception_spec = None
+    elif is_nested_testclient:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {
+                "kind",
+                "path",
+                "endpoint",
+                "inner_testclient",
+                "inner_request",
+                "inner_app",
+                "scope_fields",
+            },
+            "TestClient nested-client app",
+        )
+        route_path = _string(asgi_app["path"], "TestClient nested-client route path")
+        endpoint = _exact(
+            asgi_app["endpoint"],
+            {"kind"},
+            "TestClient nested-client outer endpoint",
+        )
+        if endpoint["kind"] != "sync-inner-testclient-json-response":
+            raise ContractError(
+                "TestClient nested-client endpoint must return the inner response JSON"
+            )
+
+        inner_settings = _exact(
+            asgi_app["inner_testclient"],
+            {"base_url", "raise_server_exceptions", "root_path", "client", "headers"},
+            "TestClient inner TestClient settings",
+        )
+        inner_base_url = _string(inner_settings["base_url"], "TestClient inner TestClient.base_url")
+        if not inner_base_url.startswith(("http://", "https://")):
+            raise ContractError("TestClient inner TestClient.base_url must use http or https")
+        if type(inner_settings["raise_server_exceptions"]) is not bool:
+            raise ContractError(
+                "TestClient inner TestClient.raise_server_exceptions must be boolean"
+            )
+        if not isinstance(inner_settings["root_path"], str):
+            raise ContractError("TestClient inner TestClient.root_path must be a string")
+        inner_client_address = inner_settings["client"]
+        if (
+            not isinstance(inner_client_address, list)
+            or len(inner_client_address) != 2
+            or not isinstance(inner_client_address[0], str)
+            or type(inner_client_address[1]) is not int
+            or not 0 <= inner_client_address[1] <= 65535
+        ):
+            raise ContractError("TestClient inner TestClient.client must be [host, port]")
+        inner_headers = inner_settings["headers"]
+        if not isinstance(inner_headers, list) or any(
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(value, str) for value in pair)
+            for pair in inner_headers
+        ):
+            raise ContractError(
+                "TestClient inner TestClient.headers must be an array of string pairs"
+            )
+
+        inner_request_input = _exact(
+            asgi_app["inner_request"],
+            {"method", "client_method", "url", "headers_base64_pairs", "body_base64"},
+            "TestClient inner request",
+        )
+        inner_request = validate_request(inner_request_input, "TestClient inner request")
+        inner_app = _exact(
+            asgi_app["inner_app"],
+            {"path", "endpoint", "scope_fields"},
+            "TestClient inner Starlette app",
+        )
+        inner_path = _string(inner_app["path"], "TestClient inner route path")
+        inner_endpoint = _exact(
+            inner_app["endpoint"],
+            {"kind", "content"},
+            "TestClient inner synchronous route endpoint",
+        )
+        if (
+            not route_path.startswith("/")
+            or request["method"] != "GET"
+            or request.get("client_method") != "get"
+            or urlsplit(request["url"]).path != route_path
+            or request["headers_base64_pairs"]
+            or base64.b64decode(request["body_base64"])
+            or followup_requests
+            or inner_settings["root_path"]
+            or inner_request["method"] != "GET"
+            or inner_request.get("client_method") != "get"
+            or inner_request["headers_base64_pairs"]
+            or base64.b64decode(inner_request["body_base64"])
+            or not inner_path.startswith("/")
+            or urlsplit(inner_request["url"]).path != inner_path
+            or inner_app["scope_fields"] != asgi_app["scope_fields"]
+            or not isinstance(asgi_app["scope_fields"], list)
+            or any(not isinstance(field, str) for field in asgi_app["scope_fields"])
+            or not {"type", "method", "path", "root_path"} <= set(asgi_app["scope_fields"])
+            or inner_endpoint["kind"] != "sync-json-response"
+        ):
+            raise ContractError(
+                "TestClient nested-client input must use empty GETs to absolute-path synchronous JSON routes"
+            )
+        try:
+            json.dumps(inner_endpoint["content"], allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ContractError(
+                "TestClient nested-client JSON endpoint content must be JSON-compatible"
+            ) from exc
+        if settings["root_path"] and not settings["root_path"].startswith("/"):
+            raise ContractError("TestClient nested-client outer root_path must be absolute")
+        exception_spec = None
+        messages = []
     elif is_starlette_app_debug:
         asgi_app = _exact(
             raw_asgi_app,
@@ -12174,6 +12287,14 @@ def _validate_testclient_case(
             expected_covers.add(TESTCLIENT_REQUEST_REQUIREMENTS["query_params_option"])
         if endpoint["kind"] == "sync-request-url-path-response":
             expected_covers.add(TESTCLIENT_REQUIREMENTS["base_url_path_merge"])
+    elif is_nested_testclient:
+        expected_covers.update(
+            {
+                TESTCLIENT_REQUIREMENTS["response"],
+                TESTCLIENT_REQUIREMENTS["sync_route_get"],
+                TESTCLIENT_REQUIREMENTS["nested_testclient"],
+            }
+        )
     if is_path_response_map:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["follow_redirects_enabled"])

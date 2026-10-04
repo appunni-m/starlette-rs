@@ -59,6 +59,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     request_url_for_observations: list[str] = []
     starlette_application: Any = None
     temporary_filesystem: tempfile.TemporaryDirectory[str] | None = None
+    nested_testclient_state: dict[str, Any] | None = None
 
     def record_scope(scope: dict[str, Any]) -> None:
         scope_observations.append(
@@ -142,6 +143,90 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                 await send(message)
 
             await route_app(scope, receive, observed_send)
+
+    elif app_input["kind"] == "starlette-nested-testclient":
+        from starlette.applications import Starlette
+        from starlette.responses import JSONResponse
+        from starlette.routing import Route
+
+        nested_testclient_state = {
+            "trace": [],
+            "trace_lock": threading.Lock(),
+            "inner_scope": [],
+            "inner_asgi_events": [],
+            "inner_response": None,
+        }
+
+        def record_nested_trace(stage: str, **details: Any) -> None:
+            event = {"stage": stage}
+            event.update(details)
+            with nested_testclient_state["trace_lock"]:
+                nested_testclient_state["trace"].append(event)
+
+        inner_app_input = app_input["inner_app"]
+
+        def inner_endpoint(_request: Any) -> Any:
+            record_nested_trace("inner-endpoint-enter")
+            return JSONResponse(inner_app_input["endpoint"]["content"])
+
+        inner_route_app = Starlette(routes=[Route(inner_app_input["path"], inner_endpoint)])
+
+        def endpoint(_request: Any) -> Any:
+            record_nested_trace("outer-endpoint-enter")
+
+            inner_settings = app_input["inner_testclient"]
+            inner_client = TestClient(
+                inner_app,
+                base_url=inner_settings["base_url"],
+                raise_server_exceptions=inner_settings["raise_server_exceptions"],
+                root_path=inner_settings["root_path"],
+                client=tuple(inner_settings["client"]),
+                headers=dict(inner_settings["headers"]),
+            )
+            inner_request = app_input["inner_request"]
+            inner_response = inner_client.get(
+                inner_request["url"],
+                headers=_decoded_pairs(inner_request["headers_base64_pairs"]),
+            )
+            nested_testclient_state["inner_response"] = response_observation(inner_response)
+            record_nested_trace(
+                "inner-client-response",
+                status_code=inner_response.status_code,
+            )
+            record_nested_trace("outer-endpoint-return")
+            return JSONResponse(inner_response.json())
+
+        route_app = Starlette(routes=[Route(app_input["path"], endpoint)])
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            record_nested_trace("outer-app-enter")
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                send_details = {"type": message["type"]}
+                if "status" in message:
+                    send_details["status"] = message["status"]
+                record_nested_trace("outer-app-send", **send_details)
+                await send(message)
+
+            await route_app(scope, receive, observed_send)
+            record_nested_trace("outer-app-exit")
+
+        async def inner_app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            nested_testclient_state["inner_scope"].append(
+                {field: _safe(scope[field]) for field in inner_app_input["scope_fields"]}
+            )
+            record_nested_trace("inner-app-enter")
+
+            async def observed_inner_send(message: dict[str, Any]) -> None:
+                safe_message = _safe(message)
+                nested_testclient_state["inner_asgi_events"].append(safe_message)
+                record_nested_trace("inner-app-send", message=safe_message)
+                await send(message)
+
+            await inner_route_app(scope, receive, observed_inner_send)
+            record_nested_trace("inner-app-exit")
 
     elif app_input["kind"] in {
         "starlette-route-graph",
@@ -950,6 +1035,14 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         }
         for item in recorded
     ]
+    nested_testclient_observation = None
+    if nested_testclient_state is not None:
+        nested_testclient_observation = {
+            "inner_scope": nested_testclient_state["inner_scope"],
+            "inner_asgi_events": nested_testclient_state["inner_asgi_events"],
+            "inner_response": nested_testclient_state["inner_response"],
+            "trace": nested_testclient_state["trace"],
+        }
     result = {
         "scope": scope_observations,
         "receive_messages": receive_observations,
@@ -960,6 +1053,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         "sync_endpoint_observations": (
             None if sync_endpoint_state is None else sync_endpoint_state["observation"]
         ),
+        "nested_testclient": nested_testclient_observation,
         "exception_propagation": None,
     }
     if "content_generator_chunks_base64" in request_input:

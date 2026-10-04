@@ -8,11 +8,12 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@39` with 928 input-only cases in 91
-indexed files: 926 oracle parity cases and two target-only fault contracts. It
-covers 104 operations and 900 parity requirements.
+The active contract uses `parity-input@39` with 929 input-only cases in 91
+indexed files: 927 oracle parity cases and two target-only fault contracts. It
+covers 104 operations and 901 parity requirements.
 
-The latest clean full-slice preflight `a00a461a-758f-4934-b559-4c25522fcdbb`
+The latest clean full-slice preflight before the nested TestClient addition,
+`a00a461a-758f-4934-b559-4c25522fcdbb`
 selected 1,174 profile comparisons: 1,170 passed, zero failed, zero
 infrastructure errors, and four Rust-native callable-boundary cases were
 `not_run`. The installed Python package passed 924/924 comparisons;
@@ -21,6 +22,13 @@ Rust-native passed 246/250. Both target-only fault contracts passed and remain
 `4b415afca096dfba1458e672154450efbc4878efb4ef36796fffd5fdc19e948c`; the
 target was clean at `df17754b6758bbc481ee5b399935ce663c82cbc2`. This is bounded
 package-slice evidence, not full Starlette parity.
+
+The nested TestClient input added after that full-slice run passed in selected
+run `8c90f08e-3bf0-4ea2-9d98-0c7f8de847a2` (1/1 source/package comparison and
+2/2 target-only fault contracts). Coverage MCP verified 26 newly covered Rust
+lines (0.106 percentage points): baseline 2,774/24,539, batch 2,755/24,539,
+and union 2,800/24,539. Full-suite regression status is unknown. The run and
+coverage receipts are recorded in [Migration parity contract and evidence](../PARITY.md).
 
 The correctness-gated benchmark `8d54aaf4-2166-4707-a1c6-9ce612e48a19`
 measured 74/74 source/package workloads with zero failures; Rust-native remains
@@ -95,7 +103,7 @@ manifest SHA-256 is
 normal selected run does not claim full-suite parity; the incremental coverage
 comparison is recorded below.
 
-The active 928-case contract maps `routing.test_raise_on_startup` to an actual
+The then-active 928-case contract maps `routing.test_raise_on_startup` to an actual
 `Router(lifespan=...)` whose input-defined lifespan context manager raises
 `RuntimeError` before yielding. Instrumented selected run
 `1323e01e-4cac-40fb-a940-88d31f770fca` passed the source/package comparison and
@@ -159,9 +167,9 @@ correctness-gated benchmark `d0bba2ec-079e-4d21-822e-e0ddbf0133ef` measured all
 non-equivalent ASGI boundary. The full Starlette compatibility denominator
 remains incomplete.
 
-The generated coverage matrix contains 804 source rows. Its current fixture
-mapping, reasoned `not_applicable`, and backlog counts are derived from the
-generated atlas CSV files. The pinned denominator remains 514 upstream test
+The generated coverage matrix contains 804 source rows: 660 input mappings,
+51 reasoned `not_applicable` rows, and 93 fixture-backlog rows. These changing
+counts are derived from the generated atlas CSV files. The pinned denominator remains 514 upstream test
 functions and 24 documented pages. Four Rust-native `not_run` rows remain for
 synchronous Request endpoints, bound methods, partials, and callable-instance
 ASGI dispatch. This selected slice does not establish full Starlette parity or
@@ -180,8 +188,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 659 input mappings,
-51 source-backed `not_applicable` rows, and 94 fixture-backlog rows, as
+The current coverage matrix has 804 source rows: 660 input mappings,
+51 source-backed `not_applicable` rows, and 93 fixture-backlog rows, as
 reported by the generated atlas. The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 
