@@ -1359,6 +1359,17 @@
               ]
             },
             {
+              "id": "starlette.asgi.websocket-exception.websocket-class-handler",
+              "dimension": "boundary",
+              "description": "An async handler registered for WebSocketException overrides the default exception handler and controls the accepted connection close event. Upstream: docs/exceptions.md:65-74; starlette/middleware/exceptions.py:19-33,71-73.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.asgi.server-error.status-500-handler",
               "dimension": "error_path",
               "description": "An uncaught HTTP RuntimeError selects the registered integer 500 handler, sends its response, and re-raises the original error. Upstream: starlette/applications.py middleware-stack handler selection; starlette/middleware/errors.py.",

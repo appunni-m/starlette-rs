@@ -1086,6 +1086,9 @@ def _materialize_exception_handlers(
             if key_spec.get("name") == "HTTPException":
                 _strict_object(key_spec, {"kind", "name"}, f"{context}.key")
                 key = http_exception_type
+            elif key_spec.get("name") == "WebSocketException":
+                _strict_object(key_spec, {"kind", "name"}, f"{context}.key")
+                key = websocket_exception_type
             elif key_spec.get("name") == "Exception":
                 _strict_object(key_spec, {"kind", "name"}, f"{context}.key")
                 key = Exception
@@ -1128,6 +1131,21 @@ def _materialize_exception_handlers(
                     anyio.from_thread.run(websocket.close, spec["code"])
 
                 return websocket_close_handler
+            if spec.get("kind") == "websocket-exception-close-handler":
+                _strict_object(
+                    spec,
+                    {"kind", "code"},
+                    "WebSocketException close handler",
+                )
+                if type(spec["code"]) is not int or spec["code"] < 0:
+                    raise ValueError("WebSocketException handler close code must be non-negative")
+
+                async def websocket_exception_close_handler(
+                    websocket: Any, _exc: Exception
+                ) -> None:
+                    await websocket.close(code=spec["code"])
+
+                return websocket_exception_close_handler
 
             async def handler(request: Any, exc: Exception) -> Any:
                 if spec["kind"] == "json-exception-detail-response":

@@ -907,18 +907,21 @@ The protocol case IDs share the prefix
 `starlette.routing.WebSocketRoute.route-dispatch.router-miss-close`, and
 `starlette.routing.WebSocketRoute.route-dispatch.http-scope-404`.
 
-Four package-profile cases in
+Five package-profile cases in
 [`asgi-exception-handlers.yaml`](../tests/fixtures/sources/parity/asgi-exception-handlers.yaml)
 exercise WebSocket exception routing through the public `Starlette.__call__`
 surface: the built-in `WebSocketException` close handler with omitted and
 input-defined reasons, a registered HTTP exception handler returning a denial
-response before acceptance, and a synchronous custom exception handler that
-closes an accepted connection. The supplied-reason case raises
-`WebSocketException(code=1008, reason="policy violation")` after acceptance
-and compares the live close event, including its code and reason. Scope, connect
-event, route actions, handlers, and denial extension are inputs; the captured
-WebSocket events and response bytes come from the live source and target. These
-callback workflows select the Python-package profile.
+response before acceptance, a synchronous custom exception handler for a
+custom exception, and an async handler registered for `WebSocketException`.
+The supplied-reason case raises `WebSocketException(code=1008, reason="policy
+violation")` and compares the close code and reason. The custom-class-handler
+case raises `WebSocketException(code=1011, reason="endpoint failure")` while
+the registered handler closes with its input-defined code 1008, confirming that
+the custom handler overrides the built-in close behavior. Scope, connect event,
+route actions, handlers, and denial extension are inputs; captured WebSocket
+events and response bytes come from the live source and target. These callback
+workflows select the Python-package profile.
 
 At the earlier WebSocket checkpoint, the three direct operations contained 15
 cases and selected 21 comparisons: six protocol tapes for Python-package, six

@@ -700,6 +700,148 @@
       ]
     },
     {
+      "case_id": "starlette.applications.Starlette.__call__.websocket-exception.websocket-class-handler",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.websocket-exception.websocket-class-handler"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "websocket-route",
+                  "path": "/ws-custom-websocket-exception",
+                  "endpoint": {
+                    "kind": "websocket-action-sequence",
+                    "actions": [
+                      {
+                        "action": "accept"
+                      },
+                      {
+                        "action": "raise-websocket-exception",
+                        "code": 1011,
+                        "reason": "endpoint failure"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": [
+                {
+                  "key": {
+                    "kind": "exception-class",
+                    "name": "WebSocketException"
+                  },
+                  "handler": {
+                    "kind": "websocket-exception-close-handler",
+                    "code": 1008
+                  }
+                }
+              ]
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "websocket",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.5"
+                },
+                "http_version": "1.1",
+                "scheme": "ws",
+                "path": "/ws-custom-websocket-exception",
+                "raw_path_base64": "L3dzLWN1c3RvbS13ZWJzb2NrZXQtZXhjZXB0aW9u",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "aG9zdA==",
+                    "ZXhhbXBsZS50ZXN0"
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ],
+                "subprotocols": []
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "websocket.connect",
+                  "subprotocols": []
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
       "case_id": "starlette.applications.Starlette.__call__.websocket-exception.http-denial-response",
       "surface": "starlette.applications.Starlette",
       "operation": "__call__",

@@ -17351,6 +17351,8 @@ def _validate_exception_handler_registry(value: Any) -> None:
             name = key.get("name")
             if name == "HTTPException":
                 _exact(key, {"kind", "name"}, f"{context}.key")
+            elif name == "WebSocketException":
+                _exact(key, {"kind", "name"}, f"{context}.key")
             elif name == "Exception":
                 _exact(key, {"kind", "name"}, f"{context}.key")
             elif name == "BodyReuseException":
@@ -17402,6 +17404,10 @@ def _validate_exception_handler_recipe(value: Any, context: str) -> None:
         _string(value["label"], f"{context}.label")
         if value["callable_kind"] != "sync-from-thread":
             raise ContractError(f"{context}.callable_kind must preserve the source sync handler")
+        if type(value["code"]) is not int or value["code"] < 0:
+            raise ContractError(f"{context}.code must be a non-negative integer")
+    elif kind == "websocket-exception-close-handler":
+        _exact(value, {"kind", "code"}, context)
         if type(value["code"]) is not int or value["code"] < 0:
             raise ContractError(f"{context}.code must be a non-negative integer")
     else:
@@ -17483,10 +17489,16 @@ def _validate_websocket_exception_application(args: dict[str, Any]) -> None:
             raise ContractError("WebSocketException code must be a non-negative integer")
         if "reason" in raise_action and not isinstance(raise_action["reason"], str):
             raise ContractError("WebSocketException reason must be a string")
-        if handlers != []:
-            raise ContractError(
-                "built-in WebSocketException handling must use the default registry"
-            )
+        if handlers:
+            _validate_exception_handler_registry(handlers)
+            if (
+                len(handlers) != 1
+                or handlers[0]["key"] != {"kind": "exception-class", "name": "WebSocketException"}
+                or handlers[0]["handler"].get("kind") != "websocket-exception-close-handler"
+            ):
+                raise ContractError(
+                    "custom WebSocketException handling requires its registered close handler"
+                )
         return
 
     _exact(raise_action, {"action", "exception_class"}, "custom WebSocket exception action")
@@ -23809,6 +23821,13 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             return {"starlette.asgi.websocket-exception.http-denial-response"}
         action = endpoint["actions"][-1]
         if action["action"] == "raise-websocket-exception":
+            handlers = app_arguments["exception_handlers"]
+            if any(
+                entry["key"] == {"kind": "exception-class", "name": "WebSocketException"}
+                and entry["handler"]["kind"] == "websocket-exception-close-handler"
+                for entry in handlers
+            ):
+                return {"starlette.asgi.websocket-exception.websocket-class-handler"}
             return {"starlette.asgi.websocket-exception.default-handler"}
         return {"starlette.asgi.websocket-exception.custom-handler"}
     method = scope["method"]
