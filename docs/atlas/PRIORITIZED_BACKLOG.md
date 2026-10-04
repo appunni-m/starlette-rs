@@ -13,14 +13,14 @@ indexed files: 929 oracle parity cases and two target-only fault contracts. It
 covers 104 operations and 903 parity requirements.
 
 The latest clean full-slice preflight
-`d3ebe854-b035-45af-98b5-45ae6e72d83d` selected 1,175 profile comparisons:
-1,171 passed, zero failed, zero infrastructure errors, and four Rust-native
+`46eab00f-c97e-443c-9e64-5e6f98dcd7c5` selected 1,177 profile comparisons:
+1,173 passed, zero failed, zero infrastructure errors, and four Rust-native
 callable-boundary cases were `not_run`. The installed Python package passed
-925/925 comparisons; Rust-native passed 246/250. Both target-only fault
+927/927 comparisons; Rust-native passed 246/250. Both target-only fault
 contracts passed (2/2) and remain `not_applicable` to the source oracle. The
 active manifest SHA-256 is
-`d2353e4a5aa660147c39f9567241f4104bb58029ffd5cb219284093bf899014b`; the
-target was clean at `b56ee2a609c07c62c03291c7441b228db5c73351`. This is bounded
+`7c73e24ee264c4b49b368cda5a61fc4e5f44fd2366f8ebd29ec11c4f611066c8`; the
+target was clean at `c929f1758195e7549c265c7fb8724a3ed10ff1d1`. This is bounded
 package-slice evidence, not full Starlette parity.
 
 The nested TestClient case also passed focused selected run
@@ -30,10 +30,20 @@ lines (0.106 percentage points): baseline 2,774/24,539, batch 2,755/24,539,
 and union 2,800/24,539. Full-suite regression status is unknown. The run and
 coverage receipts are recorded in [Migration parity contract and evidence](../PARITY.md).
 
-The correctness-gated benchmark `eaea39eb-c40f-448a-b2fd-1907c75f4ae7`
+The correctness-gated benchmark `de27a26d-74dd-4ef1-a108-bbd035191884`
 measured 74/74 source/package workloads with zero failures; Rust-native remains
 `not_run` for all 74 boundaries. See [Benchmark mapping](../BENCHMARKS.md) for
 workload-specific timings and hashes.
+
+Instrumented selected run `8b79bb98-5821-42ca-9b62-edf75ad936bc` passed the
+new BaseHTTPMiddleware cleanup and mutable StreamingResponse status cases
+(2/2), plus both target-only route-cache fault contracts (2/2). Coverage MCP
+verified 398 newly covered Rust lines (1.620 percentage points) against a
+matching instrumented baseline: 3,298/24,568 baseline lines, 3,602/24,568 in
+the batch, and 3,696/24,568 after union. The result is `improved`; the selected
+incremental run did not check full-suite regressions. See
+[Migration parity contract and evidence](../PARITY.md) for run receipts, fault
+applicability, and build identity.
 
 The preceding 927-case full-slice run was recorded against the prior manifest:
 `a0bcf0da-4746-4490-843d-45653d987ea1` selected 1,160 profile comparisons:

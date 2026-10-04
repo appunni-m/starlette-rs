@@ -19,25 +19,25 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest clean full-slice correctness preflight
-`d3ebe854-b035-45af-98b5-45ae6e72d83d` ran against Starlette 1.6.0 at
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 929-case contract.
-It selected 1,175 profile comparisons: 1,171 passed, zero failed, zero
+`46eab00f-c97e-443c-9e64-5e6f98dcd7c5` ran against Starlette 1.6.0 at
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 931-case contract.
+It selected 1,177 profile comparisons: 1,173 passed, zero failed, zero
 infrastructure errors, and four Rust-native callable-boundary rows were
-`not_run`. The installed Python package passed 925/925; Rust-native passed
+`not_run`. The installed Python package passed 927/927; Rust-native passed
 246/250. Both target-only route-cache fault contracts passed (2/2) and remain
 `not_applicable` to the source oracle. The result SHA-256 is
-`d5f490a74d567202df532a4a8489336044c28171bf99f6847afeacdcb26fc1c5`; it uses
+`1558ab08cc37eae1db3fd30bfce2087e19754d424531f4b12a2c15e28fb05669`; it uses
 manifest SHA-256
-`d2353e4a5aa660147c39f9567241f4104bb58029ffd5cb219284093bf899014b`, clean
-target revision `b56ee2a609c07c62c03291c7441b228db5c73351`, target tree
-SHA-256 `a61aae38e6a1f26630de04d38590a3acc21df02ba53807a56d633b95a08a0555`,
+`7c73e24ee264c4b49b368cda5a61fc4e5f44fd2366f8ebd29ec11c4f611066c8`, clean
+target revision `c929f1758195e7549c265c7fb8724a3ed10ff1d1`, target package-tree
+SHA-256 `24a3a923b0780d238234600950bea6fa4b326cd44e57f87ea3d4cba264f1164f`,
 and installed wheel SHA-256
-`f95254e689f1c80399ea496847a8d9ea3c9bf1f14459c95dafaf5cce3cb9e6e1`. These
+`ea0a552c5a15099039712ce066eee1da00aef8fee54a1f66142d600e381dca0d`. These
 results cover the active package slice and do not establish full Starlette
 parity.
 
 The latest clean Router/GZip benchmark run
-`eaea39eb-c40f-448a-b2fd-1907c75f4ae7` measured all 74 source/package workloads
+`de27a26d-74dd-4ef1-a108-bbd035191884` measured all 74 source/package workloads
 on the same clean revision. It recorded zero failures and matching normalized
 observations for all 74 workloads; all 74 Rust-native workload boundaries
 remain `not_run`. Its correctness preflight is the full-slice run above.
@@ -515,6 +515,32 @@ where constructor-time status had been frozen in Rust before the call. The
 input maps source behavior to `StreamingResponse.__init__` and
 `stream_response`; it is package-only because it exercises mutation of the
 Python compatibility object.
+
+### Incremental coverage for middleware cleanup and streaming status
+
+Instrumented baseline run `679f4063-0c0e-49e3-90ea-0a296f1e0597` passed one
+configured-header source/package case and both target-only route-cache fault
+contracts (2/2). Measurement run
+`8b79bb98-5821-42ca-9b62-edf75ad936bc` passed the new async context-manager
+cleanup and mutable StreamingResponse status cases (2/2), with the same fault
+contracts passing (2/2). The fault cases remain `not_applicable` to the source
+oracle. Their result SHA-256 values are
+`16851d5852b6842361802727fdae7901d0cde03de80e05cda672c1dc70a6fb9b` and
+`a2ea0cabe25d766d659b079f3028dafe473ed664cc1f06ee06b43d711614fe16`.
+
+Coverage MCP compared the project-only LCOV reports with matching source/build
+receipts and verified an incremental improvement: baseline 3,298/24,568 lines,
+measurement 3,602/24,568, and union 3,696/24,568. The two-case batch added 398
+Rust lines (1.620 percentage points); 3,204 lines were already covered by the
+baseline. The result is `improved` with verified evidence. This selected
+incremental comparison did not rerun the full suite, so regression status is
+unknown. Reports and receipts are under ignored
+`build/parity/coverage/streaming-status-20261005/` and bind to manifest SHA-256
+`7c73e24ee264c4b49b368cda5a61fc4e5f44fd2366f8ebd29ec11c4f611066c8`, target
+package-tree SHA-256
+`7cfad1f2f2cc7c8f6dfc708995ebf617bc909de6b2c69c5d5ab4522ee51e770a`, and
+instrumented wheel SHA-256
+`c17965eb95ddd07d05298b85a8c23e4a12bf55ed8eb962dae99beaa69c7dd0e5`.
 
 ### Async endpoint event-loop ownership and cancellation
 
