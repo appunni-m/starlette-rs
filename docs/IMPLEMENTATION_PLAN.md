@@ -94,8 +94,8 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The generated coverage matrix contains 804 source rows: 650 input mappings,
-51 source-backed `not_applicable` rows, and 103 fixture-backlog rows. These
+The generated coverage matrix contains 804 source rows: 652 input mappings,
+51 source-backed `not_applicable` rows, and 101 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.
@@ -502,9 +502,9 @@ behaviors.
 
 This remains a bounded slice. Additional synchronous cancellation schedules,
 context variables, concurrency, and broader middleware/error interactions with
-background failures remain unproven. The latest integrated full-slice run
-`65044ac3-c6fc-4bdb-9b3b-422ef77afdc7` selected 1,158 comparisons; the Python
-package passed 910/910 and Rust-native passed 244/248, with four
+background failures remain unproven. The latest clean integrated full-slice run
+`7607d008-0ee2-4186-8efd-60fba190fc47` selected 1,160 comparisons; the Python
+package passed 912/912 and Rust-native passed 244/248, with four
 Request-dispatch callable rows marked `not_run`. The status-module warning
 callsite, TestClient lifespan missing-scope-state case, base-URL path-prefix
 merge, and followed-redirect inputs passed exact source/package comparison.

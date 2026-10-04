@@ -18,13 +18,14 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice correctness preflight
-`933aa11d-76cd-46b2-841d-564db70c1306` ran from `2026-10-04T14:21:51.814Z` to
-`2026-10-04T14:27:22.180Z` against Starlette 1.6.0 at
+The latest clean full-slice correctness preflight
+`7607d008-0ee2-4186-8efd-60fba190fc47` ran from `2026-10-04T14:39:29.292Z` to
+`2026-10-04T14:43:58.397Z` against Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 914 input-only cases, 892
 requirements, and `parity-input@34` from manifest SHA-256
 `0cbd6f609cd859f21b2a2e8bd0e8910c46d5678539337d045c355f936c79c93b`. The
-Python-package target tree SHA-256 was
+Python-package target was clean at commit
+`b4d64546f2a2c3bb9da16d41e3fa0d61f2bc8dea`; its tree SHA-256 was
 `6c10cc52ad5d3117dce70518f55bb3d1c7bb49d99d75be8a1c3ed19834fcc0cb`.
 
 It selected 1,160 profile comparisons: 1,156 passed, zero failed, zero
@@ -34,7 +35,7 @@ infrastructure errors, and four Rust-native Python-callable rows were
 middleware HEAD response retains Content-Length 100 and suppresses its body,
 and the relative-directory request returns the input-defined file bytes. The
 preflight artifact SHA-256 is
-`3a28a6c9a44f7a04e251c91780de7e6cadea6518a4e0d5612fdb4c04c9049b73` at
+`10dbfa229b5fedbc7d473416fcca032abd777ad9866d038b14184c0ea2ec8d67` at
 `build/parity/parity-result.json`.
 
 The four native `not_run` rows remain synchronous Request endpoint,
@@ -51,20 +52,20 @@ The four native `not_run` rows remain synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 `make parity-run` reports these explicitly and exits nonzero while they remain
 unsupported. The clean installed wheel SHA-256 is
-`84e667da44513d3085600326a6fc191165cffbfbd485e837b18ab1b75ffc15d4`; the
+`24d988298400c1f65037d45be8b1adc3ddbc49fec032b1e6b04bbe59dc02c5b5`; the
 preflight artifact SHA-256 is
-`7d045af2fc51a49b0dd372f9fd1becae3305f258eefdae6e4b29196fdaa6daff` at
+`10dbfa229b5fedbc7d473416fcca032abd777ad9866d038b14184c0ea2ec8d67` at
 `build/parity/upstream-benchmark-correctness-result.json`. This is an incomplete
 native/full-replacement boundary, not a failed Python source/package comparison.
 
 The latest clean Router/GZip benchmark run
-`d9611ffe-f749-4643-b2a2-1e7002749bb3` measured all 74 source/package workloads
-on commit `460e81e45a04a0f25cad82879d12fbdfee57d009`: six Router and 68 GZip,
+`d06b1c3c-e3c2-4003-9545-758d1f846f32` measured all 74 source/package workloads
+on commit `b4d64546f2a2c3bb9da16d41e3fa0d61f2bc8dea`: six Router and 68 GZip,
 with zero failures and matching normalized observations for all workloads. Its
 preflight is the full-slice run above. Rust-native remains `not_run` for these
 74 equivalent ASGI workload boundaries. Median source/package latency ratios
-were 0.759 for Router and 0.959 for GZip; source latency was lower in 4/6
-Router and 56/68 GZip workloads. These workload-specific results do not
+were 0.726 for Router and 0.975 for GZip; source latency was lower in 5/6
+Router and 63/68 GZip workloads. These workload-specific results do not
 establish full Starlette compatibility. See [Benchmark mapping](BENCHMARKS.md)
 for artifact hashes and measurement details.
 
@@ -1172,7 +1173,7 @@ creates `tests/statics/example.txt` beneath an isolated temporary workspace
 under the process working directory, passes the equivalent relative directory
 to `StaticFiles(follow_symlink=True)`, and compares the 200 response, file
 bytes, headers, and ASGI events. Both cases passed in full-slice run
-`933aa11d-76cd-46b2-841d-564db70c1306`; their YAML contains only request and
+`7607d008-0ee2-4186-8efd-60fba190fc47`; their YAML contains only request and
 filesystem stimuli.
 
 
@@ -1193,7 +1194,7 @@ The existing app-level `url_path_for` input is also linked to
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 908 Python-package comparisons passed.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 912 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 
