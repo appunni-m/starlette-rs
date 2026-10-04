@@ -40,16 +40,21 @@ case compares input-defined background-task completion after response sends. The
 profiles; the upstream test does not call `Router.add_route`. The live-route
 mutation case also passes on both profiles, exercising method addition and
 route append after earlier dispatches. The latest full-slice run
-`89a689f4-a9ee-4a86-8acc-34df63c91340` passed 1,137 of 1,141 selected profile
+`ff823221-0e52-416a-b287-2a19ca4fc06f` passed 1,138 of 1,142 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 894/894; Rust-native
-passed 243/247. The TestClient Request.url_for missing-context exception,
-root-Mount, and Router-middleware cases passed their source/package comparisons. The
-FileResponse background-task case matched on both target profiles. The direct-ASGI
-BaseHTTPMiddleware request-stream case matched on the Python-package profile,
-preserving its minimal HTTP scope and three-event receive boundary from
-`tests/middleware/test_base.py:777-832`. The strict parity command exits 2 while
-the four Rust-native callable rows remain `not_run`. The background-task server-error case
+Python-callable rows `not_run`. The Python package passed 895/895; Rust-native
+passed 243/247. Both TestClient Request.url_for cases passed source/package
+comparison: the bare-ASGI case preserves the missing-context exception, and
+the custom-middleware case resolves `homepage` to `http://testserver/home`.
+The root-Mount and Router-middleware cases, live Router mutation, and literal
+GET `/func` case also passed; the upstream `/func` test does not call
+`Router.add_route`. The FileResponse background-task case matched on both
+target profiles. The direct-ASGI BaseHTTPMiddleware request-stream case
+matched on the Python-package profile, preserving its minimal HTTP scope and
+three-event receive boundary from `tests/middleware/test_base.py:777-832`.
+The strict parity command exits 2 while the four Rust-native callable rows
+remain `not_run`.
+The background-task server-error case
 and latest WebSocket header input pass source/package comparison. The GZip streaming-response case
 passes against both targets. Six protected WebSocket authentication
 cases pass source/package comparison for plain and injection-wrapped routes
@@ -93,15 +98,15 @@ Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). Run
-`bf899648-b434-43ce-96bd-65ce32bb288a` measured all 74 source/package
+`fbe9ec7c-16a2-4d31-8f6a-21a0a86a7c74` measured all 74 source/package
 workloads on clean commit
-`0c138640861e16927cdc9f0081d9778ca6349fc6`: six Router and 68 GZip, with zero
+`5ddf624ee352f8ef4bd9c2944556b6ecd34c42c0`: six Router and 68 GZip, with zero
 failures and matching normalized observations for all 74. Its correctness
-preflight `75f950a5-d6f4-4ae7-984f-decc1f4078c3` selected 1,141 comparisons
-(1,137 passed, zero failures, zero infrastructure errors, four declared
-Rust-native `not_run`). The Python package passed 894/894; Rust-native passed
-243/247. Median source/package latency ratios were 0.756 for Router and 0.974
-for GZip. Source latency was lower in 6/6 Router and 56/68 GZip workloads.
+preflight `ff823221-0e52-416a-b287-2a19ca4fc06f` selected 1,142 comparisons
+(1,138 passed, zero failures, zero infrastructure errors, four declared
+Rust-native `not_run`). The Python package passed 895/895; Rust-native passed
+243/247. Median source/package latency ratios were 0.740 for Router and 0.978
+for GZip. Source latency was lower in 5/6 Router and 55/68 GZip workloads.
 Rust-native remains `not_run` for these 74 benchmark workload boundaries.
 These results do not establish full Starlette compatibility.
 

@@ -11,59 +11,52 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice correctness run `89a689f4-a9ee-4a86-8acc-34df63c91340`
-ran from `2026-10-04T06:33:49.155Z` to `2026-10-04T06:37:29.496Z` against
-Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 896
-input-only cases, 877 requirements, and `parity-input@34`. The Rust-native
-target was clean at revision
-`756abb453a99253dd73ff42ba7759a439ca482af+source-fnv1a64-50b392bee00ac5af`;
-the installed-package target was dirty with tree SHA-256
-`ba3ecbcd806205f620b0ffa3e51997f6fa6cf064f77de0d1474a18e4f4cf52`.
+The latest full-slice correctness preflight `ff823221-0e52-416a-b287-2a19ca4fc06f`
+ran from `2026-10-04T07:09:53.037Z` to `2026-10-04T07:12:52.379Z` against
+Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 897
+input-only cases, 877 requirements, and `parity-input@34`. Both targets were
+built from clean commit `5ddf624ee352f8ef4bd9c2944556b6ecd34c42c0`.
 
-It selected 1,141 profile comparisons: 1,137 passed, zero failed, zero
+It selected 1,142 profile comparisons: 1,138 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
-`not_run`. The Python-package profile passed 894/894; Rust-native passed
-243/247. All six raw WebSocket callback-tape cases pass on both profiles. The
-new TestClient input that calls `Request.url_for("index")` in a bare ASGI app
-also passed exact source/package comparison, including propagation of the
-missing-context `RuntimeError`. Both routing inputs, TestClient `Mount("/")`
-and Router-level middleware short-circuiting, passed on the installed-package
-profile. The direct-ASGI BaseHTTPMiddleware request-stream case passed on the
-Python-package profile against `tests/middleware/test_base.py:777-832`; the
-input preserves the minimal `{"type":"http"}` scope, three request-body
-events, and the source callback's error if polled beyond those events. Dispatch
-reads `b"1"`, the downstream endpoint reads `b"2"`, and dispatch resumes to
-read `b"3"`, with no extra receive call. The FileResponse background-task case
-also passed on both profiles with callback values `6, 7, 8, 9` after response
-start and body events.
+`not_run`. The Python-package profile passed 895/895; Rust-native passed
+243/247. All six raw WebSocket callback-tape cases pass on both profiles. Both
+TestClient `Request.url_for` inputs passed exact source/package comparison: the
+bare-ASGI case preserves the missing-context `RuntimeError`, and the custom
+middleware case resolves `homepage` to `http://testserver/home`. Both routing
+inputs, TestClient `Mount("/")` and Router-level middleware short-circuiting,
+passed on the installed-package profile. The direct-ASGI BaseHTTPMiddleware
+request-stream case passed on the Python-package profile against
+`tests/middleware/test_base.py:777-832`; the input preserves the minimal
+`{"type":"http"}` scope, three request-body events, and the source callback's
+error if polled beyond those events. Dispatch reads `b"1"`, the downstream
+endpoint reads `b"2"`, and dispatch resumes to read `b"3"`, with no extra
+receive call. The FileResponse background-task case also passed on both
+profiles with callback values `6, 7, 8, 9` after response start and body events.
 
 The four native `not_run` rows remain synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 Strict aggregation remains `not_proven` because the pinned compatibility
 denominator is incomplete and four Rust-native rows are `not_run`. The
 installed-package wheel SHA-256 is
-`c7e31b5f6486d972edf89c7b6f4e53d8d72b351cbdaabd6d8caa656105c58d22`; the
+`63a0b2b954b3f625e22d318801441fadb91cf560c41c3eadb83e71b0948fccd3`; the
 manifest SHA-256 is
-`5570af8c25a62bb825797953f14e97d3baae2bd706a99d8a80784635c6a75d40`; and the
-result artifact SHA-256 is
-`731477247294b33ebc70980f617da836e2f3a561a24324668d9498130625373e` at
-`build/parity/parity-result.json`. The command exits with status 2 because the
-four declared Rust-native rows remain `not_run`; this is an incomplete strict
-gate, not a failed source/package comparison. This run's package evidence uses
-the recorded dirty-tree identity, not a clean-commit proof.
-The latest clean Router/GZip benchmark run `bf899648-b434-43ce-96bd-65ce32bb288a`
-measured all 74 source/package workloads on clean commit
-`0c138640861e16927cdc9f0081d9778ca6349fc6`, with zero failures and matching
-normalized observations. Its correctness preflight `75f950a5-d6f4-4ae7-984f-decc1f4078c3`
-selected 1,141 comparisons: 1,137 passed, zero failed, zero infrastructure
-errors, and four Rust-native rows were `not_run`; the Python package passed
-894/894 and Rust-native passed 243/247. Median source/package latency ratios
-were 0.756 for Router and 0.974 for GZip. Source latency was lower in 6/6
-Router and 56/68 GZip workloads; normalized observation hashes matched for
-74/74. Rust-native remains `not_run` for these 74 equivalent ASGI workload
-boundaries. See [Benchmark mapping](BENCHMARKS.md) for the run identity and
-artifact hash. These workload-specific results do not establish full Starlette
-compatibility.
+`9c5a9769bf0436d28d91a5c887ba7cb16d31d8fb9821bc2b8036291bddc89c07`; and the
+preflight result artifact SHA-256 is
+`d9bc20e7bdb5dbceeb2e1067484b26a81e10622bad3f5f844352e9a00c60bbdb` at
+`build/parity/upstream-benchmark-correctness-result.json`. This is an
+incomplete strict parity gate, not a failed source/package comparison.
+
+The latest clean Router/GZip benchmark run
+`fbe9ec7c-16a2-4d31-8f6a-21a0a86a7c74` measured all 74 source/package workloads
+on clean commit `5ddf624ee352f8ef4bd9c2944556b6ecd34c42c0`, with zero failures
+and matching normalized observations. Its correctness preflight is the
+full-slice run above. Median source/package latency ratios were 0.740 for
+Router and 0.978 for GZip. Source latency was lower in 5/6 Router and 55/68
+GZip workloads; normalized observation hashes matched for 74/74. Rust-native
+remains `not_run` for these 74 equivalent ASGI workload boundaries. See
+[Benchmark mapping](BENCHMARKS.md) for run identity and artifact hashes. These
+workload-specific results do not establish full Starlette compatibility.
 
 For `lifespan_send_messages`, the manifest declares a narrow
 `starlette-lifespan-router-frame` normalization: it removes only the
@@ -1165,7 +1158,7 @@ The existing app-level `url_path_for` input is also linked to
 
 [`testclient-websocket.yaml`](../tests/fixtures/sources/parity/testclient-websocket.yaml) adds two input-only workflows mapped to the pinned `tests/test_testclient.py::test_websocket_blocking_receive` and `test_websocket_not_block_on_close` tests. The first accepts the input-selected subprotocol, sends an input-defined JSON message from a task-group child while the app main task waits in `WebSocket.receive_json()`, and has the synchronous client receive the frame before it exits the session. Context exit sends the default disconnect; the app records its `WebSocketDisconnect` class, code, and reason. The observation tape compares the exact callback order and all message fields.
 
-The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 894 Python-package comparisons passed.
+The second app accepts and waits forever without consuming receive input. Context exit causes cancellation; the input-defined handler records the cancellation class, re-raises it, and the app finalizer records completion. Both cases retain the app's actual portal thread object and report whether it is alive after the session context returns. The observed portal thread is stopped in the pinned source and installed package. The latest full-slice run above includes these lifecycle inputs and the JSON text/binary cases; all 895 Python-package comparisons passed.
 
 The Rust-backed `WebSocketTestSession.receive_json(mode="text")` method selects the text or binary frame, forwards disconnect as the public `WebSocketDisconnect`, and invokes Python's JSON decoder through the Rust boundary. Its `starlette.testclient` method is a direct forwarding facade.
 

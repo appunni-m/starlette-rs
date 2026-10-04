@@ -11,14 +11,14 @@ incomplete.
 
 The active contract uses `parity-input@34` with 897 input-only cases in 88
 indexed files, covering 103 operations and 877 parity requirements. The latest
-full-slice run, `89a689f4-a9ee-4a86-8acc-34df63c91340`, selected 1,141 profile
-comparisons: 1,137 passed, zero failed, zero infrastructure errors, and four
+full-slice run, `ff823221-0e52-416a-b287-2a19ca4fc06f`, selected 1,142 profile
+comparisons: 1,138 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable cases were `not_run`. The Python package passed
-894/894 comparisons; Rust-native passed 243/247. The TestClient Request.url_for
-missing-context exception case, root Mount case, and Router-middleware case
-passed their selected source/package comparisons. The live Router mutation and
-literal GET `/func` cases matched on both targets; the upstream `/func` test
-does not call `Router.add_route`.
+895/895 comparisons; Rust-native passed 243/247. Both TestClient Request.url_for
+cases passed source/package comparison: the bare-ASGI missing-context exception
+and the custom-middleware `homepage` URL `http://testserver/home`. The live Router
+mutation and literal GET `/func` cases matched on both targets; the upstream
+`/func` test does not call `Router.add_route`.
 
 The generated coverage matrix contains 802 source rows: 631 input mappings,
 51 source-backed `not_applicable` entries, and 120 fixture-backlog rows. The
@@ -222,13 +222,13 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest integrated full-slice run `7df4c713-d5e7-4567-b5cd-a817363800b7`
-selected 1,121 comparisons: 1,117 passed, with four declared Rust-native
+The latest full-slice run `ff823221-0e52-416a-b287-2a19ca4fc06f` selected
+1,142 comparisons: 1,138 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
-errors. The WebSocket send-callback `OSError` behavior now has an exact
-source/package mapping; other WebSocket source
-rows remain in `fixture-backlog.csv`, and similar method names do not close
-rows whose stimuli or observation selectors differ.
+errors. The WebSocket send-callback `OSError` behavior and both TestClient
+`Request.url_for` contexts have exact source/package mappings; other WebSocket
+source rows remain in `fixture-backlog.csv`, and similar method names do not
+close rows whose stimuli or observation selectors differ.
 
 The separate Router/GZip benchmark lane completed all 74 source-versus-package
 workloads. Its result is documented in [Benchmark mapping](../BENCHMARKS.md);
