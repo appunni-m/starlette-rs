@@ -1625,6 +1625,163 @@
           }
         ]
       }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "receive_json",
+            "mode": "text"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "starlette-protocol-switch",
+        "scope_fields": [
+          "type",
+          "path",
+          "scheme",
+          "server"
+        ],
+        "routes": [
+          {
+            "kind": "route",
+            "path": "/",
+            "name": "http_endpoint",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "request-url-for-json",
+              "lookups": [
+                {
+                  "key": "URL",
+                  "name": "http_endpoint",
+                  "path_params": {}
+                }
+              ]
+            }
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/",
+            "name": "websocket_endpoint",
+            "endpoint": {
+              "kind": "websocket-url-for-json",
+              "lookup": {
+                "key": "URL",
+                "name": "websocket_endpoint",
+                "path_params": {}
+              }
+            }
+          }
+        ]
+      },
+      "case_id": "starlette.testclient.TestClient.websocket-session.router-protocol-switch",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.receive-json-text-frame",
+        "starlette.testclient.TestClient.websocket-session.router-protocol-switch"
+      ]
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/404",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "starlette-protocol-switch",
+        "scope_fields": [
+          "type",
+          "path",
+          "scheme",
+          "server"
+        ],
+        "routes": [
+          {
+            "kind": "route",
+            "path": "/",
+            "name": "http_endpoint",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "request-url-for-json",
+              "lookups": [
+                {
+                  "key": "URL",
+                  "name": "http_endpoint",
+                  "path_params": {}
+                }
+              ]
+            }
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/",
+            "name": "websocket_endpoint",
+            "endpoint": {
+              "kind": "websocket-url-for-json",
+              "lookup": {
+                "key": "URL",
+                "name": "websocket_endpoint",
+                "path_params": {}
+              }
+            }
+          }
+        ]
+      },
+      "case_id": "starlette.testclient.TestClient.websocket-session.router-miss-disconnect",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.router-miss-disconnect"
+      ]
     }
   ]
 }

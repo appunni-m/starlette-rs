@@ -226,6 +226,7 @@ TESTCLIENT_REQUIREMENTS = {
     "root_path_route_graph": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-route-graph",
     "root_path_url_for": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-url-for",
     "root_path_url_for_trailing_slash": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-url-for-trailing-slash",
+    "protocol_switch_http": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.router-protocol-switch-http-route",
     "starlette_host_routing": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-routing",
     "starlette_host_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-host-method-registration",
 }
@@ -276,6 +277,8 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.query-params-raw-path",
     "application_query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-query-params",
     "application_url": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-url",
+    "protocol_switch": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.router-protocol-switch",
+    "router_miss": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.router-miss-disconnect",
     "handshake": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accept-handshake",
     "extra_headers": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.extra-headers",
     "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
@@ -10544,7 +10547,11 @@ def _validate_testclient_case(
     app_kind = raw_asgi_app.get("kind") if isinstance(raw_asgi_app, dict) else None
     is_sync_route = app_kind == "starlette-route"
     is_starlette_route_graph = app_kind == "starlette-route-graph"
-    is_starlette_url_for_route_graph = app_kind == "starlette-url-for-route-graph"
+    is_starlette_protocol_switch = app_kind == "starlette-protocol-switch"
+    is_starlette_url_for_route_graph = app_kind in {
+        "starlette-url-for-route-graph",
+        "starlette-protocol-switch",
+    }
     is_starlette_app_debug = app_kind == "starlette-app-debug"
     is_starlette_app_cors_global_error = app_kind == "starlette-app-cors-global-error"
     is_server_error_middleware = app_kind == "server-error-middleware"
@@ -11150,6 +11157,7 @@ def _validate_testclient_case(
                 )
 
         route_kinds: set[str] = set()
+        protocol_route_paths: dict[str, list[str]] = {"route": [], "websocket-route": []}
 
         route_names: set[str] = set()
         requested_route_names: list[str] = []
@@ -11225,12 +11233,63 @@ def _validate_testclient_case(
                             f"{route_context} requires an absolute path, unique name, and unique uppercase methods"
                         )
                     route_names.add(":".join((*namespace, route_name)))
+                    if is_starlette_protocol_switch:
+                        protocol_route_paths["route"].append(route_path)
                     if is_starlette_url_for_route_graph:
                         validate_url_for_endpoint(route["endpoint"], f"{route_context}.endpoint")
                     else:
                         validate_scope_json_endpoint(
                             route["endpoint"], f"{route_context}.endpoint", "request-scope-json"
                         )
+                elif route_kind == "websocket-route" and is_starlette_protocol_switch:
+                    route = _exact(
+                        raw_route,
+                        {"kind", "path", "name", "endpoint"},
+                        route_context,
+                    )
+                    route_path = _string(route["path"], f"{route_context}.path")
+                    route_name = _string(route["name"], f"{route_context}.name")
+                    if not route_path.startswith("/") or not route_name:
+                        raise ContractError(
+                            f"{route_context} requires an absolute path and non-empty name"
+                        )
+                    route_names.add(":".join((*namespace, route_name)))
+                    protocol_route_paths["websocket-route"].append(route_path)
+                    endpoint = _exact(
+                        route["endpoint"],
+                        {"kind", "lookup"},
+                        f"{route_context}.endpoint",
+                    )
+                    lookup = _exact(
+                        endpoint["lookup"],
+                        {"key", "name", "path_params"},
+                        f"{route_context}.endpoint.lookup",
+                    )
+                    if endpoint["kind"] != "websocket-url-for-json":
+                        raise ContractError(
+                            f"{route_context}.endpoint must describe websocket.url_for output"
+                        )
+                    result_key = _string(lookup["key"], f"{route_context}.endpoint.lookup.key")
+                    route_lookup_name = _string(
+                        lookup["name"], f"{route_context}.endpoint.lookup.name"
+                    )
+                    path_params = lookup["path_params"]
+                    if (
+                        not result_key
+                        or not route_lookup_name
+                        or not isinstance(path_params, dict)
+                        or any(
+                            not isinstance(key, str)
+                            or not key
+                            or type(parameter) not in {str, int, float}
+                            or (isinstance(parameter, float) and not math.isfinite(parameter))
+                            for key, parameter in path_params.items()
+                        )
+                    ):
+                        raise ContractError(
+                            f"{route_context}.endpoint.lookup must contain a JSON-safe URL lookup"
+                        )
+                    requested_route_names.append(route_lookup_name)
                 elif route_kind == "mount-routes":
                     mount = _exact(
                         raw_route,
@@ -11269,7 +11328,10 @@ def _validate_testclient_case(
 
         validate_route_nodes(asgi_app["routes"], "TestClient Starlette routes")
         if (
-            not settings["root_path"].startswith("/")
+            (
+                not settings["root_path"].startswith("/")
+                and not (is_starlette_protocol_switch and settings["root_path"] == "")
+            )
             or not isinstance(asgi_app["scope_fields"], list)
             or any(not isinstance(field, str) for field in asgi_app["scope_fields"])
             or not {"type", "method", "path", "root_path"} <= set(asgi_app["scope_fields"])
@@ -11278,6 +11340,15 @@ def _validate_testclient_case(
                 and not {"route", "mount-asgi", "mount-routes"} <= route_kinds
             )
             or (is_starlette_url_for_route_graph and "route" not in route_kinds)
+            or (
+                is_starlette_protocol_switch
+                and (
+                    set(route_kinds) != {"route", "websocket-route"}
+                    or len(protocol_route_paths["route"]) != 1
+                    or len(protocol_route_paths["websocket-route"]) != 1
+                    or protocol_route_paths["route"] != protocol_route_paths["websocket-route"]
+                )
+            )
         ):
             raise ContractError(
                 "TestClient Starlette route graph requires its source route kinds, an absolute root_path, and observable request scope"
@@ -11296,6 +11367,19 @@ def _validate_testclient_case(
                 or not urlsplit(item["url"]).path.startswith(settings["root_path"])
                 for item in requests
             )
+            if is_starlette_protocol_switch:
+                switch_path = protocol_route_paths["route"][0]
+                invalid_request_sequence = (
+                    followup_requests
+                    or request["method"] != "GET"
+                    or request.get("client_method") != "get"
+                    or urlsplit(request["url"]).path != switch_path
+                    or urlsplit(request["url"]).query
+                    or request["headers_base64_pairs"]
+                    or base64.b64decode(request["body_base64"])
+                    or settings["base_url"] != "http://testserver"
+                    or settings["root_path"] != ""
+                )
         else:
             invalid_request_sequence = (
                 len(requests) != 4
@@ -11866,12 +11950,16 @@ def _validate_testclient_case(
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if is_starlette_url_for_route_graph:
-        root_path_requirement = (
-            "root_path_url_for_trailing_slash"
-            if settings["root_path"].endswith("/")
-            else "root_path_url_for"
-        )
-        expected_covers.add(TESTCLIENT_REQUIREMENTS[root_path_requirement])
+        if is_starlette_protocol_switch:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["protocol_switch_http"])
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["scope"])
+        else:
+            root_path_requirement = (
+                "root_path_url_for_trailing_slash"
+                if settings["root_path"].endswith("/")
+                else "root_path_url_for"
+            )
+            expected_covers.add(TESTCLIENT_REQUIREMENTS[root_path_requirement])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
         if followup_requests:
             expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
@@ -12455,11 +12543,21 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         )
 
     raw_asgi_app = case["asgi_app"]
+    is_starlette_protocol_switch_graph = (
+        isinstance(raw_asgi_app, dict) and raw_asgi_app.get("kind") == "starlette-protocol-switch"
+    )
     is_starlette_websocket_route_error = (
         isinstance(raw_asgi_app, dict)
         and raw_asgi_app.get("kind") == "starlette-websocket-route-error"
     )
-    if is_starlette_websocket_route_error:
+    if is_starlette_protocol_switch_graph:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "routes", "scope_fields"},
+            "TestClient Starlette protocol-switch route graph",
+        )
+        app_actions = []
+    elif is_starlette_websocket_route_error:
         asgi_app = _exact(
             raw_asgi_app,
             {"kind", "path", "endpoint_exception", "scope_fields"},
@@ -12508,7 +12606,11 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             "TestClient WebSocket ASGI app",
         )
         app_actions = asgi_app["actions"]
-    if asgi_app["kind"] != "asgi3" and not is_starlette_websocket_route_error:
+    if (
+        asgi_app["kind"] != "asgi3"
+        and not is_starlette_websocket_route_error
+        and not is_starlette_protocol_switch_graph
+    ):
         raise ContractError("This TestClient WebSocket workflow accepts an ASGI3 callable")
     scope_fields = asgi_app["scope_fields"]
     allowed_scope_fields = {
@@ -12535,6 +12637,144 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         or len(scope_fields) != len(set(scope_fields))
     ):
         raise ContractError("TestClient WebSocket scope_fields must be unique supported scope keys")
+
+    if is_starlette_protocol_switch_graph:
+        raw_routes = asgi_app["routes"]
+        if not isinstance(raw_routes, list) or len(raw_routes) != 2:
+            raise ContractError(
+                "TestClient protocol-switch graph requires one HTTP Route and one WebSocketRoute"
+            )
+        route_specs: dict[str, dict[str, Any]] = {}
+        route_names: set[str] = set()
+        for index, raw_route in enumerate(raw_routes):
+            context = f"TestClient protocol-switch routes[{index}]"
+            if not isinstance(raw_route, dict):
+                raise ContractError(f"{context} must be an object")
+            route_kind = raw_route.get("kind")
+            if route_kind == "route":
+                route = _exact(
+                    raw_route,
+                    {"kind", "path", "name", "methods", "endpoint"},
+                    context,
+                )
+                methods = route["methods"]
+                if methods != ["GET"]:
+                    raise ContractError(f"{context}.methods must select GET")
+                endpoint = _exact(route["endpoint"], {"kind", "lookups"}, f"{context}.endpoint")
+                if endpoint["kind"] != "request-url-for-json":
+                    raise ContractError(f"{context}.endpoint must observe request.url_for")
+                lookups = endpoint["lookups"]
+                if not isinstance(lookups, list) or len(lookups) != 1:
+                    raise ContractError(f"{context}.endpoint.lookups must contain one input lookup")
+                lookup = _exact(
+                    lookups[0],
+                    {"key", "name", "path_params"},
+                    f"{context}.endpoint.lookups[0]",
+                )
+                path_params = lookup["path_params"]
+                if not isinstance(path_params, dict) or path_params:
+                    raise ContractError(f"{context}.endpoint lookup path_params must be empty")
+            elif route_kind == "websocket-route":
+                route = _exact(
+                    raw_route,
+                    {"kind", "path", "name", "endpoint"},
+                    context,
+                )
+                endpoint = _exact(route["endpoint"], {"kind", "lookup"}, f"{context}.endpoint")
+                if endpoint["kind"] != "websocket-url-for-json":
+                    raise ContractError(f"{context}.endpoint must observe websocket.url_for")
+                lookup = _exact(
+                    endpoint["lookup"],
+                    {"key", "name", "path_params"},
+                    f"{context}.endpoint.lookup",
+                )
+                path_params = lookup["path_params"]
+                if not isinstance(path_params, dict) or path_params:
+                    raise ContractError(f"{context}.endpoint lookup path_params must be empty")
+            else:
+                raise ContractError(f"{context}.kind must be route or websocket-route")
+            path = _string(route["path"], f"{context}.path")
+            name = _string(route["name"], f"{context}.name")
+            lookup_name = _string(lookup["name"], f"{context}.endpoint lookup name")
+            lookup_key = _string(lookup["key"], f"{context}.endpoint lookup key")
+            if not path.startswith("/") or not name or name in route_names:
+                raise ContractError(
+                    f"{context} requires an absolute path and unique non-empty route name"
+                )
+            if lookup_name != name or not lookup_key:
+                raise ContractError(
+                    f"{context}.endpoint lookup must use the route's name and a response key"
+                )
+            route_names.add(name)
+            route_specs[route_kind] = route
+        http_route = route_specs.get("route")
+        websocket_route = route_specs.get("websocket-route")
+        if (
+            http_route is None
+            or websocket_route is None
+            or http_route["path"] != websocket_route["path"]
+        ):
+            raise ContractError(
+                "TestClient protocol-switch graph must give HTTP and WebSocket routes the same path"
+            )
+        websocket_path = urlsplit(websocket_url).path
+        if (
+            urlsplit(websocket_url).query
+            or "params" in websocket
+            or settings["base_url"] != "http://testserver"
+            or settings["root_path"]
+            or settings["headers"]
+            or settings["raise_server_exceptions"] is not True
+            or settings["client"] != ["testclient", 50000]
+            or websocket["subprotocols"]
+            or websocket["headers"]
+            or not {"type", "path", "scheme", "server"} <= set(scope_fields)
+        ):
+            raise ContractError(
+                "TestClient protocol-switch graph must use the pinned empty-option WebSocket consumer"
+            )
+        matched_websocket_route = websocket_path == websocket_route["path"]
+        if matched_websocket_route:
+            receive_action = (
+                _exact(
+                    session_actions[0],
+                    {"operation"} | (session_actions[0].keys() & {"mode"}),
+                    "TestClient protocol-switch receive action",
+                )
+                if len(session_actions) == 1 and isinstance(session_actions[0], dict)
+                else None
+            )
+            if (
+                receive_action is None
+                or receive_action["operation"] != "receive_json"
+                or receive_action.get("mode", "text") != "text"
+            ):
+                raise ContractError(
+                    "A matching TestClient protocol-switch route must receive its JSON URL frame"
+                )
+            expected_covers = {
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["receive_json_text"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["protocol_switch"],
+            }
+        else:
+            if session_actions:
+                raise ContractError(
+                    "An unmatched TestClient protocol-switch route must not have client session actions"
+                )
+            expected_covers = {
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["router_miss"],
+            }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError(
+                "TestClient protocol-switch covers must match the input route and session workflow"
+            )
+        return
+
     accepted_flow_workflow = (
         isinstance(app_actions, list)
         and len(app_actions) == 1

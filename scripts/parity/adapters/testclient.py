@@ -143,10 +143,14 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await route_app(scope, receive, observed_send)
 
-    elif app_input["kind"] in {"starlette-route-graph", "starlette-url-for-route-graph"}:
+    elif app_input["kind"] in {
+        "starlette-route-graph",
+        "starlette-url-for-route-graph",
+        "starlette-protocol-switch",
+    }:
         from starlette.applications import Starlette
         from starlette.responses import JSONResponse
-        from starlette.routing import Mount, Route
+        from starlette.routing import Mount, Route, WebSocketRoute
 
         def endpoint_response(
             endpoint_spec: dict[str, Any], scope: dict[str, Any], request: Any = None
@@ -174,6 +178,18 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             return endpoint
 
+        def websocket_endpoint_for(endpoint_spec: dict[str, Any]) -> Any:
+            async def endpoint(websocket: Any) -> None:
+                await websocket.accept()
+                lookup = endpoint_spec["lookup"]
+                value = {
+                    lookup["key"]: str(websocket.url_for(lookup["name"], **lookup["path_params"]))
+                }
+                await websocket.send_json(value)
+                await websocket.close()
+
+            return endpoint
+
         def build_routes(route_specs: list[dict[str, Any]]) -> list[Any]:
             routes = []
             for route_spec in route_specs:
@@ -192,6 +208,14 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                             route_spec["path"],
                             name=route_spec["name"],
                             routes=build_routes(route_spec["routes"]),
+                        )
+                    )
+                elif route_spec["kind"] == "websocket-route":
+                    routes.append(
+                        WebSocketRoute(
+                            route_spec["path"],
+                            websocket_endpoint_for(route_spec["endpoint"]),
+                            name=route_spec["name"],
                         )
                     )
                 else:
@@ -1211,6 +1235,67 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                 await starlette_application(scope, receive, send)
             finally:
                 application_state["completed"] = True
+    elif app_input["kind"] == "starlette-protocol-switch":
+        from starlette.applications import Starlette
+        from starlette.responses import JSONResponse
+        from starlette.routing import Route, WebSocketRoute
+
+        routes = []
+        for route_spec in app_input["routes"]:
+            if route_spec["kind"] == "route":
+                endpoint_spec = route_spec["endpoint"]
+
+                async def request_endpoint(
+                    request: Any, spec: dict[str, Any] = endpoint_spec
+                ) -> Any:
+                    value = {
+                        lookup["key"]: str(request.url_for(lookup["name"], **lookup["path_params"]))
+                        for lookup in spec["lookups"]
+                    }
+                    return JSONResponse(value)
+
+                routes.append(
+                    Route(
+                        route_spec["path"],
+                        request_endpoint,
+                        methods=route_spec["methods"],
+                        name=route_spec["name"],
+                    )
+                )
+            else:
+                endpoint_spec = route_spec["endpoint"]
+
+                async def websocket_endpoint(
+                    websocket: Any, spec: dict[str, Any] = endpoint_spec
+                ) -> None:
+                    await websocket.accept()
+                    lookup = spec["lookup"]
+                    value = {
+                        lookup["key"]: str(
+                            websocket.url_for(lookup["name"], **lookup["path_params"])
+                        )
+                    }
+                    application_values.append({"operation": "url_for", "value": _safe(value)})
+                    await websocket.send_json(value)
+                    await websocket.close()
+
+                routes.append(
+                    WebSocketRoute(
+                        route_spec["path"],
+                        websocket_endpoint,
+                        name=route_spec["name"],
+                    )
+                )
+
+        starlette_application = Starlette(routes=routes)
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            application_state["thread"] = threading.current_thread()
+            try:
+                await starlette_application(scope, receive, send)
+            finally:
+                application_state["completed"] = True
     else:
 
         async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
@@ -1241,7 +1326,9 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     accepted_extra_headers = None
     denial_response = None
     application_exception_workflow = app_input["kind"] == "starlette-websocket-route-error" or (
-        len(app_input["actions"]) == 1 and app_input["actions"][0].get("operation") == "raise"
+        app_input["kind"] != "starlette-protocol-switch"
+        and len(app_input["actions"]) == 1
+        and app_input["actions"][0].get("operation") == "raise"
     )
     app_actions = app_input.get("actions", [])
     preaccept_close_workflow = (
@@ -1249,7 +1336,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         and app_actions[0].get("operation") == "websocket_flow"
         and [action.get("operation") for action in app_actions[0]["actions"]]
         == ["receive", "close"]
-    )
+    ) or (app_input["kind"] == "starlette-protocol-switch" and not websocket_input["actions"])
     session_body_completed = False
     captured_error: BaseException | None = None
     captured_error_stage = "websocket-session-entry"

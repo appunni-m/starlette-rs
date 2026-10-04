@@ -23323,6 +23323,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.router-protocol-switch-http-route",
+              "dimension": "protocol_variant",
+              "description": "Issue TestClient GET / to an input-defined HTTP Route and WebSocketRoute sharing a path; observe Request.url_for selecting the HTTP route and scheme. Pinned source: tests/test_routing.py::test_protocol_switch; starlette/routing.py::Router.app and Route.matches; starlette/requests.py::Request.url_for.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.starlette-root-path-url-for-trailing-slash",
               "dimension": "parameter_combination",
               "description": "Set the TestClient root_path with a trailing slash, then call Request.url_for for the root Route and compare its live absolute URL and response effects. Upstream: tests/test_routing.py::test_url_for_with_root_path_ending_with_slash; starlette/requests.py:186-194; starlette/routing.py:260-269.",
@@ -23689,6 +23700,28 @@
               "id": "starlette.testclient.TestClient.websocket-session.application-url",
               "dimension": "feature",
               "description": "Construct the public WebSocket from the live TestClient ASGI scope, return str(websocket.url) and its path, port, and scheme properties through send_json, and close the socket. Compare the app values, emitted ASGI messages, and client receive_json result for relative and explicit-port URLs. Pinned source: starlette/requests.py:107-114; tests/test_websockets.py::test_websocket_url and ::test_websocket_port; docs/websockets.md:25-32.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.router-protocol-switch",
+              "dimension": "protocol_variant",
+              "description": "Connect through TestClient to an input-defined Router with an HTTP Route and WebSocketRoute sharing one path; observe the WebSocketRoute response and websocket.url_for selecting the ws scheme. Pinned source: tests/test_routing.py::test_protocol_switch; starlette/routing.py::Router.app and WebSocketRoute.matches; starlette/websockets.py::WebSocket.url_for.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.router-miss-disconnect",
+              "dimension": "error_path",
+              "description": "Connect through TestClient to an unmatched WebSocket path on an input-defined mixed-protocol Router and observe the default WebSocketDisconnect raised by the Router miss close. Pinned source: tests/test_routing.py::test_protocol_switch; starlette/routing.py::Router.not_found; starlette/testclient.py::WebSocketTestSession.",
               "lanes": [
                 "parity"
               ],

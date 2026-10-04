@@ -8,9 +8,9 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@35` with 917 input-only cases in 91
-indexed files: 915 oracle parity cases and two target-only fault contracts. It
-covers 104 operations and 892 parity requirements. The older full-slice run
+The active contract uses `parity-input@35` with 920 input-only cases in 91
+indexed files: 918 oracle parity cases and two target-only fault contracts. It
+covers 104 operations and 895 parity requirements. The older full-slice run
 was recorded against the preceding manifest revision:
 `a0bcf0da-4746-4490-843d-45653d987ea1` selected 1,160 profile comparisons:
 1,156 passed, zero failed, zero infrastructure errors, and four Rust-native
@@ -20,14 +20,21 @@ fault contract also passed its HTTP 500 status and body assertions. The result
 artifact and target build identity are recorded in
 [Migration parity contract and evidence](../PARITY.md).
 
-Focused runs on the current manifest passed the normal route and both
+The mixed-protocol Router source test `routing.test_protocol_switch` is now
+mapped to one HTTP and two WebSocket TestClient inputs. Selected run
+`29e8e772-6df8-46ee-9be9-05f8c1a57859` passed all three source/package
+comparisons. The two target-only route-cache fault contracts also passed in
+selected run `ed8dd93c-32d2-478c-9a50-4bbff0427a6a`.
+
+Earlier focused runs on the 917-case manifest passed the normal route and both
 target-only fault contracts: `189e7aa9-c5e9-4da9-8b22-27761ae7e537`,
 `68288f42-aaa7-4af3-8106-f35e69cdf9b7`, and
 `cfe1e118-7b1b-4988-8a39-842fe48eb846`. Coverage MCP verified the isolated
 exception-propagation case against the normal-route baseline and reported 249
 newly covered Rust lines; it did not check full-suite regressions.
 
-The current full preflight `f2adb5d3-34ae-4406-85ac-f36ea9101536` passed
+The latest full preflight before these fixture additions, on the 917-case
+manifest, `f2adb5d3-34ae-4406-85ac-f36ea9101536`, passed
 913/913 Python-package comparisons and both fault contracts. Rust-native passed
 244/248, with four callable-boundary cases `not_run`. Its correctness-gated
 source/package benchmark `8a3f6576-289e-45e7-a434-5fb8dc831110` measured all
@@ -55,8 +62,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 652 input mappings,
-51 source-backed `not_applicable` rows, and 101 fixture-backlog rows, as
+The current coverage matrix has 804 source rows: 653 input mappings,
+51 source-backed `not_applicable` rows, and 100 fixture-backlog rows, as
 reported by the generated atlas. The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 
