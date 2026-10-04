@@ -2898,6 +2898,17 @@
               ]
             },
             {
+              "id": "starlette.applications.Starlette.url_path_for.mount-asgi-app-route-with-middleware-no-match",
+              "dimension": "error_path",
+              "description": "When Mount(app=...) receives a Route object, its internal route name is not discoverable through Starlette.url_path_for, even when Mount middleware wraps the ASGI app. Pinned source: tests/test_routing.py::test_mount_asgi_app_with_middleware_url_path_for; starlette/routing.py:377-390, 427-452; docs/routing.md:192-202.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.applications.Starlette.url_path_for.double-mount",
               "dimension": "success_path",
               "description": "Starlette.url_path_for resolves mount:static through an outer /mount Mount and an inner /static Mount backed by the source no-op ASGI app, returning /mount/static/123. Upstream: tests/test_routing.py::test_url_for_with_double_mount; starlette/routing.py:363-452.",

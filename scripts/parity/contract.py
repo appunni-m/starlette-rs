@@ -7674,9 +7674,18 @@ def _validate_reverse_route_node(
         if node["name"] is not None:
             _string(node["name"], f"{context}.name")
         if "app" in node:
-            app = _exact(node["app"], {"kind"}, f"{context}.app")
-            if app["kind"] != "no-op-asgi":
-                raise ContractError(f"{context}.app.kind must be no-op-asgi")
+            app_spec = node["app"]
+            if isinstance(app_spec, dict) and app_spec.get("kind") == "no-op-asgi":
+                _exact(app_spec, {"kind"}, f"{context}.app")
+            elif isinstance(app_spec, dict) and app_spec.get("kind") == "http-route":
+                _validate_reverse_route_node(
+                    app_spec,
+                    f"{context}.app",
+                    custom,
+                    allow_observer=False,
+                )
+            else:
+                raise ContractError(f"{context}.app.kind must be no-op-asgi or an input HTTP Route")
         elif not isinstance(node["routes"], list):
             raise ContractError(f"{context}.routes must be an array")
         if "middleware" in node:
@@ -7958,6 +7967,14 @@ def _reverse_route_nodes(node: dict[str, Any]) -> list[dict[str, Any]]:
     return [node]
 
 
+def _reverse_graph_nodes(node: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return every supplied route-graph node, including containers."""
+    result = [node]
+    for child in node.get("routes", []):
+        result.extend(_reverse_graph_nodes(child))
+    return result
+
+
 def _reverse_effective_observer_paths(
     node: dict[str, Any], prefix: str = ""
 ) -> list[tuple[str, list[str]]]:
@@ -8128,14 +8145,31 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
                     derived.add(rid("double-mount"))
         else:
             derived.add(rid("mismatch"))
-    elif surface == "starlette.applications.Starlette" and found:
+    elif surface == "starlette.applications.Starlette":
         derived.add(rid("forwarder"))
-        if _reverse_node_depth(graph, "mount") > 1:
-            derived.add(rid("double-mount"))
-        candidate_ids = {id(route) for _index, route in candidates}
-        middleware_paths = _reverse_candidate_middleware_paths(graph, candidate_ids)
-        if middleware_paths and middleware_paths[0]:
-            derived.add(rid("mount-routes-with-middleware"))
+        if found:
+            if _reverse_node_depth(graph, "mount") > 1:
+                derived.add(rid("double-mount"))
+            candidate_ids = {id(route) for _index, route in candidates}
+            middleware_paths = _reverse_candidate_middleware_paths(graph, candidate_ids)
+            if middleware_paths and middleware_paths[0]:
+                derived.add(rid("mount-routes-with-middleware"))
+        elif any(
+            node["kind"] == "mount"
+            and bool(node.get("middleware"))
+            and isinstance(node.get("app"), dict)
+            and node["app"].get("kind") == "http-route"
+            and node["app"].get("name") == lookup["name"]
+            and {
+                name
+                for name, _converter in _validate_reverse_path(
+                    node["app"]["path"], custom, "Mount ASGI Route app path"
+                )
+            }
+            == set(params)
+            for node in _reverse_graph_nodes(graph)
+        ):
+            derived.add(rid("mount-asgi-app-route-with-middleware-no-match"))
     elif surface == HOST_SURFACE and found:
         if lookup["name"] == graph["name"]:
             derived.add(rid("direct-path"))

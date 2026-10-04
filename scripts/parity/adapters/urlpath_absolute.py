@@ -33,11 +33,15 @@ def run_urlpath_absolute_case(case: dict[str, Any]) -> dict[str, Any]:
         if kind == "mount":
             mount_arguments = {}
             if "app" in node:
+                app_spec = node["app"]
+                if app_spec["kind"] == "http-route":
+                    mount_arguments["app"] = build_route(app_spec)
+                else:
 
-                async def no_op_asgi(scope: Any, receive: Any, send: Any) -> None:
-                    del scope, receive, send
+                    async def no_op_asgi(scope: Any, receive: Any, send: Any) -> None:
+                        del scope, receive, send
 
-                mount_arguments["app"] = no_op_asgi
+                    mount_arguments["app"] = no_op_asgi
             else:
                 mount_arguments["routes"] = [build_route(route) for route in node["routes"]]
             return Mount(node["path"], name=node["name"], **mount_arguments)
