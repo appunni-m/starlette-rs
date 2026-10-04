@@ -81,14 +81,14 @@ Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). Run
-`f4ab4142-7103-464d-84e8-90b3f974a4e2` measured all 74 source/package
+`e1dcf4cc-7f49-4357-be5b-0cb9c9ea5277` measured all 74 source/package
 workloads on clean commit
-`b6043ebfa44b7f02a931a81ce7d569e386f5389c`: six Router and 68 GZip, with
+`09d5abb2e48584b66dfbd278a4742f2ddd0ec8de`: six Router and 68 GZip, with
 zero failures and matching normalized observation hashes for all 74. Its
-correctness preflight `8abf9b34-5ee5-45a7-88a3-63c9eab965c3` selected 1,119
-comparisons (1,115 passed, zero failures, zero infrastructure errors, four
+correctness preflight `53dccf34-d001-4d0f-86aa-de3a1b65137f` selected 1,120
+comparisons (1,116 passed, zero failures, zero infrastructure errors, four
 declared Rust-native `not_run`). Median
-source/package latency ratios were 0.745 for Router and 0.974 for GZip.
+source/package latency ratios were 0.741 for Router and 0.973 for GZip.
 Rust-native remains `not_run` for these 74 benchmark workload boundaries.
 These workload-specific results do not establish full Starlette compatibility.
 
