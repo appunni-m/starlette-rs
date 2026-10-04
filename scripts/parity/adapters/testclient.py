@@ -127,6 +127,11 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         route_app = Starlette(
             routes=[Route(app_input["path"], endpoint, methods=app_input["methods"])]
         )
+        fault_contract = case.get("fault_contract")
+        if fault_contract is not None:
+            if fault_contract["fault_point"] != "starlette-rs.router.route-cache-lock.poison":
+                raise ValueError("unsupported TestClient fault point")
+            route_app.router._runtime._fault_contract_poison_route_cache()
 
         async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
             record_scope(scope)

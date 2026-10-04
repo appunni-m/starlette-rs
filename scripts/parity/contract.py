@@ -23,10 +23,16 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
-MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@34"
+from .fault_contracts import (
+    FAULT_CONTRACT_ASSERTIONS,
+    FAULT_POINT_IDS,
+    evaluate_fault_contract,
+)
+
+MANIFEST_SCHEMA = "migration-parity/manifest@3"
+INPUT_SCHEMA = "migration-parity/parity-input@35"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
-RESULT_SCHEMA = "migration-parity/parity-result@4"
+RESULT_SCHEMA = "migration-parity/parity-result@5"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
 UPSTREAM_BENCHMARK_INPUT_SCHEMA = "migration-parity/upstream-benchmark-input@1"
 UPSTREAM_BENCHMARK_RESULT_SCHEMA = "migration-parity/upstream-benchmark-result@1"
@@ -48,6 +54,7 @@ TOP_KEYS = {
     "target_profiles",
     "commands",
     "interfaces",
+    "fault_contracts",
     "input_index",
     "coverage_components",
     "surfaces",
@@ -1683,6 +1690,45 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         seen_profiles.add(profile["id"])
     if {row["target_id"] for row in manifest["target_profiles"]} != target_ids:
         raise ContractError("each public target must have a behavior profile")
+
+    fault_contract_ids: set[str] = set()
+    profile_by_id = {profile["id"]: profile for profile in manifest["target_profiles"]}
+    fault_contracts = manifest["fault_contracts"]
+    if not isinstance(fault_contracts, list) or not fault_contracts:
+        raise ContractError("manifest.fault_contracts must declare at least one contract")
+    for index, fault_contract in enumerate(fault_contracts):
+        context = f"fault_contracts[{index}]"
+        _exact(
+            fault_contract,
+            {
+                "id",
+                "fault_points",
+                "target_profile",
+                "oracle_applicability",
+                "oracle_reason",
+            },
+            context,
+        )
+        contract_id = _string(fault_contract["id"], f"{context}.id")
+        if contract_id not in FAULT_CONTRACT_ASSERTIONS or contract_id in fault_contract_ids:
+            raise ContractError(f"{context}.id is unknown or duplicated")
+        fault_contract_ids.add(contract_id)
+        points = fault_contract["fault_points"]
+        if (
+            not isinstance(points, list)
+            or not points
+            or any(not isinstance(point, str) or point not in FAULT_POINT_IDS for point in points)
+            or len(points) != len(set(points))
+        ):
+            raise ContractError(f"{context}.fault_points must select unique allow-listed points")
+        target_profile = profile_by_id.get(fault_contract["target_profile"])
+        if target_profile is None or "fault-contract" not in target_profile["features"]:
+            raise ContractError(
+                f"{context}.target_profile must enable fault-contract instrumentation"
+            )
+        if fault_contract["oracle_applicability"] != "not_applicable":
+            raise ContractError(f"{context}.oracle_applicability must be not_applicable")
+        _string(fault_contract["oracle_reason"], f"{context}.oracle_reason")
 
     command_map: dict[str, dict[str, Any]] = {}
     for index, command in enumerate(manifest["commands"]):
@@ -10422,7 +10468,9 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         )
 
 
-def _validate_testclient_case(case: dict[str, Any]) -> None:
+def _validate_testclient_case(
+    case: dict[str, Any], *, fault_case_spec: dict[str, Any] | None = None
+) -> None:
     settings_value = case["testclient"]
     optional_settings = (
         {"follow_redirects"}
@@ -11905,7 +11953,10 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["timeout_warning"])
     if settings.get("follow_redirects") is False:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["follow_redirects_disabled"])
-    if set(case["covers"]) != expected_covers:
+    if fault_case_spec is not None:
+        if case["covers"] != []:
+            raise ContractError("fault-contract cases do not claim parity requirements")
+    elif set(case["covers"]) != expected_covers:
         raise ContractError("TestClient covers must match the input app and request workflow")
     for index, message in enumerate(messages):
         message_type = message.get("type") if isinstance(message, dict) else None
@@ -13739,7 +13790,42 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         raise ContractError("TestClient lifespan covers must match the input lifecycle workflow")
 
 
-def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
+def _validate_fault_contract_case(case: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
+    fault = _exact(
+        case["fault_contract"],
+        {"contract_id", "fault_point"},
+        "fault-contract case selector",
+    )
+    contract = next(
+        (item for item in manifest["fault_contracts"] if item["id"] == fault["contract_id"]),
+        None,
+    )
+    if contract is None or fault["fault_point"] not in contract["fault_points"]:
+        raise ContractError("fault-contract case selects an undeclared contract or fault point")
+
+    parity_case = {key: value for key, value in case.items() if key != "fault_contract"}
+    validated = validate_case(parity_case, manifest, fault_case_spec=contract)
+    if (
+        validated["surface"] != TESTCLIENT_SURFACE
+        or validated["operation"] != TESTCLIENT_OPERATION
+        or validated["target_profiles"] != [contract["target_profile"]]
+        or validated["asgi_app"]["kind"] != "starlette-route"
+        or validated["testclient"]["raise_server_exceptions"] is not False
+    ):
+        raise ContractError(
+            "this fault contract requires the Python-package TestClient Starlette route boundary"
+        )
+    return {**validated, "fault_contract": fault}
+
+
+def validate_case(
+    case: Any,
+    manifest: dict[str, Any],
+    *,
+    fault_case_spec: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if isinstance(case, dict) and "fault_contract" in case:
+        return _validate_fault_contract_case(case, manifest)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == EXCEPTION_MIDDLEWARE_TYPING_OPERATION
@@ -14108,7 +14194,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     if is_testclient:
         if case["observations"] != [TESTCLIENT_OPERATION]:
             raise ContractError("TestClient cases must select request-response")
-        _validate_testclient_case(case)
+        _validate_testclient_case(case, fault_case_spec=fault_case_spec)
         return case
     if is_request_client:
         _exact(case, expected_case_keys, "Request.client case")
@@ -14654,7 +14740,10 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 "TestClient lifespan-context must declare its complete requirement set"
             )
     covers = case["covers"]
-    if (
+    if fault_case_spec is not None:
+        if case["covers"] != []:
+            raise ContractError("fault-contract cases do not claim parity requirements")
+    elif (
         not isinstance(covers, list)
         or not covers
         or any(not isinstance(item, str) for item in covers)
@@ -25635,6 +25724,7 @@ def validate_inputs(
     case_ids = [case["case_id"] for case in all_cases]
     if len(case_ids) != len(set(case_ids)):
         raise ContractError("case IDs must be unique across all indexed parity inputs")
+    parity_cases = [case for case in all_cases if "fault_contract" not in case]
     parity_requirements = {
         requirement["id"]
         for surface in manifest["surfaces"]
@@ -25642,7 +25732,7 @@ def validate_inputs(
         for requirement in operation["requirements"]
         if "parity" in requirement["lanes"]
     }
-    covered_requirements = {requirement for case in all_cases for requirement in case["covers"]}
+    covered_requirements = {requirement for case in parity_cases for requirement in case["covers"]}
     missing_requirements = parity_requirements - covered_requirements
     if missing_requirements:
         raise ContractError(
@@ -25658,7 +25748,7 @@ def validate_inputs(
     covered_profiles_by_requirement: dict[str, set[str]] = {
         requirement_id: set() for requirement_id in required_profiles_by_requirement
     }
-    for case in all_cases:
+    for case in parity_cases:
         for requirement_id in case["covers"]:
             covered_profiles_by_requirement[requirement_id].update(case["target_profiles"])
     missing_requirement_profiles = {
@@ -26135,7 +26225,18 @@ def _validate_smoke_parity_gate(
     )
     if (
         parity_result["identity"]["run_id"] != gate["parity_run_id"]
-        or parity_result["summary"] != gate["summary"]
+        or {
+            name: parity_result["summary"][name]
+            for name in (
+                "selected",
+                "executed",
+                "passed",
+                "failed",
+                "not_run",
+                "infrastructure_errors",
+            )
+        }
+        != gate["summary"]
     ):
         raise ContractError("smoke benchmark gate identity differs from its parity result")
     comparisons = [
@@ -26151,7 +26252,17 @@ def _validate_smoke_parity_gate(
         "parity_result_path": gate["parity_result_path"],
         "parity_result_sha256": digest,
         "profiles": profiles,
-        "summary": parity_result["summary"],
+        "summary": {
+            name: parity_result["summary"][name]
+            for name in (
+                "selected",
+                "executed",
+                "passed",
+                "failed",
+                "not_run",
+                "infrastructure_errors",
+            )
+        },
         "oracles": parity_result["identity"]["oracles"],
         "targets": parity_result["identity"]["targets"],
         "comparison_outcomes": [
@@ -27586,7 +27697,18 @@ def _validate_upstream_benchmark_result_artifact(value: Any, root: Path) -> dict
     )
     if (
         parity_gate_result["identity"]["run_id"] != gate["run_id"]
-        or parity_gate_result["summary"] != gate["summary"]
+        or {
+            name: parity_gate_result["summary"][name]
+            for name in (
+                "selected",
+                "executed",
+                "passed",
+                "failed",
+                "not_run",
+                "infrastructure_errors",
+            )
+        }
+        != gate["summary"]
         or gate_sha256 != gate["sha256"]
     ):
         raise ContractError("upstream benchmark gate identity differs from its live parity result")
@@ -28242,7 +28364,10 @@ def _validate_parity_result_against_active_contract(
                 )
 
     expected_rows = [
-        (case["case_id"], profile_id) for case in cases for profile_id in case["target_profiles"]
+        (case["case_id"], profile_id)
+        for case in cases
+        if "fault_contract" not in case
+        for profile_id in case["target_profiles"]
     ]
     comparisons = value["comparisons"]
     for index, row in enumerate(comparisons):
@@ -28317,6 +28442,51 @@ def _validate_parity_result_against_active_contract(
                 f"{context}: outcome/diffs do not match canonical comparison of workflow evidence"
             )
 
+    fault_cases = [case for case in cases if "fault_contract" in case]
+    expected_fault_rows = [(case["case_id"], case["target_profiles"][0]) for case in fault_cases]
+    actual_fault_rows = [
+        (row["case_id"], row["target_profile"]) for row in value["fault_contracts"]
+    ]
+    if len(actual_fault_rows) != len(set(actual_fault_rows)) or set(actual_fault_rows) != set(
+        expected_fault_rows
+    ):
+        raise ContractError("fault-contract result rows differ from the active fault cases")
+    fault_case_by_id = {case["case_id"]: case for case in fault_cases}
+    fault_registry = {item["id"]: item for item in manifest["fault_contracts"]}
+    for index, row in enumerate(value["fault_contracts"]):
+        context = f"result.fault_contracts[{index}]"
+        case = fault_case_by_id[row["case_id"]]
+        selector = case["fault_contract"]
+        declared = fault_registry[selector["contract_id"]]
+        if (
+            row["target_profile"] != declared["target_profile"]
+            or row["requirements"] != case["covers"]
+            or row["fault_point"] != selector["fault_point"]
+            or row["contract_id"] != selector["contract_id"]
+            or row["oracle"]
+            != {
+                "status": declared["oracle_applicability"],
+                "reason": declared["oracle_reason"],
+            }
+        ):
+            raise ContractError(f"{context} does not match the active input and registry")
+        target_result = row["target"]
+        assertion_ids = FAULT_CONTRACT_ASSERTIONS[row["contract_id"]]
+        if target_result["status"] == "completed":
+            expected_assertions = evaluate_fault_contract(row["contract_id"], target_result)
+            expected_outcome = (
+                "pass"
+                if all(assertion["status"] == "pass" for assertion in expected_assertions)
+                else "fail"
+            )
+        else:
+            expected_assertions = [
+                {"id": assertion_id, "status": "not_run"} for assertion_id in assertion_ids
+            ]
+            expected_outcome = "not_run"
+        if row["assertions"] != expected_assertions or row["outcome"] != expected_outcome:
+            raise ContractError(f"{context} assertions do not match the public target outcome")
+
 
 def _validate_parity_result_artifact(
     value: Any,
@@ -28326,7 +28496,15 @@ def _validate_parity_result_artifact(
 ) -> dict[str, Any]:
     _exact(
         value,
-        {"schema", "identity", "status", "summary", "comparisons", "infrastructure_errors"},
+        {
+            "schema",
+            "identity",
+            "status",
+            "summary",
+            "comparisons",
+            "fault_contracts",
+            "infrastructure_errors",
+        },
         "parity result",
     )
     if value["schema"] != RESULT_SCHEMA:
@@ -28453,11 +28631,30 @@ def _validate_parity_result_artifact(
     )
     _exact(
         value["summary"],
-        {"selected", "executed", "passed", "failed", "not_run", "infrastructure_errors"},
+        {
+            "selected",
+            "executed",
+            "passed",
+            "failed",
+            "not_run",
+            "fault_contracts",
+            "infrastructure_errors",
+        },
         "result.summary",
     )
     for name, count in value["summary"].items():
-        _validate_nonnegative_integer(count, f"result.summary.{name}")
+        if name == "fault_contracts":
+            _exact(
+                count,
+                {"selected", "executed", "passed", "failed", "not_run"},
+                "result.summary.fault_contracts",
+            )
+            for fault_name, fault_count in count.items():
+                _validate_nonnegative_integer(
+                    fault_count, f"result.summary.fault_contracts.{fault_name}"
+                )
+        else:
+            _validate_nonnegative_integer(count, f"result.summary.{name}")
     comparisons = value["comparisons"]
     if not isinstance(comparisons, list):
         raise ContractError("result.comparisons must be an array")
@@ -28489,8 +28686,60 @@ def _validate_parity_result_artifact(
             )
         if comparison["outcome"] == "not_run" and both_completed:
             raise ContractError(f"{context}: completed results cannot be labeled not_run")
+    fault_rows = value["fault_contracts"]
+    if not isinstance(fault_rows, list):
+        raise ContractError("result.fault_contracts must be an array")
+    for index, fault_row in enumerate(fault_rows):
+        context = f"result.fault_contracts[{index}]"
+        _exact(
+            fault_row,
+            {
+                "case_id",
+                "target_profile",
+                "requirements",
+                "fault_point",
+                "contract_id",
+                "oracle",
+                "target",
+                "assertions",
+                "outcome",
+            },
+            context,
+        )
+        _string(fault_row["case_id"], f"{context}.case_id")
+        if fault_row["target_profile"] != "python-package-cpython312":
+            raise ContractError(f"{context}.target_profile is invalid")
+        if not isinstance(fault_row["requirements"], list) or any(
+            not isinstance(item, str) for item in fault_row["requirements"]
+        ):
+            raise ContractError(f"{context}.requirements must be a string array")
+        _string(fault_row["fault_point"], f"{context}.fault_point")
+        _string(fault_row["contract_id"], f"{context}.contract_id")
+        oracle = _exact(fault_row["oracle"], {"status", "reason"}, f"{context}.oracle")
+        if oracle["status"] != "not_applicable":
+            raise ContractError(f"{context}.oracle.status must be not_applicable")
+        _string(oracle["reason"], f"{context}.oracle.reason")
+        validate_workflow_result(fault_row["target"], fault_row["case_id"], f"{context}.target")
+        assertions = fault_row["assertions"]
+        if not isinstance(assertions, list):
+            raise ContractError(f"{context}.assertions must be an array")
+        for assertion_index, assertion in enumerate(assertions):
+            assertion_context = f"{context}.assertions[{assertion_index}]"
+            _exact(assertion, {"id", "status"}, assertion_context)
+            _string(assertion["id"], f"{assertion_context}.id")
+            if assertion["status"] not in {"pass", "fail", "not_run"}:
+                raise ContractError(f"{assertion_context}.status is invalid")
+        if fault_row["outcome"] not in {"pass", "fail", "not_run"}:
+            raise ContractError(f"{context}.outcome is invalid")
     for index, error in enumerate(value["infrastructure_errors"]):
         _exact(error, {"scope", "id", "kind", "message"}, f"result.infrastructure_errors[{index}]")
+    fault_summary = {
+        "selected": len(fault_rows),
+        "executed": sum(1 for row in fault_rows if row["target"]["status"] == "completed"),
+        "passed": sum(1 for row in fault_rows if row["outcome"] == "pass"),
+        "failed": sum(1 for row in fault_rows if row["outcome"] == "fail"),
+        "not_run": sum(1 for row in fault_rows if row["outcome"] == "not_run"),
+    }
     expected_summary = {
         "selected": len(comparisons),
         "executed": sum(
@@ -28501,6 +28750,7 @@ def _validate_parity_result_artifact(
         "passed": sum(1 for item in comparisons if item["outcome"] == "pass"),
         "failed": sum(1 for item in comparisons if item["outcome"] == "fail"),
         "not_run": sum(1 for item in comparisons if item["outcome"] == "not_run"),
+        "fault_contracts": fault_summary,
         "infrastructure_errors": len(value["infrastructure_errors"]),
     }
     if value["summary"] != expected_summary:

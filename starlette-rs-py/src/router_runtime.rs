@@ -204,6 +204,28 @@ impl PyRouterRuntime {
         )
     }
 
+    #[cfg(feature = "fault-contract")]
+    #[pyo3(name = "_fault_contract_poison_route_cache")]
+    fn fault_contract_poison_route_cache(&self) -> PyResult<()> {
+        // This panic is deliberately contained in a feature-only parity build to
+        // exercise the public error contract for a poisoned cache mutex.
+        let poisoned = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = match self.routes_cache.lock() {
+                Ok(guard) => guard,
+                Err(error) => error.into_inner(),
+            };
+            std::panic::resume_unwind(Box::new("fault-contract route-cache poison"));
+        }))
+        .is_err();
+        if poisoned && self.routes_cache.is_poisoned() {
+            Ok(())
+        } else {
+            Err(PyRuntimeError::new_err(
+                "fault-contract could not poison the router route cache",
+            ))
+        }
+    }
+
     fn url_path_for(
         &self,
         py: Python<'_>,

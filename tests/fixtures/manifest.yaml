@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/manifest@2",
+  "schema": "migration-parity/manifest@3",
   "scope": {
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
@@ -63,7 +63,9 @@
       "id": "python-package-cpython312",
       "target_id": "python-package",
       "backend": "CPython 3.12",
-      "features": []
+      "features": [
+        "fault-contract"
+      ]
     }
   ],
   "commands": [
@@ -208,8 +210,8 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@34",
-      "result_schema": "migration-parity/parity-result@4",
+      "input_schema": "migration-parity/parity-input@35",
+      "result_schema": "migration-parity/parity-result@5",
       "command_id": "parity"
     },
     "coverage": {
@@ -229,7 +231,7 @@
     },
     "aggregation": {
       "input_schemas": [
-        "migration-parity/parity-result@4",
+        "migration-parity/parity-result@5",
         "migration-parity/coverage-result@1",
         "migration-parity/benchmark-result@1",
         "migration-parity/upstream-benchmark-result@1"
@@ -238,6 +240,17 @@
       "command_id": "aggregate"
     }
   },
+  "fault_contracts": [
+    {
+      "id": "starlette.server-error.route-cache-lock-poison",
+      "fault_points": [
+        "starlette-rs.router.route-cache-lock.poison"
+      ],
+      "target_profile": "python-package-cpython312",
+      "oracle_applicability": "not_applicable",
+      "oracle_reason": "The poisoned Rust route-cache mutex is an injected target-internal condition with no corresponding upstream Starlette state; only the target's public TestClient response is asserted."
+    }
+  ],
   "input_index": {
     "parity": [
       "build/parity/inputs/parity/asgi-http-get-text.json",
@@ -322,6 +335,7 @@
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-http.json",
+      "build/parity/inputs/parity/fault-contracts.json",
       "build/parity/inputs/parity/testclient-websocket.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
       "build/parity/inputs/parity/testclient-lifespan-context.json",

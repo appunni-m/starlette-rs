@@ -17,8 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@34` and indexes 914 input-only
-cases across 90 files, covering 104 operations and 892 unique parity requirements. Recent parity inputs
+The active parity manifest uses `parity-input@35` and indexes 915 input-only cases across 91 files (914 oracle parity cases and one target-only fault contract), covering 104 operations and 892 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -132,7 +131,7 @@ comparison.
 The latest clean full-slice correctness preflight
 `7607d008-0ee2-4186-8efd-60fba190fc47` ran from `2026-10-04T14:39:29.292Z` to
 `2026-10-04T14:43:58.397Z`. It used 914 input-only cases, 892 requirements,
-and `parity-input@34` from manifest SHA-256
+and `parity-input@35` from manifest SHA-256
 `0cbd6f609cd859f21b2a2e8bd0e8910c46d5678539337d045c355f936c79c93b` on clean
 commit `b4d64546f2a2c3bb9da16d41e3fa0d61f2bc8dea`. The Python-package target
 tree SHA-256 was

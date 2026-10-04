@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://starlette-rs.dev/schemas/migration-parity-result-v4.json",
-  "title": "Starlette migration parity result with isolated environment provenance",
+  "$id": "https://starlette-rs.dev/schemas/migration-parity-result-v5.json",
+  "title": "Starlette migration parity and fault-contract result with isolated environment provenance",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,11 +10,12 @@
     "status",
     "summary",
     "comparisons",
+    "fault_contracts",
     "infrastructure_errors"
   ],
   "properties": {
     "schema": {
-      "const": "migration-parity/parity-result@4"
+      "const": "migration-parity/parity-result@5"
     },
     "identity": {
       "$ref": "#/$defs/identity"
@@ -34,6 +35,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/comparison"
+      }
+    },
+    "fault_contracts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/faultContract"
       }
     },
     "infrastructure_errors": {
@@ -89,7 +96,7 @@
               "const": "tests/fixtures/manifest.yaml"
             },
             "schema": {
-              "const": "migration-parity/manifest@2"
+              "const": "migration-parity/manifest@3"
             },
             "sha256": {
               "$ref": "#/$defs/sha256"
@@ -112,7 +119,7 @@
                 "minLength": 1
               },
               "schema": {
-                "const": "migration-parity/parity-input@34"
+                "const": "migration-parity/parity-input@35"
               },
               "sha256": {
                 "$ref": "#/$defs/sha256"
@@ -334,6 +341,7 @@
         "passed",
         "failed",
         "not_run",
+        "fault_contracts",
         "infrastructure_errors"
       ],
       "properties": {
@@ -356,6 +364,24 @@
         "not_run": {
           "type": "integer",
           "minimum": 0
+        },
+        "fault_contracts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "selected",
+            "executed",
+            "passed",
+            "failed",
+            "not_run"
+          ],
+          "properties": {
+            "selected": {"type": "integer", "minimum": 0},
+            "executed": {"type": "integer", "minimum": 0},
+            "passed": {"type": "integer", "minimum": 0},
+            "failed": {"type": "integer", "minimum": 0},
+            "not_run": {"type": "integer", "minimum": 0}
+          }
         },
         "infrastructure_errors": {
           "type": "integer",
@@ -642,6 +668,59 @@
             "$ref": "#/$defs/diff"
           }
         }
+      }
+    },
+    "faultContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "target_profile",
+        "requirements",
+        "fault_point",
+        "contract_id",
+        "oracle",
+        "target",
+        "assertions",
+        "outcome"
+      ],
+      "properties": {
+        "case_id": {"type": "string", "minLength": 1},
+        "target_profile": {"const": "python-package-cpython312"},
+        "requirements": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "fault_point": {"const": "starlette-rs.router.route-cache-lock.poison"},
+        "contract_id": {"const": "starlette.server-error.route-cache-lock-poison"},
+        "oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason"],
+          "properties": {
+            "status": {"const": "not_applicable"},
+            "reason": {"type": "string", "minLength": 1}
+          }
+        },
+        "target": {"$ref": "#/$defs/workflow"},
+        "assertions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "status"],
+            "properties": {
+              "id": {
+                "enum": [
+                  "public-http-status-500",
+                  "public-http-body-internal-server-error"
+                ]
+              },
+              "status": {"enum": ["pass", "fail", "not_run"]}
+            }
+          }
+        },
+        "outcome": {"enum": ["pass", "fail", "not_run"]}
       }
     },
     "diff": {

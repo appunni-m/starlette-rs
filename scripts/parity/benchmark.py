@@ -36,6 +36,14 @@ WORKER_MODULE = "scripts.parity.benchmark_worker"
 WORKER_REQUEST_SCHEMA = "starlette-rs-benchmark-worker-request@1"
 WORKER_RESULT_SCHEMA = "starlette-rs-benchmark-worker-result@1"
 DEFAULT_UPSTREAM = Path("/Users/lazytrot/work/starlette")
+_PARITY_SUMMARY_FIELDS = (
+    "selected",
+    "executed",
+    "passed",
+    "failed",
+    "not_run",
+    "infrastructure_errors",
+)
 
 
 def _timestamp() -> str:
@@ -86,7 +94,7 @@ def _parity_gate(
         "parity_result_path": GATE_RESULT_RELATIVE.as_posix(),
         "parity_result_sha256": sha256_file(gate_path),
         "profiles": sorted(target_profiles),
-        "summary": result["summary"],
+        "summary": {field: result["summary"][field] for field in _PARITY_SUMMARY_FIELDS},
         "oracles": result["identity"]["oracles"],
         "targets": result["identity"]["targets"],
         "comparison_outcomes": [

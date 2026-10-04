@@ -466,7 +466,17 @@ def validate_oracle_runtime_lock(root: Path, upstream: Path) -> str:
 def _target_wheel(root: Path, wheelhouse: Path, python: Path, env: dict[str, str]) -> Path:
     wheelhouse.mkdir(parents=True)
     _run(
-        [str(python), "-m", "pip", "wheel", "--no-deps", "--wheel-dir", str(wheelhouse), str(root)],
+        [
+            str(python),
+            "-m",
+            "pip",
+            "wheel",
+            "--no-deps",
+            "--wheel-dir",
+            str(wheelhouse),
+            "--config-settings=build-args=--features pyo3/extension-module,fault-contract",
+            str(root),
+        ],
         cwd=root,
         env=env,
         timeout=1800,

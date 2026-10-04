@@ -176,6 +176,7 @@ def _validate_schema(root: Path) -> None:
         "status",
         "summary",
         "comparisons",
+        "fault_contracts",
         "infrastructure_errors",
     }:
         raise ContractError(
@@ -441,9 +442,12 @@ def main(argv: list[str] | None = None) -> int:
                 result["status"] != "completed"
                 or summary["failed"]
                 or summary["infrastructure_errors"]
+                or summary["fault_contracts"]["failed"]
             ):
                 return 2
-            if args.command == "run" and summary["not_run"]:
+            if args.command == "run" and (
+                summary["not_run"] or summary["fault_contracts"]["not_run"]
+            ):
                 return 2
             return 0
         if args.command == "compare":

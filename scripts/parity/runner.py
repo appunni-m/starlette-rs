@@ -30,6 +30,7 @@ from .envs import (
     base_environment,
     load_prepared_environments,
 )
+from .fault_contracts import FAULT_CONTRACT_ASSERTIONS, evaluate_fault_contract
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_RELATIVE = Path("tests/fixtures/manifest.yaml")
@@ -692,6 +693,8 @@ def run_parity(
     except ValueError as exc:
         raise ContractError("active parity manifest must be inside the repository root") from exc
     manifest, indexed_inputs, cases = _load_contract(root, manifest_file)
+    parity_cases = [case for case in cases if "fault_contract" not in case]
+    fault_cases = [case for case in cases if "fault_contract" in case]
     commands = _command_map(manifest)
     env = _base_environment()
     environment_errors: list[dict[str, Any]] = []
@@ -800,7 +803,7 @@ def run_parity(
         )
         oracle_environment = prepared[ENVIRONMENT_IDS[0]]
         oracle_env = _adapter_environment(env, oracle_environment["dependency_lock_sha256"])
-        for case in cases:
+        for case in parity_cases:
             result, error = _run_case(
                 oracle_command, "starlette-python", case, oracle_env, "oracle", root
             )
@@ -811,7 +814,7 @@ def run_parity(
 
     comparisons: list[dict[str, Any]] = []
     operation_map = _operations(manifest)
-    for case in cases:
+    for case in parity_cases:
         operation = operation_map[(case["surface"], case["operation"])]
         source_result = source_results.get(case["case_id"])
         for profile_id in case["target_profiles"]:
@@ -898,6 +901,69 @@ def run_parity(
                 }
             )
 
+    fault_contracts: list[dict[str, Any]] = []
+    declared_fault_contracts = {item["id"]: item for item in manifest["fault_contracts"]}
+    for case in fault_cases:
+        fault = case["fault_contract"]
+        contract = declared_fault_contracts[fault["contract_id"]]
+        profile_id = contract["target_profile"]
+        profile = profiles[profile_id]
+        target = targets[profile["target_id"]]
+        target_result: dict[str, Any]
+        if mode == "oracle-only":
+            target_result = _skipped_result(
+                case,
+                "not run: target intentionally omitted by the explicit oracle-only command",
+            )
+        elif profile_id in target_errors:
+            target_result = _skipped_result(case, f"not run: {target_errors[profile_id]['kind']}")
+        else:
+            target_command = _resolve_command(
+                commands[target["identity_command_id"]], prepared, root
+            )
+            target_environment = prepared.get(ENVIRONMENT_IDS[1])
+            if target_environment is None:
+                target_result = _skipped_result(case, "not run: target environment is not prepared")
+            else:
+                target_env = _adapter_environment(
+                    env, target_environment["dependency_lock_sha256"], target_environment
+                )
+                target_result_raw, error = _run_case(
+                    target_command, target["id"], case, target_env, "target", root
+                )
+                if error:
+                    infra.append(error)
+                    target_errors[profile_id] = error
+                target_result = target_result_raw or _skipped_result(
+                    case, "not run: target adapter did not produce a valid workflow result"
+                )
+
+        assertion_ids = FAULT_CONTRACT_ASSERTIONS[fault["contract_id"]]
+        if target_result["status"] == "completed":
+            assertions = evaluate_fault_contract(fault["contract_id"], target_result)
+            outcome = "pass" if all(row["status"] == "pass" for row in assertions) else "fail"
+        else:
+            assertions = [
+                {"id": assertion_id, "status": "not_run"} for assertion_id in assertion_ids
+            ]
+            outcome = "not_run"
+        fault_contracts.append(
+            {
+                "case_id": case["case_id"],
+                "target_profile": profile_id,
+                "requirements": case["covers"],
+                "fault_point": fault["fault_point"],
+                "contract_id": fault["contract_id"],
+                "oracle": {
+                    "status": contract["oracle_applicability"],
+                    "reason": contract["oracle_reason"],
+                },
+                "target": target_result,
+                "assertions": assertions,
+                "outcome": outcome,
+            }
+        )
+
     finished = _now()
     identity["finished_at"] = finished
     summary = {
@@ -910,6 +976,13 @@ def run_parity(
         "passed": sum(1 for row in comparisons if row["outcome"] == "pass"),
         "failed": sum(1 for row in comparisons if row["outcome"] == "fail"),
         "not_run": sum(1 for row in comparisons if row["outcome"] == "not_run"),
+        "fault_contracts": {
+            "selected": len(fault_contracts),
+            "executed": sum(1 for row in fault_contracts if row["target"]["status"] == "completed"),
+            "passed": sum(1 for row in fault_contracts if row["outcome"] == "pass"),
+            "failed": sum(1 for row in fault_contracts if row["outcome"] == "fail"),
+            "not_run": sum(1 for row in fault_contracts if row["outcome"] == "not_run"),
+        },
         "infrastructure_errors": len(infra),
     }
     result = {
@@ -918,6 +991,7 @@ def run_parity(
         "status": "infrastructure_failed" if infra else "completed",
         "summary": summary,
         "comparisons": comparisons,
+        "fault_contracts": fault_contracts,
         "infrastructure_errors": infra,
     }
     validate_result_artifact(result, root=root, manifest_path=manifest_file)

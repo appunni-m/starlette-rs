@@ -646,6 +646,8 @@ def _installed_package_tree_sha256(
 
 
 def _identity(distribution: importlib.metadata.Distribution) -> dict[str, Any]:
+    from starlette_rs_py import _core
+
     dependency_lock_sha256 = os.environ.get("STARLETTE_PARITY_DEPENDENCY_LOCK_SHA256")
     if (
         dependency_lock_sha256 is None
@@ -676,7 +678,11 @@ def _identity(distribution: importlib.metadata.Distribution) -> dict[str, Any]:
         "os": platform.platform(),
         "architecture": platform.machine(),
         "backend": "CPython 3.12",
-        "features": [],
+        "features": (
+            ["fault-contract"]
+            if hasattr(_core.RouterRuntime, "_fault_contract_poison_route_cache")
+            else []
+        ),
         "package_version": distribution.version,
         "dependency_lock_sha256": dependency_lock_sha256,
         "target_tree_sha256": target_tree_sha256,
