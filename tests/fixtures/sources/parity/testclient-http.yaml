@@ -3052,6 +3052,65 @@
           "query_string"
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.request-body-read-only-on-receive",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-body-read-on-receive",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "POST",
+        "url": "/unused-body",
+        "headers_base64_pairs": [],
+        "body_base64": "",
+        "client_method": "post",
+        "content_generator_chunks_base64": [
+          "Zmlyc3QgY2h1bms=",
+          "c2Vjb25kIGNodW5r"
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "method",
+          "path"
+        ],
+        "receive_count": 0,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 204,
+            "headers_base64_pairs": []
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "",
+            "more_body": false
+          }
+        ]
+      }
     }
   ]
 }

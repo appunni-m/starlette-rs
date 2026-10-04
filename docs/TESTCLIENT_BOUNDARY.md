@@ -7,22 +7,25 @@ bounded HTTP request/response, lifespan, and WebSocket-session slices of the doc
 `starlette/testclient.py` and its public guide is `docs/testclient.md`.
 
 The active slice compares ASGI2 and ASGI3 calls, HTTP scope projection,
-request-body delivery, response headers/body, debug response extensions, the
-warning emitted when a request supplies a timeout, and application exception
-policy. Exception inputs compare default propagation, the synthesized 500
-response when no response has started, preservation of a completed response
-when the app raises afterward, and preservation of the raised exception
-identity with explicit cause, implicit context, and suppressed context. It records the warning category,
-message, filename, and line from the input-driven source and package runs. The
-timeout is forwarded to HTTPX; this comparison does not claim that the ASGI
-transport enforces a timeout. Eight WebSocket inputs compare scope
-projection, text and binary exchange, JSON text and UTF-8 binary frames,
-streamed denial responses, app progress during a blocked receive, disconnect
-details, close-triggered cancellation, completion, and portal cleanup. The
-separate lifespan input compares startup and shutdown context management.
-WebSocket close-message errors, explicit close reasons, streaming request
-bodies, and other unmapped TestClient error cases remain in the compatibility
-backlog.
+request-body delivery and lazy body-read timing, response headers/body, debug
+response extensions, the warning emitted when a request supplies a timeout,
+and application exception policy. Exception inputs compare default
+propagation, the synthesized 500 response when no response has started,
+preservation of a completed response when the app raises afterward, and
+preservation of the raised exception identity with explicit cause, implicit
+context, and suppressed context. They record warning category, message,
+filename, and line from the input-driven source and package runs. The timeout
+is forwarded to HTTPX; this comparison does not claim that the ASGI transport
+enforces a timeout. WebSocket inputs compare scope projection, text and binary
+exchange, JSON text and UTF-8 binary frames, streamed denial responses, app
+progress during a blocked receive, disconnect details, close-triggered
+cancellation, completion, and portal cleanup. The separate lifespan input
+compares startup and shutdown context management.
+WebSocket close-message errors, explicit close reasons, the source's
+GeneratorType receive branch, and other unmapped TestClient error cases remain
+in the compatibility backlog. The public HTTPX2 generator-content path is
+covered separately: `Request.read()` aggregates its chunks, and the ASGI
+transport must not consume that generator before the app calls `receive`.
 
 ## Source-backed Python boundary
 
@@ -45,9 +48,10 @@ The implementation boundary is:
   callable shape, starts AnyIO's blocking portal for the selected backend, and
   drives the ASGI call on that portal without creating another executor or
   event loop.
-- Rust owns request-to-scope projection, receive and send state, response
-  completion, debug extensions, default headers, URL merging, app state, and
-  construction of the HTTPX response through its public types. Rust calls the
+- Rust owns request-to-scope projection, receive and send state, lazy request
+  body reads, response completion, debug extensions, default headers, URL
+  merging, app state, and construction of the HTTPX response through its public
+  types. Rust calls the
   supplied ASGI callable through the existing PyO3 awaitable boundary.
 - Rust owns WebSocket URL-to-scope projection, handshake and accepted
   subprotocol state, the client/app message streams, text/byte/JSON frame
@@ -75,14 +79,12 @@ an input-only oracle comparison before it is accepted.
 Each slice is authored as input-only YAML under `tests/fixtures/sources/` and
 is run against the pinned source and installed package in isolated processes.
 Stimuli come from the input definition; adapters may not use case IDs to
-choose requests, scopes, responses, or outcomes. The HTTP request/response
-slice has fourteen data-driven cases covering thirteen requirements, including
-post-construction `app.debug` mutation and traceback responses; the lifespan
-slice has five cases covering eleven requirements; the WebSocket slice has
-eleven cases covering sixteen declared text, binary, JSON, denial, lifecycle,
-and cleanup requirements. They compare ordered callbacks and public results
-against the pinned source. Streaming request bodies and other unmapped
-TestClient and WebSocket behavior need separate input definitions.
+choose requests, scopes, responses, or outcomes. The HTTP request/response,
+lifespan, and WebSocket fixtures compare ordered callbacks and public results
+against the pinned source. The HTTP fixture includes public generator-backed
+request content and records whether those chunks are consumed when the ASGI app
+does not call `receive`. Other unmapped TestClient and WebSocket behavior still
+needs separate input definitions.
 
 The pinned source provides additional mappings in `tests/test_testclient.py`
 and `docs/testclient.md`; those source rows remain visible in the fixture

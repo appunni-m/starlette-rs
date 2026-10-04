@@ -52,6 +52,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     receive_observations: list[dict[str, Any]] = []
     asgi_events: list[dict[str, Any]] = []
     app_exception_state: dict[str, BaseException] = {}
+    request_content_generator_yields: list[str] = []
     sync_endpoint_state: dict[str, Any] | None = None
     host_route_observations: list[dict[str, Any]] = []
     mount_scope_observations: list[dict[str, Any]] = []
@@ -812,6 +813,18 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             "context": _safe(getattr(value, "context", None)),
         }
 
+    def request_content(current_request: dict[str, Any]) -> Any:
+        if "content_generator_chunks_base64" not in current_request:
+            return base64.b64decode(current_request["body_base64"])
+
+        def generated_chunks() -> Any:
+            for encoded_chunk in current_request["content_generator_chunks_base64"]:
+                chunk = base64.b64decode(encoded_chunk)
+                request_content_generator_yields.append(base64.b64encode(chunk).decode("ascii"))
+                yield chunk
+
+        return generated_chunks()
+
     with warnings.catch_warnings(record=True) as recorded:
         warnings.simplefilter("always")
         try:
@@ -831,10 +844,10 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                 elif client_method == "head":
                     current_response = client.head(current_request["url"], **request_kwargs)
                 elif client_method == "post":
-                    request_kwargs["content"] = base64.b64decode(current_request["body_base64"])
+                    request_kwargs["content"] = request_content(current_request)
                     current_response = client.post(current_request["url"], **request_kwargs)
                 else:
-                    request_kwargs["content"] = base64.b64decode(current_request["body_base64"])
+                    request_kwargs["content"] = request_content(current_request)
                     current_response = client.request(
                         current_request["method"],
                         current_request["url"],
@@ -875,6 +888,8 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         ),
         "exception_propagation": None,
     }
+    if "content_generator_chunks_base64" in request_input:
+        result["request_content_generator_yields"] = request_content_generator_yields
     if "exception" in app_input and "chain" in app_input["exception"]:
         propagated_cause = None if captured_error is None else captured_error.__cause__
         propagated_context = None if captured_error is None else captured_error.__context__

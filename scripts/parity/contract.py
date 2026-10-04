@@ -188,6 +188,7 @@ TESTCLIENT_LIFESPAN_OPERATION_KEY = (TESTCLIENT_SURFACE, TESTCLIENT_LIFESPAN_OPE
 TESTCLIENT_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.scope-projection",
     "receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-message",
+    "request_body_lazy_read": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-read-on-receive",
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
     "follow_redirects_disabled": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-redirects-disabled",
     "follow_redirects_enabled": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-redirects-enabled",
@@ -1962,6 +1963,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == TESTCLIENT_OPERATION_KEY
                         and observation["path"] == "request_url_for"
                     )
+                    testclient_request_body_generator = (
+                        condition["input_key"] == "request.content_generator_chunks_base64"
+                        and key == TESTCLIENT_OPERATION_KEY
+                        and observation["path"] == "request_content_generator_yields"
+                    )
                     static_files_single_call = (
                         condition["input_key"] == "scope"
                         and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
@@ -2030,6 +2036,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_application_host
                         and not testclient_application_mount
                         and not testclient_request_url_for
+                        and not testclient_request_body_generator
                         and not static_files_single_call
                         and not static_files_call_sequence
                         and not trusted_host_constructor_probe
@@ -10494,7 +10501,14 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         request_keys = {"method", "url", "headers_base64_pairs", "body_base64"}
         if isinstance(value, dict):
             request_keys.update(
-                key for key in ("timeout", "client_method", "params") if key in value
+                key
+                for key in (
+                    "timeout",
+                    "client_method",
+                    "params",
+                    "content_generator_chunks_base64",
+                )
+                if key in value
             )
         request = _exact(value, request_keys, context)
         method = _string(request["method"], f"{context}.method")
@@ -10531,8 +10545,24 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context}.url query must be empty when params is supplied")
         validate_pairs(request["headers_base64_pairs"], f"{context}.headers_base64_pairs")
         validate_base64(request["body_base64"], f"{context}.body_base64")
+        if "content_generator_chunks_base64" in request:
+            chunks = request["content_generator_chunks_base64"]
+            if (
+                request["method"] != "POST"
+                or request.get("client_method") not in {None, "post"}
+                or base64.b64decode(request["body_base64"])
+                or not isinstance(chunks, list)
+                or not chunks
+            ):
+                raise ContractError(
+                    f"{context}.content_generator_chunks_base64 requires POST and an otherwise empty body"
+                )
+            for index, chunk in enumerate(chunks):
+                validate_base64(chunk, f"{context}.content_generator_chunks_base64[{index}]")
         if request.get("client_method") == "get" and base64.b64decode(request["body_base64"]):
             raise ContractError(f"{context}.body_base64 must be empty for TestClient.get")
+        if request.get("client_method") == "get" and "content_generator_chunks_base64" in request:
+            raise ContractError("TestClient.get cannot send content_generator_chunks_base64")
         return request
 
     request = validate_request(case["request"], "TestClient request")
@@ -10544,6 +10574,10 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             validate_request(value, f"TestClient followup_requests[{index}]")
             for index, value in enumerate(case["followup_requests"])
         ]
+        if any("content_generator_chunks_base64" in item for item in followup_requests):
+            raise ContractError(
+                "TestClient content generator inputs are scoped to the initial request"
+            )
         if not (
             is_starlette_app_static_mount
             or is_router_mounted_response
@@ -11604,9 +11638,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     ):
         raise ContractError("TestClient ASGI app scope_fields must be unique supported scope keys")
     if asgi_app["kind"] in {"asgi2", "asgi3"}:
-        if type(asgi_app["receive_count"]) is not int or asgi_app["receive_count"] != 1:
+        if type(asgi_app["receive_count"]) is not int or asgi_app["receive_count"] not in {0, 1}:
             raise ContractError(
-                "This TestClient request workflow consumes exactly one request message"
+                "This TestClient request workflow consumes zero or one request message"
             )
         if not isinstance(messages, list) or (
             len(messages) not in {2, 3} and not (exception_spec is not None and not messages)
@@ -11631,7 +11665,10 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             raise ContractError("TestClient ASGI response may contain one debug message")
     expected_covers = {TESTCLIENT_REQUIREMENTS["scope"]}
     if asgi_app["kind"] in {"asgi2", "asgi3"}:
-        expected_covers.add(TESTCLIENT_REQUIREMENTS["receive"])
+        if asgi_app["receive_count"]:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["receive"])
+        if asgi_app["receive_count"] == 0 and "content_generator_chunks_base64" in request:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["request_body_lazy_read"])
     elif is_sync_route:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["sync_route_worker_thread"])

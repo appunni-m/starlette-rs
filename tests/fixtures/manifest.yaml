@@ -22806,6 +22806,18 @@
                   }
                 },
                 {
+                  "path": "request_content_generator_yields",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "request.content_generator_chunks_base64"
+                  }
+                },
+                {
                   "path": "request_url_for",
                   "value_types": [
                     "sequence"
@@ -22944,6 +22956,17 @@
               "id": "starlette.testclient.TestClient.request-response.request-message",
               "dimension": "boundary",
               "description": "Pass the supplied request body to the ASGI app through the TestClient receive callback and compare the exact message observed by the app. Pinned source: starlette/testclient.py:293-325; tests/test_testclient.py::test_testclient_asgi2 and test_testclient_asgi3.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.request-body-read-on-receive",
+              "dimension": "boundary",
+              "description": "Read the HTTPX request body only when the ASGI app invokes receive; if the app returns without receiving, leave a generator-backed request body unconsumed. Pinned source: starlette/testclient.py:299-325; request construction delegates to HTTPX2 at starlette/testclient.py:430-463; docs/testclient.md:36-41.",
               "lanes": [
                 "parity"
               ],

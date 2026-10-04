@@ -4,7 +4,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use pyo3::basic::CompareOp;
 use pyo3::create_exception;
-use pyo3::exceptions::{PyAssertionError, PyException, PyImportError, PyKeyError, PyRuntimeError};
+use pyo3::exceptions::{
+    PyAssertionError, PyException, PyImportError, PyKeyError, PyRuntimeError, PyStopIteration,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
 
@@ -950,7 +952,8 @@ impl PyWebSocketTestSession {
 
 #[derive(Default)]
 struct TestClientResponseState {
-    request_body: Vec<u8>,
+    request: Option<Py<PyAny>>,
+    request_body_generator: Option<Py<PyAny>>,
     request_complete: bool,
     response_started: bool,
     response_complete: bool,
@@ -1003,30 +1006,87 @@ impl AwaitableStateMachine for TestClientReceiveMachine {
 
 impl TestClientReceiveMachine {
     fn next_action(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let event = {
-            let mut state = lock_state(&self.state)?;
+        let source = {
+            let state = lock_state(&self.state)?;
             if !state.request_complete {
-                state.request_complete = true;
-                return Ok(MachineAction::Complete(request_message(
-                    py,
-                    &state.request_body,
-                )?));
+                if let Some(generator) = state.request_body_generator.as_ref() {
+                    TestClientReceiveSource::Generator(generator.clone_ref(py))
+                } else {
+                    let request = state.request.as_ref().ok_or_else(|| {
+                        PyRuntimeError::new_err("TestClient request is unavailable")
+                    })?;
+                    TestClientReceiveSource::Request(request.clone_ref(py))
+                }
+            } else {
+                let event = state
+                    .response_complete_event
+                    .as_ref()
+                    .ok_or_else(|| {
+                        PyRuntimeError::new_err(
+                            "TestClient response completion event is unavailable",
+                        )
+                    })?
+                    .clone_ref(py);
+                TestClientReceiveSource::ResponseComplete(event)
             }
-            state
-                .response_complete_event
-                .as_ref()
-                .ok_or_else(|| {
-                    PyRuntimeError::new_err("TestClient response completion event is unavailable")
-                })?
-                .clone_ref(py)
         };
-        let event = event.bind(py);
-        if event.call_method0("is_set")?.extract::<bool>()? {
-            return Ok(MachineAction::Complete(disconnect_message(py)?));
+
+        match source {
+            TestClientReceiveSource::Request(request) => {
+                let body = request.bind(py).call_method0("read")?;
+                let generator_type = py.import("types")?.getattr("GeneratorType")?;
+                if body.is_instance(&generator_type)? {
+                    let generator = body.unbind();
+                    lock_state(&self.state)?.request_body_generator = Some(generator.clone_ref(py));
+                    self.next_generator_action(py, generator.bind(py))
+                } else {
+                    let body = normalize_request_body(py, body)?;
+                    lock_state(&self.state)?.request_complete = true;
+                    Ok(MachineAction::Complete(request_message_value(
+                        py,
+                        body.bind(py),
+                        None,
+                    )?))
+                }
+            }
+            TestClientReceiveSource::Generator(generator) => {
+                self.next_generator_action(py, generator.bind(py))
+            }
+            TestClientReceiveSource::ResponseComplete(event) => {
+                let event = event.bind(py);
+                if event.call_method0("is_set")?.extract::<bool>()? {
+                    return Ok(MachineAction::Complete(disconnect_message(py)?));
+                }
+                self.waiting_for_response = true;
+                Ok(MachineAction::Await(event.call_method0("wait")?.unbind()))
+            }
         }
-        self.waiting_for_response = true;
-        Ok(MachineAction::Await(event.call_method0("wait")?.unbind()))
     }
+
+    fn next_generator_action(
+        &mut self,
+        py: Python<'_>,
+        generator: &Bound<'_, PyAny>,
+    ) -> PyResult<MachineAction> {
+        match generator.call_method1("send", (py.None(),)) {
+            Ok(chunk) => Ok(MachineAction::Complete(request_message_value(
+                py,
+                &chunk,
+                Some(true),
+            )?)),
+            Err(error) if error.is_instance_of::<PyStopIteration>(py) => {
+                lock_state(&self.state)?.request_complete = true;
+                Ok(MachineAction::Complete(request_message(py, b"")?))
+            }
+            Err(error) => Err(error),
+        }
+    }
+}
+
+enum TestClientReceiveSource {
+    Request(Py<PyAny>),
+    Generator(Py<PyAny>),
+    ResponseComplete(Py<PyAny>),
 }
 
 impl AwaitableStateMachine for TestClientSendMachine {
@@ -1202,7 +1262,7 @@ impl PyTestClientTransport {
             exception.setattr("session", session)?;
             return Err(PyErr::from_value(exception));
         }
-        let (scope, method, request_body) = build_http_scope(
+        let (scope, method) = build_http_scope(
             py,
             request,
             self.root_path.as_str(),
@@ -1210,7 +1270,7 @@ impl PyTestClientTransport {
             self.app_state.bind(py),
         )?;
         let state = Arc::new(Mutex::new(TestClientResponseState {
-            request_body,
+            request: Some(request.clone().unbind()),
             method,
             ..TestClientResponseState::default()
         }));
@@ -1493,6 +1553,35 @@ fn request_message(py: Python<'_>, body: &[u8]) -> PyResult<Py<PyAny>> {
     Ok(message.into_any().unbind())
 }
 
+fn request_message_value(
+    py: Python<'_>,
+    body: &Bound<'_, PyAny>,
+    more_body: Option<bool>,
+) -> PyResult<Py<PyAny>> {
+    let body = if body.is_instance_of::<PyString>() {
+        body.call_method1("encode", ("utf-8",))?
+    } else {
+        body.clone()
+    };
+    let message = PyDict::new(py);
+    message.set_item("type", "http.request")?;
+    message.set_item("body", body)?;
+    if let Some(more_body) = more_body {
+        message.set_item("more_body", more_body)?;
+    }
+    Ok(message.into_any().unbind())
+}
+
+fn normalize_request_body(py: Python<'_>, body: Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    if body.is_none() {
+        return Ok(PyBytes::new(py, b"").into_any().unbind());
+    }
+    if body.is_instance_of::<PyString>() {
+        return Ok(body.call_method1("encode", ("utf-8",))?.unbind());
+    }
+    Ok(body.unbind())
+}
+
 fn disconnect_message(py: Python<'_>) -> PyResult<Py<PyAny>> {
     let message = PyDict::new(py);
     message.set_item("type", "http.disconnect")?;
@@ -1754,7 +1843,7 @@ fn build_http_scope(
     root_path: &str,
     client: (&str, u16),
     app_state: &Bound<'_, PyDict>,
-) -> PyResult<(Py<PyDict>, String, Vec<u8>)> {
+) -> PyResult<(Py<PyDict>, String)> {
     let url = request.getattr("url")?;
     let scheme = url.getattr("scheme")?.extract::<String>()?;
     let netloc = url
@@ -1841,13 +1930,7 @@ fn build_http_scope(
     scope.set_item("server", server)?;
     scope.set_item("extensions", debug_extension(py)?)?;
     scope.set_item("state", app_state.call_method0("copy")?)?;
-    let body = request
-        .getattr("read")?
-        .call0()?
-        .cast::<PyBytes>()?
-        .as_bytes()
-        .to_vec();
-    Ok((scope.unbind(), method, body))
+    Ok((scope.unbind(), method))
 }
 
 fn debug_extension(py: Python<'_>) -> PyResult<Py<PyDict>> {
