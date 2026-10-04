@@ -737,6 +737,7 @@
                   "starlette.asgi.server-error.special-key-order",
                   "starlette.asgi.server-error.debug-traceback",
                   "starlette.asgi.server-error.response-started",
+                  "starlette.asgi.server-error.background-task-failure",
                   "starlette.asgi.server-error.handled-http-exception-500"
                 ]
               }
@@ -1417,6 +1418,17 @@
               "id": "starlette.asgi.server-error.response-started",
               "dimension": "error_path",
               "description": "An uncaught RuntimeError after HTTP response start invokes the configured handler, preserves prior ASGI events, discards the second response, and re-raises the original error. Upstream: starlette/middleware/errors.py::ServerErrorMiddleware.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.server-error.background-task-failure",
+              "dimension": "error_path",
+              "description": "A synchronous Response BackgroundTask raises after the 204 response is sent; Starlette invokes the registered sync Exception handler, sends no second response, and propagates the task exception. Upstream: tests/middleware/test_errors.py::test_background_task; starlette/background.py::BackgroundTask.__call__; starlette/responses.py::Response.__call__; starlette/middleware/errors.py::ServerErrorMiddleware.__call__.",
               "lanes": [
                 "parity"
               ],

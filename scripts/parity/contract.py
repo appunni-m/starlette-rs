@@ -14600,6 +14600,8 @@ def _is_server_error_stimulus(args: dict[str, Any]) -> bool:
         return False
     if endpoint.get("kind") == "raise-runtime-error":
         return True
+    if endpoint.get("kind") == "response-background-task-error":
+        return True
     if endpoint.get("kind") == "asgi-callable-action-sequence":
         return any(
             isinstance(action, dict) and action.get("action") == "raise-runtime-error"
@@ -14642,6 +14644,17 @@ def _validate_server_error_application(args: dict[str, Any]) -> None:
     if endpoint_kind == "raise-runtime-error":
         endpoint = _exact(endpoint, {"kind", "message"}, "RuntimeError endpoint")
         _string(endpoint["message"], "RuntimeError endpoint.message")
+    elif endpoint_kind == "response-background-task-error":
+        endpoint = _exact(
+            endpoint,
+            {"kind", "status_code", "exception_class", "message"},
+            "Response background-task error endpoint",
+        )
+        if endpoint["status_code"] != 204 or endpoint["exception_class"] != "Exception":
+            raise ContractError(
+                "server-error background-task input must match the pinned 204/Exception behavior"
+            )
+        _string(endpoint["message"], "Response background-task error message")
     elif endpoint_kind == "asgi-callable-action-sequence":
         _validate_asgi_callable_action_sequence(endpoint)
         if not any(action["action"] == "raise-runtime-error" for action in endpoint["actions"]):
@@ -14688,6 +14701,16 @@ def _validate_server_error_application(args: dict[str, Any]) -> None:
     )
     if handlers and not has_outer_handler:
         raise ContractError("server-error cases must register a 500 or Exception handler")
+    if endpoint_kind == "response-background-task-error":
+        if keys != [{"kind": "exception-class", "name": "Exception"}]:
+            raise ContractError(
+                "background-task error case must register exactly one Exception-class handler"
+            )
+        handler = handlers[0]["handler"]
+        if handler.get("kind") != "record-sync-server-error-handler":
+            raise ContractError(
+                "background-task error case must use the source sync callback recipe"
+            )
     if endpoint_kind == "http-exception":
         if {"kind": "status-code", "status_code": 500} not in keys or {
             "kind": "exception-class",
@@ -17454,6 +17477,9 @@ def _validate_exception_handler_recipe(value: Any, context: str) -> None:
         _string(value["content"], f"{context}.content")
         if value["status_code"] != 500:
             raise ContractError(f"{context}.status_code must be 500")
+    elif kind == "record-sync-server-error-handler":
+        _exact(value, {"kind", "label"}, context)
+        _string(value["label"], f"{context}.label")
     elif kind == "websocket-close-handler":
         _exact(value, {"kind", "label", "callable_kind", "code"}, context)
         _string(value["label"], f"{context}.label")
@@ -24106,6 +24132,9 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                         action["action"] == "raise-runtime-error" for action in endpoint["actions"]
                     ):
                         coverage.add("starlette.asgi.server-error.response-started")
+                elif endpoint["kind"] == "response-background-task-error":
+                    if has_exception:
+                        coverage.add("starlette.asgi.server-error.background-task-failure")
                 elif endpoint["kind"] == "http-exception" and endpoint["status_code"] == 500:
                     if has_status_500 and any(
                         key == {"kind": "exception-class", "name": "HTTPException"}

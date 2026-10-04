@@ -1114,6 +1114,17 @@ def _materialize_exception_handlers(
             raise ValueError(f"{context}.handler must use a tagged handler recipe")
 
         def make_handler(spec: dict[str, Any]) -> Any:
+            if spec.get("kind") == "record-sync-server-error-handler":
+                _strict_object(
+                    spec,
+                    {"kind", "label"},
+                    "sync server-error callback",
+                )
+
+                def record_server_error(_request: Any, _exc: Exception) -> None:
+                    handler_calls.append(spec["label"])
+
+                return record_server_error
             if spec.get("kind") == "websocket-close-handler":
                 _strict_object(
                     spec,
@@ -1350,6 +1361,7 @@ def _materialize_application(
     app_spec: dict[str, Any],
 ) -> tuple[Any, list[str], list[dict[str, Any]], Any, list[dict[str, Any]]]:
     from starlette.applications import Starlette
+    from starlette.background import BackgroundTask
     from starlette.exceptions import HTTPException, WebSocketException
     from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
     from starlette.routing import Mount, Route, WebSocketRoute
@@ -1714,6 +1726,27 @@ def _materialize_application(
                 return endpoint
 
             route_endpoint = make_endpoint(response_spec)
+        elif response_spec["kind"] == "response-background-task-error":
+            _strict_object(
+                response_spec,
+                {"kind", "status_code", "exception_class", "message"},
+                "response background-task error endpoint",
+            )
+
+            def make_background_task_error_endpoint(spec: dict[str, Any]) -> Any:
+                exception_type = getattr(builtins, spec["exception_class"])
+
+                def fail_background_task() -> None:
+                    raise exception_type(spec["message"])
+
+                background_task = BackgroundTask(fail_background_task)
+
+                async def endpoint(_request: Any) -> Any:
+                    return Response(status_code=spec["status_code"], background=background_task)
+
+                return endpoint
+
+            route_endpoint = make_background_task_error_endpoint(response_spec)
         elif response_spec["kind"] == "sync-plain-text-response":
             _strict_object(
                 response_spec,
@@ -12977,6 +13010,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         in {
             "asgi-callable-action-sequence",
             "raise-runtime-error",
+            "response-background-task-error",
         }
         or route_spec.get("kind") == "websocket-route"
     )

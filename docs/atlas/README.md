@@ -25,8 +25,8 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 890 input-only cases across
-88 indexed files, 103 operations, and 872 requirements. It includes direct
+active and incomplete. The current contract has 891 input-only cases across
+88 indexed files, 103 operations, and 873 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract, WebSocket text,
@@ -35,11 +35,11 @@ disconnect case, and four TestClient TrustedHost
 cases for exact/wildcard acceptance, invalid-host rejection, and HTTPS www
 redirect following. Seven QueryParams cases
 map equality and blank-value behavior to two pinned test rows. The latest
-full-slice run `37eb3205-024f-4583-8c7b-1a3d55243bf1` passed 1,122 of 1,126
+full-slice run `badedb95-0ee1-438e-9cd3-a7db214c8dad` passed 1,123 of 1,127
 selected profile comparisons, with zero failures or infrastructure errors and
 four Rust-native Python-callable rows `not_run`. The Python package passed
-888/888; Rust-native passed 234/238. The latest WebSocket header input also
-passes source/package comparison. The new GZip streaming-response case
+889/889; Rust-native passed 234/238. The new background-task server-error case
+and latest WebSocket header input pass source/package comparison. The GZip streaming-response case
 passes against both targets. Six protected WebSocket authentication
 cases pass source/package comparison for plain and injection-wrapped routes
 with missing, malformed, and valid Basic credentials. Three documentation-derived
@@ -76,8 +76,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix currently has 802 source rows: 623 input
-mappings, 51 reasoned `not_applicable` rows, and 128 fixture-backlog rows.
+The generated coverage matrix currently has 802 source rows: 624 input
+mappings, 51 reasoned `not_applicable` rows, and 127 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
