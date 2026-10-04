@@ -32,15 +32,16 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 898 input-only cases in 89 indexed files,
-covering 104 operations and 878 requirements, including direct FormData
+The active parity contract contains 910 input-only cases in 90 indexed files,
+covering 104 operations and 888 requirements, including direct FormData
 constructor/equality inputs; direct UploadFile constructor/repr, spooled-file
 rollover, and threadpool-boundary inputs, and Python-package-only
 GZip final and streaming response inputs at the `thread_minimum_size` boundary, an input-defined shared
 AnyIO thread-pool limiter case and input-derived generic
 `Request[State]` and `WebSocket[State]` type contracts, four source-shaped
 TrustedHost TestClient workflows for exact/wildcard acceptance, invalid-host
-rejection, and HTTPS www redirect following, Rust-backed
+rejection, and HTTPS www redirect following, plus TestClient base-URL
+path-prefix merging and default redirect following, Rust-backed
 `CommaSeparatedStrings` parsing, quoting, sequence formatting, Python
 string-subclass boundary behavior, and lone-surrogate values, the direct
 `starlette.concurrency.run_in_threadpool` helper, including the shared AnyIO
@@ -93,8 +94,8 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The generated coverage matrix contains 802 source rows: 632 input mappings,
-51 source-backed `not_applicable` rows, and 119 fixture-backlog rows. These
+The generated coverage matrix contains 804 source rows: 645 input mappings,
+51 source-backed `not_applicable` rows, and 108 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.
@@ -502,9 +503,11 @@ behaviors.
 This remains a bounded slice. Additional synchronous cancellation schedules,
 context variables, concurrency, and broader middleware/error interactions with
 background failures remain unproven. The latest integrated full-slice run
-`ff823221-0e52-416a-b287-2a19ca4fc06f` selected 1,142 comparisons; the Python
-package passed 895/895 and Rust-native passed 243/247, with four
-Request-dispatch callable rows marked `not_run`.
+`6d05fbc6-aef3-47d1-b0a7-82d390e9c117` selected 1,156 comparisons; the Python
+package passed 908/908 and Rust-native passed 244/248, with four
+Request-dispatch callable rows marked `not_run`. The TestClient base-URL
+path-prefix merge and followed-redirect inputs passed exact source/package
+comparison.
 
 ### HTTPException default-response slice: bounded parity verified
 

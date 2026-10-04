@@ -25,14 +25,15 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 897 input-only cases across
-88 indexed files, 103 operations, and 877 requirements. It includes direct
+active and incomplete. The current contract has 910 input-only cases across
+90 indexed files, 104 operations, and 888 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract, WebSocket text,
 bytes, and JSON send/receive exchange cases, a send-callback `OSError`
 disconnect case, and four TestClient TrustedHost
 cases for exact/wildcard acceptance, invalid-host rejection, and HTTPS www
+redirect following, plus TestClient base-URL path-prefix merging and default
 redirect following. Seven QueryParams cases
 map equality and blank-value behavior to two pinned test rows. A FileResponse
 case compares input-defined background-task completion after response sends. The literal GET
@@ -40,11 +41,12 @@ case compares input-defined background-task completion after response sends. The
 profiles; the upstream test does not call `Router.add_route`. The live-route
 mutation case also passes on both profiles, exercising method addition and
 route append after earlier dispatches. The latest full-slice run
-`ff823221-0e52-416a-b287-2a19ca4fc06f` passed 1,138 of 1,142 selected profile
+`6d05fbc6-aef3-47d1-b0a7-82d390e9c117` passed 1,152 of 1,156 selected profile
 comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 895/895; Rust-native
-passed 243/247. Both TestClient Request.url_for cases passed source/package
-comparison: the bare-ASGI case preserves the missing-context exception, and
+Python-callable rows `not_run`. The Python package passed 908/908; Rust-native
+passed 244/248. Both new TestClient URL-prefix merge and followed-redirect
+cases passed source/package comparison, as did both TestClient Request.url_for
+cases: the bare-ASGI case preserves the missing-context exception, and
 the custom-middleware case resolves `homepage` to `http://testserver/home`.
 The root-Mount and Router-middleware cases, live Router mutation, and literal
 GET `/func` case also passed; the upstream `/func` test does not call
@@ -92,21 +94,21 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix currently has 802 source rows: 631 input
-mappings, 51 reasoned `not_applicable` rows, and 120 fixture-backlog rows.
+The generated coverage matrix currently has 804 source rows: 645 input
+mappings, 51 reasoned `not_applicable` rows, and 108 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). Run
-`fbe9ec7c-16a2-4d31-8f6a-21a0a86a7c74` measured all 74 source/package
+`3d1c47ad-65e2-48a5-b42b-b943499d60df` measured all 74 source/package
 workloads on clean commit
-`5ddf624ee352f8ef4bd9c2944556b6ecd34c42c0`: six Router and 68 GZip, with zero
+`c2f254b89b3748209e4c60998850ce41a635dfac`: six Router and 68 GZip, with zero
 failures and matching normalized observations for all 74. Its correctness
-preflight `ff823221-0e52-416a-b287-2a19ca4fc06f` selected 1,142 comparisons
-(1,138 passed, zero failures, zero infrastructure errors, four declared
-Rust-native `not_run`). The Python package passed 895/895; Rust-native passed
-243/247. Median source/package latency ratios were 0.740 for Router and 0.978
-for GZip. Source latency was lower in 5/6 Router and 55/68 GZip workloads.
+preflight `6d05fbc6-aef3-47d1-b0a7-82d390e9c117` selected 1,156 comparisons
+(1,152 passed, zero failures, zero infrastructure errors, four declared
+Rust-native `not_run`). The Python package passed 908/908; Rust-native passed
+244/248. Median source/package latency ratios were 0.743 for Router and 0.965
+for GZip. Source latency was lower in 5/6 Router and 54/68 GZip workloads.
 Rust-native remains `not_run` for these 74 benchmark workload boundaries.
 These results do not establish full Starlette compatibility.
 
@@ -295,8 +297,8 @@ selector. A related route or response example is not enough to claim coverage
 for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
-and observes it. The checked-in generated `coverage-matrix.csv` has 802 source rows:
-435 `existing` mappings, 316 `backlog` rows, and 51 reasoned `not_applicable`
+and observes it. The checked-in generated `coverage-matrix.csv` has 804 source rows:
+645 `existing` mappings, 108 `backlog` rows, and 51 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity

@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@34` and indexes 898 input-only
-cases across 89 files, covering 104 operations and 878 unique parity requirements. Recent parity inputs
+The active parity manifest uses `parity-input@34` and indexes 910 input-only
+cases across 90 files, covering 104 operations and 888 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -26,9 +26,11 @@ docstrings and mounted/hosted routes, and exercise its hidden `/schema` endpoint
 through the installed ASGI application. The active fixtures also
 map 11 routed protected-HTTP
 authentication behaviors and six protected-WebSocket authentication behaviors
-from the pinned auth tests. Four new TestClient cases
-cover TrustedHost exact and wildcard acceptance, invalid-host rejection, and
-following the HTTPS `www` redirect. Recent additions include
+from the pinned auth tests. Four TestClient cases cover TrustedHost exact and
+wildcard acceptance, invalid-host rejection, and following the HTTPS `www`
+redirect. Two additional TestClient inputs cover base-URL path-prefix merging
+and default redirect following through an input-defined raw ASGI path-response
+map. Recent additions include
 direct FormData constructor/equality inputs; direct UploadFile constructor/repr, rollover, and threadpool-boundary cases; a ten-chunk 400-byte GZip streaming response using public defaults; and GZip final and
 streaming responses at the configured `thread_minimum_size` boundary. Other recent
 inputs compare generic `Request[State]` and
@@ -127,16 +129,17 @@ for both one repeated name and multiple repeated names, and passed source/packag
 comparison.
 
 The latest clean full-slice correctness preflight
-`4042a0c1-2fdd-4966-96ac-3010bf4bf02d` ran from `2026-10-04T07:54:18.507Z`
-to `2026-10-04T07:58:01.124Z`. It used 898 input-only cases, 878 requirements,
+`6d05fbc6-aef3-47d1-b0a7-82d390e9c117` ran from `2026-10-04T11:39:20.497Z`
+to `2026-10-04T11:43:40.766Z`. It used 910 input-only cases, 888 requirements,
 and `parity-input@34` from manifest SHA-256
-`e07358c9560a810d9ab79aedaf64a17bd541196d787ab4e773c84aea69c429e5` on clean
-commit `ed406af230084d4ab953acdbd184286687f943d7`.
+`f77de55f7005740be2e64bf7b780dd0a76eb64cb29bce9379decfb13d7affb8f` on clean
+commit `c2f254b89b3748209e4c60998850ce41a635dfac`.
 
-It selected 1,143 profile comparisons: 1,139 passed, zero failed, zero
+It selected 1,156 profile comparisons: 1,152 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
-`not_run`. The Python-package profile passed 896/896; Rust-native passed
-243/247. The `ExceptionMiddleware.__init__` type-contract input maps the pinned
+`not_run`. The Python-package profile passed 908/908; Rust-native passed
+244/248. The TestClient URL-prefix merge and followed-redirect inputs both
+passed source/package comparison. The `ExceptionMiddleware.__init__` type-contract input maps the pinned
 `test_handlers_annotations` test and records equal source/package Mypy
 constructor reveals, acceptance of sync and async catch-all handlers, and the
 same rejection diagnostic for an incompatible `int` return annotation.
@@ -144,18 +147,18 @@ same rejection diagnostic for an incompatible `int` return annotation.
 The four Rust-native `not_run` rows remain synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 The clean installed wheel SHA-256 is
-`ef9fb60622d93ae5efede77d7de48fe1bfc3544ff8409018c2ca537dedab6600`; the
+`86a4aaff37a90f875cb1557adbd7cef15404f72e37fd93ec8c212e1c66ad3ac1`; the
 preflight result artifact SHA-256 is
-`2d1034efbe0788c986884931ae39b2572673ae8ff5e76397f643e11cbc8b3982` at
+`0b07af974ea986e2069ed16a3a0536d7ca4c7bbef0d40bdb6a156af4518b4ca1` at
 `build/parity/upstream-benchmark-correctness-result.json`.
 
 The latest clean Router/GZip benchmark run
-`dda4d0ff-03c9-48d9-8475-1e1c987b7149` measured all 74 source/package workloads
-on commit `ed406af230084d4ab953acdbd184286687f943d7`: six Router and 68 GZip,
+`3d1c47ad-65e2-48a5-b42b-b943499d60df` measured all 74 source/package workloads
+on commit `c2f254b89b3748209e4c60998850ce41a635dfac`: six Router and 68 GZip,
 with zero failures and matching normalized observations. The Python package
-passed 896/896 preflight comparisons; four Rust-native preflight rows remain
-`not_run`. Median source/package latency ratios were 0.740 for Router and
-0.975 for GZip. Source latency was lower in 5/6 Router and 62/68 GZip
+passed 908/908 preflight comparisons; four Rust-native preflight rows remain
+`not_run`. Median source/package latency ratios were 0.743 for Router and
+0.965 for GZip. Source latency was lower in 5/6 Router and 54/68 GZip
 workloads. These workload-specific results do not establish full Starlette
 compatibility.
 
@@ -167,20 +170,20 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`fbe9ec7c-16a2-4d31-8f6a-21a0a86a7c74` measured all 74 source/package workloads
-on clean commit `5ddf624ee352f8ef4bd9c2944556b6ecd34c42c0`: six Router and 68
+`3d1c47ad-65e2-48a5-b42b-b943499d60df` measured all 74 source/package workloads
+on clean commit `c2f254b89b3748209e4c60998850ce41a635dfac`: six Router and 68
 GZip, with zero failures and matching normalized observations for all 74
-workloads. Its correctness preflight is the full-slice run above: 1,142
-comparisons, 1,138 passed, zero failures, zero infrastructure errors, and four
-Rust-native `not_run`; the Python package passed 895/895 and Rust-native passed
-243/247. Median source/package latency ratios were 0.740 for Router and 0.978
-for GZip. Source latency was lower in 5/6 Router and 55/68 GZip workloads.
+workloads. Its correctness preflight is the full-slice run above: 1,156
+comparisons, 1,152 passed, zero failures, zero infrastructure errors, and four
+Rust-native `not_run`; the Python package passed 908/908 and Rust-native passed
+244/248. Median source/package latency ratios were 0.743 for Router and 0.965
+for GZip. Source latency was lower in 5/6 Router and 54/68 GZip workloads.
 These workload-specific results do not establish full Starlette
 compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 802 source rows: 632 input mappings,
-51 reasoned `not_applicable` rows, and 119 fixture backlog rows. Derive these
+The generated coverage matrix currently has 804 source rows: 645 input mappings,
+51 reasoned `not_applicable` rows, and 108 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
