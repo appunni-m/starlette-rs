@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@37",
+  "schema": "migration-parity/parity-input@38",
   "cases": [
     {
       "case_id": "starlette.datastructures.UploadFile.file-operations.spooled-file-rollover",

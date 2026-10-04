@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@37` with 926 input-only cases in 91
-indexed files: 924 oracle parity cases and two target-only fault contracts. It
+The active contract uses `parity-input@38` with 927 input-only cases in 91
+indexed files: 925 oracle parity cases and two target-only fault contracts. It
 covers 104 operations and 899 parity requirements. The older full-slice run
 was recorded against the preceding manifest revision:
 `a0bcf0da-4746-4490-843d-45653d987ea1` selected 1,160 profile comparisons:
@@ -58,7 +58,7 @@ contracts; the fault rows retain oracle applicability `not_applicable`. This
 selected batch makes no new coverage claim and does not rerun the full suite.
 Evidence details are in [Migration parity contract and evidence](../PARITY.md).
 
-The active 926-case contract maps `routing.test_raise_on_shutdown` to an actual
+The preceding 926-case contract maps `routing.test_raise_on_shutdown` to an actual
 `Router(lifespan=...)` used through TestClient. Selected run
 `c5a9cc24-5d27-40d3-ab2f-52e6781d6ee6` passed the source/package comparison and
 both target-only route-cache fault contracts; the fault rows remain
@@ -69,7 +69,27 @@ manifest SHA-256 is
 normal selected run does not claim full-suite parity; the incremental coverage
 comparison is recorded below.
 
-The clean full-manifest preflight used by the active benchmark run
+The active 927-case contract maps `routing.test_raise_on_startup` to an actual
+`Router(lifespan=...)` whose input-defined lifespan context manager raises
+`RuntimeError` before yielding. Instrumented selected run
+`1323e01e-4cac-40fb-a940-88d31f770fca` passed the source/package comparison and
+both target-only route-cache fault contracts; fault applicability remains
+`not_applicable`. Its result SHA-256 is
+`a60726b009a3a37734c53df8d7cf63782694763c114e1e8244980dfcc2e7c6a1`, and the
+active manifest SHA-256 is
+`800e7040a68b7ace38b5b0ce253a0d6c61d310ea5d684c63dab880833e2a151b`.
+
+Coverage MCP verified 378 newly covered Rust lines (1.540 percentage points)
+against a matching normal-route baseline: baseline 2,774/24,539, batch
+2,491/24,539, and union 3,152/24,539. The result is `improved`; full-suite
+regression status is unknown because the full suite was not rerun. The
+comparison binds to target tree SHA-256
+`4a20992251ed71021e5b00dc139989618fef141a04e19ce62022488fe5de3655` and
+instrumented wheel SHA-256
+`4a7f21daede2267586ddbb9d7ced7d8993fd9a4a9b8e46bd178ef8c76b48bd2a`; see
+[Migration parity contract and evidence](../PARITY.md) for run IDs and receipts.
+
+The preceding clean full-manifest preflight for the 926-case contract
 `5a69e4da-e6e8-47d6-b4d9-01f613c41e77` selected 1,172 profile comparisons:
 1,168 passed, zero failed, zero infrastructure errors, and four Rust-native
 callable-boundary rows were `not_run`. The installed Python package passed
@@ -121,8 +141,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 657 input mappings,
-51 source-backed `not_applicable` rows, and 96 fixture-backlog rows, as
+The current coverage matrix has 804 source rows: 658 input mappings,
+51 source-backed `not_applicable` rows, and 95 fixture-backlog rows, as
 reported by the generated atlas. The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 

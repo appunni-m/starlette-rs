@@ -31,7 +31,7 @@ from .fault_contracts import (
 )
 
 MANIFEST_SCHEMA = "migration-parity/manifest@4"
-INPUT_SCHEMA = "migration-parity/parity-input@37"
+INPUT_SCHEMA = "migration-parity/parity-input@38"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@6"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -13765,7 +13765,33 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         )
         scope_mutations = asgi_app["scope_mutations"]
         callback_value = asgi_app["callback"]
-        if isinstance(callback_value, dict) and "exit_error" in callback_value:
+        if isinstance(callback_value, dict) and "entry_error" in callback_value:
+            callback = _exact(
+                callback_value,
+                {"entry_error"},
+                "Starlette Router startup-error callback",
+            )
+            if (
+                client_operations != ["enter"]
+                or asgi_app["scope_fields"] != ["type"]
+                or scope_mutations != []
+            ):
+                raise ContractError(
+                    "Starlette Router startup-error cases require enter, type-only scope, and no scope mutations"
+                )
+            error = _exact(
+                callback["entry_error"],
+                {"exception_type", "message"},
+                "Starlette Router lifespan entry error",
+            )
+            if error["exception_type"] != "RuntimeError":
+                raise ContractError("Starlette Router startup errors currently use RuntimeError")
+            if not isinstance(error["message"], str):
+                raise ContractError(
+                    "Starlette Router lifespan entry error message must be a string"
+                )
+            expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"]}
+        elif isinstance(callback_value, dict) and "exit_error" in callback_value:
             callback = _exact(
                 callback_value,
                 {"entry_effect", "exit_error"},
