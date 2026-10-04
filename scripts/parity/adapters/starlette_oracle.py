@@ -3420,6 +3420,19 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 or endpoint_spec["stop_after_chunks"] < 1
             ):
                 raise ValueError("BaseHTTPMiddleware request-stream endpoint input is invalid")
+        elif route_kind == "request-body-client-disconnect-response":
+            endpoint_spec = _strict_object(
+                endpoint_spec,
+                {"kind", "unexpected_exception_message"},
+                "BaseHTTPMiddleware client-disconnect endpoint",
+            )
+            if (
+                not isinstance(endpoint_spec["unexpected_exception_message"], str)
+                or not endpoint_spec["unexpected_exception_message"]
+            ):
+                raise ValueError("client-disconnect unexpected exception message must be non-empty")
+            if route_spec["methods"] != ["GET"]:
+                raise ValueError("client-disconnect endpoint must use the pinned GET route")
         elif route_kind == "file-response":
             endpoint_spec = _strict_object(
                 endpoint_spec,
@@ -3478,10 +3491,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("BaseHTTPMiddleware route endpoint kind is unsupported")
 
     middleware_specs = application["middleware"]
-    if not isinstance(middleware_specs, list) or len(middleware_specs) not in {1, 3}:
-        raise ValueError(
-            "BaseHTTPMiddleware workflow requires one Middleware or a three-layer state stack"
-        )
+    if not isinstance(middleware_specs, list) or not middleware_specs:
+        raise ValueError("BaseHTTPMiddleware workflow requires configured middleware")
     middleware_layers = [
         _strict_object(
             value,
@@ -3492,7 +3503,28 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     ]
     if any(layer["kind"] != "base-http-middleware" for layer in middleware_layers):
         raise ValueError("configured middleware must be a BaseHTTPMiddleware subclass")
-    stacked_request_state = len(middleware_layers) == 3
+    layer_kinds = []
+    for layer in middleware_layers:
+        layer_actions = layer["dispatch_actions"]
+        if isinstance(layer_actions, list):
+            layer_kinds.extend(
+                action.get("kind")
+                for action in layer_actions
+                if isinstance(action, dict) and isinstance(action.get("kind"), str)
+            )
+    stacked_request_state = (
+        len(middleware_layers) == 3
+        and any(kind == "set-request-state" for kind in layer_kinds)
+        and any(kind == "set-call-next-response-header-from-request-state" for kind in layer_kinds)
+    )
+    lifecycle_action_kinds = {
+        "append-middleware-event",
+        "observe-call-next-response-background",
+        "set-call-next-response-background-task",
+    }
+    stacked_disconnect_lifecycle = len(middleware_layers) > 1 and bool(
+        lifecycle_action_kinds.intersection(layer_kinds)
+    )
     stacked_state_header_mutation = False
     if stacked_request_state:
         if (
@@ -3553,6 +3585,87 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     raise ValueError(f"{context} has an unsupported state-stack action")
             if not layer_awaited or not layer_returned:
                 raise ValueError("each middleware layer must await and return call_next")
+    elif stacked_disconnect_lifecycle:
+        if (
+            route_spec is None
+            or route_kind != "request-body-client-disconnect-response"
+            or route_spec["methods"] != ["GET"]
+        ):
+            raise ValueError("middleware lifecycle stack requires the direct GET disconnect route")
+        for layer_index, layer in enumerate(middleware_layers):
+            layer_actions = layer["dispatch_actions"]
+            if not isinstance(layer_actions, list) or not layer_actions:
+                raise ValueError("BaseHTTPMiddleware dispatch_actions must be non-empty")
+            layer_awaited = False
+            layer_returned = False
+            counts = {"started": 0, "completed": 0, "background-state": 0, "background-task": 0}
+            for action_index, raw_action in enumerate(layer_actions):
+                context = f"BaseHTTPMiddleware layer[{layer_index}] action[{action_index}]"
+                if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
+                    raise ValueError(f"{context} must be tagged")
+                kind = raw_action["kind"]
+                if kind == "append-middleware-event":
+                    action = _strict_object(raw_action, {"kind", "phase", "value"}, context)
+                    if (
+                        not isinstance(action["value"], str)
+                        or not action["value"]
+                        or not isinstance(action["phase"], str)
+                        or action["phase"] not in {"started", "completed"}
+                    ):
+                        raise ValueError("middleware event input requires a phase and value")
+                    if action["phase"] == "started":
+                        if layer_awaited or layer_returned:
+                            raise ValueError("middleware start events must precede call_next")
+                    elif not layer_awaited or layer_returned:
+                        raise ValueError("middleware completion events must follow call_next")
+                    counts[action["phase"]] += 1
+                elif kind == "await-call-next":
+                    _strict_object(raw_action, {"kind"}, context)
+                    if layer_awaited or layer_returned:
+                        raise ValueError("each middleware layer must await call_next once")
+                    layer_awaited = True
+                elif kind == "observe-call-next-response-background":
+                    action = _strict_object(raw_action, {"kind", "label"}, context)
+                    if (
+                        not isinstance(action["label"], str)
+                        or not action["label"]
+                        or not layer_awaited
+                        or layer_returned
+                    ):
+                        raise ValueError("response-background observation must follow call_next")
+                    counts["background-state"] += 1
+                elif kind == "set-call-next-response-background-task":
+                    action = _strict_object(raw_action, {"kind", "value"}, context)
+                    if (
+                        not isinstance(action["value"], str)
+                        or not action["value"]
+                        or not layer_awaited
+                        or layer_returned
+                    ):
+                        raise ValueError("middleware background task must follow call_next")
+                    counts["background-task"] += 1
+                elif kind == "return-call-next-response":
+                    _strict_object(raw_action, {"kind"}, context)
+                    if (
+                        not layer_awaited
+                        or layer_returned
+                        or action_index != len(layer_actions) - 1
+                    ):
+                        raise ValueError("each middleware layer must return call_next's response")
+                    layer_returned = True
+                else:
+                    raise ValueError(f"{context} has an unsupported lifecycle-stack action")
+            if (
+                not layer_awaited
+                or not layer_returned
+                or counts
+                != {"started": 1, "completed": 1, "background-state": 1, "background-task": 1}
+            ):
+                raise ValueError(
+                    "each lifecycle layer requires one start, completion, and background observation"
+                )
+    elif len(middleware_layers) > 1:
+        raise ValueError("multi-layer BaseHTTPMiddleware input requires a declared stack workflow")
     middleware_spec = middleware_layers[0]
     dispatch_actions = middleware_spec["dispatch_actions"]
     if not isinstance(dispatch_actions, list) or not dispatch_actions:
@@ -3656,6 +3769,37 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             ):
                 raise ValueError("state-derived response header input is invalid")
             saw_header_mutation = True
+        elif kind == "append-middleware-event":
+            action = _strict_object(raw_action, {"kind", "phase", "value"}, context)
+            if (
+                not isinstance(action["value"], str)
+                or not action["value"]
+                or not isinstance(action["phase"], str)
+                or action["phase"] not in {"started", "completed"}
+            ):
+                raise ValueError("middleware event input requires a phase and value")
+            if action["phase"] == "started" and (awaited or returned is not None):
+                raise ValueError("middleware start events must precede call_next")
+            if action["phase"] == "completed" and (not awaited or returned is not None):
+                raise ValueError("middleware completion events must follow call_next")
+        elif kind == "observe-call-next-response-background":
+            action = _strict_object(raw_action, {"kind", "label"}, context)
+            if (
+                not isinstance(action["label"], str)
+                or not action["label"]
+                or not awaited
+                or returned is not None
+            ):
+                raise ValueError("response-background observation must follow call_next")
+        elif kind == "set-call-next-response-background-task":
+            action = _strict_object(raw_action, {"kind", "value"}, context)
+            if (
+                not isinstance(action["value"], str)
+                or not action["value"]
+                or not awaited
+                or returned is not None
+            ):
+                raise ValueError("middleware background task must follow call_next")
         elif kind == "return-call-next-response":
             _strict_object(raw_action, {"kind"}, context)
             if not awaited or returned is not None or index != len(dispatch_actions) - 1:
@@ -3932,6 +4076,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.shared-request-state-across-middleware-layers"
         )
+    if stacked_disconnect_lifecycle:
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.stacked-client-disconnect-background-lifecycle"
+        )
     if returned == "replacement":
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response"
@@ -3962,8 +4110,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         downstream_spec is not None and downstream_spec["kind"] == "request-stream-asgi-endpoint"
     )
     source_sparse_scope = (
-        background_task_case and background_task_spec["kind"] == "async-delay"
-    ) or direct_request_stream_endpoint
+        (background_task_case and background_task_spec["kind"] == "async-delay")
+        or direct_request_stream_endpoint
+        or route_kind == "request-body-client-disconnect-response"
+    )
     if direct_request_stream_endpoint:
         scope_spec = _strict_object(
             scope_value, {"type"}, "BaseHTTPMiddleware direct ASGI HTTP scope"
@@ -3977,7 +4127,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             "BaseHTTPMiddleware source-direct HTTP scope",
         )
         if scope_spec != {"type": "http", "version": "3", "method": "GET", "path": "/"}:
-            raise ValueError("background task case must preserve the pinned source's direct scope")
+            raise ValueError("direct ASGI case must preserve the pinned source scope")
     else:
         if isinstance(scope_value, dict) and "extensions" in scope_value:
             scope_keys.add("extensions")
@@ -4087,9 +4237,17 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         len(disconnect_event_indices) != 1 or disconnect_event_indices[0] != len(receive_specs) - 1
     ):
         raise ValueError("BaseHTTPMiddleware request input may end with one disconnect event")
-    if disconnect_event_indices and (
-        downstream_spec is None
-        or downstream_spec["kind"] not in {"disconnect-polling-app", "receive-sequence-app"}
+    if (
+        disconnect_event_indices
+        and (
+            downstream_spec is None
+            or downstream_spec["kind"] not in {"disconnect-polling-app", "receive-sequence-app"}
+        )
+        and not (
+            route_kind == "request-body-client-disconnect-response"
+            and not request_event_specs
+            and receive_specs == [{"type": "http.disconnect"}]
+        )
     ):
         raise ValueError("explicit http.disconnect input requires a downstream disconnect case")
     receive_after_events = request["receive_after_events"]
@@ -4105,6 +4263,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         allowed_receive_exceptions = (
             {"NotImplementedError"}
             if file_response_pathsend or (background_task_case and source_sparse_scope)
+            else {"StopAsyncIteration"}
+            if route_kind == "request-body-client-disconnect-response"
             else {"AssertionError"}
         )
         if (
@@ -4121,6 +4281,17 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         or len(set(send_checkpoints)) != len(send_checkpoints)
     ):
         raise ValueError("send_checkpoints must contain unique output-send indices from 0 to 2")
+    if route_kind == "request-body-client-disconnect-response" and (
+        receive_specs != [{"type": "http.disconnect"}]
+        or request["receive_after_events"]
+        != {"kind": "raise", "class": "StopAsyncIteration", "message": ""}
+        or send_checkpoints
+    ):
+        raise ValueError(
+            "client-disconnect route must preserve the pinned one-event receive sequence"
+        )
+    if stacked_disconnect_lifecycle and receive_specs != [{"type": "http.disconnect"}]:
+        raise ValueError("middleware lifecycle stack requires one initial http.disconnect event")
 
     request_body = b"".join(
         _decode_b64(item["body_base64"], "BaseHTTPMiddleware request body")
@@ -4608,6 +4779,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     response_complete = asyncio.Event()
     background_task_run = asyncio.Event()
     background_task_events: list[dict[str, Any]] = []
+    middleware_dispatch_events: list[str] = []
+    middleware_background_events: list[str] = []
+    middleware_response_background_states: list[dict[str, Any]] = []
+    endpoint_body_events: list[dict[str, Any]] = []
 
     class InputDefinedBaseHTTPMiddleware(BaseHTTPMiddleware):
         def __init__(self, app: Any, dispatch_actions_for_case: list[dict[str, Any]] | None = None):
@@ -4720,6 +4895,22 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     response.headers[action["name"]] = action["value"]
                 elif kind == "set-call-next-response-header-from-request-state":
                     response.headers[action["name"]] = getattr(request.state, action["state_name"])
+                elif kind == "append-middleware-event":
+                    middleware_dispatch_events.append(action["value"])
+                elif kind == "observe-call-next-response-background":
+                    middleware_response_background_states.append(
+                        {
+                            "label": action["label"],
+                            "has_background": response.background is not None,
+                        }
+                    )
+                elif kind == "set-call-next-response-background-task":
+                    background_value = action["value"]
+
+                    def record_middleware_background(value: str = background_value) -> None:
+                        middleware_background_events.append(value)
+
+                    response.background = BackgroundTask(record_middleware_background)
                 elif kind == "return-call-next-response":
                     return response
                 elif kind == "return-plain-text-response":
@@ -4739,6 +4930,18 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     {"body_base64": base64.b64encode(body).decode("ascii")}
                 )
                 return PlainTextResponse(body)
+        elif route_kind == "request-body-client-disconnect-response":
+            from starlette.requests import ClientDisconnect
+
+            async def endpoint(request: Any) -> Any:
+                try:
+                    await request.body()
+                except ClientDisconnect as exc:
+                    endpoint_body_events.append(
+                        {"kind": "client-disconnect", "exception_class": type(exc).__name__}
+                    )
+                    return Response(b"")
+                raise AssertionError(endpoint_spec["unexpected_exception_message"])
         elif route_kind == "request-body-plain-text-response":
             response_content = endpoint_spec["content"]
             response_status_code = endpoint_spec["status_code"]
@@ -5212,6 +5415,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "request_receive_events": request_receive_events,
         "execution_trace": execution_trace,
         "propagated_exception": propagated_exception,
+        "middleware_dispatch_events": middleware_dispatch_events,
+        "middleware_background_events": sorted(middleware_background_events),
+        "middleware_response_background_states": middleware_response_background_states,
+        "endpoint_body_events": endpoint_body_events,
     }
     if background_task_case:
         value.update(

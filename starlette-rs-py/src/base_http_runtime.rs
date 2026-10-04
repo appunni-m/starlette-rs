@@ -1193,6 +1193,7 @@ impl PyBaseHTTPResponse {
         _scope: Py<PyAny>,
         _receive: Py<PyAny>,
         send: Py<PyAny>,
+        background: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         into_python_awaitable(
             py,
@@ -1202,6 +1203,11 @@ impl PyBaseHTTPResponse {
                 info: self.info.as_ref().map(|value| value.clone_ref(py)),
                 receive_stream: self.receive_stream.clone_ref(py),
                 send,
+                background: if background.bind(py).is_none() {
+                    None
+                } else {
+                    Some(background)
+                },
                 phase: ResponsePhase::Start,
                 pending: None,
                 debug_sent: false,
@@ -1495,6 +1501,7 @@ enum ResponsePending {
     SendChunk { more_body: bool },
     SendFinal,
     SendPathsend,
+    RunBackground,
 }
 
 struct BaseHTTPResponseCallMachine {
@@ -1503,6 +1510,7 @@ struct BaseHTTPResponseCallMachine {
     info: Option<Py<PyAny>>,
     receive_stream: Py<PyAny>,
     send: Py<PyAny>,
+    background: Option<Py<PyAny>>,
     phase: ResponsePhase,
     pending: Option<ResponsePending>,
     debug_sent: bool,
@@ -1533,6 +1541,9 @@ impl AwaitableStateMachine for BaseHTTPResponseCallMachine {
                     }
                 }
                 Some(ResponsePending::SendFinal) | Some(ResponsePending::SendPathsend) => {
+                    self.finish_response(py)
+                }
+                Some(ResponsePending::RunBackground) => {
                     self.phase = ResponsePhase::Complete;
                     self.next_action(py)
                 }
@@ -1554,6 +1565,16 @@ impl AwaitableStateMachine for BaseHTTPResponseCallMachine {
 }
 
 impl BaseHTTPResponseCallMachine {
+    fn finish_response(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let Some(background) = self.background.as_ref() else {
+            self.phase = ResponsePhase::Complete;
+            return self.next_action(py);
+        };
+        let awaitable = background.bind(py).call0()?;
+        self.pending = Some(ResponsePending::RunBackground);
+        Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
     fn next_action(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         match self.phase {
             ResponsePhase::Start => {

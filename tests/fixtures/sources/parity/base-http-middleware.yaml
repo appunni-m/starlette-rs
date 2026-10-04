@@ -2375,6 +2375,349 @@
       "observations": [
         "base-http-workflow"
       ]
+    },
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.ten-layer-disconnect-background-lifecycle",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.stacked-client-disconnect-background-lifecycle"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "request-body-client-disconnect-response",
+              "unexpected_exception_message": "Should have raised ClientDisconnect"
+            }
+          }
+        ],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "append-middleware-event",
+                "phase": "started",
+                "value": "1:STARTED"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "append-middleware-event",
+                "phase": "completed",
+                "value": "1:COMPLETED"
+              },
+              {
+                "kind": "observe-call-next-response-background",
+                "label": "1"
+              },
+              {
+                "kind": "set-call-next-response-background-task",
+                "value": "1:BACKGROUND"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          },
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "append-middleware-event",
+                "phase": "started",
+                "value": "2:STARTED"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "append-middleware-event",
+                "phase": "completed",
+                "value": "2:COMPLETED"
+              },
+              {
+                "kind": "observe-call-next-response-background",
+                "label": "2"
+              },
+              {
+                "kind": "set-call-next-response-background-task",
+                "value": "2:BACKGROUND"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          },
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "append-middleware-event",
+                "phase": "started",
+                "value": "3:STARTED"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "append-middleware-event",
+                "phase": "completed",
+                "value": "3:COMPLETED"
+              },
+              {
+                "kind": "observe-call-next-response-background",
+                "label": "3"
+              },
+              {
+                "kind": "set-call-next-response-background-task",
+                "value": "3:BACKGROUND"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          },
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "append-middleware-event",
+                "phase": "started",
+                "value": "4:STARTED"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "append-middleware-event",
+                "phase": "completed",
+                "value": "4:COMPLETED"
+              },
+              {
+                "kind": "observe-call-next-response-background",
+                "label": "4"
+              },
+              {
+                "kind": "set-call-next-response-background-task",
+                "value": "4:BACKGROUND"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          },
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "append-middleware-event",
+                "phase": "started",
+                "value": "5:STARTED"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "append-middleware-event",
+                "phase": "completed",
+                "value": "5:COMPLETED"
+              },
+              {
+                "kind": "observe-call-next-response-background",
+                "label": "5"
+              },
+              {
+                "kind": "set-call-next-response-background-task",
+                "value": "5:BACKGROUND"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          },
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "append-middleware-event",
+                "phase": "started",
+                "value": "6:STARTED"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "append-middleware-event",
+                "phase": "completed",
+                "value": "6:COMPLETED"
+              },
+              {
+                "kind": "observe-call-next-response-background",
+                "label": "6"
+              },
+              {
+                "kind": "set-call-next-response-background-task",
+                "value": "6:BACKGROUND"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          },
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "append-middleware-event",
+                "phase": "started",
+                "value": "7:STARTED"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "append-middleware-event",
+                "phase": "completed",
+                "value": "7:COMPLETED"
+              },
+              {
+                "kind": "observe-call-next-response-background",
+                "label": "7"
+              },
+              {
+                "kind": "set-call-next-response-background-task",
+                "value": "7:BACKGROUND"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          },
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "append-middleware-event",
+                "phase": "started",
+                "value": "8:STARTED"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "append-middleware-event",
+                "phase": "completed",
+                "value": "8:COMPLETED"
+              },
+              {
+                "kind": "observe-call-next-response-background",
+                "label": "8"
+              },
+              {
+                "kind": "set-call-next-response-background-task",
+                "value": "8:BACKGROUND"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          },
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "append-middleware-event",
+                "phase": "started",
+                "value": "9:STARTED"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "append-middleware-event",
+                "phase": "completed",
+                "value": "9:COMPLETED"
+              },
+              {
+                "kind": "observe-call-next-response-background",
+                "label": "9"
+              },
+              {
+                "kind": "set-call-next-response-background-task",
+                "value": "9:BACKGROUND"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          },
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "append-middleware-event",
+                "phase": "started",
+                "value": "10:STARTED"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "append-middleware-event",
+                "phase": "completed",
+                "value": "10:COMPLETED"
+              },
+              {
+                "kind": "observe-call-next-response-background",
+                "label": "10"
+              },
+              {
+                "kind": "set-call-next-response-background-task",
+                "value": "10:BACKGROUND"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "version": "3",
+          "method": "GET",
+          "path": "/"
+        },
+        "receive": [
+          {
+            "type": "http.disconnect"
+          }
+        ],
+        "receive_after_events": {
+          "kind": "raise",
+          "class": "StopAsyncIteration",
+          "message": ""
+        },
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
     }
   ]
 }

@@ -47,7 +47,7 @@ class _StreamingResponse(Response):
         self._base_http_runtime.raw_headers = value
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        await self._base_http_runtime.asgi_call(scope, receive, send)
+        await self._base_http_runtime.asgi_call(scope, receive, send, self.background)
 
 
 class BaseHTTPMiddleware:

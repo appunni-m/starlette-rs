@@ -8,9 +8,9 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@35` with 920 input-only cases in 91
-indexed files: 918 oracle parity cases and two target-only fault contracts. It
-covers 104 operations and 895 parity requirements. The older full-slice run
+The active contract uses `parity-input@35` with 922 input-only cases in 91
+indexed files: 920 oracle parity cases and two target-only fault contracts. It
+covers 104 operations and 897 parity requirements. The older full-slice run
 was recorded against the preceding manifest revision:
 `a0bcf0da-4746-4490-843d-45653d987ea1` selected 1,160 profile comparisons:
 1,156 passed, zero failed, zero infrastructure errors, and four Rust-native
@@ -33,7 +33,15 @@ target-only fault contracts: `189e7aa9-c5e9-4da9-8b22-27761ae7e537`,
 exception-propagation case against the normal-route baseline and reported 249
 newly covered Rust lines; it did not check full-suite regressions.
 
-The current 920-case full preflight `84769d51-0203-41bf-8569-be53a5cbe99c`
+The current 922-case manifest maps the ten-layer
+`test_multiple_middlewares_stacked_client_disconnected` behavior. Selected run
+`3202352e-f31a-416f-92d0-471df84a52fa` passed that oracle comparison and both
+target-only fault contracts. Coverage MCP's matching-receipt incremental
+comparison found 1,230 newly covered Rust lines; full-suite regressions were
+not checked. The fixture mapping and evidence details are in
+[Migration parity contract and evidence](../PARITY.md).
+
+The prior 920-case full preflight `84769d51-0203-41bf-8569-be53a5cbe99c`
 passed 916/916 Python-package comparisons and both fault contracts. Rust-native
 passed 244/248; four callable-boundary cases were `not_run`. Its
 correctness-gated benchmark `d0bba2ec-079e-4d21-822e-e0ddbf0133ef` measured all
@@ -62,8 +70,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 653 input mappings,
-51 source-backed `not_applicable` rows, and 100 fixture-backlog rows, as
+The current coverage matrix has 804 source rows: 655 input mappings,
+51 source-backed `not_applicable` rows, and 98 fixture-backlog rows, as
 reported by the generated atlas. The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 
