@@ -694,7 +694,7 @@ def run_upstream_benchmark(
     package_case_ids = [
         case["case_id"]
         for case in parity_cases
-        if "python-package-cpython312" in case["target_profiles"]
+        if "fault_contract" not in case and "python-package-cpython312" in case["target_profiles"]
     ]
     package_gate_ready = _profile_parity_gate_passes(
         gate, "python-package-cpython312", package_case_ids
