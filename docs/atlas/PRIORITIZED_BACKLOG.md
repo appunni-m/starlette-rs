@@ -11,12 +11,14 @@ incomplete.
 
 The active contract contains 892 input-only cases in 88 indexed files,
 covering 103 operations and 874 parity requirements. The latest clean-tree
-preflight, `ce2e6173-733d-4c5b-ad08-fae5742b5f25`, selected 1,129 profile
-comparisons: 1,125 passed, zero failed, zero infrastructure errors, and four
+preflight, `7000023c-04e0-4cfd-ad38-35a9c55abf8b`, selected 1,130 profile
+comparisons: 1,126 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable cases were `not_run`. The Python package passed
-890/890 comparisons; Rust-native passed 235/239. The new literal GET `/func`
-Router case passes on both targets and maps the upstream `test_router_add_route`
-dispatch behavior; that test does not call `Router.add_route`.
+890/890 comparisons; Rust-native passed 236/240. The live Router mutation case
+passes on both targets and exercises method addition and route append after
+prior dispatches. The literal GET `/func` Router case also passes on both
+targets and maps dispatch in `test_router_add_route`; that test does not call
+`Router.add_route`.
 
 The generated coverage matrix contains 802 source rows: 625 input mappings,
 51 source-backed `not_applicable` entries, and 126 fixture-backlog rows. The

@@ -34,13 +34,15 @@ bytes, and JSON send/receive exchange cases, a send-callback `OSError`
 disconnect case, and four TestClient TrustedHost
 cases for exact/wildcard acceptance, invalid-host rejection, and HTTPS www
 redirect following. Seven QueryParams cases
-map equality and blank-value behavior to two pinned test rows. The new literal
-GET `/func` Router case maps the upstream dispatch check and passes on both
-target profiles; the upstream test does not call `Router.add_route`. The latest
-full-slice run `ce2e6173-733d-4c5b-ad08-fae5742b5f25` passed 1,125 of 1,129
-selected profile comparisons, with zero failures or infrastructure errors and
-four Rust-native Python-callable rows `not_run`. The Python package passed
-890/890; Rust-native passed 235/239. The background-task server-error case
+map equality and blank-value behavior to two pinned test rows. The literal GET
+`/func` Router case maps the upstream dispatch check and passes on both target
+profiles; the upstream test does not call `Router.add_route`. The live-route
+mutation case also passes on both profiles, exercising method addition and
+route append after earlier dispatches. The latest full-slice run
+`7000023c-04e0-4cfd-ad38-35a9c55abf8b` passed 1,126 of 1,130 selected profile
+comparisons, with zero failures or infrastructure errors and four Rust-native
+Python-callable rows `not_run`. The Python package passed 890/890; Rust-native
+passed 236/240. The background-task server-error case
 and latest WebSocket header input pass source/package comparison. The GZip streaming-response case
 passes against both targets. Six protected WebSocket authentication
 cases pass source/package comparison for plain and injection-wrapped routes
@@ -84,14 +86,14 @@ Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). Run
-`ccaf428c-f303-4ead-aa59-98fb375c07ad` measured all 74 source/package
+`153fdf82-dddb-444f-b1e9-62e5bfed14b3` measured all 74 source/package
 workloads on clean commit
-`9f8c853a9794f87283a7ce5ec2e3c6f1f568e916`: six Router and 68 GZip, with
+`08c55393d98a815708a9f411f2eeeed2b293f65c`: six Router and 68 GZip, with
 zero failures and matching normalized observation hashes for all 74. Its
-correctness preflight `ce2e6173-733d-4c5b-ad08-fae5742b5f25` selected 1,129
-comparisons (1,125 passed, zero failures, zero infrastructure errors, four
+correctness preflight `7000023c-04e0-4cfd-ad38-35a9c55abf8b` selected 1,130
+comparisons (1,126 passed, zero failures, zero infrastructure errors, four
 declared Rust-native `not_run`). Median
-source/package latency ratios were 0.736 for Router and 0.971 for GZip.
+source/package latency ratios were 0.731 for Router and 0.977 for GZip.
 Rust-native remains `not_run` for these 74 benchmark workload boundaries.
 These workload-specific results do not establish full Starlette compatibility.
 

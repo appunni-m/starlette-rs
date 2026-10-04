@@ -124,39 +124,40 @@ for both one repeated name and multiple repeated names, and passed source/packag
 comparison.
 
 The latest clean-tree correctness preflight is
-`ce2e6173-733d-4c5b-ad08-fae5742b5f25`. It ran from
-`2026-10-04T03:37:28.643Z` to `2026-10-04T03:40:32.703Z` against Starlette
+`7000023c-04e0-4cfd-ad38-35a9c55abf8b`. It ran from
+`2026-10-04T04:03:03.742Z` to `2026-10-04T04:05:41.760Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 892-case,
-874-requirement `parity-input@31` manifest. It selected 1,129 profile
-comparisons: 1,125 passed, zero failed, zero infrastructure errors, and four
+874-requirement `parity-input@31` manifest. It selected 1,130 profile
+comparisons: 1,126 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed 890/890 comparisons; Rust-native passed 235/239. The literal GET
-`/func` Router case passed on both profiles, selecting route index 0 and
-returning the source response. It maps dispatch in `test_router_add_route`,
-which does not call that method. The background-task server-error case
-preserved the completed 204 response and invoked the sync Exception handler
-exactly once in source and package. The WebSocketException reason input matches
-the pinned source for close code 1008 and reason `policy violation`; the custom
+passed 890/890 comparisons; Rust-native passed 236/240. The live Router
+mutation case passed on both profiles, confirming method addition and route
+append after earlier dispatches. The literal GET `/func` Router case also
+passed on both profiles and maps dispatch in `test_router_add_route`, which
+does not call that method. The background-task server-error case preserved the
+completed 204 response and invoked the sync Exception handler exactly once in
+source and package. The WebSocketException reason input matches the pinned
+source for close code 1008 and reason `policy violation`; the custom
 HTTPException handler input matches for status 429, JSON detail, and both
 exception-provided response headers. The module-global
 `starlette.config.environ` input and recent StaticFiles/TestClient cases also
 match exactly. Both targets were clean at commit
-`9f8c853a9794f87283a7ce5ec2e3c6f1f568e916`. The four native `not_run` rows
+`08c55393d98a815708a9f411f2eeeed2b293f65c`. The four native `not_run` rows
 remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
 and callable-instance ASGI dispatch. Strict aggregation remains `not_proven`
 because the compatibility denominator is incomplete and four Rust-native rows
 are `not_run`.
 
 The Rust-native target revision and source fingerprint are
-`9f8c853a9794f87283a7ce5ec2e3c6f1f568e916+source-fnv1a64-64035a396e9dceba`.
+`08c55393d98a815708a9f411f2eeeed2b293f65c+source-fnv1a64-48ddb32283c92ab1`.
 The Python-package target tree SHA-256 is
-`00b1293cfc6c2df6d5a6cd3557623a80330f8a6dbc7ecae02cebbd1a55e04ae4`; its
+`543a153ac3f3e301f6dd652e51dd7cd5353b69c67553883b9bcac7677cf1fb8f`; its
 wheel SHA-256 is
-`4539b16d346d307453afab86dd272969f7479e78828d1559fe63be2a80f2d403`. The
+`59bc2c72eb7a263edbf626bfc6f95d9b798403c4e26590f0276ac7ff6b9aa42c`. The
 manifest SHA-256 is
-`c0ec486cd19397c73d46eba18cf54ea2d396a74b92478343cd576b4c8c77d04c`, and the
+`d1f8a36d8579946cc6e3a451405393578419f352e93cf7253110f944659fbd2f`, and the
 local correctness-result artifact SHA-256 is
-`0b563390a29895069584edb6e5126bea03df1fd69eaa9959bea41ea7507fd8f6` at
+`26c8a08051a81328b73cb6e1c7412eda064b37a73d4a543894b101d013064318` at
 `build/parity/upstream-benchmark-correctness-result.json`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
@@ -167,14 +168,14 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`ccaf428c-f303-4ead-aa59-98fb375c07ad` measured all 74 source/package
+`153fdf82-dddb-444f-b1e9-62e5bfed14b3` measured all 74 source/package
 workloads on clean commit
-`9f8c853a9794f87283a7ce5ec2e3c6f1f568e916`: six Router and 68 GZip, with
+`08c55393d98a815708a9f411f2eeeed2b293f65c`: six Router and 68 GZip, with
 zero failures and matching normalized observation hashes for all 74 workloads.
-Its correctness preflight `ce2e6173-733d-4c5b-ad08-fae5742b5f25` passed
-1,125/1,129 selected comparisons: 890/890 Python-package comparisons and
-235/239 Rust-native comparisons, with four Rust-native `not_run` rows. Median
-source/package latency ratios were 0.736 for Router and 0.971 for GZip. These
+Its correctness preflight `7000023c-04e0-4cfd-ad38-35a9c55abf8b` passed
+1,126/1,130 selected comparisons: 890/890 Python-package comparisons and
+236/240 Rust-native comparisons, with four Rust-native `not_run` rows. Median
+source/package latency ratios were 0.731 for Router and 0.977 for GZip. These
 workload-specific results do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
@@ -354,10 +355,11 @@ the fixture backlog.
 `asgi-core.app.test_app_debug` is mapped to the TestClient input that mutates
 debug after construction; direct debug-enabled construction remains a separate
 documentation backlog item. The latest full-slice parity run
-`ce2e6173-733d-4c5b-ad08-fae5742b5f25` selected 1,129 comparisons: 1,125
+`7000023c-04e0-4cfd-ad38-35a9c55abf8b` selected 1,130 comparisons: 1,126
 passed with zero failures and zero infrastructure errors. The Python package
-passed 890/890 comparisons; Rust-native passed 235/239, with four unsupported
-callable rows marked `not_run`. This slice does not prove full Starlette
+passed 890/890 comparisons; Rust-native passed 236/240, with four unsupported
+callable rows marked `not_run`. The live Router method-add and route-append
+case passes on all selected profiles. This slice does not prove full Starlette
 replacement parity.
 The current Router/GZip source/package benchmark lane is
 `completed` for all 74 declared workloads, but does not establish full

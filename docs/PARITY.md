@@ -11,35 +11,35 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest clean-tree full-slice correctness preflight is
-`ce2e6173-733d-4c5b-ad08-fae5742b5f25`. It ran from
-`2026-10-04T03:37:28.643Z` to `2026-10-04T03:40:32.703Z` against Starlette
+`7000023c-04e0-4cfd-ad38-35a9c55abf8b`. It ran from
+`2026-10-04T04:03:03.742Z` to `2026-10-04T04:05:41.760Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 892-case,
-874-requirement `parity-input@31` manifest. It selected 1,129 profile
-comparisons: 1,125 passed, zero failed, zero infrastructure errors, and four
+874-requirement `parity-input@31` manifest. It selected 1,130 profile
+comparisons: 1,126 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed 890/890 comparisons; Rust-native passed 235/239. The new literal GET
-`/func` Router case passed on both profiles: source and target selected route
-index 0 and returned status 200 with `Hello, world!`; this maps dispatch in
-`test_router_add_route`, which does not itself call `Router.add_route`. The
-targets were clean at commit `9f8c853a9794f87283a7ce5ec2e3c6f1f568e916`. The
-Rust-native source fingerprint is
-`9f8c853a9794f87283a7ce5ec2e3c6f1f568e916+source-fnv1a64-64035a396e9dceba`;
+passed 890/890 comparisons; Rust-native passed 236/240. Both target profiles
+passed the three-step live Router mutation case, observing method addition and
+route append after prior dispatches. The literal GET `/func` Router case also
+passed on both profiles; this maps dispatch in `test_router_add_route`, which
+does not itself call `Router.add_route`. The targets were clean at commit
+`08c55393d98a815708a9f411f2eeeed2b293f65c`. The Rust-native source fingerprint
+is `08c55393d98a815708a9f411f2eeeed2b293f65c+source-fnv1a64-48ddb32283c92ab1`;
 the Python-package tree SHA-256 is
-`00b1293cfc6c2df6d5a6cd3557623a80330f8a6dbc7ecae02cebbd1a55e04ae4` and its
+`543a153ac3f3e301f6dd652e51dd7cd5353b69c67553883b9bcac7677cf1fb8f` and its
 wheel SHA-256 is
-`4539b16d346d307453afab86dd272969f7479e78828d1559fe63be2a80f2d403`. The
+`59bc2c72eb7a263edbf626bfc6f95d9b798403c4e26590f0276ac7ff6b9aa42c`. The
 manifest SHA-256 is
-`c0ec486cd19397c73d46eba18cf54ea2d396a74b92478343cd576b4c8c77d04c`; the
+`d1f8a36d8579946cc6e3a451405393578419f352e93cf7253110f944659fbd2f`; the
 correctness-result artifact SHA-256 is
-`0b563390a29895069584edb6e5126bea03df1fd69eaa9959bea41ea7507fd8f6` at
+`26c8a08051a81328b73cb6e1c7412eda064b37a73d4a543894b101d013064318` at
 `build/parity/upstream-benchmark-correctness-result.json`.
 
-The clean benchmark run `ccaf428c-f303-4ead-aa59-98fb375c07ad` measured 74/74
+The clean benchmark run `153fdf82-dddb-444f-b1e9-62e5bfed14b3` measured 74/74
 source/package workloads with zero failures. Its result artifact SHA-256 is
-`ca5b8be8be1c175f41f8b3a5d42801efcc68a5aed5feff83ca77138d434f2032`; details
+`5095db802b68abace22b0b136947f521fe3b5858224c4b37849695cd66d487b0`; details
 are in [`BENCHMARKS.md`](BENCHMARKS.md). Its correctness preflight is the
-clean-tree run above. Median source/package latency ratios were 0.736 for
-Router and 0.971 for GZip. The four Rust-native
+clean-tree run above. Median source/package latency ratios were 0.731 for
+Router and 0.977 for GZip. The four Rust-native
 `not_run` rows
 remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
 and callable-instance ASGI dispatch. Strict aggregation remains `not_proven`;
