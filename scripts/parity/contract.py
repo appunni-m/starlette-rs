@@ -419,6 +419,7 @@ CONFIG_OPERATIONS = {
     ("starlette.config.Config", "value-resolution"),
     ("starlette.config.Config", "constructor-warning"),
     ("starlette.config.Environ", "mapping-sequence"),
+    ("starlette.config", "environ"),
 }
 SCHEMA_OPERATIONS = {
     ("starlette.schemas.SchemaGenerator", "schema-generation"),
@@ -13310,6 +13311,7 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
                 "initial_environ",
                 "actions",
             },
+            ("starlette.config", "environ"): {"initial_environ", "actions"},
             ("starlette.schemas.SchemaGenerator", "schema-generation"): {
                 "base_schema",
                 "routes",
@@ -19364,17 +19366,20 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             raise ContractError("Config constructor coverage must match its warning input")
         return
 
-    if operation != ("starlette.config.Environ", "mapping-sequence"):
+    is_module_environ = operation == ("starlette.config", "environ")
+    if operation != ("starlette.config.Environ", "mapping-sequence") and not is_module_environ:
         raise ContractError("configuration case uses an undeclared operation")
     if case["observations"] != ["action-results"]:
-        raise ContractError("Environ mapping sequence must select action-results")
+        raise ContractError("Environ inputs must select action-results")
     initial = case["initial_environ"]
     if not isinstance(initial, dict) or any(
         not isinstance(key, str) or not isinstance(value, str) for key, value in initial.items()
     ):
         raise ContractError("Environ initial_environ must be a string mapping")
-    mapping_source = case.get("mapping_source", "explicit")
-    if mapping_source not in {"explicit", "os-environ"}:
+    mapping_source = (
+        "module-global" if is_module_environ else case.get("mapping_source", "explicit")
+    )
+    if mapping_source not in {"explicit", "os-environ", "module-global"}:
         raise ContractError("Environ mapping_source must be explicit or os-environ")
     actions = case["actions"]
     if not isinstance(actions, list) or not actions:
@@ -19382,6 +19387,9 @@ def _validate_config_case(case: dict[str, Any]) -> None:
     selected = set()
     if mapping_source == "os-environ":
         selected.add("starlette.config.Environ.default-os-environ-mapping")
+    module_global_mutations_before_read: set[str] = set()
+    module_config_reads: dict[str, str] = {}
+    module_late_mutations: dict[str, set[str]] = {}
     read_keys: set[str] = set()
     present_keys = set(initial)
     process_comparisons: set[str] = set()
@@ -19397,13 +19405,23 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             if action == "set":
                 if not isinstance(item["value"], str):
                     raise ContractError(f"{context}.value must be a string")
-                if key not in read_keys:
+                if is_module_environ and key not in read_keys:
+                    module_global_mutations_before_read.add(action)
+                    present_keys.add(key)
+                elif is_module_environ:
+                    module_late_mutations.setdefault(key, set()).add(action)
+                elif key not in read_keys:
                     selected.add("starlette.config.Environ.set-before-read")
                     present_keys.add(key)
                 else:
                     selected.add("starlette.config.Environ.read-freezes-set")
             elif action == "delete":
-                if key not in read_keys:
+                if is_module_environ and key not in read_keys:
+                    module_global_mutations_before_read.add(action)
+                    present_keys.discard(key)
+                elif is_module_environ:
+                    module_late_mutations.setdefault(key, set()).add(action)
+                elif key not in read_keys:
                     selected.add("starlette.config.Environ.delete-before-read")
                     present_keys.discard(key)
                 else:
@@ -19414,13 +19432,34 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 elif key not in present_keys:
                     selected.add("starlette.config.Environ.missing-key-membership-freezes-key")
                 read_keys.add(key)
+        elif action == "config-get":
+            if not is_module_environ:
+                raise ContractError(
+                    "Config reads are only allowed through the module environ operation"
+                )
+            item = _exact(
+                raw,
+                {"action", "key", "default"} if "default" in raw else {"action", "key"},
+                context,
+            )
+            key = _string(item["key"], f"{context}.key")
+            if key in present_keys:
+                module_config_reads[key] = "present"
+            elif "default" in item:
+                _string(item["default"], f"{context}.default")
+                module_config_reads[key] = "missing-default"
+            else:
+                raise ContractError(
+                    "module environ Config reads require a present key or input default"
+                )
+            read_keys.add(key)
         elif action == "iterate":
             item = _exact(
                 raw,
                 {"action", "compare_to"} if "compare_to" in raw else {"action"},
                 context,
             )
-            if mapping_source == "os-environ":
+            if mapping_source in {"os-environ", "module-global"}:
                 if item.get("compare_to") != "underlying-os-environ":
                     raise ContractError(f"{context} must compare with underlying os.environ")
                 process_comparisons.add(action)
@@ -19433,7 +19472,7 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 {"action", "compare_to"} if "compare_to" in raw else {"action"},
                 context,
             )
-            if mapping_source == "os-environ":
+            if mapping_source in {"os-environ", "module-global"}:
                 if item.get("compare_to") != "underlying-os-environ":
                     raise ContractError(f"{context} must compare with underlying os.environ")
                 process_comparisons.add(action)
@@ -19442,8 +19481,23 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             selected.add("starlette.config.Environ.length")
         else:
             raise ContractError(f"{context}.action is unsupported")
-    if mapping_source == "os-environ" and process_comparisons != {"iterate", "length"}:
+    if mapping_source in {"os-environ", "module-global"} and process_comparisons != {
+        "iterate",
+        "length",
+    }:
         raise ContractError("Environ os-environ mapping must observe iteration and length equality")
+    if is_module_environ:
+        if process_comparisons == {"iterate", "length"}:
+            selected.add("starlette.config.environ.module-global-os-environ")
+        if {"set", "delete"} <= module_global_mutations_before_read:
+            selected.add("starlette.config.environ.mutable-before-read")
+        for key, read_kind in module_config_reads.items():
+            if {"set", "delete"} <= module_late_mutations.get(key, set()):
+                selected.add(
+                    "starlette.config.environ.config-read-freezes-present-key-mutations"
+                    if read_kind == "present"
+                    else "starlette.config.environ.config-default-freezes-absent-key"
+                )
     if set(case["covers"]) != selected:
         raise ContractError("Environ mapping coverage must match its action sequence")
 

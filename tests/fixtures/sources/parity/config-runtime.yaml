@@ -1,4 +1,4 @@
-{
+    {
   "schema": "migration-parity/parity-input@31",
   "cases": [
     {
@@ -288,6 +288,50 @@
       "assets": [],
       "env_file": {"kind": "missing-temporary-file", "file_name": "absent.env"},
       "observations": ["warning-results"]
+    },
+{
+      "case_id": "starlette.config.environ.module-global-config-read-freezes-mutations",
+      "surface": "starlette.config",
+      "operation": "environ",
+      "covers": [
+        "starlette.config.environ.config-default-freezes-absent-key",
+        "starlette.config.environ.config-read-freezes-present-key-mutations",
+        "starlette.config.environ.module-global-os-environ",
+        "starlette.config.environ.mutable-before-read",
+        "starlette.config.Environ.iteration",
+        "starlette.config.Environ.length"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "initial_environ": {
+        "STARLETTE_RS_CONFIG_DOC_READ_THROUGH_CONFIG": "input-value",
+        "STARLETTE_RS_CONFIG_DOC_DELETE_BEFORE_READ": "remove-me"
+      },
+      "actions": [
+        {"action": "set", "key": "STARLETTE_RS_CONFIG_DOC_SET_BEFORE_READ", "value": "input-set"},
+        {"action": "delete", "key": "STARLETTE_RS_CONFIG_DOC_DELETE_BEFORE_READ"},
+        {"action": "config-get", "key": "STARLETTE_RS_CONFIG_DOC_READ_THROUGH_CONFIG"},
+        {
+          "action": "set",
+          "key": "STARLETTE_RS_CONFIG_DOC_READ_THROUGH_CONFIG",
+          "value": "too-late"
+        },
+        {"action": "delete", "key": "STARLETTE_RS_CONFIG_DOC_READ_THROUGH_CONFIG"},
+        {
+          "action": "config-get",
+          "key": "STARLETTE_RS_CONFIG_DOC_MISSING_WITH_DEFAULT",
+          "default": "fallback-value"
+        },
+        {
+          "action": "set",
+          "key": "STARLETTE_RS_CONFIG_DOC_MISSING_WITH_DEFAULT",
+          "value": "too-late"
+        },
+        {"action": "delete", "key": "STARLETTE_RS_CONFIG_DOC_MISSING_WITH_DEFAULT"},
+        {"action": "iterate", "compare_to": "underlying-os-environ"},
+        {"action": "length", "compare_to": "underlying-os-environ"}
+      ],
+      "observations": ["action-results"]
     }
   ]
 }

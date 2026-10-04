@@ -123,6 +123,7 @@ CONFIG_OPERATIONS = {
     ("starlette.config.Config", "value-resolution"),
     ("starlette.config.Config", "constructor-warning"),
     ("starlette.config.Environ", "mapping-sequence"),
+    ("starlette.config", "environ"),
 }
 SCHEMA_OPERATIONS = {
     ("starlette.schemas.SchemaGenerator", "schema-generation"),
@@ -11546,6 +11547,15 @@ def _run_config_environ_actions(case: dict[str, Any], environ: Any) -> list[dict
                 result["value"] = _json_safe(environ[action["key"]])
             elif name == "contains":
                 result["value"] = action["key"] in environ
+            elif name == "config-get":
+                from starlette.config import Config
+
+                config = Config(environ=environ)
+                if "default" in action:
+                    value = config(action["key"], default=action["default"])
+                else:
+                    value = config(action["key"])
+                result["value"] = _json_safe(value)
             elif name == "iterate":
                 value = list(environ)
                 result["value"] = (
@@ -11570,6 +11580,7 @@ def _run_config_environ_actions(case: dict[str, Any], environ: Any) -> list[dict
 
 def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.config import Config, Environ
+    from starlette.config import environ as module_environ
 
     surface_operation = (case["surface"], case["operation"])
     if surface_operation == ("starlette.config.Config", "value-resolution"):
@@ -11634,6 +11645,26 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
             finally:
                 os.chdir(previous_directory)
         value = {"warning-results": results}
+    elif surface_operation == ("starlette.config", "environ"):
+        original_environment = list(os.environ.items())
+        read_keys = module_environ._has_been_read
+        original_read_keys = set(read_keys)
+        touched_keys = set(case["initial_environ"])
+        touched_keys.update(action["key"] for action in case["actions"] if "key" in action)
+        try:
+            read_keys.difference_update(touched_keys)
+            for key in touched_keys:
+                if key in case["initial_environ"]:
+                    os.environ[key] = case["initial_environ"][key]
+                else:
+                    os.environ.pop(key, None)
+            results = _run_config_environ_actions(case, module_environ)
+        finally:
+            os.environ.clear()
+            os.environ.update(original_environment)
+            read_keys.clear()
+            read_keys.update(original_read_keys)
+        value = {"action-results": results}
     else:
         if case.get("mapping_source", "explicit") == "os-environ":
             original_environment = list(os.environ.items())

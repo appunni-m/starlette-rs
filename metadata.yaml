@@ -82,6 +82,16 @@
       ]
     },
     {
+      "surface_id": "starlette.config",
+      "source_path": "starlette/config.py:14",
+      "operations": [
+        {
+          "operation_id": "environ",
+          "source_path": "starlette.config.environ"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.config.Config",
       "source_path": "starlette/config.py:49",
       "operations": [

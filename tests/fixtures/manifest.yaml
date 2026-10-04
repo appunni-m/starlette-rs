@@ -4047,6 +4047,151 @@
       ]
     },
     {
+      "id": "starlette.config",
+      "kind": "module",
+      "source_path": "starlette/config.py:14",
+      "storage_slug": "starlette-config-module-environ",
+      "operations": [
+        {
+          "id": "environ",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.config.environ",
+            "signature": "The module-level Environ mapping over os.environ; observe mutation and Config read-freeze behavior.",
+            "parameters": [
+              {
+                "id": "initial_environ",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "action-results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native library does not expose a process-global Python environment mapping.",
+                "blocker": "This module-level compatibility value exists only in the Python package surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.config.environ",
+              "signature": "Module-level Environ instance backed by os.environ.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.config.environ.module-global-os-environ",
+              "dimension": "boundary",
+              "description": "The documented module-level environ object is backed by os.environ and exposes live iteration and length. Upstream: docs/config.md:85-103; starlette/config.py:14-44.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.environ.mutable-before-read",
+              "dimension": "protocol_variant",
+              "description": "Allow setting and deleting input-defined environment entries before Config reads their keys. Upstream: docs/config.md:85-103; starlette/config.py:27-35,100-105.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.environ.config-read-freezes-present-key-mutations",
+              "dimension": "error_path",
+              "description": "After Config reads a present key through the documented module-level environ mapping, reject both assignment and deletion with EnvironError. Upstream: docs/config.md:85-103; starlette/config.py:23-35,100-105.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.config.environ.config-default-freezes-absent-key",
+              "dimension": "error_path",
+              "description": "A Config lookup that returns its supplied default for a missing key still reads the module-level mapping and prevents later setting or deletion of that key. Upstream: starlette/config.py:100-108; tests/test_config.py::test_environ.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Environment mapping interactions are outside the active benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
       "id": "starlette.config.Config",
       "kind": "type",
       "source_path": "starlette/config.py:49",
