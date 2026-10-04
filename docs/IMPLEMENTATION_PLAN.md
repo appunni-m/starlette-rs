@@ -93,8 +93,8 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The generated coverage matrix contains 802 source rows: 615 input mappings,
-51 source-backed `not_applicable` rows, and 136 fixture-backlog rows. These
+The generated coverage matrix contains 802 source rows: 616 input mappings,
+51 source-backed `not_applicable` rows, and 135 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.
@@ -352,8 +352,8 @@ context variables, and broader background-task error interactions.
 
 ## 4. Optional and edge features
 
-Configuration and schema generation have seven package-only live parity
-cases across six Rust-backed public operations. FileResponse range, multipart,
+Configuration and schema generation have eight package-only live parity
+cases across seven Rust-backed public operations. FileResponse range, multipart,
 and chunk-size cases are mapped; the package keeps PyYAML optional behind its
 `schemas` extra. StaticFiles lookup/configuration, form parsing, templates,
 and TestClient HTTP, WebSocket, and lifespan slices also have bounded input
@@ -502,8 +502,9 @@ behaviors.
 This remains a bounded slice. Additional synchronous cancellation schedules,
 context variables, concurrency, and broader middleware/error interactions with
 background failures remain unproven. The latest integrated full-slice run
-`e78022fc-8103-49fb-8ddc-d78034285764` selected 1,118 comparisons; the Python package passed 881/881 and Rust-native
-passed 233/237, with four Request-dispatch callable rows marked `not_run`.
+`8abf9b34-5ee5-45a7-88a3-63c9eab965c3` selected 1,119 comparisons; the Python
+package passed 882/882 and Rust-native passed 233/237, with four
+Request-dispatch callable rows marked `not_run`.
 
 ### HTTPException default-response slice: bounded parity verified
 

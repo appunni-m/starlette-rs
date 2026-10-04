@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 883 input-only cases across 88 files,
-covering 101 operations and 863 unique parity requirements. Recent parity inputs
+The active parity manifest indexes 884 input-only cases across 88 files,
+covering 102 operations and 867 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -124,32 +124,34 @@ for both one repeated name and multiple repeated names, and passed source/packag
 comparison.
 
 The latest clean-tree correctness preflight is
-`e78022fc-8103-49fb-8ddc-d78034285764`. It ran from
-`2026-10-03T23:24:46.910Z` to `2026-10-03T23:28:30.626Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 883-case,
-863-requirement `parity-input@31` manifest. It selected 1,118 profile
-comparisons: 1,114 passed, zero failed, zero infrastructure errors, and four
+`8abf9b34-5ee5-45a7-88a3-63c9eab965c3`. It ran from
+`2026-10-04T00:01:53.903Z` to `2026-10-04T00:05:22.502Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 884-case,
+867-requirement `parity-input@31` manifest. It selected 1,119 profile
+comparisons: 1,115 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 881 selected comparisons; Rust-native passed 233 of 237. The new
-StaticFiles lookup `TimeoutError` input matches the pinned source exactly for
-the TestClient 500 response, response metadata, scope, and ordered ASGI events.
-The StaticFiles pathlib-root input, the two TestClient reason-phrase inputs,
-and HEAD-body-suppression input also pass exactly. Both targets were clean at commit
-`b0e7d3c8a060fb9748acb6c7bb704c991cc53a00`. The four native `not_run` rows
-remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
-and callable-instance ASGI dispatch. Strict aggregation remains `not_proven` because the compatibility
-denominator is incomplete and four Rust-native rows are `not_run`.
+passed all 882 selected comparisons; Rust-native passed 233 of 237. The new
+module-global `starlette.config.environ` input matches the pinned source for
+pre-read mutation, present and defaulted Config reads, frozen late mutations,
+and live `os.environ` iteration and length. The StaticFiles lookup
+`TimeoutError`, pathlib-root, TestClient reason-phrase, and
+HEAD-body-suppression inputs also pass exactly. Both targets were clean at
+commit `b6043ebfa44b7f02a931a81ce7d569e386f5389c`. The four native `not_run`
+rows remain synchronous Request endpoint, bound-method endpoint, partial
+endpoint, and callable-instance ASGI dispatch. Strict aggregation remains
+`not_proven` because the compatibility denominator is incomplete and four
+Rust-native rows are `not_run`.
 
 The Rust-native target revision and source fingerprint are
-`b0e7d3c8a060fb9748acb6c7bb704c991cc53a00+source-fnv1a64-45a6118f227980ec`.
+`b6043ebfa44b7f02a931a81ce7d569e386f5389c+source-fnv1a64-45a6118f227980ec`.
 The Python-package target tree SHA-256 is
-`8c303a6a18bc8fe31e89e10f107fb1f755fb7bbb99c4923f61f0d65aba79836d`; its
+`a75a2a39286f2ea0fe6e96d54ad164d66dfd318824f8e167190c3300a2051727`; its
 wheel SHA-256 is
-`f091f83d3230dbdf7e2920d3ccee077f5cd9ecc530df0d5a7b802c5d9daa1750`. The
+`aa22b87d739f6a8eb765b6d979fc9ec2e762369c06c88d7d8131c00dbfdf7ef7`. The
 manifest SHA-256 is
-`e189b7aad648ba65bff4185954040d5716ef19bedb783911b12afdacca9cd727`, and the
+`42755d5322c6a07b1205366eff6fb3a664204f40a694e06c38d4e42182ceb7bc`, and the
 local correctness-gate result artifact SHA-256 is
-`5ad531768ce06df2f863423d16845830a8eb0bfbbd3a2422495e58e57a91d5de` at
+`d13565cfef88f456d652beb20aa7b5c98861092acdaf8af9e3cbb2a12aa94acd` at
 `build/parity/upstream-benchmark-correctness-result.json`.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
@@ -160,20 +162,20 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`7e5403f9-116e-40a7-9c5f-76feb5449354` measured all 74 source/package
+`f4ab4142-7103-464d-84e8-90b3f974a4e2` measured all 74 source/package
 workloads on clean commit
-`b0e7d3c8a060fb9748acb6c7bb704c991cc53a00`: six Router and 68 GZip, with
+`b6043ebfa44b7f02a931a81ce7d569e386f5389c`: six Router and 68 GZip, with
 zero failures and matching normalized observation hashes for all 74 workloads.
 Its correctness preflight
-`e78022fc-8103-49fb-8ddc-d78034285764` passed 1,114 of 1,118 selected comparisons: 881/881
-Python-package comparisons and 233/237 Rust-native comparisons, with four
-Rust-native `not_run` rows. Median source/package latency ratios were 0.725 for
-Router and 0.976 for GZip. These workload-specific results do not establish
-full Starlette compatibility.
+`8abf9b34-5ee5-45a7-88a3-63c9eab965c3` passed 1,115 of 1,119 selected comparisons:
+882/882 Python-package comparisons and 233/237 Rust-native comparisons, with
+four Rust-native `not_run` rows. Median source/package latency ratios were
+0.745 for Router and 0.974 for GZip. These workload-specific results do not
+establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 615 input mappings, 51
-reasoned `not_applicable` rows, and 136 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 616 input mappings, 51
+reasoned `not_applicable` rows, and 135 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -348,9 +350,9 @@ the fixture backlog.
 `asgi-core.app.test_app_debug` is mapped to the TestClient input that mutates
 debug after construction; direct debug-enabled construction remains a separate
 documentation backlog item. The latest full-slice parity run
-`e78022fc-8103-49fb-8ddc-d78034285764` selected 1,118 comparisons: 1,114
+`8abf9b34-5ee5-45a7-88a3-63c9eab965c3` selected 1,119 comparisons: 1,115
 passed with zero failures and zero infrastructure errors. The Python package
-passed 881/881 comparisons; Rust-native passed 233/237, with four unsupported
+passed 882/882 comparisons; Rust-native passed 233/237, with four unsupported
 callable rows marked `not_run`. This slice does not prove full Starlette
 replacement parity.
 The current Router/GZip source/package benchmark lane is

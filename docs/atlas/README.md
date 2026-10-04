@@ -75,20 +75,20 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 615 input mappings, 51
-reasoned `not_applicable` rows, and 136 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 616 input mappings, 51
+reasoned `not_applicable` rows, and 135 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). Run
-`7e5403f9-116e-40a7-9c5f-76feb5449354` measured all 74 source/package
+`f4ab4142-7103-464d-84e8-90b3f974a4e2` measured all 74 source/package
 workloads on clean commit
-`b0e7d3c8a060fb9748acb6c7bb704c991cc53a00`: six Router and 68 GZip, with
+`b6043ebfa44b7f02a931a81ce7d569e386f5389c`: six Router and 68 GZip, with
 zero failures and matching normalized observation hashes for all 74. Its
-correctness preflight `e78022fc-8103-49fb-8ddc-d78034285764` selected 1,118
-comparisons (1,114 passed, zero failures, zero infrastructure errors, four
+correctness preflight `8abf9b34-5ee5-45a7-88a3-63c9eab965c3` selected 1,119
+comparisons (1,115 passed, zero failures, zero infrastructure errors, four
 declared Rust-native `not_run`). Median
-source/package latency ratios were 0.725 for Router and 0.976 for GZip.
+source/package latency ratios were 0.745 for Router and 0.974 for GZip.
 Rust-native remains `not_run` for these 74 benchmark workload boundaries.
 These workload-specific results do not establish full Starlette compatibility.
 
