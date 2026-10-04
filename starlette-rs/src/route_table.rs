@@ -16,8 +16,10 @@ use crate::{Response, ResponseError};
 /// [`find_slash_redirect_path`](Self::find_slash_redirect_path). Use
 /// [`matches_detailed_with_root_path`](Self::matches_detailed_with_root_path)
 /// when matching an ASGI scope with a `root_path`.
-/// Registered method names are uppercased, and a `GET` route also accepts
-/// `HEAD`, matching Starlette's `Route` behavior.
+/// Methods supplied to [`Self::add_route`] are uppercased, and a `GET` route
+/// also accepts `HEAD`, matching Starlette's `Route` behavior. Methods added
+/// later through [`Self::add_method`] preserve their supplied spelling and do
+/// not synthesize `HEAD`, matching direct mutation of `Route.methods`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RouteTable {
     routes: Vec<Route>,
@@ -80,8 +82,9 @@ pub enum RouteMatch {
     MethodNotAllowed {
         /// Zero-based insertion index of the first path-only match.
         route_index: usize,
-        /// Uppercased methods registered on that route, including implicit
-        /// `HEAD` when `GET` was registered.
+        /// Methods stored on that route, including constructor-normalized
+        /// names and implicit `HEAD` from `GET`; later additions preserve the
+        /// spelling supplied to [`RouteTable::add_method`].
         allowed_methods: Vec<String>,
     },
     /// No route accepted the path.
@@ -115,8 +118,9 @@ pub enum DetailedRouteMatch {
     MethodNotAllowed {
         /// Zero-based insertion index of the first path-only match.
         route_index: usize,
-        /// Uppercased methods registered on that route, including implicit
-        /// `HEAD` when `GET` was registered.
+        /// Methods stored on that route, including constructor-normalized
+        /// names and implicit `HEAD` from `GET`; later additions preserve the
+        /// spelling supplied to [`RouteTable::add_method`].
         allowed_methods: Vec<String>,
         /// Converted parameters captured by the first path-only match.
         path_params: Vec<(String, String)>,
@@ -307,6 +311,32 @@ impl RouteTable {
             methods: normalized_methods,
         });
         Ok(route_index)
+    }
+
+    /// Adds one method to an already registered route.
+    ///
+    /// This models mutating Starlette's public `Route.methods` set. It stores
+    /// the supplied method exactly as written and does not apply constructor
+    /// normalization or infer `HEAD` when adding `GET`. Adding a value that is
+    /// already present is a no-op, matching set insertion.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RouteError::RouteIndexOutOfBounds`] when `route_index` does
+    /// not identify a registered route.
+    pub fn add_method<S>(&mut self, route_index: usize, method: S) -> Result<(), RouteError>
+    where
+        S: AsRef<str>,
+    {
+        let route = self
+            .routes
+            .get_mut(route_index)
+            .ok_or(RouteError::RouteIndexOutOfBounds(route_index))?;
+        let method = method.as_ref();
+        if !route.methods.iter().any(|existing| existing == method) {
+            route.methods.push(String::from(method));
+        }
+        Ok(())
     }
 
     /// Builds a route path from converter-formatted parameter values.

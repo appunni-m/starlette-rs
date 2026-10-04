@@ -1095,6 +1095,7 @@ fn query_params_value_string(value: &Value, context: &str) -> Result<String, Str
 }
 
 fn run_router_case(case: &Value) -> Result<Value, String> {
+    let is_sequence = case.get("steps").is_some();
     let mut expected_fields = vec![
         "case_id",
         "surface",
@@ -1105,11 +1106,13 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
         "custom_convertors",
         "routes",
         "redirect_slashes",
-        "scope",
-        "incoming",
-        "send",
         "observations",
     ];
+    if is_sequence {
+        expected_fields.push("steps");
+    } else {
+        expected_fields.extend(["scope", "incoming", "send"]);
+    }
     if case.get("observe_router_scope").is_some() {
         expected_fields.push("observe_router_scope");
     }
@@ -1124,9 +1127,26 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
         }
     };
     let case_id = string_field(case, "case_id", "Router route-dispatch case")?;
+    let observations_match = if is_sequence {
+        let step_ids = case
+            .get("steps")
+            .and_then(Value::as_array)
+            .ok_or_else(|| String::from("Router steps must be an array"))?
+            .iter()
+            .map(|step| {
+                let step = step
+                    .as_object()
+                    .ok_or_else(|| String::from("Router step must be an object"))?;
+                string_field(step, "step_id", "Router step")
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        case.get("observations") == Some(&json!(step_ids))
+    } else {
+        case.get("observations") == Some(&json!(["route-dispatch"]))
+    };
     if string_field(case, "surface", "Router route-dispatch case")? != "starlette.routing.Router"
         || string_field(case, "operation", "Router route-dispatch case")? != "route-dispatch"
-        || case.get("observations") != Some(&json!(["route-dispatch"]))
+        || !observations_match
         || case.get("assets") != Some(&json!([]))
         || case.get("custom_convertors") != Some(&json!([]))
     {
@@ -1143,8 +1163,9 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
         .get("redirect_slashes")
         .and_then(Value::as_bool)
         .ok_or_else(|| String::from("Router redirect_slashes must be a boolean"))?;
-    if case.get("incoming") != Some(&json!([]))
-        || case.get("send") != Some(&json!({"kind": "capture-asgi-send"}))
+    if !is_sequence
+        && (case.get("incoming") != Some(&json!([]))
+            || case.get("send") != Some(&json!({"kind": "capture-asgi-send"})))
     {
         return Err(String::from(
             "Router dispatch requires an empty receive sequence and captured ASGI send",
@@ -1162,50 +1183,177 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
         return run_router_host_case(case, &routes[0], case_id);
     }
     let mut route_table = RouteTable::new();
+    let mut endpoints = Vec::with_capacity(routes.len());
     for route in routes {
-        let route = exact_object(
-            route,
-            &["kind", "path", "methods", "endpoint"],
-            "Router route input",
-        )?;
-        if string_field(route, "kind", "Router route input")? != "http-route" {
-            return Err(String::from("Router route kind must be http-route"));
-        }
-        let path = string_field(route, "path", "Router route input")?;
-        let methods = route
-            .get("methods")
-            .and_then(Value::as_array)
-            .ok_or_else(|| String::from("Router route methods must be an array"))?;
-        let method_values = methods
-            .iter()
-            .map(|method| {
-                method
-                    .as_str()
-                    .ok_or_else(|| String::from("Router route methods must contain strings"))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        route_table
-            .add_route(path, method_values)
-            .map_err(|error| error.to_string())?;
-        let endpoint = exact_object(
-            route
-                .get("endpoint")
-                .ok_or_else(|| String::from("Router route endpoint is missing"))?,
-            &["kind", "content", "status_code", "media_type", "cookies"],
-            "Router plain-text endpoint input",
-        )?;
-        if string_field(endpoint, "kind", "Router endpoint")? != "plain-text-response"
-            || string_field(endpoint, "media_type", "Router endpoint")? != "text/plain"
-            || endpoint.get("cookies") != Some(&json!([]))
-        {
-            return Err(String::from(
-                "Rust-native Router projection requires a fixed plain-text endpoint",
-            ));
-        }
+        endpoints.push(add_native_router_route(&mut route_table, route)?);
     }
-    let scope = exact_object(
+    if is_sequence {
+        return run_router_sequence_case(case, &mut route_table, &mut endpoints, case_id);
+    }
+    let observation = router_dispatch_observation(
+        &route_table,
+        &endpoints,
         case.get("scope")
             .ok_or_else(|| String::from("Router scope is missing"))?,
+        redirect_slashes,
+        observe_router_scope,
+    )?;
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": "route-dispatch",
+            "status": "ok",
+            "value": observation,
+        }],
+    }))
+}
+
+fn add_native_router_route(route_table: &mut RouteTable, route: &Value) -> Result<Value, String> {
+    let route = exact_object(
+        route,
+        &["kind", "path", "methods", "endpoint"],
+        "Router route input",
+    )?;
+    if string_field(route, "kind", "Router route input")? != "http-route" {
+        return Err(String::from("Router route kind must be http-route"));
+    }
+    let path = string_field(route, "path", "Router route input")?;
+    let methods = route
+        .get("methods")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("Router route methods must be an array"))?;
+    let method_values = methods
+        .iter()
+        .map(|method| {
+            method
+                .as_str()
+                .ok_or_else(|| String::from("Router route methods must contain strings"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    route_table
+        .add_route(path, method_values)
+        .map_err(|error| error.to_string())?;
+    let endpoint = exact_object(
+        route
+            .get("endpoint")
+            .ok_or_else(|| String::from("Router route endpoint is missing"))?,
+        &["kind", "content", "status_code", "media_type", "cookies"],
+        "Router plain-text endpoint input",
+    )?;
+    if string_field(endpoint, "kind", "Router endpoint")? != "plain-text-response"
+        || string_field(endpoint, "media_type", "Router endpoint")? != "text/plain"
+        || endpoint.get("cookies") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "Rust-native Router projection requires a fixed plain-text endpoint",
+        ));
+    }
+    Ok(Value::Object(endpoint.clone()))
+}
+
+fn run_router_sequence_case(
+    case: &Map<String, Value>,
+    route_table: &mut RouteTable,
+    endpoints: &mut Vec<Value>,
+    case_id: &str,
+) -> Result<Value, String> {
+    let steps = case
+        .get("steps")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("Router steps must be an array"))?;
+    let mut observations = Vec::with_capacity(steps.len());
+    for step in steps {
+        let step = exact_object(
+            step,
+            &["step_id", "scope", "incoming", "send", "mutations"],
+            "Router mutation step",
+        )?;
+        let step_id = string_field(step, "step_id", "Router mutation step")?;
+        if step.get("incoming") != Some(&json!([]))
+            || step.get("send") != Some(&json!({"kind": "capture-asgi-send"}))
+        {
+            return Err(String::from(
+                "Router mutation dispatch requires an empty receive sequence and captured ASGI send",
+            ));
+        }
+        let mutations = step
+            .get("mutations")
+            .and_then(Value::as_array)
+            .ok_or_else(|| String::from("Router mutations must be an array"))?;
+        for mutation in mutations {
+            let mutation = mutation
+                .as_object()
+                .ok_or_else(|| String::from("Router mutation must be an object"))?;
+            match mutation.get("operation").and_then(Value::as_str) {
+                Some("route-method-add") => {
+                    let mutation_value = Value::Object(mutation.clone());
+                    let mutation = exact_object(
+                        &mutation_value,
+                        &["operation", "route_index", "method"],
+                        "Router route method mutation",
+                    )?;
+                    let route_index = mutation
+                        .get("route_index")
+                        .and_then(Value::as_u64)
+                        .and_then(|index| usize::try_from(index).ok())
+                        .ok_or_else(|| String::from("Router route_index must fit usize"))?;
+                    let method = string_field(mutation, "method", "Router method mutation")?;
+                    route_table
+                        .add_method(route_index, method)
+                        .map_err(|error| error.to_string())?;
+                }
+                Some("route-list-append") => {
+                    let mutation_value = Value::Object(mutation.clone());
+                    let mutation = exact_object(
+                        &mutation_value,
+                        &["operation", "route"],
+                        "Router route-list append mutation",
+                    )?;
+                    let route = mutation
+                        .get("route")
+                        .ok_or_else(|| String::from("Router appended route is missing"))?;
+                    endpoints.push(add_native_router_route(route_table, route)?);
+                }
+                _ => {
+                    return Err(String::from(
+                        "Rust-native Router sequence supports route method addition and route append",
+                    ));
+                }
+            }
+        }
+        let observation = router_dispatch_observation(
+            route_table,
+            endpoints,
+            step.get("scope")
+                .ok_or_else(|| String::from("Router step scope is missing"))?,
+            case.get("redirect_slashes")
+                .and_then(Value::as_bool)
+                .ok_or_else(|| String::from("Router redirect_slashes must be a boolean"))?,
+            false,
+        )?;
+        observations.push(json!({
+            "step_id": step_id,
+            "status": "ok",
+            "value": observation,
+        }));
+    }
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": observations,
+    }))
+}
+
+fn router_dispatch_observation(
+    route_table: &RouteTable,
+    endpoints: &[Value],
+    scope_value: &Value,
+    redirect_slashes: bool,
+    observe_router_scope: bool,
+) -> Result<Value, String> {
+    let scope = exact_object(
+        scope_value,
         &[
             "type",
             "asgi",
@@ -1277,13 +1425,8 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
     };
     let response = match (&route_match, redirect_path) {
         (DetailedRouteMatch::Matched { route_index, .. }, _) => {
-            let route = exact_object(
-                &routes[*route_index],
-                &["kind", "path", "methods", "endpoint"],
-                "selected Router route",
-            )?;
-            let endpoint = route
-                .get("endpoint")
+            let endpoint = endpoints
+                .get(*route_index)
                 .and_then(Value::as_object)
                 .ok_or_else(|| String::from("selected route endpoint must be an object"))?;
             let content = string_field(endpoint, "content", "selected Router endpoint")?;
@@ -1336,15 +1479,7 @@ fn run_router_case(case: &Value) -> Result<Value, String> {
         observation["route_scope.app_root_path"] = Value::Null;
         observation["route_scope.path_params"] = Value::Object(path_params);
     }
-    Ok(json!({
-        "case_id": case_id,
-        "status": "completed",
-        "observations": [{
-            "step_id": "route-dispatch",
-            "status": "ok",
-            "value": observation,
-        }],
-    }))
+    Ok(observation)
 }
 
 fn run_router_host_case(

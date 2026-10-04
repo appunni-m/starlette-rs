@@ -17725,12 +17725,10 @@
               "signature": "Select an ordered route from the public RouteTable API, then report the response associated with its selected insertion index.",
               "support": {
                 "status": "partial",
-                "reason": "The Rust target supports the declared ordered built-in route-selection and fixed response projection. It does not invoke arbitrary Python endpoints, expose Python scope mutation or typed path_params, or support Python-registered URL convertors.",
+                "reason": "The Rust target supports ordered built-in route selection, fixed response projection, live method mutation, and live route-list append. It does not invoke arbitrary Python endpoints, expose Python scope mutation or typed path_params, support Python-registered URL convertors, or dispatch Mount routes.",
                 "missing_requirements": [
                   "starlette.routing.Router.route-dispatch.python-callable-endpoint",
                   "starlette.routing.Router.route-dispatch.custom-converter-override",
-                  "starlette.routing.Router.route-dispatch.live-route-list-append",
-                  "starlette.routing.Router.route-dispatch.live-route-method-mutation",
                   "starlette.routing.Router.route-dispatch.mount-child-router-live-route-add",
                   "starlette.routing.Router.route-dispatch.mount-route-dispatch",
                   "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss",
@@ -18090,6 +18088,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -18101,6 +18100,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },

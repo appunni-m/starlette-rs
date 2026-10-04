@@ -717,6 +717,16 @@ the native slice.
 The Rust route table also builds converter-formatted paths for the Python
 bridge.
 
+[`router-cache-invalidation.yaml`](../tests/fixtures/sources/parity/router-cache-invalidation.yaml)
+adds source/package/Rust-native parity for live Router mutations. It dispatches
+once, adds `POST` to an existing route's method set, dispatches again, appends
+a new route, and dispatches a third time. Rust's `RouteTable::add_method`
+preserves the supplied spelling and does not apply route-constructor `GET` to
+`HEAD` inference. Exact observations cover selected route indices, status,
+headers, response bytes, and ASGI event order for all three steps. This maps
+live method mutation and route-list append; mounted child-router mutation
+remains a separate gap.
+
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
 adds three package-profile cases for environment mapping read freezes, config
 lookup precedence and casts, and missing-file warnings.

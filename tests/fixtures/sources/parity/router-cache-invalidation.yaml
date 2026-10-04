@@ -10,6 +10,7 @@
         "starlette.routing.Router.route-dispatch.live-route-list-append"
       ],
       "target_profiles": [
+        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
