@@ -46,12 +46,12 @@ and int/path converter scope inputs also pass on both profiles. The
 input-defined datetime converter dispatch and reverse-format cases pass on the
 Python-package profile. The file-like StreamingResponse case compares exact
 binary line chunks through the installed Python package. The latest clean-tree
-correctness preflight used the 885-case `parity-input@31` contract,
-`53dccf34-d001-4d0f-86aa-de3a1b65137f`, and passed 1,116 of 1,120
+correctness preflight used the 886-case `parity-input@31` contract,
+`7df4c713-d5e7-4567-b5cd-a817363800b7`, and passed 1,117 of 1,121
 selected comparisons, with zero failures or infrastructure errors and four Rust-native Python-callable
-rows `not_run`. The Python package passed 883/883; Rust-native passed 233/237.
+rows `not_run`. The Python package passed 884/884; Rust-native passed 233/237.
 Both targets were clean at commit
-`09d5abb2e48584b66dfbd278a4742f2ddd0ec8de`. The module-global environ input
+`b4816c38a28dd307c2cded1b71241a0b7717ae1a`. The module-global environ input
 matches source for pre-read mutation, Config lookups, frozen late mutations,
 and live `os.environ` iteration and length. The StaticFiles lookup
 `TimeoutError` input matches the pinned source exactly for the TestClient 500
@@ -254,8 +254,8 @@ iterator controls (including `asend(non-None)` before the first yield), and
 denial-response callbacks for the Python-package profile. They compare live
 source and installed-package results, callback order, and final state; the
 manifest does not claim a Rust-native Python convenience-iterator surface.
-The latest integrated full-slice run `53dccf34-d001-4d0f-86aa-de3a1b65137f`
-selected 1,120 comparisons: 1,116 passed, with four declared Rust-native
+The latest integrated full-slice run `7df4c713-d5e7-4567-b5cd-a817363800b7`
+selected 1,121 comparisons: 1,117 passed, with four declared Rust-native
 Python-callable comparisons left `not_run` and zero failures or infrastructure
 errors. The WebSocket send-callback `OSError` behavior now has an exact
 source/package mapping; other WebSocket source
