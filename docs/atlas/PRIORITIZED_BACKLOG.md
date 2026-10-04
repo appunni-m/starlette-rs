@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@36` with 925 input-only cases in 91
-indexed files: 923 oracle parity cases and two target-only fault contracts. It
+The active contract uses `parity-input@37` with 926 input-only cases in 91
+indexed files: 924 oracle parity cases and two target-only fault contracts. It
 covers 104 operations and 899 parity requirements. The older full-slice run
 was recorded against the preceding manifest revision:
 `a0bcf0da-4746-4490-843d-45653d987ea1` selected 1,160 profile comparisons:
@@ -50,13 +50,23 @@ batch; the full suite was not rerun, so regression status remains unknown.
 Fault rows remain `not_applicable` to the oracle. Evidence details are in
 [Migration parity contract and evidence](../PARITY.md).
 
-The active 925-case contract adds ASGI parity inputs for the default
+The preceding 925-case contract adds ASGI parity inputs for the default
 `StaticFiles(follow_symlink=False)` behavior on external file and directory
 symlinks. Selected run `1c302ec6-419c-470c-b8e8-e8f33aa84559` passed four
 source/package profile comparisons and both target-only route-cache fault
 contracts; the fault rows retain oracle applicability `not_applicable`. This
 selected batch makes no new coverage claim and does not rerun the full suite.
 Evidence details are in [Migration parity contract and evidence](../PARITY.md).
+
+The active 926-case contract maps `routing.test_raise_on_shutdown` to an actual
+`Router(lifespan=...)` used through TestClient. Selected run
+`c5a9cc24-5d27-40d3-ab2f-52e6781d6ee6` passed the source/package comparison and
+both target-only route-cache fault contracts; the fault rows remain
+`not_applicable` to the oracle. The result SHA-256 is
+`7b8fbf52f10ca1fa96015939962975cafea7ae6758217a4a0985b3ff297f25f0`, and the
+manifest SHA-256 is
+`d5c7a33a96974b63fd6714ee20c7242a24522aa0100978f1609a023c0f9f4224`. This
+selected run does not claim full-suite parity or incremental coverage.
 
 The prior 920-case full preflight `84769d51-0203-41bf-8569-be53a5cbe99c`
 passed 916/916 Python-package comparisons and both fault contracts. Rust-native
@@ -87,8 +97,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 656 input mappings,
-51 source-backed `not_applicable` rows, and 97 fixture-backlog rows, as
+The current coverage matrix has 804 source rows: 657 input mappings,
+51 source-backed `not_applicable` rows, and 96 fixture-backlog rows, as
 reported by the generated atlas. The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 

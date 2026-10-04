@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@36` and indexes 925 input-only cases across 91 files (923 oracle parity cases and two target-only fault contracts), covering 104 operations and 899 unique parity requirements. Recent parity inputs
+The active parity manifest uses `parity-input@37` and indexes 926 input-only cases across 91 files (924 oracle parity cases and two target-only fault contracts), covering 104 operations and 899 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing

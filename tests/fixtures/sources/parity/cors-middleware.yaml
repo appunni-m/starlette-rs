@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@36",
+  "schema": "migration-parity/parity-input@37",
   "cases": [
     {
       "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.simple-wildcard-credential-reflection-vary-merge",

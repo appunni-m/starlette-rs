@@ -31,7 +31,7 @@ from .fault_contracts import (
 )
 
 MANIFEST_SCHEMA = "migration-parity/manifest@4"
-INPUT_SCHEMA = "migration-parity/parity-input@36"
+INPUT_SCHEMA = "migration-parity/parity-input@37"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@6"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -13763,40 +13763,71 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             {"kind", "scope_fields", "scope_mutations", "callback"},
             "TestClient Starlette Router lifespan app",
         )
-        if client_operations != ["enter"]:
-            raise ContractError("Starlette Router state-support case must enter TestClient")
-        if asgi_app["scope_fields"] != ["type", "state"]:
-            raise ContractError(
-                "Starlette Router state-support scope_fields must select type and state"
-            )
         scope_mutations = asgi_app["scope_mutations"]
-        if not isinstance(scope_mutations, list) or not scope_mutations:
-            raise ContractError("Starlette Router scope_mutations must be a nonempty list")
-        for index, mutation_value in enumerate(scope_mutations):
-            mutation = _exact(
-                mutation_value,
-                {"scope_type", "operation", "field"},
-                f"Starlette Router scope mutation[{index}]",
+        callback_value = asgi_app["callback"]
+        if isinstance(callback_value, dict) and "exit_error" in callback_value:
+            callback = _exact(
+                callback_value,
+                {"entry_effect", "exit_error"},
+                "Starlette Router shutdown-error callback",
             )
             if (
-                mutation["scope_type"] != "lifespan"
-                or mutation["operation"] != "delete"
-                or mutation["field"] != "state"
+                client_operations != ["enter", "exit"]
+                or asgi_app["scope_fields"] != ["type"]
+                or scope_mutations != []
             ):
-                raise ContractError("Starlette Router scope mutations must delete lifespan state")
-        callback = _exact(
-            asgi_app["callback"],
-            {"entry_effect", "exit_effect", "lifespan_state"},
-            "Starlette Router lifespan callback",
-        )
-        for key in ("entry_effect", "exit_effect"):
-            _string(callback[key], f"Starlette Router lifespan callback {key}")
-        if not isinstance(callback["lifespan_state"], dict):
-            raise ContractError("Starlette Router lifespan_state must be a mapping")
-        expected_covers = {
-            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"],
-            ASGI_LIFESPAN_SCOPE_STATE_REQUIRED_REQUIREMENT,
-        }
+                raise ContractError(
+                    "Starlette Router shutdown-error cases require enter/exit, type-only scope, and no scope mutations"
+                )
+            _string(callback["entry_effect"], "Starlette Router lifespan entry effect")
+            error = _exact(
+                callback["exit_error"],
+                {"exception_type", "message"},
+                "Starlette Router lifespan exit error",
+            )
+            if error["exception_type"] != "RuntimeError":
+                raise ContractError("Starlette Router shutdown errors currently use RuntimeError")
+            _string(error["message"], "Starlette Router lifespan exit error message")
+            expected_covers = {
+                TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
+                TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown_error"],
+            }
+        else:
+            if client_operations != ["enter"]:
+                raise ContractError("Starlette Router state-support case must enter TestClient")
+            if asgi_app["scope_fields"] != ["type", "state"]:
+                raise ContractError(
+                    "Starlette Router state-support scope_fields must select type and state"
+                )
+            if not isinstance(scope_mutations, list) or not scope_mutations:
+                raise ContractError("Starlette Router scope_mutations must be a nonempty list")
+            for index, mutation_value in enumerate(scope_mutations):
+                mutation = _exact(
+                    mutation_value,
+                    {"scope_type", "operation", "field"},
+                    f"Starlette Router scope mutation[{index}]",
+                )
+                if (
+                    mutation["scope_type"] != "lifespan"
+                    or mutation["operation"] != "delete"
+                    or mutation["field"] != "state"
+                ):
+                    raise ContractError(
+                        "Starlette Router scope mutations must delete lifespan state"
+                    )
+            callback = _exact(
+                callback_value,
+                {"entry_effect", "exit_effect", "lifespan_state"},
+                "Starlette Router lifespan callback",
+            )
+            for key in ("entry_effect", "exit_effect"):
+                _string(callback[key], f"Starlette Router lifespan callback {key}")
+            if not isinstance(callback["lifespan_state"], dict):
+                raise ContractError("Starlette Router lifespan_state must be a mapping")
+            expected_covers = {
+                TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"],
+                ASGI_LIFESPAN_SCOPE_STATE_REQUIRED_REQUIREMENT,
+            }
         covers = case["covers"]
         if (
             not isinstance(covers, list)

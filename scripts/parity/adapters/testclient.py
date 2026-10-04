@@ -1529,16 +1529,18 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
         try:
             async with managed_tasks():
                 yield callback.get("lifespan_state")
+                if "exit_error" in callback:
+                    error = callback["exit_error"]
+                    exception_type = getattr(builtins, error["exception_type"])
+                    raise exception_type(error["message"])
         finally:
-            lifecycle_trace.append(callback["exit_effect"])
+            if "exit_effect" in callback:
+                lifecycle_trace.append(callback["exit_effect"])
 
     if app_input["kind"] == "starlette-router-lifespan":
-        from starlette.responses import PlainTextResponse
-        from starlette.routing import Mount, Router
+        from starlette.routing import Router
 
-        starlette_app = Router(
-            routes=[Mount("/", PlainTextResponse("hello, world"))], lifespan=lifespan
-        )
+        starlette_app = Router(lifespan=lifespan)
     else:
         starlette_app = Starlette(lifespan=lifespan)
 
