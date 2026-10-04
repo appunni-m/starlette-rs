@@ -194,6 +194,7 @@ TESTCLIENT_REQUIREMENTS = {
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
     "exception_identity_chain": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-identity-and-chaining",
+    "cors_global_error_enforcement": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.cors-global-error-enforcement",
     "sync_route_get": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-get",
     "sync_route_head": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-head",
     "sync_route_worker_thread": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-worker-thread",
@@ -10291,6 +10292,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     is_starlette_route_graph = app_kind == "starlette-route-graph"
     is_starlette_url_for_route_graph = app_kind == "starlette-url-for-route-graph"
     is_starlette_app_debug = app_kind == "starlette-app-debug"
+    is_starlette_app_cors_global_error = app_kind == "starlette-app-cors-global-error"
     is_server_error_middleware = app_kind == "server-error-middleware"
     is_request_url_for_error = app_kind == "request-url-for-error"
     is_request_url_for_middleware = app_kind == "request-url-for-middleware"
@@ -10402,6 +10404,43 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         ):
             raise ContractError(
                 "TestClient Starlette debug input must enable debug after construction and return the GET error response"
+            )
+        exception_spec = asgi_app["exception"]
+        messages = []
+    elif is_starlette_app_cors_global_error:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "debug", "path", "exception", "allow_origins", "scope_fields"},
+            "TestClient Starlette global-CORS error app",
+        )
+        route_path = _string(asgi_app["path"], "TestClient CORS error route path")
+        allow_origins = asgi_app["allow_origins"]
+        origin_headers = [
+            base64.b64decode(value, validate=True).decode("latin-1")
+            for name, value in request["headers_base64_pairs"]
+            if base64.b64decode(name, validate=True).lower() == b"origin"
+        ]
+        if (
+            type(asgi_app["debug"]) is not bool
+            or asgi_app["debug"] is not False
+            or not route_path.startswith("/")
+            or request["method"] != "GET"
+            or request.get("client_method") not in {None, "get"}
+            or urlsplit(request["url"]).path != route_path
+            or settings["raise_server_exceptions"] is not False
+            or settings["base_url"] != "http://testserver"
+            or settings["root_path"]
+            or settings["headers"]
+            or len(origin_headers) != 1
+            or not isinstance(allow_origins, list)
+            or not allow_origins
+            or any(not isinstance(origin, str) or not origin for origin in allow_origins)
+            or origin_headers[0] not in allow_origins
+            or followup_requests
+            or base64.b64decode(request["body_base64"])
+        ):
+            raise ContractError(
+                "TestClient global-CORS error input must wrap a debug-disabled Starlette app, allow the request Origin, and capture one empty GET error response"
             )
         exception_spec = asgi_app["exception"]
         messages = []
@@ -11273,6 +11312,8 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     if is_starlette_app_debug:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_mutation"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_response"])
+    if is_starlette_app_cors_global_error:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["cors_global_error_enforcement"])
     if is_starlette_app_trusted_host:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_trusted_host"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])

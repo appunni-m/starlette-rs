@@ -453,6 +453,64 @@
       ],
       "testclient": {
         "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/",
+        "headers_base64_pairs": [
+          [
+            "T3JpZ2lu",
+            "aHR0cHM6Ly9jbGllbnQuZXhhbXBsZQ=="
+          ]
+        ],
+        "body_base64": ""
+      },
+      "case_id": "starlette.testclient.TestClient.request-response.cors-global-error-enforcement",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.cors-global-error-enforcement"
+      ],
+      "asgi_app": {
+        "kind": "starlette-app-cors-global-error",
+        "debug": false,
+        "path": "/",
+        "exception": {
+          "class": "RuntimeError",
+          "message": "application failed"
+        },
+        "allow_origins": [
+          "https://client.example"
+        ],
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "headers"
+        ]
+      }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
         "client": [

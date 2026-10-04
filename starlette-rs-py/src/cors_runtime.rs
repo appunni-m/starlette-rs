@@ -1,7 +1,6 @@
 //! Rust-owned ASGI CORS policy and response-header transformation.
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use pyo3::exceptions::{PyKeyError, PyRuntimeError, PyStopAsyncIteration};
 use pyo3::prelude::*;
@@ -29,7 +28,26 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-type SharedCorsConfig = Rc<RefCell<CorsConfig>>;
+type SharedCorsConfig = Arc<Mutex<CorsConfig>>;
+
+fn lock_config(config: &SharedCorsConfig) -> PyResult<MutexGuard<'_, CorsConfig>> {
+    config
+        .lock()
+        .map_err(|_| PyRuntimeError::new_err("CORS middleware state lock is poisoned"))
+}
+
+fn replace_config_value(
+    config: &SharedCorsConfig,
+    value: Py<PyAny>,
+    replace: impl FnOnce(&mut CorsConfig, Py<PyAny>) -> Py<PyAny>,
+) -> PyResult<()> {
+    let replaced = {
+        let mut config = lock_config(config)?;
+        replace(&mut config, value)
+    };
+    drop(replaced);
+    Ok(())
+}
 
 struct CorsConfig {
     app: Py<PyAny>,
@@ -48,11 +66,7 @@ struct CorsConfig {
 
 /// Native Starlette 1.6.0 CORS middleware. Python callables remain on the
 /// caller's event loop; Rust owns CORS decisions and ASGI header mutation.
-#[pyclass(
-    name = "CORSMiddleware",
-    module = "starlette.middleware.cors",
-    unsendable
-)]
+#[pyclass(name = "CORSMiddleware", module = "starlette.middleware.cors")]
 pub(crate) struct PyCORSMiddlewareRuntime {
     config: SharedCorsConfig,
     plain_text_response_type: Py<PyAny>,
@@ -168,7 +182,7 @@ impl PyCORSMiddlewareRuntime {
             .unbind();
 
         Ok(Self {
-            config: Rc::new(RefCell::new(CorsConfig {
+            config: Arc::new(Mutex::new(CorsConfig {
                 app,
                 allow_origins,
                 allow_methods,
@@ -193,126 +207,151 @@ impl PyCORSMiddlewareRuntime {
     }
 
     #[getter]
-    fn app(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config.borrow().app.clone_ref(py)
+    fn app(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?.app.clone_ref(py))
     }
 
     #[setter]
-    fn set_app(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().app = value;
+    fn set_app(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.app, value)
+        })
     }
 
     #[getter]
-    fn allow_origins(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config.borrow().allow_origins.clone_ref(py)
+    fn allow_origins(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?.allow_origins.clone_ref(py))
     }
 
     #[setter]
-    fn set_allow_origins(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().allow_origins = value;
+    fn set_allow_origins(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.allow_origins, value)
+        })
     }
 
     #[getter]
-    fn allow_methods(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config.borrow().allow_methods.clone_ref(py)
+    fn allow_methods(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?.allow_methods.clone_ref(py))
     }
 
     #[setter]
-    fn set_allow_methods(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().allow_methods = value;
+    fn set_allow_methods(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.allow_methods, value)
+        })
     }
 
     #[getter]
-    fn allow_headers(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config.borrow().allow_headers.clone_ref(py)
+    fn allow_headers(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?.allow_headers.clone_ref(py))
     }
 
     #[setter]
-    fn set_allow_headers(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().allow_headers = value;
+    fn set_allow_headers(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.allow_headers, value)
+        })
     }
 
     #[getter]
-    fn allow_all_origins(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config.borrow().allow_all_origins.clone_ref(py)
+    fn allow_all_origins(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?.allow_all_origins.clone_ref(py))
     }
 
     #[setter]
-    fn set_allow_all_origins(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().allow_all_origins = value;
+    fn set_allow_all_origins(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.allow_all_origins, value)
+        })
     }
 
     #[getter]
-    fn allow_all_headers(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config.borrow().allow_all_headers.clone_ref(py)
+    fn allow_all_headers(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?.allow_all_headers.clone_ref(py))
     }
 
     #[setter]
-    fn set_allow_all_headers(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().allow_all_headers = value;
+    fn set_allow_all_headers(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.allow_all_headers, value)
+        })
     }
 
     #[getter]
-    fn allow_credentials(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config.borrow().allow_credentials.clone_ref(py)
+    fn allow_credentials(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?.allow_credentials.clone_ref(py))
     }
 
     #[setter]
-    fn set_allow_credentials(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().allow_credentials = value;
+    fn set_allow_credentials(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.allow_credentials, value)
+        })
     }
 
     #[getter]
-    fn preflight_explicit_allow_origin(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config
-            .borrow()
+    fn preflight_explicit_allow_origin(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?
             .preflight_explicit_allow_origin
-            .clone_ref(py)
+            .clone_ref(py))
     }
 
     #[setter]
-    fn set_preflight_explicit_allow_origin(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().preflight_explicit_allow_origin = value;
+    fn set_preflight_explicit_allow_origin(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.preflight_explicit_allow_origin, value)
+        })
     }
 
     #[getter]
-    fn allow_origin_regex(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config.borrow().allow_origin_regex.clone_ref(py)
+    fn allow_origin_regex(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?.allow_origin_regex.clone_ref(py))
     }
 
     #[setter]
-    fn set_allow_origin_regex(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().allow_origin_regex = value;
+    fn set_allow_origin_regex(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.allow_origin_regex, value)
+        })
     }
 
     #[getter]
-    fn allow_private_network(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config.borrow().allow_private_network.clone_ref(py)
+    fn allow_private_network(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?
+            .allow_private_network
+            .clone_ref(py))
     }
 
     #[setter]
-    fn set_allow_private_network(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().allow_private_network = value;
+    fn set_allow_private_network(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.allow_private_network, value)
+        })
     }
 
     #[getter]
-    fn simple_headers(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config.borrow().simple_headers.clone_ref(py)
+    fn simple_headers(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?.simple_headers.clone_ref(py))
     }
 
     #[setter]
-    fn set_simple_headers(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().simple_headers = value;
+    fn set_simple_headers(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.simple_headers, value)
+        })
     }
 
     #[getter]
-    fn preflight_headers(&self, py: Python<'_>) -> Py<PyAny> {
-        self.config.borrow().preflight_headers.clone_ref(py)
+    fn preflight_headers(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(lock_config(&self.config)?.preflight_headers.clone_ref(py))
     }
 
     #[setter]
-    fn set_preflight_headers(&mut self, value: Py<PyAny>) {
-        self.config.borrow_mut().preflight_headers = value;
+    fn set_preflight_headers(&mut self, value: Py<PyAny>) -> PyResult<()> {
+        replace_config_value(&self.config, value, |config, value| {
+            std::mem::replace(&mut config.preflight_headers, value)
+        })
     }
 
     fn __call__(
@@ -526,7 +565,10 @@ impl CorsCall {
     }
 
     fn call_app(&mut self, py: Python<'_>, send: Py<PyAny>) -> PyResult<MachineAction> {
-        let app = self.middleware.borrow(py).config.borrow().app.clone_ref(py);
+        let app = {
+            let middleware = self.middleware.borrow(py);
+            lock_config(&middleware.config)?.app.clone_ref(py)
+        };
         let awaitable =
             app.bind(py)
                 .call1((self.scope.bind(py), self.receive.bind(py), send.bind(py)))?;
@@ -629,7 +671,7 @@ impl CorsSendMessage {
         let empty_headers = PyList::empty(py);
         let headers = message.call_method1("setdefault", ("headers", &empty_headers))?;
         let config = proxy.middleware.borrow(py).config.clone();
-        let simple_headers = config.borrow().simple_headers.clone_ref(py);
+        let simple_headers = lock_config(&config)?.simple_headers.clone_ref(py);
         let items = simple_headers.bind(py).call_method0("items")?;
         for item in items.try_iter()? {
             let item = item?;
@@ -654,7 +696,7 @@ impl CorsSendMessage {
             },
         };
         let (allow_all_origins, allow_credentials) = {
-            let config = config.borrow();
+            let config = lock_config(&config)?;
             (
                 config.allow_all_origins.clone_ref(py),
                 config.allow_credentials.clone_ref(py),
@@ -686,7 +728,7 @@ fn is_allowed_origin(
     origin: &Bound<'_, PyAny>,
 ) -> PyResult<bool> {
     let (allow_all_origins, allow_origin_regex, allow_origins) = {
-        let config = config.borrow();
+        let config = lock_config(config)?;
         (
             config.allow_all_origins.clone_ref(py),
             config.allow_origin_regex.clone_ref(py),
@@ -724,7 +766,7 @@ fn build_preflight_response_values(
         allow_headers,
         allow_private_network,
     ) = {
-        let config = config.borrow();
+        let config = lock_config(config)?;
         (
             config.preflight_headers.clone_ref(py),
             config.preflight_explicit_allow_origin.clone_ref(py),

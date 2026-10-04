@@ -22980,6 +22980,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.cors-global-error-enforcement",
+              "dimension": "feature",
+              "description": "Wrap the complete debug-disabled Starlette app in an input-defined CORSMiddleware; when the route raises, preserve ServerErrorMiddleware's 500 while the outer send wrapper adds Access-Control-Allow-Origin and Vary for the allowed Origin. Pinned source: docs/middleware.md:104-127; starlette/applications.py:63-83; starlette/middleware/errors.py:149-186; starlette/middleware/cors.py:78-97,152-178.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.routed-sync-endpoint-get",
               "dimension": "success_path",
               "description": "Run a synchronous Starlette Route endpoint through TestClient GET /func and compare the public HTTPX status, ordered headers, response bytes, and the app's ASGI events. Upstream: tests/test_applications.py::test_func_route.",

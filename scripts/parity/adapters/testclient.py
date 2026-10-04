@@ -225,6 +225,34 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await starlette_application(scope, receive, observed_send)
 
+    elif app_input["kind"] == "starlette-app-cors-global-error":
+        from starlette.applications import Starlette
+        from starlette.middleware.cors import CORSMiddleware
+        from starlette.routing import Route
+
+        exception_type = getattr(builtins, app_input["exception"]["class"])
+
+        async def endpoint(_request: Any) -> None:
+            raise exception_type(app_input["exception"]["message"])
+
+        starlette_application = Starlette(
+            debug=app_input["debug"],
+            routes=[Route(app_input["path"], endpoint)],
+        )
+        cors_application = CORSMiddleware(
+            starlette_application,
+            allow_origins=app_input["allow_origins"],
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await cors_application(scope, receive, observed_send)
+
     elif app_input["kind"] == "server-error-middleware":
         from starlette.middleware.errors import ServerErrorMiddleware
 
