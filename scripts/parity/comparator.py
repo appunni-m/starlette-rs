@@ -795,6 +795,11 @@ def _normalize_starlette_lifespan_router_frame(value: Any) -> Any:
             normalized_lines.append(line)
 
         normalized_message = "".join(normalized_lines)
+        traceback_header = "Traceback (most recent call last):\n"
+        if normalized_message.startswith(traceback_header) and not any(
+            line.lstrip().startswith("File ") for line in normalized_lines
+        ):
+            normalized_message = normalized_message[len(traceback_header) :]
         if normalized_message == event["message"]:
             normalized_events.append(event)
         else:

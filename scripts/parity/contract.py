@@ -252,6 +252,7 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "task_group_lifecycle": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.task-group-child-lifecycle",
     "task_runvar_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.same-task-and-runvar-context-continuity",
 }
+ASGI_LIFESPAN_SCOPE_STATE_REQUIRED_REQUIREMENT = "starlette.asgi.lifespan.scope-state-required"
 TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "testclient",
     "client_actions",
@@ -1939,6 +1940,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
                         and observation["path"] == "typing_contract"
                     )
+                    testclient_lifespan_scope_mutation_trace = (
+                        condition["input_key"] == "asgi_app.scope_mutations"
+                        and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
+                        and observation["path"] == "scope_mutation_trace"
+                    )
                     multidict_typing_contract = (
                         condition["input_key"] == "typing_contract"
                         and key == MULTIDICT_OPERATION
@@ -2034,6 +2040,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_lifespan_callback_trace
                         and not testclient_lifespan_runvar_context
                         and not testclient_lifespan_typing_contract
+                        and not testclient_lifespan_scope_mutation_trace
                         and not multidict_typing_contract
                         and not testclient_application_debug
                         and not testclient_application_host
@@ -13104,6 +13111,61 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             or set(covers) != expected_covers
         ):
             raise ContractError("Starlette lifespan covers must match callback lifecycle behavior")
+        return
+
+    if (
+        isinstance(asgi_app_value, dict)
+        and asgi_app_value.get("kind") == "starlette-router-lifespan"
+    ):
+        asgi_app = _exact(
+            asgi_app_value,
+            {"kind", "scope_fields", "scope_mutations", "callback"},
+            "TestClient Starlette Router lifespan app",
+        )
+        if client_operations != ["enter"]:
+            raise ContractError("Starlette Router state-support case must enter TestClient")
+        if asgi_app["scope_fields"] != ["type", "state"]:
+            raise ContractError(
+                "Starlette Router state-support scope_fields must select type and state"
+            )
+        scope_mutations = asgi_app["scope_mutations"]
+        if not isinstance(scope_mutations, list) or not scope_mutations:
+            raise ContractError("Starlette Router scope_mutations must be a nonempty list")
+        for index, mutation_value in enumerate(scope_mutations):
+            mutation = _exact(
+                mutation_value,
+                {"scope_type", "operation", "field"},
+                f"Starlette Router scope mutation[{index}]",
+            )
+            if (
+                mutation["scope_type"] != "lifespan"
+                or mutation["operation"] != "delete"
+                or mutation["field"] != "state"
+            ):
+                raise ContractError("Starlette Router scope mutations must delete lifespan state")
+        callback = _exact(
+            asgi_app["callback"],
+            {"entry_effect", "exit_effect", "lifespan_state"},
+            "Starlette Router lifespan callback",
+        )
+        for key in ("entry_effect", "exit_effect"):
+            _string(callback[key], f"Starlette Router lifespan callback {key}")
+        if not isinstance(callback["lifespan_state"], dict):
+            raise ContractError("Starlette Router lifespan_state must be a mapping")
+        expected_covers = {
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"],
+            ASGI_LIFESPAN_SCOPE_STATE_REQUIRED_REQUIREMENT,
+        }
+        covers = case["covers"]
+        if (
+            not isinstance(covers, list)
+            or any(not isinstance(requirement, str) for requirement in covers)
+            or len(covers) != len(set(covers))
+            or set(covers) != expected_covers
+        ):
+            raise ContractError(
+                "Starlette Router state-support covers must match the startup failure behavior"
+            )
         return
 
     if isinstance(asgi_app_value, dict) and asgi_app_value.get("kind") == "starlette-state":

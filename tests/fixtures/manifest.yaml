@@ -23980,6 +23980,18 @@
                   }
                 },
                 {
+                  "path": "scope_mutation_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.scope_mutations"
+                  }
+                },
+                {
                   "path": "lifespan_receive_messages",
                   "value_types": [
                     "sequence"

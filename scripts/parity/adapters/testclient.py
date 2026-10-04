@@ -1348,6 +1348,7 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     lifespan_scopes: list[dict[str, Any]] = []
     lifespan_receive_messages: list[dict[str, Any]] = []
     lifespan_send_messages: list[dict[str, Any]] = []
+    scope_mutation_trace: list[dict[str, Any]] = []
     action_errors: list[dict[str, Any]] = []
 
     @contextlib.asynccontextmanager
@@ -1390,11 +1391,19 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
 
         try:
             async with managed_tasks():
-                yield
+                yield callback.get("lifespan_state")
         finally:
             lifecycle_trace.append(callback["exit_effect"])
 
-    starlette_app = Starlette(lifespan=lifespan)
+    if app_input["kind"] == "starlette-router-lifespan":
+        from starlette.responses import PlainTextResponse
+        from starlette.routing import Mount, Router
+
+        starlette_app = Router(
+            routes=[Mount("/", PlainTextResponse("hello, world"))], lifespan=lifespan
+        )
+    else:
+        starlette_app = Starlette(lifespan=lifespan)
 
     def record_scope(scope: dict[str, Any]) -> dict[str, Any]:
         return {field: _safe(scope.get(field)) for field in app_input["scope_fields"]}
@@ -1410,6 +1419,22 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
             await send(message)
 
         lifespan_scopes.append(record_scope(scope))
+        for mutation in app_input.get("scope_mutations", []):
+            if scope.get("type") == mutation["scope_type"]:
+                field = mutation["field"]
+                before_present = field in scope
+                before_value = _safe(scope[field]) if before_present else None
+                del scope[field]
+                scope_mutation_trace.append(
+                    {
+                        "scope_type": mutation["scope_type"],
+                        "operation": mutation["operation"],
+                        "field": field,
+                        "before_present": before_present,
+                        "before_value": before_value,
+                        "after_present": field in scope,
+                    }
+                )
         await starlette_app(scope, observed_receive, observed_send)
 
     client = TestClient(
@@ -1447,6 +1472,13 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
                     "message": str(error),
                 }
             )
+            lifecycle_trace_after_actions.append(
+                {
+                    "action_index": action_index,
+                    "operation": action["operation"],
+                    "trace": list(lifecycle_trace),
+                }
+            )
             break
     client.close()
     result = {
@@ -1466,6 +1498,8 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
         "lifespan_trace_before_actions": lifecycle_trace_before_actions,
         "lifespan_trace_after_actions": lifecycle_trace_after_actions,
     }
+    if "scope_mutations" in app_input:
+        result["scope_mutation_trace"] = scope_mutation_trace
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -1731,7 +1765,10 @@ def _run_starlette_lifespan_runvar_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
-    if case["asgi_app"]["kind"] == "starlette-lifespan":
+    if case["asgi_app"]["kind"] in {
+        "starlette-lifespan",
+        "starlette-router-lifespan",
+    }:
         return _run_starlette_lifespan_case(case)
     if case["asgi_app"]["kind"] == "starlette-lifespan-runvar":
         return _run_starlette_lifespan_runvar_case(case)
