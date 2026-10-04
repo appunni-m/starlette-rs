@@ -190,6 +190,7 @@ TESTCLIENT_REQUIREMENTS = {
     "receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-message",
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
     "follow_redirects_disabled": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-redirects-disabled",
+    "follow_redirects_enabled": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-redirects-enabled",
     "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
@@ -198,6 +199,7 @@ TESTCLIENT_REQUIREMENTS = {
     "sync_route_get": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-get",
     "sync_route_head": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-head",
     "sync_route_worker_thread": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-worker-thread",
+    "base_url_path_merge": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.base-url-path-prefix-merge",
     "app_debug_mutation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.application-debug-mutation",
     "app_debug_response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.debug-error-response",
     "starlette_trusted_host": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-trusted-host-middleware",
@@ -10472,6 +10474,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     is_request_url_for_error = app_kind == "request-url-for-error"
     is_request_url_for_middleware = app_kind == "request-url-for-middleware"
     is_raw_asgi_error = app_kind == "raw-asgi-error"
+    is_path_response_map = app_kind == "path-response-map"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
     is_static_files_root_symlink = app_kind == "static-files-root-symlink"
     is_static_files_lookup_error = app_kind == "static-files-lookup-error"
@@ -10560,13 +10563,32 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             "TestClient Starlette route app",
         )
         route_path = _string(asgi_app["path"], "TestClient route path")
+        endpoint_kind = (
+            asgi_app["endpoint"].get("kind") if isinstance(asgi_app["endpoint"], dict) else None
+        )
         endpoint = _exact(
             asgi_app["endpoint"],
             {"kind", "query_parameter"}
-            if isinstance(asgi_app["endpoint"], dict)
-            and asgi_app["endpoint"].get("kind") == "sync-query-param-text-response"
+            if endpoint_kind == "sync-query-param-text-response"
+            else {"kind"}
+            if endpoint_kind == "sync-request-url-path-response"
             else {"kind", "content"},
             "TestClient synchronous route endpoint",
+        )
+        is_request_url_path_response = endpoint["kind"] == "sync-request-url-path-response"
+        valid_route_request_path = (
+            request["method"] == "GET"
+            and request.get("client_method") == "get"
+            and request["url"] == "/bar"
+            and settings["base_url"] == "http://testserver/api/v1/"
+            and settings["raise_server_exceptions"] is True
+            and settings["root_path"] == ""
+            and settings["client"] == ["testclient", 50000]
+            and not settings["headers"]
+            and route_path == "/api/v1/bar"
+            and not request["headers_base64_pairs"]
+            and not base64.b64decode(request["body_base64"])
+            and not followup_requests
         )
         if (
             not route_path.startswith("/")
@@ -10576,9 +10598,13 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 "sync-plain-text-response",
                 "sync-json-response",
                 "sync-query-param-text-response",
+                "sync-request-url-path-response",
             }
             or request["method"] not in {"GET", "HEAD"}
-            or urlsplit(request["url"]).path != route_path
+            or (
+                urlsplit(request["url"]).path != route_path
+                and not (is_request_url_path_response and valid_route_request_path)
+            )
         ):
             raise ContractError(
                 "TestClient Starlette route input must use a default-method GET/HEAD sync route"
@@ -10592,7 +10618,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "TestClient synchronous JSON endpoint content must be JSON-compatible"
                 ) from exc
-        else:
+        elif endpoint["kind"] == "sync-query-param-text-response":
             query_parameter = _string(
                 endpoint["query_parameter"], "TestClient synchronous endpoint query_parameter"
             )
@@ -10600,6 +10626,10 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "TestClient synchronous endpoint query_parameter must be non-empty"
                 )
+        elif is_request_url_path_response and not valid_route_request_path:
+            raise ContractError(
+                "TestClient Request.url.path route input must use the pinned base URL path-prefix request"
+            )
         messages = []
         exception_spec = None
     elif is_starlette_app_debug:
@@ -11452,6 +11482,92 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             )
         exception_spec = asgi_app["exception"]
         messages = []
+    elif is_path_response_map:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "responses", "scope_fields"},
+            "TestClient ASGI path-response map",
+        )
+        response_inputs = asgi_app["responses"]
+        if not isinstance(response_inputs, list) or not response_inputs:
+            raise ContractError("TestClient ASGI path-response map must be non-empty")
+        responses_by_path: dict[str, dict[str, Any]] = {}
+        for index, response_input in enumerate(response_inputs):
+            context = f"TestClient ASGI path-response map responses[{index}]"
+            response_entry = _exact(response_input, {"path", "response"}, context)
+            response_path = _string(response_entry["path"], f"{context}.path")
+            if (
+                not response_path.startswith("/")
+                or urlsplit(response_path).path != response_path
+                or response_path in responses_by_path
+            ):
+                raise ContractError(
+                    f"{context}.path must be a unique absolute path without query or fragment"
+                )
+            response_value = response_entry["response"]
+            response_kind = response_value.get("kind") if isinstance(response_value, dict) else None
+            if response_kind == "redirect":
+                response_value = _exact(
+                    response_value,
+                    {"kind", "url"},
+                    f"{context}.response redirect",
+                )
+                redirect_url = _string(response_value["url"], f"{context}.response.url")
+                redirect_parts = urlsplit(redirect_url)
+                if (
+                    not redirect_parts.path.startswith("/")
+                    or redirect_parts.scheme
+                    or redirect_parts.netloc
+                    or redirect_parts.query
+                    or redirect_parts.fragment
+                ):
+                    raise ContractError(
+                        f"{context}.response.url must be an absolute path without query or fragment"
+                    )
+            elif response_kind == "response":
+                response_value = _exact(
+                    response_value,
+                    {"kind", "content"},
+                    f"{context}.response",
+                )
+                _string(response_value["content"], f"{context}.response.content")
+            else:
+                raise ContractError(f"{context}.response.kind must be redirect or response")
+            responses_by_path[response_path] = response_value
+
+        initial_path = urlsplit(request["url"]).path
+        initial_response = responses_by_path.get(initial_path)
+        redirect_path = (
+            urlsplit(initial_response["url"]).path
+            if initial_response is not None and initial_response["kind"] == "redirect"
+            else None
+        )
+        redirected_response = responses_by_path.get(redirect_path or "")
+        if (
+            settings.get("follow_redirects") is not True
+            or settings["base_url"] != "http://testserver"
+            or settings["raise_server_exceptions"] is not True
+            or settings["root_path"] != ""
+            or settings["client"] != ["testclient", 50000]
+            or settings["headers"]
+            or request["method"] != "GET"
+            or request.get("client_method") != "get"
+            or request["url"] != "/"
+            or request["headers_base64_pairs"]
+            or base64.b64decode(request["body_base64"])
+            or followup_requests
+            or "path" not in asgi_app["scope_fields"]
+            or initial_response is None
+            or initial_response["kind"] != "redirect"
+            or redirected_response is None
+            or redirected_response["kind"] != "response"
+            or set(responses_by_path) != {initial_path, redirect_path}
+        ):
+            raise ContractError(
+                "TestClient redirect input must follow one input-defined raw ASGI redirect to a final response"
+            )
+        exception_spec = None
+        messages = []
     else:
         asgi_app_keys = {"kind", "scope_fields", "receive_count", "messages"}
         if isinstance(raw_asgi_app, dict) and "exception" in raw_asgi_app:
@@ -11526,6 +11642,11 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         )
         if endpoint["kind"] == "sync-query-param-text-response":
             expected_covers.add(TESTCLIENT_REQUEST_REQUIREMENTS["query_params_option"])
+        if endpoint["kind"] == "sync-request-url-path-response":
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["base_url_path_merge"])
+    if is_path_response_map:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["follow_redirects_enabled"])
     if is_starlette_app_debug:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_mutation"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_response"])

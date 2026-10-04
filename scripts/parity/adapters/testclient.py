@@ -119,6 +119,8 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                 return JSONResponse(endpoint_spec["content"])
             if endpoint_spec["kind"] == "sync-query-param-text-response":
                 return Response(_request.query_params[endpoint_spec["query_parameter"]])
+            if endpoint_spec["kind"] == "sync-request-url-path-response":
+                return Response(_request.url.path)
             return PlainTextResponse(endpoint_spec["content"])
 
         route_app = Starlette(
@@ -745,6 +747,28 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             record_scope(scope)
             exception_type = getattr(builtins, app_input["exception"]["class"])
             raise exception_type(app_input["exception"]["message"])
+
+    elif app_input["kind"] == "path-response-map":
+        from starlette.responses import RedirectResponse, Response
+
+        responses_by_path = {
+            response_input["path"]: response_input["response"]
+            for response_input in app_input["responses"]
+        }
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            response_input = responses_by_path[scope["path"]]
+            if response_input["kind"] == "redirect":
+                response = RedirectResponse(response_input["url"])
+            else:
+                response = Response(response_input["content"])
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await response(scope, receive, observed_send)
 
     elif app_input["kind"] == "asgi2":
 

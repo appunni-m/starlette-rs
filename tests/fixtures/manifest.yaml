@@ -22974,6 +22974,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.follow-redirects-enabled",
+              "dimension": "protocol_variant",
+              "description": "Honor the input follow_redirects=true setting for a raw ASGI app that maps the initial path to RedirectResponse and its redirect target to Response. Compare both observed request paths and ASGI response events with the final HTTPX response status, URL, and body. Pinned source: tests/test_testclient.py:400-410; starlette/testclient.py:382-420.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.asgi2-callable",
               "dimension": "protocol_variant",
               "description": "Adapt the supplied two-stage ASGI2 callable to the TestClient ASGI3 transport without changing its scope, receive, send, or response behavior. Pinned source: starlette/testclient.py:59-69,395-401; tests/test_testclient.py::test_testclient_asgi2.",
@@ -23054,6 +23065,17 @@
               "id": "starlette.testclient.TestClient.request-response.routed-sync-endpoint-worker-thread",
               "dimension": "boundary",
               "description": "Verify that the synchronous endpoint used by TestClient runs exactly once on an AnyIO worker thread. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_applications.py::test_func_route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.base-url-path-prefix-merge",
+              "dimension": "input_family",
+              "description": "Merge the relative TestClient target /bar with base_url http://testserver/api/v1/, dispatch to the input-defined /api/v1/bar route, and return Request.url.path through Response. Compare the live ASGI path, response URL, and body bytes. Pinned source: tests/test_testclient.py:433-440; starlette/testclient.py:430-455; starlette/requests.py:109-113; starlette/datastructures.py:28-85.",
               "lanes": [
                 "parity"
               ],
