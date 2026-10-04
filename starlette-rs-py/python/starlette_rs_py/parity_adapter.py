@@ -6078,6 +6078,54 @@ def _run_static_files_configuration_case(case: dict[str, Any]) -> dict[str, Any]
     )
 
 
+def _apply_static_files_actions(
+    root: Path,
+    actions: Any,
+    declared_paths: set[str],
+    removed_paths: set[str],
+) -> None:
+    if not isinstance(actions, list):
+        raise ValueError("StaticFiles filesystem_actions_before must be a list")
+
+    safe_root = root.resolve(strict=True)
+    for index, action in enumerate(actions):
+        action = _exact_object(
+            action,
+            {"operation", "path"},
+            f"StaticFiles filesystem_actions_before[{index}]",
+        )
+        if action["operation"] != "unlink":
+            raise ValueError("StaticFiles filesystem action operation must be unlink")
+
+        relative_path = action["path"]
+        if not isinstance(relative_path, str):
+            raise ValueError("StaticFiles filesystem action path must be a string")
+        components = relative_path.split("/")
+        if (
+            not relative_path
+            or "\x00" in relative_path
+            or "\\" in relative_path
+            or ":" in relative_path
+            or relative_path.startswith("/")
+            or any(component in {"", ".", ".."} for component in components)
+        ):
+            raise ValueError("StaticFiles filesystem action path must be a safe relative path")
+        if relative_path not in declared_paths:
+            raise ValueError("StaticFiles filesystem action path must name a declared file")
+        if relative_path in removed_paths:
+            raise ValueError("StaticFiles filesystem action path names a file already unlinked")
+
+        parent = safe_root.joinpath(*components[:-1]).resolve(strict=True)
+        try:
+            parent.relative_to(safe_root)
+        except ValueError as exc:
+            raise ValueError(
+                "StaticFiles filesystem action path must remain inside the temporary root"
+            ) from exc
+        (parent / components[-1]).unlink()
+        removed_paths.add(relative_path)
+
+
 def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
     request_sequence = "calls" in case
     expected_keys = {
@@ -6121,7 +6169,10 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                 "StaticFiles request sequences do not combine with stress or filesystem inputs"
             )
         for index, call in enumerate(call_specs):
-            _exact_object(call, {"scope", "incoming", "send"}, f"StaticFiles calls[{index}]")
+            call_fields = {"scope", "incoming", "send"}
+            if "filesystem_actions_before" in call:
+                call_fields.add("filesystem_actions_before")
+            _exact_object(call, call_fields, f"StaticFiles calls[{index}]")
             if call["incoming"] != [] or call["send"] != {"kind": "capture-asgi-send"}:
                 raise ValueError("StaticFiles calls require empty receive and captured send")
     else:
@@ -6174,6 +6225,8 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                 path = root / symlink_spec["path"]
                 path.parent.mkdir(parents=True, exist_ok=True)
                 os.symlink(symlink_spec["target"], path)
+        declared_file_paths = {file_spec["path"] for file_spec in case["files"]}
+        removed_file_paths: set[str] = set()
         package_arguments = []
         for package in case["packages"]:
             package_path = package_source_root
@@ -6218,6 +6271,12 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
 
                     captured_error: Exception | None = None
                     try:
+                        _apply_static_files_actions(
+                            root,
+                            call.get("filesystem_actions_before", []),
+                            declared_file_paths,
+                            removed_file_paths,
+                        )
                         await application(scope, receive, send)
                     except Exception as exc:
                         if not isinstance(exc, HTTPException):

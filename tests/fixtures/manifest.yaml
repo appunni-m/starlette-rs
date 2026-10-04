@@ -20142,6 +20142,18 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.deleted-file-conditional-html-fallback",
+              "dimension": "input_family",
+              "description": "Serve an input-defined HTML asset, repeat with its matching If-Modified-Since validator, remove that asset between calls, and repeat the same validator request. Compare the live 404.html fallback status, headers, body, and ASGI events. Pinned source: tests/test_staticfiles.py::test_staticfiles_cache_invalidation_for_deleted_file_html_mode at the authority commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

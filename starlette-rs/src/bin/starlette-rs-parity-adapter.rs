@@ -3571,6 +3571,66 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
     }))
 }
 
+fn parse_static_files_actions_before(
+    call: &Map<String, Value>,
+    file_inputs: &[Value],
+    context: &str,
+) -> Result<Vec<PathBuf>, String> {
+    let Some(actions) = call.get("filesystem_actions_before") else {
+        return Ok(Vec::new());
+    };
+    let actions = actions
+        .as_array()
+        .ok_or_else(|| format!("{context} must be an array"))?;
+    let declared_paths = file_inputs
+        .iter()
+        .map(|file_input| {
+            let file_input = exact_object(
+                file_input,
+                &["path", "contents_base64", "mtime_seconds"],
+                "StaticFiles file",
+            )?;
+            let path = string_field(file_input, "path", "StaticFiles file")?;
+            if path.contains('\0') || !is_static_workspace_relative(Path::new(path)) {
+                return Err(String::from(
+                    "StaticFiles file path must be a safe relative path",
+                ));
+            }
+            Ok(path.to_owned())
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    actions
+        .iter()
+        .enumerate()
+        .map(|(index, action)| {
+            let action_context = format!("{context}[{index}]");
+            let action = exact_object(action, &["operation", "path"], &action_context)?;
+            if string_field(action, "operation", &action_context)? != "unlink" {
+                return Err(format!(
+                    "{action_context}.operation must be the declared `unlink` action"
+                ));
+            }
+            let path = string_field(action, "path", &action_context)?;
+            let relative_path = Path::new(path);
+            if path.contains('\0') || !is_static_workspace_relative(relative_path) {
+                return Err(format!(
+                    "{action_context}.path must be a safe relative path"
+                ));
+            }
+            if !declared_paths
+                .iter()
+                .any(|declared_path| declared_path.as_str() == path)
+            {
+                return Err(format!(
+                    "{action_context}.path must name a declared StaticFiles file input"
+                ));
+            }
+            Ok(relative_path.to_path_buf())
+        })
+        .collect()
+}
+
 fn run_static_files_case(case: &Value) -> Result<Value, String> {
     let request_sequence = case.get("calls").is_some();
     let mut expected_fields = vec![
@@ -3617,7 +3677,12 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
         calls
             .iter()
             .map(|call| {
-                let call = exact_object(call, &["scope", "incoming", "send"], "StaticFiles call")?;
+                let expected_fields: &[&str] = if call.get("filesystem_actions_before").is_some() {
+                    &["scope", "incoming", "send", "filesystem_actions_before"]
+                } else {
+                    &["scope", "incoming", "send"]
+                };
+                let call = exact_object(call, expected_fields, "StaticFiles call")?;
                 if call.get("incoming") != Some(&json!([])) {
                     return Err(String::from(
                         "StaticFiles call incoming input must be empty",
@@ -3682,6 +3747,17 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
         .get("packages")
         .and_then(Value::as_array)
         .ok_or_else(|| String::from("StaticFiles packages must be an array"))?;
+    let filesystem_actions_before = call_inputs
+        .iter()
+        .enumerate()
+        .map(|(index, call)| {
+            parse_static_files_actions_before(
+                call,
+                file_inputs,
+                &format!("StaticFiles call {index} filesystem_actions_before"),
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     let filesystem = case
         .get("filesystem")
         .ok_or_else(|| String::from("StaticFiles filesystem input is missing"))?;
@@ -3769,10 +3845,18 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
     } else {
         None
     };
-    let request_observations = call_inputs
-        .iter()
-        .map(|call| observe_static_files_call(&static_files, call))
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut request_observations = Vec::with_capacity(call_inputs.len());
+    for (call, actions_before) in call_inputs.iter().zip(filesystem_actions_before) {
+        for action_path in actions_before {
+            fs::remove_file(root.join(&action_path)).map_err(|error| {
+                format!(
+                    "cannot apply StaticFiles unlink action for {:?}: {error}",
+                    action_path
+                )
+            })?;
+        }
+        request_observations.push(observe_static_files_call(&static_files, call)?);
+    }
     drop(permission_guard);
     drop(temporary_directory);
     if request_sequence {

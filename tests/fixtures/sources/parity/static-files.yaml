@@ -342,6 +342,150 @@
       ]
     },
     {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.deleted-file-conditional-html-fallback",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.conditional-date-match",
+        "starlette.staticfiles.StaticFiles.asgi-call.deleted-file-conditional-html-fallback",
+        "starlette.staticfiles.StaticFiles.asgi-call.html-not-found-fallback",
+        "starlette.staticfiles.StaticFiles.asgi-call.rooted-file-get"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "path_limit_stress": null,
+      "permission_denial_stress": null,
+      "filesystem": null,
+      "packages": [],
+      "files": [
+        {
+          "path": "404.html",
+          "contents_base64": "PHA+NDA0IGZpbGU8L3A+",
+          "mtime_seconds": 1381448400
+        },
+        {
+          "path": "some.html",
+          "contents_base64": "PHA+c29tZSBmaWxlPC9wPg==",
+          "mtime_seconds": 1381448400
+        }
+      ],
+      "html": true,
+      "check_dir": true,
+      "follow_symlink": false,
+      "calls": [
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/some.html",
+            "raw_path_base64": "L3NvbWUuaHRtbA==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          }
+        },
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/some.html",
+            "raw_path_base64": "L3NvbWUuaHRtbA==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aWYtbW9kaWZpZWQtc2luY2U=",
+                "VGh1LCAxMCBPY3QgMjAxMyAyMzo0MDowMCBHTVQ="
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          }
+        },
+        {
+          "filesystem_actions_before": [
+            {
+              "operation": "unlink",
+              "path": "some.html"
+            }
+          ],
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/some.html",
+            "raw_path_base64": "L3NvbWUuaHRtbA==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aWYtbW9kaWZpZWQtc2luY2U=",
+                "VGh1LCAxMCBPY3QgMjAxMyAyMzo0MDowMCBHTVQ="
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          }
+        }
+      ],
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call.package-static-assets",
       "surface": "starlette.staticfiles.StaticFiles",
       "operation": "asgi-call",

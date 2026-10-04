@@ -5408,7 +5408,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _validate_static_files_case_stimulus(
-    case: dict[str, Any], *, validate_covers: bool = True
+    case: dict[str, Any], *, validate_covers: bool = True, allow_empty_files: bool = False
 ) -> set[str]:
     if "calls" in case:
         _exact(
@@ -5420,17 +5420,79 @@ def _validate_static_files_case_stimulus(
         if not isinstance(calls, list) or len(calls) < 2:
             raise ContractError("StaticFiles calls must contain at least two request inputs")
         base_case = {key: value for key, value in case.items() if key != "calls"}
+        if not isinstance(base_case["files"], list):
+            raise ContractError("StaticFiles.files must be an array")
+        declared_files: dict[str, dict[str, Any]] = {}
+        for index, file_input in enumerate(base_case["files"]):
+            file_path, _mtime = _validate_static_asset_file(
+                file_input, f"StaticFiles.files[{index}]"
+            )
+            if file_path in declared_files:
+                raise ContractError("StaticFiles.files must not repeat asset paths")
+            declared_files[file_path] = file_input
+
         derived_covers: set[str] = set()
         call_scopes: list[dict[str, Any]] = []
+        call_actions: list[list[str]] = []
+        files_at_call: list[set[str]] = []
+        remaining_file_paths = set(declared_files)
+        removed_file_paths: set[str] = set()
         for index, call in enumerate(calls):
+            call_keys = {"scope", "incoming", "send"}
+            if isinstance(call, dict) and "filesystem_actions_before" in call:
+                call_keys.add("filesystem_actions_before")
             call = _exact(
                 call,
-                {"scope", "incoming", "send"},
+                call_keys,
                 f"StaticFiles calls[{index}]",
             )
             call_scopes.append(call["scope"])
+            actions = call.get("filesystem_actions_before", [])
+            if not isinstance(actions, list):
+                raise ContractError(
+                    f"StaticFiles calls[{index}].filesystem_actions_before must be an array"
+                )
+            action_paths: list[str] = []
+            for action_index, action in enumerate(actions):
+                context = f"StaticFiles calls[{index}].filesystem_actions_before[{action_index}]"
+                action = _exact(action, {"operation", "path"}, context)
+                if _string(action["operation"], f"{context}.operation") != "unlink":
+                    raise ContractError(f"{context}.operation must be 'unlink'")
+                action_path = "/".join(
+                    _static_files_relative_components(
+                        action["path"], f"{context}.path", allow_parent=False
+                    )
+                )
+                if action_path not in declared_files:
+                    raise ContractError(
+                        f"{context}.path must name a file declared in StaticFiles.files"
+                    )
+                if action_path not in remaining_file_paths:
+                    raise ContractError(f"{context}.path names a file already unlinked")
+                remaining_file_paths.remove(action_path)
+                removed_file_paths.add(action_path)
+                action_paths.append(action_path)
+            call_actions.append(action_paths)
+            files_at_call.append(set(remaining_file_paths))
+
+            call_without_actions = {
+                key: value for key, value in call.items() if key != "filesystem_actions_before"
+            }
+            call_case = {
+                **base_case,
+                "files": [
+                    file_input
+                    for file_path, file_input in declared_files.items()
+                    if file_path in remaining_file_paths
+                ],
+                **call_without_actions,
+            }
             derived_covers.update(
-                _validate_static_files_case_stimulus({**base_case, **call}, validate_covers=False)
+                _validate_static_files_case_stimulus(
+                    call_case,
+                    validate_covers=False,
+                    allow_empty_files=bool(removed_file_paths),
+                )
             )
 
         # Derive the source test's date-comparison ordering from the request
@@ -5451,13 +5513,8 @@ def _validate_static_files_case_stimulus(
             normalized_path = (
                 "/".join(part for part in route_path.split("/") if part not in {"", "."}) or "."
             )
-            selected_file = next(
-                (
-                    file_input
-                    for file_input in base_case["files"]
-                    if file_input["path"] == normalized_path
-                ),
-                None,
+            selected_file = (
+                declared_files.get(normalized_path) if normalized_path in files_at_call[1] else None
             )
 
             def if_modified_since(scope: dict[str, Any]) -> float | None:
@@ -5495,6 +5552,73 @@ def _validate_static_files_case_stimulus(
             ):
                 derived_covers.add(
                     f"{STATIC_FILES_SURFACE}.asgi-call.last-modified-condition-order"
+                )
+
+        if len(call_scopes) >= 3 and case["html"] and "404.html" in files_at_call[-1]:
+            first_scope = call_scopes[0]
+            request_path = first_scope.get("path")
+            root_path = first_scope.get("root_path")
+            same_http_get_path = (
+                isinstance(request_path, str)
+                and isinstance(root_path, str)
+                and all(
+                    scope.get("type") == "http"
+                    and scope.get("method") == "GET"
+                    and scope.get("path") == request_path
+                    and scope.get("root_path") == root_path
+                    for scope in call_scopes
+                )
+            )
+            if root_path and request_path.startswith(root_path):
+                if request_path == root_path:
+                    route_path = ""
+                elif request_path[len(root_path) :].startswith("/"):
+                    route_path = request_path[len(root_path) :]
+                else:
+                    route_path = request_path
+            else:
+                route_path = request_path
+            requested_file_path = (
+                "/".join(part for part in route_path.split("/") if part not in {"", "."}) or "."
+            )
+            requested_file = declared_files.get(requested_file_path)
+
+            def literal_if_modified_since(scope: dict[str, Any]) -> tuple[bytes, float] | None:
+                values: list[bytes] = []
+                try:
+                    for encoded_name, encoded_value in scope.get("headers_base64_pairs", []):
+                        name = base64.b64decode(encoded_name, validate=True)
+                        if name.lower() == b"if-modified-since":
+                            values.append(base64.b64decode(encoded_value, validate=True))
+                except (TypeError, ValueError):
+                    return None
+                if len(values) != 1:
+                    return None
+                try:
+                    value = values[0].decode("latin-1")
+                    request_date = parsedate_to_datetime(value).timestamp()
+                except (TypeError, ValueError, OverflowError, OSError):
+                    return None
+                return values[0], request_date
+
+            second_validator = literal_if_modified_since(call_scopes[1])
+            final_validator = literal_if_modified_since(call_scopes[-1])
+            requested_file_unlinked_after_second_call = any(
+                requested_file_path in action_paths for action_paths in call_actions[2:]
+            )
+            if (
+                same_http_get_path
+                and requested_file is not None
+                and requested_file_path in files_at_call[1]
+                and requested_file_path not in files_at_call[-1]
+                and second_validator is not None
+                and final_validator is not None
+                and second_validator[0] == final_validator[0]
+                and second_validator[1] >= float(requested_file["mtime_seconds"])
+                and requested_file_unlinked_after_second_call
+            ):
+                derived_covers.add(
+                    f"{STATIC_FILES_SURFACE}.asgi-call.deleted-file-conditional-html-fallback"
                 )
         if validate_covers and set(case["covers"]) != derived_covers:
             raise ContractError(
@@ -5634,7 +5758,13 @@ def _validate_static_files_case_stimulus(
 
     path = scope["path"]
     root_path = scope["root_path"]
-    if not files and not packages and case["filesystem"] is None and "\x00" not in path:
+    if (
+        not files
+        and not packages
+        and case["filesystem"] is None
+        and "\x00" not in path
+        and not allow_empty_files
+    ):
         raise ContractError(
             "StaticFiles requires configured assets or filesystem inputs unless the input path contains a NUL byte"
         )
