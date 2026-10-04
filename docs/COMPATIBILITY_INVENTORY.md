@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 884 input-only cases across 88 files,
-covering 102 operations and 867 unique parity requirements. Recent parity inputs
+The active parity manifest indexes 885 input-only cases across 88 files,
+covering 102 operations and 868 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -174,8 +174,8 @@ four Rust-native `not_run` rows. Median source/package latency ratios were
 establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix has 802 source rows: 616 input mappings, 51
-reasoned `not_applicable` rows, and 135 fixture backlog rows. Derive these
+The generated coverage matrix has 802 source rows: 617 input mappings, 51
+reasoned `not_applicable` rows, and 134 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

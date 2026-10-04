@@ -16582,37 +16582,12 @@ def _validate_application_stimulus(
         _validate_body_reuse_application(route, handlers)
         return
 
-    if handlers != []:
-        _validate_status_precedence_application(route, handlers)
+    if isinstance(route["endpoint"], dict) and route["endpoint"].get("kind") == "http-exception":
+        _validate_http_exception_application(route, handlers)
         return
 
-    if isinstance(route["endpoint"], dict) and route["endpoint"].get("kind") == "http-exception":
-        endpoint = _exact(
-            route["endpoint"],
-            {"kind", "status_code", "detail", "headers"},
-            "HTTP exception endpoint input",
-        )
-        _string(route["path"], "HTTP exception route path")
-        if (
-            route["kind"] != "http-route"
-            or not route["path"].startswith("/")
-            or route["methods"] != ["GET"]
-        ):
-            raise ContractError("HTTP exception routes must select one absolute-path GET")
-        if (
-            type(endpoint["status_code"]) is not int
-            or not 100 <= endpoint["status_code"] <= 599
-            or (endpoint["detail"] is not None and not isinstance(endpoint["detail"], str))
-            or not isinstance(endpoint["headers"], list)
-        ):
-            raise ContractError("HTTP exception stimulus has an invalid status, detail, or headers")
-        for index, pair in enumerate(endpoint["headers"]):
-            if (
-                not isinstance(pair, list)
-                or len(pair) != 2
-                or any(not isinstance(value, str) for value in pair)
-            ):
-                raise ContractError(f"HTTP exception header input[{index}] must be a string pair")
+    if handlers != []:
+        _validate_status_precedence_application(route, handlers)
         return
 
     if (
@@ -17403,6 +17378,8 @@ def _validate_exception_handler_recipe(value: Any, context: str) -> None:
         _exact(value, {"kind", "status_from_exception"}, context)
         if value["status_from_exception"] is not True:
             raise ContractError(f"{context} must use the HTTPException status")
+    elif kind == "json-exception-detail-headers-response":
+        _exact(value, {"kind"}, context)
     elif kind == "json-literal-response":
         _exact(value, {"kind", "status_code", "content"}, context)
         if type(value["status_code"]) is not int or not 100 <= value["status_code"] <= 599:
@@ -17527,6 +17504,45 @@ def _validate_websocket_exception_application(args: dict[str, Any]) -> None:
         or handlers[0]["handler"].get("kind") != "websocket-close-handler"
     ):
         raise ContractError("custom WebSocket exception must use its registered close handler")
+
+
+def _validate_http_exception_application(route: dict[str, Any], handlers: Any) -> None:
+    endpoint = _exact(
+        route["endpoint"],
+        {"kind", "status_code", "detail", "headers"},
+        "HTTP exception endpoint input",
+    )
+    _string(route["path"], "HTTP exception route path")
+    if (
+        route["kind"] != "http-route"
+        or not route["path"].startswith("/")
+        or route["methods"] != ["GET"]
+    ):
+        raise ContractError("HTTP exception routes must select one absolute-path GET")
+    if (
+        type(endpoint["status_code"]) is not int
+        or not 100 <= endpoint["status_code"] <= 599
+        or (endpoint["detail"] is not None and not isinstance(endpoint["detail"], str))
+        or not isinstance(endpoint["headers"], list)
+    ):
+        raise ContractError("HTTP exception stimulus has an invalid status, detail, or headers")
+    for index, pair in enumerate(endpoint["headers"]):
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(value, str) for value in pair)
+        ):
+            raise ContractError(f"HTTP exception header input[{index}] must be a string pair")
+    if handlers:
+        if (
+            len(handlers) != 1
+            or handlers[0]["key"] != {"kind": "exception-class", "name": "HTTPException"}
+            or handlers[0]["handler"].get("kind") != "json-exception-detail-headers-response"
+            or not endpoint["headers"]
+        ):
+            raise ContractError(
+                "HTTPException header forwarding requires its documented custom handler and headers"
+            )
 
 
 def _validate_status_precedence_application(route: dict[str, Any], handlers: Any) -> None:
@@ -17858,6 +17874,9 @@ def _validate_exception_handler_dispatch(
     if endpoint.get("kind") == "http-exception-after-body":
         if scope["method"] != "POST":
             raise ContractError("body-reuse input must dispatch a POST request")
+    elif endpoint.get("kind") == "http-exception":
+        if scope["method"] != "GET" or route["methods"] != ["GET"]:
+            raise ContractError("HTTPException handler input must dispatch its declared GET route")
     elif scope["method"] != "POST" or route["methods"] != ["GET"]:
         raise ContractError("status-code precedence input must POST to its GET-only route")
 
@@ -23955,6 +23974,22 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                             coverage.add(
                                 "starlette.asgi.exception-handler.request-body-cache-reuse"
                             )
+            elif endpoint["kind"] == "http-exception":
+                handler_entry = entries_by_key.get(("exception-class", "HTTPException"))
+                if (
+                    path_matches
+                    and method_matches
+                    and endpoint["headers"]
+                    and handler_entry is not None
+                    and handler_entry["handler"]["kind"] == "json-exception-detail-headers-response"
+                ):
+                    coverage.update(
+                        {
+                            "starlette.asgi.exception-handler.exception-class",
+                            "starlette.asgi.exception-handler.async-callback",
+                            "starlette.asgi.exception-handler.headers-forwarding",
+                        }
+                    )
             elif path_matches and not method_matches:
                 if ("status-code", 405) in entries_by_key:
                     coverage.add("starlette.asgi.exception-handler.status-code")

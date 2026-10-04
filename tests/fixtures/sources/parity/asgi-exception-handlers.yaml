@@ -152,6 +152,150 @@
       ]
     },
     {
+      "case_id": "starlette.applications.Starlette.__call__.exception-handler.headers-forwarding",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.exception-handler.exception-class",
+        "starlette.asgi.exception-handler.async-callback",
+        "starlette.asgi.exception-handler.headers-forwarding"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/headers",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "http-exception",
+                    "status_code": 429,
+                    "detail": "rate limited",
+                    "headers": [
+                      [
+                        "retry-after",
+                        "30"
+                      ],
+                      [
+                        "x-error-origin",
+                        "input-defined"
+                      ]
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": [
+                {
+                  "key": {
+                    "kind": "exception-class",
+                    "name": "HTTPException"
+                  },
+                  "handler": {
+                    "kind": "json-exception-detail-headers-response"
+                  }
+                }
+              ]
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "scheme": "http",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ],
+                "method": "GET",
+                "path": "/headers",
+                "raw_path_base64": "L2hlYWRlcnM="
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
       "case_id": "starlette.applications.Starlette.__call__.exception-handler.request-body-cache-reuse",
       "surface": "starlette.applications.Starlette",
       "operation": "__call__",

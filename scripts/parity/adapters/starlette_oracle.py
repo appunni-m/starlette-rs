@@ -1139,6 +1139,15 @@ def _materialize_exception_handlers(
                     if spec["status_from_exception"] is not True:
                         raise ValueError("exception-detail handler must use exception status")
                     return json_response_type({"detail": exc.detail}, status_code=exc.status_code)
+                if spec["kind"] == "json-exception-detail-headers-response":
+                    _strict_object(
+                        spec,
+                        {"kind"},
+                        "JSON exception-detail and headers response handler",
+                    )
+                    return json_response_type(
+                        {"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers
+                    )
                 if spec["kind"] == "json-literal-response":
                     _strict_object(
                         spec,

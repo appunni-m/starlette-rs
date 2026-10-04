@@ -75,8 +75,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix has 802 source rows: 616 input mappings, 51
-reasoned `not_applicable` rows, and 135 fixture-backlog rows.
+The generated coverage matrix has 802 source rows: 617 input mappings, 51
+reasoned `not_applicable` rows, and 134 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in

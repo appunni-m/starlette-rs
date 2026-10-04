@@ -1293,6 +1293,17 @@
               ]
             },
             {
+              "id": "starlette.asgi.exception-handler.headers-forwarding",
+              "dimension": "error_path",
+              "description": "A custom HTTPException handler can pass the exception headers through to its response. The dispatched response preserves the input-defined headers. Upstream: docs/exceptions.md:53-63.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.asgi.exception-handler.router-miss-404",
               "dimension": "error_path",
               "description": "A Router miss raises HTTPException(404) in the application scope and selects the registered HTTPException JSON handler. Upstream: starlette/routing.py::Router.not_found; tests/test_applications.py::test_400.",
