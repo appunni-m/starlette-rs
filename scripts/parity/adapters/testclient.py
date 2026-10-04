@@ -94,7 +94,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
     if app_input["kind"] == "starlette-route":
         from starlette.applications import Starlette
-        from starlette.responses import PlainTextResponse
+        from starlette.responses import JSONResponse, PlainTextResponse
         from starlette.routing import Route
 
         sync_endpoint_state = {
@@ -114,7 +114,10 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                     "different_worker_thread": threading.get_ident() != caller_thread_id,
                     "invocation_count": sync_endpoint_state["invocation_count"],
                 }
-            return PlainTextResponse(app_input["endpoint"]["content"])
+            endpoint_spec = app_input["endpoint"]
+            if endpoint_spec["kind"] == "sync-json-response":
+                return JSONResponse(endpoint_spec["content"])
+            return PlainTextResponse(endpoint_spec["content"])
 
         route_app = Starlette(
             routes=[Route(app_input["path"], endpoint, methods=app_input["methods"])]

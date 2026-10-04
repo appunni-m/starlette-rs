@@ -385,6 +385,69 @@
       }
     },
     {
+      "case_id": "starlette.testclient.TestClient.request-response.timeout-deprecation-json-sync-route",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.timeout-deprecation-warning",
+        "starlette.testclient.TestClient.request-response.routed-sync-endpoint-get",
+        "starlette.testclient.TestClient.request-response.routed-sync-endpoint-worker-thread"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": "",
+        "timeout": 1
+      },
+      "asgi_app": {
+        "kind": "starlette-route",
+        "path": "/",
+        "methods": null,
+        "endpoint": {
+          "kind": "sync-json-response",
+          "content": {
+            "mock": "example"
+          }
+        },
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
+        ]
+      }
+    },
+    {
       "surface": "starlette.testclient.TestClient",
       "operation": "request-response",
       "target_profiles": [

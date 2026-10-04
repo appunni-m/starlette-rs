@@ -2153,6 +2153,21 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"{octx} permits Python object-address normalization only for exact Mount/Host representations"
                             )
+                    elif normalization_kind == "isolated-python-environment-path":
+                        normalization_spec = _exact(
+                            normalization_spec,
+                            {"kind", "reason"},
+                            f"{octx}.normalization",
+                        )
+                        _string(normalization_spec["reason"], f"{octx}.normalization.reason")
+                        if (
+                            key != TESTCLIENT_OPERATION_KEY
+                            or observation["path"] != "deprecation_warnings"
+                            or comparison["kind"] != "ordered"
+                        ):
+                            raise ContractError(
+                                f"{octx} permits isolated environment path normalization only for TestClient warnings"
+                            )
                     elif normalization_kind == "sequence":
                         _exact(
                             normalization_spec,
@@ -10507,14 +10522,22 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         if (
             not route_path.startswith("/")
             or asgi_app["methods"] is not None
-            or endpoint["kind"] != "sync-plain-text-response"
+            or endpoint["kind"] not in {"sync-plain-text-response", "sync-json-response"}
             or request["method"] not in {"GET", "HEAD"}
             or urlsplit(request["url"]).path != route_path
         ):
             raise ContractError(
                 "TestClient Starlette route input must use a default-method GET/HEAD sync route"
             )
-        _string(endpoint["content"], "TestClient synchronous endpoint content")
+        if endpoint["kind"] == "sync-plain-text-response":
+            _string(endpoint["content"], "TestClient synchronous endpoint content")
+        else:
+            try:
+                json.dumps(endpoint["content"], allow_nan=False)
+            except (TypeError, ValueError) as exc:
+                raise ContractError(
+                    "TestClient synchronous JSON endpoint content must be JSON-compatible"
+                ) from exc
         messages = []
         exception_spec = None
     elif is_starlette_app_debug:

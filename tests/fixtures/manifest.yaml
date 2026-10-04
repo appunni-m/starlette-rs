@@ -22723,6 +22723,10 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "normalization": {
+                    "kind": "isolated-python-environment-path",
+                    "reason": "Oracle and package warnings can name dependency files under different managed virtual-environment roots; compare the site-packages-relative file while preserving its line number."
                   }
                 },
                 {

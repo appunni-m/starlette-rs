@@ -12,6 +12,8 @@ from .contract import (
     BASE_HTTP_REQUIREMENTS,
     BASE_HTTP_SURFACE,
     BASE_HTTP_WORKFLOW_OPERATION,
+    TESTCLIENT_OPERATION,
+    TESTCLIENT_SURFACE,
     ContractError,
     validate_workflow_result,
 )
@@ -123,6 +125,30 @@ def _normalize_python_object_address(path: str, value: Any) -> str:
         raise ContractError(
             "Mount and Host representations must contain exactly one Python object address"
         )
+    return normalized
+
+
+_ISOLATED_PYTHON_SITE_PACKAGES = re.compile(
+    r"(^|/)build/parity/envs/[^/]+/(?:lib/python[0-9.]+|Lib)/site-packages/"
+)
+
+
+def _normalize_isolated_python_environment_path(path: str, value: Any) -> Any:
+    """Retain dependency-relative warning frames across isolated parity environments."""
+    if path != "deprecation_warnings" or not isinstance(value, list):
+        raise ContractError(
+            "isolated-python-environment-path normalization requires deprecation warnings"
+        )
+    normalized = []
+    for warning in value:
+        if not isinstance(warning, dict) or not isinstance(warning.get("filename"), str):
+            raise ContractError("deprecation warnings must contain a filename")
+        normalized_warning = dict(warning)
+        filename = normalized_warning["filename"].replace("\\", "/")
+        normalized_warning["filename"] = _ISOLATED_PYTHON_SITE_PACKAGES.sub(
+            r"\1site-packages/", filename, count=1
+        )
+        normalized.append(normalized_warning)
     return normalized
 
 
@@ -935,6 +961,16 @@ def compare_workflows(
                             right_field,
                             observation_has_debug_traceback=right_has_debug_traceback,
                         )
+                    elif kind == "isolated-python-environment-path":
+                        if (
+                            case.get("surface") != TESTCLIENT_SURFACE
+                            or case.get("operation") != TESTCLIENT_OPERATION
+                        ):
+                            raise ContractError(
+                                "isolated Python environment path normalization is only allowed for TestClient warnings"
+                            )
+                        left_field = _normalize_isolated_python_environment_path(path, left_field)
+                        right_field = _normalize_isolated_python_environment_path(path, right_field)
                     elif kind == "multipart-range-boundary":
                         left_field = _normalize_multipart_range_boundary(
                             path, left_field, observation=left_value
