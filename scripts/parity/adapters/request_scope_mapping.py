@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import operator
 from collections.abc import Callable
 from typing import Any
 
@@ -104,8 +106,17 @@ def run_websocket_scope_mapping_case(
     async def send(_message: dict[str, Any]) -> None:
         return None
 
-    websocket = websocket_type(dict(case["scope"]), receive=receive, send=send)
-    peer = websocket_type(dict(case["scope"]), receive=receive, send=send)
+    scope = dict(case["scope"])
+    if "headers_base64_pairs" in scope:
+        scope["headers"] = [
+            (
+                base64.b64decode(name, validate=True),
+                base64.b64decode(value, validate=True),
+            )
+            for name, value in scope.pop("headers_base64_pairs")
+        ]
+    websocket = websocket_type(dict(scope), receive=receive, send=send)
+    peer = websocket_type(dict(scope), receive=receive, send=send)
 
     def probe(action: Callable[[], Any]) -> dict[str, Any]:
         try:
@@ -118,11 +129,35 @@ def run_websocket_scope_mapping_case(
                 "message": str(error),
             }
 
+    headers = websocket.headers
+    header_assignment = case["header_assignment"]
+    header_assignment_result = probe(
+        lambda: operator.setitem(
+            headers,
+            header_assignment["key"],
+            header_assignment["value"],
+        )
+    )
     value = {
         "keyed_value": probe(lambda: websocket[case["lookup_key"]]),
         "mapping": probe(lambda: dict(websocket)),
         "iteration_order": probe(lambda: list(websocket)),
         "length": probe(lambda: len(websocket)),
+        "headers": {
+            "items": _safe(headers.items()),
+            "mapping": _safe(dict(headers)),
+            "length": len(headers),
+            "lookups": [
+                {
+                    "key": key,
+                    "contains": key in headers,
+                    "first_value": probe(lambda key=key: headers[key]),
+                    "values": _safe(headers.getlist(key)),
+                }
+                for key in case["header_lookup_keys"]
+            ],
+            "assignment": header_assignment_result,
+        },
         "identity": {
             "self_equal": probe(lambda: websocket == websocket),
             "distinct_equal": probe(lambda: websocket == peer),

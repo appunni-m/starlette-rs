@@ -22094,7 +22094,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.requests.HTTPConnection.__getitem__, __iter__, __len__, __eq__, and __hash__ inherited by starlette.websockets.WebSocket",
-            "signature": "WebSocket(scope, receive, send); parity workflow lookup_key selects one mapping key while the workflow observes mapping conversion, key order, length, and object identity",
+            "signature": "WebSocket(scope, receive, send); lookup_key selects a scope mapping key; input-defined header lookup keys and assignment probe observe WebSocket.headers items, case-insensitive lookup, repeated values, mapping conversion, length, and immutability",
             "parameters": [
               {
                 "id": "scope",
@@ -22111,6 +22111,26 @@
                 "style": "keyword",
                 "value_types": [
                   "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "header_lookup_keys",
+                "style": "keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "header_assignment",
+                "style": "keyword",
+                "value_types": [
+                  "record"
                 ],
                 "omission": {
                   "kind": "required"
@@ -22154,7 +22174,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.websockets.WebSocket mapping interface",
-              "signature": "WebSocket(scope, receive, send) provides Mapping access to its ASGI scope.",
+              "signature": "WebSocket(scope, receive, send) provides Mapping access to its ASGI scope and the Rust-backed, immutable HTTPConnection.headers view.",
               "support": {
                 "status": "supported"
               }
@@ -22176,6 +22196,17 @@
               "id": "starlette.websockets.WebSocket.scope-mapping.object-identity",
               "dimension": "boundary",
               "description": "Preserve WebSocket object identity semantics over equivalent input scopes: the same instance compares equal to itself and remains hashable for set membership, while a distinct instance is not equal. Pinned source: starlette/requests.py:98-101; tests/test_websockets.py::test_websocket_scope_interface.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websockets.WebSocket.headers.case-insensitive-multidict",
+              "dimension": "boundary",
+              "description": "Preserve ordered repeated WebSocket scope headers through WebSocket.headers.items(), case-insensitive first-value lookup, getlist(), dict conversion, length, and rejected item assignment. Pinned source: starlette/requests.py:132-136; docs/websockets.md:34-38.",
               "lanes": [
                 "parity"
               ],

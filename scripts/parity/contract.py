@@ -354,6 +354,7 @@ WEBSOCKET_SCOPE_MAPPING_REQUIREMENTS = {
     "minimal_scope": "starlette.websockets.WebSocket.scope-mapping.minimal-websocket-scope",
     "identity": "starlette.websockets.WebSocket.scope-mapping.object-identity",
 }
+WEBSOCKET_HEADERS_REQUIREMENT = "starlette.websockets.WebSocket.headers.case-insensitive-multidict"
 WEBSOCKET_CONSTRUCTOR_OPERATION = (
     "starlette.websockets.WebSocket",
     "constructor-contract",
@@ -13132,7 +13133,8 @@ def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
         if is_iterate_threadpool
         else THREADPOOL_CASE_KEYS
         if is_threadpool
-        else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope", "lookup_key"}
+        else (CASE_KEYS - {"steps", "execution_schedule"})
+        | {"scope", "lookup_key", "header_lookup_keys", "header_assignment"}
         if is_websocket_scope_mapping
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope", "constructor_probes"}
         if is_websocket_constructor
@@ -18187,13 +18189,78 @@ def _validate_websocket_scope_mapping_case(case: dict[str, Any]) -> None:
         raise ContractError("WebSocket scope-mapping cases select scope-mapping without assets")
     if not case["case_id"].startswith("starlette.websockets.WebSocket.scope-mapping."):
         raise ContractError("WebSocket scope-mapping case ID must bind to the mapping interface")
-    if case["scope"] != {"type": "websocket", "path": "/abc/", "headers": []}:
-        raise ContractError("WebSocket scope-mapping input must preserve the pinned minimal scope")
+    scope = case["scope"]
+    if not isinstance(scope, dict) or scope.get("type") != "websocket":
+        raise ContractError("WebSocket scope-mapping input must use a websocket scope")
+    if not isinstance(scope.get("path"), str):
+        raise ContractError("WebSocket scope-mapping input path must be a string")
     lookup_key = _string(case["lookup_key"], "WebSocket scope-mapping lookup_key")
-    if lookup_key not in case["scope"]:
+    if lookup_key not in scope:
         raise ContractError("WebSocket scope-mapping lookup_key must exist in the supplied scope")
-    if case["covers"] != list(WEBSOCKET_SCOPE_MAPPING_REQUIREMENTS.values()):
-        raise ContractError("WebSocket scope-mapping case must cover its canonical requirements")
+    header_lookup_keys = case["header_lookup_keys"]
+    if not isinstance(header_lookup_keys, list) or any(
+        not isinstance(key, str) or not key for key in header_lookup_keys
+    ):
+        raise ContractError("WebSocket header_lookup_keys must be an array of non-empty strings")
+    assignment = _exact(
+        case["header_assignment"],
+        {"key", "value"},
+        "WebSocket header_assignment",
+    )
+    assignment_key = _string(assignment["key"], "WebSocket header_assignment.key")
+    _string(assignment["value"], "WebSocket header_assignment.value")
+
+    if set(scope) == {"type", "path", "headers"}:
+        if scope != {"type": "websocket", "path": "/abc/", "headers": []}:
+            raise ContractError("WebSocket mapping input must preserve the declared minimal scope")
+        if (
+            case["covers"] != list(WEBSOCKET_SCOPE_MAPPING_REQUIREMENTS.values())
+            or header_lookup_keys
+        ):
+            raise ContractError("minimal WebSocket mapping cases must cover scope and identity")
+    elif set(scope) == {"type", "path", "headers_base64_pairs"}:
+        headers = scope["headers_base64_pairs"]
+        if not isinstance(headers, list):
+            raise ContractError("WebSocket headers_base64_pairs must be an array")
+        decoded_names: list[str] = []
+        for pair in headers:
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError("each WebSocket header pair must contain a name and value")
+            try:
+                name = base64.b64decode(pair[0], validate=True).decode("latin-1")
+                base64.b64decode(pair[1], validate=True)
+            except (ValueError, TypeError, UnicodeDecodeError) as error:
+                raise ContractError("WebSocket header pair contains invalid base64") from error
+            decoded_names.append(name)
+        repeated_names = any(
+            first.casefold() == second.casefold()
+            for index, first in enumerate(decoded_names)
+            for second in decoded_names[index + 1 :]
+        )
+        queried_case_variants = any(
+            first.casefold() == second.casefold() and first != second
+            for index, first in enumerate(header_lookup_keys)
+            for second in header_lookup_keys[index + 1 :]
+        )
+        if (
+            case["covers"] != [WEBSOCKET_HEADERS_REQUIREMENT]
+            or not all(name.isascii() and name == name.lower() for name in decoded_names)
+            or not repeated_names
+            or not queried_case_variants
+            or not any(name.casefold() == assignment_key.casefold() for name in decoded_names)
+            or not any(
+                name.casefold() == key.casefold()
+                for name in decoded_names
+                for key in header_lookup_keys
+            )
+        ):
+            raise ContractError(
+                "WebSocket header mapping coverage requires valid lowercase ASGI names, repeated "
+                "headers, matching "
+                "case-varied lookup inputs, and an assignment probe for a supplied header"
+            )
+    else:
+        raise ContractError("WebSocket scope-mapping input has an unsupported scope shape")
 
 
 def _validate_websocket_constructor_case(case: dict[str, Any]) -> None:

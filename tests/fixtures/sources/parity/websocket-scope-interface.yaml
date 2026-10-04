@@ -19,6 +19,55 @@
         "headers": []
       },
       "lookup_key": "type",
+      "header_lookup_keys": [],
+      "header_assignment": {
+        "key": "x-test",
+        "value": "rejected"
+      },
+      "observations": [
+        "scope-mapping"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.scope-mapping.headers-case-insensitive-repeated",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "scope-mapping",
+      "covers": [
+        "starlette.websockets.WebSocket.headers.case-insensitive-multidict"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "path": "/chat",
+        "headers_base64_pairs": [
+          [
+            "eC10cmFjZQ==",
+            "Zmlyc3Q="
+          ],
+          [
+            "eC10cmFjZQ==",
+            "c2Vjb25k"
+          ],
+          [
+            "eC1tb2Rl",
+            "YmluYXJ5"
+          ]
+        ]
+      },
+      "lookup_key": "type",
+      "header_lookup_keys": [
+        "X-Trace",
+        "x-TRACE",
+        "X-MODE",
+        "x-missing"
+      ],
+      "header_assignment": {
+        "key": "x-trace",
+        "value": "mutated"
+      },
       "observations": [
         "scope-mapping"
       ]
