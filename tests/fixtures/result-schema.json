@@ -112,7 +112,7 @@
                 "minLength": 1
               },
               "schema": {
-                "const": "migration-parity/parity-input@32"
+                "const": "migration-parity/parity-input@33"
               },
               "sha256": {
                 "$ref": "#/$defs/sha256"

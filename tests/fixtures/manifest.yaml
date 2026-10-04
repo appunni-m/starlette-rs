@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@32",
+      "input_schema": "migration-parity/parity-input@33",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -8229,7 +8229,7 @@
             {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.partial-request-stream-forwarding",
               "dimension": "boundary",
-              "description": "Read part of one request.stream() iterator in dispatch before call_next, consume a later chunk in the downstream endpoint, then resume dispatch's suspended iterator. Upstream: tests/middleware/test_base.py:777-832; starlette/middleware/base.py:80-90; starlette/requests.py:234-252.",
+              "description": "Wrap a direct ASGI endpoint with BaseHTTPMiddleware using the pinned minimal HTTP scope. Dispatch reads the first input body chunk, awaits call_next while the endpoint consumes one chunk through Request.stream(), then resumes its iterator for the final input body chunk. The source receive callback raises if polled after those messages. Upstream: tests/middleware/test_base.py::test_read_request_stream_in_dispatch_wrapping_app_calls_body; starlette/middleware/base.py:80-90; starlette/requests.py:234-252.",
               "lanes": [
                 "parity"
               ],

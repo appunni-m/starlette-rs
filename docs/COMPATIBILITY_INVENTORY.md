@@ -123,36 +123,42 @@ input maps `test_duplicated_param_names`; it observes live constructor results
 for both one repeated name and multiple repeated names, and passed source/package
 comparison.
 
-The latest full-slice correctness run `156f0671-69e4-4480-8072-aba3eadfa2bf` ran from
-`2026-10-04T04:25:50.282Z` to `2026-10-04T04:29:58.130Z` against Starlette
+The latest full-slice correctness run `35953fae-1517-4ba9-a44e-09c36c9e4bc3` ran from
+`2026-10-04T05:08:56.586Z` to `2026-10-04T05:12:19.303Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 893 input-only
-cases, 875 requirements, and `parity-input@32`. The target working tree had
-uncommitted changes based on `80c0a269b8b10ed427e3f1ebda36320ae375776c`.
+cases, 875 requirements, and `parity-input@33`. The Rust-native target used
+commit `5f75fe905f301f48cf5587d703dac45f7a48e66b`; the installed package was
+built from a dirty tree based on that commit.
 
 It selected 1,132 profile comparisons: 1,128 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
 `not_run`. The Python-package profile passed 891/891; Rust-native passed
-237/241. The new FileResponse background-task case passed on both profiles
-with the final callback value `6, 7, 8, 9`; source, package, and native
-observations placed callback start and completion after the response start and
-body events. The installed package awaited its public `BackgroundTask` through
-the Rust-backed FileResponse call boundary.
+237/241. The direct-ASGI BaseHTTPMiddleware request-stream case passed on the
+Python-package profile against `tests/middleware/test_base.py:777-832`; the
+input preserves the minimal `{"type":"http"}` scope, three request-body
+events, and the source callback's error if polled beyond those events. Dispatch
+reads `b"1"`, the downstream endpoint reads `b"2"`, and dispatch resumes to
+read `b"3"`, with no extra receive call. The FileResponse background-task case
+also passed on both profiles with callback values `6, 7, 8, 9` after response
+start and body events.
 
 The four native `not_run` rows remain synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 Strict aggregation remains `not_proven` because the pinned compatibility
-denominator is incomplete and four Rust-native rows are `not_run`. The Rust
+denominator is incomplete and four Rust-native rows are `not_run`. The native
 source fingerprint is
-`80c0a269b8b10ed427e3f1ebda36320ae375776c+source-fnv1a64-6d43214008960872`;
+`5f75fe905f301f48cf5587d703dac45f7a48e66b+source-fnv1a64-6d43214008960872`;
 the installed package tree SHA-256 is
-`c52fc4d33df0ece4f5811083c609aec5d5ca12f701378dd153e83dbb200588c8` and its
+`ba3ecbcd806205f620b0ffa3e51997f6fa6cf064f77de0d1474a18a9e4f4cf52` and its
 wheel SHA-256 is
-`c1681d51808a6f5fd7fc23ec5108b1dd4ce92f0f44bea14bc319bfffd87bd1ee`. The
+`84aac1927fec81e1b6a9e0c6f045d77112ad8c7169f7fda4fbe68b537638b3aa`. The
 manifest SHA-256 is
-`b8aa4aa56b15d318bac8c8d2fce91d68c8d167fa039c85b6a461d9f9f5330a1d`; the
+`45a7c1ec6bad24e81f66cd317fe3eb7ffe76c9d48b4b0d6cc6a5ef2a4ed4ea01`; the
 result artifact SHA-256 is
-`4702561ef7a68e781d09466e4c926ef05be6114e379ae12d64a1b75f3e79a7c9` at
-`build/parity/parity-result.json`.
+`4ede9a9e92474c98c2209a5cb4eeb51b9953e1734d3eccb35b8aba308410722b` at
+`build/parity/parity-result.json`. The command exits with status 2 because the
+four declared Rust-native rows remain `not_run`; this is an incomplete strict
+gate, not a failed source/package comparison.
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
 `String` cannot encode unpaired surrogates. The input-only source/package
@@ -161,19 +167,20 @@ containing a lone surrogate.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](BENCHMARKS.md). Run
-`153fdf82-dddb-444f-b1e9-62e5bfed14b3` measured all 74 source/package
+`2dcfd852-43d9-4e1b-9d82-207e482534e5` measured all 74 source/package
 workloads on clean commit
-`08c55393d98a815708a9f411f2eeeed2b293f65c`: six Router and 68 GZip, with
-zero failures and matching normalized observation hashes for all 74 workloads.
-Its correctness preflight `7000023c-04e0-4cfd-ad38-35a9c55abf8b` passed
-1,126/1,130 selected comparisons: 890/890 Python-package comparisons and
-236/240 Rust-native comparisons, with four Rust-native `not_run` rows. Median
-source/package latency ratios were 0.731 for Router and 0.977 for GZip. These
-workload-specific results do not establish full Starlette compatibility.
+`5bcb4bb925304739a16c93484559ff2350c0548a`: six Router and 68 GZip, with
+zero failures and matching normalized observations for all 74 workloads. Its
+correctness preflight `53fd98e2-6728-40c7-bb13-7b498906fa10` selected 1,132
+comparisons: 1,128 passed, zero failed, zero infrastructure errors, and four
+Rust-native `not_run`; the Python package passed 891/891 and Rust-native passed
+237/241. Median source/package latency ratios were 0.730 for Router and 0.968
+for GZip. These workload-specific results do not establish full Starlette
+compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 802 source rows: 626 input mappings,
-51 reasoned `not_applicable` rows, and 125 fixture backlog rows. Derive these
+The generated coverage matrix currently has 802 source rows: 627 input mappings,
+51 reasoned `not_applicable` rows, and 124 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -347,7 +354,7 @@ re-entry behavior, close-message errors, and explicit close reasons remain in
 the fixture backlog.
 `asgi-core.app.test_app_debug` is mapped to the TestClient input that mutates
 debug after construction; direct debug-enabled construction remains a separate
-documentation backlog item. The latest full-slice parity run `156f0671-69e4-4480-8072-aba3eadfa2bf` selected 1,132 comparisons: 1,128
+documentation backlog item. The prior full-slice parity run `156f0671-69e4-4480-8072-aba3eadfa2bf` selected 1,132 comparisons: 1,128
 passed with zero failures and zero infrastructure errors. The Python package
 passed 891/891 comparisons; Rust-native passed 237/241, with four unsupported
 callable rows marked `not_run`. The FileResponse background-task case and live

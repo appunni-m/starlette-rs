@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@32",
+  "schema": "migration-parity/parity-input@33",
   "cases": [
     {
       "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.configured-header-mutation",
@@ -1021,19 +1021,7 @@
       "assets": [],
       "application": {
         "debug": false,
-        "routes": [
-          {
-            "kind": "http-route",
-            "path": "/",
-            "methods": [
-              "POST"
-            ],
-            "endpoint": {
-              "kind": "request-stream-response",
-              "stop_after_chunks": 1
-            }
-          }
-        ],
+        "routes": [],
         "middleware": [
           {
             "kind": "base-http-middleware",
@@ -1052,36 +1040,16 @@
               }
             ]
           }
-        ]
+        ],
+        "downstream": {
+          "kind": "request-stream-asgi-endpoint",
+          "stop_after_chunks": 1,
+          "response_status_code": 200
+        }
       },
       "request": {
         "scope": {
-          "type": "http",
-          "asgi": {
-            "version": "3.0",
-            "spec_version": "2.4"
-          },
-          "http_version": "1.1",
-          "method": "POST",
-          "scheme": "http",
-          "path": "/",
-          "raw_path_base64": "Lw==",
-          "query_string_base64": "",
-          "root_path": "",
-          "headers_base64_pairs": [
-            [
-              "aG9zdA==",
-              "dGVzdHNlcnZlcg=="
-            ]
-          ],
-          "client": [
-            "127.0.0.1",
-            12345
-          ],
-          "server": [
-            "testserver",
-            80
-          ]
+          "type": "http"
         },
         "receive": [
           {
@@ -1100,7 +1068,11 @@
             "more_body": false
           }
         ],
-        "receive_after_events": "block",
+        "receive_after_events": {
+          "kind": "raise",
+          "class": "AssertionError",
+          "message": "Should not be called, no need to poll for disconnect"
+        },
         "send_checkpoints": []
       },
       "observations": [

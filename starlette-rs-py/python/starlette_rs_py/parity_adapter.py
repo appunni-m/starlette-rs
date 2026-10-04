@@ -695,6 +695,8 @@ def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
         if "state" in spec:
             scope["state"] = dict(spec["state"])
         return scope
+    if set(spec) == {"type"}:
+        return dict(spec)
     if set(spec) == {"type", "version", "method", "path"}:
         return dict(spec)
     scope = {
@@ -9987,6 +9989,23 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError(
                     "downstream streaming guard_timeout_ms must be between 1 and 10000"
                 )
+        elif raw_downstream["kind"] == "request-stream-asgi-endpoint":
+            downstream_spec = _exact_object(
+                raw_downstream,
+                {"kind", "stop_after_chunks", "response_status_code"},
+                "BaseHTTPMiddleware downstream request-stream endpoint",
+            )
+            if route_spec is not None:
+                raise ValueError(
+                    "direct request-stream ASGI endpoint cannot declare Starlette routes"
+                )
+            if (
+                type(downstream_spec["stop_after_chunks"]) is not int
+                or not 1 <= downstream_spec["stop_after_chunks"] <= 1000
+                or type(downstream_spec["response_status_code"]) is not int
+                or not 100 <= downstream_spec["response_status_code"] <= 599
+            ):
+                raise ValueError("direct request-stream endpoint input is invalid")
         elif raw_downstream["kind"] == "asgi-middleware-stack":
             downstream_spec = _exact_object(
                 raw_downstream,
@@ -10115,8 +10134,19 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "server",
     }
     background_task_case = background_task_spec is not None
-    source_sparse_scope = background_task_case and background_task_spec["kind"] == "async-delay"
-    if source_sparse_scope:
+    direct_request_stream_endpoint = (
+        downstream_spec is not None and downstream_spec["kind"] == "request-stream-asgi-endpoint"
+    )
+    source_sparse_scope = (
+        background_task_case and background_task_spec["kind"] == "async-delay"
+    ) or direct_request_stream_endpoint
+    if direct_request_stream_endpoint:
+        scope_spec = _exact_object(
+            scope_value, {"type"}, "BaseHTTPMiddleware direct ASGI HTTP scope"
+        )
+        if scope_spec != {"type": "http"}:
+            raise ValueError("request-stream endpoint must preserve the pinned minimal HTTP scope")
+    elif source_sparse_scope:
         scope_spec = _exact_object(
             scope_value,
             {"type", "version", "method", "path"},
@@ -10131,15 +10161,20 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         _exact_object(
             scope_spec["asgi"], {"version", "spec_version"}, "BaseHTTPMiddleware ASGI version"
         )
-    path = scope_spec["path"]
+    path = "/" if direct_request_stream_endpoint else scope_spec["path"]
     if (
         scope_spec["type"] != "http"
         or (
             not source_sparse_scope
             and scope_spec["asgi"] != {"version": "3.0", "spec_version": "2.4"}
         )
-        or not isinstance(scope_spec["method"], str)
-        or scope_spec["method"] not in {"GET", "POST"}
+        or (
+            not direct_request_stream_endpoint
+            and (
+                not isinstance(scope_spec["method"], str)
+                or scope_spec["method"] not in {"GET", "POST"}
+            )
+        )
         or not isinstance(path, str)
         or (not source_sparse_scope and scope_spec["scheme"] != "http")
         or (not source_sparse_scope and not isinstance(scope_spec["http_version"], str))
@@ -10251,7 +10286,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         )
         allowed_receive_exceptions = (
             {"NotImplementedError"}
-            if file_response_pathsend or source_sparse_scope
+            if file_response_pathsend or (background_task_case and source_sparse_scope)
             else {"AssertionError"}
         )
         if (
@@ -10352,6 +10387,38 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         ):
             raise ValueError(
                 "partial request-stream forwarding requires dispatch reads on both sides of call_next, three non-empty chunks, and a blocking exhausted receive"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding"
+        )
+    elif direct_request_stream_endpoint:
+        chunks = [
+            _decode_base64(item["body_base64"], "BaseHTTPMiddleware request body")
+            for item in request_event_specs
+        ]
+        expected_receive_exhaustion = {
+            "kind": "raise",
+            "class": "AssertionError",
+            "message": "Should not be called, no need to poll for disconnect",
+        }
+        if (
+            returned != "call-next"
+            or dispatch_actions
+            != [
+                {"kind": "read-request-stream-next"},
+                {"kind": "await-call-next"},
+                {"kind": "read-request-stream-next"},
+                {"kind": "return-call-next-response"},
+            ]
+            or downstream_spec["stop_after_chunks"] != 1
+            or downstream_spec["response_status_code"] != 200
+            or len(chunks) != 3
+            or any(not chunk for chunk in chunks)
+            or request["receive_after_events"] != expected_receive_exhaustion
+            or send_checkpoints
+        ):
+            raise ValueError(
+                "direct request-stream forwarding requires the pinned three-chunk interleaving and must not poll receive after the final body event"
             )
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding"
@@ -11076,6 +11143,28 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 )
 
         app = InputDefinedBaseHTTPMiddleware(downstream_streaming_app)
+    elif downstream_spec is not None and downstream_spec["kind"] == "request-stream-asgi-endpoint":
+
+        async def downstream_endpoint(scope: Any, receive: Any, send: Any) -> None:
+            request_value = Request(scope, receive)
+            read_count = 0
+            async for chunk in request_value.stream():
+                downstream_stream_reads.append(
+                    {
+                        "index": len(downstream_stream_reads),
+                        "body_base64": base64.b64encode(chunk).decode("ascii"),
+                    }
+                )
+                read_count += 1
+                if read_count >= downstream_spec["stop_after_chunks"]:
+                    break
+            await Response(status_code=downstream_spec["response_status_code"])(
+                scope,
+                receive,
+                send,
+            )
+
+        app = InputDefinedBaseHTTPMiddleware(downstream_endpoint)
     elif downstream_spec is not None and downstream_spec["kind"] == "asgi-middleware-stack":
 
         async def downstream_endpoint(scope: Any, receive: Any, send: Any) -> None:

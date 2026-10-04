@@ -40,10 +40,14 @@ case compares input-defined background-task completion after response sends. The
 profiles; the upstream test does not call `Router.add_route`. The live-route
 mutation case also passes on both profiles, exercising method addition and
 route append after earlier dispatches. The latest full-slice run
-`156f0671-69e4-4480-8072-aba3eadfa2bf` passed 1,128 of 1,132 selected profile comparisons, with zero
+`35953fae-1517-4ba9-a44e-09c36c9e4bc3` passed 1,128 of 1,132 selected profile comparisons, with zero
 failures or infrastructure errors and four Rust-native Python-callable rows
 `not_run`. The Python package passed 891/891; Rust-native passed 237/241. The
-FileResponse background-task case matched on both target profiles. The background-task server-error case
+FileResponse background-task case matched on both target profiles. The direct-ASGI
+BaseHTTPMiddleware request-stream case matched on the Python-package profile,
+preserving its minimal HTTP scope and three-event receive boundary from
+`tests/middleware/test_base.py:777-832`. The strict parity command exits 2 while
+the four Rust-native callable rows remain `not_run`. The background-task server-error case
 and latest WebSocket header input pass source/package comparison. The GZip streaming-response case
 passes against both targets. Six protected WebSocket authentication
 cases pass source/package comparison for plain and injection-wrapped routes
@@ -81,22 +85,22 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix currently has 802 source rows: 626 input
-mappings, 51 reasoned `not_applicable` rows, and 125 fixture-backlog rows.
+The generated coverage matrix currently has 802 source rows: 627 input
+mappings, 51 reasoned `not_applicable` rows, and 124 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). Run
-`153fdf82-dddb-444f-b1e9-62e5bfed14b3` measured all 74 source/package
+`2dcfd852-43d9-4e1b-9d82-207e482534e5` measured all 74 source/package
 workloads on clean commit
-`08c55393d98a815708a9f411f2eeeed2b293f65c`: six Router and 68 GZip, with
-zero failures and matching normalized observation hashes for all 74. Its
-correctness preflight `7000023c-04e0-4cfd-ad38-35a9c55abf8b` selected 1,130
-comparisons (1,126 passed, zero failures, zero infrastructure errors, four
-declared Rust-native `not_run`). Median
-source/package latency ratios were 0.731 for Router and 0.977 for GZip.
-Rust-native remains `not_run` for these 74 benchmark workload boundaries.
-These workload-specific results do not establish full Starlette compatibility.
+`5bcb4bb925304739a16c93484559ff2350c0548a`: six Router and 68 GZip, with
+zero failures and matching normalized observations for all 74. Its correctness
+preflight `53fd98e2-6728-40c7-bb13-7b498906fa10` selected 1,132 comparisons
+(1,128 passed, zero failures, zero infrastructure errors, four declared
+Rust-native `not_run`). The Python package passed 891/891; Rust-native passed
+237/241. Median source/package latency ratios were 0.730 for Router and 0.968
+for GZip. Rust-native remains `not_run` for these 74 benchmark workload
+boundaries. These results do not establish full Starlette compatibility.
 
 At the source-mapping checkpoint, the parity manifest indexed 118 input-only cases
 across 18 files: 38 request/routing cases, 21 reverse-URL cases, four direct
@@ -151,9 +155,10 @@ dispatch exhausts `request.stream()`, and dispatch closing a consumed response
 stream while the downstream app streams until disconnect, and pathsend forwarding.
 The caught case matches `tests/middleware/test_base.py:338-356`: dispatch
 catches `ValueError("TEST")` from `call_next` and returns a plain-text 400
-response whose body comes from `str(exc)`. In the partial-stream case, dispatch
-consumes `b"1"`, the endpoint reads the next chunk `b"2"`, then dispatch resumes
-and consumes `b"3"` after `call_next`; see
+response whose body comes from `str(exc)`. The partial-stream case uses the pinned test’s minimal `{"type":"http"}`
+scope and direct ASGI endpoint. Dispatch consumes `b"1"`, the endpoint reads
+`b"2"`, and dispatch resumes to consume `b"3"`; the input receive callback
+raises if polled again. The exact three-event trace maps to
 `tests/middleware/test_base.py:777-832`. In the receive-transformation case,
 dispatch reads `b"foo "`, the downstream ASGI wrapper duplicates the request
 body, and the endpoint reads `b"foo foo "`; this is pinned at

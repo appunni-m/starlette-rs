@@ -166,6 +166,9 @@ migrate-parity-inputs-v30-v31: ## Migrate active authored parity input files to 
 migrate-parity-inputs-v31-v32: ## Migrate active authored parity input files to schema @32
 	$(PYTHON) scripts/migrate_parity_input_v31_to_v32.py
 
+migrate-parity-inputs-v32-v33: ## Migrate active authored parity input files to schema @33
+	$(PYTHON) scripts/migrate_parity_input_v32_to_v33.py
+
 parity-env: parity-inputs ## Build the package wheel and prepare isolated parity environments
 	$(PARITY_PYTHON) -m scripts.parity.cli prepare-env --force --upstream "$(STARLETTE_ORACLE_ROOT)"
 

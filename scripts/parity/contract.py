@@ -24,7 +24,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@32"
+INPUT_SCHEMA = "migration-parity/parity-input@33"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -9374,6 +9374,23 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "downstream ASGI receive race requires response.start and at least two body sends"
                 )
+        elif raw_downstream["kind"] == "request-stream-asgi-endpoint":
+            downstream = _exact(
+                raw_downstream,
+                {"kind", "stop_after_chunks", "response_status_code"},
+                "BaseHTTPMiddleware downstream request-stream endpoint",
+            )
+            if routes:
+                raise ContractError(
+                    "direct request-stream ASGI endpoint cannot declare Starlette routes"
+                )
+            if (
+                type(downstream["stop_after_chunks"]) is not int
+                or not 1 <= downstream["stop_after_chunks"] <= 1000
+                or type(downstream["response_status_code"]) is not int
+                or not 100 <= downstream["response_status_code"] <= 599
+            ):
+                raise ContractError("direct request-stream endpoint input is invalid")
         elif raw_downstream["kind"] == "asgi-middleware-stack":
             downstream = _exact(
                 raw_downstream,
@@ -9559,8 +9576,20 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         "server",
     }
     background_task_case = background_task_spec is not None
-    source_sparse_scope = background_task_case and background_task_spec["kind"] == "async-delay"
-    if source_sparse_scope:
+    direct_request_stream_endpoint = (
+        downstream is not None and downstream["kind"] == "request-stream-asgi-endpoint"
+    )
+    source_sparse_scope = (
+        background_task_case and background_task_spec["kind"] == "async-delay"
+    ) or direct_request_stream_endpoint
+    if direct_request_stream_endpoint:
+        scope = _exact(scope_value, {"type"}, "BaseHTTPMiddleware direct ASGI HTTP scope")
+        if scope != {"type": "http"}:
+            raise ContractError(
+                "request-stream endpoint must preserve the pinned minimal HTTP scope"
+            )
+        asgi = None
+    elif source_sparse_scope:
         scope = _exact(
             scope_value,
             {"type", "version", "method", "path"},
@@ -9576,12 +9605,18 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             scope_keys.add("extensions")
         scope = _exact(scope_value, scope_keys, "BaseHTTPMiddleware HTTP scope")
         asgi = _exact(scope["asgi"], {"version", "spec_version"}, "BaseHTTPMiddleware ASGI version")
-    path = _string(scope["path"], "BaseHTTPMiddleware scope.path")
+    path = (
+        "/"
+        if direct_request_stream_endpoint
+        else _string(scope["path"], "BaseHTTPMiddleware scope.path")
+    )
     if (
         scope["type"] != "http"
         or (not source_sparse_scope and asgi != {"version": "3.0", "spec_version": "2.4"})
-        or not isinstance(scope["method"], str)
-        or scope["method"] not in {"GET", "POST"}
+        or (
+            not direct_request_stream_endpoint
+            and (not isinstance(scope["method"], str) or scope["method"] not in {"GET", "POST"})
+        )
         or (not source_sparse_scope and scope["scheme"] != "http")
         or (not source_sparse_scope and not isinstance(scope["http_version"], str))
         or (not source_sparse_scope and not isinstance(scope["root_path"], str))
@@ -9704,7 +9739,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         )
         allowed_receive_exceptions = (
             {"NotImplementedError"}
-            if file_response_pathsend or source_sparse_scope
+            if file_response_pathsend or (background_task_case and source_sparse_scope)
             else {"AssertionError"}
         )
         if (
@@ -9797,6 +9832,33 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         ):
             raise ContractError(
                 "partial request-stream forwarding requires dispatch reads on both sides of call_next, at least three non-empty chunks, and a blocking exhausted receive"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["partial_stream_forwarding"])
+    elif direct_request_stream_endpoint:
+        chunks = [base64.b64decode(event["body_base64"]) for event in request_events]
+        expected_receive_exhaustion = {
+            "kind": "raise",
+            "class": "AssertionError",
+            "message": "Should not be called, no need to poll for disconnect",
+        }
+        if (
+            returned != "call-next"
+            or actions
+            != [
+                {"kind": "read-request-stream-next"},
+                {"kind": "await-call-next"},
+                {"kind": "read-request-stream-next"},
+                {"kind": "return-call-next-response"},
+            ]
+            or downstream["stop_after_chunks"] != 1
+            or downstream["response_status_code"] != 200
+            or len(chunks) != 3
+            or any(not chunk for chunk in chunks)
+            or request["receive_after_events"] != expected_receive_exhaustion
+            or send_checkpoints
+        ):
+            raise ContractError(
+                "direct request-stream forwarding requires the pinned three-chunk interleaving and must not poll receive after the final body event"
             )
         requirements.add(BASE_HTTP_REQUIREMENTS["partial_stream_forwarding"])
     if route_kind == "request-body-plain-text-response":

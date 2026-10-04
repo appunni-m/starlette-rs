@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@32",
+  "schema": "migration-parity/parity-input@33",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.request-dispatch.sync-worker-cancel-after-entry",

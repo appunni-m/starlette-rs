@@ -32,10 +32,10 @@ native response builder covers its explicit-detail 406 case. The four
 `not_run` rows make `run` exit with status 2, so the all-target gate remains
 incomplete. The current Python package suite passed 44 tests and the Rust
 workspace suite passed all 48 core tests. The separate Router/GZip benchmark
-lane completed all 74 source/package workloads. See the latest
-[`parity result`](../../build/parity/parity-result.json) and
-[`benchmark result`](../../build/parity/upstream-benchmark-result.json). These
-bounded results do not make the full Starlette replacement complete.
+lane completed all 74 source/package workloads. Run results are ignored local
+artifacts under `build/parity/`; the scope and retained benchmark evidence are
+described in [Migration parity](../PARITY.md) and [Benchmark mapping](../BENCHMARKS.md).
+These bounded results do not make the full Starlette replacement complete.
 
 ## Verified coverage
 
