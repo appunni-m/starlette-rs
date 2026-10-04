@@ -1231,14 +1231,27 @@ passed with zero failed or unrun cases. Its result SHA-256 is
 manifest SHA-256 is
 `b200928d5b42a445729d6cf6609eb6724b019696dadc4cccaad3d5bc9779b7c6`.
 
-The current target-only fault-contract selection
-`ed8dd93c-32d2-478c-9a50-4bbff0427a6a` passed both named public-outcome
-assertions: default HTTP 500 response and exception propagation. It selected
-two fault rows, with zero failures and zero infrastructure errors. Its result
-SHA-256 is
+An earlier target-only fault-contract selection
+`ed8dd93c-32d2-478c-9a50-4bbff0427a6a` passed the default HTTP 500 response
+and exception-propagation outcomes. It selected two fault rows, with zero
+failures and zero infrastructure errors. Its result SHA-256 is
 `c680dff786fe1f8e4d033e07608235f8357cebe12f1e57e4909371aa1c2f42a4`.
-Selected runs add evidence for these cases only; the full replacement remains
-incomplete.
+
+The latest focused selection `2c1b792b-09d9-40bf-bb31-008890b965a3` passed
+one normal route source/package comparison and both target-only fault cases
+(2/2), with zero failures and zero infrastructure errors. The fault lane
+asserted the public default 500 response and TestClient exception propagation;
+both rows retain oracle status `not_applicable`. Result SHA-256 is
+`0a9d8f15fa5bc1a5479dea41f20b94e3d63428e07d55b1b96d2119d3ab8fa992`, manifest
+SHA-256 is `7c73e24ee264c4b49b368cda5a61fc4e5f44fd2366f8ebd29ec11c4f611066c8`,
+and the fault input SHA-256 is
+`8140507332ab58863d0f59ef003a0842e173e8923ff285f0ad83ae024cc1f436`. The
+target was `python-package-cpython312` on CPython 3.12.13, with package-tree
+SHA-256 `24a3a923b0780d238234600950bea6fa4b326cd44e57f87ea3d4cba264f1164f`
+and wheel SHA-256
+`3c93fcd943e338c5f5663f5dbf79b70d6ad78bc66ef2bb092f79a7343e3bfcb3`. This
+normal selected run makes no new coverage claim and does not establish full
+replacement parity.
 
 The preceding 922-case contract added
 `tests/middleware/test_base.py::test_multiple_middlewares_stacked_client_disconnected`.

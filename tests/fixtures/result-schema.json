@@ -742,7 +742,12 @@
           "items": {"type": "string", "minLength": 1}
         },
         "fault_point": {"const": "starlette-rs.router.route-cache-lock.poison"},
-        "contract_id": {"const": "starlette.server-error.route-cache-lock-poison"},
+        "contract_id": {
+          "enum": [
+            "starlette.server-error.route-cache-lock-poison",
+            "starlette.testclient.route-cache-lock-poison-propagates"
+          ]
+        },
         "oracle": {
           "type": "object",
           "additionalProperties": false,
@@ -763,7 +768,8 @@
               "id": {
                 "enum": [
                   "public-http-status-500",
-                  "public-http-body-internal-server-error"
+                  "public-http-body-internal-server-error",
+                  "public-testclient-exception-propagated"
                 ]
               },
               "status": {"enum": ["pass", "fail", "not_run"]}

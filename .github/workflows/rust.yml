@@ -66,7 +66,7 @@ jobs:
       - name: Create the pinned style-tool environment
         run: make style-setup PYTHON=python
       - name: Check Python style, repository policy, generated parity contract, workflows, and documentation links
-        run: make python-format python-lint project-policy-check workflows-check contract-check docs-check
+        run: make python-format python-lint rust-api-boundary-check project-policy-check workflows-check contract-check docs-check
 
   supply-chain:
     name: Rust dependency security and license policy

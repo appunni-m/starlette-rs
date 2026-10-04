@@ -22,7 +22,7 @@ PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/pytho
 CARGO_DENY ?= cargo deny
 CARGO_AUDIT ?= cargo audit
 
-.PHONY: help style-setup typecheck-setup fmt fmt-fix python-format python-format-fix clippy python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 migrate-parity-inputs-v21-v22 migrate-parity-inputs-v22-v23 migrate-parity-inputs-v23-v24 migrate-parity-inputs-v24-v25 migrate-parity-inputs-v25-v26 migrate-parity-inputs-v26-v27 migrate-parity-inputs-v27-v28 migrate-parity-inputs-v28-v29 migrate-parity-inputs-v29-v30 migrate-parity-inputs-v30-v31 migrate-parity-inputs-v31-v32 migrate-parity-inputs-v32-v33 migrate-parity-inputs-v33-v34 migrate-parity-inputs-v34-v35 migrate-parity-inputs-v35-v36 migrate-parity-inputs-v36-v37 migrate-parity-inputs-v37-v38 migrate-parity-inputs-v38-v39 migrate-parity-inputs-v39-v40 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
+.PHONY: help style-setup typecheck-setup fmt fmt-fix python-format python-format-fix clippy rust-api-boundary-check python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 migrate-parity-inputs-v21-v22 migrate-parity-inputs-v22-v23 migrate-parity-inputs-v23-v24 migrate-parity-inputs-v24-v25 migrate-parity-inputs-v25-v26 migrate-parity-inputs-v26-v27 migrate-parity-inputs-v27-v28 migrate-parity-inputs-v28-v29 migrate-parity-inputs-v29-v30 migrate-parity-inputs-v30-v31 migrate-parity-inputs-v31-v32 migrate-parity-inputs-v32-v33 migrate-parity-inputs-v33-v34 migrate-parity-inputs-v34-v35 migrate-parity-inputs-v35-v36 migrate-parity-inputs-v36-v37 migrate-parity-inputs-v37-v38 migrate-parity-inputs-v38-v39 migrate-parity-inputs-v39-v40 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
@@ -34,6 +34,7 @@ help: ## Show common Rust workspace commands
 	  '  make rustdoc-check  Check Rust documentation with warnings denied' \
 	  '  make python-format  Check Python formatting' \
 	  '  make clippy    Run strict workspace Clippy' \
+	  '  make rust-api-boundary-check  Keep Rust implementation modules private and exports named' \
 	  '  make python-lint  Run Ruff checks on Python sources' \
 	  '  make project-policy-check  Enforce parity-only behavioral checks' \
 	  '  make workflows-check  Lint GitHub Actions workflows' \
@@ -102,6 +103,9 @@ python-format-fix: ## Apply Python formatting
 clippy: ## Run strict workspace Clippy
 	$(CARGO) clippy --workspace --all-targets --all-features --locked -- -D warnings
 
+rust-api-boundary-check: ## Enforce named Rust core exports and crate-root binding imports
+	$(PYTHON) scripts/check_rust_api_boundary.py
+
 rustdoc-check: ## Check Rust documentation with warnings denied
 	RUSTDOCFLAGS="-D warnings" $(CARGO) doc --workspace --all-features --no-deps --locked
 
@@ -114,7 +118,7 @@ project-policy-check: ## Enforce parity-only behavioral checks and repository te
 workflows-check: ## Validate GitHub Actions workflows with checksum-pinned actionlint
 	$(PYTHON) scripts/check_workflows.py
 
-lint: fmt python-format clippy python-lint project-policy-check workflows-check ## Check Rust and Python formatting, lints, workflow syntax, and project policy
+lint: fmt python-format clippy rust-api-boundary-check python-lint project-policy-check workflows-check ## Check Rust/Python formatting, API boundaries, lints, workflow syntax, and project policy
 
 supply-chain-tools: ## Install the pinned cargo-deny and cargo-audit tools
 	$(CARGO) install cargo-deny --version "$(CARGO_DENY_VERSION)" --locked
