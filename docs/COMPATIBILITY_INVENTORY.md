@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@34` and indexes 895 input-only
+The active parity manifest uses `parity-input@34` and indexes 896 input-only
 cases across 88 files, covering 103 operations and 877 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
@@ -125,20 +125,22 @@ input maps `test_duplicated_param_names`; it observes live constructor results
 for both one repeated name and multiple repeated names, and passed source/package
 comparison.
 
-The latest full-slice correctness run `12b706a1-bcdb-45e0-b9f7-8c36116ad6ff`
-ran from `2026-10-04T06:09:12.792Z` to `2026-10-04T06:12:03.150Z` against
-Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 895
-input-only cases, 877 requirements, and `parity-input@34`. Both targets were
-dirty during the run. Rust-native revision:
-`0d6e2520dacbc6ed3d6e703dc0742f1696566fe5+source-fnv1a64-50b392bee00ac5af`;
-installed-package tree SHA-256:
+The latest full-slice correctness run `89a689f4-a9ee-4a86-8acc-34df63c91340`
+ran from `2026-10-04T06:33:49.155Z` to `2026-10-04T06:37:29.496Z` against
+Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 896
+input-only cases, 877 requirements, and `parity-input@34`. The native target
+was clean at revision
+`756abb453a99253dd73ff42ba7759a439ca482af+source-fnv1a64-50b392bee00ac5af`;
+the installed-package target was dirty with tree SHA-256
 `ba3ecbcd806205f620b0ffa3e51997f6fa6cf064f77de0d1474a18e4f4cf52`.
 
-It selected 1,140 profile comparisons: 1,136 passed, zero failed, zero
+It selected 1,141 profile comparisons: 1,137 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
-`not_run`. The Python-package profile passed 893/893; Rust-native passed
+`not_run`. The Python-package profile passed 894/894; Rust-native passed
 243/247. All six WebSocket protocol callback-tape cases pass on both target
-profiles. The direct-ASGI BaseHTTPMiddleware request-stream case passed on the
+profiles. The new bare-ASGI `Request.url_for("index")` TestClient case passed
+source/package comparison and preserves the missing-context exception. The
+direct-ASGI BaseHTTPMiddleware request-stream case passed on the
 Python-package profile against `tests/middleware/test_base.py:777-832`; the
 input preserves the minimal `{"type":"http"}` scope, three request-body
 events, and the source callback's error if polled beyond those events. Dispatch
@@ -152,11 +154,11 @@ bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 Strict aggregation remains `not_proven` because the pinned compatibility
 denominator is incomplete and four Rust-native rows are `not_run`. The wheel
 SHA-256 is
-`b3f9c82fbad7660528578e9f4c5bcec1e7f702400e5ac6b2d42fc93dd9e47a4b`; manifest
+`c7e31b5f6486d972edf89c7b6f4e53d8d72b351cbdaabd6d8caa656105c58d22`; manifest
 SHA-256 is
 `5570af8c25a62bb825797953f14e97d3baae2bd706a99d8a80784635c6a75d40`; and
 result artifact SHA-256 is
-`165b2bd5f7815b55f06142a861cc4b13f969bfdda40c6346bf127c511cc28015` at
+`731477247294b33ebc70980f617da836e2f3a561a24324668d9498130625373e` at
 `build/parity/parity-result.json`. The command exits with status 2 because the
 four declared Rust-native rows remain `not_run`; this is an incomplete strict
 gate, not a failed source/package comparison.
@@ -180,8 +182,8 @@ for GZip. These workload-specific results do not establish full Starlette
 compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 802 source rows: 629 input mappings,
-51 reasoned `not_applicable` rows, and 122 fixture backlog rows. Derive these
+The generated coverage matrix currently has 802 source rows: 630 input mappings,
+51 reasoned `not_applicable` rows, and 121 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

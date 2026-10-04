@@ -655,6 +655,23 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await response(scope, receive, observed_send)
 
+    elif app_input["kind"] == "request-url-for-error":
+        from starlette.requests import Request
+        from starlette.responses import JSONResponse
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            request = Request(scope, receive)
+            response = JSONResponse(
+                {"url": str(request.url_for(app_input["name"], **app_input["path_params"]))}
+            )
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await response(scope, receive, observed_send)
+
     elif app_input["kind"] == "raw-asgi-error":
 
         async def app(scope: dict[str, Any], _receive: Any, _send: Any) -> None:

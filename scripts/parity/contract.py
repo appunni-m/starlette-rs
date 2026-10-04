@@ -226,6 +226,7 @@ TESTCLIENT_REQUEST_REQUIREMENTS = {
     "json_without_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-json-failure-without-receive",
     "path_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-path-params-dictionary",
 }
+REQUEST_URL_FOR_MISSING_CONTEXT_REQUIREMENT = "starlette.requests.Request.url_for.missing-context"
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
     "managed_request": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.managed-request-portal-reuse",
@@ -10232,6 +10233,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     is_starlette_url_for_route_graph = app_kind == "starlette-url-for-route-graph"
     is_starlette_app_debug = app_kind == "starlette-app-debug"
     is_server_error_middleware = app_kind == "server-error-middleware"
+    is_request_url_for_error = app_kind == "request-url-for-error"
     is_raw_asgi_error = app_kind == "raw-asgi-error"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
     is_static_files_root_symlink = app_kind == "static-files-root-symlink"
@@ -11037,6 +11039,45 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             )
         exception_spec = None
         messages = []
+    elif is_request_url_for_error:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "name", "path_params", "scope_fields"},
+            "TestClient Request.url_for app",
+        )
+        name = _string(asgi_app["name"], "TestClient Request.url_for name")
+        path_params = asgi_app["path_params"]
+        if (
+            not name
+            or not isinstance(path_params, dict)
+            or any(
+                not isinstance(key, str)
+                or not key
+                or type(value) not in {str, int, float}
+                or (isinstance(value, float) and not math.isfinite(value))
+                for key, value in path_params.items()
+            )
+        ):
+            raise ContractError(
+                "TestClient Request.url_for requires a name and finite scalar path parameters"
+            )
+        if (
+            settings["raise_server_exceptions"] is not True
+            or settings["base_url"] != "http://testserver"
+            or settings["root_path"]
+            or settings["headers"]
+            or request["method"] != "GET"
+            or request.get("client_method") != "get"
+            or request["url"] != "/"
+            or request["headers_base64_pairs"]
+            or base64.b64decode(request["body_base64"])
+            or followup_requests
+        ):
+            raise ContractError(
+                "TestClient Request.url_for input must match the pinned empty GET with server exceptions enabled"
+            )
+        exception_spec = None
+        messages = []
     elif is_raw_asgi_error:
         asgi_app = _exact(
             raw_asgi_app,
@@ -11160,6 +11201,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     if is_router_middleware_response:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["router_middleware"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_request_url_for_error:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
+        expected_covers.add(REQUEST_URL_FOR_MISSING_CONTEXT_REQUIREMENT)
     if is_starlette_route_graph:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["root_path_route_graph"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])

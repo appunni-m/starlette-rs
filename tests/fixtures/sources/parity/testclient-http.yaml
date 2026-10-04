@@ -2620,6 +2620,52 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.request-url-for-outside-starlette-context",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.requests.Request.url_for.missing-context"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": "",
+        "client_method": "get"
+      },
+      "asgi_app": {
+        "kind": "request-url-for-error",
+        "name": "index",
+        "path_params": {},
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path",
+          "query_string"
+        ]
+      }
     }
   ]
 }
