@@ -9,6 +9,7 @@
         "starlette.websocket.protocol.handshake-text-close"
       ],
       "target_profiles": [
+        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
@@ -102,6 +103,7 @@
         "starlette.websocket.protocol.disconnect"
       ],
       "target_profiles": [
+        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
@@ -175,6 +177,7 @@
         "starlette.websocket.protocol.invalid-transition"
       ],
       "target_profiles": [
+        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
@@ -229,6 +232,7 @@
         "starlette.websocket.protocol.receive-after-disconnect"
       ],
       "target_profiles": [
+        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
@@ -306,6 +310,7 @@
         "starlette.websocket.protocol.binary-exchange"
       ],
       "target_profiles": [
+        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
@@ -386,6 +391,7 @@
         "starlette.websocket.protocol.send-oserror-disconnect"
       ],
       "target_profiles": [
+        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],

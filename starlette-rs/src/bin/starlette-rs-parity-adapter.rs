@@ -393,9 +393,7 @@ fn run_case(case: &Value) -> Result<Value, String> {
     if case.get("surface").and_then(Value::as_str) == Some(WEBSOCKET_SURFACE) {
         return match case.get("operation").and_then(Value::as_str) {
             Some(WEBSOCKET_STATE_OPERATION) => run_websocket_state_case(case),
-            Some(WEBSOCKET_OPERATION) => Err(String::from(
-                "Rust-native does not implement the full WebSocket protocol-sequence output contract",
-            )),
+            Some(WEBSOCKET_OPERATION) => run_websocket_protocol_case(case),
             _ => Err(String::from("WebSocket operation is unsupported")),
         };
     }
@@ -5096,6 +5094,278 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
             "value": value,
         }],
     }))
+}
+
+fn run_websocket_protocol_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "scope",
+            "incoming",
+            "actions",
+            "observations",
+        ],
+        "WebSocket protocol-sequence case",
+    )?;
+    let case_id = string_field(case, "case_id", "WebSocket protocol-sequence case")?;
+    if !case_id.starts_with(&format!("{WEBSOCKET_SURFACE}.{WEBSOCKET_OPERATION}."))
+        || string_field(case, "surface", "WebSocket protocol-sequence case")? != WEBSOCKET_SURFACE
+        || string_field(case, "operation", "WebSocket protocol-sequence case")?
+            != WEBSOCKET_OPERATION
+    {
+        return Err(String::from(
+            "case ID or operation is outside the WebSocket protocol sequence",
+        ));
+    }
+    if case.get("target_profiles")
+        != Some(&json!(["rust-native-local", "python-package-cpython312"]))
+        || case.get("assets") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "WebSocket protocol cases must select both profiles and no assets",
+        ));
+    }
+    let covers = case
+        .get("covers")
+        .and_then(Value::as_array)
+        .filter(|items| !items.is_empty())
+        .ok_or_else(|| String::from("WebSocket protocol case covers must be non-empty"))?;
+    let mut covered_requirements = std::collections::BTreeSet::new();
+    for item in covers {
+        let requirement = item
+            .as_str()
+            .filter(|requirement| requirement.starts_with("starlette.websocket.protocol."))
+            .ok_or_else(|| {
+                String::from(
+                    "WebSocket protocol case covers must name WebSocket protocol requirements",
+                )
+            })?;
+        if !covered_requirements.insert(requirement) {
+            return Err(format!(
+                "duplicate WebSocket protocol coverage requirement: {requirement}"
+            ));
+        }
+    }
+    let observations = case
+        .get("observations")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("WebSocket protocol case observations must be an array"))?;
+    if observations.len() != 1 || observations[0].as_str() != Some(WEBSOCKET_OPERATION) {
+        return Err(String::from(
+            "WebSocket observations must select the protocol-sequence workflow result",
+        ));
+    }
+
+    validate_websocket_scope(
+        case.get("scope")
+            .ok_or_else(|| String::from("WebSocket protocol case misses scope"))?,
+    )?;
+    let incoming = case
+        .get("incoming")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("WebSocket protocol incoming must be an array"))?;
+    for (index, message) in incoming.iter().enumerate() {
+        validate_websocket_message(
+            message,
+            &format!("WebSocket protocol incoming[{index}]"),
+            true,
+        )?;
+    }
+    let actions = case
+        .get("actions")
+        .and_then(Value::as_array)
+        .filter(|actions| !actions.is_empty())
+        .ok_or_else(|| String::from("WebSocket protocol actions must be a non-empty array"))?;
+
+    let mut machine = WebSocketStateMachine::new();
+    let mut incoming_index = 0;
+    let mut action_ids = std::collections::BTreeSet::new();
+    let mut callback_tape = Vec::new();
+    for (index, action) in actions.iter().enumerate() {
+        let context = format!("WebSocket protocol actions[{index}]");
+        let action_object = action
+            .as_object()
+            .ok_or_else(|| format!("{context} must be an object"))?;
+        let action_id = string_field(action_object, "action_id", &context)?;
+        if !action_ids.insert(action_id.to_owned()) {
+            return Err(format!(
+                "duplicate WebSocket protocol action ID: {action_id}"
+            ));
+        }
+
+        match string_field(action_object, "action", &context)? {
+            "receive" => {
+                exact_keys(action_object, &["action_id", "action"], &context)?;
+                if matches!(
+                    machine.client_state(),
+                    WebSocketState::Connecting | WebSocketState::Connected
+                ) {
+                    // Starlette invokes the receive callback before validating
+                    // the returned ASGI message. An exhausted scripted callback
+                    // raises inside this action and contributes no tape entry.
+                    if let Some(message) = incoming.get(incoming_index) {
+                        incoming_index += 1;
+                        let canonical = canonical_websocket_message(
+                            message,
+                            &format!("{context}.incoming message"),
+                        )?;
+                        callback_tape.push(json!({
+                            "direction": "receive",
+                            "message": canonical,
+                        }));
+                        let message_type = string_field(
+                            message.as_object().ok_or_else(|| {
+                                format!("{context}.incoming message must be an object")
+                            })?,
+                            "type",
+                            &format!("{context}.incoming message"),
+                        )?;
+                        // Protocol exceptions are per-action results in the
+                        // oracle harness, so preserve the tape and continue.
+                        let _ = machine.receive(message_type);
+                    }
+                }
+                // A receive attempted after disconnect/denial, or one whose
+                // scripted callback is exhausted, produces no callback entry.
+            }
+            "send" => {
+                let mut expected = vec!["action_id", "action", "message"];
+                if action_object.contains_key("send_error") {
+                    expected.push("send_error");
+                }
+                exact_keys(action_object, &expected, &context)?;
+                let message = action_object
+                    .get("message")
+                    .ok_or_else(|| format!("{context} misses message"))?;
+                validate_websocket_message(message, &format!("{context}.message"), false)?;
+                let message_object = message
+                    .as_object()
+                    .ok_or_else(|| format!("{context}.message must be an object"))?;
+                let message_type =
+                    string_field(message_object, "type", &format!("{context}.message"))?;
+                let more_body = message
+                    .get("more_body")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                let send_error = action_object
+                    .get("send_error")
+                    .map(|raw_error| {
+                        let error = exact_object(
+                            raw_error,
+                            &["kind", "message"],
+                            &format!("{context}.send_error"),
+                        )?;
+                        if string_field(error, "kind", &format!("{context}.send_error"))?
+                            != "os-error"
+                        {
+                            return Err(format!("{context}.send_error.kind must be os-error"));
+                        }
+                        string_field(error, "message", &format!("{context}.send_error"))?;
+                        Ok(())
+                    })
+                    .transpose()?;
+
+                // Starlette validates and updates application state before it
+                // invokes the send callback. Invalid sends therefore leave no
+                // callback-tape entry.
+                if let Ok(catches_os_error) = machine.begin_send(message_type, more_body) {
+                    let canonical =
+                        canonical_websocket_message(message, &format!("{context}.message"))?;
+                    callback_tape.push(json!({
+                        "direction": "send",
+                        "message": canonical,
+                    }));
+                    if send_error.is_some() && catches_os_error {
+                        machine.send_failed();
+                    }
+                    // The input contract observes only the callback tape. The
+                    // oracle harness catches callback errors and continues.
+                }
+            }
+            _ => {
+                return Err(format!(
+                    "{context}.action is unsupported; only receive and send are declared"
+                ));
+            }
+        }
+    }
+    if incoming_index != incoming.len() {
+        return Err(String::from(
+            "WebSocket protocol sequence left incoming messages unconsumed",
+        ));
+    }
+
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": WEBSOCKET_OPERATION,
+            "status": "ok",
+            "value": { "asgi_callback_tape": callback_tape },
+        }],
+    }))
+}
+
+fn canonical_websocket_message(message: &Value, context: &str) -> Result<Value, String> {
+    let object = message
+        .as_object()
+        .ok_or_else(|| format!("{context} must be an ASGI message object"))?;
+    let mut canonical = Map::new();
+    for (name, value) in object {
+        let value = match name.as_str() {
+            "bytes_base64" | "body_base64" => {
+                let encoded = value
+                    .as_str()
+                    .ok_or_else(|| format!("{context}.{name} must be base64"))?;
+                Value::String(encode_base64(&decode_base64(
+                    encoded,
+                    &format!("{context}.{name}"),
+                )?))
+            }
+            "headers_base64_pairs" => {
+                let pairs = value
+                    .as_array()
+                    .ok_or_else(|| format!("{context}.headers_base64_pairs must be an array"))?;
+                let mut canonical_pairs = Vec::with_capacity(pairs.len());
+                for (index, pair) in pairs.iter().enumerate() {
+                    let pair = pair
+                        .as_array()
+                        .filter(|pair| pair.len() == 2)
+                        .ok_or_else(|| {
+                            format!("{context}.headers_base64_pairs[{index}] must be a pair")
+                        })?;
+                    let canonical_pair = pair
+                        .iter()
+                        .enumerate()
+                        .map(|(component, value)| {
+                            let encoded = value.as_str().ok_or_else(|| {
+                                format!(
+                                    "{context}.headers_base64_pairs[{index}][{component}] must be base64"
+                                )
+                            })?;
+                            Ok(Value::String(encode_base64(&decode_base64(
+                                encoded,
+                                &format!(
+                                    "{context}.headers_base64_pairs[{index}][{component}]"
+                                ),
+                            )?)))
+                        })
+                        .collect::<Result<Vec<_>, String>>()?;
+                    canonical_pairs.push(Value::Array(canonical_pair));
+                }
+                Value::Array(canonical_pairs)
+            }
+            _ => value.clone(),
+        };
+        canonical.insert(name.clone(), value);
+    }
+    Ok(Value::Object(canonical))
 }
 
 fn websocket_state_name(state: WebSocketState) -> &'static str {

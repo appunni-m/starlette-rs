@@ -2359,7 +2359,6 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         in {
                             HTTP_ROUTE_CALL_OPERATION_KEY,
                             (WEBSOCKET_ROUTE_SURFACE, WEBSOCKET_ROUTE_OPERATION),
-                            (WEBSOCKET_SURFACE, WEBSOCKET_OPERATION),
                             (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION),
                             (WEBSOCKET_CLOSE_SURFACE, WEBSOCKET_CLOSE_OPERATION),
                             WEBSOCKET_ENDPOINT_OPERATION_KEY,
@@ -2936,6 +2935,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     operation = case["operation"]
     if operation not in {WEBSOCKET_OPERATION, WEBSOCKET_STATE_OPERATION}:
         raise ContractError("WebSocket cases must use a declared sequence operation")
+    if case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]:
+        raise ContractError("WebSocket protocol and state cases must select both target profiles")
     _validate_websocket_scope(case["scope"])
     incoming = case["incoming"]
     actions = case["actions"]

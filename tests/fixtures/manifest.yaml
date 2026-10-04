@@ -21182,11 +21182,9 @@
             {
               "target_id": "rust-native",
               "path": "starlette_rs::WebSocketStateMachine",
-              "signature": null,
+              "signature": "WebSocketStateMachine::receive(message_type), begin_send(message_type, more_body), and send_failed(); the parity adapter records the supplied canonical callback tape for this narrow protocol slice",
               "support": {
-                "status": "unimplemented",
-                "reason": "The Rust-native API validates protocol transitions but does not expose Python WebSocket objects, ASGI messages, callback execution, or exception context.",
-                "blocker": "The full protocol-sequence contract compares WebSocket method return messages, emitted ASGI messages, and Python wrapper errors; these are not produced by WebSocketStateMachine."
+                "status": "supported"
               }
             },
             {
@@ -21207,6 +21205,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -21218,6 +21217,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -21229,6 +21229,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -21240,6 +21241,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -21251,6 +21253,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -21262,6 +21265,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             }
@@ -21269,6 +21273,7 @@
           "parity": {
             "applicability": "required",
             "target_profiles": [
+              "rust-native-local",
               "python-package-cpython312"
             ]
           },

@@ -125,17 +125,20 @@ input maps `test_duplicated_param_names`; it observes live constructor results
 for both one repeated name and multiple repeated names, and passed source/package
 comparison.
 
-The latest full-slice correctness run `35953fae-1517-4ba9-a44e-09c36c9e4bc3` ran from
-`2026-10-04T05:08:56.586Z` to `2026-10-04T05:12:19.303Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 893 input-only
-cases, 875 requirements, and `parity-input@33`. The Rust-native target used
-commit `5f75fe905f301f48cf5587d703dac45f7a48e66b`; the installed package was
-built from a dirty tree based on that commit.
+The latest full-slice correctness run `12b706a1-bcdb-45e0-b9f7-8c36116ad6ff`
+ran from `2026-10-04T06:09:12.792Z` to `2026-10-04T06:12:03.150Z` against
+Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 895
+input-only cases, 877 requirements, and `parity-input@34`. Both targets were
+dirty during the run. Rust-native revision:
+`0d6e2520dacbc6ed3d6e703dc0742f1696566fe5+source-fnv1a64-50b392bee00ac5af`;
+installed-package tree SHA-256:
+`ba3ecbcd806205f620b0ffa3e51997f6fa6cf064f77de0d1474a18e4f4cf52`.
 
-It selected 1,132 profile comparisons: 1,128 passed, zero failed, zero
+It selected 1,140 profile comparisons: 1,136 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
-`not_run`. The Python-package profile passed 891/891; Rust-native passed
-237/241. The direct-ASGI BaseHTTPMiddleware request-stream case passed on the
+`not_run`. The Python-package profile passed 893/893; Rust-native passed
+243/247. All six WebSocket protocol callback-tape cases pass on both target
+profiles. The direct-ASGI BaseHTTPMiddleware request-stream case passed on the
 Python-package profile against `tests/middleware/test_base.py:777-832`; the
 input preserves the minimal `{"type":"http"}` scope, three request-body
 events, and the source callback's error if polled beyond those events. Dispatch
@@ -147,17 +150,13 @@ start and body events.
 The four native `not_run` rows remain synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 Strict aggregation remains `not_proven` because the pinned compatibility
-denominator is incomplete and four Rust-native rows are `not_run`. The native
-source fingerprint is
-`5f75fe905f301f48cf5587d703dac45f7a48e66b+source-fnv1a64-6d43214008960872`;
-the installed package tree SHA-256 is
-`ba3ecbcd806205f620b0ffa3e51997f6fa6cf064f77de0d1474a18a9e4f4cf52` and its
-wheel SHA-256 is
-`84aac1927fec81e1b6a9e0c6f045d77112ad8c7169f7fda4fbe68b537638b3aa`. The
-manifest SHA-256 is
-`45a7c1ec6bad24e81f66cd317fe3eb7ffe76c9d48b4b0d6cc6a5ef2a4ed4ea01`; the
+denominator is incomplete and four Rust-native rows are `not_run`. The wheel
+SHA-256 is
+`b3f9c82fbad7660528578e9f4c5bcec1e7f702400e5ac6b2d42fc93dd9e47a4b`; manifest
+SHA-256 is
+`5570af8c25a62bb825797953f14e97d3baae2bd706a99d8a80784635c6a75d40`; and
 result artifact SHA-256 is
-`4ede9a9e92474c98c2209a5cb4eeb51b9953e1734d3eccb35b8aba308410722b` at
+`165b2bd5f7815b55f06142a861cc4b13f969bfdda40c6346bf127c511cc28015` at
 `build/parity/parity-result.json`. The command exits with status 2 because the
 four declared Rust-native rows remain `not_run`; this is an incomplete strict
 gate, not a failed source/package comparison.
@@ -317,7 +316,7 @@ handled `HTTPException(500)` through the installed package. All selected
 server-error cases pass in the latest run under the declared traceback
 normalization; raw source and target bodies remain in the local result
 artifact. The WebSocket inputs also include six ordered receive/send callback-
-tape comparisons on the Python package, six projected state cases on both
+tape comparisons on both targets, six projected state cases on both
 targets, three package-profile route-dispatch cases, and the 16
 convenience/close cases described above. Three additional package-profile
 cases cover the built-in `WebSocketException` close path, an `HTTPException`
@@ -514,9 +513,12 @@ inputs in
 [`config-runtime.yaml`](../tests/fixtures/sources/parity/config-runtime.yaml)
 and [`schemas-runtime.yaml`](../tests/fixtures/sources/parity/schemas-runtime.yaml).
 The `starlette.websockets.WebSocket.protocol-sequence`
-operation contains six cases whose Python-package observations preserve the
-ordered receive/send ASGI callback tape, including attempted sends whose
-callback raises. The `starlette.websockets.WebSocket.state-sequence` operation repeats
+operation contains six cases whose source, installed-package, and Rust-native
+observations preserve the ordered receive/send ASGI callback tape, including
+attempted sends whose callback raises. The Rust adapter uses the existing
+state machine to decide callback eligibility and records only the supplied
+canonical messages; it does not claim Python exception metadata or a general
+Rust ASGI `WebSocket` wrapper. The `starlette.websockets.WebSocket.state-sequence` operation repeats
 those six input sequences and compares action outcomes, exact error messages,
 and both final state enums on source, package, and Rust-native profiles; it
 does not compare payloads or Python exception metadata. The new
@@ -526,9 +528,9 @@ receives, input-matched text/bytes/JSON exchanges, normal async-for iterator out
 availability/control calls, denial-response extension behavior, and final
 states. The separate
 `starlette.websockets.WebSocketClose.call-sequence` operation observes
-construction defaults, mutable properties, and its ASGI close event. These
-inputs all pass in the latest integrated Python-package run, and the six
-projected state cases also pass in Rust-native. The route operation is
+construction defaults, mutable properties, and its ASGI close event. The six
+callback-tape cases pass on both installed-package and Rust-native profiles,
+and the six projected state cases also pass in Rust-native. The route operation is
 `starlette.routing.WebSocketRoute.route-dispatch`; its cases are
 `matched-root-path`, `router-miss-close`, and `http-scope-404`; all three passed
 in the Python-package profile. The

@@ -10,43 +10,45 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice correctness run `89f3c4b9-6b92-4631-964e-cdeecdb480e9`
-ran from `2026-10-04T05:44:33.873Z` to `2026-10-04T05:48:08.653Z` against
+The latest full-slice correctness run `12b706a1-bcdb-45e0-b9f7-8c36116ad6ff`
+ran from `2026-10-04T06:09:12.792Z` to `2026-10-04T06:12:03.150Z` against
 Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 895
-input-only cases, 877 requirements, and `parity-input@34`. The Rust-native
-target and installed package were both built from clean commit
-`32a7dcbaf019951715763ff303305998cebcf1dd`.
+input-only cases, 877 requirements, and `parity-input@34`. Both target profiles
+were built from dirty working trees during this run: Rust-native revision
+`0d6e2520dacbc6ed3d6e703dc0742f1696566fe5+source-fnv1a64-50b392bee00ac5af`
+and installed-package tree
+`ba3ecbcd806205f620b0ffa3e51997f6fa6cf064f77de0d1474a18e4f4cf52`.
 
-It selected 1,134 profile comparisons: 1,130 passed, zero failed, zero
+It selected 1,140 profile comparisons: 1,136 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
 `not_run`. The Python-package profile passed 893/893; Rust-native passed
-237/241. Both new routing inputs, TestClient `Mount("/")` and Router-level
-middleware short-circuiting, passed on the installed-package profile. The
-direct-ASGI BaseHTTPMiddleware request-stream case passed on the Python-package
-profile against `tests/middleware/test_base.py:777-832`; the input preserves
-the minimal `{"type":"http"}` scope, three request-body events, and the source
-callback's error if polled beyond those events. Dispatch reads `b"1"`, the
-downstream endpoint reads `b"2"`, and dispatch resumes to read `b"3"`, with no
-extra receive call. The FileResponse background-task case also passed on both
+243/247. All six raw WebSocket callback-tape cases now pass on both profiles,
+using `WebSocketStateMachine` to determine callback eligibility and recording
+the input-defined canonical messages. Both routing inputs, TestClient
+`Mount("/")` and Router-level middleware short-circuiting, passed on the
+installed-package profile. The direct-ASGI BaseHTTPMiddleware request-stream
+case passed on the Python-package profile against
+`tests/middleware/test_base.py:777-832`; the input preserves the minimal
+`{"type":"http"}` scope, three request-body events, and the source callback's
+error if polled beyond those events. Dispatch reads `b"1"`, the downstream
+endpoint reads `b"2"`, and dispatch resumes to read `b"3"`, with no extra
+receive call. The FileResponse background-task case also passed on both
 profiles with callback values `6, 7, 8, 9` after response start and body events.
 
 The four native `not_run` rows remain synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
 Strict aggregation remains `not_proven` because the pinned compatibility
-denominator is incomplete and four Rust-native rows are `not_run`. The native
-source fingerprint is
-`32a7dcbaf019951715763ff303305998cebcf1dd+source-fnv1a64-6d43214008960872`;
-the installed package tree SHA-256 is
-`ba3ecbcd806205f620b0ffa3e51997f6fa6cf064f77de0d1474a18a9e4f4cf52` and its
-wheel SHA-256 is
-`768fff4e12885df888831214f6ea34def04d6793320231ac9e270de3ede1d5fd`. The
+denominator is incomplete and four Rust-native rows are `not_run`. The
+installed-package wheel SHA-256 is
+`b3f9c82fbad7660528578e9f4c5bcec1e7f702400e5ac6b2d42fc93dd9e47a4b`; the
 manifest SHA-256 is
-`a1e9dbf833ff52c6c8aac871968b88e1b4445be648d529fe37348b73f2c04186`; the
+`5570af8c25a62bb825797953f14e97d3baae2bd706a99d8a80784635c6a75d40`; and the
 result artifact SHA-256 is
-`a2a472a1e40012af7de8e4896517be932c4e38ab4774b5e2a470ff5347aeec82` at
+`165b2bd5f7815b55f06142a861cc4b13f969bfdda40c6346bf127c511cc28015` at
 `build/parity/parity-result.json`. The command exits with status 2 because the
 four declared Rust-native rows remain `not_run`; this is an incomplete strict
-gate, not a failed source/package comparison.
+gate, not a failed source/package comparison. This run is evidence for its
+recorded dirty-tree source fingerprint, not a clean-commit run.
 The latest clean Router/GZip benchmark run `a90823bd-790b-48a6-982c-8f7f29ecc740`
 measured all 74 source/package workloads on clean commit
 `eafe5d3d0d62bb3c34cdf52aec0a971b735c4171`, with zero failures and matching
@@ -885,11 +887,11 @@ This evidence is limited to these input-defined `Starlette.__call__` workflows. 
 ## WebSocket protocol, state, and route-dispatch inputs
 
 The direct WebSocket protocol, state, and route-dispatch contract has three
-input-only operations. The full public
-protocol operation compares source and installed-package behavior; the Rust
-target is limited to the separate state projection because its public
-`WebSocketStateMachine` does not produce Python `WebSocket` callback tapes,
-payloads, or exception metadata.
+input-only operations. The raw protocol operation compares the ordered callback
+tape on source, installed-package, and Rust-native profiles. The Rust adapter
+uses `WebSocketStateMachine` to decide when callbacks occur and records only
+the canonical messages supplied by the input; it does not compare Python
+exception details or claim a general Rust ASGI `WebSocket` API.
 
 [`websocket-protocol.yaml`](../tests/fixtures/sources/parity/websocket-protocol.yaml)
 contains six ordered `WebSocket.receive()` and `WebSocket.send(message)`
@@ -898,8 +900,9 @@ receive after disconnect, binary exchange, and a connected send callback that
 raises `OSError`. The observed ordered receive/send callback tape records the
 message at each callback in chronological order. In the connected `OSError`
 case, the attempted outgoing send is recorded before the send callback raises.
-The incoming messages and action sequence are fixture stimulus. These full
-callback-tape cases select the Python-package profile only.
+The incoming messages and action sequence are fixture stimulus. These six
+callback-tape cases select both target profiles; state and exception
+observations remain in the separate state-sequence operation.
 
 [`websocket-state-sequence.yaml`](../tests/fixtures/sources/parity/websocket-state-sequence.yaml)
 contains six core protocol sequences, four denial-response transitions

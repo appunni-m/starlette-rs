@@ -167,6 +167,8 @@ def _wheel_package_tree_sha256(wheel: Path) -> str:
                 files[relative] = archive.read(entry)
     except (OSError, zipfile.BadZipFile, RuntimeError) as exc:
         raise ContractError(f"cannot inspect target wheel package files: {exc}") from exc
+    if "starlette/py.typed" not in files:
+        raise ContractError("target wheel is missing required package marker: starlette/py.typed")
     return _package_tree_sha256(files)
 
 
