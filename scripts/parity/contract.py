@@ -6994,6 +6994,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         )
     )
     for route in matched:
+        if not _route_template_parameters(route["path"]) and route["path"] == route_path:
+            derived.add("starlette.routing.Router.route-dispatch.literal-path-match")
         for _name, converter in _route_template_parameters(route["path"]):
             if converter in custom_convertors:
                 if custom_convertors[converter].get("kind") == "datetime":

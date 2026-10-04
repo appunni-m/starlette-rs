@@ -17853,6 +17853,18 @@
               ]
             },
             {
+              "id": "starlette.routing.Router.route-dispatch.literal-path-match",
+              "dimension": "success_path",
+              "description": "A request whose path exactly matches a configured literal route and whose method is allowed selects that route and its input-defined response. The test_router_add_route source case exercises GET /func but does not call Router.add_route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.routing.Router.route-dispatch.root-path-match",
               "dimension": "parameter",
               "description": "Router removes a matching root_path prefix at a path boundary before route matching.",
