@@ -316,6 +316,16 @@
       ]
     },
     {
+      "surface_id": "starlette.middleware.exceptions.ExceptionMiddleware",
+      "source_path": "starlette/middleware/exceptions.py:18",
+      "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.middleware.exceptions.ExceptionMiddleware.__init__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.middleware.gzip.GZipMiddleware",
       "source_path": "starlette/middleware/gzip.py:40",
       "operations": [

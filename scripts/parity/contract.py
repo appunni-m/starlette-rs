@@ -539,6 +539,13 @@ QUERY_PARAMS_OPERATION = (
     "construction-and-mapping-sequence",
 )
 MULTIDICT_OPERATION = ("starlette.datastructures.MultiDict", "mutation-sequence")
+EXCEPTION_MIDDLEWARE_TYPING_OPERATION = (
+    "starlette.middleware.exceptions.ExceptionMiddleware",
+    "__init__",
+)
+EXCEPTION_MIDDLEWARE_TYPING_REQUIREMENT = (
+    "starlette.middleware.exceptions.ExceptionMiddleware.__init__.constructor-handler-typing"
+)
 MULTIDICT_REQUIREMENTS = {
     "constructor": "starlette.datastructures.MultiDict.constructor-input-forms",
     "mapping_views": "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
@@ -2423,6 +2430,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) == REQUEST_FORM_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_BODY_STREAM_JSON_OPERATION
                         or (surface["id"], operation["id"]) == FORM_DATA_MULTIDICT_LOOKUPS_OPERATION
+                        or (surface["id"], operation["id"]) == EXCEPTION_MIDDLEWARE_TYPING_OPERATION
                         or (surface["id"], operation["id"]) == UPLOAD_FILE_OPERATION
                         or (surface["id"], operation["id"]) == STATUS_OPERATION
                         else profile_ids
@@ -13132,6 +13140,11 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
 
 
 def validate_case(case: Any, manifest: dict[str, Any]) -> dict[str, Any]:
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == EXCEPTION_MIDDLEWARE_TYPING_OPERATION
+    ):
+        return _validate_exception_middleware_typing_case(case, manifest)
     if isinstance(case, dict) and case.get("surface") == SERVER_ERROR_MIDDLEWARE_SURFACE:
         return _validate_server_error_middleware_case(case, manifest)
     is_threadpool = (
@@ -21830,6 +21843,115 @@ def _validate_multidict_source(value: Any, context: str) -> dict[str, Any]:
 def _multidict_json_scalar(value: Any, context: str) -> None:
     if value is not None and type(value) not in {bool, int, float, str}:
         raise ContractError(f"{context} must be a JSON scalar")
+
+
+def _validate_exception_middleware_typing_case(
+    case: dict[str, Any], manifest: dict[str, Any]
+) -> dict[str, Any]:
+    _exact(
+        case,
+        (CASE_KEYS - {"steps", "execution_schedule"}) | {"typing_contract"},
+        "ExceptionMiddleware typing case",
+    )
+    operation = next(
+        (
+            operation
+            for surface in manifest["surfaces"]
+            for operation in surface["operations"]
+            if (surface["id"], operation["id"]) == EXCEPTION_MIDDLEWARE_TYPING_OPERATION
+        ),
+        None,
+    )
+    if operation is None or EXCEPTION_MIDDLEWARE_TYPING_REQUIREMENT not in {
+        requirement["id"] for requirement in operation["requirements"]
+    }:
+        raise ContractError("ExceptionMiddleware typing requirement is not declared")
+    if not case["case_id"].startswith(
+        "starlette.middleware.exceptions.ExceptionMiddleware.__init__."
+    ):
+        raise ContractError("ExceptionMiddleware typing case ID must bind to its constructor")
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("ExceptionMiddleware typing cases select the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["typing_contract"]:
+        raise ContractError(
+            "ExceptionMiddleware typing cases use no assets and select typing_contract"
+        )
+    if case["covers"] != [EXCEPTION_MIDDLEWARE_TYPING_REQUIREMENT]:
+        raise ContractError(
+            "ExceptionMiddleware typing cases must cover the declared type contract"
+        )
+
+    typing_contract = _exact(
+        case["typing_contract"],
+        {"application_kind", "handler_signatures", "registrations", "reveals"},
+        "ExceptionMiddleware typing contract",
+    )
+    if typing_contract["application_kind"] != "asgi3-noop":
+        raise ContractError("ExceptionMiddleware typing consumer requires an ASGI3 application")
+    reveals = typing_contract["reveals"]
+    if reveals != ["constructor"]:
+        raise ContractError("ExceptionMiddleware typing contract must reveal the constructor")
+
+    handlers_value = typing_contract["handler_signatures"]
+    if not isinstance(handlers_value, list) or not handlers_value:
+        raise ContractError("ExceptionMiddleware handler signatures must be a non-empty array")
+    handlers: dict[str, dict[str, Any]] = {}
+    for index, handler_value in enumerate(handlers_value):
+        context = f"ExceptionMiddleware handler_signatures[{index}]"
+        handler = _exact(
+            handler_value,
+            {"name", "callable_kind", "connection_type", "exception_type", "return_type"},
+            context,
+        )
+        name = _string(handler["name"], f"{context}.name")
+        if not name.isidentifier() or keyword.iskeyword(name) or name in handlers:
+            raise ContractError(f"{context}.name must be a unique Python identifier")
+        if handler["callable_kind"] not in {"sync", "async"}:
+            raise ContractError(f"{context}.callable_kind must select sync or async")
+        if handler["connection_type"] != "Request" or handler["exception_type"] != "Exception":
+            raise ContractError(
+                f"{context} must match the pinned catch-all HTTP handler annotations"
+            )
+        if handler["return_type"] not in {"Response", "JSONResponse", "int"}:
+            raise ContractError(f"{context}.return_type is unsupported")
+        handlers[name] = handler
+    handler_shapes = {
+        (handler["callable_kind"], handler["return_type"]) for handler in handlers.values()
+    }
+    if not {("sync", "JSONResponse"), ("async", "JSONResponse")} <= handler_shapes:
+        raise ContractError(
+            "typing input must include the pinned sync and async JSONResponse handlers"
+        )
+    if not any(handler["return_type"] == "int" for handler in handlers.values()):
+        raise ContractError("typing input must probe an incompatible handler result annotation")
+
+    registrations_value = typing_contract["registrations"]
+    if not isinstance(registrations_value, list) or not registrations_value:
+        raise ContractError("ExceptionMiddleware registrations must be a non-empty array")
+    registration_ids: set[str] = set()
+    registered_handlers: list[str] = []
+    for index, registration_value in enumerate(registrations_value):
+        context = f"ExceptionMiddleware registrations[{index}]"
+        registration = _exact(
+            registration_value,
+            {"probe_id", "exception_key", "handler_name"},
+            context,
+        )
+        probe_id = _string(registration["probe_id"], f"{context}.probe_id")
+        if probe_id in registration_ids:
+            raise ContractError("ExceptionMiddleware registration probe IDs must be unique")
+        registration_ids.add(probe_id)
+        if registration["exception_key"] != "Exception":
+            raise ContractError("ExceptionMiddleware typing registrations use Exception keys")
+        handler_name = _string(registration["handler_name"], f"{context}.handler_name")
+        if handler_name not in handlers:
+            raise ContractError(f"{context}.handler_name does not select an input handler")
+        registered_handlers.append(handler_name)
+    if len(registered_handlers) != len(handlers) or set(registered_handlers) != set(handlers):
+        raise ContractError(
+            "each input handler must have exactly one constructor registration probe"
+        )
+    return case
 
 
 def _validate_multidict_case(case: dict[str, Any]) -> None:

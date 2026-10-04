@@ -12633,6 +12633,15 @@ def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if (case.get("surface"), case.get("operation")) == (
+        "starlette.middleware.exceptions.ExceptionMiddleware",
+        "__init__",
+    ):
+        from scripts.parity.adapters.exception_middleware_typing import (
+            run_exception_middleware_typing_case,
+        )
+
+        return run_exception_middleware_typing_case(case)
     if (
         case.get("surface") == "starlette.concurrency"
         and case.get("operation") == "run_until_first_complete"

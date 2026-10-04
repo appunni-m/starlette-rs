@@ -94,6 +94,21 @@ def check_rust_lint_exceptions(path: Path, source: str, violations: list[str]) -
             )
 
 
+def is_static_typing_import_guard(path: Path, node: ast.AST) -> bool:
+    """Allow the pinned source's import-only TYPE_CHECKING block in types.py."""
+    # These imports preserve the public callback annotations for static consumers;
+    # TYPE_CHECKING is false at runtime, so this does not add wrapper behavior.
+    return (
+        path == PYTHON_RUNTIME_ROOT / "types.py"
+        and isinstance(node, ast.If)
+        and isinstance(node.test, ast.Name)
+        and node.test.id == "TYPE_CHECKING"
+        and not node.orelse
+        and bool(node.body)
+        and all(isinstance(statement, (ast.Import, ast.ImportFrom)) for statement in node.body)
+    )
+
+
 def check_generated_parity_json(violations: list[str]) -> None:
     try:
         tracked = subprocess.run(
@@ -182,6 +197,8 @@ def main() -> int:
     for path in sorted(PYTHON_RUNTIME_ROOT.rglob("*.py")):
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):
+            if is_static_typing_import_guard(path, node):
+                continue
             if isinstance(node, PYTHON_RUNTIME_CONTROL_FLOW):
                 violations.append(
                     f"{path.relative_to(ROOT)}:{node.lineno}: Python compatibility "

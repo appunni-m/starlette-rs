@@ -1,0 +1,60 @@
+{
+  "schema": "migration-parity/parity-input@34",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.exceptions.ExceptionMiddleware.__init__.catch-all-handler-annotations",
+      "surface": "starlette.middleware.exceptions.ExceptionMiddleware",
+      "operation": "__init__",
+      "covers": [
+        "starlette.middleware.exceptions.ExceptionMiddleware.__init__.constructor-handler-typing"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "typing_contract": {
+        "application_kind": "asgi3-noop",
+        "handler_signatures": [
+          {
+            "name": "async_catch_all_handler",
+            "callable_kind": "async",
+            "connection_type": "Request",
+            "exception_type": "Exception",
+            "return_type": "JSONResponse"
+          },
+          {
+            "name": "sync_catch_all_handler",
+            "callable_kind": "sync",
+            "connection_type": "Request",
+            "exception_type": "Exception",
+            "return_type": "JSONResponse"
+          },
+          {
+            "name": "invalid_response_handler",
+            "callable_kind": "sync",
+            "connection_type": "Request",
+            "exception_type": "Exception",
+            "return_type": "int"
+          }
+        ],
+        "registrations": [
+          {
+            "probe_id": "async-catch-all",
+            "exception_key": "Exception",
+            "handler_name": "async_catch_all_handler"
+          },
+          {
+            "probe_id": "sync-catch-all",
+            "exception_key": "Exception",
+            "handler_name": "sync_catch_all_handler"
+          },
+          {
+            "probe_id": "incompatible-return",
+            "exception_key": "Exception",
+            "handler_name": "invalid_response_handler"
+          }
+        ],
+        "reveals": ["constructor"]
+      },
+      "observations": ["typing_contract"]
+    }
+  ]
+}

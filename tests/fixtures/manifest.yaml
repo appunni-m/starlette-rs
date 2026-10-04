@@ -327,7 +327,8 @@
       "build/parity/inputs/parity/testclient-lifespan-context.json",
       "build/parity/inputs/parity/application-routes.json",
       "build/parity/inputs/parity/concurrency.json",
-      "build/parity/inputs/parity/websocket-scope-interface.json"
+      "build/parity/inputs/parity/websocket-scope-interface.json",
+      "build/parity/inputs/parity/exception-middleware-typing.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -9477,6 +9478,149 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only middleware slice declares no benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.middleware.exceptions.ExceptionMiddleware",
+      "kind": "type",
+      "source_path": "starlette/middleware/exceptions.py:18",
+      "storage_slug": "starlette-middleware-exceptions-ExceptionMiddleware",
+      "operations": [
+        {
+          "id": "__init__",
+          "kind": "constructor",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.exceptions.ExceptionMiddleware.__init__",
+            "signature": "ExceptionMiddleware(app: ASGIApp, handlers: Mapping[Any, ExceptionHandler] | None = None, debug: bool = False) -> None",
+            "parameters": [
+              {
+                "id": "app",
+                "style": "positional",
+                "value_types": [
+                  "any_json"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "handlers",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "mapping",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "debug",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": false
+                }
+              },
+              {
+                "id": "typing_contract",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "typing_contract",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This contract checks the Python starlette.* static type surface; the additive Rust-native API has its own Rust signatures.",
+                "authority": "AGENTS.md Python typing and Rust-native API rules"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.exceptions.ExceptionMiddleware",
+              "signature": "ExceptionMiddleware(app: ASGIApp, handlers: Mapping[Any, ExceptionHandler] | None = None, debug: bool = False) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.exceptions.ExceptionMiddleware.__init__.constructor-handler-typing",
+              "dimension": "type_contract",
+              "description": "Accept sync and async catch-all handlers annotated with Request, Exception, and JSONResponse, and preserve the declared constructor signature so a mismatched handler result is rejected. Pinned source: starlette/middleware/exceptions.py:18-34; tests/test_exceptions.py::test_handlers_annotations.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Static consumer type checking makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Static consumer type checking has no runtime benchmark boundary."
           }
         }
       ]

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from typing import Any
 
 from starlette_rs_py import _core
@@ -10,6 +10,7 @@ from starlette_rs_py import _core
 from starlette.exceptions import HTTPException, WebSocketException
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, Response
+from starlette.types import ASGIApp, ExceptionHandler, Receive, Scope, Send
 from starlette.websockets import WebSocket
 
 
@@ -18,8 +19,8 @@ class ExceptionMiddleware:
 
     def __init__(
         self,
-        app: Callable[..., Any],
-        handlers: Mapping[Any, Callable[..., Any]] | None = None,
+        app: ASGIApp,
+        handlers: Mapping[Any, ExceptionHandler] | None = None,
         debug: bool = False,
     ) -> None:
         self.app = app
@@ -40,15 +41,15 @@ class ExceptionMiddleware:
     def add_exception_handler(
         self,
         exc_class_or_status_code: int | type[Exception],
-        handler: Callable[..., Any],
+        handler: ExceptionHandler,
     ) -> None:
         self._runtime.add_exception_handler(exc_class_or_status_code, handler)
 
     async def __call__(
         self,
-        scope: dict[str, Any],
-        receive: Callable[..., Any],
-        send: Callable[..., Any],
+        scope: Scope,
+        receive: Receive,
+        send: Send,
     ) -> None:
         await self._runtime(scope, receive, send)
 
