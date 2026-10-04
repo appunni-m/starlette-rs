@@ -14,37 +14,124 @@
       ],
       "target_profiles": ["python-package-cpython312"],
       "assets": [],
+      "template_directories": [{"id": "views", "path": "views"}],
       "template_files": [
         {
-          "path": "views/item.html",
+          "directory_id": "views",
+          "path": "item.html",
           "text": "<main>{{ markup }}</main><span>{{ display_name }}</span><a href=\"{{ url_for('item', item_id=9) }}\">item</a><strong>{{ processed_value }}</strong>"
         }
       ],
-      "template_name": "views/item.html",
-      "route": {"path": "/items/{item_id:int}", "name": "item"},
-      "context": {
-        "markup": "<script>user input</script>",
-        "display_name": "Ada"
-      },
+      "routes": [{"path": "/items/{item_id:int}", "name": "item"}],
+      "requests": [
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "http_version": "1.1",
+            "scheme": "https",
+            "path": "/render",
+            "raw_path_base64": "L3JlbmRlcg==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": ["template-client", 50001],
+            "server": ["template.example", 443],
+            "method": "GET",
+            "extensions": {"http.response.debug": {}}
+          },
+          "template_name": "item.html",
+          "context": {
+            "markup": "<script>user input</script>",
+            "display_name": "Ada"
+          },
+          "status_code": 201,
+          "headers": {"x-template-source": "input-defined"},
+          "media_type": null
+        }
+      ],
       "processor_additions": [{"processed_value": "from processor"}],
-      "status_code": 201,
-      "headers": {"x-template-source": "input-defined"},
-      "media_type": null,
-      "scope": {
-        "type": "http",
-        "asgi": {"version": "3.0", "spec_version": "2.4"},
-        "http_version": "1.1",
-        "scheme": "https",
-        "path": "/render",
-        "raw_path_base64": "L3JlbmRlcg==",
-        "query_string_base64": "",
-        "root_path": "",
-        "headers_base64_pairs": [],
-        "client": ["template-client", 50001],
-        "server": ["template.example", 443],
-        "method": "GET",
-        "extensions": {"http.response.debug": {}}
-      },
+      "observations": ["template-response"]
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-response.directory-sequence-two-routes",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-response",
+      "covers": [
+        "starlette.templating.Jinja2Templates.constructor-directory-sequence",
+        "starlette.templating.Jinja2Templates.url-for-global",
+        "starlette.templating._TemplateResponse.template-context-metadata",
+        "starlette.templating._TemplateResponse.debug-extension"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "template_directories": [
+        {"id": "a", "path": "a"},
+        {"id": "b", "path": "b"}
+      ],
+      "template_files": [
+        {
+          "directory_id": "a",
+          "path": "template_a.html",
+          "text": "<html><a href='{{ url_for('page_a') }}'></a> a</html>"
+        },
+        {
+          "directory_id": "b",
+          "path": "template_b.html",
+          "text": "<html><a href='{{ url_for('page_b') }}'></a> b</html>"
+        }
+      ],
+      "routes": [
+        {"path": "/a", "name": "page_a"},
+        {"path": "/b", "name": "page_b"}
+      ],
+      "requests": [
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "http_version": "1.1",
+            "scheme": "http",
+            "path": "/a",
+            "raw_path_base64": "L2E=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": ["testclient", 50000],
+            "server": ["testserver", 80],
+            "method": "GET",
+            "extensions": {"http.response.debug": {}}
+          },
+          "template_name": "template_a.html",
+          "context": {},
+          "status_code": 200,
+          "headers": {},
+          "media_type": null
+        },
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "http_version": "1.1",
+            "scheme": "http",
+            "path": "/b",
+            "raw_path_base64": "L2I=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": ["testclient", 50000],
+            "server": ["testserver", 80],
+            "method": "GET",
+            "extensions": {"http.response.debug": {}}
+          },
+          "template_name": "template_b.html",
+          "context": {},
+          "status_code": 200,
+          "headers": {},
+          "media_type": null
+        }
+      ],
+      "processor_additions": [],
       "observations": ["template-response"]
     }
   ]

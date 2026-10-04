@@ -73,11 +73,12 @@ async def _run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.routing import Route, Router
     from starlette.templating import Jinja2Templates
 
-    scope = _make_scope(case["scope"])
-    route = case["route"]
-    router = Router(routes=[Route(route["path"], lambda _request: None, name=route["name"])])
-    scope["router"] = router
-    request = Request(scope)
+    router = Router(
+        routes=[
+            Route(route["path"], lambda _request: None, name=route["name"])
+            for route in case["routes"]
+        ]
+    )
     processor_trace: list[dict[str, Any]] = []
     processors = []
     for additions in case["processor_additions"]:
@@ -96,44 +97,58 @@ async def _run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
         processors.append(context_processor)
 
     with tempfile.TemporaryDirectory(prefix="starlette-template-parity-") as temporary:
-        directory = Path(temporary)
+        directory_roots = {
+            directory["id"]: Path(temporary) / directory["path"]
+            for directory in case["template_directories"]
+        }
+        for directory in directory_roots.values():
+            directory.mkdir(parents=True, exist_ok=True)
         for source in case["template_files"]:
-            path = directory / source["path"]
+            path = directory_roots[source["directory_id"]] / source["path"]
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(source["text"], encoding="utf-8")
 
-        templates = Jinja2Templates(directory=directory, context_processors=processors)
-        response = templates.TemplateResponse(
-            request,
-            case["template_name"],
-            context=dict(case["context"]),
-            status_code=case["status_code"],
-            headers=case["headers"],
-            media_type=case["media_type"],
+        templates = Jinja2Templates(
+            directory=[
+                directory_roots[directory["id"]] for directory in case["template_directories"]
+            ],
+            context_processors=processors,
         )
-        events: list[dict[str, Any]] = []
+        response_values: list[dict[str, Any]] = []
 
-        async def receive() -> dict[str, Any]:
-            return {"type": "http.request", "body": b"", "more_body": False}
+        for request_spec in case["requests"]:
+            scope = _make_scope(request_spec["scope"])
+            scope["router"] = router
+            request = Request(scope)
+            response = templates.TemplateResponse(
+                request,
+                request_spec["template_name"],
+                context=dict(request_spec["context"]),
+                status_code=request_spec["status_code"],
+                headers=request_spec["headers"],
+                media_type=request_spec["media_type"],
+            )
+            events: list[dict[str, Any]] = []
 
-        async def send(message: dict[str, Any]) -> None:
-            events.append(message)
+            async def receive() -> dict[str, Any]:
+                return {"type": "http.request", "body": b"", "more_body": False}
 
-        await response(scope, receive, send)
+            async def send(
+                message: dict[str, Any], event_target: list[dict[str, Any]] = events
+            ) -> None:
+                event_target.append(message)
 
-    response_events = [_template_event(event) for event in events]
-    response_bodies = [
-        event.get("body", b"") for event in events if event["type"] == "http.response.body"
-    ]
-    response_start = next(event for event in events if event["type"] == "http.response.start")
-    return {
-        "case_id": case["case_id"],
-        "status": "completed",
-        "observations": [
-            {
-                "step_id": "template-response",
-                "status": "ok",
-                "value": {
+            await response(scope, receive, send)
+            response_events = [_template_event(event) for event in events]
+            response_bodies = [
+                event.get("body", b"") for event in events if event["type"] == "http.response.body"
+            ]
+            response_start = next(
+                event for event in events if event["type"] == "http.response.start"
+            )
+            response_values.append(
+                {
+                    "request_path": request.url.path,
                     "response_status": response_start["status"],
                     "ordered_repeated_headers": response_events[
                         next(
@@ -151,6 +166,17 @@ async def _run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
                     "template_name": response.template.name,
                     "template_context_keys": sorted(response.context),
                     "request_attached": response.context["request"] is request,
+                }
+            )
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "template-response",
+                "status": "ok",
+                "value": {
+                    "responses": response_values,
                     "processor_trace": processor_trace,
                 },
             }
