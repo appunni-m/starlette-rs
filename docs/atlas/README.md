@@ -93,16 +93,17 @@ Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
 [Benchmark mapping](../BENCHMARKS.md). Run
-`2dcfd852-43d9-4e1b-9d82-207e482534e5` measured all 74 source/package
+`bf899648-b434-43ce-96bd-65ce32bb288a` measured all 74 source/package
 workloads on clean commit
-`5bcb4bb925304739a16c93484559ff2350c0548a`: six Router and 68 GZip, with
-zero failures and matching normalized observations for all 74. Its correctness
-preflight `53fd98e2-6728-40c7-bb13-7b498906fa10` selected 1,132 comparisons
-(1,128 passed, zero failures, zero infrastructure errors, four declared
-Rust-native `not_run`). The Python package passed 891/891; Rust-native passed
-237/241. Median source/package latency ratios were 0.730 for Router and 0.968
-for GZip. Rust-native remains `not_run` for these 74 benchmark workload
-boundaries. These results do not establish full Starlette compatibility.
+`0c138640861e16927cdc9f0081d9778ca6349fc6`: six Router and 68 GZip, with zero
+failures and matching normalized observations for all 74. Its correctness
+preflight `75f950a5-d6f4-4ae7-984f-decc1f4078c3` selected 1,141 comparisons
+(1,137 passed, zero failures, zero infrastructure errors, four declared
+Rust-native `not_run`). The Python package passed 894/894; Rust-native passed
+243/247. Median source/package latency ratios were 0.756 for Router and 0.974
+for GZip. Source latency was lower in 6/6 Router and 56/68 GZip workloads.
+Rust-native remains `not_run` for these 74 benchmark workload boundaries.
+These results do not establish full Starlette compatibility.
 
 At the source-mapping checkpoint, the parity manifest indexed 118 input-only cases
 across 18 files: 38 request/routing cases, 21 reverse-URL cases, four direct
