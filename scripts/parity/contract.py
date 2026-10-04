@@ -206,6 +206,7 @@ TESTCLIENT_REQUIREMENTS = {
     "static_files_unhandled_os_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.static-files-unhandled-os-error",
     "starlette_mount_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-mount-method-registration",
     "mounted_router_urls": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-router-url-sequence",
+    "mounted_router_root": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-router-root-path",
     "root_path_route_graph": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-route-graph",
     "root_path_url_for": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-url-for",
     "root_path_url_for_trailing_slash": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-url-for-trailing-slash",
@@ -10548,32 +10549,36 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         _string(asgi_app["content"], "TestClient Router Mount response content")
         if (
             not mount_path.startswith("/")
-            or mount_path == "/"
-            or mount_path.endswith("/")
+            or (mount_path.endswith("/") and mount_path != "/")
             or "?" in mount_path
             or "#" in mount_path
             or not mount_name
         ):
-            raise ContractError("TestClient Router Mount input must use a named non-root path")
+            raise ContractError("TestClient Router Mount input must use a named absolute path")
         requests = [request, *followup_requests]
-        mount_prefix = mount_path.rstrip("/")
-        expected_paths = [
-            mount_path,
-            f"{mount_prefix}/",
-            f"{mount_prefix}/a",
-            f"{mount_prefix}a",
-        ]
+        if mount_path == "/":
+            expected_paths = ["/"]
+            expected_error = "TestClient root Mount input must issue one empty GET to /"
+        else:
+            mount_prefix = mount_path.rstrip("/")
+            expected_paths = [
+                mount_path,
+                f"{mount_prefix}/",
+                f"{mount_prefix}/a",
+                f"{mount_prefix}a",
+            ]
+            expected_error = (
+                "TestClient Router Mount input must issue the four empty GETs from test_mount_urls"
+            )
         if len(requests) != len(expected_paths) or any(
             item["method"] != "GET"
             or item.get("client_method") != "get"
             or item["headers_base64_pairs"]
             or base64.b64decode(item["body_base64"])
-            or urlsplit(item["url"]).path != expected_path
+            or item["url"] != expected_path
             for item, expected_path in zip(requests, expected_paths, strict=True)
         ):
-            raise ContractError(
-                "TestClient Router Mount input must issue the four empty GETs from test_mount_urls"
-            )
+            raise ContractError(expected_error)
         exception_spec = None
         messages = []
     elif is_starlette_route_graph or is_starlette_url_for_route_graph:
@@ -11120,8 +11125,11 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     if is_starlette_app_static_mount_method:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["starlette_mount_method_registration"])
     if is_router_mounted_response:
-        expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_router_urls"])
-        expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
+        if asgi_app["mount_path"] == "/":
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_router_root"])
+        else:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_router_urls"])
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if is_starlette_route_graph:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["root_path_route_graph"])

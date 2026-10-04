@@ -9,19 +9,18 @@ incomplete.
 ## Current parity snapshot
 
 
-The active contract contains 892 input-only cases in 88 indexed files,
-covering 103 operations and 874 parity requirements. The latest clean-tree
-preflight, `7000023c-04e0-4cfd-ad38-35a9c55abf8b`, selected 1,130 profile
-comparisons: 1,126 passed, zero failed, zero infrastructure errors, and four
-Rust-native Python-callable cases were `not_run`. The Python package passed
-890/890 comparisons; Rust-native passed 236/240. The live Router mutation case
-passes on both targets and exercises method addition and route append after
-prior dispatches. The literal GET `/func` Router case also passes on both
-targets and maps dispatch in `test_router_add_route`; that test does not call
-`Router.add_route`.
+The active contract contains 894 input-only cases in 88 indexed files,
+covering 103 operations and 876 parity requirements. The latest full-slice run,
+`35953fae-1517-4ba9-a44e-09c36c9e4bc3`, predates the new root-Mount case and
+covered the previous 893-case, 875-requirement `parity-input@33` contract. It
+selected 1,132 profile comparisons: 1,128 passed, zero failed, zero
+infrastructure errors, and four Rust-native Python-callable cases were
+`not_run`. The Python package passed 891/891 comparisons; Rust-native passed
+237/241. The live Router mutation and literal GET `/func` cases matched on both
+targets; the upstream `/func` test does not call `Router.add_route`.
 
-The generated coverage matrix contains 802 source rows: 625 input mappings,
-51 source-backed `not_applicable` entries, and 126 fixture-backlog rows. The
+The generated coverage matrix contains 802 source rows: 628 input mappings,
+51 source-backed `not_applicable` entries, and 123 fixture-backlog rows. The
 pinned denominator remains 514 upstream test functions and 24 documented pages.
 Derive changing mapping and backlog counts from the generated atlas CSV files.
 The four native `not_run` rows remain synchronous Request endpoint,
@@ -44,8 +43,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 625 input mappings,
-51 source-backed `not_applicable` rows, and 126 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 628 input mappings,
+51 source-backed `not_applicable` rows, and 123 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

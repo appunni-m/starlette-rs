@@ -22939,6 +22939,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.mounted-router-root-path",
+              "dimension": "boundary",
+              "description": "Through TestClient, issue GET / to a Router whose named Mount is mounted at / and compare the live response status. Upstream: tests/test_routing.py::test_mount_at_root; starlette/routing.py:363-425; tests/conftest.py::test_client_factory.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.starlette-root-path-route-graph",
               "dimension": "protocol_variant",
               "description": "Construct the pinned Starlette route graph with a direct Route, an ASGI Mount, and a nested route Mount; issue the four root-prefixed requests through one TestClient and compare live response payloads and request scopes. Upstream: tests/test_routing.py::test_paths_with_root_path; starlette/routing.py:363-425; starlette/testclient.py:422-452.",
