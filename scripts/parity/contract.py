@@ -189,6 +189,7 @@ TESTCLIENT_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.scope-projection",
     "receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-message",
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
+    "follow_redirects_disabled": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-redirects-disabled",
     "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
@@ -10191,9 +10192,16 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
 
 
 def _validate_testclient_case(case: dict[str, Any]) -> None:
+    settings_value = case["testclient"]
+    optional_settings = (
+        {"follow_redirects"}
+        if isinstance(settings_value, dict) and "follow_redirects" in settings_value
+        else set()
+    )
     settings = _exact(
-        case["testclient"],
-        {"base_url", "raise_server_exceptions", "root_path", "client", "headers"},
+        settings_value,
+        {"base_url", "raise_server_exceptions", "root_path", "client", "headers"}
+        | optional_settings,
         "TestClient settings",
     )
     base_url = _string(settings["base_url"], "TestClient.base_url")
@@ -10201,6 +10209,8 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         raise ContractError("TestClient.base_url must use http or https")
     if type(settings["raise_server_exceptions"]) is not bool:
         raise ContractError("TestClient.raise_server_exceptions must be boolean")
+    if "follow_redirects" in settings and type(settings["follow_redirects"]) is not bool:
+        raise ContractError("TestClient.follow_redirects must be boolean")
     if not isinstance(settings["root_path"], str):
         raise ContractError("TestClient.root_path must be a string")
     client = settings["client"]
@@ -11360,6 +11370,8 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi2"])
     if any("timeout" in item for item in [request, *followup_requests]):
         expected_covers.add(TESTCLIENT_REQUIREMENTS["timeout_warning"])
+    if settings.get("follow_redirects") is False:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["follow_redirects_disabled"])
     if set(case["covers"]) != expected_covers:
         raise ContractError("TestClient covers must match the input app and request workflow")
     for index, message in enumerate(messages):

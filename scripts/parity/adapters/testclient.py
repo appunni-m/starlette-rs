@@ -736,6 +736,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         root_path=settings["root_path"],
         client=tuple(settings["client"]),
         headers=dict(settings["headers"]),
+        follow_redirects=settings.get("follow_redirects", True),
     )
     response = None
     response_value = None

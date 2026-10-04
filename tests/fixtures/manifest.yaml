@@ -328,7 +328,8 @@
       "build/parity/inputs/parity/application-routes.json",
       "build/parity/inputs/parity/concurrency.json",
       "build/parity/inputs/parity/websocket-scope-interface.json",
-      "build/parity/inputs/parity/exception-middleware-typing.json"
+      "build/parity/inputs/parity/exception-middleware-typing.json",
+      "build/parity/inputs/parity/testclient-redirect-policy.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -22905,6 +22906,17 @@
               "id": "starlette.testclient.TestClient.request-response.response-and-debug",
               "dimension": "success_path",
               "description": "Translate input ASGI response-start, debug, and body messages into the public HTTPX response URL, status, reason phrase, ordered headers, body, and response extensions, including standard and unknown numeric status phrases and suppression of an ASGI response body on a HEAD request. Pinned source: starlette/testclient.py:327-367; tests/test_testclient.py::test_debug_info_in_response_extensions; tests/test_responses.py::test_response_phrase; tests/test_responses.py::test_head_method.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.follow-redirects-disabled",
+              "dimension": "protocol_variant",
+              "description": "Pass the input follow_redirects setting to the TestClient transport and return the initial 307 response, including its Location header, without requesting the redirect target. Pinned source: starlette/testclient.py:389-418; tests/test_testclient.py::test_forward_nofollow_redirects.",
               "lanes": [
                 "parity"
               ],
