@@ -2659,6 +2659,7 @@
         "route_path": "/home",
         "route_name": "homepage",
         "content": "Hello, world!",
+        "observe_request_url_for": true,
         "scope_fields": [
           "type",
           "http_version",

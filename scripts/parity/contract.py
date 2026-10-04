@@ -1939,6 +1939,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and observation["path"]
                         in {"application_mount_routes", "mount_scope_observations"}
                     )
+                    testclient_request_url_for = (
+                        condition["input_key"] == "asgi_app.observe_request_url_for"
+                        and key == TESTCLIENT_OPERATION_KEY
+                        and observation["path"] == "request_url_for"
+                    )
                     static_files_single_call = (
                         condition["input_key"] == "scope"
                         and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
@@ -2006,6 +2011,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_application_debug
                         and not testclient_application_host
                         and not testclient_application_mount
+                        and not testclient_request_url_for
                         and not static_files_single_call
                         and not static_files_call_sequence
                         and not trusted_host_constructor_probe
@@ -11044,7 +11050,14 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     elif is_request_url_for_middleware:
         asgi_app = _exact(
             raw_asgi_app,
-            {"kind", "route_path", "route_name", "content", "scope_fields"},
+            {
+                "kind",
+                "route_path",
+                "route_name",
+                "content",
+                "observe_request_url_for",
+                "scope_fields",
+            },
             "TestClient Request.url_for middleware app",
         )
         route_path = _string(asgi_app["route_path"], "TestClient Request.url_for route path")
@@ -11054,6 +11067,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             route_path != "/home"
             or route_name != "homepage"
             or content != "Hello, world!"
+            or asgi_app["observe_request_url_for"] is not True
             or settings["raise_server_exceptions"] is not True
             or settings["base_url"] != "http://testserver"
             or settings["root_path"]

@@ -22612,6 +22612,18 @@
                   }
                 },
                 {
+                  "path": "request_url_for",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.observe_request_url_for"
+                  }
+                },
+                {
                   "path": "application_routes",
                   "value_types": [
                     "sequence"

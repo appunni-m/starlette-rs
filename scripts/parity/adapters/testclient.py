@@ -842,7 +842,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         result["debug_exception_name_present"] = (
             response is not None and app_input["exception"]["class"] in response.text
         )
-    if app_input["kind"] == "request-url-for-middleware":
+    if app_input.get("observe_request_url_for") is True:
         result["request_url_for"] = request_url_for_observations
     if app_input["kind"] == "starlette-app-host-method":
         result["application_routes"] = [
