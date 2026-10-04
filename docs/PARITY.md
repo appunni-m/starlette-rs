@@ -1324,6 +1324,24 @@ instrumented wheel SHA-256
 reports and receipts remain under ignored
 `build/parity/coverage/router-startup/`.
 
+The clean full-manifest preflight for the active 927-case contract
+`ff54cb4d-3390-463b-8ffd-96febc69b24b` selected 1,173 profile comparisons:
+1,169 passed, zero failed, zero infrastructure errors, and four Rust-native
+Python-callable boundary cases were `not_run`. The installed Python package
+passed 923/923 comparisons; Rust-native passed 246/250. Both target-only
+route-cache fault contracts passed (2/2) and remain `not_applicable` to the
+source oracle. The preflight result SHA-256 is
+`4f7fa49a8a13e41205ad47cc2743779f23cc8aff2e26ab1d88a17c68806c1a0d`; it uses
+the active manifest SHA-256
+`800e7040a68b7ace38b5b0ce253a0d6c61d310ea5d684c63dab880833e2a151b`, clean
+target revision `7dc23e64981a65a0dec6944f59f5828618168c3a`, target tree
+SHA-256
+`a61aae38e6a1f26630de04d38590a3acc21df02ba53807a56d633b95a08a0555`, and
+installed wheel SHA-256
+`dfd07b09b998c46d1decb90d8ed0fc66e5ea6ed745b131441dda130c9c1cd43d`. These
+results cover the active package slice and do not establish full Starlette
+parity.
+
 The preceding clean full-manifest preflight for the 926-case contract
 `5a69e4da-e6e8-47d6-b4d9-01f613c41e77` selected 1,172 profile comparisons:
 1,168 passed, zero failed, zero infrastructure errors, and four Rust-native

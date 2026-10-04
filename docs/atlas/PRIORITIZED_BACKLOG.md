@@ -89,6 +89,19 @@ instrumented wheel SHA-256
 `4a7f21daede2267586ddbb9d7ced7d8993fd9a4a9b8e46bd178ef8c76b48bd2a`; see
 [Migration parity contract and evidence](../PARITY.md) for run IDs and receipts.
 
+The clean full-manifest preflight for the active 927-case contract
+`ff54cb4d-3390-463b-8ffd-96febc69b24b` selected 1,173 profile comparisons:
+1,169 passed, zero failed, zero infrastructure errors, and four Rust-native
+callable-boundary rows were `not_run`. The installed Python package passed
+923/923 comparisons; Rust-native passed 246/250. Both target-only route-cache
+fault contracts passed and remain `not_applicable` to the source oracle. The
+result SHA-256 is
+`4f7fa49a8a13e41205ad47cc2743779f23cc8aff2e26ab1d88a17c68806c1a0d`; manifest
+SHA-256 is
+`800e7040a68b7ace38b5b0ce253a0d6c61d310ea5d684c63dab880833e2a151b`. This
+active package-slice evidence does not establish full Starlette parity; details
+are in [Migration parity contract and evidence](../PARITY.md).
+
 The preceding clean full-manifest preflight for the 926-case contract
 `5a69e4da-e6e8-47d6-b4d9-01f613c41e77` selected 1,172 profile comparisons:
 1,168 passed, zero failed, zero infrastructure errors, and four Rust-native
