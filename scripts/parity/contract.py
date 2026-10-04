@@ -221,6 +221,7 @@ TESTCLIENT_REQUEST_REQUIREMENTS = {
     "url_sequence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-url-sequence",
     "url_components": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-url-components",
     "query_mapping": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-query-params-mapping",
+    "query_params_option": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.query-params-option",
     "query_semantics": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-query-params-immutable-multidict",
     "headers_mapping": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-headers-mapping",
     "headers_semantics": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-headers-immutable-multidict",
@@ -3879,6 +3880,16 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
         and actions[2]["reason"] == ""
     ):
         coverage.add("starlette.routing.WebSocketRoute.route-dispatch.standalone-match")
+    if (
+        case["dispatch"] == "standalone-route"
+        and scope["type"] == "websocket"
+        and scope["root_path"] == ""
+        and expected_route == "/"
+        and scope["path"] == "/invalid"
+        and not incoming
+        and not actions
+    ):
+        coverage.add("starlette.routing.WebSocketRoute.route-dispatch.standalone-miss-close")
     unexercised = set(case["covers"]) - coverage
     if unexercised:
         raise ContractError(
@@ -10479,7 +10490,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     def validate_request(value: Any, context: str) -> dict[str, Any]:
         request_keys = {"method", "url", "headers_base64_pairs", "body_base64"}
         if isinstance(value, dict):
-            request_keys.update(key for key in ("timeout", "client_method") if key in value)
+            request_keys.update(
+                key for key in ("timeout", "client_method", "params") if key in value
+            )
         request = _exact(value, request_keys, context)
         method = _string(request["method"], f"{context}.method")
         if not method or method != method.upper():
@@ -10500,6 +10513,19 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 or client_method.upper() != method
             ):
                 raise ContractError(f"{context}.client_method must match GET, HEAD, or POST method")
+        if "params" in request:
+            params = request["params"]
+            if (
+                not isinstance(params, dict)
+                or not params
+                or any(not isinstance(key, str) or not key for key in params)
+                or any(not isinstance(value, str) for value in params.values())
+            ):
+                raise ContractError(f"{context}.params must be a non-empty string mapping")
+            if request.get("client_method") != "get":
+                raise ContractError(f"{context}.params requires TestClient.get")
+            if urlsplit(request["url"]).query:
+                raise ContractError(f"{context}.url query must be empty when params is supplied")
         validate_pairs(request["headers_base64_pairs"], f"{context}.headers_base64_pairs")
         validate_base64(request["body_base64"], f"{context}.body_base64")
         if request.get("client_method") == "get" and base64.b64decode(request["body_base64"]):
@@ -10520,6 +10546,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             or is_router_mounted_response
             or is_cookie_round_trip
             or is_request_observer
+            or is_sync_route
             or is_starlette_route_graph
             or is_starlette_url_for_route_graph
         ):
@@ -10535,13 +10562,21 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         route_path = _string(asgi_app["path"], "TestClient route path")
         endpoint = _exact(
             asgi_app["endpoint"],
-            {"kind", "content"},
+            {"kind", "query_parameter"}
+            if isinstance(asgi_app["endpoint"], dict)
+            and asgi_app["endpoint"].get("kind") == "sync-query-param-text-response"
+            else {"kind", "content"},
             "TestClient synchronous route endpoint",
         )
         if (
             not route_path.startswith("/")
             or asgi_app["methods"] is not None
-            or endpoint["kind"] not in {"sync-plain-text-response", "sync-json-response"}
+            or endpoint["kind"]
+            not in {
+                "sync-plain-text-response",
+                "sync-json-response",
+                "sync-query-param-text-response",
+            }
             or request["method"] not in {"GET", "HEAD"}
             or urlsplit(request["url"]).path != route_path
         ):
@@ -10550,13 +10585,21 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             )
         if endpoint["kind"] == "sync-plain-text-response":
             _string(endpoint["content"], "TestClient synchronous endpoint content")
-        else:
+        elif endpoint["kind"] == "sync-json-response":
             try:
                 json.dumps(endpoint["content"], allow_nan=False)
             except (TypeError, ValueError) as exc:
                 raise ContractError(
                     "TestClient synchronous JSON endpoint content must be JSON-compatible"
                 ) from exc
+        else:
+            query_parameter = _string(
+                endpoint["query_parameter"], "TestClient synchronous endpoint query_parameter"
+            )
+            if not query_parameter:
+                raise ContractError(
+                    "TestClient synchronous endpoint query_parameter must be non-empty"
+                )
         messages = []
         exception_spec = None
     elif is_starlette_app_debug:
@@ -11481,6 +11524,8 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
                 "sync_route_get" if request["method"] == "GET" else "sync_route_head"
             ]
         )
+        if endpoint["kind"] == "sync-query-param-text-response":
+            expected_covers.add(TESTCLIENT_REQUEST_REQUIREMENTS["query_params_option"])
     if is_starlette_app_debug:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_mutation"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_response"])

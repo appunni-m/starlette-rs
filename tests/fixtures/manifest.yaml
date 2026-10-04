@@ -18751,6 +18751,17 @@
               ]
             },
             {
+              "id": "starlette.routing.WebSocketRoute.route-dispatch.standalone-miss-close",
+              "dimension": "error_path",
+              "description": "Call a standalone WebSocketRoute with a non-matching WebSocket path and observe the route's ASGI close event without invoking the endpoint. Pinned source: tests/test_routing.py::test_standalone_ws_route_does_not_match; starlette/routing.py::BaseRoute.__call__ and WebSocketRoute.matches.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.routing.WebSocketRoute.route-dispatch.router-miss-close",
               "dimension": "error_path",
               "description": "Dispatch an unmatched WebSocket scope through Starlette and observe the exact ASGI WebSocket close event. Upstream: starlette/routing.py::Router.not_found at the pinned Starlette commit.",
@@ -23282,6 +23293,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.query-params-option",
+              "dimension": "input_family",
+              "description": "Pass an input params mapping through TestClient.get; a synchronous Starlette Route reads Request.query_params by the supplied key and returns the value as plain text, preserving ASCII and Unicode input values. Pinned source: tests/test_testclient.py:346-352; starlette/requests.py:139-142.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.request-query-params-immutable-multidict",
               "dimension": "boundary",
               "description": "Construct Request from repeated, percent-escaped, and blank query values; observe cached query_params identity, multi_items, mapping and scalar/multi-value lookups, then attempt assignment and inspect the live exception and values afterward. Pinned source: starlette/requests.py:139-142; starlette/datastructures.py:253-301,378-400; docs/requests.md:49-53.",
@@ -24471,7 +24493,7 @@
             {
               "id": "starlette.templating.Jinja2Templates.url-for-global",
               "dimension": "success_path",
-              "description": "Resolve a named route from the template context through the default url_for global. Upstream: starlette/templating.py:101-112; docs/templates.md:26.",
+              "description": "Resolve a named route from the template context through the default url_for global. Upstream: starlette/templating.py:101-112; docs/templates.md:26; tests/test_templates.py::test_templates.",
               "lanes": [
                 "parity"
               ],
@@ -24482,7 +24504,7 @@
             {
               "id": "starlette.templating._TemplateResponse.template-context-metadata",
               "dimension": "format",
-              "description": "Expose the selected template and final request-bearing context on the HTML response. Upstream: starlette/templating.py:31-44; docs/templates.md:121.",
+              "description": "Expose the selected template and final request-bearing context on the HTML response. Upstream: starlette/templating.py:31-44; docs/templates.md:121; tests/test_templates.py::test_templates.",
               "lanes": [
                 "parity"
               ],
@@ -24493,7 +24515,7 @@
             {
               "id": "starlette.templating._TemplateResponse.debug-extension",
               "dimension": "protocol_variant",
-              "description": "Emit the ASGI template debug event before the response when the request scope advertises http.response.debug. Upstream: starlette/templating.py:46-51.",
+              "description": "Emit the ASGI template debug event before the response when the request scope advertises http.response.debug; TestClient exposes template/context metadata from this event. Upstream: starlette/templating.py:46-51; starlette/testclient.py:345-373; tests/test_templates.py::test_templates.",
               "lanes": [
                 "parity"
               ],

@@ -94,7 +94,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
     if app_input["kind"] == "starlette-route":
         from starlette.applications import Starlette
-        from starlette.responses import JSONResponse, PlainTextResponse
+        from starlette.responses import JSONResponse, PlainTextResponse, Response
         from starlette.routing import Route
 
         sync_endpoint_state = {
@@ -117,6 +117,8 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             endpoint_spec = app_input["endpoint"]
             if endpoint_spec["kind"] == "sync-json-response":
                 return JSONResponse(endpoint_spec["content"])
+            if endpoint_spec["kind"] == "sync-query-param-text-response":
+                return Response(_request.query_params[endpoint_spec["query_parameter"]])
             return PlainTextResponse(endpoint_spec["content"])
 
         route_app = Starlette(
@@ -795,6 +797,8 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                 request_kwargs = {
                     "headers": _decoded_pairs(current_request["headers_base64_pairs"]),
                 }
+                if "params" in current_request:
+                    request_kwargs["params"] = current_request["params"]
                 if "timeout" in current_request:
                     request_kwargs["timeout"] = current_request["timeout"]
                 client_method = current_request.get("client_method")
