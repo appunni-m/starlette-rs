@@ -47,17 +47,19 @@ result artifact SHA-256 is
 `build/parity/parity-result.json`. The command exits with status 2 because the
 four declared Rust-native rows remain `not_run`; this is an incomplete strict
 gate, not a failed source/package comparison.
-The latest clean Router/GZip benchmark run `2dcfd852-43d9-4e1b-9d82-207e482534e5`
+The latest clean Router/GZip benchmark run `a90823bd-790b-48a6-982c-8f7f29ecc740`
 measured all 74 source/package workloads on clean commit
-`5bcb4bb925304739a16c93484559ff2350c0548a`, with zero failures and matching
-normalized observations. Its correctness preflight `53fd98e2-6728-40c7-bb13-7b498906fa10`
-selected 1,132 comparisons: 1,128 passed, zero failed, zero infrastructure
+`eafe5d3d0d62bb3c34cdf52aec0a971b735c4171`, with zero failures and matching
+normalized observations. Its correctness preflight `211aee32-565e-4ec6-a1ac-962bf7ad1e4c`
+selected 1,134 comparisons: 1,130 passed, zero failed, zero infrastructure
 errors, and four Rust-native rows were `not_run`; the Python package passed
-891/891 and Rust-native passed 237/241. Median source/package latency ratios
-were 0.730 for Router and 0.968 for GZip. Rust-native remains `not_run` for
-these 74 equivalent ASGI workload boundaries. See [Benchmark mapping](BENCHMARKS.md)
-for the run identity and artifact hash. These workload-specific results do not
-establish full Starlette compatibility.
+893/893 and Rust-native passed 237/241. Median source/package latency ratios
+were 0.739 for Router and 0.976 for GZip. Source latency was lower in 5/6
+Router and 55/68 GZip workloads; normalized observation hashes matched for
+74/74. Rust-native remains `not_run` for these 74 equivalent ASGI workload
+boundaries. See [Benchmark mapping](BENCHMARKS.md) for the run identity and
+artifact hash. These workload-specific results do not establish full Starlette
+compatibility.
 
 For `lifespan_send_messages`, the manifest declares a narrow
 `starlette-lifespan-router-frame` normalization: it removes only the
