@@ -10,9 +10,9 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice correctness preflight is
-`badedb95-0ee1-438e-9cd3-a7db214c8dad`. It ran from
-`2026-10-04T02:57:11.918Z` to `2026-10-04T03:00:04.193Z` against Starlette
+The latest clean-tree full-slice correctness preflight is
+`c9572d7b-b74e-47e5-8594-0db859293e73`. It ran from
+`2026-10-04T03:03:58.026Z` to `2026-10-04T03:07:08.213Z` against Starlette
 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 891-case,
 873-requirement `parity-input@31` manifest. It selected 1,127 profile
 comparisons: 1,123 passed, zero failed, zero infrastructure errors, and four
@@ -25,24 +25,25 @@ registered sync `Exception` handler exactly once. The added
 case passed on the Python package: the oracle and installed package preserved
 ordered repeated `x-trace` values, returned the first value for
 differently-cased lookups, preserved `getlist()` order, projected the first value
-through `dict()`, and rejected assignment with the same `TypeError`. The
-Rust-native target used clean commit `1a271cd650a90eaf98559033b370c25bba9cdd9b`;
-the installed Python package was built from the current working tree with tree
-SHA-256 `00b1293cfc6c2df6d5a6cd3557623a80330f8a6dbc7ecae02cebbd1a55e04ae4`
-and wheel SHA-256
-`9efd8845edb21deb7c9498025812cf18d357133865fa1aa35d6fd34a3d4af413`. The
+through `dict()`, and rejected assignment with the same `TypeError`. Both
+targets were clean at commit `4c7c9a9b82429b8be49184cac959e43e72fe3ff4`. The
+Rust-native source fingerprint is
+`4c7c9a9b82429b8be49184cac959e43e72fe3ff4+source-fnv1a64-64035a396e9dceba`;
+the Python-package tree SHA-256 is
+`00b1293cfc6c2df6d5a6cd3557623a80330f8a6dbc7ecae02cebbd1a55e04ae4` and its
+wheel SHA-256 is
+`f38f59bb199c8d34b4da698ab56245e98ca1cb197bb3497879f14fb86024b604`. The
 manifest SHA-256 is
 `220aad447f79a25fc8ff1944d50c79ab1151f6e4b17d4d3b706e34d73743ca13`; the
-parity-result artifact SHA-256 is
-`5df76f065c1a9a464efb8a90f36473376c41c1e3c72456ab61e5031ecfb2b6fe` at
-`build/parity/parity-result.json`. The package target was dirty for this run;
-a clean committed-tree preflight is still required before finalizing performance
-evidence.
+correctness-result artifact SHA-256 is
+`2a206a479c02ab3ce8cbe34fa4debd215c9ae1265a2b4ffd2aaf648324c21364` at
+`build/parity/upstream-benchmark-correctness-result.json`.
 
-The clean benchmark run `f36cf791-ae84-4768-a5ab-6a0bf160c9c9` measured 74/74
+The clean benchmark run `1ef2c2d8-cd85-455a-8d6e-1ca295e471b2` measured 74/74
 source/package workloads with zero failures. Its result artifact SHA-256 is
-`7720377700c303b43226db011ac290a68a2e801187da6865864cc637b8450d48`; details
-are in [`BENCHMARKS.md`](BENCHMARKS.md). The four Rust-native `not_run` rows
+`018af61426d3fc856cb0b506a4750fbf675126a75fa91e3890d7082d9ba29e05`; details
+are in [`BENCHMARKS.md`](BENCHMARKS.md). Its correctness gate is the full-slice
+preflight above. The four Rust-native `not_run` rows
 remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
 and callable-instance ASGI dispatch. Strict aggregation remains `not_proven`;
 the pinned compatibility denominator is not yet fully implemented.
