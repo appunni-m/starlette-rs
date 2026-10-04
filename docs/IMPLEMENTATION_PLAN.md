@@ -655,6 +655,20 @@ follow-on work requiring their own input-only workflows and live comparisons. Ea
 operation stimulus and observation selectors; expected values remain in live
 result artifacts.
 
+## Completed bounded goal: ExceptionMiddleware handler typing
+
+The input-only Mypy consumer in
+[`exception-middleware-typing.yaml`](../tests/fixtures/sources/parity/exception-middleware-typing.yaml)
+maps the pinned `tests/test_exceptions.py::test_handlers_annotations` contract.
+The Python facade now exposes the pinned `ASGIApp` and `ExceptionHandler`
+annotations, with import-only `TYPE_CHECKING` references preserving the
+`Request`, `Response`, and `WebSocket` callback types. The source and installed
+package reveal identical constructor types, accept the input-defined sync and
+async `JSONResponse` handlers, and emit identical diagnostics for an
+incompatible integer-returning handler. This passed in full-slice run
+`4042a0c1-2fdd-4966-96ac-3010bf4bf02d`; it establishes this static Python
+contract only, not runtime or Rust-native parity.
+
 ## 8. Packaging and release readiness
 
 Prepare a Rust crate and Python wheel/sdist, inspect contents and notices,

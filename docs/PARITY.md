@@ -13,52 +13,41 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The latest full-slice correctness preflight `ff823221-0e52-416a-b287-2a19ca4fc06f`
-ran from `2026-10-04T07:09:53.037Z` to `2026-10-04T07:12:52.379Z` against
-Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 897
-input-only cases, 877 requirements, and `parity-input@34`. Both targets were
-built from clean commit `5ddf624ee352f8ef4bd9c2944556b6ecd34c42c0`.
+The latest clean full-slice correctness preflight `4042a0c1-2fdd-4966-96ac-3010bf4bf02d`
+ran from `2026-10-04T07:54:18.507Z` to `2026-10-04T07:58:01.124Z` against
+Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 898
+input-only cases, 878 requirements, and `parity-input@34` from manifest SHA-256
+`e07358c9560a810d9ab79aedaf64a17bd541196d787ab4e773c84aea69c429e5` on clean
+commit `ed406af230084d4ab953acdbd184286687f943d7`.
 
-It selected 1,142 profile comparisons: 1,138 passed, zero failed, zero
+It selected 1,143 profile comparisons: 1,139 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
-`not_run`. The Python-package profile passed 895/895; Rust-native passed
-243/247. All six raw WebSocket callback-tape cases pass on both profiles. Both
-TestClient `Request.url_for` inputs passed exact source/package comparison: the
-bare-ASGI case preserves the missing-context `RuntimeError`, and the custom
-middleware case resolves `homepage` to `http://testserver/home`. Both routing
-inputs, TestClient `Mount("/")` and Router-level middleware short-circuiting,
-passed on the installed-package profile. The direct-ASGI BaseHTTPMiddleware
-request-stream case passed on the Python-package profile against
-`tests/middleware/test_base.py:777-832`; the input preserves the minimal
-`{"type":"http"}` scope, three request-body events, and the source callback's
-error if polled beyond those events. Dispatch reads `b"1"`, the downstream
-endpoint reads `b"2"`, and dispatch resumes to read `b"3"`, with no extra
-receive call. The FileResponse background-task case also passed on both
-profiles with callback values `6, 7, 8, 9` after response start and body events.
+`not_run`. The installed Python package passed 896/896; Rust-native passed
+243/247. The `ExceptionMiddleware.__init__` typing input maps
+`test_handlers_annotations`: source and installed-package Mypy reveal the same
+constructor signature, accept the input-defined synchronous and asynchronous
+catch-all handlers, and emit the same diagnostic rejecting a handler annotated
+to return `int`.
 
 The four native `not_run` rows remain synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
-Strict aggregation remains `not_proven` because the pinned compatibility
-denominator is incomplete and four Rust-native rows are `not_run`. The
-installed-package wheel SHA-256 is
-`63a0b2b954b3f625e22d318801441fadb91cf560c41c3eadb83e71b0948fccd3`; the
-manifest SHA-256 is
-`9c5a9769bf0436d28d91a5c887ba7cb16d31d8fb9821bc2b8036291bddc89c07`; and the
-preflight result artifact SHA-256 is
-`d9bc20e7bdb5dbceeb2e1067484b26a81e10622bad3f5f844352e9a00c60bbdb` at
-`build/parity/upstream-benchmark-correctness-result.json`. This is an
-incomplete strict parity gate, not a failed source/package comparison.
+`make parity-run` reports these explicitly and exits nonzero while they remain
+unsupported. The clean installed wheel SHA-256 is
+`ef9fb60622d93ae5efede77d7de48fe1bfc3544ff8409018c2ca537dedab6600`; the
+preflight artifact SHA-256 is
+`2d1034efbe0788c986884931ae39b2572673ae8ff5e76397f643e11cbc8b3982` at
+`build/parity/upstream-benchmark-correctness-result.json`. This is an incomplete
+native/full-replacement boundary, not a failed Python source/package comparison.
 
 The latest clean Router/GZip benchmark run
-`fbe9ec7c-16a2-4d31-8f6a-21a0a86a7c74` measured all 74 source/package workloads
-on clean commit `5ddf624ee352f8ef4bd9c2944556b6ecd34c42c0`, with zero failures
-and matching normalized observations. Its correctness preflight is the
-full-slice run above. Median source/package latency ratios were 0.740 for
-Router and 0.978 for GZip. Source latency was lower in 5/6 Router and 55/68
-GZip workloads; normalized observation hashes matched for 74/74. Rust-native
-remains `not_run` for these 74 equivalent ASGI workload boundaries. See
-[Benchmark mapping](BENCHMARKS.md) for run identity and artifact hashes. These
-workload-specific results do not establish full Starlette compatibility.
+`dda4d0ff-03c9-48d9-8475-1e1c987b7149` measured all 74 source/package workloads
+on commit `ed406af230084d4ab953acdbd184286687f943d7`: six Router and 68 GZip,
+with zero failures and matching normalized observations for all workloads. Its
+preflight is the full-slice run above. Rust-native remains `not_run` for these
+74 equivalent ASGI workload boundaries. The latest median source/package
+latency ratios were 0.740 for Router and 0.975 for GZip; these workload-specific
+results do not establish full Starlette compatibility. See
+[Benchmark mapping](BENCHMARKS.md) for artifact hashes and measurement details.
 
 For `lifespan_send_messages`, the manifest declares a narrow
 `starlette-lifespan-router-frame` normalization: it removes only the

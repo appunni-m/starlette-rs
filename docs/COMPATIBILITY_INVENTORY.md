@@ -126,40 +126,38 @@ input maps `test_duplicated_param_names`; it observes live constructor results
 for both one repeated name and multiple repeated names, and passed source/package
 comparison.
 
-The latest full-slice correctness preflight `ff823221-0e52-416a-b287-2a19ca4fc06f`
-ran from `2026-10-04T07:09:53.037Z` to `2026-10-04T07:12:52.379Z` against
-Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It used 897
-input-only cases, 877 requirements, and `parity-input@34`. Both targets were
-clean at revision `5ddf624ee352f8ef4bd9c2944556b6ecd34c42c0`.
+The latest clean full-slice correctness preflight
+`4042a0c1-2fdd-4966-96ac-3010bf4bf02d` ran from `2026-10-04T07:54:18.507Z`
+to `2026-10-04T07:58:01.124Z`. It used 898 input-only cases, 878 requirements,
+and `parity-input@34` from manifest SHA-256
+`e07358c9560a810d9ab79aedaf64a17bd541196d787ab4e773c84aea69c429e5` on clean
+commit `ed406af230084d4ab953acdbd184286687f943d7`.
 
-It selected 1,142 profile comparisons: 1,138 passed, zero failed, zero
+It selected 1,143 profile comparisons: 1,139 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable rows were
-`not_run`. The Python-package profile passed 895/895; Rust-native passed
-243/247. All six WebSocket protocol callback-tape cases pass on both target
-profiles. Both TestClient `Request.url_for` inputs passed exact source/package
-comparison: the bare-ASGI case preserves the missing-context exception, and
-the custom middleware case resolves `homepage` to `http://testserver/home`.
-The direct-ASGI BaseHTTPMiddleware request-stream case passed on the
-Python-package profile against `tests/middleware/test_base.py:777-832`; the
-input preserves the minimal `{"type":"http"}` scope, three request-body
-events, and the source callback's error if polled beyond those events. Dispatch
-reads `b"1"`, the downstream endpoint reads `b"2"`, and dispatch resumes to
-read `b"3"`, with no extra receive call. The FileResponse background-task case
-also passed on both profiles with callback values `6, 7, 8, 9` after response
-start and body events.
+`not_run`. The Python-package profile passed 896/896; Rust-native passed
+243/247. The `ExceptionMiddleware.__init__` type-contract input maps the pinned
+`test_handlers_annotations` test and records equal source/package Mypy
+constructor reveals, acceptance of sync and async catch-all handlers, and the
+same rejection diagnostic for an incompatible `int` return annotation.
 
-The four native `not_run` rows remain synchronous Request endpoint,
+The four Rust-native `not_run` rows remain synchronous Request endpoint,
 bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
-Strict aggregation remains `not_proven` because the pinned compatibility
-denominator is incomplete and four Rust-native rows are `not_run`. The wheel
-SHA-256 is
-`63a0b2b954b3f625e22d318801441fadb91cf560c41c3eadb83e71b0948fccd3`; manifest
-SHA-256 is
-`9c5a9769bf0436d28d91a5c887ba7cb16d31d8fb9821bc2b8036291bddc89c07`; and
+The clean installed wheel SHA-256 is
+`ef9fb60622d93ae5efede77d7de48fe1bfc3544ff8409018c2ca537dedab6600`; the
 preflight result artifact SHA-256 is
-`d9bc20e7bdb5dbceeb2e1067484b26a81e10622bad3f5f844352e9a00c60bbdb` at
-`build/parity/upstream-benchmark-correctness-result.json`. This is an
-incomplete strict gate, not a failed source/package comparison.
+`2d1034efbe0788c986884931ae39b2572673ae8ff5e76397f643e11cbc8b3982` at
+`build/parity/upstream-benchmark-correctness-result.json`.
+
+The latest clean Router/GZip benchmark run
+`dda4d0ff-03c9-48d9-8475-1e1c987b7149` measured all 74 source/package workloads
+on commit `ed406af230084d4ab953acdbd184286687f943d7`: six Router and 68 GZip,
+with zero failures and matching normalized observations. The Python package
+passed 896/896 preflight comparisons; four Rust-native preflight rows remain
+`not_run`. Median source/package latency ratios were 0.740 for Router and
+0.975 for GZip. Source latency was lower in 5/6 Router and 62/68 GZip
+workloads. These workload-specific results do not establish full Starlette
+compatibility.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8
