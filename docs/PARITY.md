@@ -11,24 +11,24 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest clean-tree correctness preflight is
-`7df4c713-d5e7-4567-b5cd-a817363800b7`. It ran from
-`2026-10-04T00:45:40.694Z` to `2026-10-04T00:49:36.750Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 886-case,
-868-requirement `parity-input@31` manifest. It selected 1,121 profile
-comparisons: 1,117 passed, zero failed, zero infrastructure errors, and four
+`94374f16-8805-487b-a3bc-0985f657f1d0`. It ran from
+`2026-10-04T01:26:10.197Z` to `2026-10-04T01:29:57.059Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 888-case,
+870-requirement `parity-input@31` manifest. It selected 1,123 profile
+comparisons: 1,119 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 884 selected comparisons; Rust-native passed 233 of 237. The
-WebSocketException reason input matches the pinned source for close code 1008
-and reason `policy violation`; the HTTPException handler input matches for its
-status, JSON detail, and exception-provided response headers. The module-global
-`starlette.config.environ` input and recent StaticFiles/TestClient cases also
-match exactly. Both targets were clean at commit
-`b4816c38a28dd307c2cded1b71241a0b7717ae1a`. The four native `not_run` rows
+passed all 886 selected comparisons; Rust-native passed 233 of 237. The
+WebSocket constructor case exactly matches the source: scope-only construction
+raises `TypeError` requiring `receive` and `send`, while explicit callbacks
+construct with both states `CONNECTING`. The WebSocketException reason and
+registered-handler inputs, HTTPException header forwarding, module-global
+`starlette.config.environ`, and recent StaticFiles/TestClient cases also match.
+Both targets were clean at commit
+`fd16a0d33bb97c552ceb40ab1e87f044d354bbab`. The four native `not_run` rows
 remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
 and callable-instance ASGI dispatch. Strict aggregation remains `not_proven`
 because the compatibility denominator is incomplete and four Rust-native rows
 are `not_run`.
-
 The Rust-native target revision and source fingerprint are
 `b4816c38a28dd307c2cded1b71241a0b7717ae1a+source-fnv1a64-45a6118f227980ec`.
 The Python-package target tree SHA-256 is
