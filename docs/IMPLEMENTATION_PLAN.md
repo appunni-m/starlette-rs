@@ -32,8 +32,8 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract contains 910 input-only cases in 90 indexed files,
-covering 104 operations and 888 requirements, including direct FormData
+The active parity contract contains 911 input-only cases in 90 indexed files,
+covering 104 operations and 890 requirements, including direct FormData
 constructor/equality inputs; direct UploadFile constructor/repr, spooled-file
 rollover, and threadpool-boundary inputs, and Python-package-only
 GZip final and streaming response inputs at the `thread_minimum_size` boundary, an input-defined shared
@@ -503,11 +503,11 @@ behaviors.
 This remains a bounded slice. Additional synchronous cancellation schedules,
 context variables, concurrency, and broader middleware/error interactions with
 background failures remain unproven. The latest integrated full-slice run
-`6d05fbc6-aef3-47d1-b0a7-82d390e9c117` selected 1,156 comparisons; the Python
-package passed 908/908 and Rust-native passed 244/248, with four
-Request-dispatch callable rows marked `not_run`. The TestClient base-URL
-path-prefix merge and followed-redirect inputs passed exact source/package
-comparison.
+`1dddc83f-cd42-452d-aee8-15dbaceec30c` selected 1,157 comparisons; the Python
+package passed 909/909 and Rust-native passed 244/248, with four
+Request-dispatch callable rows marked `not_run`. The status-module warning
+callsite comparison and the TestClient base-URL path-prefix merge and
+followed-redirect inputs passed exact source/package comparison.
 
 ### HTTPException default-response slice: bounded parity verified
 
