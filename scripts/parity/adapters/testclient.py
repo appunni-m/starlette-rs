@@ -473,6 +473,36 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await starlette_application(scope, receive, observed_send)
 
+    elif app_input["kind"] == "router-middleware-response":
+        from starlette.middleware import Middleware
+        from starlette.responses import PlainTextResponse, Response
+        from starlette.routing import Route, Router
+
+        def endpoint(_request: Any) -> Response:
+            return Response(app_input["route_content"], media_type="text/plain")
+
+        class CustomMiddleware:
+            def __init__(self, wrapped_app: Any) -> None:
+                self.app = wrapped_app
+
+            async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+                response = PlainTextResponse(app_input["response_content"])
+                await response(scope, receive, send)
+
+        starlette_application = Router(
+            routes=[Route(app_input["route_path"], endpoint)],
+            middleware=[Middleware(CustomMiddleware)],
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await starlette_application(scope, receive, observed_send)
+
     elif app_input["kind"] == "request-cookie-round-trip":
         from starlette.requests import Request
         from starlette.responses import Response

@@ -17,8 +17,8 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest indexes 894 input-only cases across 88 files,
-covering 103 operations and 876 unique parity requirements. Recent parity inputs
+The active parity manifest uses `parity-input@34` and indexes 895 input-only
+cases across 88 files, covering 103 operations and 877 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -104,8 +104,9 @@ JSON-mode inputs. The latest batch adds a StaticFiles directory served through
 a valid symlinked root using TestClient, an unhandled StaticFiles lookup TimeoutError captured as a TestClient 500, and middleware-configured Mount URL lookup,
 handled HTTP exception responses observed through mounted middleware, ordered
 StaticFiles Last-Modified requests, TestClient startup-error propagation, and
-FileResponse errors for directory and missing-file paths. A new authored TestClient input maps `tests/test_routing.py::test_mount_at_root`;
-the latest live parity run predates that case. The exact operation and profile
+FileResponse errors for directory and missing-file paths. New authored TestClient inputs map `tests/test_routing.py::test_mount_at_root`
+and `tests/test_routing.py::test_router_middleware`; the latest live parity
+run predates both cases. The exact operation and profile
 denominator is in the parity manifest; generated JSON and run results remain
 ignored local build outputs. BaseHTTPMiddleware
 workflows map `test_run_background_tasks_even_if_client_disconnects` and
@@ -180,8 +181,8 @@ for GZip. These workload-specific results do not establish full Starlette
 compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 802 source rows: 628 input mappings,
-51 reasoned `not_applicable` rows, and 123 fixture backlog rows. Derive these
+The generated coverage matrix currently has 802 source rows: 629 input mappings,
+51 reasoned `not_applicable` rows, and 122 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

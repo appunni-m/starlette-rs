@@ -9,9 +9,9 @@ incomplete.
 ## Current parity snapshot
 
 
-The active contract contains 894 input-only cases in 88 indexed files,
-covering 103 operations and 876 parity requirements. The latest full-slice run,
-`35953fae-1517-4ba9-a44e-09c36c9e4bc3`, predates the new root-Mount case and
+The active contract uses `parity-input@34` with 895 input-only cases in 88
+indexed files, covering 103 operations and 877 parity requirements. The latest full-slice run,
+`35953fae-1517-4ba9-a44e-09c36c9e4bc3`, predates the new root-Mount and Router-middleware cases and
 covered the previous 893-case, 875-requirement `parity-input@33` contract. It
 selected 1,132 profile comparisons: 1,128 passed, zero failed, zero
 infrastructure errors, and four Rust-native Python-callable cases were
@@ -19,8 +19,8 @@ infrastructure errors, and four Rust-native Python-callable cases were
 237/241. The live Router mutation and literal GET `/func` cases matched on both
 targets; the upstream `/func` test does not call `Router.add_route`.
 
-The generated coverage matrix contains 802 source rows: 628 input mappings,
-51 source-backed `not_applicable` entries, and 123 fixture-backlog rows. The
+The generated coverage matrix contains 802 source rows: 629 input mappings,
+51 source-backed `not_applicable` entries, and 122 fixture-backlog rows. The
 pinned denominator remains 514 upstream test functions and 24 documented pages.
 Derive changing mapping and backlog counts from the generated atlas CSV files.
 The four native `not_run` rows remain synchronous Request endpoint,
@@ -43,8 +43,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 802 source rows: 628 input mappings,
-51 source-backed `not_applicable` rows, and 123 fixture-backlog rows. Derive
+The current coverage matrix has 802 source rows: 629 input mappings,
+51 source-backed `not_applicable` rows, and 122 fixture-backlog rows. Derive
 these changing counts from the generated atlas CSV files. The compatibility
 objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.

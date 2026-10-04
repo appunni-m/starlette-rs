@@ -208,7 +208,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@33",
+      "input_schema": "migration-parity/parity-input@34",
       "result_schema": "migration-parity/parity-result@4",
       "command_id": "parity"
     },
@@ -22942,6 +22942,17 @@
               "id": "starlette.testclient.TestClient.request-response.mounted-router-root-path",
               "dimension": "boundary",
               "description": "Through TestClient, issue GET / to a Router whose named Mount is mounted at / and compare the live response status. Upstream: tests/test_routing.py::test_mount_at_root; starlette/routing.py:363-425; tests/conftest.py::test_client_factory.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.router-middleware-response",
+              "dimension": "boundary",
+              "description": "Configure Router with a custom Middleware wrapper and a root Route, then compare the input-defined middleware response from TestClient GET /. Upstream: tests/test_routing.py::test_router_middleware; starlette/routing.py:201-246; tests/conftest.py::test_client_factory.",
               "lanes": [
                 "parity"
               ],

@@ -25,8 +25,8 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 894 input-only cases across
-88 indexed files, 103 operations, and 876 requirements. It includes direct
+active and incomplete. The current contract has 895 input-only cases across
+88 indexed files, 103 operations, and 877 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
 generic Request/WebSocket lifespan-state typing contract, WebSocket text,
@@ -40,8 +40,8 @@ case compares input-defined background-task completion after response sends. The
 profiles; the upstream test does not call `Router.add_route`. The live-route
 mutation case also passes on both profiles, exercising method addition and
 route append after earlier dispatches. The latest full-slice run
-`35953fae-1517-4ba9-a44e-09c36c9e4bc3`, which predates the new root-Mount
-input, passed 1,128 of 1,132 selected profile comparisons, with zero
+`35953fae-1517-4ba9-a44e-09c36c9e4bc3`, which predates the root-Mount and Router-middleware
+inputs, passed 1,128 of 1,132 selected profile comparisons, with zero
 failures or infrastructure errors and four Rust-native Python-callable rows
 `not_run`. The Python package passed 891/891; Rust-native passed 237/241. The
 FileResponse background-task case matched on both target profiles. The direct-ASGI
@@ -86,8 +86,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix currently has 802 source rows: 628 input
-mappings, 51 reasoned `not_applicable` rows, and 123 fixture-backlog rows.
+The generated coverage matrix currently has 802 source rows: 629 input
+mappings, 51 reasoned `not_applicable` rows, and 122 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in

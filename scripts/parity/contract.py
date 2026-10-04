@@ -24,7 +24,7 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 MANIFEST_SCHEMA = "migration-parity/manifest@2"
-INPUT_SCHEMA = "migration-parity/parity-input@33"
+INPUT_SCHEMA = "migration-parity/parity-input@34"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@4"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -207,6 +207,7 @@ TESTCLIENT_REQUIREMENTS = {
     "starlette_mount_method_registration": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-mount-method-registration",
     "mounted_router_urls": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-router-url-sequence",
     "mounted_router_root": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-router-root-path",
+    "router_middleware": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.router-middleware-response",
     "root_path_route_graph": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-route-graph",
     "root_path_url_for": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-url-for",
     "root_path_url_for_trailing_slash": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-root-path-url-for-trailing-slash",
@@ -10240,6 +10241,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         "starlette-app-static-mount-method",
     }
     is_router_mounted_response = app_kind == "router-mounted-response"
+    is_router_middleware_response = app_kind == "router-middleware-response"
     is_cookie_round_trip = app_kind == "request-cookie-round-trip"
     is_request_observer = app_kind == "request-observer"
     is_starlette_app_host_route = app_kind == "starlette-app-host-route"
@@ -10579,6 +10581,29 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             for item, expected_path in zip(requests, expected_paths, strict=True)
         ):
             raise ContractError(expected_error)
+        exception_spec = None
+        messages = []
+    elif is_router_middleware_response:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "route_path", "route_content", "response_content", "scope_fields"},
+            "TestClient Router middleware app",
+        )
+        route_path = _string(asgi_app["route_path"], "TestClient Router middleware route_path")
+        _string(asgi_app["route_content"], "TestClient Router middleware route content")
+        _string(asgi_app["response_content"], "TestClient Router middleware response content")
+        if (
+            route_path != "/"
+            or request["method"] != "GET"
+            or request.get("client_method") != "get"
+            or request["url"] != "/"
+            or request["headers_base64_pairs"]
+            or base64.b64decode(request["body_base64"])
+            or followup_requests
+        ):
+            raise ContractError(
+                "TestClient Router middleware input must issue one empty GET to its root route"
+            )
         exception_spec = None
         messages = []
     elif is_starlette_route_graph or is_starlette_url_for_route_graph:
@@ -11130,6 +11155,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
         else:
             expected_covers.add(TESTCLIENT_REQUIREMENTS["mounted_router_urls"])
             expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_router_middleware_response:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["router_middleware"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if is_starlette_route_graph:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["root_path_route_graph"])
