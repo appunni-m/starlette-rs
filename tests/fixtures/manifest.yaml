@@ -252,6 +252,18 @@
       "target_profile": "python-package-cpython312",
       "oracle_applicability": "not_applicable",
       "oracle_reason": "The poisoned Rust route-cache mutex is an injected target-internal condition with no corresponding upstream Starlette state; only the target's public TestClient response is asserted."
+    },
+    {
+      "id": "starlette.testclient.route-cache-lock-poison-propagates",
+      "fault_points": [
+        "starlette-rs.router.route-cache-lock.poison"
+      ],
+      "requirements": [
+        "starlette.testclient.TestClient.request-response.exception-policy"
+      ],
+      "target_profile": "python-package-cpython312",
+      "oracle_applicability": "not_applicable",
+      "oracle_reason": "The poisoned Rust route-cache mutex is an injected target-internal condition with no corresponding upstream Starlette state; only the public TestClient exception outcome with raise_server_exceptions enabled is asserted."
     }
   ],
   "input_index": {

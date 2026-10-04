@@ -11,6 +11,13 @@ FAULT_CONTRACT_ASSERTIONS = {
         "public-http-status-500",
         "public-http-body-internal-server-error",
     ),
+    "starlette.testclient.route-cache-lock-poison-propagates": (
+        "public-testclient-exception-propagated",
+    ),
+}
+FAULT_CONTRACT_TESTCLIENT_RAISE_SERVER_EXCEPTIONS = {
+    "starlette.server-error.route-cache-lock-poison": False,
+    "starlette.testclient.route-cache-lock-poison-propagates": True,
 }
 
 
@@ -21,12 +28,26 @@ def evaluate_fault_contract(contract_id: str, result: dict[str, Any]) -> list[di
         raise ValueError(f"unknown fault contract: {contract_id}")
 
     observation = next(
-        (
-            item
-            for item in result["observations"]
-            if item.get("step_id") == "request-response" and item.get("status") == "ok"
-        ),
+        (item for item in result["observations"] if item.get("step_id") == "request-response"),
         None,
+    )
+    if contract_id == "starlette.testclient.route-cache-lock-poison-propagates":
+        error = observation.get("error") if isinstance(observation, dict) else None
+        propagated = (
+            isinstance(observation, dict)
+            and observation.get("status") == "error"
+            and isinstance(error, dict)
+            and error.get("kind") == "exception"
+        )
+        return [
+            {
+                "id": "public-testclient-exception-propagated",
+                "status": "pass" if propagated else "fail",
+            }
+        ]
+
+    observation = (
+        observation if isinstance(observation, dict) and observation.get("status") == "ok" else None
     )
     response = (
         observation["value"].get("response")

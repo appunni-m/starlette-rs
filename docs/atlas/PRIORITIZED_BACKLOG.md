@@ -8,8 +8,8 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@35` with 916 input-only cases in 91
-indexed files: 915 oracle parity cases and one target-only fault contract. It
+The active contract uses `parity-input@35` with 917 input-only cases in 91
+indexed files: 915 oracle parity cases and two target-only fault contracts. It
 covers 104 operations and 892 parity requirements. The older full-slice run
 was recorded against the preceding manifest revision:
 `a0bcf0da-4746-4490-843d-45653d987ea1` selected 1,160 profile comparisons:
@@ -20,11 +20,12 @@ fault contract also passed its HTTP 500 status and body assertions. The result
 artifact and target build identity are recorded in
 [Migration parity contract and evidence](../PARITY.md).
 
-Focused runs `52899973-69e8-4c5b-b43a-95aea13f57d7` and
-`536349bb-d4bc-4044-a3b0-b5af1123fa0d` passed the paired normal route and
-target-only fault case on the active contract. Coverage MCP verified their
-shared source/build receipts and reported 249 newly covered Rust lines for the
-fault case; it did not check full-suite regressions.
+Focused runs on the current manifest passed the normal route and both
+target-only fault contracts: `189e7aa9-c5e9-4da9-8b22-27761ae7e537`,
+`68288f42-aaa7-4af3-8106-f35e69cdf9b7`, and
+`cfe1e118-7b1b-4988-8a39-842fe48eb846`. Coverage MCP verified the isolated
+exception-propagation case against the normal-route baseline and reported 249
+newly covered Rust lines; it did not check full-suite regressions.
 
 The generated coverage matrix contains 804 source rows. Its current fixture
 mapping, reasoned `not_applicable`, and backlog counts are derived from the

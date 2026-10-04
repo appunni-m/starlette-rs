@@ -25,6 +25,7 @@ from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 
 from .fault_contracts import (
     FAULT_CONTRACT_ASSERTIONS,
+    FAULT_CONTRACT_TESTCLIENT_RAISE_SERVER_EXCEPTIONS,
     FAULT_POINT_IDS,
     evaluate_fault_contract,
 )
@@ -13819,7 +13820,8 @@ def _validate_fault_contract_case(case: dict[str, Any], manifest: dict[str, Any]
         or validated["operation"] != TESTCLIENT_OPERATION
         or validated["target_profiles"] != [contract["target_profile"]]
         or validated["asgi_app"]["kind"] != "starlette-route"
-        or validated["testclient"]["raise_server_exceptions"] is not False
+        or validated["testclient"]["raise_server_exceptions"]
+        is not FAULT_CONTRACT_TESTCLIENT_RAISE_SERVER_EXCEPTIONS.get(contract["id"])
     ):
         raise ContractError(
             "this fault contract requires the Python-package TestClient Starlette route boundary"
