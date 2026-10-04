@@ -996,7 +996,17 @@ def run_upstream_benchmark(
                 "path": GATE_RESULT_RELATIVE.as_posix(),
                 "run_id": gate_identity.get("run_id"),
                 "sha256": sha256_file(gate_path),
-                "summary": gate["summary"],
+                "summary": {
+                    name: gate["summary"][name]
+                    for name in (
+                        "selected",
+                        "executed",
+                        "passed",
+                        "failed",
+                        "not_run",
+                        "infrastructure_errors",
+                    )
+                },
             },
             "prepared_environments": [
                 {key: value for key, value in environment.items() if key != "target_identity"}
