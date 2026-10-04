@@ -2948,6 +2948,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     denial_response_body_continued = False
     denial_response_body_finished = False
     denial_response_invalid_message = False
+    client_state_reset_pending = False
+    invalid_receive_after_client_state_reset = False
     for index, action in enumerate(actions):
         context = f"WebSocket actions[{index}]"
         if not isinstance(action, dict):
@@ -2966,6 +2968,9 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                     )
                 message_type = incoming_types[incoming_index]
                 incoming_index += 1
+                if client_state_reset_pending:
+                    invalid_receive_after_client_state_reset = message_type != "websocket.connect"
+                    client_state_reset_pending = False
                 if message_type == "websocket.connect":
                     client_state = "CONNECTED"
             elif client_state == "CONNECTED":
@@ -2979,6 +2984,22 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                     client_state = "DISCONNECTED"
             else:
                 terminal_receive_count += 1
+        elif action_kind == "accept":
+            if operation != WEBSOCKET_STATE_OPERATION:
+                raise ContractError(f"{context}.accept is supported only by state-sequence")
+            _exact(action, {"action_id", "action"}, context)
+            accept_can_send = True
+            if client_state == "CONNECTING":
+                if incoming_index >= len(incoming_types):
+                    raise ContractError(f"{context} has no input message for accept()")
+                message_type = incoming_types[incoming_index]
+                incoming_index += 1
+                if message_type == "websocket.connect":
+                    client_state = "CONNECTED"
+                else:
+                    accept_can_send = False
+            if application_state == "CONNECTING" and accept_can_send:
+                application_state = "CONNECTED"
         elif action_kind == "send":
             expected = {"action_id", "action", "message"}
             if "send_error" in action:
@@ -3020,6 +3041,19 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                         application_state = "DISCONNECTED"
                 else:
                     denial_response_invalid_message = True
+        elif action_kind == "set-client-state":
+            if operation != WEBSOCKET_STATE_OPERATION:
+                raise ContractError(
+                    f"{context}.set-client-state is supported only by state-sequence"
+                )
+            _exact(action, {"action_id", "action", "state"}, context)
+            requested_state = _string(action["state"], f"{context}.state")
+            if requested_state not in {"CONNECTING", "CONNECTED", "DISCONNECTED", "RESPONSE"}:
+                raise ContractError(f"{context}.state is not a WebSocketState name")
+            client_state_reset_pending = (
+                client_state == "CONNECTED" and requested_state == "CONNECTING"
+            )
+            client_state = requested_state
         else:
             raise ContractError(
                 f"{context}.action is unsupported by the Rust-equivalent raw protocol surface; "
@@ -3114,6 +3148,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
             coverage.add("starlette.websocket.state.denial-response-body-final")
         if denial_response_invalid_message:
             coverage.add("starlette.websocket.state.denial-response-invalid-message")
+        if invalid_receive_after_client_state_reset:
+            coverage.add("starlette.websocket.state.client-state-reset-invalid-receive")
     unexercised = set(case["covers"]) - coverage
     if unexercised:
         raise ContractError(

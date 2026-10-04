@@ -3631,7 +3631,7 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
     )
     if case["surface"] != WEBSOCKET_SURFACE or case["operation"] != WEBSOCKET_STATE_OPERATION:
         raise ValueError("WebSocket workflow is outside the declared state-sequence operation")
-    from starlette.websockets import WebSocket, WebSocketDisconnect
+    from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
     incoming = [_materialize_websocket_message(message) for message in case["incoming"]]
     incoming_index = 0
@@ -3659,15 +3659,19 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
             try:
                 if action["action"] == "receive":
                     await websocket.receive()
+                elif action["action"] == "accept":
+                    await websocket.accept()
                 elif action["action"] == "send":
                     pending_send_error = action.get("send_error")
                     try:
                         await websocket.send(_materialize_websocket_message(action["message"]))
                     finally:
                         pending_send_error = None
+                elif action["action"] == "set-client-state":
+                    websocket.client_state = WebSocketState[action["state"]]
                 else:
                     raise ValueError(
-                        "unsupported state-sequence action; only raw receive and send are declared"
+                        "unsupported state-sequence action; only accept, raw receive/send, and client-state assignment are declared"
                     )
             except WebSocketDisconnect as exc:
                 if action.get("send_error") is not None:

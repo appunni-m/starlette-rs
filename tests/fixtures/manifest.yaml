@@ -21243,7 +21243,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.websockets.WebSocket",
-            "signature": "Parity workflow: drive public WebSocket.receive() and WebSocket.send(message) calls, project each outcome to ok/error-class-and-message/send-error-handled, and observe both state enums. Python targets report the fully qualified class of the actual exception; the Rust-native adapter reports the Python compatibility class associated with its typed state error (PyRuntimeError -> builtins.RuntimeError) or input-declared callback OSError. Exception causes and context remain excluded; adapter/runtime failures are top-level infrastructure errors.",
+            "signature": "Parity workflow: drive public WebSocket.accept(), receive(), and send(message) calls plus input-defined client_state assignment, project each outcome to ok/error-class-and-message/send-error-handled, and observe both state enums. Python targets report the fully qualified class of the actual exception; the Rust-native adapter models accept with receive/send state transitions and reports the Python compatibility class associated with its typed state error (PyRuntimeError -> builtins.RuntimeError) or input-declared callback OSError. Exception causes and context remain excluded; adapter/runtime failures are top-level infrastructure errors.",
             "parameters": [
               {
                 "id": "scope",
@@ -21321,7 +21321,7 @@
             {
               "target_id": "rust-native",
               "path": "starlette_rs::WebSocketStateMachine",
-              "signature": "WebSocketStateMachine::new(); receive(message_type); begin_send(message_type, more_body); send_failed(); project typed state errors to the PyO3-compatible Python class and exact message; observe both states",
+              "signature": "WebSocketStateMachine::new(); model public accept() through receive(message_type) and begin_send(\"websocket.accept\", false); receive(message_type); begin_send(message_type, more_body); apply input-defined client_state assignment; send_failed(); project typed state errors to the PyO3-compatible Python class and exact message; observe both states",
               "support": {
                 "status": "supported"
               }
@@ -21329,7 +21329,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.websockets.WebSocket",
-              "signature": "WebSocket(scope, receive, send); async receive(); async send(message); project actual Python exception class and exact message for error outcomes; observe both states",
+              "signature": "WebSocket(scope, receive, send); async accept(); async receive(); async send(message); apply input-defined client_state assignment; project actual Python exception class and exact message for error outcomes; observe both states",
               "support": {
                 "status": "supported"
               }
@@ -21472,6 +21472,18 @@
               "id": "starlette.websocket.state.connected-receive-invalid-type",
               "dimension": "error_path",
               "description": "Receive websocket.connect, send websocket.accept, then receive websocket.connect while CONNECTED and compare the fully qualified RuntimeError class, exact invalid-message wording, and unchanged state enums. Upstream: tests/test_websockets.py::test_receive_wrong_message_type and starlette/websockets.py::WebSocket.receive at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.client-state-reset-invalid-receive",
+              "dimension": "error_path",
+              "description": "Accept a connection, assign WebSocket.client_state back to CONNECTING, then receive a websocket.receive event; compare the RuntimeError class and exact expected-websocket.connect message with both state enums. This preserves Starlette's public, assignable state attribute behavior. Upstream: tests/test_websockets.py::test_receive_before_accept and starlette/websockets.py::WebSocket.receive at the pinned Starlette commit.",
               "lanes": [
                 "parity"
               ],

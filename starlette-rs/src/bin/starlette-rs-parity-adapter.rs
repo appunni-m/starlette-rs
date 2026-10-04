@@ -4717,6 +4717,43 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
             return Err(format!("duplicate WebSocket state action ID: {action_id}"));
         }
         let result = match string_field(action_object, "action", &context)? {
+            "accept" => {
+                exact_keys(action_object, &["action_id", "action"], &context)?;
+                let receive_result = if machine.client_state() == WebSocketState::Connecting {
+                    let message = incoming.get(incoming_index).ok_or_else(|| {
+                        String::from("WebSocket accept action has no input message")
+                    })?;
+                    incoming_index += 1;
+                    let message_object = message.as_object().ok_or_else(|| {
+                        String::from("WebSocket accept input message must be an object")
+                    })?;
+                    let message_type =
+                        string_field(message_object, "type", "WebSocket accept input message")?;
+                    machine.receive(message_type)
+                } else {
+                    Ok(())
+                };
+                match receive_result {
+                    Err(error) => json!({
+                        "action_id": action_id,
+                        "outcome": "error",
+                        "error_class": WEBSOCKET_STATE_ERROR_COMPATIBILITY_CLASS,
+                        "error_message": error.message(),
+                    }),
+                    Ok(()) => match machine.begin_send("websocket.accept", false) {
+                        Err(error) => json!({
+                            "action_id": action_id,
+                            "outcome": "error",
+                            "error_class": WEBSOCKET_STATE_ERROR_COMPATIBILITY_CLASS,
+                            "error_message": error.message(),
+                        }),
+                        Ok(_) => json!({
+                            "action_id": action_id,
+                            "outcome": "ok",
+                        }),
+                    },
+                }
+            }
             "receive" => {
                 exact_keys(action_object, &["action_id", "action"], &context)?;
                 let message = if matches!(
@@ -4818,9 +4855,19 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
                     },
                 }
             }
+            "set-client-state" => {
+                exact_keys(action_object, &["action_id", "action", "state"], &context)?;
+                let state =
+                    websocket_state_from_name(string_field(action_object, "state", &context)?)?;
+                machine.set_client_state(state);
+                json!({
+                    "action_id": action_id,
+                    "outcome": "ok",
+                })
+            }
             _ => {
                 return Err(format!(
-                    "{context}.action is unsupported by the WebSocketStateMachine surface; only receive and send are declared"
+                    "{context}.action is unsupported by the WebSocketStateMachine surface; only accept, receive, send, and set-client-state are declared"
                 ));
             }
         };
@@ -4854,6 +4901,16 @@ fn websocket_state_name(state: WebSocketState) -> &'static str {
         WebSocketState::Connected => "CONNECTED",
         WebSocketState::Disconnected => "DISCONNECTED",
         WebSocketState::Response => "RESPONSE",
+    }
+}
+
+fn websocket_state_from_name(name: &str) -> Result<WebSocketState, String> {
+    match name {
+        "CONNECTING" => Ok(WebSocketState::Connecting),
+        "CONNECTED" => Ok(WebSocketState::Connected),
+        "DISCONNECTED" => Ok(WebSocketState::Disconnected),
+        "RESPONSE" => Ok(WebSocketState::Response),
+        _ => Err(format!("unsupported WebSocket state name: {name}")),
     }
 }
 
