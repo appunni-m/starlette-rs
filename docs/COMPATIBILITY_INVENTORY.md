@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@34` and indexes 896 input-only
+The active parity manifest uses `parity-input@34` and indexes 897 input-only
 cases across 88 files, covering 103 operations and 877 unique parity requirements. Recent parity inputs
 map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
@@ -40,7 +40,8 @@ continuity under asyncio and Trio, lifespan task-group child lifecycle
 ordering under both backends, and WebSocket URL text/components for relative
 and explicit-port connections. A FileResponse async background-task case compares callback completion and ordering after response sends. A shared AnyIO thread-pool limiter input checks
 the default capacity, a configured limit, shared Starlette/AnyIO consumers,
-and restoration of the default. The file-like StreamingResponse input compares
+and restoration of the default. The TestClient middleware input maps `tests/test_requests.py::test_request_url_starlette_context` and captures `Request.url_for("homepage")` before routing, exercising Starlette’s app-provider fallback.
+The file-like StreamingResponse input compares
 newline-delimited binary body chunks through the installed Python package. It
 also includes Rust-backed `CommaSeparatedStrings` parsing, sequence formatting,
 quoting, Unicode
@@ -182,8 +183,8 @@ for GZip. These workload-specific results do not establish full Starlette
 compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 802 source rows: 630 input mappings,
-51 reasoned `not_applicable` rows, and 121 fixture backlog rows. Derive these
+The generated coverage matrix currently has 802 source rows: 631 input mappings,
+51 reasoned `not_applicable` rows, and 120 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

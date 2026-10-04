@@ -227,6 +227,7 @@ TESTCLIENT_REQUEST_REQUIREMENTS = {
     "path_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-path-params-dictionary",
 }
 REQUEST_URL_FOR_MISSING_CONTEXT_REQUIREMENT = "starlette.requests.Request.url_for.missing-context"
+REQUEST_URL_FOR_APP_PROVIDER_REQUIREMENT = "starlette.requests.Request.url_for.app-provider"
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
     "managed_request": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.managed-request-portal-reuse",
@@ -10234,6 +10235,7 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     is_starlette_app_debug = app_kind == "starlette-app-debug"
     is_server_error_middleware = app_kind == "server-error-middleware"
     is_request_url_for_error = app_kind == "request-url-for-error"
+    is_request_url_for_middleware = app_kind == "request-url-for-middleware"
     is_raw_asgi_error = app_kind == "raw-asgi-error"
     is_starlette_app_trusted_host = app_kind == "starlette-app-trusted-host"
     is_static_files_root_symlink = app_kind == "static-files-root-symlink"
@@ -11039,6 +11041,35 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
             )
         exception_spec = None
         messages = []
+    elif is_request_url_for_middleware:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "route_path", "route_name", "content", "scope_fields"},
+            "TestClient Request.url_for middleware app",
+        )
+        route_path = _string(asgi_app["route_path"], "TestClient Request.url_for route path")
+        route_name = _string(asgi_app["route_name"], "TestClient Request.url_for route name")
+        content = _string(asgi_app["content"], "TestClient Request.url_for response content")
+        if (
+            route_path != "/home"
+            or route_name != "homepage"
+            or content != "Hello, world!"
+            or settings["raise_server_exceptions"] is not True
+            or settings["base_url"] != "http://testserver"
+            or settings["root_path"]
+            or settings["headers"]
+            or request["method"] != "GET"
+            or request.get("client_method") != "get"
+            or request["url"] != route_path
+            or request["headers_base64_pairs"]
+            or base64.b64decode(request["body_base64"])
+            or followup_requests
+        ):
+            raise ContractError(
+                "TestClient Request.url_for middleware input must match the pinned /home workflow"
+            )
+        exception_spec = None
+        messages = []
     elif is_request_url_for_error:
         asgi_app = _exact(
             raw_asgi_app,
@@ -11204,6 +11235,9 @@ def _validate_testclient_case(case: dict[str, Any]) -> None:
     if is_request_url_for_error:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
         expected_covers.add(REQUEST_URL_FOR_MISSING_CONTEXT_REQUIREMENT)
+    if is_request_url_for_middleware:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+        expected_covers.add(REQUEST_URL_FOR_APP_PROVIDER_REQUIREMENT)
     if is_starlette_route_graph:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["root_path_route_graph"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])

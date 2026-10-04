@@ -2622,6 +2622,57 @@
       }
     },
     {
+      "case_id": "starlette.testclient.TestClient.request-response.request-url-for-starlette-context",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.requests.Request.url_for.app-provider"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/home",
+        "headers_base64_pairs": [],
+        "body_base64": "",
+        "client_method": "get"
+      },
+      "asgi_app": {
+        "kind": "request-url-for-middleware",
+        "route_path": "/home",
+        "route_name": "homepage",
+        "content": "Hello, world!",
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "root_path",
+          "headers",
+          "client",
+          "server"
+        ]
+      }
+    },
+    {
       "case_id": "starlette.testclient.TestClient.request-response.request-url-for-outside-starlette-context",
       "surface": "starlette.testclient.TestClient",
       "operation": "request-response",

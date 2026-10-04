@@ -25,7 +25,7 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 896 input-only cases across
+active and incomplete. The current contract has 897 input-only cases across
 88 indexed files, 103 operations, and 877 requirements. It includes direct
 UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
 AnyIO thread-pool limiter case, and the
@@ -87,8 +87,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix currently has 802 source rows: 630 input
-mappings, 51 reasoned `not_applicable` rows, and 121 fixture-backlog rows.
+The generated coverage matrix currently has 802 source rows: 631 input
+mappings, 51 reasoned `not_applicable` rows, and 120 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in

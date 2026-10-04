@@ -55,6 +55,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     sync_endpoint_state: dict[str, Any] | None = None
     host_route_observations: list[dict[str, Any]] = []
     mount_scope_observations: list[dict[str, Any]] = []
+    request_url_for_observations: list[str] = []
     starlette_application: Any = None
     temporary_filesystem: tempfile.TemporaryDirectory[str] | None = None
 
@@ -655,6 +656,39 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             await response(scope, receive, observed_send)
 
+    elif app_input["kind"] == "request-url-for-middleware":
+        from starlette.applications import Starlette
+        from starlette.middleware import Middleware
+        from starlette.requests import Request
+        from starlette.responses import PlainTextResponse
+        from starlette.routing import Route
+
+        async def endpoint(_request: Any) -> Any:
+            return PlainTextResponse(app_input["content"])
+
+        class RequestURLForMiddleware:
+            def __init__(self, inner: Any) -> None:
+                self.inner = inner
+
+            async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+                request = Request(scope, receive)
+                request_url_for_observations.append(str(request.url_for(app_input["route_name"])))
+                await self.inner(scope, receive, send)
+
+        starlette_application = Starlette(
+            routes=[Route(app_input["route_path"], endpoint, name=app_input["route_name"])],
+            middleware=[Middleware(RequestURLForMiddleware)],
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+
+            async def observed_send(message: dict[str, Any]) -> None:
+                asgi_events.append(_safe(message))
+                await send(message)
+
+            await starlette_application(scope, receive, observed_send)
+
     elif app_input["kind"] == "request-url-for-error":
         from starlette.requests import Request
         from starlette.responses import JSONResponse
@@ -808,6 +842,8 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         result["debug_exception_name_present"] = (
             response is not None and app_input["exception"]["class"] in response.text
         )
+    if app_input["kind"] == "request-url-for-middleware":
+        result["request_url_for"] = request_url_for_observations
     if app_input["kind"] == "starlette-app-host-method":
         result["application_routes"] = [
             {
