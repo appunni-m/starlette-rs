@@ -10,59 +10,38 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
-The most recent clean-tree correctness preflight before the current WebSocket
-increment is
-`94374f16-8805-487b-a3bc-0985f657f1d0`. It ran from
-`2026-10-04T01:26:10.197Z` to `2026-10-04T01:29:57.059Z` against Starlette
-1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 888-case,
-870-requirement `parity-input@31` manifest. It selected 1,123 profile
-comparisons: 1,119 passed, zero failed, zero infrastructure errors, and four
+The latest clean-tree full-slice correctness preflight is
+`04f0d473-9925-42d0-945e-b80a716003dc`. It ran from
+`2026-10-04T01:54:03.377Z` to `2026-10-04T01:57:52.156Z` against Starlette
+1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the 889-case,
+871-requirement `parity-input@31` manifest. It selected 1,125 profile
+comparisons: 1,121 passed, zero failed, zero infrastructure errors, and four
 Rust-native Python-callable rows were `not_run`. The Python-package profile
-passed all 886 selected comparisons; Rust-native passed 233 of 237. The
-WebSocket constructor case exactly matches the source: scope-only construction
-raises `TypeError` requiring `receive` and `send`, while explicit callbacks
-construct with both states `CONNECTING`. The WebSocketException reason and
-registered-handler inputs, HTTPException header forwarding, module-global
-`starlette.config.environ`, and recent StaticFiles/TestClient cases also match.
-Both targets were clean at commit
-`fd16a0d33bb97c552ceb40ab1e87f044d354bbab`. The four native `not_run` rows
-remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
-and callable-instance ASGI dispatch. Strict aggregation remains `not_proven`
-because the compatibility denominator is incomplete and four Rust-native rows
-are `not_run`.
-The Rust-native target revision and source fingerprint are
-`b4816c38a28dd307c2cded1b71241a0b7717ae1a+source-fnv1a64-45a6118f227980ec`.
-The Python-package target tree SHA-256 is
-`d276510085037034035bb52bba5581a230a9ac062e75f4de4a557fb961f0dbf6`; its
+passed 887/887 comparisons; Rust-native passed 234/238. The new
+`starlette.websockets.WebSocket.state-sequence.client-state-reset-invalid-receive`
+case passed on both profiles and matched the exact `RuntimeError` class and
+message `Expected ASGI message "websocket.connect", but got 'websocket.receive'`;
+the final states were `client_state=CONNECTING` and
+`application_state=CONNECTED`. The clean targets were at commit
+`c1f9d857fc35f8b6564caaf074a7b0d5a54b6084`. The Rust-native source fingerprint
+is `c1f9d857fc35f8b6564caaf074a7b0d5a54b6084+source-fnv1a64-64035a396e9dceba`;
+the Python-package tree SHA-256 is
+`fec74332b71bd1dea5315f2b31b69d8b2d0e81bc37d45284c64fbd267d78481f` and its
 wheel SHA-256 is
-`96d0c804c09f1bc8e7b26d27531fed1a036ace3683d8504724de16bb13dd2520`. The
+`29e8b1696162eab999561b34dca7d364931234e06db21f22e8c361af6261e046`. The
 manifest SHA-256 is
-`a74b5c34f7a2c8ba01db5dc44e461cae978e3da555cef04a039fbc22dfd0bf3d`, and the
-local correctness-gate result artifact SHA-256 is
-`42f61aeac9904102e31414218c7c4577af5c137bbbfdd62e3bb7ced8567becba` at
+`c387d9f0836dba862d38afecbb23993f3dabb1adcd50f43cdd03ba55fd704fc6`, and the
+correctness-result artifact SHA-256 is
+`62daf151409c11b3e248a61de5b32233d7744294afd78e5ed87fa29b945436f9` at
 `build/parity/upstream-benchmark-correctness-result.json`.
 
-The latest integrated full-slice run is
-`d80b4a30-2ad0-4fc2-9679-4ef1fb5f2683`. It ran from
-`2026-10-04T01:40:29.615Z` to `2026-10-04T01:44:08.618Z` against the pinned
-Starlette 1.6.0 oracle and the 889-case, 871-requirement `parity-input@31`
-manifest. It selected 1,125 profile comparisons: 1,121 passed, zero failed,
-zero infrastructure errors, and four Rust-native Python-callable rows were
-`not_run`. The Python-package profile passed 887 of 887; Rust-native passed 234
-of 238. The new
-`starlette.websockets.WebSocket.state-sequence.client-state-reset-invalid-receive`
-case passed on both profiles and matches the source's exact `RuntimeError`
-message, `Expected ASGI message "websocket.connect", but got 'websocket.receive'`;
-the final states are `client_state=CONNECTING` and
-`application_state=CONNECTED`. This run used the working-tree changes later
-committed from base `9f8d6dad582411ea1ca2728a5a5e89907d09e211`; its package tree
-SHA-256 is `fec74332b71bd1dea5315f2b31b69d8b2d0e81bc37d45284c64fbd267d78481f`,
-manifest SHA-256 is `c387d9f0836dba862d38afecbb23993f3dabb1adcd50f43cdd03ba55fd704fc6`,
-and result artifact SHA-256 is
-`1d67d28f858bee51e2014c3f72cc7a5089d0880bf549c95129a5b91801280a0e`. The four
-native rows remain synchronous Request endpoint, bound-method endpoint,
-partial endpoint, and callable-instance ASGI dispatch. Strict aggregation
-remains `not_proven`; the broader compatibility denominator is incomplete.
+The clean benchmark run `c1d06421-9845-4407-bd98-032fc3c63b4b` measured 74/74
+source/package workloads with zero failures. Its result artifact SHA-256 is
+`096fd9d03d95d796725e4412af199c101eb20c98ae1bceb108530e8996395c81`; details
+are in [`BENCHMARKS.md`](BENCHMARKS.md). The four Rust-native `not_run` rows
+remain synchronous Request endpoint, bound-method endpoint, partial endpoint,
+and callable-instance ASGI dispatch. Strict aggregation remains `not_proven`;
+the pinned compatibility denominator is not yet fully implemented.
 
 For `lifespan_send_messages`, the manifest declares a narrow
 `starlette-lifespan-router-frame` normalization: it removes only the
