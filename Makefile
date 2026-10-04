@@ -15,6 +15,9 @@ TYPECHECK_VENV ?= .venv-typecheck
 TYPECHECK_PYTHON ?= $(TYPECHECK_VENV)/bin/python
 TYPECHECKER ?= $(TYPECHECK_VENV)/bin/mypy
 TYPECHECK_LOCK ?= scripts/parity/locks/typecheck-cpython312.txt
+PARITY_CASE_IDS ?=
+PARITY_CASE_ARGS = $(foreach case_id,$(PARITY_CASE_IDS),--case-id '$(case_id)')
+PARITY_RUN_OUTPUT ?= $(if $(strip $(PARITY_CASE_IDS)),build/parity/parity-selected-result.json,build/parity/parity-result.json)
 PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/python/starlette_rs_py
 CARGO_DENY ?= cargo deny
 CARGO_AUDIT ?= cargo audit
@@ -61,6 +64,7 @@ help: ## Show common Rust workspace commands
 	  '  make source-inventory  Regenerate the metadata-derived API catalog and source atlas' \
 	  '  make source-inventory-check  Check the API catalog and generated atlas for drift' \
 	  '  make test       Run live source-to-package and supported Rust parity comparisons' \
+	  "  make test PARITY_CASE_IDS='case-a case-b'  Run a validated input-only selection" \
 	  '  make contract-check  Generate and statically validate parity inputs' \
 	  '  make benchmark-upstream  Run 74 correctness-gated Starlette source/package workloads' \
 	  '  make docs-check  Check local documentation links offline' \
@@ -196,7 +200,7 @@ source-inventory-check: contract-check ## Check the API catalog and generated at
 	$(PARITY_PYTHON) scripts/merge_compatibility_atlas.py --check --upstream "$(STARLETTE_ORACLE_ROOT)"
 
 parity-run: contract-check parity-env parity-adapter source-inventory-check typecheck-setup ## Run source inventory, exact source/package, and supported Rust comparisons
-	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli run
+	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli run --output "$(PARITY_RUN_OUTPUT)" $(PARITY_CASE_ARGS)
 
 test: parity-run ## Run behavioral checks as live source-to-target parity only
 

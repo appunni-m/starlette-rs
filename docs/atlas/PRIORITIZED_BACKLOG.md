@@ -8,30 +8,31 @@ incomplete.
 
 ## Current parity snapshot
 
-
-The active contract uses `parity-input@34` with 912 input-only cases in 90
-indexed files, covering 104 operations and 890 parity requirements. The latest
-full-slice run, `65044ac3-c6fc-4bdb-9b3b-422ef77afdc7`, selected 1,158 profile
-comparisons: 1,154 passed, zero failed, zero infrastructure errors, and four
-Rust-native Python-callable cases were `not_run`. The Python package passed
-910/910 comparisons; Rust-native passed 244/248. The TestClient lifespan
-missing-scope-state case, URL-prefix
-merge and followed-redirect inputs, plus both TestClient Request.url_for
-cases passed source/package comparison: the bare-ASGI missing-context exception
-and the custom-middleware `homepage` URL `http://testserver/home`. The live Router
-mutation and literal GET `/func` cases matched on both targets; the upstream
-`/func` test does not call `Router.add_route`.
-
-The generated coverage matrix contains 804 source rows: 650 input mappings,
-51 source-backed `not_applicable` entries, and 103 fixture-backlog rows. The
-pinned denominator remains 514 upstream test functions and 24 documented pages.
-Derive changing mapping and backlog counts from the generated atlas CSV files.
-The four native `not_run` rows remain synchronous Request endpoint,
-bound-method endpoint, partial endpoint, and callable-instance ASGI dispatch.
-The full replacement goal remains active and incomplete; this bounded evidence
-does not establish full Starlette parity or release readiness. Full run
-identities and package hashes are recorded in
+The active contract uses `parity-input@35` with 916 input-only cases in 91
+indexed files: 915 oracle parity cases and one target-only fault contract. It
+covers 104 operations and 892 parity requirements. The older full-slice run
+was recorded against the preceding manifest revision:
+`a0bcf0da-4746-4490-843d-45653d987ea1` selected 1,160 profile comparisons:
+1,156 passed, zero failed, zero infrastructure errors, and four Rust-native
+Python-callable cases were `not_run`. The Python package passed 912/912
+comparisons; Rust-native passed 244/248. The target-only route-cache poison
+fault contract also passed its HTTP 500 status and body assertions. The result
+artifact and target build identity are recorded in
 [Migration parity contract and evidence](../PARITY.md).
+
+Focused runs `52899973-69e8-4c5b-b43a-95aea13f57d7` and
+`536349bb-d4bc-4044-a3b0-b5af1123fa0d` passed the paired normal route and
+target-only fault case on the active contract. Coverage MCP verified their
+shared source/build receipts and reported 249 newly covered Rust lines for the
+fault case; it did not check full-suite regressions.
+
+The generated coverage matrix contains 804 source rows. Its current fixture
+mapping, reasoned `not_applicable`, and backlog counts are derived from the
+generated atlas CSV files. The pinned denominator remains 514 upstream test
+functions and 24 documented pages. Four Rust-native `not_run` rows remain for
+synchronous Request endpoints, bound methods, partials, and callable-instance
+ASGI dispatch. This selected slice does not establish full Starlette parity or
+release readiness; the full replacement goal remains active and incomplete.
 
 The six protected-WebSocket authentication cases map the upstream
 `test_websocket_authentication_required` row across plain and injection-wrapped
@@ -46,10 +47,9 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 650 input mappings,
-51 source-backed `not_applicable` rows, and 103 fixture-backlog rows. Derive
-these changing counts from the generated atlas CSV files. The compatibility
-objective remains active and incomplete. See
+The current coverage matrix has 804 source rows: 652 input mappings,
+51 source-backed `not_applicable` rows, and 101 fixture-backlog rows, as
+reported by the generated atlas. The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 
 The `Starlette.max_body_size` behavior row is mapped to five live

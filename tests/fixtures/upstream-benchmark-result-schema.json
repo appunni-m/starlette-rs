@@ -107,7 +107,7 @@
           "const": "tests/fixtures/manifest.yaml"
         },
         "schema": {
-          "const": "migration-parity/manifest@3"
+          "const": "migration-parity/manifest@4"
         },
         "sha256": {
           "$ref": "#/$defs/sha256"

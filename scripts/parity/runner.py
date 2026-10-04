@@ -67,6 +67,29 @@ def _target_binding(operation: dict[str, Any], target_id: str) -> dict[str, Any]
     return matches[0]
 
 
+def _select_cases(
+    cases: list[dict[str, Any]], case_ids: list[str] | None
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if case_ids is None:
+        return cases, {"kind": "all", "case_ids": []}
+    if not case_ids:
+        raise ContractError("an explicit parity case selection must contain at least one case ID")
+    if any(not isinstance(case_id, str) or not case_id for case_id in case_ids):
+        raise ContractError("parity case IDs must be non-empty strings")
+    if len(case_ids) != len(set(case_ids)):
+        raise ContractError("parity case selection contains duplicate IDs")
+    active_ids = {case["case_id"] for case in cases}
+    unknown_ids = sorted(set(case_ids) - active_ids)
+    if unknown_ids:
+        raise ContractError(f"parity case selection contains unknown IDs: {unknown_ids}")
+    selected_ids = set(case_ids)
+    selected = [case for case in cases if case["case_id"] in selected_ids]
+    return selected, {
+        "kind": "case_ids",
+        "case_ids": [case["case_id"] for case in selected],
+    }
+
+
 def _declared_unsupported_reason(
     operation: dict[str, Any], target_id: str, case: dict[str, Any]
 ) -> str | None:
@@ -679,7 +702,11 @@ def _native_environment(
 
 
 def run_parity(
-    root: Path, mode: str, output_path: Path | None = None, manifest_path: Path | None = None
+    root: Path,
+    mode: str,
+    output_path: Path | None = None,
+    manifest_path: Path | None = None,
+    case_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     if mode not in {"parity", "oracle-only"}:
         raise ContractError("mode must be parity or oracle-only")
@@ -692,7 +719,8 @@ def run_parity(
         manifest_relative = manifest_file.relative_to(root).as_posix()
     except ValueError as exc:
         raise ContractError("active parity manifest must be inside the repository root") from exc
-    manifest, indexed_inputs, cases = _load_contract(root, manifest_file)
+    manifest, indexed_inputs, all_cases = _load_contract(root, manifest_file)
+    cases, selection = _select_cases(all_cases, case_ids)
     parity_cases = [case for case in cases if "fault_contract" not in case]
     fault_cases = [case for case in cases if "fault_contract" in case]
     commands = _command_map(manifest)
@@ -788,6 +816,7 @@ def run_parity(
         "oracles": [oracle_identity] if oracle_identity else [],
         "targets": target_records,
         "environments": environment_records,
+        "selection": selection,
         "command": {
             "command_id": mode,
             "argv": command["argv"],
@@ -951,7 +980,7 @@ def run_parity(
             {
                 "case_id": case["case_id"],
                 "target_profile": profile_id,
-                "requirements": case["covers"],
+                "requirements": contract["requirements"],
                 "fault_point": fault["fault_point"],
                 "contract_id": fault["contract_id"],
                 "oracle": {

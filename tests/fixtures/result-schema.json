@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://starlette-rs.dev/schemas/migration-parity-result-v5.json",
-  "title": "Starlette migration parity and fault-contract result with isolated environment provenance",
+  "$id": "https://starlette-rs.dev/schemas/migration-parity-result-v6.json",
+  "title": "Starlette selected parity and fault-contract result with execution provenance",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,7 +15,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "migration-parity/parity-result@5"
+      "const": "migration-parity/parity-result@6"
     },
     "identity": {
       "$ref": "#/$defs/identity"
@@ -67,6 +67,7 @@
         "assets",
         "oracles",
         "targets",
+        "selection",
         "command",
         "environments"
       ],
@@ -96,7 +97,7 @@
               "const": "tests/fixtures/manifest.yaml"
             },
             "schema": {
-              "const": "migration-parity/manifest@3"
+              "const": "migration-parity/manifest@4"
             },
             "sha256": {
               "$ref": "#/$defs/sha256"
@@ -285,6 +286,9 @@
             }
           }
         },
+        "selection": {
+          "$ref": "#/$defs/selection"
+        },
         "command": {
           "type": "object",
           "additionalProperties": false,
@@ -331,6 +335,52 @@
           }
         }
       }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "case_ids"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "all",
+            "case_ids"
+          ]
+        },
+        "case_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "all"
+            },
+            "case_ids": {
+              "maxItems": 0
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "case_ids"
+            },
+            "case_ids": {
+              "minItems": 1
+            }
+          }
+        }
+      ]
     },
     "summary": {
       "type": "object",

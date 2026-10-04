@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/manifest@3",
+  "schema": "migration-parity/manifest@4",
   "scope": {
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
@@ -211,7 +211,7 @@
   "interfaces": {
     "parity": {
       "input_schema": "migration-parity/parity-input@35",
-      "result_schema": "migration-parity/parity-result@5",
+      "result_schema": "migration-parity/parity-result@6",
       "command_id": "parity"
     },
     "coverage": {
@@ -231,7 +231,7 @@
     },
     "aggregation": {
       "input_schemas": [
-        "migration-parity/parity-result@5",
+        "migration-parity/parity-result@6",
         "migration-parity/coverage-result@1",
         "migration-parity/benchmark-result@1",
         "migration-parity/upstream-benchmark-result@1"
@@ -245,6 +245,9 @@
       "id": "starlette.server-error.route-cache-lock-poison",
       "fault_points": [
         "starlette-rs.router.route-cache-lock.poison"
+      ],
+      "requirements": [
+        "starlette.asgi.server-error.default-response"
       ],
       "target_profile": "python-package-cpython312",
       "oracle_applicability": "not_applicable",

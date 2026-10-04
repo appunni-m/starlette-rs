@@ -85,6 +85,12 @@ def _parser() -> argparse.ArgumentParser:
         command.add_argument("--root", type=Path, default=ROOT)
         command.add_argument("--manifest", type=Path, default=None)
         command.add_argument("--output", type=Path, default=None)
+        command.add_argument(
+            "--case-id",
+            action="append",
+            dest="case_ids",
+            help="select one active input case; repeat to run a batch",
+        )
 
     compare = subparsers.add_parser(
         "compare", help="compare two adapter workflow results by the declared exact selectors"
@@ -418,20 +424,23 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         if args.command in {"run", "oracle-only"}:
+            root = args.root.resolve()
+            output = args.output
+            if output is None and args.case_ids:
+                output = root / "build/parity/parity-selected-result.json"
             result = run_parity(
-                args.root.resolve(),
+                root,
                 "parity" if args.command == "run" else "oracle-only",
-                args.output,
-                _manifest_path(args.root.resolve(), args.manifest),
+                output,
+                _manifest_path(root, args.manifest),
+                args.case_ids,
             )
             print(
                 json.dumps(
                     {
                         "status": result["status"],
                         "summary": result["summary"],
-                        "result": str(
-                            args.output or (args.root.resolve() / "build/parity/parity-result.json")
-                        ),
+                        "result": str(output or (root / "build/parity/parity-result.json")),
                     },
                     indent=2,
                     sort_keys=True,

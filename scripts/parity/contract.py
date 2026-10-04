@@ -29,10 +29,10 @@ from .fault_contracts import (
     evaluate_fault_contract,
 )
 
-MANIFEST_SCHEMA = "migration-parity/manifest@3"
+MANIFEST_SCHEMA = "migration-parity/manifest@4"
 INPUT_SCHEMA = "migration-parity/parity-input@35"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
-RESULT_SCHEMA = "migration-parity/parity-result@5"
+RESULT_SCHEMA = "migration-parity/parity-result@6"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
 UPSTREAM_BENCHMARK_INPUT_SCHEMA = "migration-parity/upstream-benchmark-input@1"
 UPSTREAM_BENCHMARK_RESULT_SCHEMA = "migration-parity/upstream-benchmark-result@1"
@@ -1703,6 +1703,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
             {
                 "id",
                 "fault_points",
+                "requirements",
                 "target_profile",
                 "oracle_applicability",
                 "oracle_reason",
@@ -1721,6 +1722,14 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
             or len(points) != len(set(points))
         ):
             raise ContractError(f"{context}.fault_points must select unique allow-listed points")
+        requirements = fault_contract["requirements"]
+        if (
+            not isinstance(requirements, list)
+            or not requirements
+            or any(not isinstance(item, str) or not item for item in requirements)
+            or len(requirements) != len(set(requirements))
+        ):
+            raise ContractError(f"{context}.requirements must select unique requirement IDs")
         target_profile = profile_by_id.get(fault_contract["target_profile"])
         if target_profile is None or "fault-contract" not in target_profile["features"]:
             raise ContractError(
@@ -13815,6 +13824,18 @@ def _validate_fault_contract_case(case: dict[str, Any], manifest: dict[str, Any]
         raise ContractError(
             "this fault contract requires the Python-package TestClient Starlette route boundary"
         )
+    requirement_map = {
+        requirement["id"]: requirement
+        for surface in manifest["surfaces"]
+        for operation in surface["operations"]
+        for requirement in operation["requirements"]
+    }
+    for requirement_id in contract["requirements"]:
+        requirement = requirement_map.get(requirement_id)
+        if requirement is None or contract["target_profile"] not in requirement["target_profiles"]:
+            raise ContractError(
+                "fault contract requirements must be declared and applicable to its target profile"
+            )
     return {**validated, "fault_contract": fault}
 
 
@@ -28147,6 +28168,33 @@ def _validate_parity_result_against_active_contract(
     if value["identity"]["assets"] != []:
         raise ContractError("parity result assets differ from the active input contract")
 
+    selection = _exact(
+        value["identity"]["selection"],
+        {"kind", "case_ids"},
+        "result.identity.selection",
+    )
+    if selection["kind"] == "all":
+        if selection["case_ids"]:
+            raise ContractError("an all-cases result selection must have an empty case_ids array")
+        selected_case_ids = {case["case_id"] for case in cases}
+    elif selection["kind"] == "case_ids":
+        selected_case_ids = set(selection["case_ids"])
+        if not selected_case_ids:
+            raise ContractError("an explicit result selection must contain at least one case ID")
+        active_case_ids = {case["case_id"] for case in cases}
+        unknown_case_ids = sorted(selected_case_ids - active_case_ids)
+        if unknown_case_ids:
+            raise ContractError(
+                f"result selection references unknown active case IDs: {unknown_case_ids}"
+            )
+        canonical_case_ids = [
+            case["case_id"] for case in cases if case["case_id"] in selected_case_ids
+        ]
+        if selection["case_ids"] != canonical_case_ids:
+            raise ContractError("result selection case IDs are not in active manifest order")
+    else:
+        raise ContractError("result.identity.selection.kind is invalid")
+
     command_id = _string(
         value["identity"]["command"]["command_id"], "result.identity.command.command_id"
     )
@@ -28366,6 +28414,7 @@ def _validate_parity_result_against_active_contract(
     expected_rows = [
         (case["case_id"], profile_id)
         for case in cases
+        if case["case_id"] in selected_case_ids
         if "fault_contract" not in case
         for profile_id in case["target_profiles"]
     ]
@@ -28442,7 +28491,9 @@ def _validate_parity_result_against_active_contract(
                 f"{context}: outcome/diffs do not match canonical comparison of workflow evidence"
             )
 
-    fault_cases = [case for case in cases if "fault_contract" in case]
+    fault_cases = [
+        case for case in cases if case["case_id"] in selected_case_ids and "fault_contract" in case
+    ]
     expected_fault_rows = [(case["case_id"], case["target_profiles"][0]) for case in fault_cases]
     actual_fault_rows = [
         (row["case_id"], row["target_profile"]) for row in value["fault_contracts"]
@@ -28460,7 +28511,7 @@ def _validate_parity_result_against_active_contract(
         declared = fault_registry[selector["contract_id"]]
         if (
             row["target_profile"] != declared["target_profile"]
-            or row["requirements"] != case["covers"]
+            or row["requirements"] != declared["requirements"]
             or row["fault_point"] != selector["fault_point"]
             or row["contract_id"] != selector["contract_id"]
             or row["oracle"]
@@ -28522,6 +28573,7 @@ def _validate_parity_result_artifact(
             "assets",
             "oracles",
             "targets",
+            "selection",
             "environments",
             "command",
         },
@@ -28531,6 +28583,23 @@ def _validate_parity_result_artifact(
     _exact(identity["manifest"], {"path", "schema", "sha256"}, "result.identity.manifest")
     if identity["manifest"]["schema"] != MANIFEST_SCHEMA:
         raise ContractError("result manifest schema mismatch")
+    selection = _exact(
+        identity["selection"],
+        {"kind", "case_ids"},
+        "result.identity.selection",
+    )
+    if selection["kind"] not in {"all", "case_ids"}:
+        raise ContractError("result.identity.selection.kind is invalid")
+    if not isinstance(selection["case_ids"], list) or any(
+        not isinstance(case_id, str) or not case_id for case_id in selection["case_ids"]
+    ):
+        raise ContractError("result.identity.selection.case_ids must contain non-empty strings")
+    if len(selection["case_ids"]) != len(set(selection["case_ids"])):
+        raise ContractError("result.identity.selection.case_ids contains duplicates")
+    if selection["kind"] == "all" and selection["case_ids"]:
+        raise ContractError("an all-cases result selection must have an empty case_ids array")
+    if selection["kind"] == "case_ids" and not selection["case_ids"]:
+        raise ContractError("an explicit result selection must contain at least one case ID")
     for index, item in enumerate(identity["inputs"]):
         _exact(item, {"path", "schema", "sha256"}, f"result.identity.inputs[{index}]")
         if item["schema"] != INPUT_SCHEMA:
