@@ -8,9 +8,25 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@40` with 931 input-only cases in 91
-indexed files: 929 oracle parity cases and two target-only fault contracts. It
-covers 104 operations and 903 parity requirements.
+The active contract uses `parity-input@41` with 932 input-only cases in 91
+indexed files: 930 oracle parity cases and two target-only fault contracts. It
+covers 104 operations and 904 parity requirements. The latest selected run adds
+source/package evidence for the outer BaseHTTPMiddleware receive-body transform.
+
+The instrumented selected baseline `9a3d279a-8ecb-4bd1-9387-d1e11a8cf1dd`
+passed the configured-header case and both target-only route-cache fault
+contracts (2/2). Measurement `7615faa6-1d90-4217-9342-00c3df9dca63` passed the
+new outer-receive parity case and the same fault contracts (2/2). Coverage MCP
+verified 458 newly covered Rust lines (1.864 percentage points): 3,298/24,568
+baseline lines, 3,638/24,568 in the batch, and 3,756/24,568 after union. The
+matching receipts bind to manifest SHA-256
+`6bf22d158ed9b41fdd0a5c62aee7545d38a3ade25edfaf8bc884ab29db8c7f6e`, target
+tree SHA-256
+`528b61413bd72e17d720847fe5bc1e1f0867007ccdda782af6613d99936b473a`, and
+instrumented wheel SHA-256
+`0d45399cb3e23aa37d34f1f82c02dc5ec77c29060e49eeae75d7a6ab72512093`. This
+selected comparison did not check full-suite regressions. Reports and receipts
+remain under ignored `build/parity/coverage/fault-contract-base-http-20261005/`.
 
 The latest clean full-slice preflight
 `46eab00f-c97e-443c-9e64-5e6f98dcd7c5` selected 1,177 profile comparisons:
@@ -18,7 +34,7 @@ The latest clean full-slice preflight
 callable-boundary cases were `not_run`. The installed Python package passed
 927/927 comparisons; Rust-native passed 246/250. Both target-only fault
 contracts passed (2/2) and remain `not_applicable` to the source oracle. The
-active manifest SHA-256 is
+historical preflight used manifest SHA-256
 `7c73e24ee264c4b49b368cda5a61fc4e5f44fd2366f8ebd29ec11c4f611066c8`; the
 target was clean at `c929f1758195e7549c265c7fb8724a3ed10ff1d1`. This is bounded
 package-slice evidence, not full Starlette parity.
@@ -177,8 +193,8 @@ correctness-gated benchmark `d0bba2ec-079e-4d21-822e-e0ddbf0133ef` measured all
 non-equivalent ASGI boundary. The full Starlette compatibility denominator
 remains incomplete.
 
-The generated coverage matrix contains 804 source rows: 661 input mappings,
-51 reasoned `not_applicable` rows, and 92 fixture-backlog rows. These changing
+The generated coverage matrix contains 804 source rows: 662 input mappings,
+51 reasoned `not_applicable` rows, and 91 fixture-backlog rows. These changing
 counts are derived from the generated atlas CSV files. The pinned denominator remains 514 upstream test
 functions and 24 documented pages. Four Rust-native `not_run` rows remain for
 synchronous Request endpoints, bound methods, partials, and callable-instance
@@ -198,8 +214,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 661 input mappings,
-51 source-backed `not_applicable` rows, and 92 fixture-backlog rows, as
+The current coverage matrix has 804 source rows: 662 input mappings,
+51 source-backed `not_applicable` rows, and 91 fixture-backlog rows, as
 reported by the generated atlas. The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 

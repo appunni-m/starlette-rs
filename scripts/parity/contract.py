@@ -31,7 +31,7 @@ from .fault_contracts import (
 )
 
 MANIFEST_SCHEMA = "migration-parity/manifest@4"
-INPUT_SCHEMA = "migration-parity/parity-input@40"
+INPUT_SCHEMA = "migration-parity/parity-input@41"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@6"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -331,6 +331,7 @@ BASE_HTTP_REQUIREMENTS = {
     "dispatch_stream_after_downstream_body_read": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-read-after-downstream-body-read",
     "dispatch_stream_after_pre_call_next_body_cache": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-replay-after-pre-call-next-body-cache",
     "downstream_receive_transformation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-middleware-receive-transformation",
+    "outer_receive_transformation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.outer-middleware-receive-transformation",
     "repeated_disconnect_polling": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.repeated-disconnect-polling",
     "request_disconnect_observation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.request-disconnect-observation",
     "pathsend_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.pathsend-event-forwarding",
@@ -9344,11 +9345,30 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     if not isinstance(application_value, dict) or set(application_value) not in (
         {"debug", "routes", "middleware"},
         {"debug", "routes", "middleware", "downstream"},
+        {"debug", "routes", "middleware", "outer_receive_transform"},
+        {"debug", "routes", "middleware", "downstream", "outer_receive_transform"},
     ):
         raise ContractError("BaseHTTPMiddleware application input has unknown or missing fields")
     application = application_value
     if type(application["debug"]) is not bool:
         raise ContractError("BaseHTTPMiddleware application.debug must be boolean")
+    outer_receive_transform = None
+    if "outer_receive_transform" in application:
+        outer_receive_transform = _exact(
+            application["outer_receive_transform"],
+            {"kind", "suffix_base64"},
+            "BaseHTTPMiddleware outer receive transformation",
+        )
+        if outer_receive_transform["kind"] != "append-http-request-body":
+            raise ContractError("outer receive transformation kind is unsupported")
+        try:
+            outer_receive_suffix = base64.b64decode(
+                outer_receive_transform["suffix_base64"], validate=True
+            )
+        except (ValueError, TypeError) as exc:
+            raise ContractError("outer receive transformation suffix must be base64") from exc
+        if not outer_receive_suffix:
+            raise ContractError("outer receive transformation suffix must be non-empty")
     routes = application["routes"]
     if not isinstance(routes, list) or len(routes) > 1:
         raise ContractError("BaseHTTPMiddleware workflow supports zero or one input route")
@@ -9433,6 +9453,10 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             _exact(endpoint_value, {"kind"}, "BaseHTTPMiddleware request-body endpoint")
             if "POST" not in route_methods:
                 raise ContractError("request-body-response routes must accept POST")
+        elif route_kind == "request-body-empty-response":
+            _exact(endpoint_value, {"kind"}, "BaseHTTPMiddleware empty request-body endpoint")
+            if "POST" not in route_methods:
+                raise ContractError("request-body-empty-response routes must accept POST")
         elif route_kind == "request-body-plain-text-response":
             endpoint = _exact(
                 endpoint_value,
@@ -10439,7 +10463,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         requirements.add(BASE_HTTP_REQUIREMENTS["replacement_response"])
     body = b"".join(base64.b64decode(event["body_base64"]) for event in request_events)
     reads_body_before_call_next = (
-        route_kind == "request-body-response"
+        route_kind in {"request-body-response", "request-body-empty-response"}
         and body
         and await_index is not None
         and actions[:await_index] == [{"kind": "read-request-body"}]
@@ -10448,7 +10472,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     if reads_body_before_call_next:
         requirements.add(BASE_HTTP_REQUIREMENTS["downstream_body_after_body_cache"])
     elif (
-        route_kind == "request-body-response"
+        route_kind in {"request-body-response", "request-body-empty-response"}
         and body
         and await_index is not None
         and any(action["kind"] == "read-request-body" for action in actions[:await_index])
@@ -10840,6 +10864,27 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 else "background_task_failure"
             ]
         )
+    if outer_receive_transform is not None:
+        if (
+            downstream is not None
+            or route_kind != "request-body-empty-response"
+            or route_methods != ["POST"]
+            or scope["method"] != "POST"
+            or len(request_events) != 1
+            or not body
+            or request_events[0]["more_body"]
+            or actions
+            != [
+                {"kind": "read-request-body"},
+                {"kind": "await-call-next"},
+                {"kind": "return-call-next-response"},
+            ]
+            or send_checkpoints
+        ):
+            raise ContractError(
+                "outer receive transformation requires one non-empty POST body, a body-reading route, and cache-before-call_next dispatch"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["outer_receive_transformation"])
     if context_manager_cleanup_spec is not None:
         requirements.add(BASE_HTTP_REQUIREMENTS["context_manager_cleanup"])
     if set(case["covers"]) != requirements:

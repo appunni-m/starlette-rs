@@ -9577,11 +9577,29 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     allowed_application_keys = {
         frozenset({"debug", "routes", "middleware"}),
         frozenset({"debug", "routes", "middleware", "downstream"}),
+        frozenset({"debug", "routes", "middleware", "outer_receive_transform"}),
+        frozenset({"debug", "routes", "middleware", "downstream", "outer_receive_transform"}),
     }
     if not isinstance(application, dict) or frozenset(application) not in allowed_application_keys:
         raise ValueError("BaseHTTPMiddleware application input has unknown or missing fields")
     if type(application["debug"]) is not bool:
         raise ValueError("BaseHTTPMiddleware application.debug must be boolean")
+    outer_receive_transform = None
+    outer_receive_suffix = b""
+    if "outer_receive_transform" in application:
+        outer_receive_transform = _exact_object(
+            application["outer_receive_transform"],
+            {"kind", "suffix_base64"},
+            "BaseHTTPMiddleware outer receive transformation",
+        )
+        if outer_receive_transform["kind"] != "append-http-request-body":
+            raise ValueError("outer receive transformation kind is unsupported")
+        outer_receive_suffix = _decode_base64(
+            outer_receive_transform["suffix_base64"],
+            "BaseHTTPMiddleware outer receive suffix",
+        )
+        if not outer_receive_suffix:
+            raise ValueError("outer receive transformation suffix must be non-empty")
     route_specs = application["routes"]
     if not isinstance(route_specs, list) or len(route_specs) > 1:
         raise ValueError("BaseHTTPMiddleware workflow supports zero or one route")
@@ -9665,6 +9683,14 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             _exact_object(endpoint_spec, {"kind"}, "BaseHTTPMiddleware request-body endpoint")
             if "POST" not in route_spec["methods"]:
                 raise ValueError("request-body-response routes must accept POST")
+        elif route_kind == "request-body-empty-response":
+            _exact_object(
+                endpoint_spec,
+                {"kind"},
+                "BaseHTTPMiddleware empty request-body endpoint",
+            )
+            if "POST" not in route_spec["methods"]:
+                raise ValueError("request-body-empty-response routes must accept POST")
         elif route_kind == "request-body-plain-text-response":
             endpoint_spec = _exact_object(
                 endpoint_spec,
@@ -10632,7 +10658,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         for item in request_event_specs
     )
     reads_body_before_call_next = (
-        route_kind == "request-body-response"
+        route_kind in {"request-body-response", "request-body-empty-response"}
         and request_body
         and await_index is not None
         and dispatch_actions[:await_index] == [{"kind": "read-request-body"}]
@@ -10643,7 +10669,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-body-read-after-body-cache"
         )
     elif (
-        route_kind == "request-body-response"
+        route_kind in {"request-body-response", "request-body-empty-response"}
         and request_body
         and await_index is not None
         and any(action["kind"] == "read-request-body" for action in dispatch_actions[:await_index])
@@ -10652,6 +10678,29 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         )
     ):
         required_covers.add(f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-cache-replay")
+    if outer_receive_transform is not None:
+        if (
+            downstream_spec is not None
+            or route_kind != "request-body-empty-response"
+            or route_spec["methods"] != ["POST"]
+            or scope_spec["method"] != "POST"
+            or len(request_event_specs) != 1
+            or not request_body
+            or request_event_specs[0]["more_body"]
+            or dispatch_actions
+            != [
+                {"kind": "read-request-body"},
+                {"kind": "await-call-next"},
+                {"kind": "return-call-next-response"},
+            ]
+            or send_checkpoints
+        ):
+            raise ValueError(
+                "outer receive transformation requires one non-empty POST body, a body-reading route, and cache-before-call_next dispatch"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.outer-middleware-receive-transformation"
+        )
     if await_action_kind == "await-call-next-catching-exception":
         if route_kind != "raise-exception":
             raise ValueError(
@@ -11116,6 +11165,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     downstream_stream_reads: list[dict[str, Any]] = []
     downstream_body_reads: list[dict[str, Any]] = []
     downstream_receive_transformations: list[dict[str, Any]] = []
+    outer_receive_transformations: list[dict[str, Any]] = []
     downstream_receive_events: list[dict[str, Any]] = []
     downstream_poll_results: list[dict[str, Any]] = []
     dispatch_caught_exceptions: list[dict[str, Any]] = []
@@ -11309,6 +11359,14 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     {"body_base64": base64.b64encode(body).decode("ascii")}
                 )
                 return PlainTextResponse(body)
+        elif route_kind == "request-body-empty-response":
+
+            async def endpoint(request: Any) -> Any:
+                body = await request.body()
+                downstream_body_reads.append(
+                    {"body_base64": base64.b64encode(body).decode("ascii")}
+                )
+                return Response()
         elif route_kind == "request-body-client-disconnect-response":
             from starlette.requests import ClientDisconnect
 
@@ -11738,12 +11796,34 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         send_index += 1
 
     async def invoke_application() -> None:
+        application_receive = receive
+        if outer_receive_transform is not None:
+            inner_receive = application_receive
+            receive_transform_index = 0
+
+            async def transformed_receive() -> dict[str, Any]:
+                nonlocal receive_transform_index
+                message = await inner_receive()
+                before = _canonical_http_message(message)
+                if message["type"] == "http.request":
+                    message["body"] = message.get("body", b"") + outer_receive_suffix
+                outer_receive_transformations.append(
+                    {
+                        "receive_index": receive_transform_index,
+                        "before": before,
+                        "after": _canonical_http_message(message),
+                    }
+                )
+                receive_transform_index += 1
+                return message
+
+            application_receive = transformed_receive
         if concurrent_calls == 1:
-            await app(scope, receive, send)
+            await app(scope, application_receive, send)
         else:
             async with anyio.create_task_group() as task_group:
                 for _ in range(concurrent_calls):
-                    task_group.start_soon(app, scope, receive, send)
+                    task_group.start_soon(app, scope, application_receive, send)
         if context_manager_cleanup_spec is not None:
             execution_trace.append({"event": "application-return"})
 
@@ -11788,6 +11868,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "downstream_stream_reads": downstream_stream_reads,
         "downstream_body_reads": downstream_body_reads,
         "downstream_receive_transformations": downstream_receive_transformations,
+        "outer_receive_transformations": outer_receive_transformations,
         "downstream_receive_events": downstream_receive_events,
         "downstream_poll_results": downstream_poll_results,
         "downstream_stream_cancellation_results": downstream_stream_cancellation_results,

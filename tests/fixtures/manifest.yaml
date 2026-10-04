@@ -210,7 +210,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@40",
+      "input_schema": "migration-parity/parity-input@41",
       "result_schema": "migration-parity/parity-result@6",
       "command_id": "parity"
     },
@@ -8063,6 +8063,15 @@
                   }
                 },
                 {
+                  "path": "outer_receive_transformations",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
                   "path": "downstream_receive_events",
                   "value_types": [
                     "sequence"
@@ -8385,6 +8394,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.downstream-middleware-receive-transformation",
               "dimension": "boundary",
               "description": "Dispatch consumes the original POST body, call_next enters an explicitly ordered downstream ASGI receive wrapper that repeats each http.request body, and the endpoint reads the transformed body before returning an empty response. Upstream: tests/middleware/test_base.py:979-1017; starlette/middleware/base.py:106-107,112-130; starlette/requests.py:254-260.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.outer-middleware-receive-transformation",
+              "dimension": "boundary",
+              "description": "An outer pure-ASGI receive wrapper appends input-defined bytes before BaseHTTPMiddleware reads and caches the request body; the downstream endpoint reads the cached bytes. Compare before/after receive messages, dispatch and endpoint body bytes, and ordered response events. Upstream: tests/middleware/test_base.py:1020-1059; starlette/middleware/base.py:20-93,112-130; starlette/requests.py:234-260.",
               "lanes": [
                 "parity"
               ],
