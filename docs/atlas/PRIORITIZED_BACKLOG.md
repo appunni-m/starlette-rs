@@ -10,8 +10,24 @@ incomplete.
 
 The active contract uses `parity-input@39` with 928 input-only cases in 91
 indexed files: 926 oracle parity cases and two target-only fault contracts. It
-covers 104 operations and 900 parity requirements. The older full-slice run
-was recorded against the preceding manifest revision:
+covers 104 operations and 900 parity requirements.
+
+The latest clean full-slice preflight `a00a461a-758f-4934-b559-4c25522fcdbb`
+selected 1,174 profile comparisons: 1,170 passed, zero failed, zero
+infrastructure errors, and four Rust-native callable-boundary cases were
+`not_run`. The installed Python package passed 924/924 comparisons;
+Rust-native passed 246/250. Both target-only fault contracts passed and remain
+`not_applicable` to the source oracle. The active manifest SHA-256 is
+`4b415afca096dfba1458e672154450efbc4878efb4ef36796fffd5fdc19e948c`; the
+target was clean at `df17754b6758bbc481ee5b399935ce663c82cbc2`. This is bounded
+package-slice evidence, not full Starlette parity.
+
+The correctness-gated benchmark `8d54aaf4-2166-4707-a1c6-9ce612e48a19`
+measured 74/74 source/package workloads with zero failures; Rust-native remains
+`not_run` for all 74 boundaries. See [Benchmark mapping](../BENCHMARKS.md) for
+workload-specific timings and hashes.
+
+The preceding 927-case full-slice run was recorded against the prior manifest:
 `a0bcf0da-4746-4490-843d-45653d987ea1` selected 1,160 profile comparisons:
 1,156 passed, zero failed, zero infrastructure errors, and four Rust-native
 Python-callable cases were `not_run`. The Python package passed 912/912
