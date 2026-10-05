@@ -39,7 +39,9 @@ contracts), covering 121 operations and 978 parity requirements. The newest
 callbacks and surrogate encoding. The current generated atlas has 809 source
 rows: 694 input mappings, 52 reasoned not_applicable rows and 63 backlog rows.
 The full working-tree matrix and instrumented coverage run passed with four
-unsupported native cases retained; clean-revision benchmarks are next. The earlier addition
+unsupported native cases retained. Clean commit `553a06a` also passed the full
+parity gate and all 74 source/package benchmarks; native benchmark interfaces
+remain unavailable. See [current parity evidence](PARITY.md). The earlier addition
 maps static and path-parameter WebSocketRoute matching through TestClient for
 `tests/test_routing.py::test_router_add_websocket_route`; that test does not call
 `Router.add_websocket_route`, so the method candidate remains uncertain. The
