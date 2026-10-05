@@ -793,9 +793,14 @@ AUTHENTICATION_REQUIRED_WEBSOCKET_PATHS = {
     "plain": "/ws",
     "decorated": "/ws/decorated",
 }
+OPTIONAL_IMPORT_OPERATIONS = {
+    ("starlette.testclient.TestClient", "module-import-policy"),
+    ("starlette.templating.Jinja2Templates", "module-import-policy"),
+}
 RUST_OWNED_PYTHON_OPERATIONS = (
     CONFIG_OPERATIONS
     | SCHEMA_OPERATIONS
+    | OPTIONAL_IMPORT_OPERATIONS
     | {
         TEMPLATING_OPERATION,
         TEMPLATING_PUBLIC_OPERATION,
@@ -2296,6 +2301,16 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"{octx} permits multipart boundary normalization only for FileResponse headers, bytes, or events"
                             )
+                    elif normalization_kind == "response-consumer-file-root":
+                        _exact(normalization_spec, {"kind"}, f"{octx}.normalization")
+                        if (
+                            key != (FILE_RESPONSE_SURFACE, "consumer-construction")
+                            or observation["path"] != "response-consumer"
+                            or comparison["kind"] != "exact"
+                        ):
+                            raise ContractError(
+                                "Response file-root normalization requires the declared FileResponse consumer record"
+                            )
                     elif normalization_kind == "file-response-temp-path":
                         _exact(normalization_spec, {"kind"}, f"{octx}.normalization")
                         if (
@@ -3438,6 +3453,26 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
     application_state = "CONNECTING"
     application_close_attempted = False
     exercised: set[str] = set()
+    for field in ("constructor_thread", "iterator_thread"):
+        if field in case:
+            if case[field] not in {"caller", "worker"} or case["target_profiles"] != [
+                "python-package-cpython312"
+            ]:
+                raise ContractError("WebSocket thread consumers select a Python constructor owner")
+            if field == "iterator_thread" and not any(
+                action.get("method")
+                in {"iter_text", "iter_bytes", "iter_json", "iterator-probe", "iterator-control"}
+                for action in actions
+            ):
+                raise ContractError(
+                    "WebSocket iterator thread selection requires an iterator action"
+                )
+            if case[field] == "worker":
+                exercised.add("starlette.websocket.api.thread-transfer")
+    if "starlette.websocket.api.thread-transfer" in case["covers"] and not any(
+        case.get(field) == "worker" for field in ("constructor_thread", "iterator_thread")
+    ):
+        raise ContractError("WebSocket thread coverage requires worker construction")
 
     def receive_input(context: str, expected_payload: str | None = None) -> str:
         nonlocal incoming_index, client_state
@@ -15865,6 +15900,8 @@ def validate_case(
             STATE_OPERATION_KEY: {"instances", "actions"},
             WSGI_BUILD_ENVIRON_OPERATION: {"scope", "body_base64", "environ_probes"},
             WSGI_MODULE_IMPORT_OPERATION: {"module_name"},
+            ("starlette.testclient.TestClient", "module-import-policy"): {"imports"},
+            ("starlette.templating.Jinja2Templates", "module-import-policy"): {"imports"},
         }[(case["surface"], case["operation"])]
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
         if (
@@ -15931,6 +15968,7 @@ def validate_case(
                 "cookie_protocol",
                 "constructor_thread",
                 "background_kind",
+                "protocols",
             }
             & case.keys()
         )
@@ -15946,6 +15984,10 @@ def validate_case(
         expected_case_keys = SESSION_WORKFLOW_CASE_KEYS
     if (case["surface"], case["operation"]) == TEMPLATING_PUBLIC_OPERATION:
         expected_case_keys |= {"hooks"} & case.keys()
+    if (case["surface"], case["operation"]) == (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION):
+        expected_case_keys = expected_case_keys | (
+            {"constructor_thread", "iterator_thread"} & case.keys()
+        )
     if is_streaming_response:
         expected_case_keys = expected_case_keys | {
             key
@@ -16396,7 +16438,9 @@ def validate_case(
         _validate_base_http_workflow_case(case)
         return case
     if is_rust_owned_python:
-        if (case["surface"], case["operation"]) in CONFIG_OPERATIONS:
+        if (case["surface"], case["operation"]) in OPTIONAL_IMPORT_OPERATIONS:
+            _validate_optional_import_case(case)
+        elif (case["surface"], case["operation"]) in CONFIG_OPERATIONS:
             _validate_config_case(case)
         elif (case["surface"], case["operation"]) in SCHEMA_OPERATIONS:
             _validate_schema_case(case)
@@ -31375,6 +31419,37 @@ def _validate_response_consumer_content(value: Any) -> None:
             raise ContractError(
                 "Response memoryview shape must match its buffer; stride requires one dimension"
             )
+    elif kind == "async-iterator":
+        definition = _exact(
+            content, {"chunks", "completion", "checkpoint", "failure"}, "Response async iterator"
+        )
+        if (
+            definition["completion"] not in {"synchronous", "awaited"}
+            or type(definition["checkpoint"]) is not bool
+        ):
+            raise ContractError(
+                "Response iterator requires a completion protocol and checkpoint flag"
+            )
+        if not isinstance(definition["chunks"], list):
+            raise ContractError("Response iterator chunks must be an array")
+        for chunk in definition["chunks"]:
+            if not isinstance(chunk, dict) or chunk.get("kind") not in {
+                "text",
+                "bytes",
+                "memoryview",
+                "mutable-memoryview",
+            }:
+                raise ContractError(
+                    "Response iterator chunks require input-defined text or buffers"
+                )
+            _validate_response_consumer_content(chunk)
+        failure = definition["failure"]
+        if failure is not None:
+            failure = _exact(failure, {"class", "message"}, "Response iterator failure")
+            if failure["class"] not in {"RuntimeError", "StopAsyncIteration"} or not isinstance(
+                failure["message"], str
+            ):
+                raise ContractError("Response iterator failure requires a supported class and text")
     elif kind == "file":
         definition = _exact(
             content,
@@ -31443,6 +31518,10 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
             "Response consumers require the installed Python package without assets"
         )
     expected_requirements = [case["surface"] + ".consumer-construction.public-render-and-asgi"]
+    if "protocols" in case or case["construction"]["content"].get("kind") == "async-iterator":
+        expected_requirements.append(case["surface"] + ".consumer-construction.user-call-protocols")
+        if "protocols" in case:
+            _validate_response_user_protocols(case)
     if "callbacks" in case or "ownership" in case:
         expected_requirements.append(
             case["surface"] + ".consumer-construction.live-asgi-state-and-lifetime"
@@ -31514,11 +31593,20 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
     )
     if spec["content"]["kind"] == "file" and not file_response:
         raise ContractError("Materialized file content belongs to FileResponse")
+    if (
+        spec["content"]["kind"] == "async-iterator"
+        and case["surface"] != "starlette.responses.StreamingResponse"
+    ):
+        raise ContractError("Async iterator content belongs to StreamingResponse")
     if file_response:
         for field in ("filename", "content_disposition_type"):
             if field in kwargs and kwargs[field] is not None and not isinstance(kwargs[field], str):
                 raise ContractError("FileResponse filename and disposition require text")
-        if "stat_result" in kwargs and kwargs["stat_result"] not in {None, "from-content"}:
+        if (
+            "stat_result" in kwargs
+            and kwargs["stat_result"] is not None
+            and kwargs["stat_result"] != "from-content"
+        ):
             raise ContractError(
                 "FileResponse stat stimulus selects omission or the materialized file"
             )
@@ -31592,6 +31680,8 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         "starlette.responses.FileResponse",
     }
     fields = {"type", "path", "method", "headers", "asgi"} if variant else {"type", "path"}
+    if file_response and "extensions" in case["scope"]:
+        fields |= {"extensions"}
     scope = _exact(case["scope"], fields, "Response consumer ASGI scope")
     if scope["type"] not in {"http", "websocket"} or not isinstance(scope["path"], str):
         raise ContractError("Response consumers require an HTTP or WebSocket scope")
@@ -31603,6 +31693,8 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "Response variant consumers use ASGI 2.4; legacy cancellation has its own workflow"
             )
+    if "extensions" in scope and scope["extensions"] != {"http.response.pathsend": {}}:
+        raise ContractError("FileResponse consumer extensions select the public pathsend boundary")
     failure = case["send_failure"]
     if failure is not None:
         _exact(
@@ -31624,6 +31716,93 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
     if case["background_label"] is not None and not isinstance(case["background_label"], str):
         raise ContractError("Response background label must be text or null")
     _validate_response_callbacks(case)
+
+
+def _validate_response_user_protocols(case: dict[str, Any]) -> None:
+    protocols = _exact(case["protocols"], {"stat_hook", "denial_hook"}, "Response call protocols")
+    stat = protocols["stat_hook"]
+    if stat is not None:
+        if case["surface"] != "starlette.responses.FileResponse":
+            raise ContractError("Stat hooks belong to FileResponse")
+        stat = _exact(stat, {"delegate", "headers", "failure"}, "Response stat hook")
+        if (
+            type(stat["delegate"]) is not bool
+            or not isinstance(stat["headers"], dict)
+            or any(
+                not isinstance(k, str) or not isinstance(v, str) for k, v in stat["headers"].items()
+            )
+        ):
+            raise ContractError("Response stat hook requires a delegation flag and text headers")
+        if stat["failure"] is not None:
+            failure = _exact(stat["failure"], {"class", "message"}, "Response stat hook failure")
+            if failure["class"] not in {
+                "RuntimeError",
+                "FileNotFoundError",
+                "OSError",
+                "StopAsyncIteration",
+            } or not isinstance(failure["message"], str):
+                raise ContractError("Response stat hook requires a supported error and text")
+    denial = protocols["denial_hook"]
+    if denial is not None:
+        denial = _exact(denial, {"delegate"}, "Response denial hook")
+        if case["scope"]["type"] != "websocket" or type(denial["delegate"]) is not bool:
+            raise ContractError(
+                "Response denial hook requires a WebSocket scope and delegation flag"
+            )
+    if stat is None and denial is None:
+        raise ContractError("Response call protocols must select a hook")
+
+
+def _validate_optional_import_case(case: dict[str, Any]) -> None:
+    consumers = {
+        "starlette.testclient.TestClient": (
+            "starlette.testclient",
+            "TestClient",
+            {"httpx2", "httpx"},
+        ),
+        "starlette.templating.Jinja2Templates": (
+            "starlette.templating",
+            "Jinja2Templates",
+            {"jinja2"},
+        ),
+    }
+    module, attribute, dependencies = consumers[case["surface"]]
+    imports = _exact(
+        case["imports"],
+        {"module", "consumer_attribute", "failures", "warning_filter"},
+        "Optional import stimulus",
+    )
+    if (
+        imports["module"] != module
+        or imports["consumer_attribute"] != attribute
+        or imports["warning_filter"] not in {"always", "error", "ignore"}
+    ):
+        raise ContractError("Optional import stimulus must select its declared module and consumer")
+    if not isinstance(imports["failures"], list):
+        raise ContractError("Optional import failures must be an array")
+    selected = set()
+    for rule in imports["failures"]:
+        rule = _exact(rule, {"module", "exception", "message"}, "Dependency loader failure")
+        if (
+            rule["module"] not in dependencies
+            or rule["module"] in selected
+            or rule["exception"] not in {"ModuleNotFoundError", "ImportError", "RuntimeError"}
+            or not isinstance(rule["message"], str)
+        ):
+            raise ContractError(
+                "Dependency failure requires a unique declared module, supported error and text"
+            )
+        selected.add(rule["module"])
+    if (
+        case["assets"]
+        or case["target_profiles"] != ["python-package-cpython312"]
+        or case["observations"] != ["import-policy"]
+        or case["covers"]
+        != [case["surface"] + ".module-import-policy.dependency-errors-and-selection"]
+    ):
+        raise ContractError(
+            "Optional import workflow must select its package observation and requirement"
+        )
 
 
 def _validate_response_attribute_error(value: Any) -> None:

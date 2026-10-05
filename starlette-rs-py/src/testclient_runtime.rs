@@ -5,7 +5,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use pyo3::basic::CompareOp;
 use pyo3::create_exception;
 use pyo3::exceptions::{
-    PyAssertionError, PyException, PyImportError, PyKeyError, PyRuntimeError, PyStopIteration,
+    PyAssertionError, PyException, PyKeyError, PyModuleNotFoundError, PyRuntimeError,
+    PyStopIteration,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
@@ -1471,24 +1472,41 @@ impl PyTestClientTransport {
 pub(crate) fn testclient_httpx(py: Python<'_>) -> PyResult<Py<PyModule>> {
     match py.import("httpx2") {
         Ok(module) => Ok(module.unbind()),
-        Err(error) if error.is_instance_of::<PyImportError>(py) => match py.import("httpx") {
+        Err(error) if error.is_instance_of::<PyModuleNotFoundError>(py) => match py.import("httpx")
+        {
             Ok(module) => {
                 let warning_category = py
                     .import("starlette.exceptions")?
                     .getattr("StarletteDeprecationWarning")?;
-                py.import("warnings")?.getattr("warn")?.call1((
+                if let Err(warning) = py.import("warnings")?.getattr("warn")?.call1((
                     "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.",
                     warning_category,
                     2,
-                ))?;
+                )) {
+                    warning.set_context(py, Some(error));
+                    return Err(warning);
+                }
                 Ok(module.unbind())
             }
-            Err(fallback_error) if fallback_error.is_instance_of::<PyImportError>(py) => {
-                Err(PyRuntimeError::new_err(
+            Err(fallback_error) if fallback_error.is_instance_of::<PyModuleNotFoundError>(py) => {
+                fallback_error
+                    .value(py)
+                    .setattr("__context__", error.value(py))?;
+                let missing = PyRuntimeError::new_err(
                     "The starlette.testclient module requires the httpx2 package to be installed.\nYou can install this with:\n    $ pip install httpx2\n",
-                ))
+                );
+                missing
+                    .value(py)
+                    .setattr("__context__", fallback_error.value(py))?;
+                missing.value(py).setattr("__suppress_context__", true)?;
+                Err(missing)
             }
-            Err(fallback_error) => Err(fallback_error),
+            Err(fallback_error) => {
+                fallback_error
+                    .value(py)
+                    .setattr("__context__", error.value(py))?;
+                Err(fallback_error)
+            }
         },
         Err(error) => Err(error),
     }

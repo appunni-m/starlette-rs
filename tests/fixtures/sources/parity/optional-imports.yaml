@@ -1,0 +1,359 @@
+{
+  "schema": "migration-parity/parity-input@45",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.installed",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [],
+        "warning_filter": "always"
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.modulenotfounderror",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [
+          {
+            "module": "httpx2",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: httpx2"
+          }
+        ],
+        "warning_filter": "always"
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.importerror",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [
+          {
+            "module": "httpx2",
+            "exception": "ImportError",
+            "message": "input loader error: httpx2"
+          }
+        ],
+        "warning_filter": "always"
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.runtimeerror",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [
+          {
+            "module": "httpx2",
+            "exception": "RuntimeError",
+            "message": "input loader error: httpx2"
+          }
+        ],
+        "warning_filter": "always"
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.fallback-modulenotfounderror",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [
+          {
+            "module": "httpx2",
+            "exception": "ModuleNotFoundError",
+            "message": "input primary missing"
+          },
+          {
+            "module": "httpx",
+            "exception": "ModuleNotFoundError",
+            "message": "input fallback error"
+          }
+        ],
+        "warning_filter": "always"
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.fallback-importerror",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [
+          {
+            "module": "httpx2",
+            "exception": "ModuleNotFoundError",
+            "message": "input primary missing"
+          },
+          {
+            "module": "httpx",
+            "exception": "ImportError",
+            "message": "input fallback error"
+          }
+        ],
+        "warning_filter": "always"
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.fallback-runtimeerror",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [
+          {
+            "module": "httpx2",
+            "exception": "ModuleNotFoundError",
+            "message": "input primary missing"
+          },
+          {
+            "module": "httpx",
+            "exception": "RuntimeError",
+            "message": "input fallback error"
+          }
+        ],
+        "warning_filter": "always"
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.fallback-warning-error",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [
+          {
+            "module": "httpx2",
+            "exception": "ModuleNotFoundError",
+            "message": "input primary missing"
+          }
+        ],
+        "warning_filter": "error"
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.fallback-warning-ignore",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [
+          {
+            "module": "httpx2",
+            "exception": "ModuleNotFoundError",
+            "message": "input primary missing"
+          }
+        ],
+        "warning_filter": "ignore"
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.module-import-policy.installed",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.templating.Jinja2Templates.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.templating",
+        "consumer_attribute": "Jinja2Templates",
+        "failures": [],
+        "warning_filter": "always"
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.module-import-policy.modulenotfounderror",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.templating.Jinja2Templates.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.templating",
+        "consumer_attribute": "Jinja2Templates",
+        "failures": [
+          {
+            "module": "jinja2",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: jinja2"
+          }
+        ],
+        "warning_filter": "always"
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.module-import-policy.importerror",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.templating.Jinja2Templates.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.templating",
+        "consumer_attribute": "Jinja2Templates",
+        "failures": [
+          {
+            "module": "jinja2",
+            "exception": "ImportError",
+            "message": "input loader error: jinja2"
+          }
+        ],
+        "warning_filter": "always"
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.module-import-policy.runtimeerror",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.templating.Jinja2Templates.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.templating",
+        "consumer_attribute": "Jinja2Templates",
+        "failures": [
+          {
+            "module": "jinja2",
+            "exception": "RuntimeError",
+            "message": "input loader error: jinja2"
+          }
+        ],
+        "warning_filter": "always"
+      }
+    }
+  ]
+}

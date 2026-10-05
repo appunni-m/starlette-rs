@@ -378,7 +378,10 @@
       "build/parity/inputs/parity/response-cookie-protocols.json",
       "build/parity/inputs/parity/response-cookie-ownership.json",
       "build/parity/inputs/parity/response-variants.json",
-      "build/parity/inputs/parity/templating-protocols.json"
+      "build/parity/inputs/parity/templating-protocols.json",
+      "build/parity/inputs/parity/optional-imports.json",
+      "build/parity/inputs/parity/response-call-protocols.json",
+      "build/parity/inputs/parity/websocket-thread-ownership.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -15922,6 +15925,17 @@
                   "kind": "literal",
                   "value": "caller"
                 }
+              },
+              {
+                "id": "protocols",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -15934,6 +15948,9 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "normalization": {
+                    "kind": "response-consumer-file-root"
                   }
                 }
               ],
@@ -16005,6 +16022,17 @@
               "id": "starlette.responses.FileResponse.consumer-construction.construction-thread-transfer",
               "dimension": "boundary",
               "description": "Construct FileResponse and background objects on an input-selected worker, then invoke the public ASGI callable on the caller loop. Compare live events, callback order and errors. Source: starlette/responses.py:FileResponse; starlette/background.py; docs/threadpool.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.consumer-construction.user-call-protocols",
+              "dimension": "protocol_variant",
+              "description": "Compare input-selected public denial and stat hooks, synchronous/awaited iterator completion, original callback errors and source event ordering. Pinned source: starlette/responses.py:164-181, 241-490; docs/responses.md.",
               "lanes": [
                 "parity"
               ],
@@ -17587,6 +17615,17 @@
                   "kind": "literal",
                   "value": null
                 }
+              },
+              {
+                "id": "protocols",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -17714,6 +17753,17 @@
               "id": "starlette.responses.Response.consumer-construction.cookie-surrogate-encoding-order",
               "dimension": "boundary",
               "description": "Preserve lone-surrogate values and attribute strings until source-ordered key/control validation and final Latin-1 encoding, including public raw-header selection and exact Unicode error details. Source Starlette responses.py:90-160 and CPython cookie/string representation protocols.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.consumer-construction.user-call-protocols",
+              "dimension": "protocol_variant",
+              "description": "Compare input-selected public denial and stat hooks, synchronous/awaited iterator completion, original callback errors and source event ordering. Pinned source: starlette/responses.py:164-181, 241-490; docs/responses.md.",
               "lanes": [
                 "parity"
               ],
@@ -18442,6 +18492,17 @@
                   "kind": "literal",
                   "value": "callable"
                 }
+              },
+              {
+                "id": "protocols",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -18525,6 +18586,17 @@
               "id": "starlette.responses.StreamingResponse.consumer-construction.construction-thread-transfer",
               "dimension": "boundary",
               "description": "Construct StreamingResponse with synchronous iterable content on an input-selected worker thread, then consume its public ASGI callable on the caller loop. Source: starlette/responses.py:StreamingResponse; starlette/concurrency.py:iterate_in_threadpool; docs/threadpool.md. Compare live callbacks and events without expected outputs.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.consumer-construction.user-call-protocols",
+              "dimension": "protocol_variant",
+              "description": "Compare input-selected public denial and stat hooks, synchronous/awaited iterator completion, original callback errors and source event ordering. Pinned source: starlette/responses.py:164-181, 241-490; docs/responses.md.",
               "lanes": [
                 "parity"
               ],
@@ -24245,6 +24317,28 @@
                 "omission": {
                   "kind": "required"
                 }
+              },
+              {
+                "id": "constructor_thread",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": "caller"
+                }
+              },
+              {
+                "id": "iterator_thread",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": "caller"
+                }
               }
             ],
             "result": {
@@ -24652,6 +24746,17 @@
               "id": "starlette.websocket.api.close.duplicate",
               "dimension": "error_path",
               "description": "Call WebSocket.close after an earlier close call and compare the resulting action error, callback tape, and final states. Pinned source: starlette/websockets.py:59-99,180-181; tests/test_websockets.py::test_duplicate_close.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.thread-transfer",
+              "dimension": "boundary",
+              "description": "Construct public WebSocket values and iterators in input-selected worker threads, then use them on the caller event loop through public convenience methods. Compare frame/state ordering and errors with the same live source consumer. Source: starlette/websockets.py:25-201; docs/websockets.md.",
               "lanes": [
                 "parity"
               ],
@@ -27291,6 +27396,100 @@
             "applicability": "not_applicable",
             "reason": "These public consumer workflows have no declared timing workload."
           }
+        },
+        {
+          "id": "module-import-policy",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.testclient module import",
+            "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+            "parameters": [
+              {
+                "id": "imports",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "import-policy",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python module dependency import policy belongs to the Python package consumer interface.",
+                "blocker": "The Rust-native API has no Python import loader interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.testclient",
+              "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection",
+              "dimension": "error_path",
+              "description": "Preserve dependency selection, original loader errors, cause/context identity and suppression, and deprecation warnings. Pinned source: starlette/testclient.py:31-51; public docs: docs/testclient.md and docs/templates.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "These input-only import consumers make no standalone measurement claim; the complete instrumented matrix is measured in the coverage phase."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Import failure policy is outside the pinned upstream timing workloads."
+          }
         }
       ]
     },
@@ -27824,6 +28023,100 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This Jinja2 behavior is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "module-import-policy",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.templating module import",
+            "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+            "parameters": [
+              {
+                "id": "imports",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "import-policy",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python module dependency import policy belongs to the Python package consumer interface.",
+                "blocker": "The Rust-native API has no Python import loader interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.templating",
+              "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.templating.Jinja2Templates.module-import-policy.dependency-errors-and-selection",
+              "dimension": "error_path",
+              "description": "Preserve dependency selection, original loader errors, cause/context identity and suppression, and deprecation warnings. Pinned source: starlette/templating.py:13-29; public docs: docs/testclient.md and docs/templates.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "These input-only import consumers make no standalone measurement claim; the complete instrumented matrix is measured in the coverage phase."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Import failure policy is outside the pinned upstream timing workloads."
           }
         }
       ]

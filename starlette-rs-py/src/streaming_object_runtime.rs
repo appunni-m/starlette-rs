@@ -4,7 +4,7 @@
 //! listener. Python only drives user awaitables on the caller's event loop.
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyOSError, PyRuntimeError};
+use pyo3::exceptions::{PyOSError, PyRuntimeError, PyStopAsyncIteration};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyMemoryView};
 
@@ -77,13 +77,20 @@ impl AwaitableStateMachine for Stream {
                 }
                 StreamPending::Pull => {
                     let value = value.into_bound(py);
+                    // Python assigns the new loop value before invoking encode,
+                    // releasing the preceding chunk even when encoding fails.
+                    self.chunk = Some(value.clone().unbind());
                     let chunk = if value.is_instance_of::<PyBytes>()
                         || value.is_instance_of::<PyMemoryView>()
                     {
                         value
                     } else {
-                        value
-                            .call_method1("encode", (self.response.bind(py).getattr("charset")?,))?
+                        let encoded = value.call_method1(
+                            "encode",
+                            (self.response.bind(py).getattr("charset")?,),
+                        )?;
+                        drop(value);
+                        encoded
                     };
                     self.chunk = Some(chunk.clone().unbind());
                     let message = PyDict::new(py);
@@ -103,12 +110,7 @@ impl AwaitableStateMachine for Stream {
                 if !matches!(self.pending, StreamPending::Pull) {
                     return Err(error);
                 }
-                let message = PyDict::new(py);
-                message.set_item("type", "http.response.body")?;
-                message.set_item("body", PyBytes::new(py, b""))?;
-                message.set_item("more_body", false)?;
-                self.pending = StreamPending::Final;
-                self.send(py, &message)
+                self.finish_stream(py)
             }
             MachineResume::Error(error) => Err(error),
         }
@@ -116,6 +118,18 @@ impl AwaitableStateMachine for Stream {
 }
 
 impl Stream {
+    fn finish_stream(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        // END_ASYNC_FOR releases its iterator before the final send. The last
+        // chunk remains a loop local until the coroutine finishes.
+        self.iterator = None;
+        let message = PyDict::new(py);
+        message.set_item("type", "http.response.body")?;
+        message.set_item("body", PyBytes::new(py, b""))?;
+        message.set_item("more_body", false)?;
+        self.pending = StreamPending::Final;
+        self.send(py, &message)
+    }
+
     fn send(&self, py: Python<'_>, message: &Bound<'_, PyDict>) -> PyResult<MachineAction> {
         Ok(MachineAction::Await(
             self.send.bind(py).call1((message,))?.unbind(),
@@ -128,11 +142,18 @@ impl Stream {
             .iterator
             .as_ref()
             .ok_or_else(|| PyRuntimeError::new_err("stream has no iterator"))?;
-        Ok(MachineAction::Await(
-            py.import("builtins")?
-                .call_method1("anext", (iterator.bind(py),))?
-                .unbind(),
-        ))
+        match py
+            .import("builtins")?
+            .call_method1("anext", (iterator.bind(py),))
+        {
+            Ok(awaitable) => Ok(MachineAction::Await(awaitable.unbind())),
+            // A synchronous __anext__ can end async-for without returning an
+            // awaitable. Only StopAsyncIteration at this pull site ends it.
+            Err(error) if error.is_instance_of::<PyStopAsyncIteration>(py) => {
+                self.finish_stream(py)
+            }
+            Err(error) => Err(error),
+        }
     }
 }
 

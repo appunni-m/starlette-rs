@@ -61,29 +61,13 @@ impl PyFileResponse {
         receive: Py<PyAny>,
         send: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        let stored = py
-            .get_type::<PyAny>()
-            .call_method1("__getattribute__", (response, "_inner"))?;
-        let inner = stored.cast::<Self>()?.try_borrow()?.inner.clone();
-        // Snapshot private Rust storage, then release its borrow before every
-        // public attribute lookup and user descriptor. The public cached view
-        // may still refer to an older raw list after caller replacement.
-        let mut native = Self {
-            inner,
-            raw_headers: response.getattr("raw_headers")?.unbind(),
-            headers_view: Some(response.getattr("headers")?.unbind()),
-        };
-        native.inner.set_streaming_options(
-            response.getattr("chunk_size")?.extract()?,
-            response.getattr("max_ranges")?.extract()?,
-        );
-        let path = response.getattr("path")?.unbind();
-        let status = response.getattr("status_code")?.extract()?;
-        let stat = response.getattr("stat_result")?;
-        let stat = (!stat.is_none()).then(|| stat.unbind());
-        let background = response.getattr("background")?;
-        let background = (!background.is_none()).then(|| background.unbind());
-        native.asgi_call(py, scope, receive, send, background, (path, status, stat))
+        crate::file_object_runtime::call(
+            py,
+            response.clone().unbind(),
+            scope.clone().unbind(),
+            receive,
+            send,
+        )
     }
 
     #[staticmethod]
@@ -360,12 +344,92 @@ impl PyFileResponse {
                 send,
                 _receive: receive,
                 background,
+                public_response: None,
                 view_raw: view_raw.unbind(),
                 pending: None,
                 deferred_error: None,
             },
         )
     }
+}
+
+/// Request facts selected by the Rust facade before stat/header callbacks.
+pub(crate) struct PublicFileFacts {
+    pub(crate) scope_type: String,
+    pub(crate) header_only: bool,
+    pub(crate) pathsend: bool,
+}
+
+pub(crate) fn prepared_public_call(
+    py: Python<'_>,
+    response: Py<PyAny>,
+    scope: &Bound<'_, PyDict>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    stat: Py<PyAny>,
+    facts: &PublicFileFacts,
+) -> PyResult<Py<PyAny>> {
+    let public = response.bind(py);
+    let stored = py
+        .get_type::<PyAny>()
+        .call_method1("__getattribute__", (public, "_inner"))?;
+    let mut native = stored.cast::<PyFileResponse>()?.try_borrow()?.inner.clone();
+    // No native borrow survives user descriptors. The stat callback has
+    // already selected the header defaults, including intentional omissions.
+    let headers_view = public.getattr("headers")?;
+    let view_raw = headers_view.getattr("raw")?;
+    let raw = public.getattr("raw_headers")?;
+    let views = FileResponseHeaderViews {
+        view: crate::response_headers_runtime::parse_raw_pairs(&view_raw)?,
+        raw: crate::response_headers_runtime::parse_raw_pairs(&raw)?,
+        view_is_raw: view_raw.is(&raw),
+    };
+    let path = public.getattr("path")?;
+    native = native
+        .with_call_time_fields(
+            path_from_python(&path)?,
+            path.str()?.to_str()?.to_owned(),
+            // Simple responses read the original Python status only at their start
+            // event. Range/error branches select fixed Rust statuses instead.
+            200,
+            stat_metadata(py, Some(stat))?,
+        )
+        .with_prepared_stat_headers();
+    native.set_streaming_options(
+        public.getattr("chunk_size")?.extract()?,
+        public.getattr("max_ranges")?.extract()?,
+    );
+    let headers = scope
+        .get_item("headers")?
+        .map(|value| value.extract())
+        .transpose()?
+        .unwrap_or_default();
+    let driver = Py::new(
+        py,
+        PyFileResponseCallDriver::new(
+            native,
+            views,
+            facts.scope_type.clone(),
+            if facts.header_only { "HEAD" } else { "GET" }.to_owned(),
+            headers,
+            facts.pathsend,
+            true,
+            false,
+        ),
+    )?;
+    into_sendable_python_awaitable(
+        py,
+        FileResponseMachine {
+            driver,
+            send,
+            _receive: receive,
+            background: None,
+            public_response: Some(response),
+            view_raw: view_raw.unbind(),
+            pending: None,
+            deferred_error: None,
+        },
+    )
 }
 
 /// Owns one response call while AnyIO schedules its synchronous Rust steps.
@@ -397,6 +461,7 @@ struct FileResponseWorkerStep {
     base_headers: Vec<(Vec<u8>, Vec<u8>)>,
     refresh_headers: bool,
     websocket: bool,
+    sends_raw_headers: bool,
 }
 
 enum FileResponseWorkerError {
@@ -484,6 +549,12 @@ impl PyFileResponseCallDriver {
                 .into_any()
                 .unbind(),
             base_headers.into_any().unbind(),
+            result
+                .sends_raw_headers
+                .into_pyobject(py)?
+                .to_owned()
+                .into_any()
+                .unbind(),
         ];
         PyTuple::new(py, values)
             .map(Bound::into_any)
@@ -537,6 +608,7 @@ impl FileResponseCallDriverState {
             base_headers,
             refresh_headers,
             websocket: self.websocket,
+            sends_raw_headers: call.sends_raw_headers(),
         })
     }
 
@@ -568,9 +640,10 @@ struct FileResponseMachine {
     send: Py<PyAny>,
     _receive: Py<PyAny>,
     background: Option<Py<PyAny>>,
+    public_response: Option<Py<PyAny>>,
     view_raw: Py<PyAny>,
     pending: Option<FileResponsePending>,
-    deferred_error: Option<PyErr>,
+    deferred_error: Option<Py<PyAny>>,
 }
 
 enum FileResponsePending {
@@ -589,7 +662,9 @@ impl AwaitableStateMachine for FileResponseMachine {
         visit.call(&self.send)?;
         visit.call(&self._receive)?;
         visit.call(&self.background)?;
-        visit.call(&self.view_raw)
+        visit.call(&self.public_response)?;
+        visit.call(&self.view_raw)?;
+        visit.call(&self.deferred_error)
     }
 
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
@@ -612,9 +687,14 @@ impl AwaitableStateMachine for FileResponseMachine {
                         return Ok(MachineAction::Complete(py.None()));
                     }
                     Some(FileResponsePending::Close) => {
-                        return Err(self.deferred_error.take().ok_or_else(|| {
-                            PyRuntimeError::new_err("file response cleanup lost its error")
-                        })?);
+                        return Err(PyErr::from_value(
+                            self.deferred_error
+                                .take()
+                                .ok_or_else(|| {
+                                    PyRuntimeError::new_err("file response cleanup lost its error")
+                                })?
+                                .into_bound(py),
+                        ));
                     }
                     None => {
                         return Err(PyRuntimeError::new_err(
@@ -624,9 +704,9 @@ impl AwaitableStateMachine for FileResponseMachine {
                 }
                 self.next_action(py)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyRuntimeError::new_err(
-                "file response unexpectedly received async-iteration completion",
-            )),
+            MachineResume::AsyncIterationComplete(error) => {
+                self.resume(py, MachineResume::Error(error))
+            }
             MachineResume::Error(error) => match self.pending.take() {
                 Some(FileResponsePending::Step) => self.cleanup_after_error(py, error, None),
                 Some(FileResponsePending::Send) => {
@@ -648,7 +728,7 @@ impl AwaitableStateMachine for FileResponseMachine {
                     )
                 }
                 Some(FileResponsePending::Close) => match self.deferred_error.take() {
-                    Some(original) => Err(original),
+                    Some(original) => Err(PyErr::from_value(original.into_bound(py))),
                     None => Err(error),
                 },
                 None => Err(error),
@@ -696,7 +776,7 @@ impl FileResponseMachine {
         let action = result.get_item(0)?.extract::<u8>()?;
         let message = result.get_item(1)?;
         let refresh_headers = result.get_item(2)?.extract::<bool>()?;
-        if refresh_headers {
+        if refresh_headers && self.public_response.is_none() {
             let base_headers =
                 crate::response_headers_runtime::parse_raw_pairs(&result.get_item(3)?)?;
             crate::response_headers_runtime::refresh_raw_pairs(
@@ -708,16 +788,42 @@ impl FileResponseMachine {
 
         match action {
             FILE_RESPONSE_STEP_SEND => {
+                if let Some(response) = self.public_response.as_ref() {
+                    if message.get_item("type")?.eq("http.response.start")?
+                        && result.get_item(4)?.is_truthy()?
+                    {
+                        message.set_item("status", response.bind(py).getattr("status_code")?)?;
+                        message.set_item("headers", response.bind(py).getattr("raw_headers")?)?;
+                    }
+                    if message.get_item("type")?.eq("http.response.pathsend")? {
+                        message.set_item("path", response.bind(py).getattr("path")?.str()?)?;
+                    }
+                }
                 self.pending = Some(FileResponsePending::Send);
                 let awaitable = self.send.bind(py).call1((message,))?;
                 Ok(MachineAction::Await(awaitable.unbind()))
             }
             FILE_RESPONSE_STEP_BACKGROUND => {
+                let callback = if let Some(response) = self.public_response.as_ref() {
+                    let response = response.bind(py);
+                    if response.getattr("background")?.is_none() {
+                        self.advance(py, FileResponseCallInput::BackgroundFinished(Ok(())))?;
+                        return Ok(MachineAction::Complete(py.None()));
+                    }
+                    response.getattr("background")?
+                } else {
+                    self.background
+                        .as_ref()
+                        .ok_or_else(|| {
+                            PyRuntimeError::new_err(
+                                "file response requested a missing background callback",
+                            )
+                        })?
+                        .bind(py)
+                        .clone()
+                };
                 self.pending = Some(FileResponsePending::Background);
-                let callback = self.background.as_ref().ok_or_else(|| {
-                    PyRuntimeError::new_err("file response requested a missing background callback")
-                })?;
-                let awaitable = callback.bind(py).call0()?;
+                let awaitable = callback.call0()?;
                 Ok(MachineAction::Await(awaitable.unbind()))
             }
             FILE_RESPONSE_STEP_COMPLETE => Ok(MachineAction::Complete(py.None())),
@@ -734,7 +840,7 @@ impl FileResponseMachine {
         error: PyErr,
         input: Option<FileResponseCallInput<PyErr>>,
     ) -> PyResult<MachineAction> {
-        self.deferred_error = Some(error.clone_ref(py));
+        self.deferred_error = Some(error.value(py).clone().into_any().unbind());
         if let Some(input) = input {
             let _advance_result = self.advance(py, input);
         }
@@ -753,7 +859,7 @@ impl FileResponseMachine {
             Ok(awaitable) => awaitable,
             Err(error) => {
                 return match self.deferred_error.take() {
-                    Some(original) => Err(original),
+                    Some(original) => Err(PyErr::from_value(original.into_bound(py))),
                     None => Err(error),
                 };
             }

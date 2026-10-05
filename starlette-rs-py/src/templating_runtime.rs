@@ -10,7 +10,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyTuple};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -28,10 +28,7 @@ fn templating_require_jinja2(py: Python<'_>) -> PyResult<Py<PyAny>> {
     match py.import("jinja2") {
         Ok(module) => Ok(module.into_any().unbind()),
         Err(error) if error.is_instance_of::<PyImportError>(py) => {
-            let import_error =
-                PyImportError::new_err("jinja2 must be installed to use Jinja2Templates");
-            import_error.set_cause(py, Some(error));
-            Err(import_error)
+            Err(jinja_import_error(py, error)?)
         }
         Err(error) => Err(error),
     }
@@ -41,13 +38,28 @@ fn templating_require_jinja2(py: Python<'_>) -> PyResult<Py<PyAny>> {
 fn templating_context_decorator(jinja2: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     // Resolve at module import, just as the source does, including failure
     // when neither supported decorator exists.
-    match jinja2.getattr("pass_context") {
+    let result = match jinja2.getattr("pass_context") {
         Ok(_) => jinja2.getattr("pass_context").map(Bound::unbind),
         Err(error) if error.is_instance_of::<PyAttributeError>(jinja2.py()) => {
             jinja2.getattr("contextfunction").map(Bound::unbind)
         }
         Err(error) => Err(error),
+    };
+    match result {
+        Err(error) if error.is_instance_of::<PyImportError>(jinja2.py()) => {
+            Err(jinja_import_error(jinja2.py(), error)?)
+        }
+        result => result,
     }
+}
+
+fn jinja_import_error(py: Python<'_>, error: PyErr) -> PyResult<PyErr> {
+    let import_error = PyImportError::new_err("jinja2 must be installed to use Jinja2Templates");
+    import_error
+        .value(py)
+        .setattr("__context__", error.value(py))?;
+    import_error.set_cause(py, Some(error));
+    Ok(import_error)
 }
 
 // Templates are commonly configured on the caller thread and then used by
@@ -61,6 +73,19 @@ pub(crate) struct PyJinja2Templates {
 
 #[pymethods]
 impl PyJinja2Templates {
+    fn __traverse__(
+        &self,
+        visit: pyo3::class::gc::PyVisit<'_>,
+    ) -> Result<(), pyo3::class::gc::PyTraverseError> {
+        visit.call(&self.env)?;
+        visit.call(&self.context_processors)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.env = py.None();
+        self.context_processors = py.None();
+    }
+
     #[staticmethod]
     fn initialize_for(
         py: Python<'_>,
@@ -331,7 +356,7 @@ fn templating_response_call(
     receive: Py<PyAny>,
     send: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         TemplateResponseCall {
             response_call,
@@ -362,6 +387,22 @@ enum TemplateResponsePending {
 }
 
 impl AwaitableStateMachine for TemplateResponseCall {
+    fn traverse(
+        &self,
+        visit: &pyo3::class::gc::PyVisit<'_>,
+    ) -> Result<(), pyo3::class::gc::PyTraverseError> {
+        visit.call(&self.response_call)?;
+        visit.call(&self.template)?;
+        visit.call(&self.context)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
@@ -378,9 +419,10 @@ impl AwaitableStateMachine for TemplateResponseCall {
                 self.pending = None;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyRuntimeError::new_err(
-                "template response unexpectedly received async-iteration completion",
-            )),
+            MachineResume::AsyncIterationComplete(error) => {
+                self.pending = None;
+                Err(error)
+            }
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "template response already has an operation pending",
             )),

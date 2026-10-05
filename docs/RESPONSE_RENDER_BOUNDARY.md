@@ -320,8 +320,11 @@ the URL and writes the Location header. FileResponse now orders public path,
 status, filename, MIME selection, header initialization, disposition and supplied
 stat hooks in Rust. Rust also computes the stat ETag, sharing the same digest
 implementation with the native file API. The existing Rust file call driver
-remains responsible for range decisions and I/O scheduling. Its call-time stat
-and subclass hook order still requires implementation work and comparison.
+remains responsible for range decisions and I/O scheduling. A Rust outer
+continuation now invokes the public stat hook inside the source error boundary,
+retains stat values through the body call, preserves hook omissions, and selects
+the live background callback after sends. Further range/subclass/I/O field order
+and lifetime protocols still require implementation review and comparison.
 
 The remaining Python calls are boundary representation or user/library callbacks:
 
@@ -334,6 +337,10 @@ The remaining Python calls are boundary representation or user/library callbacks
   a separate Rust registry would lose caller registrations and PathLike behavior.
 - Python's HTTP date formatting preserves the active interpreter's datetime
   and timestamp representation. Rust selects the header and dispatch order.
+- The public `os.stat` callable is dispatched through AnyIO's worker pool to
+  preserve PathLike conversion, caller replacement and exception identity.
+  Rust chooses the stat branch, invokes public hooks, checks file mode and owns
+  the response/range/stream state and file I/O.
 
 The 46 response-variant inputs observe constructor overrides, descriptor and
 attribute ordering, cached-header replacement, mutable values, background
@@ -342,7 +349,20 @@ They use public constructors and ASGI calls on both implementations and contain
 no expected output. They are authored under `response-variants.yaml` at
 `parity-input@45`, statically validated, and unexecuted.
 
+Another 25 `response-call-protocols.yaml` inputs supply public stat and denial
+hooks, synchronous/awaited async-iterator completion, user callback errors,
+HEAD, provided stat data, unconstrained Python integer status values, and pathsend. Ordinary callbacks can reach these
+failures on both implementations, so they are oracle parity inputs. The two
+existing target-only fault contracts remain separate in the same matrix.
+
+The FileResponse consumer observation declares `response-consumer-file-root`
+normalization. The shared consumer records its materialized temporary root.
+The comparator validates the absolute root's adapter prefix, replaces only that
+observed root, and preserves all suffixes, emitted messages and error arguments.
+Malformed roots remain side-specific mismatches. Generated results retain the
+original values. Every other response consumer uses exact comparison.
+
 Further implementation review includes supplied Morsel values, cookie traceback
 release and cyclic GC, arbitrary filename/stat encoding protocols, active stream
-finalization, and FileResponse call-time hooks. Exposing a forwarding method does
+finalization, and remaining FileResponse range/I/O callbacks. Exposing a forwarding method does
 not resolve an uncertain helper's public status in the compatibility inventory.

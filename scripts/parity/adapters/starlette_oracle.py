@@ -6918,7 +6918,8 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
             "incoming",
             "actions",
             "observations",
-        },
+        }
+        | ({"constructor_thread", "iterator_thread"} & case.keys()),
         "WebSocket convenience-sequence case",
     )
     if case["surface"] != WEBSOCKET_SURFACE or case["operation"] != WEBSOCKET_CONVENIENCE_OPERATION:
@@ -6954,7 +6955,24 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
         if pending_send_error is not None:
             raise OSError(pending_send_error["message"])
 
-    websocket = WebSocket(_make_websocket_scope(case["scope"]), receive, send)
+    def construct() -> Any:
+        return WebSocket(_make_websocket_scope(case["scope"]), receive, send)
+
+    if case.get("constructor_thread", "caller") == "worker":
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            websocket = executor.submit(construct).result()
+    else:
+        websocket = construct()
+
+    def create_iterator(method: str) -> Any:
+        if case.get("iterator_thread", "caller") == "worker":
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(getattr(websocket, method)).result()
+        return getattr(websocket, method)()
 
     async def run_actions() -> list[dict[str, Any]]:
         nonlocal file_response_directory, pending_send_error
@@ -6998,19 +7016,19 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                         _decode_b64(arguments["data_base64"], "WebSocket send_bytes.data")
                     )
                 elif method == "iter_text" or method == "iter_bytes" or method == "iter_json":
-                    iterator = getattr(websocket, method)()
+                    iterator = create_iterator(method)
                     values = []
                     async for item in iterator:
                         values.append(item)
                     value = values
                 elif method == "iterator-probe":
-                    iterator = getattr(websocket, arguments["iterator"])()
+                    iterator = create_iterator(arguments["iterator"])
                     value = {
                         attribute: hasattr(iterator, attribute)
                         for attribute in arguments["attributes"]
                     }
                 elif method == "iterator-control":
-                    iterator = getattr(websocket, arguments["iterator"])()
+                    iterator = create_iterator(arguments["iterator"])
                     control = arguments["control"]
                     if control == "asend":
                         value = await iterator.asend(arguments["value"])
@@ -13119,6 +13137,13 @@ def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if (case.get("surface"), case.get("operation")) in {
+        ("starlette.testclient.TestClient", "module-import-policy"),
+        ("starlette.templating.Jinja2Templates", "module-import-policy"),
+    }:
+        from scripts.parity.adapters.optional_imports import run_optional_import_case
+
+        return run_optional_import_case(case)
     if (case.get("surface"), case.get("operation")) == (
         "starlette.middleware.exceptions.ExceptionMiddleware",
         "__init__",

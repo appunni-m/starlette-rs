@@ -36,28 +36,34 @@ coverage, and benchmark phases are pending for these changes.
 
 | Feature family | Current implementation work | Remaining implementation review |
 | --- | --- | --- |
-| Responses | Rust now orders Streaming/File/Redirect construction and invokes inherited and subclass hooks. Streaming uses live public iterator, header, charset and background values. | File call-time stat and subclass callbacks; supplied Morsel values; cookie exception/GC cleanup; stream chunk lifetime and special-method protocols. |
+| Responses | Rust orders Streaming/File/Redirect construction, invokes public call-time stat and denial hooks, preserves synchronous stream completion, and selects live background callbacks after sends. | Further file range/subclass callbacks and mutable I/O fields; supplied Morsel values; cookie exception/GC cleanup; complete stream chunk/traceback lifetime and special-method protocols. |
 | Concurrency and lifetimes | Threadpool iterator storage and continuations can cross Python threads; streaming coordination uses synchronized Rust state and exposes Python reference ownership to GC. | Active/unawaited continuations, cancellation and exception lifetime across all ASGI families and supported Python versions. |
-| Templates | Rust now initializes public environment/processor attributes and dispatches subclass environment and template hooks. | Optional import/decorator versions, async processor failure behavior and further descriptor/error protocols. |
+| Templates | Rust initializes public environment/processor attributes, dispatches subclass hooks, preserves import causes/contexts and callback StopAsyncIteration, and exposes references to GC in thread-safe continuations. | Further decorator versions, async processor failure behavior and descriptor/error/lifetime protocols. |
 | Applications, routing and lifespan | Existing Rust state machines and forwarding facades remain in the implementation phase. | Remaining composite middleware placement, scope mutations, subclass callbacks and additive native callable interfaces. |
 | Requests and data structures | Existing parsing, body limits, forms, headers, URLs, state and upload implementations remain in scope. | Optional form dependency boundaries, arbitrary value protocols and lifecycle ownership. |
 | Middleware and endpoints | Existing Rust middleware and endpoint state machines remain in scope. | Composite error/background handling, exception groups across Python versions and concurrent request isolation. |
-| WebSockets | Existing handshake, message state, convenience calls, endpoint and denial-response implementations remain in scope. | Arbitrary ASGI wrapper/subclass callbacks and cancellation/denial extension boundaries. |
+| WebSockets | Rust protocol state and iterator flags now use synchronization; owned callbacks/continuations can cross Python threads, references are visible to GC, and original callback errors are retained. | Endpoint continuation ownership, arbitrary ASGI/subclass protocols, active iterator finalization, exception traceback lifetimes and cancellation/denial extension boundaries. |
 | StaticFiles and file I/O | Existing Rust path, lookup, conditional response and file streaming implementations remain in scope. | Windows and custom PathLike behavior, stat/lookup hooks and async cleanup. |
-| TestClient and optional integrations | Existing Rust transport, lifespan portal and integration selection remain in scope; the package now declares the pinned source's `full` extra dependency set. | Present/absent dependency environments, HTTPX import failure/warning policy, asyncio/Trio options and cleanup. |
+| TestClient and optional integrations | Rust selects HTTPX fallback only for ModuleNotFoundError and preserves import/warning error contexts and suppression; the package declares the source's `full` extra. | Real present/absent dependency environments, form/session optional boundaries, import warning callsites, asyncio/Trio options and cleanup. |
 | Typing and packaging | Existing generic facades and `py.typed` remain in scope. | Supported Python 3.10–3.14 consumers, dependency markers, build/install artifacts and provenance. |
 
 This ledger records implementation review, not new parity evidence. The current
-checkpoint authors 46 response-variant and 10 template-protocol inputs. They
-have not been executed. All feature families must leave this implementation
+phase authors 46 response-variant, 10 template-protocol, 25 response call-hook,
+13 dependency import-policy and 30 WebSocket thread-ownership inputs. All 124
+remain unexecuted. All feature families must leave this implementation
 phase before the full parity, coverage and benchmark phases begin.
 
-The checkpoint passes workspace builds, strict Clippy, formatting, Ruff,
+The current static checkpoint passes workspace builds, strict Clippy, formatting, Ruff,
 project policy, contract and inventory validation, rustdoc, and local document
 links. These are static checks, not behavioral evidence. Benchmark freshness
 validation rejects the previous artifact because the active manifest changed.
 The historical records remain visible; a new benchmark run is deferred until
 the final phase.
+
+Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
+[template callbacks](TEMPLATE_PROTOCOL_BOUNDARY.md),
+[optional imports](OPTIONAL_IMPORT_BOUNDARY.md) and
+[WebSocket ownership](WEBSOCKET_OWNERSHIP_BOUNDARY.md).
 
 ## Runtime architecture
 
@@ -86,10 +92,10 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@45` and contains 1800 input-only
-cases in 111 indexed files (1798 oracle parity cases and two target-only fault
-contracts), covering 124 operations and 990 parity requirements. The newest
-56 cases are authored response-variant and template-protocol consumers; their
+The active parity contract uses `parity-input@45` and contains 1868 input-only
+cases in 114 indexed files (1866 oracle parity cases and two target-only fault
+contracts), covering 126 operations and 996 parity requirements. The newest
+124 cases are authored response, template, dependency and WebSocket consumers; their
 execution is deferred until the full parity phase. Earlier 156 cases cover
 cookie returned-value ownership, translation state, key hash callbacks and
 surrogate encoding. The current generated atlas has 809 source

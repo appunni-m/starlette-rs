@@ -104,6 +104,14 @@ pub(crate) fn response_object_call(
     receive: Py<PyAny>,
     send: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let send = if is_websocket_scope(scope)? {
+        response
+            .bind(py)
+            .call_method1("_wrap_websocket_denial_send", (send,))?
+            .unbind()
+    } else {
+        send
+    };
     into_sendable_python_awaitable(
         py,
         ResponseCallMachine {
@@ -111,7 +119,9 @@ pub(crate) fn response_object_call(
             send,
             _receive: receive,
             values: ResponseValues::Public(response),
-            websocket: is_websocket_scope(scope)?,
+            // The public wrapper owns message conversion and may be replaced
+            // by a subclass; native messages must reach it as HTTP events.
+            websocket: false,
             pending: None,
         },
     )

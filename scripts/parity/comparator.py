@@ -756,6 +756,34 @@ def _has_file_response_pathsend(value: Any, *, observation_path: str) -> bool:
     return False
 
 
+def _normalize_response_consumer_file_root(value: Any, *, file_name: str, side: str) -> Any:
+    """Replace only a validated adapter-generated root, retaining path suffixes."""
+    if not isinstance(value, dict):
+        return value
+    root = value.get("temporary_root")
+    prefix = "starlette-response-consumer-"
+    if (
+        not isinstance(root, str)
+        or not os.path.isabs(root)
+        or not os.path.basename(root).startswith(prefix)
+        or len(os.path.basename(root)) <= len(prefix)
+        or not file_name
+        or os.path.basename(file_name) != file_name
+    ):
+        return {**value, "temporary_root": f"<invalid-consumer-file-root:{side}>"}
+
+    def replace(item: Any) -> Any:
+        if isinstance(item, str):
+            return item.replace(root, "<consumer-file-root>")
+        if isinstance(item, list):
+            return [replace(child) for child in item]
+        if isinstance(item, dict):
+            return {key: replace(child) for key, child in item.items()}
+        return item
+
+    return replace(value)
+
+
 def _normalize_file_response_temp_path(
     value: Any, *, file_basename: str, side: str, observation_path: str
 ) -> Any:
@@ -1042,6 +1070,24 @@ def compare_workflows(
                         right_field = _normalize_multipart_range_boundary(
                             path, right_field, observation=right_value
                         )
+                    elif kind == "response-consumer-file-root":
+                        if (case.get("surface"), case.get("operation"), path) != (
+                            "starlette.responses.FileResponse",
+                            "consumer-construction",
+                            "response-consumer",
+                        ):
+                            raise ContractError(
+                                "Response file-root normalization requires a FileResponse consumer record"
+                            )
+                        content = case["construction"]["content"]
+                        if content["kind"] == "file":
+                            file_name = content["value"]["name"]
+                            left_field = _normalize_response_consumer_file_root(
+                                left_field, file_name=file_name, side="oracle"
+                            )
+                            right_field = _normalize_response_consumer_file_root(
+                                right_field, file_name=file_name, side="target"
+                            )
                     elif kind == "file-response-temp-path":
                         if (
                             case.get("surface")

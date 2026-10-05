@@ -122,6 +122,10 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
 
     if render["kind"] != "default":
         attributes["render"] = render_content
+    if "protocols" in case:
+        from scripts.parity.adapters.response_protocols import configure_response_protocols
+
+        configure_response_protocols(case["protocols"], attributes, base, trace, callback_errors)
     constructor = type("ConsumerResponse", (base,), attributes)
     if boundary is not None and boundary.spec["weakref_direct"]:
         constructor = base
@@ -173,9 +177,16 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
     phase = "constructor"
     try:
         content_spec = spec["content"]
-        if content_spec["kind"] == "file":
+        if content_spec["kind"] == "async-iterator":
+            from scripts.parity.adapters.response_protocols import stream_content
+
+            content = stream_content(content_spec["value"], trace, callback_errors)
+        elif content_spec["kind"] == "file":
             definition = content_spec["value"]
-            directory = resources.enter_context(tempfile.TemporaryDirectory())
+            directory = resources.enter_context(
+                tempfile.TemporaryDirectory(prefix="starlette-response-consumer-")
+            )
+            outcome["temporary_root"] = directory
             path = Path(directory) / definition["name"]
             path.write_bytes(base64.b64decode(definition["contents_base64"], validate=True))
             os.utime(path, (definition["mtime_seconds"], definition["mtime_seconds"]))

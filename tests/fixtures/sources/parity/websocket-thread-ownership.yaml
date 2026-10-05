@@ -1,0 +1,2283 @@
+{
+  "schema": "migration-parity/parity-input@45",
+  "cases": [
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.typed-text-custom-headers.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.accept.headers",
+        "starlette.websocket.api.receive.text",
+        "starlette.websocket.api.send.text",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.receive",
+          "text": "hello from peer"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept-with-headers",
+          "method": "accept",
+          "arguments": {
+            "subprotocol": "chat",
+            "headers_base64_pairs": [
+              [
+                "WC1NaVhlRA==",
+                "IGZpcnN0IA=="
+              ],
+              [
+                "c2V0LWNvb2tpZQ==",
+                "YT0x"
+              ],
+              [
+                "c2V0LWNvb2tpZQ==",
+                "Yj0y"
+              ]
+            ]
+          }
+        },
+        {
+          "action_id": "receive-text",
+          "method": "receive_text",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-text",
+          "method": "send_text",
+          "arguments": {
+            "data": "hello from server"
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.typed-bytes-empty-accept-headers.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.accept.empty-headers",
+        "starlette.websocket.api.receive.bytes",
+        "starlette.websocket.api.send.bytes",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.receive",
+          "bytes_base64": "AAFwYXlsb2Fk/w=="
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept-with-empty-headers",
+          "method": "accept",
+          "arguments": {
+            "headers_base64_pairs": []
+          }
+        },
+        {
+          "action_id": "receive-bytes",
+          "method": "receive_bytes",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-bytes",
+          "method": "send_bytes",
+          "arguments": {
+            "data_base64": "cmVzcG9uc2UAYnl0ZXM="
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.typed-json-text-and-binary.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.json.text",
+        "starlette.websocket.api.receive.json.binary",
+        "starlette.websocket.api.send.json.text",
+        "starlette.websocket.api.send.json.binary",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.receive",
+          "text": "{\"message\":\"text\",\"count\":3,\"ok\":true}"
+        },
+        {
+          "type": "websocket.receive",
+          "bytes_base64": "eyJtZXNzYWdlIjoiYmluYXJ5IiwiaXRlbXMiOlsxLDJdfQ=="
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept-default-headers",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "receive-json-text",
+          "method": "receive_json",
+          "arguments": {
+            "mode": "text"
+          }
+        },
+        {
+          "action_id": "receive-json-binary",
+          "method": "receive_json",
+          "arguments": {
+            "mode": "binary"
+          }
+        },
+        {
+          "action_id": "send-json-text",
+          "method": "send_json",
+          "arguments": {
+            "data": {
+              "answer": "text",
+              "count": 4
+            },
+            "mode": "text"
+          }
+        },
+        {
+          "action_id": "send-json-binary",
+          "method": "send_json",
+          "arguments": {
+            "data": [
+              "binary",
+              5,
+              false
+            ],
+            "mode": "binary"
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.send-json-invalid-mode.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.send.json.invalid-mode",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-json-invalid-mode",
+          "method": "send_json",
+          "arguments": {
+            "data": {},
+            "mode": "invalid"
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.receive-json-invalid-mode.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.json.invalid-mode",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "receive-json-invalid-mode",
+          "method": "receive_json",
+          "arguments": {
+            "mode": "invalid"
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.typed-receive-disconnect-details.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.disconnect.details",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.disconnect",
+          "code": 4012,
+          "reason": "session expired"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "receive-text-disconnect",
+          "method": "receive_text",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iter-text-async-for.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iter_text.async-for",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.receive",
+          "text": "one"
+        },
+        {
+          "type": "websocket.receive",
+          "text": "two"
+        },
+        {
+          "type": "websocket.disconnect",
+          "code": 1001,
+          "reason": "going away"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "iterate-text",
+          "method": "iter_text",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker",
+      "iterator_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iter-bytes-async-for.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iter_bytes.async-for",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.receive",
+          "bytes_base64": "AG9uZQ=="
+        },
+        {
+          "type": "websocket.receive",
+          "bytes_base64": "dHdv/w=="
+        },
+        {
+          "type": "websocket.disconnect",
+          "code": 1001,
+          "reason": "going away"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "iterate-bytes",
+          "method": "iter_bytes",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker",
+      "iterator_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iter-json-async-for.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iter_json.async-for",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.receive",
+          "text": "{\"n\":1}"
+        },
+        {
+          "type": "websocket.receive",
+          "text": "[\"next\",2]"
+        },
+        {
+          "type": "websocket.disconnect",
+          "code": 1001,
+          "reason": "going away"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "iterate-json",
+          "method": "iter_json",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker",
+      "iterator_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iterator-protocol-surface.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iterator.protocol.surface",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "inspect-text-iterator",
+          "method": "iterator-probe",
+          "arguments": {
+            "iterator": "iter_text",
+            "attributes": [
+              "__aiter__",
+              "__anext__",
+              "asend",
+              "athrow",
+              "aclose",
+              "ag_frame",
+              "ag_running",
+              "ag_code",
+              "ag_await"
+            ]
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker",
+      "iterator_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iterator-asend.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iterator.asend",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.receive",
+          "text": "yielded through asend"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "asend-none",
+          "method": "iterator-control",
+          "arguments": {
+            "iterator": "iter_text",
+            "control": "asend",
+            "value": null
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker",
+      "iterator_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iterator-asend-non-none.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iterator.asend",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "asend-non-none",
+          "method": "iterator-control",
+          "arguments": {
+            "iterator": "iter_text",
+            "control": "asend",
+            "value": "sent to a fresh async generator"
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker",
+      "iterator_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iterator.athrow",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "athrow-runtime-error",
+          "method": "iterator-control",
+          "arguments": {
+            "iterator": "iter_text",
+            "control": "athrow",
+            "exception": {
+              "class": "RuntimeError",
+              "message": "consumer injected exception"
+            }
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker",
+      "iterator_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iterator-aclose.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iterator.aclose",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "aclose-text-iterator",
+          "method": "iterator-control",
+          "arguments": {
+            "iterator": "iter_text",
+            "control": "aclose"
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker",
+      "iterator_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.denial-response-extension-present.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.raw",
+        "starlette.websocket.api.denial-response.present",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ],
+        "extensions": {
+          "websocket.http.response": {}
+        }
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-connect",
+          "method": "receive",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-denial-response",
+          "method": "send_denial_response",
+          "arguments": {
+            "response": {
+              "status_code": 403,
+              "content_base64": "YWNjZXNzIGRlbmllZA==",
+              "headers_base64_pairs": [
+                [
+                  "WC1EZW5pZWQ=",
+                  "cG9saWN5"
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.denial-response-extension-absent.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.denial-response.absent",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [],
+      "actions": [
+        {
+          "action_id": "send-denial-response",
+          "method": "send_denial_response",
+          "arguments": {
+            "response": {
+              "status_code": 401,
+              "content_base64": "YXV0aGVudGljYXRpb24gcmVxdWlyZWQ=",
+              "headers_base64_pairs": []
+            }
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.close-framing.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.close.framing",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "close-with-reason",
+          "method": "close",
+          "arguments": {
+            "code": 1008,
+            "reason": "policy"
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.duplicate-close.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.close.framing",
+        "starlette.websocket.api.close.duplicate",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "first-close",
+          "method": "close",
+          "arguments": {}
+        },
+        {
+          "action_id": "duplicate-close",
+          "method": "close",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.test-websocket-ensure-unicode-on-send-json.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.json.text",
+        "starlette.websocket.api.send.json.text",
+        "starlette.websocket.api.close.framing",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/123",
+        "raw_path_base64": "LzEyMw==",
+        "query_string_base64": "YT1hYmM=",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        },
+        {
+          "type": "websocket.receive",
+          "text": "{\"test\":\"\u6570\u636e\"}"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "receive-json-text",
+          "method": "receive_json",
+          "arguments": {
+            "mode": "text"
+          }
+        },
+        {
+          "action_id": "send-json-text",
+          "method": "send_json",
+          "arguments": {
+            "data": {
+              "test": "\u6570\u636e"
+            },
+            "mode": "text"
+          }
+        },
+        {
+          "action_id": "close",
+          "method": "close",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.test-websocket-binary-json.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.json.binary",
+        "starlette.websocket.api.send.json.binary",
+        "starlette.websocket.api.close.framing",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/123",
+        "raw_path_base64": "LzEyMw==",
+        "query_string_base64": "YT1hYmM=",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        },
+        {
+          "type": "websocket.receive",
+          "bytes_base64": "eyJ0ZXN0IjoiZGF0YSJ9"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "receive-json-binary",
+          "method": "receive_json",
+          "arguments": {
+            "mode": "binary"
+          }
+        },
+        {
+          "action_id": "send-json-binary",
+          "method": "send_json",
+          "arguments": {
+            "data": {
+              "test": "data"
+            },
+            "mode": "binary"
+          }
+        },
+        {
+          "action_id": "close",
+          "method": "close",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.test-websocket-close-reason.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.close.framing",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/123",
+        "raw_path_base64": "LzEyMw==",
+        "query_string_base64": "YT1hYmM=",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "close-with-code-and-reason",
+          "method": "close",
+          "arguments": {
+            "code": 1001,
+            "reason": "Going Away"
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.receive-text-before-accept.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.text.before-accept",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-text-before-accept",
+          "method": "receive_text",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.receive-bytes-before-accept.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.bytes.before-accept",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-bytes-before-accept",
+          "method": "receive_bytes",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.receive-json-before-accept.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.json.before-accept",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-json-before-accept",
+          "method": "receive_json",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.test-websocket-send-and-receive-text.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.accept.empty-headers",
+        "starlette.websocket.api.receive.text",
+        "starlette.websocket.api.send.text",
+        "starlette.websocket.api.close.framing",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        },
+        {
+          "type": "websocket.receive",
+          "text": "Hello, world!"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "receive-text",
+          "method": "receive_text",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-text",
+          "method": "send_text",
+          "arguments": {
+            "data": "Message was: Hello, world!"
+          }
+        },
+        {
+          "action_id": "close",
+          "method": "close",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.test-websocket-send-and-receive-bytes.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.accept.empty-headers",
+        "starlette.websocket.api.receive.bytes",
+        "starlette.websocket.api.send.bytes",
+        "starlette.websocket.api.close.framing",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        },
+        {
+          "type": "websocket.receive",
+          "bytes_base64": "SGVsbG8sIHdvcmxkIQ=="
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "receive-bytes",
+          "method": "receive_bytes",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-bytes",
+          "method": "send_bytes",
+          "arguments": {
+            "data_base64": "TWVzc2FnZSB3YXM6IEhlbGxvLCB3b3JsZCE="
+          }
+        },
+        {
+          "action_id": "close",
+          "method": "close",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.test-websocket-send-and-receive-json.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.accept.empty-headers",
+        "starlette.websocket.api.receive.json.text",
+        "starlette.websocket.api.send.json.text",
+        "starlette.websocket.api.close.framing",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        },
+        {
+          "type": "websocket.receive",
+          "text": "{\"hello\":\"world\"}"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "receive-json",
+          "method": "receive_json",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-json",
+          "method": "send_json",
+          "arguments": {
+            "data": {
+              "message": {
+                "hello": "world"
+              }
+            }
+          }
+        },
+        {
+          "action_id": "close",
+          "method": "close",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.client-disconnect-on-send.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.send.text",
+        "starlette.websocket.api.send.os-error.disconnect-details",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-text",
+          "method": "send_text",
+          "arguments": {
+            "data": "Hello, world!"
+          },
+          "send_error": {
+            "kind": "os-error",
+            "message": ""
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.denial-response-streaming.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.raw",
+        "starlette.websocket.api.denial-response.present",
+        "starlette.websocket.api.denial-response.streaming",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [],
+        "extensions": {
+          "websocket.http.response": {}
+        }
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-connect",
+          "method": "receive",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-denial-response",
+          "method": "send_denial_response",
+          "arguments": {
+            "response": {
+              "kind": "streaming",
+              "status_code": 403,
+              "chunks_base64": [
+                "aGVsbG8=",
+                "d29ybGQ="
+              ]
+            }
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.denial-response-file.worker-owner",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.raw",
+        "starlette.websocket.api.denial-response.present",
+        "starlette.websocket.api.denial-response.file",
+        "starlette.websocket.api.thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [],
+        "extensions": {
+          "websocket.http.response": {}
+        }
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-connect",
+          "method": "receive",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-denial-response",
+          "method": "send_denial_response",
+          "arguments": {
+            "response": {
+              "kind": "file",
+              "status_code": 401,
+              "content_base64": "dGVzdCBjb250ZW50",
+              "filename": "denial.txt",
+              "mtime_seconds": 1600000000
+            }
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ],
+      "constructor_thread": "worker"
+    }
+  ]
+}

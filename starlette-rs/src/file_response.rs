@@ -199,6 +199,7 @@ pub struct FileResponse {
     media_type: String,
     headers: Vec<(Vec<u8>, Vec<u8>)>,
     stat_override: Option<FileMetadata>,
+    stat_headers_prepared: bool,
     chunk_size: usize,
     max_ranges: usize,
 }
@@ -467,6 +468,7 @@ impl FileResponse {
             media_type: media_type.to_owned(),
             headers: raw_headers,
             stat_override: options.stat_override,
+            stat_headers_prepared: false,
             chunk_size: options.chunk_size.max(1),
             max_ranges: options.max_ranges,
         })
@@ -548,6 +550,17 @@ impl FileResponse {
         response.status_code = status_code;
         response.stat_override = stat_override;
         response
+    }
+
+    /// Keeps the header outcome selected by a compatibility callback.
+    ///
+    /// A caller that has already invoked its public stat-header hook can retain
+    /// that hook's replacements or omissions. Metadata is still required for
+    /// file/range planning, but preparation does not insert header defaults.
+    #[must_use]
+    pub fn with_prepared_stat_headers(mut self) -> Self {
+        self.stat_headers_prepared = true;
+        self
     }
 
     /// Returns the explicit or extension-guessed content type.
@@ -670,7 +683,9 @@ impl FileResponse {
             }
         };
 
-        set_stat_headers(&mut view_headers, &metadata)?;
+        if !self.stat_headers_prepared {
+            set_stat_headers(&mut view_headers, &metadata)?;
+        }
         let base_headers = view_headers.clone();
         let mut headers = if view_is_raw {
             view_headers.clone()
@@ -778,6 +793,16 @@ impl FileResponse {
 }
 
 impl FileResponseCall {
+    /// Whether the simple successful response sends its live base values.
+    ///
+    /// Range and error responses construct separate header lists. A Python
+    /// compatibility boundary can preserve raw-list identity for the simple
+    /// branch while retaining the Rust-selected list for those other branches.
+    #[must_use]
+    pub fn sends_raw_headers(&self) -> bool {
+        matches!(self.mode, FileResponseMode::Simple) && self.error_body.is_none()
+    }
+
     fn prepared_error(
         status_code: u16,
         headers: Vec<(Vec<u8>, Vec<u8>)>,

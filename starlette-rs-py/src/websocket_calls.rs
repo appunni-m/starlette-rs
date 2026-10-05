@@ -1,7 +1,9 @@
 //! Rust-owned ASGI WebSocket receive/send sequencing with Python callback delegation.
 
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
+
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 
 use pyo3::exceptions::{
     PyAssertionError, PyKeyError, PyOSError, PyRuntimeError, PyStopAsyncIteration, PyTypeError,
@@ -12,17 +14,43 @@ use pyo3::types::{PyAny, PyDict, PyList, PyModule, PySet, PySetMethods, PyString
 use starlette_rs::{WebSocketState, WebSocketStateMachine};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
-type SharedProtocolState = Rc<RefCell<WebSocketStateMachine>>;
+type SharedProtocolState = Arc<Mutex<WebSocketStateMachine>>;
+
+fn protocol_state(state: &SharedProtocolState) -> PyResult<MutexGuard<'_, WebSocketStateMachine>> {
+    state
+        .lock()
+        .map_err(|_| PyRuntimeError::new_err("WebSocket state mutex was poisoned"))
+}
+
+// Only Rust flags cross threads. No Python callback executes while a native
+// state lock is held; Python futures continue on their owning event loop.
+#[derive(Clone)]
+struct SharedFlag(Arc<AtomicBool>);
+
+impl SharedFlag {
+    fn new(value: bool) -> Self {
+        Self(Arc::new(AtomicBool::new(value)))
+    }
+    fn get(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
+    }
+    fn set(&self, value: bool) {
+        self.0.store(value, Ordering::SeqCst);
+    }
+    fn replace(&self, value: bool) -> bool {
+        self.0.swap(value, Ordering::SeqCst)
+    }
+}
 
 /// PyO3 boundary for the raw ASGI WebSocket receive and send operations.
 ///
 /// The ASGI callbacks remain Python callables and are awaited by the current
 /// Python task. State validation, callback ordering, and the connected-send
 /// `OSError` policy run in the Rust continuation.
-#[pyclass(name = "WebSocketProtocol", unsendable)]
+#[pyclass(name = "WebSocketProtocol")]
 pub(crate) struct PyWebSocketProtocol {
     state: SharedProtocolState,
     receive_callback: Py<PyAny>,
@@ -39,6 +67,16 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 
 #[pymethods]
 impl PyWebSocketProtocol {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.receive_callback)?;
+        visit.call(&self.send_callback)?;
+        visit.call(&self.disconnect_error)
+    }
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.receive_callback = py.None();
+        self.send_callback = py.None();
+        self.disconnect_error = py.None();
+    }
     #[new]
     fn new(
         scope: &Bound<'_, PyDict>,
@@ -54,37 +92,33 @@ impl PyWebSocketProtocol {
         }
 
         Ok(Self {
-            state: Rc::new(RefCell::new(WebSocketStateMachine::new())),
+            state: Arc::new(Mutex::new(WebSocketStateMachine::new())),
             receive_callback,
             send_callback,
             disconnect_error,
         })
     }
 
-    fn client_state(&self) -> u8 {
-        state_code(self.state.borrow().client_state())
+    fn client_state(&self) -> PyResult<u8> {
+        Ok(state_code(protocol_state(&self.state)?.client_state()))
     }
 
     fn set_client_state(&self, state: u8) -> PyResult<()> {
-        self.state
-            .borrow_mut()
-            .set_client_state(state_from_code(state)?);
+        protocol_state(&self.state)?.set_client_state(state_from_code(state)?);
         Ok(())
     }
 
-    fn application_state(&self) -> u8 {
-        state_code(self.state.borrow().application_state())
+    fn application_state(&self) -> PyResult<u8> {
+        Ok(state_code(protocol_state(&self.state)?.application_state()))
     }
 
     fn set_application_state(&self, state: u8) -> PyResult<()> {
-        self.state
-            .borrow_mut()
-            .set_application_state(state_from_code(state)?);
+        protocol_state(&self.state)?.set_application_state(state_from_code(state)?);
         Ok(())
     }
 
     fn receive(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             WebSocketReceiveMachine {
                 state: self.state.clone(),
@@ -95,7 +129,7 @@ impl PyWebSocketProtocol {
     }
 
     fn send(&self, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             WebSocketSendMachine {
                 state: self.state.clone(),
@@ -116,7 +150,7 @@ impl PyWebSocketProtocol {
         subprotocol: Py<PyAny>,
         headers: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             AcceptMachine {
                 state: self.state.clone(),
@@ -262,7 +296,7 @@ impl PyWebSocketProtocol {
         receive_callback: Py<PyAny>,
         send_callback: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             DenialResponseMachine {
                 scope,
@@ -286,6 +320,12 @@ struct WebSocketReceiveMachine {
 }
 
 impl AwaitableStateMachine for WebSocketReceiveMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.callback)
+    }
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.start(py),
@@ -293,7 +333,7 @@ impl AwaitableStateMachine for WebSocketReceiveMachine {
                 self.record_message(py, &message)?;
                 Ok(MachineAction::Complete(message))
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -301,7 +341,7 @@ impl AwaitableStateMachine for WebSocketReceiveMachine {
 
 impl WebSocketReceiveMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let mut state_at_start = *self.state.borrow();
+        let mut state_at_start = *protocol_state(&self.state)?;
         if matches!(
             state_at_start.client_state(),
             WebSocketState::Disconnected | WebSocketState::Response
@@ -337,7 +377,7 @@ impl WebSocketReceiveMachine {
             .receive(&message_type)
             .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
 
-        let mut shared = self.state.borrow_mut();
+        let mut shared = protocol_state(&self.state)?;
         if shared.client_state() == client_state_at_start
             && state_at_start.client_state() != client_state_at_start
         {
@@ -359,6 +399,14 @@ struct WebSocketSendMachine {
 }
 
 impl AwaitableStateMachine for WebSocketSendMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.callback)?;
+        visit.call(&self.disconnect_error)?;
+        visit.call(&self.message)
+    }
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.start(py),
@@ -369,7 +417,7 @@ impl AwaitableStateMachine for WebSocketSendMachine {
                 self.callback_pending = false;
                 Ok(MachineAction::Complete(py.None()))
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Error(error) => self.callback_error(py, error),
         }
     }
@@ -377,9 +425,9 @@ impl AwaitableStateMachine for WebSocketSendMachine {
 
 impl WebSocketSendMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let application_state = self.state.borrow().application_state();
+        let application_state = protocol_state(&self.state)?.application_state();
         if application_state == WebSocketState::Disconnected {
-            let error = match self.state.borrow_mut().begin_send("", false) {
+            let error = match protocol_state(&self.state)?.begin_send("", false) {
                 Err(error) => error,
                 Ok(_) => {
                     return Err(PyRuntimeError::new_err(
@@ -399,9 +447,7 @@ impl WebSocketSendMachine {
             false
         };
 
-        self.catches_os_error = self
-            .state
-            .borrow_mut()
+        self.catches_os_error = protocol_state(&self.state)?
             .begin_send(&message_type, more_body)
             .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
 
@@ -418,7 +464,7 @@ impl WebSocketSendMachine {
     fn callback_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
         self.callback_pending = false;
         if self.catches_os_error && error.is_instance_of::<PyOSError>(py) {
-            self.state.borrow_mut().send_failed();
+            protocol_state(&self.state)?.send_failed();
             let kwargs = PyDict::new(py);
             kwargs.set_item("code", 1006)?;
             let exception = self.disconnect_error.bind(py).call((), Some(&kwargs))?;
@@ -443,7 +489,7 @@ fn typed_receive_awaitable(
     disconnect_handler: Py<PyAny>,
     kind: TypedReceiveKind,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         TypedReceiveMachine {
             state: state.clone(),
@@ -464,11 +510,22 @@ struct TypedReceiveMachine {
 }
 
 impl AwaitableStateMachine for TypedReceiveMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.receive_callback)?;
+        visit.call(&self.disconnect_handler)?;
+        match &self.kind {
+            TypedReceiveKind::Json(mode) => visit.call(mode),
+            _ => Ok(()),
+        }
+    }
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.start(py),
             MachineResume::Value(message) => self.finish_message(py, message),
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -479,7 +536,7 @@ impl TypedReceiveMachine {
         if let TypedReceiveKind::Json(mode) = &self.kind {
             self.json_binary = json_mode_is_binary(py, mode.bind(py))?;
         }
-        if self.state.borrow().application_state() != WebSocketState::Connected {
+        if protocol_state(&self.state)?.application_state() != WebSocketState::Connected {
             return Err(PyRuntimeError::new_err(
                 "WebSocket is not connected. Need to call \"accept\" first.",
             ));
@@ -552,6 +609,15 @@ struct AcceptMachine {
 }
 
 impl AwaitableStateMachine for AcceptMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.receive_callback)?;
+        visit.call(&self.send_callback)?;
+        visit.call(&self.subprotocol)?;
+        visit.call(&self.headers)
+    }
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.start(py),
@@ -564,7 +630,7 @@ impl AwaitableStateMachine for AcceptMachine {
                     )),
                 }
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -575,7 +641,7 @@ impl AcceptMachine {
         if !self.headers.bind(py).is_truthy()? {
             self.headers = PyList::empty(py).into_any().unbind();
         }
-        if self.state.borrow().client_state() == WebSocketState::Connecting {
+        if protocol_state(&self.state)?.client_state() == WebSocketState::Connecting {
             self.pending = AcceptPending::Receive;
             let awaitable = self.receive_callback.bind(py).call0()?;
             return Ok(MachineAction::Await(awaitable.unbind()));
@@ -613,7 +679,7 @@ fn framed_send_awaitable(
     send_callback: Py<PyAny>,
     frame: WebSocketSendFrame,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         FramedSendMachine {
             send_callback,
@@ -630,6 +696,26 @@ struct FramedSendMachine {
 }
 
 impl AwaitableStateMachine for FramedSendMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.send_callback)?;
+        match &self.frame {
+            Some(WebSocketSendFrame::Text(value) | WebSocketSendFrame::Bytes(value)) => {
+                visit.call(value)
+            }
+            Some(WebSocketSendFrame::Json { data, mode }) => {
+                visit.call(data)?;
+                visit.call(mode)
+            }
+            Some(WebSocketSendFrame::Close { code, reason, .. }) => {
+                visit.call(code)?;
+                visit.call(reason)
+            }
+            None => Ok(()),
+        }
+    }
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.start(py),
@@ -642,7 +728,7 @@ impl AwaitableStateMachine for FramedSendMachine {
                 self.pending = false;
                 Ok(MachineAction::Complete(py.None()))
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -716,6 +802,15 @@ struct DenialResponseMachine {
 }
 
 impl AwaitableStateMachine for DenialResponseMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.scope)?;
+        visit.call(&self.response)?;
+        visit.call(&self.receive_callback)?;
+        visit.call(&self.send_callback)
+    }
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.start(py),
@@ -728,7 +823,7 @@ impl AwaitableStateMachine for DenialResponseMachine {
                 self.pending = false;
                 Ok(MachineAction::Complete(py.None()))
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -757,13 +852,13 @@ impl DenialResponseMachine {
     }
 }
 
-#[pyclass(name = "WebSocketIterator", unsendable)]
+#[pyclass(name = "WebSocketIterator")]
 struct PyWebSocketIterator {
     callback: Py<PyAny>,
     disconnect_error: Py<PyAny>,
-    finished: Rc<Cell<bool>>,
-    running: Rc<Cell<bool>>,
-    started: Rc<Cell<bool>>,
+    finished: SharedFlag,
+    running: SharedFlag,
+    started: SharedFlag,
 }
 
 impl PyWebSocketIterator {
@@ -771,9 +866,9 @@ impl PyWebSocketIterator {
         Self {
             callback,
             disconnect_error,
-            finished: Rc::new(Cell::new(false)),
-            running: Rc::new(Cell::new(false)),
-            started: Rc::new(Cell::new(false)),
+            finished: SharedFlag::new(false),
+            running: SharedFlag::new(false),
+            started: SharedFlag::new(false),
         }
     }
 }
@@ -786,7 +881,7 @@ fn websocket_iterator_next(slf: Py<PyWebSocketIterator>, py: Python<'_>) -> PyRe
     let running = borrowed.running.clone();
     let started = borrowed.started.clone();
     drop(borrowed);
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         WebSocketIteratorStep {
             callback,
@@ -802,6 +897,14 @@ fn websocket_iterator_next(slf: Py<PyWebSocketIterator>, py: Python<'_>) -> PyRe
 
 #[pymethods]
 impl PyWebSocketIterator {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.callback)?;
+        visit.call(&self.disconnect_error)
+    }
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.callback = py.None();
+        self.disconnect_error = py.None();
+    }
     fn __aiter__(slf: Py<Self>) -> Py<Self> {
         slf
     }
@@ -818,7 +921,7 @@ impl PyWebSocketIterator {
         let running = borrowed.running.clone();
         let started = borrowed.started.clone();
         drop(borrowed);
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             WebSocketIteratorStep {
                 callback,
@@ -837,7 +940,7 @@ impl PyWebSocketIterator {
         let finished = borrowed.finished.clone();
         let running = borrowed.running.clone();
         drop(borrowed);
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             WebSocketIteratorThrow {
                 exception,
@@ -852,7 +955,7 @@ impl PyWebSocketIterator {
         let finished = borrowed.finished.clone();
         let running = borrowed.running.clone();
         drop(borrowed);
-        into_python_awaitable(py, WebSocketIteratorClose { finished, running })
+        into_sendable_python_awaitable(py, WebSocketIteratorClose { finished, running })
     }
 
     #[getter]
@@ -878,11 +981,17 @@ impl PyWebSocketIterator {
 
 struct WebSocketIteratorThrow {
     exception: Py<PyAny>,
-    finished: Rc<Cell<bool>>,
-    running: Rc<Cell<bool>>,
+    finished: SharedFlag,
+    running: SharedFlag,
 }
 
 impl AwaitableStateMachine for WebSocketIteratorThrow {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.exception)
+    }
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
@@ -896,14 +1005,14 @@ impl AwaitableStateMachine for WebSocketIteratorThrow {
             }
             MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),
             MachineResume::Error(error) => Err(error),
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
         }
     }
 }
 
 struct WebSocketIteratorClose {
-    finished: Rc<Cell<bool>>,
-    running: Rc<Cell<bool>>,
+    finished: SharedFlag,
+    running: SharedFlag,
 }
 
 impl AwaitableStateMachine for WebSocketIteratorClose {
@@ -920,7 +1029,7 @@ impl AwaitableStateMachine for WebSocketIteratorClose {
             }
             MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),
             MachineResume::Error(error) => Err(error),
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
         }
     }
 }
@@ -928,14 +1037,22 @@ impl AwaitableStateMachine for WebSocketIteratorClose {
 struct WebSocketIteratorStep {
     callback: Py<PyAny>,
     disconnect_error: Py<PyAny>,
-    finished: Rc<Cell<bool>>,
-    running: Rc<Cell<bool>>,
-    started: Rc<Cell<bool>>,
+    finished: SharedFlag,
+    running: SharedFlag,
+    started: SharedFlag,
     send_value: Py<PyAny>,
     pending: bool,
 }
 
 impl AwaitableStateMachine for WebSocketIteratorStep {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.callback)?;
+        visit.call(&self.disconnect_error)?;
+        visit.call(&self.send_value)
+    }
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.start(py),
@@ -949,12 +1066,7 @@ impl AwaitableStateMachine for WebSocketIteratorStep {
                 self.running.set(false);
                 Ok(MachineAction::Complete(value))
             }
-            MachineResume::AsyncIterationComplete(_) => {
-                self.finish();
-                Err(PyRuntimeError::new_err(
-                    "async generator raised StopAsyncIteration",
-                ))
-            }
+            MachineResume::AsyncIterationComplete(error) => self.callback_error(py, error),
             MachineResume::Error(error) => self.callback_error(py, error),
         }
     }
@@ -990,6 +1102,11 @@ impl WebSocketIteratorStep {
         self.finish();
         if error.is_instance(py, self.disconnect_error.bind(py)) {
             Err(PyStopAsyncIteration::new_err(()))
+        } else if error.is_instance_of::<PyStopAsyncIteration>(py) {
+            let raised = PyRuntimeError::new_err("async generator raised StopAsyncIteration");
+            raised.set_context(py, Some(error.clone_ref(py)));
+            raised.set_cause(py, Some(error));
+            Err(raised)
         } else {
             Err(error)
         }
@@ -1001,7 +1118,7 @@ impl WebSocketIteratorStep {
     }
 }
 
-#[pyclass(name = "WebSocketClose", unsendable)]
+#[pyclass(name = "WebSocketClose")]
 struct PyWebSocketClose {
     code: Py<PyAny>,
     reason: Py<PyAny>,
@@ -1009,6 +1126,14 @@ struct PyWebSocketClose {
 
 #[pymethods]
 impl PyWebSocketClose {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.code)?;
+        visit.call(&self.reason)
+    }
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.code = py.None();
+        self.reason = py.None();
+    }
     #[new]
     fn new(py: Python<'_>, code: Py<PyAny>, reason: Py<PyAny>) -> PyResult<Self> {
         let reason = normalize_reason(py, reason)?;
