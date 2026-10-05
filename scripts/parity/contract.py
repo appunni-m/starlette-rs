@@ -15915,7 +15915,7 @@ def validate_case(
         expected_case_keys = expected_case_keys | (REQUEST_FORM_OPTIONAL_KEYS.intersection(case))
     elif is_response_consumer:
         expected_case_keys = RESPONSE_CONSUMER_CASE_KEYS | (
-            {"callbacks", "ownership"} & case.keys()
+            {"callbacks", "ownership", "construction_boundary"} & case.keys()
         )
     elif is_value_lifetime:
         expected_case_keys = VALUE_LIFETIME_CASE_KEYS
@@ -31292,6 +31292,38 @@ def _validate_response_consumer_content(value: Any) -> None:
             base64.b64decode(content, validate=True)
         except ValueError as error:
             raise ContractError("Response bytes must use valid base64") from error
+    elif kind in {"memoryview-layout", "bytes-subclass"}:
+        fields = (
+            {"data_base64", "format", "shape", "step", "released"}
+            if kind == "memoryview-layout"
+            else {"data_base64", "length", "failure"}
+        )
+        content = _exact(content, fields, "Response body protocol")
+        _validate_response_consumer_content({"kind": "bytes", "value": content["data_base64"]})
+        if kind == "bytes-subclass":
+            if content["length"] is not None and type(content["length"]) is not int:
+                raise ContractError("Response body length override must be an integer or null")
+            _validate_response_construction_failure(content["failure"])
+        elif (
+            content["format"] not in ("B", "I")
+            or not isinstance(content["shape"], list)
+            or not content["shape"]
+            or any(type(item) is not int or item <= 0 for item in content["shape"])
+            or (
+                content["step"] is not None
+                and (type(content["step"]) is not int or content["step"] == 0)
+            )
+            or type(content["released"]) is not bool
+        ):
+            raise ContractError(
+                "Response memoryview layout requires a format, positive shape, optional stride and release flag"
+            )
+        elif math.prod(content["shape"]) * (4 if content["format"] == "I" else 1) != len(
+            base64.b64decode(content["data_base64"], validate=True)
+        ) or (len(content["shape"]) != 1 and content["step"] is not None):
+            raise ContractError(
+                "Response memoryview shape must match its buffer; stride requires one dimension"
+            )
     elif kind == "text":
         if not isinstance(content, str):
             raise ContractError("Response text must be a string")
@@ -31312,13 +31344,19 @@ def _validate_response_consumer_attributes(value: Any, *, body: bool = False) ->
         raise ContractError("Response attributes must name public response values")
     for name, item in value.items():
         if name == "status_code":
-            if type(item) is not int or not 0 <= item <= 65535:
-                raise ContractError("Response status requires an unsigned 16-bit integer")
+            if type(item) is not int:
+                raise ContractError("Python response status requires an integer")
         elif name == "body":
             if not body:
                 raise ContractError("Response body changes belong after construction")
             _validate_response_consumer_content(item)
-            if item["kind"] not in {"bytes", "memoryview", "mutable-memoryview"}:
+            if item["kind"] not in {
+                "bytes",
+                "memoryview",
+                "mutable-memoryview",
+                "memoryview-layout",
+                "bytes-subclass",
+            }:
                 raise ContractError("Response body changes require bytes or memoryview")
         elif name == "media_type" and item is None:
             continue
@@ -31336,6 +31374,11 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         expected_requirements.append(
             case["surface"] + ".consumer-construction.live-asgi-state-and-lifetime"
         )
+    if "construction_boundary" in case:
+        expected_requirements.append(
+            case["surface"] + ".consumer-construction.body-and-header-protocols"
+        )
+        _validate_response_construction_boundary(case["construction_boundary"])
     if case["covers"] != expected_requirements:
         raise ContractError("Response consumer coverage must match its declared surface")
     spec = _exact(
@@ -31373,6 +31416,21 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
     if kind not in keys:
         raise ContractError("Response render policy is unsupported")
     _exact(render, keys[kind], "Response render policy")
+    if "construction_boundary" in case:
+        probe = case["construction_boundary"]
+        needs_render_entry = (
+            probe["seed_headers"] is not None
+            or probe["early_headers_read"] is not None
+            or (probe["headers"] is not None and bool(probe["headers"]["mutations"]))
+        )
+        if needs_render_entry and (kind == "default" or probe["weakref_direct"]):
+            raise ContractError(
+                "Response render-time probes require an input-defined render callback"
+            )
+        if "ownership" in case:
+            raise ContractError(
+                "Response construction and ownership workflows require separate inputs"
+            )
     if kind != "default":
         _validate_response_consumer_attributes(render["mutations"])
     if kind == "constant":
@@ -31422,6 +31480,71 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
     if case["background_label"] is not None and not isinstance(case["background_label"], str):
         raise ContractError("Response background label must be text or null")
     _validate_response_callbacks(case)
+
+
+def _validate_response_construction_failure(value: Any) -> None:
+    if value is None:
+        return
+    failure = _exact(value, {"class", "message"}, "Response construction callback failure")
+    if failure["class"] not in ("OSError", "RuntimeError") or not isinstance(
+        failure["message"], str
+    ):
+        raise ContractError("Response construction callback requires an exception class and text")
+
+
+def _validate_response_construction_boundary(value: Any) -> None:
+    probe = _exact(
+        value,
+        {"headers", "media", "seed_headers", "early_headers_read", "weakref_direct"},
+        "Response construction boundary",
+    )
+    if probe["media"] is not None and not isinstance(probe["media"], str):
+        raise ContractError("Response media protocol requires text or null")
+    if (
+        probe["early_headers_read"] not in (None, "raw_headers", "headers")
+        or type(probe["weakref_direct"]) is not bool
+    ):
+        raise ContractError(
+            "Response constructor probes require a header attribute and weakref flag"
+        )
+    if probe["seed_headers"] is not None:
+        if not isinstance(probe["seed_headers"], list) or any(
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(item, str) for item in pair)
+            for pair in probe["seed_headers"]
+        ):
+            raise ContractError("Response seed headers require text pairs")
+    if probe["headers"] is None:
+        return
+    headers = _exact(
+        probe["headers"],
+        {"pairs", "mutations", "items_failure"},
+        "Response header mapping protocol",
+    )
+    _validate_response_consumer_attributes(headers["mutations"], body=True)
+    _validate_response_construction_failure(headers["items_failure"])
+    if not isinstance(headers["pairs"], list):
+        raise ContractError("Response header protocol requires ordered pairs")
+    for item in headers["pairs"]:
+        pair = _exact(
+            item, {"name", "value", "name_policy", "value_policy"}, "Response header pair"
+        )
+        if any(not isinstance(pair[key], str) for key in ("name", "value")):
+            raise ContractError("Response header pair requires text")
+        for key in ("name_policy", "value_policy"):
+            policy = _exact(
+                pair[key],
+                {"lower_result", "failure_stage", "failure"},
+                "Response header protocol policy",
+            )
+            if policy["failure_stage"] not in (None, "lower", "encode") or (
+                policy["lower_result"] is not None and not isinstance(policy["lower_result"], str)
+            ):
+                raise ContractError(
+                    "Response header policy requires a method and optional lower text"
+                )
+            _validate_response_construction_failure(policy["failure"])
 
 
 def _validate_response_callbacks(case: dict[str, Any]) -> None:

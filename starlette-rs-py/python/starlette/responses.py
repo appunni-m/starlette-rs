@@ -18,7 +18,7 @@ _ContentStream = Iterable[_ContentChunk] | AsyncIterable[_ContentChunk]
 class Response:
     """Wrap a Rust response and await ASGI ``send`` on the caller's loop."""
 
-    __slots__ = ("__dict__", "_inner", "background", "body", "status_code")
+    __slots__ = ("__dict__", "__weakref__", "_inner", "background", "body", "status_code")
     media_type = None
     charset = "utf-8"
 
@@ -30,13 +30,12 @@ class Response:
         media_type: str | None = None,
         background: Any = None,
     ) -> None:
+        self._inner = _core.Response.uninitialized()
         self.status_code = status_code
-        self.media_type = _core.Response.media_type_or(media_type, self.media_type)
+        _core.Response.set_media_type(self, media_type)
         self.background = background
         self.body = self.render(content)
-        self._inner = _core.Response(
-            self.body, self.status_code, headers, self.media_type, self.charset
-        )
+        _core.Response.initialize_headers(self, headers)
 
     @classmethod
     def _from_native(cls, inner: Any) -> Response:
@@ -59,7 +58,7 @@ class Response:
     @property
     def raw_headers(self) -> list[tuple[bytes, bytes]]:
         """Return the response's mutable raw header list."""
-        return self._inner.raw_headers
+        return _core.Response.raw_headers_for(self)
 
     @raw_headers.setter
     def raw_headers(self, value: list[tuple[bytes, bytes]]) -> None:
@@ -68,7 +67,7 @@ class Response:
     @property
     def headers(self) -> MutableHeaders:
         """Return the Rust-cached mutable header view."""
-        return self._inner.headers
+        return _core.Response.headers_for(self)
 
     def _sync_raw_headers(self) -> None:
         self._inner._header_replace_raw(self.raw_headers)

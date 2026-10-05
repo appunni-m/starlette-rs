@@ -71,3 +71,11 @@ or expected result is copied.
 ## Response ASGI callback input provenance
 
 `tests/fixtures/sources/parity/response-asgi-callbacks.yaml` is independently authored from the pinned `starlette/responses.py:29-200`, the responses guide's ASGI consumer contract, and the project's Python callback/lifetime boundary requirements. It supplies callback mutations, byte/header values, background functions, suspended coroutines, and collection schedules. Public observations are generated live; no source test file, expected output, or target-private state is copied. The development-time source oracle retains its BSD-3-Clause provenance. See `docs/RESPONSE_RENDER_BOUNDARY.md`.
+
+The input-only `response-construction-protocols.yaml` definitions derive body
+length, header conversion ordering, and raw-header/cache behavior from the
+pinned `starlette/responses.py:29-101` and documented constructors in
+`docs/responses.md:10-118`. User body/header/media classes are independently
+authored consumer callbacks. No upstream test file or expected output is
+copied. The upstream BSD-3-Clause provenance above applies to reused behavior
+specifications.

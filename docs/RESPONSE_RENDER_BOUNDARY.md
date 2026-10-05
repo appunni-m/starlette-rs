@@ -97,10 +97,42 @@ Clean commit `30becba23b568754874b17407a769c238697407f` passed full preflight `2
 
 Benchmark `b032a0d3-e787-4d23-b066-87b84086cb69` matched and timed all 74 source/package workloads. All 74 native timings remain not_run. Median source/package latency ratios were 0.756 for Router and 0.975 for GZip; the source was faster in 5/6 Router and 46/68 GZip workloads. Result SHA-256: `18812538edde5287ec6ddb514f54cb07e04df01318c5935588f1abd9c09dcf24`. See [benchmark evidence](BENCHMARKS.md). Passing this active bounded contract does not establish full replacement parity.
 
-## Next constructor boundary audit
+## Constructor boundary audit
 
-The binding currently converts memoryviews with `tobytes()` before native
+The earlier binding converted memoryviews with `tobytes()` before native
 header construction. The pin derives content length with Python `len(body)`.
-Formatted memoryviews and bytes subclasses therefore need input-only consumer
-comparisons before claiming complete render/header conversion behavior. The
+The input extension below investigates those body/header protocols. The
 uncertain `init_headers` candidate remains unchanged.
+
+## Constructor body and header protocol inputs
+
+`response-construction-protocols.yaml` adds 132 input-only consumers across
+Response, HTMLResponse, PlainTextResponse and JSONResponse. User render hooks
+supply formatted, matrix, strided or released memoryviews, bytes subclasses
+with input-defined length behavior, or None. Other inputs exercise explicit
+length and bodyless statuses, arbitrary Python integer statuses, header mapping
+callbacks that mutate public values, lower/encode exceptions and Latin-1 errors,
+explicit media object identity, render-time header access/cache creation, and
+direct weak references. These are ordinary source/package comparisons; user
+callback failures are not target-internal fault injections.
+
+Calling Python protocols preserves user code and original exception identity.
+Rust must own the header construction order, conditional length/content-type
+selection, and cached-view lifetime. The facade may initialize a Rust state
+holder before invoking user render code and forward header construction to
+Rust. No Python semantic algorithm is needed. The workflow observes only the
+documented constructors and public attributes; `init_headers` remains an
+uncertain candidate. Existing target-only fault contracts remain separate
+counts in the shared selected runs.
+
+## Constructor body and header protocol evidence
+
+The 132 new input-only consumers exposed 104 divergences in live reproduction `37afc253-71e1-47df-8fbb-08e0400f4f18`. Its 29 ordinary passes and both fault contracts passed with no infrastructure errors. The target previously measured copied body bytes, converted header/media text too early, and created its core after user rendering. This lost Python length/method protocols, live callback mutations, original encoding errors, and render-time header/cache access.
+
+Rust now initializes storage before user rendering, constructs headers through the source-ordered Python protocols, selects length from Python `len(body)` and live status, and retains an explicit media object. Header construction finishes before replacing raw headers and preserves an existing cached view. Python only forwards these calls and declares weak-reference support. No runtime Python branching, loops, unsafe Rust, or unit tests were added. Native rendered-byte constructors retain their additive API.
+
+Normal selection `6de84f15-3fb2-489a-8bd8-d06195f65d6b` passed 434/434 ordinary comparisons and both fault contracts, including prior response rendering, ASGI callbacks/ownership, redirect, streaming, file, body-limit and route-limit controls. Result SHA-256: `0c49d90b972fc5976fb987811ea02bbf614b506a91a4222b1801d7afbf303c1f`; manifest SHA-256: `67732db6d1e68d7c2ebce213cb3dc9cf8510de5488f628c6f6625390bfe35f6d`; normal package tree: `29cbc8f9b188bc02383d451aea70605502ff577ca12eadb3956dd134cc0d7170`.
+
+Coverage MCP verified 27 additional Rust lines with matching source/build receipts: baseline 3,278/25,179, batch 2,882/25,179, union 3,305/25,179. Baseline `a971621e-957e-4366-a602-6c8a7c476478` passed 178 ordinary comparisons; batch `b24af4a4-8bea-467a-b4bf-5c78c3144cf9` passed 133. Both passed both fault contracts. Instrumented package tree: `4a5c520948883a92183b654d412c3e35b3aa61124f087dd2de1b8c26d830f2ab`; wheel SHA-256: `40d05a57c4a2c49b5fb4b9a9a67c52a946997b709947fad5e453ce5ee8826367`. Reports/receipts remain ignored under `build/parity/coverage/response-construction-20261005/`. This selected incremental union does not establish full-suite coverage regression status.
+
+The generated atlas has 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. `Response.init_headers` remains uncertain; complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).

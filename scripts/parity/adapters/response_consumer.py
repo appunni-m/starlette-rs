@@ -9,7 +9,13 @@ import math
 from typing import Any
 
 
-def _content(spec: dict[str, Any]) -> Any:
+def _content(
+    spec: dict[str, Any], trace: list[Any] | None = None, errors: list[Any] | None = None
+) -> Any:
+    if spec["kind"] in {"memoryview-layout", "bytes-subclass"}:
+        from scripts.parity.adapters.response_construction import body_value
+
+        return body_value(spec, [] if trace is None else trace, [] if errors is None else errors)
     if spec["kind"] == "bytes":
         return base64.b64decode(spec["value"], validate=True)
     if spec["kind"] == "memoryview":
@@ -25,7 +31,8 @@ def _content(spec: dict[str, Any]) -> Any:
 
 def _observe(value: Any) -> Any:
     if isinstance(value, bytes | memoryview):
-        return {"type": type(value).__name__, "base64": base64.b64encode(value).decode("ascii")}
+        data = value.tobytes() if isinstance(value, memoryview) else value
+        return {"type": type(value).__name__, "base64": base64.b64encode(data).decode("ascii")}
     if isinstance(value, dict):
         return {key: _observe(item) for key, item in value.items()}
     if isinstance(value, list | tuple):
@@ -69,6 +76,11 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
     )
     attributes = dict(spec["class_attributes"])
     attribute_probe = {"enabled": False}
+    boundary = None
+    if "construction_boundary" in case:
+        from scripts.parity.adapters.response_construction import ConstructionProbe
+
+        boundary = ConstructionProbe(case, trace, callback_errors)
 
     def get_attribute(self: Any, name: str) -> Any:
         if attribute_probe["enabled"] and name in callbacks["attribute_probe"]:
@@ -79,13 +91,15 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
         attributes["__getattribute__"] = get_attribute
 
     def render_content(self: Any, content: Any) -> Any:
+        if boundary is not None:
+            boundary.render_entry(self)
         trace.append({"event": "render", "content": _observe(content)})
         for name, value in render["mutations"].items():
             setattr(self, name, value)
         if render["kind"] == "raise":
             raise injected_error
         if render["kind"] == "constant":
-            return _content(render["content"])
+            return _content(render["content"], trace, callback_errors)
         if render["kind"] == "json-serializer":
             return json.dumps(content, **render["options"]).encode(render["encoding"])
         return base.render(self, content)
@@ -93,7 +107,11 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
     if render["kind"] != "default":
         attributes["render"] = render_content
     constructor = type("ConsumerResponse", (base,), attributes)
+    if boundary is not None and boundary.spec["weakref_direct"]:
+        constructor = base
     kwargs = dict(spec["kwargs"])
+    if boundary is not None:
+        kwargs = boundary.kwargs(kwargs)
 
     async def background() -> None:
         trace.append({"event": "background", "label": case["background_label"]})
@@ -132,9 +150,11 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
         response = (
             constructor(**kwargs)
             if spec["omit_content"]
-            else constructor(_content(spec["content"]), **kwargs)
+            else constructor(_content(spec["content"], trace, callback_errors), **kwargs)
         )
         outcome["constructed"] = True
+        if boundary is not None:
+            outcome["construction_boundary"] = boundary.observe(response)
         outcome["after_constructor"] = {
             "status_code": response.status_code,
             "media_type": response.media_type,
@@ -218,6 +238,9 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
             "has_context": error.__context__ is not None,
             "suppress_context": error.__suppress_context__,
         }
+        if boundary is not None and boundary.spec["early_headers_read"] is not None:
+            outcome["error"]["attribute_name"] = getattr(error, "name", None)
+            outcome["error"]["attribute_owner"] = getattr(error, "obj", None) is boundary.response
     attribute_probe["enabled"] = False
     if callbacks and outcome["constructed"]:
         outcome["retained_messages"] = _observe(retained_messages)

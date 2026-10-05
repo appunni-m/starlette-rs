@@ -25,6 +25,7 @@ mod host_middleware_runtime;
 mod middleware_config_runtime;
 mod path_convertors_runtime;
 mod request_runtime;
+mod response_construction_runtime;
 mod response_headers_runtime;
 mod router_runtime;
 mod runtime_calls;
@@ -688,7 +689,7 @@ impl PyRequestBodyAccumulator {
 #[pyclass(name = "Response")]
 struct PyResponse {
     inner: Response,
-    raw_headers: Py<PyAny>,
+    raw_headers: Option<Py<PyAny>>,
     headers_view: Option<Py<PyAny>>,
 }
 
@@ -697,7 +698,7 @@ impl PyResponse {
         let raw_headers = response_headers_runtime::raw_pairs(py, inner.headers())?;
         Ok(Self {
             inner,
-            raw_headers,
+            raw_headers: Some(raw_headers),
             headers_view: None,
         })
     }
@@ -705,6 +706,66 @@ impl PyResponse {
 
 #[pymethods]
 impl PyResponse {
+    /// Creates storage before a user render callback can access headers.
+    #[staticmethod]
+    fn uninitialized() -> Self {
+        Self {
+            inner: Response::from_parts(200, Vec::new(), []),
+            raw_headers: None,
+            headers_view: None,
+        }
+    }
+
+    #[staticmethod]
+    fn set_media_type(
+        response: &Bound<'_, PyAny>,
+        media_type: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        if let Some(media_type) = media_type {
+            response.setattr("media_type", media_type)?;
+        }
+        Ok(())
+    }
+
+    #[staticmethod]
+    fn initialize_headers(
+        py: Python<'_>,
+        response: &Bound<'_, PyAny>,
+        headers: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        response_construction_runtime::initialize_headers(py, response, headers)
+    }
+
+    #[staticmethod]
+    fn raw_headers_for(py: Python<'_>, response: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        let inner = response.getattr("_inner")?;
+        if let Ok(native) = inner.cast::<Self>() {
+            if native.borrow().raw_headers.is_none() {
+                return Err(response_construction_runtime::missing_raw_headers(
+                    py, response,
+                )?);
+            }
+        }
+        inner.getattr("raw_headers").map(Bound::unbind)
+    }
+
+    #[staticmethod]
+    fn headers_for(py: Python<'_>, response: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        let inner = response.getattr("_inner")?;
+        if let Ok(native) = inner.cast::<Self>() {
+            let missing = {
+                let native = native.borrow();
+                native.raw_headers.is_none() && native.headers_view.is_none()
+            };
+            if missing {
+                return Err(response_construction_runtime::missing_raw_headers(
+                    py, response,
+                )?);
+            }
+        }
+        inner.getattr("headers").map(Bound::unbind)
+    }
+
     fn __traverse__(
         &self,
         visit: pyo3::class::gc::PyVisit<'_>,
@@ -713,8 +774,8 @@ impl PyResponse {
         visit.call(&self.headers_view)
     }
 
-    fn __clear__(&mut self, py: Python<'_>) {
-        self.raw_headers = PyList::empty(py).into_any().unbind();
+    fn __clear__(&mut self) {
+        self.raw_headers = None;
         self.headers_view = None;
     }
 
@@ -856,19 +917,28 @@ impl PyResponse {
         if let Some(headers) = self.headers_view.as_ref() {
             return Ok(headers.clone_ref(py));
         }
-        let headers = response_headers_runtime::view(py, self.raw_headers.bind(py))?;
+        let headers = response_headers_runtime::view(
+            py,
+            self.raw_headers
+                .as_ref()
+                .ok_or_else(|| pyo3::exceptions::PyAttributeError::new_err("raw_headers"))?
+                .bind(py),
+        )?;
         self.headers_view = Some(headers.clone_ref(py));
         Ok(headers)
     }
 
     #[getter]
-    fn raw_headers(&self, py: Python<'_>) -> Py<PyAny> {
-        self.raw_headers.clone_ref(py)
+    fn raw_headers(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.raw_headers
+            .as_ref()
+            .map(|raw| raw.clone_ref(py))
+            .ok_or_else(|| pyo3::exceptions::PyAttributeError::new_err("raw_headers"))
     }
 
     #[setter]
     fn set_raw_headers(&mut self, headers: Py<PyAny>) {
-        self.raw_headers = headers;
+        self.raw_headers = Some(headers);
     }
 
     fn _header_get(&self, key: &str) -> PyResult<Option<String>> {
@@ -908,7 +978,10 @@ impl PyResponse {
     fn _header_refresh_raw(&self, py: Python<'_>) -> PyResult<()> {
         response_headers_runtime::refresh_raw_pairs(
             py,
-            self.raw_headers.bind(py),
+            self.raw_headers
+                .as_ref()
+                .ok_or_else(|| pyo3::exceptions::PyAttributeError::new_err("raw_headers"))?
+                .bind(py),
             self.inner.headers(),
         )
     }
