@@ -14,6 +14,12 @@ Coverage MCP verified 10 additional Rust lines with matching source/build receip
 
 The generated atlas remains 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. `Response.init_headers` remains uncertain; forwarding the constructor hook does not establish its public status. Streaming/File/Redirect subclass interception and other cookie conversion/type protocols need further comparisons. Complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).
 
+### Clean full attribute regression and benchmark gate
+
+Clean commit `09191fd4968b0d309bb336c0f693aeb0cd606d4e` passed full preflight `8eb08944-aa22-4802-9913-760667c7e4bb`: 1,486/1,486 Python-package comparisons, 246/250 Rust-native comparisons, and both fault contracts. There were zero failures or infrastructure errors. Four existing native callable cases remain not_run. Result SHA-256: `177bab1dd7bec1b19687a4c1dfe0be91ede4f0d66636b5f12fdbe776a1331335`. Normal package tree `f39c1c88aec7a7f3a2e60b825eaa68ba0442e07dfb2b86fdacbcb0bbce533187` matches the selected run.
+
+Benchmark `4d4c57cc-1dfb-4c01-b644-f8b07c4a08bb` matched and timed all 74 source/package workloads. All 74 native timings remain not_run. Median source/package latency ratios were 0.759 for Router and 0.975 for GZip; the source was faster in 5/6 Router and 54/68 GZip workloads. Result SHA-256: `f529e5553e5c4982a1ba8c86358b42769d678ed32e52681b8d6380e19e9e38fc`. See [benchmark evidence](BENCHMARKS.md). These bounded comparisons do not establish full replacement parity or general speed superiority.
+
 ## Constructor body and header protocol evidence
 
 The 132 new input-only consumers exposed 104 divergences in live reproduction `37afc253-71e1-47df-8fbb-08e0400f4f18`. Its 29 ordinary passes and both fault contracts passed with no infrastructure errors. The target previously measured copied body bytes, converted header/media text too early, and created its core after user rendering. This lost Python length/method protocols, live callback mutations, original encoding errors, and render-time header/cache access.
