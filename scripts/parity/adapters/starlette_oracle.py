@@ -13342,6 +13342,13 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
 
         return run_upload_file_case(case, UploadFile)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in {
+        (f"starlette.responses.{name}", "consumer-construction")
+        for name in ("Response", "HTMLResponse", "PlainTextResponse", "JSONResponse")
+    }:
+        from scripts.parity.adapters.response_consumer import run_response_consumer_case
+
+        return run_response_consumer_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in {
         ("starlette.datastructures.CommaSeparatedStrings", "ownership-graph"),
         ("starlette.datastructures.UploadFile", "ownership-graph"),
         ("starlette.datastructures.ImmutableMultiDict", "ownership-graph"),

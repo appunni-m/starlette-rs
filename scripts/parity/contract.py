@@ -412,6 +412,17 @@ REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnec
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
 REQUEST_BODY_STREAM_JSON_OPERATION = ("starlette.requests.Request", "body-stream-json")
 REQUEST_LIFETIME_OPERATION = ("starlette.requests.Request", "callback-lifetime")
+RESPONSE_CONSUMER_OPERATIONS = {
+    (f"starlette.responses.{name}", "consumer-construction")
+    for name in ("Response", "HTMLResponse", "PlainTextResponse", "JSONResponse")
+}
+RESPONSE_CONSUMER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "construction",
+    "post_init_attributes",
+    "scope",
+    "send_failure",
+    "background_label",
+}
 VALUE_LIFETIME_OPERATIONS = {
     ("starlette.datastructures.CommaSeparatedStrings", "ownership-graph"),
     ("starlette.datastructures.UploadFile", "ownership-graph"),
@@ -2421,6 +2432,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
                 or key == REQUEST_BODY_STREAM_JSON_OPERATION
                 or key == REQUEST_LIFETIME_OPERATION
+                or key in RESPONSE_CONSUMER_OPERATIONS
                 or key in VALUE_LIFETIME_OPERATIONS
                 or key == RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY
                 or key == BASE_HTTP_WORKFLOW_OPERATION_KEY
@@ -2641,6 +2653,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) == REQUEST_FORM_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_BODY_STREAM_JSON_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_LIFETIME_OPERATION
+                        or (surface["id"], operation["id"]) in RESPONSE_CONSUMER_OPERATIONS
                         or (surface["id"], operation["id"]) in VALUE_LIFETIME_OPERATIONS
                         or (surface["id"], operation["id"]) == FORM_DATA_MULTIDICT_LOOKUPS_OPERATION
                         or (surface["id"], operation["id"]) == EXCEPTION_MIDDLEWARE_TYPING_OPERATION
@@ -15394,7 +15407,11 @@ def validate_case(
         and case.get("surface") == STATIC_FILES_SURFACE
         and case.get("operation") == STATIC_FILES_LOOKUP_PATH_OPERATION
     )
-    is_response = isinstance(case, dict) and case.get("surface") in RESPONSE_SURFACES
+    is_response = (
+        isinstance(case, dict)
+        and case.get("surface") in RESPONSE_SURFACES
+        and case.get("operation") != "consumer-construction"
+    )
     is_streaming_response = (
         isinstance(case, dict)
         and case.get("surface") == STREAMING_RESPONSE_SURFACE
@@ -15472,6 +15489,10 @@ def validate_case(
     is_request_form = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_FORM_OPERATION
+    )
+    is_response_consumer = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) in RESPONSE_CONSUMER_OPERATIONS
     )
     is_value_lifetime = (
         isinstance(case, dict)
@@ -15604,6 +15625,8 @@ def validate_case(
         if is_status_symbols
         else REQUEST_FORM_CASE_KEYS
         if is_request_form
+        else RESPONSE_CONSUMER_CASE_KEYS
+        if is_response_consumer
         else VALUE_LIFETIME_CASE_KEYS
         if is_value_lifetime
         else REQUEST_LIFETIME_CASE_KEYS
@@ -15890,6 +15913,8 @@ def validate_case(
     elif is_request_form:
         expected_case_keys = REQUEST_FORM_CASE_KEYS
         expected_case_keys = expected_case_keys | (REQUEST_FORM_OPTIONAL_KEYS.intersection(case))
+    elif is_response_consumer:
+        expected_case_keys = RESPONSE_CONSUMER_CASE_KEYS
     elif is_value_lifetime:
         expected_case_keys = VALUE_LIFETIME_CASE_KEYS
     elif is_request_lifetime:
@@ -16076,6 +16101,9 @@ def validate_case(
     elif is_request_form:
         if case["observations"] != ["form"]:
             raise ContractError("Request.form cases must select the form observation")
+    elif is_response_consumer:
+        if case["observations"] != ["response-consumer"]:
+            raise ContractError("Response consumers select response-consumer")
     elif is_value_lifetime:
         if case["observations"] != ["value-lifetime"]:
             raise ContractError("Public value lifetime cases select value-lifetime")
@@ -16313,6 +16341,9 @@ def validate_case(
         return case
     if is_upload_file:
         _validate_upload_file_case(case)
+        return case
+    if is_response_consumer:
+        _validate_response_consumer_case(case)
         return case
     if is_value_lifetime:
         _validate_value_lifetime_case(case)
@@ -31247,3 +31278,128 @@ def _validate_value_lifetime_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "Public value lifetime requires a collection thread and valid generations"
         )
+
+
+def _validate_response_consumer_content(value: Any) -> None:
+    spec = _exact(value, {"kind", "value"}, "Response consumer content")
+    kind, content = spec["kind"], spec["value"]
+    if kind in {"bytes", "memoryview"}:
+        if not isinstance(content, str):
+            raise ContractError("Response bytes must use base64 text")
+        try:
+            base64.b64decode(content, validate=True)
+        except ValueError as error:
+            raise ContractError("Response bytes must use valid base64") from error
+    elif kind == "text":
+        if not isinstance(content, str):
+            raise ContractError("Response text must be a string")
+    elif kind == "float":
+        if content not in {"nan", "inf", "-inf"}:
+            raise ContractError("Response float stimulus must name a nonfinite float")
+    elif kind == "set":
+        if not isinstance(content, list) or any(type(item) is not int for item in content):
+            raise ContractError("Response set stimulus requires integer items")
+    elif kind == "json":
+        _validate_threadpool_json(content, "Response JSON content")
+    else:
+        raise ContractError("Response consumer content kind is unsupported")
+
+
+def _validate_response_consumer_attributes(value: Any, *, body: bool = False) -> None:
+    if not isinstance(value, dict) or set(value) - {"status_code", "charset", "media_type", "body"}:
+        raise ContractError("Response attributes must name public response values")
+    for name, item in value.items():
+        if name == "status_code":
+            if type(item) is not int or not 0 <= item <= 65535:
+                raise ContractError("Response status requires an unsigned 16-bit integer")
+        elif name == "body":
+            if not body:
+                raise ContractError("Response body changes belong after construction")
+            _validate_response_consumer_content(item)
+            if item["kind"] not in {"bytes", "memoryview"}:
+                raise ContractError("Response body changes require bytes or memoryview")
+        elif name == "media_type" and item is None:
+            continue
+        elif not isinstance(item, str):
+            raise ContractError("Response media type and charset require text")
+
+
+def _validate_response_consumer_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"]:
+        raise ContractError(
+            "Response consumers require the installed Python package without assets"
+        )
+    if case["covers"] != [case["surface"] + ".consumer-construction.public-render-and-asgi"]:
+        raise ContractError("Response consumer coverage must match its declared surface")
+    spec = _exact(
+        case["construction"],
+        {"content", "omit_content", "kwargs", "class_attributes", "render"},
+        "Response construction",
+    )
+    _validate_response_consumer_content(spec["content"])
+    if type(spec["omit_content"]) is not bool:
+        raise ContractError("Response omit_content must be boolean")
+    kwargs = spec["kwargs"]
+    if not isinstance(kwargs, dict) or set(kwargs) - {"status_code", "headers", "media_type"}:
+        raise ContractError("Response constructor kwargs are unsupported")
+    _validate_response_consumer_attributes({k: v for k, v in kwargs.items() if k != "headers"})
+    headers = kwargs.get("headers")
+    if headers is not None:
+        if not isinstance(headers, dict) or any(
+            not isinstance(k, str) or not isinstance(v, str) for k, v in headers.items()
+        ):
+            raise ContractError("Response headers must be a string mapping")
+    _validate_response_consumer_attributes(spec["class_attributes"])
+    if "status_code" in spec["class_attributes"]:
+        raise ContractError("Response class attributes select only media_type and charset")
+    render = spec["render"]
+    if not isinstance(render, dict):
+        raise ContractError("Response render policy must be a record")
+    kind = render.get("kind")
+    keys = {
+        "default": {"kind"},
+        "delegate": {"kind", "mutations"},
+        "constant": {"kind", "mutations", "content"},
+        "raise": {"kind", "mutations", "message"},
+        "json-serializer": {"kind", "mutations", "options", "encoding"},
+    }
+    if kind not in keys:
+        raise ContractError("Response render policy is unsupported")
+    _exact(render, keys[kind], "Response render policy")
+    if kind != "default":
+        _validate_response_consumer_attributes(render["mutations"])
+    if kind == "constant":
+        _validate_response_consumer_content(render["content"])
+    elif kind == "raise":
+        if not isinstance(render["message"], str):
+            raise ContractError("Response render exception message must be text")
+    elif kind == "json-serializer":
+        options = _exact(
+            render["options"],
+            {"ensure_ascii", "sort_keys", "separators"},
+            "JSON serializer options",
+        )
+        if any(type(options[k]) is not bool for k in ("ensure_ascii", "sort_keys")):
+            raise ContractError("JSON serializer flags must be boolean")
+        separators = options["separators"]
+        if (
+            not isinstance(separators, list)
+            or len(separators) != 2
+            or any(not isinstance(item, str) for item in separators)
+        ):
+            raise ContractError("JSON serializer separators must be two strings")
+        if not isinstance(render["encoding"], str):
+            raise ContractError("JSON serializer encoding must be text")
+    _validate_response_consumer_attributes(case["post_init_attributes"], body=True)
+    scope = _exact(case["scope"], {"type", "path"}, "Response consumer ASGI scope")
+    if scope["type"] not in {"http", "websocket"} or not isinstance(scope["path"], str):
+        raise ContractError("Response consumers require an HTTP or WebSocket scope")
+    failure = case["send_failure"]
+    if failure is not None:
+        _exact(failure, {"at_event", "message"}, "Response send failure")
+        if type(failure["at_event"]) is not int or failure["at_event"] not in {1, 2}:
+            raise ContractError("Response send failure must select a start or body event")
+        if not isinstance(failure["message"], str):
+            raise ContractError("Response send exception message must be text")
+    if case["background_label"] is not None and not isinstance(case["background_label"], str):
+        raise ContractError("Response background label must be text or null")

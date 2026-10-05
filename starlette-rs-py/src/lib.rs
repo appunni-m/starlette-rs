@@ -706,20 +706,22 @@ impl PyResponse {
 #[pymethods]
 impl PyResponse {
     #[new]
-    #[pyo3(signature = (content=None, status_code=200, headers=None, media_type=None))]
+    #[pyo3(signature = (content=None, status_code=200, headers=None, media_type=None, charset="utf-8"))]
     fn new(
         py: Python<'_>,
         content: Option<Bound<'_, PyAny>>,
         status_code: u16,
         headers: Option<Py<PyAny>>,
         media_type: Option<String>,
+        charset: &str,
     ) -> PyResult<Self> {
         let body = response_body_bytes(py, content.as_ref())?;
-        let inner = Response::from_content(
+        let inner = Response::from_content_with_charset(
             status_code,
             body,
             media_type.as_deref(),
             runtime_calls::header_pairs(py, headers)?,
+            charset,
         )
         .map_err(response_error)?;
         Self::from_inner(py, inner)
@@ -805,7 +807,7 @@ impl PyResponse {
             .extract::<Vec<u8>>()
     }
 
-    #[pyo3(signature = (scope, receive, send, background=None, body_override=None))]
+    #[pyo3(signature = (scope, receive, send, background=None, overrides=None))]
     fn asgi_call(
         &self,
         py: Python<'_>,
@@ -813,17 +815,17 @@ impl PyResponse {
         receive: Py<PyAny>,
         send: Py<PyAny>,
         background: Option<Py<PyAny>>,
-        body_override: Option<Py<PyAny>>,
+        overrides: Option<(Py<PyAny>, u16)>,
     ) -> PyResult<Py<PyAny>> {
-        runtime_calls::response_call(
-            py,
-            &self.inner,
-            scope,
-            receive,
-            send,
-            background,
-            body_override,
-        )
+        let (body_override, call) = match overrides {
+            Some((body, status_code)) => (
+                Some(body),
+                self.inner
+                    .call_state_with_status_code(status_code, background.is_some()),
+            ),
+            None => (None, self.inner.call_state(background.is_some())),
+        };
+        runtime_calls::response_call(py, call, scope, receive, send, background, body_override)
     }
 
     #[getter]

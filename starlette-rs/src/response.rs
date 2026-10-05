@@ -647,6 +647,33 @@ impl Response {
         K: AsRef<str>,
         V: AsRef<str>,
     {
+        Self::from_content_with_charset(status_code, body, media_type, headers, "utf-8")
+    }
+
+    /// Constructs a rendered response using the caller's text charset.
+    ///
+    /// Header ordering, explicit content headers, and status-based length
+    /// suppression match [`Self::from_content`]. The charset is appended only
+    /// for a text media type without an existing charset parameter. It does
+    /// not transcode the already-rendered body.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ResponseError::HeaderDataIsNotLatin1`] when generated or
+    /// supplied header data cannot be encoded as Latin-1.
+    pub fn from_content_with_charset<B, H, K, V>(
+        status_code: u16,
+        body: B,
+        media_type: Option<&str>,
+        headers: H,
+        charset: &str,
+    ) -> Result<Self, ResponseError>
+    where
+        B: Into<Vec<u8>>,
+        H: IntoIterator<Item = (K, V)>,
+        K: AsRef<str>,
+        V: AsRef<str>,
+    {
         let body = body.into();
         let mut raw_headers = Vec::new();
         for (name, value) in headers {
@@ -677,7 +704,8 @@ impl Response {
                 if media_type.starts_with("text/")
                     && !media_type.to_ascii_lowercase().contains("charset=")
                 {
-                    content_type.push_str("; charset=utf-8");
+                    content_type.push_str("; charset=");
+                    content_type.push_str(charset);
                 }
                 raw_headers.push((
                     b"content-type".to_vec(),
@@ -857,6 +885,28 @@ impl Response {
             has_background_callback,
             phase: ResponseCallPhase::SendStart,
         }
+    }
+
+    /// Starts an ASGI call with a caller-updated public status code.
+    ///
+    /// Constructor-time headers and body remain intact. This matches mutable
+    /// Python responses, which send the current status without regenerating
+    /// their previously constructed headers.
+    #[must_use]
+    pub fn call_state_with_status_code(
+        &self,
+        status_code: u16,
+        has_background_callback: bool,
+    ) -> ResponseCall {
+        let mut call = self.call_state(has_background_callback);
+        if let ResponseEvent::Start {
+            status_code: call_status_code,
+            ..
+        } = &mut call.events[0]
+        {
+            *call_status_code = status_code;
+        }
+        call
     }
 }
 

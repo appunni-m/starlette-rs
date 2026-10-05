@@ -63,3 +63,7 @@ authored from the pinned public write/read/seek/close methods and
 `starlette.concurrency.run_in_threadpool`. User integer/file subclasses and
 cancellation barriers are new public-consumer stimuli; no upstream test body
 or expected result is copied.
+
+## Response consumer input provenance
+
+`tests/fixtures/sources/parity/response-consumers.yaml` contains independently authored input definitions derived from the pinned `starlette/responses.py:29-200` and `docs/responses.md:10-118`. It uses documented response classes, custom render subclasses, and ordinary ASGI callbacks. No upstream test file or expected output is copied. The source remains the development-time BSD-3-Clause oracle; exact outputs are produced live by both implementations. See `docs/RESPONSE_RENDER_BOUNDARY.md` for the Python calling boundary and limits.

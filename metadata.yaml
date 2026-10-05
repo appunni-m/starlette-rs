@@ -528,6 +528,10 @@
         {
           "operation_id": "asgi-call",
           "source_path": "starlette.responses.Response.__call__"
+        },
+        {
+          "operation_id": "consumer-construction",
+          "source_path": "starlette.responses.JSONResponse.__init__, Response.render, JSONResponse.render, Response.__call__"
         }
       ]
     },
@@ -548,6 +552,10 @@
         {
           "operation_id": "asgi-call",
           "source_path": "starlette.responses.Response.__call__"
+        },
+        {
+          "operation_id": "consumer-construction",
+          "source_path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__"
         }
       ]
     },
@@ -796,6 +804,26 @@
         {
           "operation_id": "ownership-graph",
           "source_path": "starlette.datastructures.ImmutableMultiDict.__init__ and public value access"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.responses.HTMLResponse",
+      "source_path": "starlette/responses.py:173",
+      "operations": [
+        {
+          "operation_id": "consumer-construction",
+          "source_path": "starlette.responses.HTMLResponse.__init__, Response.render, JSONResponse.render, Response.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.responses.PlainTextResponse",
+      "source_path": "starlette/responses.py:177",
+      "operations": [
+        {
+          "operation_id": "consumer-construction",
+          "source_path": "starlette.responses.PlainTextResponse.__init__, Response.render, JSONResponse.render, Response.__call__"
         }
       ]
     }

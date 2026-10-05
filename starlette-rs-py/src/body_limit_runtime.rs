@@ -672,7 +672,15 @@ fn replacement_response_call(py: Python<'_>, state: &SharedBodyLimitState) -> Py
     let scope = scope.bind(py).cast::<PyDict>()?;
     let response =
         Response::plain_text_with_status(REQUEST_BODY_LIMIT_STATUS_CODE, REQUEST_BODY_LIMIT_DETAIL);
-    crate::runtime_calls::response_call(py, &response, scope, receive, send, None, None)
+    crate::runtime_calls::response_call(
+        py,
+        response.call_state(false),
+        scope,
+        receive,
+        send,
+        None,
+        None,
+    )
 }
 
 fn required_callback(py: Python<'_>, callback: Option<&Py<PyAny>>) -> PyResult<Py<PyAny>> {

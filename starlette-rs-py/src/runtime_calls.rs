@@ -10,7 +10,7 @@ use pyo3::exceptions::{
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyTuple};
 use starlette_rs::{
-    Response, ResponseCall, ResponseCallError, ResponseCallInput, ResponseCallStep, ResponseError,
+    ResponseCall, ResponseCallError, ResponseCallInput, ResponseCallStep, ResponseError,
     ResponseEvent, StreamingResponse as NativeStreamingResponse, StreamingResponseCall,
     StreamingResponseCallError, StreamingResponseCallInput, StreamingResponseCallStep,
     StreamingResponseDisconnectCall, StreamingResponseDisconnectCallError,
@@ -63,7 +63,7 @@ pub(crate) fn header_pairs(
 
 pub(crate) fn response_call(
     py: Python<'_>,
-    response: &Response,
+    call: ResponseCall,
     scope: &Bound<'_, PyDict>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
@@ -74,7 +74,7 @@ pub(crate) fn response_call(
     into_python_awaitable(
         py,
         ResponseCallMachine {
-            call: response.call_state(background.is_some()),
+            call,
             send,
             _receive: receive,
             background,

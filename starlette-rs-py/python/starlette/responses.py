@@ -34,7 +34,9 @@ class Response:
         self.media_type = _core.Response.media_type_or(media_type, self.media_type)
         self.background = background
         self.body = self.render(content)
-        self._inner = _core.Response(self.body, status_code, headers, self.media_type)
+        self._inner = _core.Response(
+            self.body, self.status_code, headers, self.media_type, self.charset
+        )
 
     @classmethod
     def _from_native(cls, inner: Any) -> Response:
@@ -112,23 +114,16 @@ class Response:
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         self._sync_raw_headers()
-        await self._inner.asgi_call(scope, receive, send, self.background, self.body)
+        await self._inner.asgi_call(
+            scope, receive, send, self.background, (self.body, self.status_code)
+        )
 
 
 class PlainTextResponse(Response):
     """A response with Starlette's plain-text media type."""
 
     __slots__ = ()
-
-    def __init__(
-        self,
-        content: str | bytes = "",
-        status_code: int = 200,
-        headers: Mapping[str, str] | None = None,
-        media_type: str = "text/plain",
-        background: Any = None,
-    ) -> None:
-        super().__init__(content, status_code, headers, media_type, background)
+    media_type = "text/plain"
 
 
 class HTMLResponse(Response):
@@ -247,11 +242,7 @@ class JSONResponse(Response):
         media_type: str | None = None,
         background: Any = None,
     ) -> None:
-        self.status_code = status_code
-        self.media_type = _core.Response.media_type_or(media_type, self.media_type)
-        self.background = background
-        self.body = self.render(content)
-        self._inner = _core.Response.json(self.body, status_code, headers, self.media_type)
+        super().__init__(content, status_code, headers, media_type, background)
 
     def render(self, content: Any) -> bytes:
         """Serialize JSON with Starlette's Python-value compatibility rules."""
