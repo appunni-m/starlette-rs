@@ -134,6 +134,115 @@
         ]
       },
       "case_id": "starlette.testclient.TestClient.websocket-session.router-websocket-route-match.path-parameter"
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.standalone-websocket-route-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "receive_text"
+          }
+        ],
+        "url": "/"
+      },
+      "asgi_app": {
+        "kind": "starlette-standalone-websocket-route",
+        "scope_fields": [
+          "type",
+          "path",
+          "scheme",
+          "server"
+        ],
+        "routes": [
+          {
+            "kind": "websocket-route",
+            "path": "/",
+            "endpoint": {
+              "kind": "literal-text",
+              "text": "Hello, world!"
+            }
+          }
+        ]
+      },
+      "case_id": "starlette.testclient.TestClient.websocket-session.standalone-websocket-route-match"
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.standalone-websocket-route-miss"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "subprotocols": [],
+        "headers": [],
+        "actions": [],
+        "url": "/invalid"
+      },
+      "asgi_app": {
+        "kind": "starlette-standalone-websocket-route",
+        "scope_fields": [
+          "type",
+          "path",
+          "scheme",
+          "server"
+        ],
+        "routes": [
+          {
+            "kind": "websocket-route",
+            "path": "/",
+            "endpoint": {
+              "kind": "literal-text",
+              "text": "Hello, world!"
+            }
+          }
+        ]
+      },
+      "case_id": "starlette.testclient.TestClient.websocket-session.standalone-websocket-route-miss"
     }
   ]
 }

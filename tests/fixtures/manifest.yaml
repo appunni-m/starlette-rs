@@ -24016,6 +24016,28 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.websocket-session.standalone-websocket-route-match",
+              "dimension": "protocol_variant",
+              "description": "Connect through TestClient to an input-defined WebSocketRoute used directly as the ASGI app, then observe the accepted session, endpoint text frame, response events, and portal cleanup. Pinned source: tests/test_routing.py::test_standalone_ws_route_matches; starlette/routing.py:177-194,297-354.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.standalone-websocket-route-miss",
+              "dimension": "protocol_variant",
+              "description": "Connect through TestClient to a path that does not match an input-defined standalone WebSocketRoute and compare the public session-entry exception, close event, and portal cleanup. Pinned source: tests/test_routing.py::test_standalone_ws_route_does_not_match; starlette/routing.py:177-194,327-340.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.websocket-session.router-miss-disconnect",
               "dimension": "error_path",
               "description": "Connect through TestClient to an unmatched WebSocket path on an input-defined mixed-protocol Router and observe the default WebSocketDisconnect raised by the Router miss close. Pinned source: tests/test_routing.py::test_protocol_switch; starlette/routing.py::Router.not_found; starlette/testclient.py::WebSocketTestSession.",

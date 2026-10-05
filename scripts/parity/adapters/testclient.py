@@ -1409,7 +1409,10 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             finally:
                 application_state["completed"] = True
 
-    elif app_input["kind"] == "starlette-routed-websocket-graph":
+    elif app_input["kind"] in {
+        "starlette-routed-websocket-graph",
+        "starlette-standalone-websocket-route",
+    }:
         from starlette.routing import Router, WebSocketRoute
 
         def endpoint_for(endpoint_spec: dict[str, Any]) -> Any:
@@ -1432,7 +1435,11 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             WebSocketRoute(route_spec["path"], endpoint_for(route_spec["endpoint"]))
             for route_spec in app_input["routes"]
         ]
-        router = Router(routes=routes)
+        route_app = (
+            routes[0]
+            if app_input["kind"] == "starlette-standalone-websocket-route"
+            else Router(routes=routes)
+        )
 
         async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
             record_scope(scope)
@@ -1445,7 +1452,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                 await observed_send(send, message)
 
             try:
-                await router(scope, traced_receive, traced_send)
+                await route_app(scope, traced_receive, traced_send)
             finally:
                 application_state["completed"] = True
 
@@ -1545,6 +1552,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             "starlette-protocol-switch",
             "starlette-partial-websocket-route-graph",
             "starlette-routed-websocket-graph",
+            "starlette-standalone-websocket-route",
         }
         and len(app_input["actions"]) == 1
         and app_input["actions"][0].get("operation") == "raise"
@@ -1555,7 +1563,10 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         and app_actions[0].get("operation") == "websocket_flow"
         and [action.get("operation") for action in app_actions[0]["actions"]]
         == ["receive", "close"]
-    ) or (app_input["kind"] == "starlette-protocol-switch" and not websocket_input["actions"])
+    ) or (
+        app_input["kind"] in {"starlette-protocol-switch", "starlette-standalone-websocket-route"}
+        and not websocket_input["actions"]
+    )
     session_body_completed = False
     captured_error: BaseException | None = None
     captured_error_stage = "websocket-session-entry"
