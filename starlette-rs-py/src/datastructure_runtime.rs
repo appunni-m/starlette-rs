@@ -1184,9 +1184,6 @@ impl crate::awaitable::AwaitableStateMachine for UploadFileMachine {
 
 impl UploadFileMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<crate::awaitable::MachineAction> {
-        let file = upload_state(py, &self.shared)?.file.clone_ref(py);
-        let max_mem_size = upload_state(py, &self.shared)?.max_mem_size.clone_ref(py);
-        let file = file.bind(py);
         let worker_required = match &self.operation {
             UploadFileOperation::Write(data) => {
                 let data_length = data.bind(py).len()?;
@@ -1201,12 +1198,19 @@ impl UploadFileMachine {
                     let previous = upload_state_mut(py, &self.shared)?.size.replace(updated);
                     drop(previous);
                 }
+                // Python size arithmetic can replace the public backing file.
+                // Read policy fields only after that callback has completed.
+                let file = upload_state(py, &self.shared)?.file.clone_ref(py);
+                let max_mem_size = upload_state(py, &self.shared)?.max_mem_size.clone_ref(py);
                 let size_to_add = PyInt::new(py, data_length);
-                upload_file_will_roll(py, file, max_mem_size.bind(py), &size_to_add)?
+                upload_file_will_roll(py, file.bind(py), max_mem_size.bind(py), &size_to_add)?
             }
             UploadFileOperation::Read(_)
             | UploadFileOperation::Seek(_)
-            | UploadFileOperation::Close => !upload_file_is_in_memory(py, file)?,
+            | UploadFileOperation::Close => {
+                let file = upload_state(py, &self.shared)?.file.clone_ref(py);
+                !upload_file_is_in_memory(py, file.bind(py))?
+            }
         };
         let (method, arguments): (&str, Vec<Py<PyAny>>) = match &self.operation {
             UploadFileOperation::Write(data) => ("write", vec![data.clone_ref(py)]),
@@ -1214,7 +1218,9 @@ impl UploadFileMachine {
             UploadFileOperation::Seek(offset) => ("seek", vec![offset.clone_ref(py)]),
             UploadFileOperation::Close => ("close", Vec::new()),
         };
-        let callable = file.getattr(method)?;
+        // Policy callbacks can also replace the file before source I/O lookup.
+        let file = upload_state(py, &self.shared)?.file.clone_ref(py);
+        let callable = file.bind(py).getattr(method)?;
         let result = if worker_required {
             let runner = py
                 .import("starlette.concurrency")?

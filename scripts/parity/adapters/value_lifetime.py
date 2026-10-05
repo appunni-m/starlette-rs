@@ -42,11 +42,23 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
             finalized()
 
     class UserFile(io.BytesIO):
-        def __init__(self) -> None:
-            super().__init__(spec["value_text"].encode("utf-8"))
+        def __init__(self, text: str | None = None) -> None:
+            super().__init__((spec["value_text"] if text is None else text).encode("utf-8"))
             self.guard = guard
             self.peer: Any = None
             self._rolled = False
+
+        def write(self, data: bytes) -> int:
+            if "replace_file" in spec.get("size_callback", {}):
+                events.append(
+                    {
+                        "event": "file-write",
+                        "is_current_file": upload.file is self,
+                        "on_caller_thread": threading.current_thread() is observer.caller_thread,
+                        "data_base64": base64.b64encode(data).decode("ascii"),
+                    }
+                )
+            return super().write(data)
 
         def close(self) -> None:
             events.append(
@@ -78,6 +90,15 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
                     "attributes": attributes,
                 }
             )
+            if "replace_file" in spec["size_callback"]:
+                replacement_spec = spec["size_callback"]["replace_file"]
+                replacement = UserFile(replacement_spec["value_text"])
+                replacement._rolled = replacement_spec["rolled"]
+                replacement.peer = upload
+                upload.file = replacement
+                events.append(
+                    {"event": "file-replaced", "identity_preserved": upload.file is replacement}
+                )
             return int(self) + increment
 
     class UserText(str):
@@ -152,6 +173,9 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
 
         public["io_results"] = asyncio.run(drive_io())
         public["size_after"] = upload.size
+        if "replace_file" in spec["size_callback"]:
+            public["original_file_bytes"] = base64.b64encode(holder.getvalue()).decode("ascii")
+            public["current_file_bytes"] = base64.b64encode(upload.file.getvalue()).decode("ascii")
     # Only the public container remains externally rooted: no consumer reference
     # to a user value can hide premature release or an opaque native ownership edge.
     return [container], [weakref.ref(holder), weakref.ref(guard)], events, public

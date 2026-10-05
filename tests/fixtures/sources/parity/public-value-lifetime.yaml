@@ -756,6 +756,214 @@
         ],
         "thread": "worker"
       }
+    },
+    {
+      "case_id": "starlette.datastructures.UploadFile.ownership-graph.value.caller.size-callback-replaces-file.memory",
+      "surface": "starlette.datastructures.UploadFile",
+      "operation": "ownership-graph",
+      "covers": [
+        "starlette.datastructures.UploadFile.ownership-graph.public-value-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "value-lifetime"
+      ],
+      "construction": {
+        "guard_label": "value-guard",
+        "holder_label": "user-holder",
+        "value_text": "retained-value",
+        "filename": "user-file.txt",
+        "size_callback": {
+          "initial": 14,
+          "read_attributes": [
+            "size",
+            "file",
+            "filename",
+            "headers"
+          ],
+          "replace_file": {
+            "value_text": "replacement-data",
+            "rolled": false
+          }
+        },
+        "io_actions": [
+          {
+            "method": "write",
+            "data_base64": "YWxwaGE="
+          },
+          {
+            "method": "write",
+            "data_base64": "YmV0YQ=="
+          }
+        ]
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "caller"
+      }
+    },
+    {
+      "case_id": "starlette.datastructures.UploadFile.ownership-graph.value.worker.size-callback-replaces-file.memory",
+      "surface": "starlette.datastructures.UploadFile",
+      "operation": "ownership-graph",
+      "covers": [
+        "starlette.datastructures.UploadFile.ownership-graph.public-value-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "value-lifetime"
+      ],
+      "construction": {
+        "guard_label": "value-guard",
+        "holder_label": "user-holder",
+        "value_text": "retained-value",
+        "filename": "user-file.txt",
+        "size_callback": {
+          "initial": 14,
+          "read_attributes": [
+            "size",
+            "file",
+            "filename",
+            "headers"
+          ],
+          "replace_file": {
+            "value_text": "replacement-data",
+            "rolled": false
+          }
+        },
+        "io_actions": [
+          {
+            "method": "write",
+            "data_base64": "YWxwaGE="
+          },
+          {
+            "method": "write",
+            "data_base64": "YmV0YQ=="
+          }
+        ]
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.datastructures.UploadFile.ownership-graph.value.caller.size-callback-replaces-file.rolled",
+      "surface": "starlette.datastructures.UploadFile",
+      "operation": "ownership-graph",
+      "covers": [
+        "starlette.datastructures.UploadFile.ownership-graph.public-value-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "value-lifetime"
+      ],
+      "construction": {
+        "guard_label": "value-guard",
+        "holder_label": "user-holder",
+        "value_text": "retained-value",
+        "filename": "user-file.txt",
+        "size_callback": {
+          "initial": 14,
+          "read_attributes": [
+            "size",
+            "file",
+            "filename",
+            "headers"
+          ],
+          "replace_file": {
+            "value_text": "replacement-data",
+            "rolled": true
+          }
+        },
+        "io_actions": [
+          {
+            "method": "write",
+            "data_base64": "YWxwaGE="
+          },
+          {
+            "method": "write",
+            "data_base64": "YmV0YQ=="
+          }
+        ]
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "caller"
+      }
+    },
+    {
+      "case_id": "starlette.datastructures.UploadFile.ownership-graph.value.worker.size-callback-replaces-file.rolled",
+      "surface": "starlette.datastructures.UploadFile",
+      "operation": "ownership-graph",
+      "covers": [
+        "starlette.datastructures.UploadFile.ownership-graph.public-value-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "value-lifetime"
+      ],
+      "construction": {
+        "guard_label": "value-guard",
+        "holder_label": "user-holder",
+        "value_text": "retained-value",
+        "filename": "user-file.txt",
+        "size_callback": {
+          "initial": 14,
+          "read_attributes": [
+            "size",
+            "file",
+            "filename",
+            "headers"
+          ],
+          "replace_file": {
+            "value_text": "replacement-data",
+            "rolled": true
+          }
+        },
+        "io_actions": [
+          {
+            "method": "write",
+            "data_base64": "YWxwaGE="
+          },
+          {
+            "method": "write",
+            "data_base64": "YmV0YQ=="
+          }
+        ]
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
     }
   ]
 }

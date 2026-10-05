@@ -52,3 +52,8 @@ The Request callback-lifetime fixture and public consumer were authored for this
 ## Public value lifetime input provenance
 
 The public value and Request property/worker fixtures and their consumers were authored for this repository from pinned `starlette/datastructures.py`, `starlette/requests.py`, their public documentation, and live Python collection behavior. No upstream test file was copied. Existing Starlette BSD-3-Clause notices remain preserved. See [Public value and worker boundary](VALUE_LIFETIME_BOUNDARY.md).
+
+The four further UploadFile ownership inputs author backing-file replacement
+from a user integer arithmetic callback. They derive observable ordering from
+the pinned `UploadFile.write` implementation and use public file/size access;
+no upstream test body or expected byte output is copied.

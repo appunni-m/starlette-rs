@@ -5,7 +5,7 @@
 The compatibility authority is Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 [`public-value-lifetime.yaml`](../tests/fixtures/sources/parity/public-value-lifetime.yaml)
-contains 24 cases for ImmutableMultiDict, MultiDict, Headers, MutableHeaders,
+contains 28 cases for ImmutableMultiDict, MultiDict, Headers, MutableHeaders,
 FormData, UploadFile, State, CommaSeparatedStrings, and URL. Two UploadFile
 cases drive input-defined writes with an integer-subclass size callback that
 reads public size/file/filename/headers attributes during arithmetic.
@@ -110,3 +110,26 @@ for GZip; source was faster in 5/6
 Router and 57/68 GZip workloads.
 These are local workload measurements. Benchmark SHA-256: `3c52d488e8e57e6454dc54d8518f78ac0b3d258efc6ff927e3280330f8853890`.
 See [Benchmark mapping](BENCHMARKS.md) for the generated evidence and limitations.
+
+## UploadFile backing-file replacement during size arithmetic
+
+Four further input-only cases replace the public backing file from the size
+integer's __add__ callback. Replacement content and rolled state come from the
+input; each memory/worker I/O variant is collected on the caller and a worker.
+The consumer observes which public file receives each write, the write thread,
+bytes remaining in both files, size, identity, and the same finalizer/GC tape.
+These are normally reachable oracle parity cases and require no internal fault
+hook. Existing target-only route-cache fault contracts remain selected controls.
+
+Live reproduction `87a15439-dca5-4087-b182-e040018cc61c` failed all four new
+comparisons, while its normal route-cache control and both fault contracts
+passed. Rust captured the file before the user arithmetic callback, writing
+the first chunk into the original file and using its memory/worker policy.
+The source uses the replacement. Rust now reads policy fields after arithmetic
+and retrieves the current file again before I/O method lookup. Native borrows
+remain released before every Python callback. Broader reentrant policy and
+subclass callbacks still need their own input-driven comparisons.
+
+Selected verification `184aca5c-dccd-42c4-a744-791d5ec202b0` passed 68/68 ordinary package comparisons and both target-only fault contracts, with zero failures, infrastructure errors, or not-run selected rows. The four new cases match exact file bytes, write targets, worker selection, and lifetime observations. Result SHA-256: `922e5d0236e65801e5e371f4eb7901e0b629d43e89f9fce04f995a17fa4bea96`; normal package tree: `9e63ddf110e4a78a06bfed9af5549e44ea9196d03426a67bc8c4dc8f99553212`. The selection also includes all earlier Request/value lifetime cases and the existing upload rollover workflow.
+
+Coverage MCP verified 7 additional Rust lines for the replacement cases on matching source/build receipts. The baseline selected the two arithmetic-read controls, existing upload rollover workflow, normal route-cache control, and both fault contracts. The batch selected the four replacement cases with the same route-cache controls. Both live selections passed: baseline 3,155/24,937, batch 2,985/24,937, union 3,162/24,937. This selected union does not establish full-suite coverage or regressions. Receipts and reports remain ignored under `build/parity/coverage/upload-file-reentry-20261005/`.

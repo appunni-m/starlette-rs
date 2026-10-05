@@ -31082,8 +31082,18 @@ def _validate_value_lifetime_case(case: dict[str, Any]) -> None:
         _string(spec[key], f"Public value lifetime {key}")
     if "io_actions" in spec:
         callback = _exact(
-            spec["size_callback"], {"initial", "read_attributes"}, "Upload size callback"
+            spec["size_callback"],
+            {"initial", "read_attributes"}
+            | ({"replace_file"} if "replace_file" in spec["size_callback"] else set()),
+            "Upload size callback",
         )
+        if "replace_file" in callback:
+            replacement = _exact(
+                callback["replace_file"], {"value_text", "rolled"}, "Upload callback replacement"
+            )
+            _string(replacement["value_text"], "Upload callback replacement value_text")
+            if type(replacement["rolled"]) is not bool:
+                raise ContractError("Upload callback replacement rolled must be boolean")
         if (
             type(callback["initial"]) is not int
             or not isinstance(callback["read_attributes"], list)
