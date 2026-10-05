@@ -1979,7 +1979,7 @@ Four additional public-input comparisons reproduce and fix backing-file replacem
 
 Selected verification `184aca5c-dccd-42c4-a744-791d5ec202b0` passed 68/68 ordinary package comparisons and both target-only fault contracts, with zero failures, infrastructure errors, or not-run selected rows. The four new cases match exact file bytes, write targets, worker selection, and lifetime observations. Result SHA-256: `922e5d0236e65801e5e371f4eb7901e0b629d43e89f9fce04f995a17fa4bea96`; normal package tree: `9e63ddf110e4a78a06bfed9af5549e44ea9196d03426a67bc8c4dc8f99553212`. The selection also includes all earlier Request/value lifetime cases and the existing upload rollover workflow.
 
-## Clean full verification after UploadFile callback ordering fix
+## Previous clean full verification after UploadFile callback ordering fix
 
 The full preflight `524d9fa2-6a78-46d1-94d1-22a936d05696` passed
 1042/1042 installed Python-package comparisons and
@@ -2002,3 +2002,25 @@ These are local workload measurements. Benchmark SHA-256: `0172bbd458c5647b155d9
 See [Benchmark mapping](BENCHMARKS.md) for the generated evidence and limitations.
 
 Selected verification `ce4f9633-2558-41e5-bf8d-1cb088292116` passed 102/102 ordinary package comparisons and both fault contracts with zero failures, infrastructure errors or not-run selected rows. It includes all 32 new inputs, every earlier Request/value lifetime input, the existing upload rollover workflow and both FormData constructor cases. Result SHA-256: `4bb88e662745f3a34b39009b4195a9753e048506ceed3b6412366aa42cb7e86f`; normal package tree: `6fd042132fec89afac089aca463dc2802844f176daf091ba64bea8d06700848d`. All new arithmetic and worker observations remain exact.
+
+## Clean full verification after in-place arithmetic and worker cancellation
+
+The full preflight `4c10c332-8142-4547-b03c-8e87b609355b` passed
+1074/1074 installed Python-package comparisons and
+246/250 Rust-native comparisons.
+The 4 existing native Python-callable rows remain `not_run`.
+All 2 target-only fault contracts passed, with zero failures or
+infrastructure errors. The package was clean at `5f26aeeffc898ca63b9522c55bbc47f22259ffb2`,
+with package tree `6fd042132fec89afac089aca463dc2802844f176daf091ba64bea8d06700848d` matching the normal selected
+ownership verification. Preflight SHA-256: `9671d15e0a7d2b66c36c4181fcb17ae72eb89a2b4779c41dc57bc3debfa3425a`.
+Manifest SHA-256: `89f1e5ee698bd4294c7748bc444e858eecea2f20cfa530be317b0faf23cf1384`.
+
+Benchmark `560763f1-3514-4f26-99a7-74b39947d524` measured all
+74 Router/GZip source/package workloads with
+matching correctness observations. All 74
+native timing boundaries remain `not_run`. Median source/package latency
+ratios were 0.730 for Router and 0.968
+for GZip; source was faster in 5/6
+Router and 63/68 GZip workloads.
+These are local workload measurements. Benchmark SHA-256: `eb6697dfa11fc7d5d4288ce9f74eaf157510de4979d81b7825fafee7314a51b9`.
+See [Benchmark mapping](BENCHMARKS.md) for the generated evidence and limitations.

@@ -134,7 +134,7 @@ Selected verification `184aca5c-dccd-42c4-a744-791d5ec202b0` passed 68/68 ordina
 
 Coverage MCP verified 7 additional Rust lines for the replacement cases on matching source/build receipts. The baseline selected the two arithmetic-read controls, existing upload rollover workflow, normal route-cache control, and both fault contracts. The batch selected the four replacement cases with the same route-cache controls. Both live selections passed: baseline 3,155/24,937, batch 2,985/24,937, union 3,162/24,937. This selected union does not establish full-suite coverage or regressions. Receipts and reports remain ignored under `build/parity/coverage/upload-file-reentry-20261005/`.
 
-## Clean full verification after UploadFile callback ordering fix
+## Previous clean full verification after UploadFile callback ordering fix
 
 The full preflight `524d9fa2-6a78-46d1-94d1-22a936d05696` passed
 1042/1042 installed Python-package comparisons and
@@ -199,3 +199,25 @@ values still drop after the native borrow is released.
 Selected verification `ce4f9633-2558-41e5-bf8d-1cb088292116` passed 102/102 ordinary package comparisons and both fault contracts with zero failures, infrastructure errors or not-run selected rows. It includes all 32 new inputs, every earlier Request/value lifetime input, the existing upload rollover workflow and both FormData constructor cases. Result SHA-256: `4bb88e662745f3a34b39009b4195a9753e048506ceed3b6412366aa42cb7e86f`; normal package tree: `6fd042132fec89afac089aca463dc2802844f176daf091ba64bea8d06700848d`. All new arithmetic and worker observations remain exact.
 
 Coverage MCP verified 3 additional Rust lines on matching source/build receipts. The baseline selected all six earlier arithmetic/replacement inputs plus upload rollover and the normal/fault route-cache controls. The batch selected the 32 new inputs with those same route-cache controls. Both live selections passed: baseline 3,167/24,942, batch 3,089/24,942, union 3,170/24,942. This is selected incremental coverage, with full-suite regression status unknown. Receipts and reports remain ignored under `build/parity/coverage/upload-operation-lifetime-20261005/`.
+
+## Clean full verification after in-place arithmetic and worker cancellation
+
+The full preflight `4c10c332-8142-4547-b03c-8e87b609355b` passed
+1074/1074 installed Python-package comparisons and
+246/250 Rust-native comparisons.
+The 4 existing native Python-callable rows remain `not_run`.
+All 2 target-only fault contracts passed, with zero failures or
+infrastructure errors. The package was clean at `5f26aeeffc898ca63b9522c55bbc47f22259ffb2`,
+with package tree `6fd042132fec89afac089aca463dc2802844f176daf091ba64bea8d06700848d` matching the normal selected
+ownership verification. Preflight SHA-256: `9671d15e0a7d2b66c36c4181fcb17ae72eb89a2b4779c41dc57bc3debfa3425a`.
+Manifest SHA-256: `89f1e5ee698bd4294c7748bc444e858eecea2f20cfa530be317b0faf23cf1384`.
+
+Benchmark `560763f1-3514-4f26-99a7-74b39947d524` measured all
+74 Router/GZip source/package workloads with
+matching correctness observations. All 74
+native timing boundaries remain `not_run`. Median source/package latency
+ratios were 0.730 for Router and 0.968
+for GZip; source was faster in 5/6
+Router and 63/68 GZip workloads.
+These are local workload measurements. Benchmark SHA-256: `eb6697dfa11fc7d5d4288ce9f74eaf157510de4979d81b7825fafee7314a51b9`.
+See [Benchmark mapping](BENCHMARKS.md) for the generated evidence and limitations.
