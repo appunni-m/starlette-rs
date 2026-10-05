@@ -130,29 +130,36 @@ for both one repeated name and multiple repeated names, and passed source/packag
 comparison.
 
 The latest clean full-slice correctness preflight
-`d3ebe854-b035-45af-98b5-45ae6e72d83d` used 929 input-only cases and 901
-requirements from manifest SHA-256
-`d2353e4a5aa660147c39f9567241f4104bb58029ffd5cb219284093bf899014b` on clean
-commit `b56ee2a609c07c62c03291c7441b228db5c73351`. It selected 1,175 profile
-comparisons: 1,171 passed, zero failed, zero infrastructure errors, and four
-Rust-native callable-boundary rows were `not_run`. The Python package passed
-925/925; Rust-native passed 246/250. Both target-only route-cache fault
-contracts passed (2/2) and remain `not_applicable` to the source oracle. The
-target tree SHA-256 is
-`a61aae38e6a1f26630de04d38590a3acc21df02ba53807a56d633b95a08a0555`; the
-installed wheel SHA-256 is
-`f95254e689f1c80399ea496847a8d9ea3c9bf1f14459c95dafaf5cce3cb9e6e1`. The
-preflight result SHA-256 is
-`d5f490a74d567202df532a4a8489336044c28171bf99f6847afeacdcb26fc1c5`. The four
-Rust-native `not_run` rows remain synchronous Request endpoint, bound-method
-endpoint, partial endpoint, and callable-instance ASGI dispatch.
+`5856ac2f-28ca-43b5-b1b6-6db403cee6b7` ran against Starlette 1.6.0 at
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 937-case contract.
+It selected 1,183 profile comparisons: 1,179 passed, zero failed, zero
+infrastructure errors, and four Rust-native callable-boundary rows were
+`not_run`. The installed Python package passed 933/933; Rust-native passed
+246/250. Both target-only route-cache fault contracts passed (2/2) and remain
+`not_applicable` to the source oracle. The result SHA-256 is
+`d9900b5d37b3688afc535bf5776f893deba89c65a7ba2c9cdeb6427f14a3e92f`;
+it uses manifest SHA-256
+`48c9c23e399480334d9f7266940526a032b72f25abf42eca29a468a006d8a16c`, clean
+target revision `7fcc76d55eb743bc67836b7a9221e2da6aa86a35`, target package-tree
+SHA-256 `d36b437df1549cf9e56c24f0f51c6d1172a5892d06b349b07d599f1c9891a67b`, and
+installed wheel SHA-256
+`22d3d8e486ece6e6100fe194fa0a753cb5178edcdefdbfde3cf57d3dab8cf72d`. These
+results cover the active package slice and do not establish full Starlette
+parity.
 
 The latest clean Router/GZip benchmark run
-`eaea39eb-c40f-448a-b2fd-1907c75f4ae7` measured all 74 source/package workloads
-on the same clean revision: six Router and 68 GZip, with zero failures and
-matching normalized observations for all 74. All 74 Rust-native workload
-boundaries remain `not_run`. Its correctness preflight is the full-slice run
-above. See [Benchmark mapping](BENCHMARKS.md) for timing and artifact details.
+`3d3cf21e-d8de-4376-aef7-6dad3b149e11` measured all 74 source/package
+workloads on that revision:
+six Router and 68 GZip. It recorded zero failures and matching normalized
+observations for all 74 workloads; all 74 Rust-native workload boundaries
+remain `not_run`. The correctness preflight above selected 1,183 profile
+comparisons, with 1,179 passed, zero failed, zero infrastructure errors, and
+four not-run rows. Median source/package latency ratios were 0.717 for Router
+and 0.970 for GZip; source latency was lower in 5/6 Router and 52/68 GZip
+workloads. The benchmark result SHA-256 is
+`123d1abf779476d1c97db173f2cf01d681184e9441073d47705d45efc6435191`. These
+workload-specific measurements do not establish full Starlette compatibility;
+see [Benchmark mapping](BENCHMARKS.md) for timing and artifact details.
 
 Rust owns lone-surrogate parsing and formatting through a code-point sequence;
 the PyO3 boundary uses UTF-32LE with `surrogatepass` because Rust's UTF-8

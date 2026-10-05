@@ -39,16 +39,18 @@ The selected comparison did not check full-suite regressions. Reports and
 receipts remain under ignored
 `build/parity/coverage/urlencoded-limit-20261005-corrected/`.
 
-The latest clean full-slice preflight before this URL-encoded form-limit addition,
-`91f41a7f-6761-4e77-b55d-0c5675cc405a`, used the @42 manifest and selected
-1,179 profile comparisons: 1,175 passed, zero failed, zero infrastructure
-errors, and four Rust-native callable-boundary cases were `not_run`. The
-installed Python package passed 929/929 comparisons; Rust-native passed
-246/250. Both target-only fault contracts passed (2/2) and remain
-`not_applicable` to the source oracle. The preflight used manifest SHA-256
-`00b265edd5c4965f06d91281b3a3bdbc9c388e81be4599915a246ee9b08ea830`; the
-target was clean at `9cc19d3cccc4b300a127422be437cbb956ddbf04`. This is bounded
-package-slice evidence, not full Starlette parity.
+The latest clean full-slice preflight
+`5856ac2f-28ca-43b5-b1b6-6db403cee6b7` used the active
+937-case contract and selected 1,183 profile comparisons: 1,179 passed, zero
+failed, zero infrastructure errors, and four Rust-native callable-boundary
+cases were `not_run`. The installed Python package passed 933/933; Rust-native
+passed 246/250. Both target-only fault contracts passed (2/2) and remain
+`not_applicable` to the source oracle. The result SHA-256 is
+`d9900b5d37b3688afc535bf5776f893deba89c65a7ba2c9cdeb6427f14a3e92f`; manifest
+SHA-256 is `48c9c23e399480334d9f7266940526a032b72f25abf42eca29a468a006d8a16c`
+and the target was clean at
+`7fcc76d55eb743bc67836b7a9221e2da6aa86a35`. This bounded result does not establish full Starlette
+parity.
 
 The nested TestClient case also passed focused selected run
 `8c90f08e-3bf0-4ea2-9d98-0c7f8de847a2` (1/1 source/package comparison and 2/2
@@ -58,9 +60,12 @@ and union 2,800/24,539. Full-suite regression status is unknown. The run and
 coverage receipts are recorded in [Migration parity contract and evidence](../PARITY.md).
 
 The latest correctness-gated benchmark
-`113b40d4-abf7-40ca-a7a6-3a13ca2c21fa` measured 74/74 source/package workloads
-with zero failures; Rust-native remains `not_run` for all 74 boundaries. See
-[Benchmark mapping](../BENCHMARKS.md) for workload-specific timings and hashes.
+`3d3cf21e-d8de-4376-aef7-6dad3b149e11` measured 74/74
+source/package workloads (six Router and 68 GZip), with zero failures and
+matching normalized observations. Rust-native remains `not_run` for all 74
+boundaries. Median source/package latency ratios were 0.717 for Router and
+0.970 for GZip; these workload-specific results do not establish full Starlette
+parity. See [Benchmark mapping](../BENCHMARKS.md) for timings and hashes.
 
 Instrumented selected run `8b79bb98-5821-42ca-9b62-edf75ad936bc` passed the
 new BaseHTTPMiddleware cleanup and mutable StreamingResponse status cases
